@@ -13,6 +13,15 @@ const ICON: Record<string, any> = {
   identity_bec: KeyRound,
 };
 
+function diffPill(d: string): string {
+  switch (d) {
+    case "expert":       return "rounded border border-severity-critical/40 bg-severity-critical/10 px-2 py-0.5 text-[10px] font-bold uppercase text-severity-critical";
+    case "advanced":     return "rounded border border-severity-high/40 bg-severity-high/10 px-2 py-0.5 text-[10px] font-bold uppercase text-severity-high";
+    case "intermediate": return "rounded border border-severity-medium/40 bg-severity-medium/10 px-2 py-0.5 text-[10px] font-bold uppercase text-severity-medium";
+    default:             return "rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-cyber-300";
+  }
+}
+
 export default function ScenariosPage() {
   return (
     <div>
@@ -54,13 +63,7 @@ export default function ScenariosPage() {
                   <div className="rounded-md border border-cyber-500/30 bg-cyber-500/10 p-2.5 text-cyber-300">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <span className={
-                    s.difficulty === "expert" ? "rounded border border-severity-critical/40 bg-severity-critical/10 px-2 py-0.5 text-[10px] font-bold uppercase text-severity-critical" :
-                    s.difficulty === "advanced" ? "rounded border border-severity-high/40 bg-severity-high/10 px-2 py-0.5 text-[10px] font-bold uppercase text-severity-high" :
-                    s.difficulty === "intermediate" ? "rounded border border-severity-medium/40 bg-severity-medium/10 px-2 py-0.5 text-[10px] font-bold uppercase text-severity-medium" :
-                    "rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-cyber-300"}>
-                    {s.difficulty}
-                  </span>
+                  <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
                 </div>
                 <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
                 <p className="mt-1 flex-1 text-sm text-slate-400">{s.summary}</p>

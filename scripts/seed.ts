@@ -31,13 +31,21 @@ async function main() {
   // the Supabase CLI or psql. This script is a convenience wrapper for envs
   // where the `pg` HTTP RPC is enabled.
   for (const stmt of split(migration)) {
-    const { error } = await supabase.rpc("exec_sql", { sql: stmt }).catch(e => ({ error: e }));
-    if (error) console.warn("[migration] warn:", String(error).slice(0, 200));
+    try {
+      const { error } = await supabase.rpc("exec_sql", { sql: stmt });
+      if (error) console.warn("[migration] warn:", String(error).slice(0, 200));
+    } catch (e) {
+      console.warn("[migration] error:", String(e).slice(0, 200));
+    }
   }
   console.log("Seeding content…");
   for (const stmt of split(seed)) {
-    const { error } = await supabase.rpc("exec_sql", { sql: stmt }).catch(e => ({ error: e }));
-    if (error) console.warn("[seed] warn:", String(error).slice(0, 200));
+    try {
+      const { error } = await supabase.rpc("exec_sql", { sql: stmt });
+      if (error) console.warn("[seed] warn:", String(error).slice(0, 200));
+    } catch (e) {
+      console.warn("[seed] error:", String(e).slice(0, 200));
+    }
   }
   console.log("Done.");
 }
