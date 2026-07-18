@@ -70,3 +70,17 @@ body {
   border-radius: 10px;
   position: relative;
 }
+
+/* ─── Accessibility: honor prefers-reduced-motion ─────────────────────────────
+ * The app animates heavily (a live streaming feed, framer-motion transitions,
+ * pulses). Users who ask their OS to reduce motion get near-instant, non-moving
+ * equivalents instead — a WCAG 2.3.3 accommodation. Kept deliberately broad so
+ * new components inherit it without extra work. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

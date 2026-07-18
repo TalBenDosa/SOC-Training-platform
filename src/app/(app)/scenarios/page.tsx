@@ -1,16 +1,38 @@
+"use client";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { SCENARIOS } from "@/lib/sim/scenarios";
 import Link from "next/link";
-import { Sparkles, Zap, ShieldQuestion, Cloud, Mail, KeyRound, Cog } from "lucide-react";
+import {
+  Sparkles, Zap, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
+  BotIcon, EyeOff,
+} from "lucide-react";
 
-export const metadata = { title: "Attack Scenarios" };
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-const ICON: Record<string, any> = {
+interface PublishedScenario {
+  id: string;
+  title: string;
+  threat_actor: string;
+  attack_kind: string;
+  difficulty: string;
+  narrative: string;
+  events: unknown[];
+  published_at: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const ICON: Record<string, React.ElementType> = {
   phishing_to_exfil: Mail,
-  identity_bec: KeyRound,
+  identity_bec:      KeyRound,
+  ransomware:        Lock,
+  oauth_persistence: Cloud,
+  insider_threat:    UserX,
 };
 
 function diffPill(d: string): string {
@@ -22,13 +44,35 @@ function diffPill(d: string): string {
   }
 }
 
+// ─── Page ──────────────────────────────────────────────────────────────────────
+
 export default function ScenariosPage() {
+  const router = useRouter();
+  const [hidden, setHidden]       = useState<string[]>([]);
+  const [published, setPublished] = useState<PublishedScenario[]>([]);
+
+  useEffect(() => {
+    try {
+      setHidden(JSON.parse(localStorage.getItem("admin_hidden_scenarios") ?? "[]"));
+      setPublished(JSON.parse(localStorage.getItem("published_scenarios") ?? "[]"));
+    } catch { /* storage blocked */ }
+  }, []);
+
+  const visibleBuiltIn = SCENARIOS.filter(s => !hidden.includes(s.slug));
+
+  function launchGenerated(scenario: PublishedScenario) {
+    try {
+      localStorage.setItem("session_scenario", JSON.stringify(scenario));
+    } catch { /* ignore */ }
+    router.push("/scenarios/preview");
+  }
+
   return (
     <div>
       <Topbar
         title="Attack Scenarios"
         subtitle="Run end-to-end simulations against the synthetic SOC"
-        actions={<Button variant="primary" size="sm"><Zap className="h-4 w-4" /> Random Scenario</Button>}
+        actions={undefined}
       />
 
       <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6">
@@ -54,8 +98,17 @@ export default function ScenariosPage() {
           </div>
         </Card>
 
+        {/* Hidden-items notice */}
+        {hidden.length > 0 && (
+          <div className="flex items-center gap-2 rounded border border-border/40 bg-bg-elevated px-4 py-2 text-[11px] text-slate-500">
+            <EyeOff className="h-3.5 w-3.5 shrink-0" />
+            {hidden.length} scenario{hidden.length > 1 ? "s" : ""} hidden by admin — manage in Admin → Content Library
+          </div>
+        )}
+
+        {/* Built-in scenarios */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {SCENARIOS.map(s => {
+          {visibleBuiltIn.map(s => {
             const Icon = ICON[s.attack_kind] ?? ShieldQuestion;
             return (
               <Card key={s.slug} className="flex flex-col">
@@ -68,37 +121,61 @@ export default function ScenariosPage() {
                 <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
                 <p className="mt-1 flex-1 text-sm text-slate-400">{s.summary}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  <Badge>{s.attack_kind.replaceAll("_"," ")}</Badge>
+                  <Badge>{s.attack_kind.replaceAll("_", " ")}</Badge>
                   <Badge variant="outline">{s.threat_actor}</Badge>
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <div className="text-[11px] text-slate-500">+250 XP · ~45 min</div>
-                  <Link href={`/scenarios/${s.slug}`}><Button variant="primary" size="sm">Launch</Button></Link>
+                  <Link href={`/scenarios/${s.slug}`}>
+                    <Button variant="primary" size="sm">Launch</Button>
+                  </Link>
                 </div>
               </Card>
             );
           })}
 
-          {/* Coming soon placeholders */}
-          {[
-            { t: "Ransomware: Initial Foothold to Encryption", d: "VPN brute → AD enum → DPAPI → vssadmin delete shadows → encryption.", a: "LockBit-like", icon: Cog },
-            { t: "Cloud Persistence via OAuth Consent Phishing", d: "Illicit consent grants on M365; mailbox forwarding rules added.", a: "TA-NIGHTAZURE", icon: Cloud },
-            { t: "Insider Data Theft", d: "Privileged user copies customer DB to a personal cloud account.", a: "INSIDER", icon: ShieldQuestion },
-          ].map(p => {
-            const Icon = p.icon;
+          {/* AI-generated / published scenarios */}
+          {published.map(s => {
+            const Icon = ICON[s.attack_kind] ?? BotIcon;
             return (
-              <Card key={p.t} className="opacity-60 flex flex-col">
+              <Card key={s.id} className="flex flex-col border-neon-green/20">
                 <div className="flex items-start justify-between">
-                  <div className="rounded-md border border-border bg-bg p-2.5 text-slate-400"><Icon className="h-5 w-5" /></div>
-                  <span className="rounded border border-border bg-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Coming soon</span>
+                  <div className="rounded-md border border-neon-green/30 bg-neon-green/10 p-2.5 text-neon-green">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded border border-neon-green/30 bg-neon-green/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-green">
+                      AI Generated
+                    </span>
+                    <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
+                  </div>
                 </div>
-                <h3 className="mt-3 text-base font-bold text-white">{p.t}</h3>
-                <p className="mt-1 flex-1 text-sm text-slate-400">{p.d}</p>
-                <div className="mt-3"><Badge variant="outline">{p.a}</Badge></div>
+                <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
+                <p className="mt-1 flex-1 text-sm text-slate-400 line-clamp-2">{s.narrative}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <Badge>{s.attack_kind.replaceAll("_", " ")}</Badge>
+                  <Badge variant="outline">{s.threat_actor}</Badge>
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <div className="text-[11px] text-slate-500">
+                    {new Date(s.published_at).toLocaleDateString()}
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={() => launchGenerated(s)}>
+                    Launch
+                  </Button>
+                </div>
               </Card>
             );
           })}
         </div>
+
+        {visibleBuiltIn.length === 0 && published.length === 0 && (
+          <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-16 text-center">
+            <ShieldQuestion className="h-12 w-12 text-slate-600 mb-4" />
+            <p className="text-sm text-slate-400">All scenarios are hidden.</p>
+            <p className="text-xs text-slate-600 mt-1">Restore them in Admin → Content Library.</p>
+          </div>
+        )}
       </div>
     </div>
   );

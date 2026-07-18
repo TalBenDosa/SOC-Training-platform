@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint · Typecheck · Build · Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install (reproducible)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run type-check
+
+      - name: Build
+        run: npm run build
+        env:
+          # Build must succeed WITHOUT real secrets (routes fall back to stubs).
+          NODE_ENV: production
+
+      # Security gate. Currently fails only on CRITICAL (the codebase's remaining
+      # highs are dev-only esbuild/glob + advisories fixed only by the planned
+      # Next 16 upgrade — see PRODUCTION_READINESS_PLAN.md Phase 0.5).
+      # TODO(after Next 16 upgrade): tighten to `--audit-level=high`.
+      - name: Dependency audit (prod deps, fail on critical)
+        run: npm audit --omit=dev --audit-level=critical

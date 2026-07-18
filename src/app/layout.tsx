@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { AuthProvider } from "@/lib/auth/AuthContext";
+import { ProgressProvider } from "@/lib/storage/ProgressProvider";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -26,7 +28,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} dark`}>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AuthProvider>
+          <ProgressProvider>{children}</ProgressProvider>
+        </AuthProvider>
+      </body>
     </html>
   );
 }
