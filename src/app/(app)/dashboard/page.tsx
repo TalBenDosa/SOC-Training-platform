@@ -335,7 +335,13 @@ export default function DashboardPage() {
   // (EDR, O365, Firewall, Sysmon, etc.) not just AD.
   // liveRef lets onStoryComplete (called from inside the hook) reach live.startStory.
   const liveRef = useRef<import("./useLiveEvents").LiveEventsApi | null>(null);
+  // Halting the shift after too many misses. haltedRef mirrors the state so the
+  // callback below (invoked from inside the hook, over a stale closure) sees the
+  // current value and cannot arm another campaign after the shift has stopped.
+  const [sessionHalted, setSessionHalted] = useState(false);
+  const haltedRef = useRef(false);
   const handleStoryComplete = () => {
+    if (haltedRef.current) return;
     const nextStory = instantiateStory(
       pickStoryForCompany(selectedCompanyId),
       getCompanyEvents(selectedCompanyId)
@@ -507,6 +513,40 @@ export default function DashboardPage() {
     setSessionDifficulty(null);
   };
 
+  /**
+   * Stop the shift once too many attacks have gone unreported. Letting campaigns
+   * keep stacking up after the analyst has clearly lost the thread just buries
+   * them further; halting turns it into a clean restart point instead.
+   */
+  const MAX_MISSED_ATTACKS = 3;
+  useEffect(() => {
+    if (live.fnCount >= MAX_MISSED_ATTACKS && !haltedRef.current) {
+      haltedRef.current = true;
+      setSessionHalted(true);
+      live.pause();
+      setSessionStartedAt(null);
+      setSessionDifficulty(null);
+    }
+  }, [live.fnCount, live]);
+
+  /** Wipe the board and start a fresh shift after a halt. */
+  const handleRestartShift = () => {
+    haltedRef.current = false;
+    setSessionHalted(false);
+    live.clearMissedAttack();
+    const story = instantiateStory(
+      pickStoryForCompany(selectedCompanyId),
+      getCompanyEvents(selectedCompanyId)
+    );
+    setSessionStory(story);
+    setInjectedStories([story]);
+    setScenarioObjective(null);
+    live.reset(getCompanyEvents(selectedCompanyId), story);   // also zeroes fnCount
+    setSessionStartedAt(Date.now());
+    setSessionDifficulty(null);
+    setSessionElapsed(0);
+  };
+
   // Tick the session clock once a second while a session is running.
   useEffect(() => {
     if (sessionStartedAt === null) return;
@@ -660,6 +700,35 @@ export default function DashboardPage() {
             </span>
           )}
         </div>
+
+        {/* Shift halted — too many attacks went unreported */}
+        {sessionHalted && (
+          <div className="rounded-lg border border-severity-critical/40 bg-severity-critical/5 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-severity-critical" />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold text-white">
+                  Shift stopped — {MAX_MISSED_ATTACKS} attacks went unreported
+                </h3>
+                <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                  The feed is paused. Nothing is lost — read the debriefs above to see what each
+                  attack looked like, then start a clean shift when you are ready.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button variant="primary" size="sm" onClick={handleRestartShift}>
+                    <RefreshCw className="h-4 w-4" /> Start a fresh shift
+                  </Button>
+                  <button
+                    onClick={() => setSessionSummary(live.endSession())}
+                    className="rounded border border-border-strong px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:text-white"
+                  >
+                    See session summary
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Scenario objective banner */}
         {scenarioObjective && (

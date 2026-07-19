@@ -1250,6 +1250,15 @@ export function useLiveEvents({
   // runs, well before the Incident Report modal opens).
   const SLA_SECONDS = 480; // 8 minutes
 
+  /**
+   * Quiet period between the END of one attack campaign and the FIRST phase of
+   * the next. Widened from 4-6 to 8-12 minutes: back-to-back campaigns left no
+   * room to finish investigating and writing up one incident before the next
+   * started competing for attention, which reads as relentless rather than
+   * realistic — a real shift has long quiet stretches between incidents.
+   */
+  const ATTACK_COOLDOWN = () => 480_000 + Math.floor(Math.random() * 240_000); // 8-12 min
+
   const injectNextPhase = useCallback(() => {
     const s = storyRef.current;
     if (!s) return;
@@ -1349,8 +1358,7 @@ export function useLiveEvents({
     storyRef.current = next;
     storyCursorRef.current = 0;
     if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
-    // Cool-down before the next campaign begins
-    attackTimerRef.current = setTimeout(injectNextPhase, 240_000 + Math.floor(Math.random() * 120_000));
+    attackTimerRef.current = setTimeout(injectNextPhase, ATTACK_COOLDOWN());
   }, [injectNextPhase]);
 
   const pause = useCallback(() => setIsStreaming(false), []);
