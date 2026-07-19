@@ -14,9 +14,10 @@ into active, exploitable exposures.
 |---|---|---|---|
 | F1 | Every LLM-calling API route was reachable with **no authentication** → anonymous financial-DoS (drain the AI budget) | **Critical** | ✅ Fixed & deployed |
 | F2 | `profiles` table **world-readable** via anon key → user enumeration + admin-account disclosure | **High** | ⚠️ Fix ready — 1 SQL paste needed |
+| F5 | **Open redirect** in `/auth/callback` via unvalidated `next` param → phishing off a trusted domain | Medium | ✅ Fixed & deployed |
 | F3 | Rate limiting is in-memory (per-instance) — weak on serverless | Medium | ⬜ Documented follow-up |
 | F4 | CSP is Report-Only (and permits `unsafe-inline`/`unsafe-eval`) | Low | ⬜ Documented follow-up |
-| — | Secrets in client bundle, verb tampering, path traversal, `user_progress` RLS | — | ✅ Tested — all clean |
+| — | XSS, SQLi, command injection, SSRF, fs path-traversal, verb tampering, secrets-in-bundle | — | ✅ Code-reviewed — clean |
 
 ---
 
@@ -65,6 +66,38 @@ same way and correctly returned `[]` — its owner-only RLS works.)
 (`auth.uid() = id`). This does not break the admin-role guard (a user still reads their *own* role).
 **Action required (SQL execution is out of my permission scope):** paste the file's contents into the
 Supabase SQL Editor and Run, or run `supabase db push`.
+
+---
+
+## F5 — Open redirect in `/auth/callback`  ·  MEDIUM  ·  FIXED
+
+**What:** the callback did `NextResponse.redirect(\`${origin}${next}\`)` with `next` taken straight from
+the query string. Concatenating onto `origin` looks safe but isn't:
+`next="@evil.com"` → `https://app@evil.com` (host becomes evil.com via the userinfo trick);
+`next=".evil.com"` → `https://app.evil.com` (attacker subdomain); `next="//evil.com"` → protocol-relative.
+The redirect also fired unconditionally (even with no valid `code`), so `/auth/callback?next=@evil.com`
+was a clean redirect to any site off a domain users trust — a ready-made phishing primitive.
+
+**Fix (shipped):** `safeNext()` allows only a same-origin relative path (must start with a single `/`,
+never `//` or `/\`); anything else falls back to `/rooms`. Verified: `@evil.com`, `.evil.com`,
+`//evil.com` all redirect to `/rooms`; legitimate `/rooms` and `/dashboard` pass through.
+
+---
+
+## Web-attack code review — results
+
+A source-level sweep for every common web-attack sink:
+
+| Class | Finding |
+|---|---|
+| **XSS** | Exactly ONE `dangerouslySetInnerHTML` in the codebase (the AI-markdown renderer). It escapes `&`/`<` **before** any markdown→HTML step, and no user/AI content is ever placed inside an HTML attribute, so no tag or attribute-breakout injection is possible. Everything else renders through React's auto-escaping. **Clean.** |
+| **SQL injection** | All DB access goes through the Supabase client with parameterized `.eq()` filters — no string-built SQL, no `.rpc()`/`.or()` interpolation, no raw SQL in app code (only static migrations). The `.filter(` hits are all JS `Array.filter`. **No surface.** |
+| **Command injection** | Every `child_process`/`exec` match is *lesson content* (strings in `src/data/**` describing a malicious command line), not code execution. **No surface.** |
+| **SSRF** | No dynamic `fetch()`/`axios` in API routes — outbound calls go only to the fixed Anthropic/OpenAI SDK hosts. **No surface.** |
+| **Path traversal** | No `fs` read/write with user input in API routes; the lesson-slug route rejects `../` (→ 400). **Clean.** |
+| **Open redirect** | One — F5 above. **Fixed.** |
+| **ReDoS** | 3 `new RegExp(...)` sites (`attackStories`, `EventFeed`, `useLiveEvents`); all escape their input first and run on internal scenario/event data, not user-streamed input. Low risk — noted, no change. |
+| **IDOR** | Remote-backend queries key on `user_id` from the *authenticated session*, never from request input. **Clean.** |
 
 ---
 
