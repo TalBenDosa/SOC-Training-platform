@@ -2,7 +2,19 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: "class",
-  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
+  /**
+   * The parentheses in Next.js route-group folders — src/app/(app), src/app/(auth)
+   * — are glob syntax to fast-glob, so a plain "./src/**\/*" pattern silently
+   * skips every file inside them. That meant any utility used ONLY in those
+   * folders was never emitted: the whole main application section was quietly
+   * missing styles (verified: w-[480px], max-w-[30rem] and py-[7vh] all resolved
+   * to nothing). Escaping the parentheses makes those directories match.
+   */
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/\\(app\\)/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/\\(auth\\)/**/*.{js,ts,jsx,tsx,mdx}",
+  ],
   theme: {
     extend: {
       fontFamily: {
