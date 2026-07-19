@@ -16,8 +16,7 @@
     "validate:logs:vendors": "node scripts/validate-log-fields.mjs --unknown-vendors",
     "normalize:vendors": "node scripts/normalize-vendors.mjs",
     "normalize:vendors:write": "node scripts/normalize-vendors.mjs --write",
-    "backfill:vendors": "node scripts/backfill-missing-vendors.mjs",
-    "audit:hashes": "tsx scripts/audit-scenario-hashes.mjs"
+    "backfill:vendors": "node scripts/backfill-missing-vendors.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

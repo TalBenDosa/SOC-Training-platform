@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { AnimatePresence } from "framer-motion";
 import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, FileText, Trophy, CheckCircle2, Shield } from "lucide-react";
 import Link from "next/link";
 import { cn, formatTs } from "@/lib/utils";
@@ -10,7 +11,10 @@ import { Button } from "@/components/ui/Button";
 import { Badge, SeverityBadge } from "@/components/ui/Badge";
 import { CompletionModal, type GradeResult } from "@/components/scenarios/CompletionModal";
 import type { ScenarioBundle, TelemetryEvent, IOC } from "@/lib/sim/types";
-import { HashCheckButton, isHashField } from "@/components/sim/HashCheckButton";
+import {
+  ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
+  type ThreatQuery,
+} from "@/components/threat-intel/ThreatIntelDrawer";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -59,7 +63,7 @@ const SEV_BADGE: Record<string, string> = {
 
 // ─── Log row detail panel ─────────────────────────────────────────────────────
 
-function LogDetail({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
+function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: ThreatQuery) => void }) {
   const [showJson, setShowJson] = useState(false);
 
   const basicInfo: [string, string][] = [
@@ -164,16 +168,44 @@ function LogDetail({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Detailed Log Data</p>
               <div className="space-y-1.5">
                 {detailedFields.map(([k, v]) => {
-                  const showHash = isHashField(k, v);
+                  const showHash   = isSha256Field(k, v);
+                  const showIp     = isIpCheckField(k, v);
+                  const showDomain = isDomainCheckField(k, v);
+                  const hasBtn     = showHash || showIp || showDomain;
+
                   return (
-                    <div key={k} className={cn("flex gap-3", showHash ? "items-start py-0.5" : "")}>
+                    <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
                       <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
-                      <div className="flex min-w-0 flex-col gap-1.5">
+                      <div className="flex flex-col gap-1.5 min-w-0">
                         <span className={cn(
                           "font-mono text-[10px] break-all",
-                          showHash ? "text-neon-amber" : "text-slate-300",
+                          showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
                         )}>{v}</span>
-                        {showHash && <HashCheckButton hash={v} iocs={iocs} compact />}
+
+                        {showHash && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "hash", value: v, event: ev }); }}
+                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-amber/50 bg-neon-amber/10 px-2 py-0.5 text-[9px] font-bold text-neon-amber hover:bg-neon-amber/20 transition"
+                          >
+                            <Shield className="h-2.5 w-2.5" /> Check Hash · Threat Intel
+                          </button>
+                        )}
+                        {showIp && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "ip", value: v, event: ev }); }}
+                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-blue/50 bg-neon-blue/10 px-2 py-0.5 text-[9px] font-bold text-neon-blue hover:bg-neon-blue/20 transition"
+                          >
+                            <Shield className="h-2.5 w-2.5" /> Check IP · Threat Intel
+                          </button>
+                        )}
+                        {showDomain && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onThreatQuery({ type: "domain", value: v, event: ev }); }}
+                            className="inline-flex w-fit items-center gap-1 rounded border border-neon-purple/50 bg-neon-purple/10 px-2 py-0.5 text-[9px] font-bold text-neon-purple hover:bg-neon-purple/20 transition"
+                          >
+                            <Shield className="h-2.5 w-2.5" /> Check Domain · Threat Intel
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -189,7 +221,7 @@ function LogDetail({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
 
 // ─── Single log row ───────────────────────────────────────────────────────────
 
-function LogRow({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
+function LogRow({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: ThreatQuery) => void }) {
   const [expanded, setExpanded] = useState(false);
   const level = SEV_LEVEL[ev.severity ?? "informational"] ?? 1;
   const sevBadge = SEV_BADGE[ev.severity ?? "informational"];
@@ -241,7 +273,7 @@ function LogRow({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
       </tr>
       {expanded && (
         <tr>
-          <LogDetail ev={ev} iocs={iocs} />
+          <LogDetail ev={ev} onThreatQuery={onThreatQuery} />
         </tr>
       )}
     </>
@@ -250,7 +282,8 @@ function LogRow({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
 
 // ─── Log viewer ───────────────────────────────────────────────────────────────
 
-function ScenarioLogViewer({ events, iocs }: { events: TelemetryEvent[]; iocs?: IOC[] }) {
+function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
+  const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
   const [search, setSearch]       = useState("");
   const [sevFilter, setSevFilter] = useState<"all" | "medium" | "high">("all");
   const [showAll, setShowAll]     = useState(false);
@@ -288,6 +321,7 @@ function ScenarioLogViewer({ events, iocs }: { events: TelemetryEvent[]; iocs?: 
   const visible = showAll ? filtered : filtered.slice(0, 30);
 
   return (
+    <>
     <Card className="p-0 overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold text-white">Security Events</h3>
@@ -338,7 +372,7 @@ function ScenarioLogViewer({ events, iocs }: { events: TelemetryEvent[]; iocs?: 
           </thead>
           <tbody>
             {visible.map(ev => (
-              <LogRow key={ev.id} ev={ev} iocs={iocs} />
+              <LogRow key={ev.id} ev={ev} onThreatQuery={setThreatQuery} />
             ))}
             {filtered.length === 0 && (
               <tr>
@@ -357,6 +391,13 @@ function ScenarioLogViewer({ events, iocs }: { events: TelemetryEvent[]; iocs?: 
         </div>
       )}
     </Card>
+
+    <AnimatePresence>
+      {threatQuery && (
+        <ThreatIntelDrawer key="threat-drawer" query={threatQuery} onClose={() => setThreatQuery(null)} />
+      )}
+    </AnimatePresence>
+    </>
   );
 }
 
@@ -715,214 +756,6 @@ const IOC_TYPE_COLORS: Record<string, string> = {
   host:   "border-neon-green/40 bg-neon-green/10 text-neon-green",
 };
 
-function reputationToScore(rep?: IOC["reputation"], value = ""): number {
-  const base = value.split("").reduce((a, c, i) => a + c.charCodeAt(0) * (i + 1), 0) % 30;
-  switch (rep) {
-    case "malicious":  return 70 + base;
-    case "suspicious": return 40 + (base % 30);
-    case "clean":      return 5  + (base % 15);
-    default:           return 25 + (base % 25);
-  }
-}
-
-function riskBadge(score: number): { label: string; cls: string } {
-  if (score >= 70) return { label: "Malicious",  cls: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical" };
-  if (score >= 40) return { label: "Suspicious", cls: "border-severity-medium/40 bg-severity-medium/10 text-severity-medium" };
-  return { label: "Clean", cls: "border-neon-green/40 bg-neon-green/10 text-neon-green" };
-}
-
-function countRelatedEvents(ioc: IOC, events: TelemetryEvent[]): number {
-  const v = ioc.value.toLowerCase();
-  return events.filter(e => {
-    switch (ioc.type) {
-      case "ip":     return e.src_ip === ioc.value || e.dst_ip === ioc.value;
-      case "domain": return e.network?.domain?.toLowerCase() === v || (e.network?.url ?? "").toLowerCase().includes(v);
-      case "url":    return (e.network?.url ?? "").toLowerCase().includes(v);
-      case "sha256":
-      case "md5":    return e.file?.sha256?.toLowerCase() === v;
-      case "email":  return (e.user_email ?? "").toLowerCase() === v;
-      case "user":   return (e.user_email ?? "").toLowerCase().includes(v) || (e.process?.user ?? "").toLowerCase().includes(v);
-      case "host":   return (e.hostname ?? "").toLowerCase() === v;
-      default:       return false;
-    }
-  }).length;
-}
-
-interface HashResult { malicious: boolean; detections: number; total_engines: number }
-
-function IocTrackerPanel({
-  iocs, events, phase, taggedIds, onTag,
-}: {
-  iocs: IOC[];
-  events: TelemetryEvent[];
-  phase: Phase;
-  taggedIds: Set<string>;
-  onTag: (value: string) => void;
-}) {
-  const [expandedValue, setExpandedValue] = useState<string | null>(null);
-  const [hashResults,   setHashResults]   = useState<Record<string, HashResult>>({});
-  const [loadingHash,   setLoadingHash]   = useState<string | null>(null);
-
-  const handleCheckHash = async (sha256: string) => {
-    if (hashResults[sha256] || loadingHash) return;
-    setLoadingHash(sha256);
-    try {
-      const res  = await fetch(`/api/reputation/hash?sha256=${encodeURIComponent(sha256)}`);
-      const data = await res.json() as HashResult;
-      setHashResults(prev => ({ ...prev, [sha256]: data }));
-    } catch { /* ignore */ } finally {
-      setLoadingHash(null);
-    }
-  };
-
-  const disabled = phase === "idle";
-
-  return (
-    <Card className="p-0 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded border border-neon-purple/30 bg-neon-purple/10">
-            <Shield className="h-4 w-4 text-neon-purple" />
-          </div>
-          <h3 className="text-sm font-semibold text-white">IOC Intelligence</h3>
-          <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-400">
-            {iocs.length} indicators
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="text-slate-500">Evidence Tracked:</span>
-          <span className={cn("font-mono font-bold", taggedIds.size > 0 ? "text-cyber-300" : "text-slate-500")}>
-            {taggedIds.size}/{iocs.length}
-          </span>
-          {taggedIds.size === iocs.length && iocs.length > 0 && (
-            <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[9px] font-bold text-neon-amber">ALL TAGGED</span>
-          )}
-        </div>
-      </div>
-
-      {disabled ? (
-        <div className="px-4 py-6 text-center text-[11px] text-slate-500">
-          Start the investigation to analyse IOCs.
-        </div>
-      ) : (
-        <div className="divide-y divide-border/40">
-          {iocs.map(ioc => {
-            const score       = reputationToScore(ioc.reputation, ioc.value);
-            const risk        = riskBadge(score);
-            const relatedCount = countRelatedEvents(ioc, events);
-            const isExpanded  = expandedValue === ioc.value;
-            const isTagged    = taggedIds.has(ioc.value);
-            const typeColor   = IOC_TYPE_COLORS[ioc.type] ?? IOC_TYPE_COLORS.domain;
-            const isHash      = ioc.type === "sha256" || ioc.type === "md5";
-            const hashResult  = isHash ? hashResults[ioc.value] : undefined;
-
-            return (
-              <div key={ioc.value}>
-                {/* Row */}
-                <button
-                  onClick={() => setExpandedValue(isExpanded ? null : ioc.value)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-bg-hover/40 transition"
-                >
-                  <ChevronRight className={cn("h-3 w-3 shrink-0 text-slate-500 transition-transform", isExpanded && "rotate-90")} />
-                  <span className={cn("rounded border px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase shrink-0", typeColor)}>
-                    {ioc.type}
-                  </span>
-                  <span className="flex-1 truncate font-mono text-[11px] text-slate-200 min-w-0">{ioc.value}</span>
-                  {relatedCount > 0 && (
-                    <span className="shrink-0 rounded border border-border/60 bg-bg px-1.5 py-0.5 font-mono text-[9px] text-slate-400">
-                      {relatedCount} events
-                    </span>
-                  )}
-                  {isTagged && (
-                    <span className="flex shrink-0 items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-cyber-300">
-                      <CheckCircle2 className="h-2.5 w-2.5" /> Evidence
-                    </span>
-                  )}
-                </button>
-
-                {/* Expanded details */}
-                {isExpanded && (
-                  <div className="border-t border-border/40 bg-[#060b12] px-5 py-4 space-y-3">
-                    {/* Stats grid */}
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      <div className="rounded border border-border/60 bg-[#0d1520] px-3 py-2 text-center">
-                        <p className="font-mono text-xl font-bold text-white">{score}</p>
-                        <p className="mt-0.5 text-[9px] uppercase tracking-wider text-slate-500">Risk Score</p>
-                      </div>
-                      <div className="flex flex-col items-center justify-center rounded border border-border/60 bg-[#0d1520] px-3 py-2 text-center">
-                        <span className={cn("rounded border px-2 py-0.5 text-[10px] font-bold", risk.cls)}>
-                          {risk.label}
-                        </span>
-                        <p className="mt-1 text-[9px] uppercase tracking-wider text-slate-500">Risk Level</p>
-                      </div>
-                      <div className="rounded border border-border/60 bg-[#0d1520] px-3 py-2 text-center">
-                        <p className="font-mono text-xl font-bold text-white">{relatedCount}</p>
-                        <p className="mt-0.5 text-[9px] uppercase tracking-wider text-slate-500">Related Events</p>
-                      </div>
-                      <div className="rounded border border-border/60 bg-[#0d1520] px-3 py-2 text-center">
-                        <p className={cn(
-                          "font-mono text-xs font-bold capitalize",
-                          ioc.reputation === "malicious"  ? "text-severity-critical" :
-                          ioc.reputation === "suspicious" ? "text-severity-medium"   :
-                          ioc.reputation === "clean"      ? "text-neon-green"        : "text-slate-400"
-                        )}>
-                          {ioc.reputation ?? "unknown"}
-                        </p>
-                        <p className="mt-0.5 text-[9px] uppercase tracking-wider text-slate-500">Reputation</p>
-                      </div>
-                    </div>
-
-                    {/* Hash lookup result */}
-                    {hashResult && (
-                      <div className={cn(
-                        "rounded border px-3 py-2 text-xs font-mono",
-                        hashResult.malicious
-                          ? "border-severity-critical/30 bg-severity-critical/5 text-severity-critical"
-                          : "border-neon-green/30 bg-neon-green/5 text-neon-green"
-                      )}>
-                        {hashResult.malicious
-                          ? `⚠ ${hashResult.detections}/${hashResult.total_engines} AV detections — MALICIOUS`
-                          : `✓ 0/${hashResult.total_engines} detections — CLEAN`}
-                        <span className="ml-2 text-slate-500 font-sans text-[10px]">(mock-VT)</span>
-                      </div>
-                    )}
-
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {isHash && !hashResult && (
-                        <button
-                          onClick={() => handleCheckHash(ioc.value)}
-                          disabled={loadingHash === ioc.value}
-                          className="flex items-center gap-1.5 rounded border border-neon-blue/30 bg-neon-blue/10 px-3 py-1.5 text-[11px] font-semibold text-neon-blue hover:bg-neon-blue/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Search className="h-3 w-3" />
-                          {loadingHash === ioc.value ? "Checking…" : "Check Hash (VT)"}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onTag(ioc.value)}
-                        className={cn(
-                          "flex items-center gap-1.5 rounded border px-3 py-1.5 text-[11px] font-semibold transition",
-                          isTagged
-                            ? "border-cyber-500/50 bg-cyber-500/20 text-cyber-300"
-                            : "border-border/60 bg-[#0d1520] text-slate-300 hover:border-cyber-500/30 hover:bg-cyber-500/10 hover:text-cyber-300"
-                        )}
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        {isTagged ? "Tagged as Evidence" : "Tag as Evidence"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </Card>
-  );
-}
 
 // ─── Main client component ────────────────────────────────────────────────────
 
@@ -935,7 +768,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
   const [gradingError, setGradingError] = useState<string | null>(null);
 
   // IOC tracker — which bundle IOCs have been tagged as evidence
-  const [taggedIocIds, setTaggedIocIds] = useState<Set<string>>(new Set());
 
   // Investigation log state
   const [notes, setNotes]                   = useState("");
@@ -955,7 +787,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
     setElapsed(0);
     setAnswers({});
     setManualIocs([]);
-    setTaggedIocIds(new Set());
     setNotes("");
     setFindings("");
     setVerdict(null);
@@ -971,20 +802,11 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
     setElapsed(0);
     setAnswers({});
     setManualIocs([]);
-    setTaggedIocIds(new Set());
     setNotes("");
     setFindings("");
     setVerdict(null);
     setVerdictReason("");
   };
-
-  const handleTagIoc = useCallback((value: string) => {
-    setTaggedIocIds(prev => {
-      const next = new Set(prev);
-      if (next.has(value)) next.delete(value); else next.add(value);
-      return next;
-    });
-  }, []);
 
   const handleAnswer = useCallback((questionId: string, value: string, multi: boolean) => {
     if (phase !== "investigating") return;
@@ -1029,7 +851,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         body: JSON.stringify({
           answers,
           timeTaken: elapsed,
-          iocTagged: taggedIocIds.size,
+          iocTagged: manualIocs.length,
           verdict,
           verdictReason,
           analystNotes: notes,
@@ -1092,10 +914,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
               </div>
               {/* Progress indicators */}
               <div className="flex items-center gap-3 text-xs text-slate-500">
-                <span className={cn("flex items-center gap-1", taggedIocIds.size > 0 && "text-neon-purple")}>
-                  <span className={cn("h-1.5 w-1.5 rounded-full", taggedIocIds.size > 0 ? "bg-neon-purple" : "bg-slate-600")} />
-                  IOC {taggedIocIds.size}/{bundle.iocs.length}
-                </span>
                 <span className={cn("flex items-center gap-1", allAnswered && "text-neon-green")}>
                   <span className={cn("h-1.5 w-1.5 rounded-full", allAnswered ? "bg-neon-green" : "bg-slate-600")} />
                   Quiz {Object.keys(answers).length}/{bundle.questions.length}
@@ -1168,18 +986,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         </div>
 
         {/* Security Events Log */}
-        <ScenarioLogViewer events={bundle.events} iocs={bundle.iocs} />
-
-        {/* IOC Intelligence Tracker */}
-        {bundle.iocs.length > 0 && (
-          <IocTrackerPanel
-            iocs={bundle.iocs}
-            events={bundle.events}
-            phase={phase}
-            taggedIds={taggedIocIds}
-            onTag={handleTagIoc}
-          />
-        )}
+        <ScenarioLogViewer events={bundle.events} />
 
         {/* Investigation Panel */}
         <InvestigationPanel
