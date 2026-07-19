@@ -246,7 +246,16 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
   const [showAll, setShowAll]     = useState(false);
 
   const filtered = useMemo(() => {
-    return events.filter(ev => {
+    // Sort by timestamp before filtering. Scenario builders declare events in
+    // narrative order, which is not always chronological — a lateral-movement
+    // event can be listed before the credential dump that enabled it while
+    // carrying a later `ts`. A log viewer that renders array order therefore
+    // showed the student an out-of-order kill chain and broke timeline
+    // reasoning. Sorting a COPY here fixes every scenario at once and leaves
+    // the source arrays (used by the attack-chain reconstruction) untouched.
+    return [...events]
+      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
+      .filter(ev => {
       if (sevFilter === "high"   && ev.severity !== "high" && ev.severity !== "critical") return false;
       if (sevFilter === "medium" && (!ev.severity || SEV_LEVEL[ev.severity] < 4)) return false;
       if (search) {

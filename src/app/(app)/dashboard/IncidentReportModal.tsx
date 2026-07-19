@@ -162,11 +162,18 @@ export function IncidentReportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg rounded-xl border border-border bg-bg-elevated shadow-2xl overflow-hidden">
-        <div className="h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
+    /* Docked as a side drawer, NOT a centered modal with a blocking backdrop.
+       The report explicitly asks the analyst to quote IOCs from the logs
+       "exactly" — so covering the event feed while they write made the task
+       self-defeating. With no full-screen overlay the feed stays visible AND
+       clickable: rows can still be expanded to re-read raw fields mid-write,
+       which is how a real analyst works (SIEM on one side, case ticket on the
+       other). Full width on narrow screens where side-by-side isn't possible. */
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-full sm:w-[560px]">
+      <div className="relative flex h-full w-full flex-col border-l border-border bg-bg-elevated shadow-2xl shadow-black/60">
+        <div className="h-1 w-full shrink-0 bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
 
-        <div className="px-6 py-5 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
 
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -190,6 +197,9 @@ export function IncidentReportModal({
                 <p className="text-[10px] text-neon-amber font-semibold uppercase tracking-wider mb-1">What to include</p>
                 <p className="text-[10px] text-slate-400 leading-relaxed">
                   Describe: <span className="text-slate-300">what attack occurred</span> · <span className="text-slate-300">which <Term k="ioc">IOCs</Term> from the logs prove it (real IPs, users, hosts — quote them exactly)</span> · <span className="text-slate-300">what action to take</span> · <span className="text-slate-300">business impact</span>
+                </p>
+                <p className="mt-2 text-[10px] text-slate-500">
+                  The feed stays live beside you — click any row to re-read its raw fields while you write.
                 </p>
               </div>
 
