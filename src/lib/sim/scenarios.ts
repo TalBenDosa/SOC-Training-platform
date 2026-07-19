@@ -6,6 +6,11 @@
  */
 import type { Alert, IOC, ScenarioBundle, ScenarioQuestion, Severity, TelemetryEvent } from "./types";
 import { makeSha256 } from "./iocs";
+import { buildBackupFalsePositiveScenario } from "./scenario-packs/backupFalsePositive";
+import { buildWebShellRceScenario }         from "./scenario-packs/webShellRce";
+import { buildLinuxSshCryptominerScenario } from "./scenario-packs/linuxSshCryptominer";
+import { buildAitmTokenTheftScenario }      from "./scenario-packs/aitmTokenTheft";
+import { buildEsxiRansomwareScenario }      from "./scenario-packs/esxiRansomware";
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
@@ -562,15 +567,45 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "threat.name": "DNS Tunneling",
       },
     },
+    // Privilege escalation. The dump below opens lsass.exe with PROCESS_ALL_ACCESS,
+    // which needs SeDebugPrivilege — a medium-integrity token does not have it.
+    // The beacon has to elevate first, and doing so leaves its own trail.
+    {
+      id: "evt_08b_uac_bypass", ts: T(22 * MIN),
+      source: "sysmon", vendor: "Microsoft Sysmon", event_type: "process_create",
+      hostname: victim.hostname, user_email: victim.email,
+      severity: "high", mitre_technique: "T1548.002",
+      process: {
+        name: "computerdefaults.exe", pid: 5980, parent_name: "powershell.exe", parent_pid: 5512,
+        cmdline: "computerdefaults.exe",
+        user: "CRYOTECH\\jsmith", integrity: "high",
+      },
+      description: "computerdefaults.exe started at High integrity with the beacon's PowerShell process as its parent, and no consent prompt was recorded.",
+      raw: {
+        "event.code": "1",
+        "winlog.provider_name": "Microsoft-Windows-Sysmon",
+        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+        "winlog.event_data.ProcessId": "5980",
+        "winlog.event_data.Image": "C:\\Windows\\System32\\computerdefaults.exe",
+        "winlog.event_data.CommandLine": "computerdefaults.exe",
+        "winlog.event_data.ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "winlog.event_data.ParentProcessId": "5512",
+        "winlog.event_data.User": "CRYOTECH\\jsmith",
+        "winlog.event_data.IntegrityLevel": "High",
+        "winlog.event_data.Company": "Microsoft Corporation",
+        "threat.technique.id": "T1548.002",
+        "threat.technique.name": "Abuse Elevation Control Mechanism: Bypass User Account Control",
+      },
+    },
     {
       id: "evt_09_lsass", ts: T(23 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1003.001",
       process: {
-        name: "rundll32.exe", pid: 6244, parent_name: "powershell.exe", parent_pid: 5512,
+        name: "rundll32.exe", pid: 6244, parent_name: "computerdefaults.exe", parent_pid: 5980,
         cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin full",
-        user: "CRYOTECH\\jsmith", integrity: "medium",
+        user: "CRYOTECH\\jsmith", integrity: "high",
       },
       file: { path: "C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin" },
       description: "CrowdStrike detected rundll32.exe on WS-FIN-2847 using comsvcs.dll to dump lsass.exe memory to debug.bin — the file now contains cached credentials and Kerberos tickets.",
@@ -607,7 +642,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "process.command_line": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin full",
         "process.hash.sha256": "b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4",
         "process.hash.md5": "3d87df5ec4b33f7f41e53a14b5d4c3e2",
-        "process.integrity_level": "MEDIUM_INTEGRITY_LEVEL",
+        "process.integrity_level": "HIGH_INTEGRITY_LEVEL",
         "process.token_type": "TokenPrimary",
         "process.session_id": "1",
         // Parent — powershell.exe
@@ -3174,6 +3209,31 @@ export const SCENARIOS = [
     threat_actor: "APT29 / Cozy Bear",
     build: buildOAuthConsentPhishingScenario,
     summary: "j.chen clicks a phishing link and grants 'Productivity Suite Pro' (48h-old unverified app on typosquat domain) Mail.ReadWrite + Files.ReadWrite.All. The app silently reads 1,247 emails, copies 312 SharePoint files, creates an inbox forwarding rule, and maps the org via Calendar — no malware, no suspicious IPs, 100% Microsoft Graph API." },
+  { slug: "backup-agent-false-positive",
+    title: "Mass File Encryption Alert — Enterprise Backup Agent",
+    difficulty: "beginner", attack_kind: "false_positive",
+    threat_actor: "None — authorised backup activity", build: withAlerts(buildBackupFalsePositiveScenario),
+    summary: "A CRITICAL ransomware-behaviour alert on a production file server. Every scenario before this one was a real attack — this one is not, and the job is to prove it." },
+  { slug: "web-shell-sqli",
+    title: "SQL Injection → Web Shell → Server Compromise",
+    difficulty: "advanced", attack_kind: "web_exploitation",
+    threat_actor: "Opportunistic web attacker", build: withAlerts(buildWebShellRceScenario),
+    summary: "The WAF blocked the obvious payloads and missed the one that worked. Pivot between WAF, IIS, SQL audit and EDR to find how a web shell reached the server." },
+  { slug: "linux-ssh-cryptominer",
+    title: "Exposed SSH → Cron Persistence → Cryptominer",
+    difficulty: "intermediate", attack_kind: "linux_ssh_cryptomining",
+    threat_actor: "Commodity cryptomining crew", build: withAlerts(buildLinuxSshCryptominerScenario),
+    summary: "A Linux server intrusion read through auditd and sshd rather than Windows telemetry — the successful login comes from an IP that never appears in the brute force." },
+  { slug: "aitm-token-theft",
+    title: "Adversary-in-the-Middle Phishing — Session Token Theft",
+    difficulty: "advanced", attack_kind: "aitm_session_hijack",
+    threat_actor: "Phishing-as-a-Service operator", build: withAlerts(buildAitmTokenTheftScenario),
+    summary: "MFA was satisfied correctly and the account still fell. One session id, two browsers, 365 km apart, six minutes apart." },
+  { slug: "esxi-ransomware",
+    title: "Hypervisor Ransomware — ESXi Datastore Encryption",
+    difficulty: "expert", attack_kind: "ransomware_hypervisor",
+    threat_actor: "Akira affiliate (big-game ransomware)", build: withAlerts(buildEsxiRansomwareScenario),
+    summary: "Ninety-six VMs go dark at once and the endpoint EDR sees nothing, because there is no agent on the hypervisor. Reason from the telemetry that stopped arriving." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
@@ -8624,7 +8684,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
       answer: ["a", "b"],
       explanation: "Priority: (1) Revoke the OAuth consent — immediately terminates the app's access token and all API access. (2) Delete the inbox forwarding rule — stops ongoing email exfiltration. Password reset (c) is wrong — the attacker never used j.chen's password; they used the OAuth token. Blocking 40.99.8.12 (d) is Microsoft's own IP and would break legitimate O365 access.",
     },
-  ];
+];
 
   return {
     scenario_id: scenarioId,
@@ -8640,6 +8700,18 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     ],
     alerts: eventsToAlerts(events, scenarioId),
     events, iocs, killchain, questions,
+  };
+}
+
+/**
+ * Scenario packs live in their own files and return `alerts: []` — importing the
+ * alert generator from here would create a cycle. Attach the alerts on the way
+ * out so packaged scenarios reach the student's queue exactly like built-in ones.
+ */
+function withAlerts(build: (id?: string) => ScenarioBundle) {
+  return (scenarioId?: string): ScenarioBundle => {
+    const b = build(scenarioId);
+    return b.alerts?.length ? b : { ...b, alerts: eventsToAlerts(b.events, b.scenario_id) };
   };
 }
 

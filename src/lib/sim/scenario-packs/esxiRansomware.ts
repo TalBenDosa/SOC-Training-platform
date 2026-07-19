@@ -62,7 +62,7 @@ export function buildEsxiRansomwareScenario(
         "data.logid": "0101039947",
         "data.level": "notice",
         "data.vd": "root",
-        "data.eventtime": "1781473200000000000",
+        "data.eventtime": "1781386800000000000",
         "data.action": "tunnel-up",
         "data.tunneltype": "ssl-tunnel",
         "data.tunnelid": "1876543210",
@@ -110,7 +110,7 @@ export function buildEsxiRansomwareScenario(
         "data.logid": "0000000013",
         "data.level": "notice",
         "data.vd": "root",
-        "data.eventtime": "1781473560000000000",
+        "data.eventtime": "1781387160000000000",
         "data.action": "accept",
         "data.srcip": tunnelIp,
         "data.srcport": "50318",
@@ -150,7 +150,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1110.003",
       mitre_tactic: "Credential Access",
       description:
-        "vCenter SSO rejected 61 logins from 10.99.8.44 in nine minutes, spread across 14 principals (vcadmin, vsphere-admin, backup, svc-veeam, administrator …) — one or two attempts per account, which is why no account locked out. One representative rejection is shown.",
+        "vCenter SSO rejected 61 logins from 10.99.8.44 in nine minutes, spread across 14 principals (vcadmin, vsphere-admin, backup, svc-veeam, administrator …) — four or five attempts each, spaced far enough apart that no account crossed the SSO lockout threshold of five failures in 180 seconds. One representative rejection is shown.",
       raw: {
         "vsphere.event.key": "4418902",
         "vsphere.event.chainId": "4418902",
@@ -600,7 +600,7 @@ export function buildEsxiRansomwareScenario(
       type: "user",
       value: "svc-monitor@vsphere.local",
       reputation: "malicious",
-      tags: ["sso", "attacker-created-permission"],
+      tags: ["sso", "role-granted-during-window"],
     },
     {
       type: "host",

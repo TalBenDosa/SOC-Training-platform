@@ -14,23 +14,18 @@
     "Windows Security": "Windows Security",
     "Microsoft Windows": "Windows Security",
     "Microsoft": "Windows Security",
-
     "Microsoft Sysmon": "Microsoft Sysmon",
     "Sysmon": "Microsoft Sysmon",
     "Sysinternals Sysmon": "Microsoft Sysmon",
     "Sysmon + DNS Server": "Microsoft Sysmon",
-
     "Windows DNS": "Windows DNS Server",
     "Windows DHCP Server": "Windows DHCP Server",
     "Microsoft TerminalServices": "Windows TerminalServices",
-
     "CrowdStrike Falcon": "CrowdStrike Falcon",
     "CrowdStrike Falcon Elite": "CrowdStrike Falcon",
     "CrowdStrike": "CrowdStrike Falcon",
-
     "SentinelOne": "SentinelOne",
     "SentinelOne Singularity": "SentinelOne",
-
     "Microsoft Defender for Endpoint": "Microsoft Defender for Endpoint",
     "Microsoft 365 Defender": "Microsoft Defender for Endpoint",
     "Microsoft Defender": "Microsoft Defender for Endpoint",
@@ -38,10 +33,8 @@
     "Microsoft Defender for Office 365": "Microsoft Defender for Office 365",
     "Microsoft Defender for Identity": "Microsoft Defender for Identity",
     "Sophos Intercept X": "Sophos Intercept X",
-
     "Okta": "Okta",
     "Okta Identity Cloud": "Okta",
-
     "Azure Active Directory": "Microsoft Entra ID",
     "Azure AD (Entra ID)": "Microsoft Entra ID",
     "Microsoft Entra ID": "Microsoft Entra ID",
@@ -49,7 +42,6 @@
     "Microsoft Azure AD": "Microsoft Entra ID",
     "Microsoft Entra ID Audit Log": "Microsoft Entra ID",
     "Microsoft Azure AD MFA": "Microsoft Entra ID",
-
     "Microsoft 365": "Microsoft 365 Unified Audit Log",
     "Microsoft O365": "Microsoft 365 Unified Audit Log",
     "Microsoft 365 Unified Audit Log": "Microsoft 365 Unified Audit Log",
@@ -60,15 +52,12 @@
     "Microsoft SharePoint Online": "Microsoft 365 Unified Audit Log",
     "Microsoft OneDrive": "Microsoft 365 Unified Audit Log",
     "Microsoft Teams": "Microsoft 365 Unified Audit Log",
-
     "Microsoft Purview DLP": "Microsoft Purview",
     "Microsoft Purview": "Microsoft Purview",
     "Microsoft Graph API Audit": "Microsoft Graph Security API",
-
     "Microsoft Sentinel": "Microsoft Sentinel",
     "Microsoft Sentinel SOAR": "Microsoft Sentinel",
     "Microsoft Sentinel UEBA": "Microsoft Sentinel UEBA",
-
     "Palo Alto Networks": "Palo Alto Networks PAN-OS",
     "Palo Alto NGFW": "Palo Alto Networks PAN-OS",
     "Palo Alto Networks NGFW": "Palo Alto Networks PAN-OS",
@@ -78,31 +67,25 @@
     "Palo Alto GlobalProtect": "Palo Alto Networks PAN-OS",
     "Palo Alto Cortex XSOAR": "Palo Alto Cortex XSOAR",
     "XSOAR / Cortex": "Palo Alto Cortex XSOAR",
-
     "FortiGate": "FortiGate",
     "FortiGate 100F": "FortiGate",
     "FortiGate 600F": "FortiGate",
     "FortiGate NGFW": "FortiGate",
     "Fortinet FortiGate": "FortiGate",
     "FortiGate DNS": "FortiGate",
-
     "Check Point NGFW": "Check Point NGFW",
     "Check Point Next Gen Firewall": "Check Point NGFW",
     "Check Point NGFW (DNS)": "Check Point NGFW",
-
     "Cisco Firepower": "Cisco Firepower",
     "Cisco AnyConnect": "Cisco AnyConnect",
     "Cisco ISE": "Cisco ISE",
     "Cisco ISE 3.2": "Cisco ISE",
-
     "Zscaler Internet Access": "Zscaler Internet Access",
     "Zscaler": "Zscaler Internet Access",
     "Squid Proxy": "Squid Proxy",
-
     "Corelight (Zeek)": "Corelight (Zeek)",
     "Zeek Network Monitor": "Corelight (Zeek)",
     "Infoblox DNS": "Infoblox DNS",
-
     "AWS CloudTrail": "AWS CloudTrail",
     "AWS CloudTrail (GovCloud)": "AWS CloudTrail",
     "AWS CloudTrail + GuardDuty": "AWS CloudTrail",
@@ -111,47 +94,37 @@
     "AWS RDS": "AWS RDS",
     "AWS CloudWatch": "AWS CloudWatch",
     "AWS Cost Anomaly Detection": "AWS Cost Anomaly Detection",
-
     "Azure Activity Log": "Azure Activity Log",
     "Azure Monitor": "Azure Monitor",
     "Azure NSG Flow Logs": "Azure NSG Flow Logs",
-
     "GCP Cloud Audit Logs": "GCP Cloud Audit Logs",
     "Google Workspace Audit": "Google Workspace Audit",
-
     "Kubernetes API Server": "Kubernetes Audit",
     "Kubernetes / GKE": "Kubernetes Audit",
     "Kubernetes Audit (EKS)": "Kubernetes Audit",
     "Kubernetes": "Kubernetes Audit",
-
     "Ubuntu Linux": "Linux auditd",
     "Linux auditd": "Linux auditd",
     "Linux Audit": "Linux auditd",
     "Linux Audit / sshd": "Linux auditd",
     "Linux auditd (fail2ban)": "Linux auditd",
     "Linux auditd (OpenSSH)": "Linux auditd",
-
     "Microsoft SQL Server": "Microsoft SQL Server Audit",
     "MySQL": "MySQL Enterprise Audit",
     "IBM Guardium": "IBM Guardium",
     "Imperva DAM": "Imperva DAM",
-
     "Cloudflare WAF": "Cloudflare WAF",
     "F5 Advanced WAF": "F5 Advanced WAF",
-
     "CyberArk PAM": "CyberArk PAM",
     "HashiCorp Vault": "HashiCorp Vault",
-
     "Exabeam": "Exabeam",
     "Securonix": "Securonix",
-
     "GitHub Audit Log": "GitHub Audit Log",
     "GitHub Advanced Security": "GitHub Advanced Security",
     "Proofpoint": "Proofpoint",
     "ServiceNow ITSM": "ServiceNow ITSM",
     "Epiq EMR Audit Log": "Epiq EMR Audit Log",
     "AbuseIPDB / SIEM Correlation": "Wazuh",
-
     "Kubernetes Audit": "Kubernetes Audit",
     "Microsoft Graph Security API": "Microsoft Graph Security API",
     "Microsoft SQL Server Audit": "Microsoft SQL Server Audit",
@@ -159,6 +132,8 @@
     "Palo Alto Networks PAN-OS": "Palo Alto Networks PAN-OS",
     "Wazuh": "Wazuh",
     "Windows DNS Server": "Windows DNS Server",
-    "Windows TerminalServices": "Windows TerminalServices"
+    "Windows TerminalServices": "Windows TerminalServices",
+    "VMware ESXi": "VMware ESXi",
+    "VMware vCenter Server": "VMware vCenter Server"
   }
 }

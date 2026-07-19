@@ -45,6 +45,13 @@ jobs:
       - name: Vendor vocabulary is normalised
         run: npm run normalize:vendors
 
+      # Scenario content gate. Three expert reviews found the same defects across
+      # every scenario: chains requiring privileges the timeline never grants,
+      # raw logs carrying the analyst's conclusion, events that raise no alert,
+      # and questions answerable by option length. Each rule here encodes one.
+      - name: Validate scenario content
+        run: npm run validate:scenarios
+
       - name: Build
         run: npm run build
         env:
