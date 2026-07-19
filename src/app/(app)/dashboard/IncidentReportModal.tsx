@@ -169,7 +169,7 @@ export function IncidentReportModal({
        clickable: rows can still be expanded to re-read raw fields mid-write,
        which is how a real analyst works (SIEM on one side, case ticket on the
        other). Full width on narrow screens where side-by-side isn't possible. */
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-full sm:w-[560px]">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-full lg:w-[480px]">
       <div className="relative flex h-full w-full flex-col border-l border-border bg-bg-elevated shadow-2xl shadow-black/60">
         <div className="h-1 w-full shrink-0 bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
 

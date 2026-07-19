@@ -518,13 +518,34 @@ export default function DashboardPage() {
 
   const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
 
+  // Is the viewport wide enough to show the console and the report drawer
+  // side by side? Tracked in state (not a Tailwind breakpoint class) because
+  // the shift is applied as an inline pixel value — see the wrapper below.
+  const [isWideViewport, setIsWideViewport] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsWideViewport(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   const handleXpAward = (_delta: number) => {
     // Stub — AttackChainBoard requires an onXpAward prop but doesn't currently
     // award XP itself; it's a read-only reconstruction view after a catch.
   };
 
   return (
-    <div>
+    /* While the incident-report drawer is open the whole console shifts left by
+       the drawer's width instead of sitting underneath it. Overlaying still hid
+       the right-hand table columns (LEVEL / RULE ID) exactly when the analyst
+       needs them to quote evidence. Pushing re-flows the feed into the
+       remaining space so NO log data is ever covered. Only from lg up — below
+       that the drawer is full-width and side-by-side isn't possible anyway. */
+    <div
+      className="transition-[padding] duration-300 ease-out"
+      style={{ paddingRight: showReportModal && isWideViewport ? 480 : 0 }}
+    >
       {showWelcome && <SOCWelcomeModal onStart={handleCloseWelcome} onTakeTour={handleTakeTour} />}
 
       {showCompanySelector && (
