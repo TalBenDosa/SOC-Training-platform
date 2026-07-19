@@ -4,7 +4,7 @@ const fwC2Event: TelemetryEvent = {
   id: "evt-fw-c2-001",
   ts: "2024-08-05T03:14:07.000Z",
   source: "firewall",
-  vendor: "FortiGate 600F",
+  vendor: "FortiGate",
   event_type: "net_connection",
   severity: "high",
   hostname: "FGT-CORE-01",

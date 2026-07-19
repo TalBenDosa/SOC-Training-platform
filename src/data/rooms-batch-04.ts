@@ -293,6 +293,7 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
         hostname: "DC01-CORP",
         description: "Security audit log was cleared on domain controller",
         mitre_technique: "T1070.001",
+        vendor: "Windows Security",
         raw: {
           "event.code": "1102",
           "winlog.event_data.SubjectUserName": "svc-helpdesk02",
@@ -582,6 +583,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
         description:
           "Correlation rule fired: multiple failed authentications targeting multiple accounts from single source",
         mitre_technique: "T1110.003",
+        vendor: "Wazuh",
         raw: {
           "rule.name": "Password Spray Detected",
           "rule.level": "12",

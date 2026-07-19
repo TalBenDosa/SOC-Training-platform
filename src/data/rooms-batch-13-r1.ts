@@ -4,7 +4,7 @@ const dnsExfilEvent: TelemetryEvent = {
   id: "evt-dns-exfil-001",
   ts: "2024-07-12T14:33:08.000Z",
   source: "sysmon",
-  vendor: "Sysinternals Sysmon",
+  vendor: "Microsoft Sysmon",
   event_type: "dns_query",
   severity: "high",
   hostname: "WS-FINANCE-011",

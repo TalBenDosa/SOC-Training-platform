@@ -1358,6 +1358,7 @@ Good documentation protects you, helps your colleagues understand past alerts, a
         user_email: "administrator@corp.local",
         description: "347 failed authentication attempts in 5-minute window from single external IP",
         mitre_technique: "T1110.003",
+        vendor: "Windows Security",
         raw: {
           "event.code": "4625",
           "winlog.event_data.TargetUserName": "administrator",

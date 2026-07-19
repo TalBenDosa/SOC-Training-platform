@@ -18,7 +18,7 @@ const midnightLogonEvent: TelemetryEvent = {
   id: "evt-mind-la1-001",
   ts: "2024-08-14T03:12:03.000Z",
   source: "ad",
-  vendor: "Microsoft Active Directory",
+  vendor: "Windows Security",
   event_type: "auth_success",
   severity: "medium",
   hostname: "WS-FIN-2041",

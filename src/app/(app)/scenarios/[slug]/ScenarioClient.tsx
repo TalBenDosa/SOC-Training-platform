@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge, SeverityBadge } from "@/components/ui/Badge";
 import { CompletionModal, type GradeResult } from "@/components/scenarios/CompletionModal";
 import type { ScenarioBundle, TelemetryEvent, IOC } from "@/lib/sim/types";
+import { HashCheckButton, isHashField } from "@/components/sim/HashCheckButton";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,7 +59,7 @@ const SEV_BADGE: Record<string, string> = {
 
 // ─── Log row detail panel ─────────────────────────────────────────────────────
 
-function LogDetail({ ev }: { ev: TelemetryEvent }) {
+function LogDetail({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
   const [showJson, setShowJson] = useState(false);
 
   const basicInfo: [string, string][] = [
@@ -162,12 +163,21 @@ function LogDetail({ ev }: { ev: TelemetryEvent }) {
             <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Detailed Log Data</p>
               <div className="space-y-1.5">
-                {detailedFields.map(([k, v]) => (
-                  <div key={k} className="flex gap-3">
-                    <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
-                    <span className="font-mono text-[10px] text-slate-300 break-all">{v}</span>
-                  </div>
-                ))}
+                {detailedFields.map(([k, v]) => {
+                  const showHash = isHashField(k, v);
+                  return (
+                    <div key={k} className={cn("flex gap-3", showHash ? "items-start py-0.5" : "")}>
+                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
+                      <div className="flex min-w-0 flex-col gap-1.5">
+                        <span className={cn(
+                          "font-mono text-[10px] break-all",
+                          showHash ? "text-neon-amber" : "text-slate-300",
+                        )}>{v}</span>
+                        {showHash && <HashCheckButton hash={v} iocs={iocs} compact />}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </>
@@ -179,7 +189,7 @@ function LogDetail({ ev }: { ev: TelemetryEvent }) {
 
 // ─── Single log row ───────────────────────────────────────────────────────────
 
-function LogRow({ ev }: { ev: TelemetryEvent }) {
+function LogRow({ ev, iocs }: { ev: TelemetryEvent; iocs?: IOC[] }) {
   const [expanded, setExpanded] = useState(false);
   const level = SEV_LEVEL[ev.severity ?? "informational"] ?? 1;
   const sevBadge = SEV_BADGE[ev.severity ?? "informational"];
@@ -231,7 +241,7 @@ function LogRow({ ev }: { ev: TelemetryEvent }) {
       </tr>
       {expanded && (
         <tr>
-          <LogDetail ev={ev} />
+          <LogDetail ev={ev} iocs={iocs} />
         </tr>
       )}
     </>
@@ -240,7 +250,7 @@ function LogRow({ ev }: { ev: TelemetryEvent }) {
 
 // ─── Log viewer ───────────────────────────────────────────────────────────────
 
-function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
+function ScenarioLogViewer({ events, iocs }: { events: TelemetryEvent[]; iocs?: IOC[] }) {
   const [search, setSearch]       = useState("");
   const [sevFilter, setSevFilter] = useState<"all" | "medium" | "high">("all");
   const [showAll, setShowAll]     = useState(false);
@@ -328,7 +338,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
           </thead>
           <tbody>
             {visible.map(ev => (
-              <LogRow key={ev.id} ev={ev} />
+              <LogRow key={ev.id} ev={ev} iocs={iocs} />
             ))}
             {filtered.length === 0 && (
               <tr>
@@ -1158,7 +1168,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         </div>
 
         {/* Security Events Log */}
-        <ScenarioLogViewer events={bundle.events} />
+        <ScenarioLogViewer events={bundle.events} iocs={bundle.iocs} />
 
         {/* IOC Intelligence Tracker */}
         {bundle.iocs.length > 0 && (

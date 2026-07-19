@@ -221,8 +221,13 @@ function tacticForTechnique(t: string): string | undefined {
   if (t === "T1528")        return "TA0006";   // Credential Access (steal app token)
   if (t === "T1137.005")    return "TA0003";   // Persistence (Outlook rules)
   if (t === "T1114.003")    return "TA0009";   // Collection (email forwarding rule)
-  if (t === "T1078.002")    return "TA0008";   // Lateral Movement (domain accounts)
+  if (t === "T1078.002")    return "TA0001";   // Initial Access (domain accounts) — matches T1078/.004 above; ATT&CK does not list Lateral Movement for T1078
   if (t === "T1550.003")    return "TA0008";   // Lateral Movement (pass the ticket)
+  if (t === "T1204.002")    return "TA0002";   // Execution (user opens malicious file)
+  if (t === "T1219")        return "TA0011";   // Command and Control (remote access software)
+  if (t === "T1176")        return "TA0003";   // Persistence (browser extensions)
+  if (t === "T1566.002")    return "TA0001";   // Initial Access (spearphishing link)
+  if (t === "T1556.009")    return "TA0006";   // Credential Access (modify conditional access policies)
   return undefined;
 }
 
@@ -244,7 +249,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
   const events: TelemetryEvent[] = [
     {
       id: "evt_01_logon", ts: T(0),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "informational",
       description: "j.smith logged on to WS-FIN-2847 from the office network — normal working hours, known IP.",
@@ -412,7 +417,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     },
     {
       id: "evt_05_smb_lateral", ts: T(24 * MIN + 30_000),
-      source: "firewall", vendor: "Palo Alto Networks NGFW", event_type: "net_connection",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
       hostname: victim.hostname, user_email: victim.email,
       src_ip: victim.ip, dst_ip: "10.10.1.20", dst_port: 445, protocol: "tcp",
       severity: "high", mitre_technique: "T1021.002",
@@ -650,7 +655,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     },
     {
       id: "evt_09b_kerberos_tgt", ts: T(24 * MIN),
-      source: "ad", vendor: "Microsoft Windows Security", event_type: "kerberos_tgt",
+      source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
       hostname: "DC01", user_email: victim.email,
       severity: "high", mitre_technique: "T1558.003",
       description: `A Kerberos TGT for jsmith was requested from WS-FIN-2847 using RC4 encryption (downgraded from AES256) minutes after the LSASS dump.`,
@@ -674,7 +679,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     },
     {
       id: "evt_09c_network_logon", ts: T(25 * MIN),
-      source: "ad", vendor: "Microsoft Windows Security", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: "FS-CORP-01", user_email: victim.email,
       severity: "high", mitre_technique: "T1078",
       description: "jsmith authenticated to FS-CORP-01 via a network logon (Type 3) using the credentials taken from LSASS — j.smith was not physically at that server.",
@@ -872,7 +877,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     // ── CORRELATED: Firewall event — PowerShell connecting to C2 IP ───────────────
     {
       id: "evt_phish_fw_c2", ts: T(5 * MIN + 46_000),
-      source: "firewall", vendor: "Palo Alto Networks",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection", severity: "high",
       mitre_technique: "T1071.001",
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443,
@@ -926,6 +931,8 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { type: "ip",      value: attackerIp,                      reputation: "malicious",  tags: ["attacker", "netherlands"] },
     { type: "ip",      value: "91.108.56.199",                 reputation: "malicious",  tags: ["phishing-sender"] },
     { type: "sha256",  value: dllHash,                         reputation: "malicious",  tags: ["dropper", "dll", "stage1"] },
+    { type: "sha256",  value: "de96a6e69944335375dc1ac238336066889d9ffc7d73628ef4fe1b1848474f30", reputation: "clean", tags: ["signed-microsoft-binary", "powershell"] },
+    { type: "sha256",  value: "b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4c3e2f1a0b5d4", reputation: "clean", tags: ["signed-microsoft-binary", "rundll32"] },
     { type: "email",   value: "support@cryotech-vendor.xyz",   reputation: "malicious",  tags: ["phishing", "sender"] },
     { type: "url",     value: `https://${c2Domain}/beacon`,    reputation: "malicious",  tags: ["c2", "beacon"] },
     { type: "user",    value: victim.email,                    reputation: "suspicious", tags: ["victim", "compromised"] },
@@ -1014,7 +1021,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
   const events: TelemetryEvent[] = [
     {
       id: "evt_01_spray", ts: T(0),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_failure",
+      source: "ad", vendor: "Windows Security", event_type: "auth_failure",
       src_ip: sprayIp,
       severity: "high", mitre_technique: "T1110.003",
       description: `47 failed logins across 14 different Cryotech accounts arrived from the same IP (${sprayIp}) within 4 minutes.`,
@@ -1062,7 +1069,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     },
     {
       id: "evt_02_lockout_1", ts: T(1 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_failure",
+      source: "ad", vendor: "Windows Security", event_type: "auth_failure",
       user_email: "a.nelson@cryotech.com", src_ip: sprayIp,
       severity: "medium",
       description: `Account a.nelson was locked out after 5 failed password attempts from ${sprayIp}.`,
@@ -1100,7 +1107,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     },
     {
       id: "evt_03_lockout_2", ts: T(2 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_failure",
+      source: "ad", vendor: "Windows Security", event_type: "auth_failure",
       user_email: "r.garcia@cryotech.com", src_ip: sprayIp,
       severity: "medium",
       description: `Account r.garcia was also locked out from ${sprayIp}, minutes after a.nelson.`,
@@ -1410,7 +1417,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     // ── CORRELATED: Baseline — l.harris normal AD login from office IP ───────────
     {
       id: "evt_bec_baseline_ad", ts: T(-20 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "informational",
       user_email: victim.email, hostname: victim.hostname, src_ip: victim.ip,
       description: "l.harris logged on interactively to LAPTOP-FIN-04 from the office network.",
@@ -1438,7 +1445,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     // ── CORRELATED: Firewall — spray IP connection volume to ADFS proxy port 443 ─
     {
       id: "evt_bec_fw_spray", ts: T(0),
-      source: "firewall", vendor: "Palo Alto Networks",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection", severity: "high",
       mitre_technique: "T1110.003",
       src_ip: sprayIp, dst_ip: "10.10.1.15", dst_port: 443,
@@ -1582,7 +1589,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
   const events: TelemetryEvent[] = [
     {
       id: "evt_00_context", ts: T(-30 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: zero.hostname, user_email: zero.email, src_ip: zero.ip,
       severity: "informational",
       description: "c.martin logged on to WS-FIN-1193 at 02:45 — outside normal business hours.",
@@ -1681,7 +1688,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     },
     {
       id: "evt_03_c2", ts: T(3 * MIN),
-      source: "firewall", vendor: "Palo Alto Networks NGFW", event_type: "net_connection",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
       hostname: zero.hostname, src_ip: zero.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
       network: { domain: c2Dom, url: `https://${c2Dom}/updates`, bytes_out: 1024, bytes_in: 8192 },
@@ -1757,7 +1764,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     },
     {
       id: "evt_04b_kerberos_tgt", ts: T(92 * MIN),
-      source: "ad", vendor: "Microsoft Windows Security", event_type: "kerberos_tgt",
+      source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
       hostname: "DC-CORP-01", user_email: zero.email,
       severity: "critical", mitre_technique: "T1558.003",
       description: "A Kerberos TGT for domain admin account da-backup was requested from WS-FIN-1193 using RC4 encryption, two minutes after the LSASS dump.",
@@ -1780,7 +1787,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     },
     {
       id: "evt_04c_domain_admin_logon", ts: T(93 * MIN),
-      source: "ad", vendor: "Microsoft Windows Security", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: "DC-CORP-01", user_email: "da-backup@cryotech.com",
       severity: "critical", mitre_technique: "T1078",
       description: "Domain admin account da-backup authenticated to DC-CORP-01 via a network logon (Type 3) originating from WS-FIN-1193.",
@@ -1917,7 +1924,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     },
     {
       id: "evt_08b_audit_clear", ts: T(121 * MIN + 5_000),
-      source: "ad", vendor: "Microsoft Windows", event_type: "audit_log_cleared",
+      source: "ad", vendor: "Windows Security", event_type: "audit_log_cleared",
       hostname: "FS-CORP-01", user_email: "svc-backup@cryotech.com",
       severity: "high", mitre_technique: "T1070.001",
       description: "Windows recorded Event 1102 on FS-CORP-01 — the Security audit log was cleared, the one entry wevtutil could not erase because it was already written.",
@@ -2041,7 +2048,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     // ── CORRELATED: Firewall — C2 beacon from FS-CORP-01 after PsExec ────────────
     {
       id: "evt_rsw_fw_server_c2", ts: T(110 * MIN),
-      source: "firewall", vendor: "Palo Alto Networks",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection", severity: "high",
       mitre_technique: "T1071.001",
       src_ip: server.ip, dst_ip: c2Ip, dst_port: 443,
@@ -2289,7 +2296,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     },
     {
       id: "evt_03_app_register", ts: T(15 * MIN),
-      source: "o365", vendor: "Microsoft Entra ID Audit Log", event_type: "account_modify",
+      source: "o365", vendor: "Microsoft Entra ID", event_type: "account_modify",
       user_email: victim.email, src_ip: sprayIp,
       severity: "critical", mitre_technique: "T1098.005",
       description: `An app named MicrosoftSecurityUpdate was registered in s.chen's tenant from ${sprayIp}, published by microsoftupdate-secure.xyz, requesting Mail.ReadWrite and Files.ReadWrite.All.`,
@@ -2333,7 +2340,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     },
     {
       id: "evt_04_consent", ts: T(16 * MIN),
-      source: "o365", vendor: "Microsoft Entra ID Audit Log", event_type: "account_modify",
+      source: "o365", vendor: "Microsoft Entra ID", event_type: "account_modify",
       user_email: victim.email, src_ip: sprayIp,
       severity: "critical", mitre_technique: "T1098.005",
       description: "s.chen granted the MicrosoftSecurityUpdate app tenant-wide (AllPrincipals) consent to Mail.ReadWrite and Files.ReadWrite.All — a permission grant that survives password resets.",
@@ -2370,7 +2377,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     },
     {
       id: "evt_05_graph_mail_1", ts: T(1 * HR + 15 * MIN),
-      source: "o365", vendor: "Microsoft Graph API Audit", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "high", mitre_technique: "T1114.002",
       description: `The MicrosoftSecurityUpdate app read 187 emails from s.chen's inbox via Graph API using an OAuth access token, from ${sessionIp} — no password or interactive sign-in involved.`,
@@ -2421,7 +2428,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     },
     {
       id: "evt_07_graph_mail_2", ts: T(9 * HR + 30 * MIN),
-      source: "o365", vendor: "Microsoft Graph API Audit", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "high", mitre_technique: "T1114.002",
       description: "The MicrosoftSecurityUpdate app read 143 more emails from s.chen's inbox 2.5 hours after the password reset, using the same OAuth token issued at initial consent.",
@@ -2438,7 +2445,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     },
     {
       id: "evt_08_sharepoint_dl", ts: T(11 * HR),
-      source: "o365", vendor: "Microsoft Graph API Audit", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "critical", mitre_technique: "T1530",
       description: "The app downloaded RoadmapQ4-Confidential.pptx (27MB) from the ProductEngineering SharePoint site via Graph API — SharePoint DLP does not inspect Graph API traffic.",
@@ -2459,7 +2466,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     },
     {
       id: "evt_09_onedrive_bulk", ts: T(12 * HR + 30 * MIN),
-      source: "o365", vendor: "Microsoft Graph API Audit", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "critical", mitre_technique: "T1530",
       description: "89 files (340MB, including 12 marked Confidential and 4 Restricted) were bulk-downloaded from s.chen's OneDrive in 8 minutes via the same app.",
@@ -2477,7 +2484,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     },
     {
       id: "evt_10_app_still_active", ts: T(16 * HR),
-      source: "o365", vendor: "Microsoft 365 Security Alert", event_type: "ueba_anomaly",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "ueba_anomaly",
       user_email: victim.email,
       severity: "high",
       description: "Microsoft 365 Security flagged MicrosoftSecurityUpdate as still active 16 hours after compromise and 9 hours after the password reset, having accessed 330 emails and 89 files.",
@@ -2546,7 +2553,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     // ── CORRELATED: Immediate mailbox access via Graph API after consent ──────────
     {
       id: "evt_oauth_immediate_mailbox", ts: T(17 * MIN),
-      source: "o365", vendor: "Microsoft Graph API Audit",
+      source: "o365", vendor: "Microsoft Graph Security API",
       event_type: "cloud_api_call", severity: "high",
       user_email: victim.email, src_ip: sprayIp,
       mitre_technique: "T1114.002",
@@ -2658,7 +2665,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
   const events: TelemetryEvent[] = [
     {
       id: "evt_01_context", ts: T(0),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
       severity: "informational",
       description: "m.torres logged on to WS-FIN-4421 at 13:00 — a Finance Analyst with an HR termination flag effective tomorrow, not yet communicated to IT Security.",
@@ -2737,7 +2744,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
     },
     {
       id: "evt_03_dlp_alert", ts: T(25 * MIN),
-      source: "o365", vendor: "Microsoft Purview DLP", event_type: "dlp_alert",
+      source: "o365", vendor: "Microsoft Purview", event_type: "dlp_alert",
       user_email: insider.email, src_ip: insider.ip,
       severity: "high", mitre_technique: "T1530",
       description: "Microsoft Purview DLP fired Finance-PII-Bulk-Download after m.torres downloaded 47 sensitive Finance files (18.2MB) in 15 minutes — the policy only notifies, it does not block.",
@@ -2830,7 +2837,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
     },
     {
       id: "evt_07_email_attach", ts: T(40 * MIN),
-      source: "o365", vendor: "Microsoft Purview DLP", event_type: "email_sent",
+      source: "o365", vendor: "Microsoft Purview", event_type: "email_sent",
       user_email: insider.email, src_ip: insider.ip,
       severity: "high",
       description: "m.torres emailed 3 payroll and bonus files (4.2MB) to a personal Gmail address — DLP logged and notified but did not block the send.",
@@ -2887,7 +2894,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
     },
     {
       id: "evt_10_logout", ts: T(3 * 60 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
       severity: "informational",
       description: "m.torres logged off WS-FIN-4421 at 16:00, 2 minutes after the USB drive was physically removed.",
@@ -2949,7 +2956,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
     // ── CORRELATED: Print event — m.torres printed sensitive docs too ─────────────
     {
       id: "evt_insider_print", ts: T(33 * MIN),
-      source: "dlp", vendor: "Microsoft Purview DLP",
+      source: "dlp", vendor: "Microsoft Purview",
       event_type: "dlp_alert", severity: "medium",
       hostname: insider.hostname, user_email: insider.email,
       description: "m.torres printed 3 files, including Headcount_Reduction_Plan_Nov26.xlsx, to the HP-FIN-FLOOR2 shared printer — flagged by endpoint DLP print-activity monitoring.",
@@ -3164,7 +3171,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     // ── Step 1: Normal Israeli login — baseline ────────────────────────────────
     {
       id: "evt_imp_01_baseline", ts: T(0),
-      source: "vpn", vendor: "Palo Alto GlobalProtect",
+      source: "vpn", vendor: "Palo Alto Networks PAN-OS",
       event_type: "vpn_login", severity: "informational",
       user_email: user.email,
       src_ip: isrIp,
@@ -3197,7 +3204,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     // ── Step 2: VPN login from Nigeria — 4 minutes later — IMPOSSIBLE ─────────
     {
       id: "evt_imp_02_impossible", ts: T(4 * MIN),
-      source: "vpn", vendor: "Palo Alto GlobalProtect",
+      source: "vpn", vendor: "Palo Alto Networks PAN-OS",
       event_type: "vpn_login", severity: "high",
       user_email: user.email,
       src_ip: nigIp,
@@ -3233,7 +3240,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     // ── Step 3: O365 login from same Nigerian IP — attacker reading emails ─────
     {
       id: "evt_imp_03_o365", ts: T(6 * MIN),
-      source: "o365", vendor: "Azure Active Directory",
+      source: "o365", vendor: "Microsoft Entra ID",
       event_type: "auth_success", severity: "high",
       user_email: user.email,
       src_ip: nigIp,
@@ -3272,7 +3279,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     // ── Step 4: Attacker creates email forwarding rule — data exfil prep ───────
     {
       id: "evt_imp_04_inboxrule", ts: T(9 * MIN),
-      source: "o365", vendor: "Microsoft Exchange Online",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "account_modify", severity: "high",
       user_email: user.email,
       src_ip: nigIp,
@@ -3305,7 +3312,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     // ── Step 5: Attacker downloads SharePoint files — data collection ──────────
     {
       id: "evt_imp_05_sharepoint", ts: T(14 * MIN),
-      source: "o365", vendor: "SharePoint Online",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "sharepoint_access", severity: "high",
       user_email: user.email,
       src_ip: nigIp,
@@ -3492,7 +3499,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
     },
     {
       id: "evt_pm_03_beacon", ts: T(6 * MIN + 45_000),
-      source: "firewall", vendor: "Palo Alto Networks NGFW", event_type: "net_connection",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
       hostname: victim.hostname, user_email: victim.email,
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
@@ -3862,7 +3869,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
     },
     {
       id: "evt_bext_03_beacon", ts: T(2 * MIN + 30_000),
-      source: "firewall", vendor: "Palo Alto Networks NGFW", event_type: "net_connection",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
       hostname: victim.hostname, user_email: victim.email,
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
@@ -4154,7 +4161,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
   const events: TelemetryEvent[] = [
     {
       id: "evt_crack_01_download", ts: T(0),
-      source: "firewall", vendor: "Palo Alto Networks NGFW", event_type: "net_connection",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
       hostname: victim.hostname, user_email: victim.email,
       src_ip: victim.ip, dst_ip: "198.51.100.212", dst_port: 443, protocol: "tcp",
       severity: "low",
@@ -4371,7 +4378,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
     },
     {
       id: "evt_macro_03_beacon", ts: T(8 * MIN + 25_000),
-      source: "firewall", vendor: "Palo Alto Networks NGFW", event_type: "net_connection",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
       hostname: victim.hostname, user_email: victim.email,
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
@@ -4492,7 +4499,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // T+0: Normal domain auth — attacker foothold
     {
       id: "evt_kerb_01_logon", ts: T(0),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
       severity: "informational",
       description: "m.cohen logged on to WS-DEV-4412 — routine developer workstation login.",
@@ -4530,7 +4537,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // T+2min: LDAP query to enumerate SPNs (T1087.002 / BloodHound/PowerView)
     {
       id: "evt_kerb_02_ldap_spn", ts: T(2 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "cloud_api_call",
+      source: "ad", vendor: "Windows Security", event_type: "cloud_api_call",
       hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1087.002", mitre_tactic: "TA0007",
       description: "m.cohen's workstation sent an LDAP query for every account with a servicePrincipalName set, returning 8 results — a PowerView SPN enumeration pattern.",
@@ -4561,7 +4568,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // T+4min: TGS request for MSSQLSvc (T1558.003 — Kerberoasting)
     {
       id: "evt_kerb_03_tgs_sql", ts: T(4 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dcIp, user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1558.003", mitre_tactic: "TA0006",
       description: "m.cohen requested a Kerberos TGS ticket for MSSQLSvc/srv-db01:1433 (svc-mssql) using RC4 encryption (0x17), two minutes after the SPN enumeration.",
@@ -4593,7 +4600,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // T+4min+20s: TGS for HTTP/intranet
     {
       id: "evt_kerb_04_tgs_iis", ts: T(4 * MIN + 20_000),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dcIp, user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1558.003", mitre_tactic: "TA0006",
       description: "m.cohen requested a second RC4-encrypted TGS ticket, this time for HTTP/intranet.corp (svc-iis), 20 seconds after the first.",
@@ -4624,7 +4631,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // T+4min+40s: TGS for BACKUP service
     {
       id: "evt_kerb_05_tgs_backup", ts: T(4 * MIN + 40_000),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dcIp, user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1558.003", mitre_tactic: "TA0006",
       description: "A third RC4-encrypted TGS ticket was requested for BACKUP/srv-backup01 (svc-backup), the third in 40 seconds.",
@@ -4680,7 +4687,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // T+15min: Login from cracked service account svc-mssql (T1078)
     {
       id: "evt_kerb_07_svcacct_login", ts: T(15 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: "srv-db01", src_ip: "10.10.30.44",
       severity: "critical", mitre_technique: "T1078", mitre_tactic: "TA0001",
       description: "The svc-mssql service account logged on interactively (Type 2) to srv-db01 from WS-DEV-4412, 11 minutes after its RC4 ticket was captured.",
@@ -4740,7 +4747,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // ── CORRELATED: Baseline — m.cohen normal Kerberos ticket pattern ─────────────
     {
       id: "evt_kerb_baseline_tgs", ts: T(-60 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "informational",
       hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
       description: "m.cohen requested 2 Kerberos TGS tickets in the prior 60 minutes, both AES256-encrypted — the account's normal baseline.",
@@ -4793,7 +4800,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // ── CORRELATED: svc-mssql lateral movement — SMB to file server ───────────────
     {
       id: "evt_kerb_svcacct_lateral", ts: T(16 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "critical",
       hostname: "srv-file01", src_ip: attackerIp,
       mitre_technique: "T1021.002",
@@ -4822,6 +4829,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
   ];
 
   const iocs: IOC[] = [
+    { type: "sha256", value: sqlHash, reputation: "malicious", tags: ["post-exploitation", "xp-cmdshell-payload", "mssql"] },
     { type: "ip",   value: attackerIp,          reputation: "suspicious", tags: ["internal-attacker", "kerberoasting-source", "developer-workstation"] },
     { type: "user", value: "m.cohen@nexacorp.com", reputation: "suspicious", tags: ["compromised-user", "kerberoasting-actor"] },
     { type: "user", value: "svc-mssql",           reputation: "suspicious", tags: ["compromised-svc-account", "cracked-via-kerberoast"] },
@@ -5055,7 +5063,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     // ── CORRELATED: Baseline — WS-ENG-3301 normal DNS query volume ────────────────
     {
       id: "evt_dns_baseline_volume", ts: T(-10 * MIN),
-      source: "dns", vendor: "Windows DNS",
+      source: "dns", vendor: "Windows DNS Server",
       event_type: "dns_query", severity: "informational",
       hostname: victimHost, src_ip: victimIp,
       description: "WS-ENG-3301 sent about 21 DNS queries per minute to developer tool domains (GitHub, npm, VS Code) — its normal baseline.",
@@ -5107,7 +5115,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     // ── CORRELATED: Firewall — c2Domain newly registered (3 days old) ─────────────
     {
       id: "evt_dns_fw_newdomain", ts: T(3 * MIN + 10_000),
-      source: "firewall", vendor: "Palo Alto Networks",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection", severity: "medium",
       src_ip: victimIp, dst_port: 53,
       hostname: victimHost,
@@ -5515,7 +5523,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     // ── CORRELATED: Network event — certutil external HTTP connection ──────────────
     {
       id: "evt_lol_certutil_net", ts: T(0),
-      source: "firewall", vendor: "Palo Alto Networks",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection", severity: "high",
       mitre_technique: "T1105",
       src_ip: victimIp, dst_port: 80,
@@ -5561,7 +5569,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     // ── CORRELATED: Network event — regsvr32 fetching SCT from attacker server ────
     {
       id: "evt_lol_regsvr_net", ts: T(4 * MIN + 5_000),
-      source: "firewall", vendor: "Palo Alto Networks",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection", severity: "critical",
       mitre_technique: "T1218.010",
       src_ip: victimIp, dst_port: 80,
@@ -5589,6 +5597,14 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     { type: "domain", value: "attacker.com",                                          reputation: "malicious", tags: ["c2-domain", "regsvr32-sct", "bitsadmin-download"] },
     { type: "sha256", value: payloadHash,                                             reputation: "malicious", tags: ["lolbins-payload", "evil-dll", "persistence-binary"] },
     { type: "sha256", value: certutilHash,                                            reputation: "malicious", tags: ["certutil-downloaded-payload"] },
+    // LOLBins: these are real, signed Microsoft binaries. A hash check on them
+    // comes back clean — which is the point. The binary is trusted; what makes
+    // this an attack is the command line and the parent process, not the file.
+    { type: "sha256", value: makeSha256("regsvr32_system_binary"),                     reputation: "clean",     tags: ["signed-microsoft-binary", "regsvr32", "lolbin"] },
+    { type: "sha256", value: makeSha256("mshta_exe_system_binary"),                    reputation: "clean",     tags: ["signed-microsoft-binary", "mshta", "lolbin"] },
+    { type: "sha256", value: makeSha256("wmic_exe_system_binary"),                     reputation: "clean",     tags: ["signed-microsoft-binary", "wmic", "lolbin"] },
+    { type: "sha256", value: makeSha256("bitsadmin_system_binary"),                    reputation: "clean",     tags: ["signed-microsoft-binary", "bitsadmin", "lolbin"] },
+    { type: "sha256", value: makeSha256("schtasks_system_binary"),                     reputation: "clean",     tags: ["signed-microsoft-binary", "schtasks", "lolbin"] },
     { type: "ip",     value: "185.220.101.55",                                        reputation: "malicious", tags: ["attacker-c2-ip", "regsvr32-sct-server", "bitsadmin-server"] },
     { type: "url",    value: "http://malicious-update.ru/update.exe",                 reputation: "malicious", tags: ["lolbin-download-url"] },
     { type: "url",    value: "http://attacker.com/payload.sct",                       reputation: "malicious", tags: ["squiblydoo-sct-url"] },
@@ -6225,7 +6241,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     // ── EVENT 1 — RDP logon from Netherlands attacker IP ────────────────────
     {
       id: "evt_dc_01_rdp", ts: T(0),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dc01, user_email: adminEmail, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1021.001",
       description: `The it.admin account RDP'd (RemoteInteractive) directly into ${dc01} from ${attackerIp} in Amsterdam, Netherlands, at 01:15 — the first time this account has authenticated from that country.`,
@@ -6364,7 +6380,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     // ── EVENT 4 — DCSync: DS-Replication-Get-Changes (Event 4662) ───────────
     {
       id: "evt_dc_04_dcsync_get", ts: T(8 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "privileged_operation",
+      source: "ad", vendor: "Windows Security", event_type: "privileged_operation",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1003.006",
       description: "it.admin, a non-DC user account, exercised DS-Replication-Get-Changes and DS-Replication-Get-Changes-All rights against CN=NEXACORP,DC=nexacorp,DC=com — rights normally reserved for domain controller machine accounts.",
@@ -6410,7 +6426,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     // ── EVENT 5 — DCSync: krbtgt hash extraction (second 4662) ─────────────
     {
       id: "evt_dc_05_dcsync_krbtgt", ts: T(10 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "privileged_operation",
+      source: "ad", vendor: "Windows Security", event_type: "privileged_operation",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1003.006",
       description: "it.admin issued a second replication request, this one specifically targeting CN=krbtgt,CN=Users,DC=nexacorp,DC=com.",
@@ -6454,7 +6470,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     // ── EVENT 6 — Golden Ticket Kerberos TGT with 10-year lifetime ──────────
     {
       id: "evt_dc_06_golden_kerberos", ts: T(13 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "kerberos_tgt",
+      source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1558.001",
       description: "A Kerberos TGT for it.admin was issued with a lifetime of 87,600 hours (10 years) and RC4 encryption — the domain's Kerberos policy caps ticket lifetime at 10 hours.",
@@ -6506,7 +6522,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     // ── EVENT 7 — Lateral movement to DC02 using Golden Ticket ──────────────
     {
       id: "evt_dc_07_lateral", ts: T(17 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "auth_success",
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dc02, user_email: adminEmail, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1550.003",
       description: `it.admin authenticated to ${dc02} via a network logon (Type 3) using the forged ticket, directly from ${attackerIp} — no internal workstation in the path.`,
@@ -6621,7 +6637,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     // ── EVENT 9 — Shadow admin account created ───────────────────────────────
     {
       id: "evt_dc_09_shadow_admin", ts: T(23 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "account_create",
+      source: "ad", vendor: "Windows Security", event_type: "account_create",
       hostname: dc01, user_email: adminEmail,
       severity: "high", mitre_technique: "T1136.001",
       description: `it.admin created a new account, svc-monitoring-prod, on ${dc01} and immediately added it to Domain Admins.`,
@@ -6674,7 +6690,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     // ── EVENT 10 — Security audit log cleared (Event 1102) ──────────────────
     {
       id: "evt_dc_10_logclear", ts: T(25 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory", event_type: "audit_log_cleared",
+      source: "ad", vendor: "Windows Security", event_type: "audit_log_cleared",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1070.001",
       description: `it.admin cleared the Security event log on ${dc01} (Event 1102), two minutes after creating the svc-monitoring-prod account.`,
@@ -7128,6 +7144,8 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
     { type: "ip",     value: attacker.relayIp,      reputation: "malicious",  tags: ["attacker-relay", "singapore"] },
     { type: "domain", value: attacker.c2Domain,     reputation: "malicious",  tags: ["c2", "fake-telemetry", "self-signed"] },
     { type: "sha256", value: malDllHash,             reputation: "malicious",  tags: ["trojanized-dll", "supply-chain", "netpulse"] },
+    // The victim's own credentials file — legitimate content, hostile access.
+    { type: "sha256", value: makeSha256("aws_credentials_rocketstack"), reputation: "clean", tags: ["victim-owned-file", "aws-credentials"] },
     { type: "user",   value: victim.adminEmail,      reputation: "suspicious", tags: ["compromised-credentials", "devops"] },
     { type: "url",    value: `https://${attacker.c2Domain}/beacon`, reputation: "malicious", tags: ["c2-beacon"] },
   ];
@@ -7336,7 +7354,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_06_mail_access",
       ts: T(14 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "cloud_api_call", severity: "high", mitre_technique: "T1114.002",
       hostname: "graph.microsoft.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "3,847 mailbox items in j.chen's inbox were accessed via Microsoft Graph API from the same Russian IP, two minutes after device enrollment.",
@@ -7355,7 +7373,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_07_sharepoint_bulk",
       ts: T(16 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "sharepoint_download", severity: "high", mitre_technique: "T1530",
       hostname: "nexacorp.sharepoint.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "847 files (2.3GB) were downloaded from the Finance SharePoint site in 4 minutes — 650x j.chen's normal daily download volume.",
@@ -7413,7 +7431,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_10_inbox_rule",
       ts: T(24 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "account_modify", severity: "high", mitre_technique: "T1114.003",
       hostname: "outlook.office365.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "An inbox rule forwarding all of j.chen's email to j.chen.backup@proton.me and marking it as read was created.",
@@ -7535,7 +7553,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_01_ldap_discovery",
       ts: T(0),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "privileged_operation", severity: "medium", mitre_technique: "T1087.002",
       hostname: "WS-DEV-09", user_email: "m.johnson@nexacorp.com", src_ip: "10.0.1.45",
       description: "WS-DEV-09 sent an LDAP query against DC01 filtering for userAccountControl flag 4194304 — accounts with Kerberos pre-authentication disabled.",
@@ -7555,7 +7573,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_02_asrep_svcbackup",
       ts: T(2 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "kerberos_tgt", severity: "high", mitre_technique: "T1558.004",
       hostname: "DC01", user_email: "svc-backup@nexacorp.com", src_ip: "10.0.1.45",
       description: "DC01 issued a Kerberos AS-REP for svc-backup with PreAuthType=0 and RC4 encryption — no credentials were required to receive this ticket.",
@@ -7578,7 +7596,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_03_asrep_svcmonitoring",
       ts: T(2 * MIN + 15_000),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "kerberos_tgt", severity: "high", mitre_technique: "T1558.004",
       hostname: "DC01", user_email: "svc-monitoring@nexacorp.com", src_ip: "10.0.1.45",
       description: "DC01 issued a second PreAuthType=0, RC4-encrypted AS-REP, this time for svc-monitoring, 15 seconds after svc-backup.",
@@ -7600,7 +7618,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_04_asrep_svcreports",
       ts: T(2 * MIN + 30_000),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "kerberos_tgt", severity: "high", mitre_technique: "T1558.004",
       hostname: "DC01", user_email: "svc-reports@nexacorp.com", src_ip: "10.0.1.45",
       description: "A third PreAuthType=0, RC4-encrypted AS-REP was issued for svc-reports, 15 seconds after svc-monitoring — three roastable accounts identified from WS-DEV-09 in under a minute.",
@@ -7643,7 +7661,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_06_kerberos_network",
       ts: T(2 * MIN + 5_000),
-      source: "proxy", vendor: "Zeek Network Monitor",
+      source: "proxy", vendor: "Corelight (Zeek)",
       event_type: "net_connection", severity: "medium", mitre_technique: "T1558.004",
       hostname: "WS-DEV-09", src_ip: "10.0.1.45", dst_ip: "10.0.0.5", dst_port: 88,
       description: "Zeek logged 3 rapid Kerberos AS requests (UDP/88, RC4-HMAC) from WS-DEV-09 to DC01 within seconds of each other.",
@@ -7662,7 +7680,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_07_lateral_svcbackup",
       ts: T(6 * HOUR),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "high", mitre_technique: "T1078.002",
       hostname: "SRV-FILE01", user_email: "svc-backup@nexacorp.com", src_ip: "10.0.1.45",
       description: "svc-backup authenticated to SRV-FILE01 via a network logon (Type 3) originating from WS-DEV-09, 6 hours after the AS-REP ticket was captured.",
@@ -7683,7 +7701,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_08_sebackupprivilege",
       ts: T(6 * HOUR + 1 * MIN),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "privileged_operation", severity: "critical", mitre_technique: "T1078.002",
       hostname: "SRV-FILE01", user_email: "svc-backup@nexacorp.com",
       description: "The svc-backup logon session on SRV-FILE01 was assigned SeBackupPrivilege, SeRestorePrivilege, and SeCreateSymbolicLinkPrivilege.",
@@ -7875,7 +7893,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
     {
       id: "ntlm_03_auth_failure_relay",
       ts: T(5_000),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "auth_failure", severity: "medium", mitre_technique: "T1557.001",
       hostname: "WS-DEV-09", user_email: "l.nguyen@nexacorp.com", src_ip: "10.0.1.31",
       description: "l.nguyen's NTLM authentication from WS-FIN-03 to WS-DEV-09 failed with SubStatus 0xC000006A.",
@@ -7916,7 +7934,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
     {
       id: "ntlm_05_relay_auth_success",
       ts: T(8_000),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "high", mitre_technique: "T1078",
       hostname: "SRV-FILE01", user_email: "l.nguyen@nexacorp.com", src_ip: "10.0.1.45",
       description: "l.nguyen's account authenticated to SRV-FILE01 via a network logon (Type 3), but the source IP is WS-DEV-09 — not l.nguyen's own workstation, WS-FIN-03.",
@@ -7954,7 +7972,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
     {
       id: "ntlm_07_system_logon",
       ts: T(15 * MIN + 3_000),
-      source: "ad", vendor: "Microsoft Active Directory",
+      source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "high", mitre_technique: "T1021.002",
       hostname: "SRV-FILE01",
       description: "A LogonType 5 (Service) logon for NT AUTHORITY\\SYSTEM was recorded on SRV-FILE01, three seconds after PSEXESVC.exe was installed.",
@@ -8128,7 +8146,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     {
       id: "k8s_01_kubectl_exec",
       ts: T(0),
-      source: "k8s_audit", vendor: "Kubernetes Audit (EKS)",
+      source: "k8s_audit", vendor: "Kubernetes Audit",
       event_type: "k8s_exec", severity: "medium", mitre_technique: "T1610",
       hostname: "api-prod-7f8b9c", src_ip: "185.220.101.47", dst_port: 443,
       description: "The ci-deploy-token service account ran kubectl exec into container api-prod-7f8b9c from 185.220.101.47, a known Tor exit node.",
@@ -8268,7 +8286,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     {
       id: "k8s_09_privileged_pod",
       ts: T(12 * MIN),
-      source: "k8s_audit", vendor: "Kubernetes Audit (EKS)",
+      source: "k8s_audit", vendor: "Kubernetes Audit",
       event_type: "k8s_pod_create", severity: "critical", mitre_technique: "T1610",
       src_ip: "185.220.101.47",
       description: "ci-deploy-token created a pod named svc-monitoring-backup in kube-system with hostPID, hostNetwork, and privileged:true, pulling its image from 185.220.101.47:5000.",
@@ -8432,7 +8450,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     {
       id: "oauth_02_mail_access",
       ts: T(55 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "cloud_api_call", severity: "high", mitre_technique: "T1114.002",
       hostname: "graph.microsoft.com", user_email: "j.chen@nexacorp.com", src_ip: "40.99.8.12",
       description: "The Productivity Suite Pro app accessed 1,247 items in j.chen's mailbox via Microsoft Graph, 55 minutes after consent was granted.",
@@ -8451,7 +8469,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     {
       id: "oauth_03_folder_enum",
       ts: T(56 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "cloud_api_call", severity: "high", mitre_technique: "T1114.002",
       hostname: "graph.microsoft.com", user_email: "j.chen@nexacorp.com", src_ip: "40.99.8.12",
       description: "The same app called MailFolders.List and enumerated all 43 of j.chen's mailbox folders.",
@@ -8468,7 +8486,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     {
       id: "oauth_04_inbox_rule",
       ts: T(58 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "policy_modification", severity: "high", mitre_technique: "T1114.003",
       hostname: "outlook.office365.com", user_email: "j.chen@nexacorp.com", src_ip: "40.99.8.12",
       description: "New-InboxRule was created with UserId set to the app's own ID (not j.chen), forwarding all mail to backupmail@productivity-suite.pro.",
@@ -8490,7 +8508,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     {
       id: "oauth_05_sharepoint_bulk",
       ts: T(62 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "sharepoint_access", severity: "high", mitre_technique: "T1530",
       hostname: "nexacorp.sharepoint.com", user_email: "j.chen@nexacorp.com", src_ip: "40.99.8.12",
       description: "312 files on the Finance SharePoint site were accessed with UserId set to the app's own ID.",
@@ -8508,7 +8526,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     {
       id: "oauth_06_calendar_read",
       ts: T(65 * MIN),
-      source: "o365", vendor: "Microsoft 365",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "cloud_api_call", severity: "medium", mitre_technique: "T1114.002",
       hostname: "graph.microsoft.com", user_email: "j.chen@nexacorp.com", src_ip: "40.99.8.12",
       description: "CalendarEvents.List returned 847 of j.chen's calendar events spanning the last 90 days.",

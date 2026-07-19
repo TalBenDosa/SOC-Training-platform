@@ -744,7 +744,15 @@ export default function DashboardPage() {
         {/* Missed-attack debrief — a coaching moment, never a silent penalty */}
         {live.missedAttack && (() => {
           const ids = new Set(live.activeIncident?.eventIds ?? []);
-          const missedEvents = live.events.filter(e => ids.has(e.id)).slice(0, 6);
+          // live.events is newest-first (new batches are prepended), so filtering
+          // and slicing it directly showed the kill chain BACKWARDS and — worse —
+          // kept the LAST six events while dropping the first. The opening moves
+          // are exactly what a student needs to learn to catch, so sort
+          // chronologically and keep the EARLIEST six.
+          const missedEvents = live.events
+            .filter(e => ids.has(e.id))
+            .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
+            .slice(0, 6);
           return (
             <div className="rounded-lg border border-neon-amber/40 bg-neon-amber/5 px-5 py-4">
               <div className="flex items-start gap-3">
