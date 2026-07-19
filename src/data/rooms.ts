@@ -24,6 +24,7 @@ import roomsBatch13 from "@/data/rooms-batch-13";
 import roomsBatch14 from "@/data/rooms-batch-14";
 import roomsBatch15 from "@/data/rooms-batch-15";
 import roomsBatch16 from "@/data/rooms-batch-16";
+import roomsBatch17 from "@/data/rooms-batch-17";
 
 // ---------------------------------------------------------------------------
 // Task types
@@ -176,4 +177,5 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch14), // aws-security, analyst-mindset, edge-case-usecases, dlp-fundamentals, gcp-security, soar-automation
   ...cast(roomsBatch15), // kubernetes-container-security
   ...cast(roomsBatch16), // azure-security
+  ...cast(roomsBatch17), // tcpip-deep-dive, dns-deep-dive, tls-encrypted-traffic, windows-protocols-lateral, email-protocols-forensics, tunneling-c2-channels
 ];
