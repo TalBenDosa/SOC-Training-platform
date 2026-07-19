@@ -25,7 +25,6 @@ import {
   AlertTriangle, BookOpen, Building2, FileText, Filter, LogOut, Pause, Play,
   RefreshCw, Search, Siren, Star, Target, X, Zap,
 } from "lucide-react";
-import Link from "next/link";
 
 const COMPANY_KEY       = "soc_selected_company_v1";
 const UNLOCKED_KEY      = "soc_company_progress_v1";
@@ -291,6 +290,12 @@ export default function DashboardPage() {
   const [sessionStory,     setSessionStory]     = useState<AttackStory | null>(null);
   const [injectedStories,  setInjectedStories]  = useState<AttackStory[]>([]);
   const [scenarioObjective,   setScenarioObjective]   = useState<string | null>(null);
+  // Session clock — set when a training session starts, cleared when it ends.
+  // Drives the "session active" indicator so the analyst always knows whether
+  // a graded session is running and how long they've been on shift.
+  const [sessionStartedAt,    setSessionStartedAt]    = useState<number | null>(null);
+  const [sessionDifficulty,   setSessionDifficulty]   = useState<Difficulty | null>(null);
+  const [sessionElapsed,      setSessionElapsed]      = useState(0);
   const [showReportModal,     setShowReportModal]     = useState(false);
   const [showChainBoard,      setShowChainBoard]      = useState(false);
 
@@ -489,8 +494,29 @@ export default function DashboardPage() {
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
     setScenarioObjective(`${label} session — watch the feed, identify the attack hidden in it, and report it. You will not be told what it is.`);
+    setSessionStartedAt(Date.now());
+    setSessionDifficulty(difficulty);
+    setSessionElapsed(0);
     live.reset(getCompanyEvents(selectedCompanyId), story);
   };
+
+  /** Ends the session and stops the clock. */
+  const handleEndSession = () => {
+    setSessionSummary(live.endSession());
+    setSessionStartedAt(null);
+    setSessionDifficulty(null);
+  };
+
+  // Tick the session clock once a second while a session is running.
+  useEffect(() => {
+    if (sessionStartedAt === null) return;
+    const id = setInterval(() => {
+      setSessionElapsed(Math.floor((Date.now() - sessionStartedAt) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [sessionStartedAt]);
+
+  const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
 
   const handleXpAward = (_delta: number) => {
     // Stub — AttackChainBoard requires an onXpAward prop but doesn't currently
@@ -557,7 +583,7 @@ export default function DashboardPage() {
               {reportPassed ? "Report Submitted ✓" : "Report Incident"}
             </button>
             <button
-              onClick={() => setSessionSummary(live.endSession())}
+              onClick={handleEndSession}
               className="flex items-center gap-1.5 rounded border border-neon-amber/40 bg-neon-amber/8 px-2.5 py-1.5 text-xs font-semibold text-neon-amber hover:bg-neon-amber/15 transition"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -588,9 +614,30 @@ export default function DashboardPage() {
             <span className="font-semibold text-white">Companies</span>
             <span className="font-mono text-sm font-bold text-neon-purple">{clearedCompanies.length}/{COMPANY_ORDER.length}</span>
           </span>
-          <Link href="/scenarios" className="ml-auto">
-            <Button variant="outline" size="sm"><Zap className="h-3.5 w-3.5" /> Full Scenario</Button>
-          </Link>
+          {/* Session state — the analyst should never have to guess whether a
+              graded session is running. Live pulse + elapsed clock when active,
+              an explicit idle hint when not. */}
+          {sessionStartedAt !== null ? (
+            <span className="ml-auto flex items-center gap-2.5 rounded-full border border-neon-green/40 bg-neon-green/10 px-3.5 py-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-green opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-neon-green" />
+              </span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-neon-green">Session active</span>
+              {sessionDifficulty && (
+                <span className="rounded border border-neon-green/30 px-1.5 py-px text-[10px] font-semibold uppercase text-neon-green/80">
+                  {sessionDifficulty}
+                </span>
+              )}
+              <span className="font-mono text-xs font-bold text-white">{sessionClock}</span>
+            </span>
+          ) : (
+            <span className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+              <span className="h-2 w-2 rounded-full bg-slate-600" />
+              No active session — press
+              <span className="font-semibold text-slate-400">Start Training</span>
+            </span>
+          )}
         </div>
 
         {/* Scenario objective banner */}
