@@ -19,6 +19,7 @@ import type { DashboardSessionRecord } from "./useLiveEvents";
 import { IncidentReportModal } from "./IncidentReportModal";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
+import { startDashboardTour } from "./OnboardingTour";
 import { COMPANY_PROFILES, COMPANY_EVENTS, NEXACORP_PROFILE } from "@/lib/sim/companyProfiles";
 import {
   AlertTriangle, BookOpen, Building2, FileText, Filter, LogOut, Pause, Play,
@@ -96,75 +97,85 @@ const SOURCES = [
 
 const WELCOME_KEY = "soc_welcome_seen_v1";
 
-function SOCWelcomeModal({ onClose }: { onClose: () => void }) {
+/**
+ * The single onboarding entry point for the dashboard. The 10-step SIEM tour is
+ * offered here as a CHOICE rather than auto-opening on a timer — previously both
+ * appeared at once (two stacked dark overlays, 13 screens before the analyst
+ * could touch anything), which is what made onboarding feel cluttered.
+ */
+function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeTour: () => void }) {
   return (
     // Overlay is fixed and scrollable so the card never pushes the page (no jump).
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/75 p-4 py-[6vh]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
       {/* Card is capped at viewport height and scrolls internally if needed. */}
-      <div className="relative w-full max-w-lg max-h-[88vh] overflow-y-auto rounded-xl border border-border bg-bg-elevated shadow-2xl">
+      <div className="relative w-full max-w-[30rem] max-h-[86vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl shadow-black/60">
 
         {/* Top accent bar */}
-        <div className="sticky top-0 h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-severity-critical" />
+        <div className="sticky top-0 z-10 h-[3px] w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-severity-critical" />
 
-        <div className="px-7 py-6 space-y-5">
+        <div className="px-7 pb-7 pt-6">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyber-500/15 border border-cyber-500/30">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyber-500/15 border border-cyber-500/30">
               <Siren className="h-5 w-5 text-cyber-300" />
             </span>
-            <div>
-              <h2 className="text-lg font-bold text-white">Welcome — you&apos;re the SOC analyst on shift</h2>
-              <p className="text-[11px] text-slate-400 uppercase tracking-widest">3 steps · takes 20 seconds to read</p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyber-500">Shift briefing</p>
+              <h2 className="text-[17px] font-bold leading-tight text-white">You&apos;re the SOC analyst on shift</h2>
             </div>
           </div>
 
-          {/* Mission — one plain sentence */}
-          <div className="rounded-lg border border-neon-amber/30 bg-neon-amber/5 px-5 py-3.5">
-            <p className="text-sm text-slate-200 leading-relaxed">
-              A stream of security events is scrolling in below. <span className="font-semibold text-white">Most are normal.</span> A
-              real attack is hidden inside. Your job: <span className="font-semibold text-white">find it, and report it.</span>
-            </p>
-          </div>
+          {/* Mission — the one thing that must land */}
+          <p className="mt-5 text-[13px] leading-relaxed text-slate-300">
+            Security events are streaming in below. <span className="font-semibold text-white">Most are normal.</span> A real
+            attack is hidden among them — <span className="font-semibold text-white">find it and report it.</span>
+          </p>
 
-          {/* 3 dead-simple steps — mirrors the workflow strip on the dashboard */}
-          <div className="space-y-2.5">
+          {/* 3 steps — flat list, no nested boxes, scannable at a glance */}
+          <ol className="mt-5 space-y-3.5">
             {[
-              { n: "1", title: "Watch the feed", body: "Events stream in from the company's security tools. Click any row to open its full log and read the raw fields." },
-              { n: "2", title: "Investigate for yourself", body: "There's no “is this bad?” button — that's the whole point. Read the evidence, widen the timeline, and decide in your own head what's normal and what's the attack." },
-              { n: "3", title: "Report the incident", body: "When you've pieced the attack together, press the purple Report Incident button (top-right) and write up what happened — that report is graded, not a click." },
+              { n: "1", title: "Watch the feed", body: "Click any row to open its full raw log." },
+              { n: "2", title: "Investigate yourself", body: "There's no “is this bad?” button — read the evidence and decide." },
+              { n: "3", title: "Report the incident", body: "Press Report Incident and write what happened. The report is graded." },
             ].map(({ n, title, body }) => (
-              <div key={n} className="flex gap-3 rounded-lg border border-border/60 bg-[#0d1520] px-4 py-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyber-500/20 border border-cyber-500/40 font-mono text-xs font-bold text-cyber-300">{n}</span>
-                <div>
-                  <p className="text-sm font-semibold text-white">{title}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-400 leading-relaxed">{body}</p>
+              <li key={n} className="flex gap-3">
+                <span className="mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-cyber-500/40 bg-cyber-500/15 font-mono text-[11px] font-bold text-cyber-300">
+                  {n}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-snug text-white">{title}</p>
+                  <p className="mt-0.5 text-[12px] leading-relaxed text-slate-400">{body}</p>
                 </div>
-              </div>
+              </li>
+            ))}
+          </ol>
+
+          {/* Severity legend — the one visual cue worth learning up front */}
+          <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border/50 bg-bg/50 px-4 py-3">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Severity</span>
+            {[
+              { v: "1", label: "1–3 routine",    cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
+              { v: "5", label: "4–6 look closer", cls: "border-severity-medium/80 bg-severity-medium/70 text-white" },
+              { v: "9", label: "7–10 act now",    cls: "border-severity-critical bg-severity-critical text-white" },
+            ].map(({ v, label, cls }) => (
+              <span key={v} className="flex items-center gap-1.5 text-[12px] text-slate-300">
+                <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded border font-mono text-[10px] font-bold", cls)}>{v}</span>
+                {label}
+              </span>
             ))}
           </div>
 
-          {/* Rule level legend — the one visual cue worth learning up front */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-border/40 bg-bg/60 px-5 py-3">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Severity:</span>
-            <span className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-slate-500/50 bg-slate-600/50 font-mono text-[10px] font-bold text-slate-300">1</span>
-              1–3 routine
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-severity-medium/80 bg-severity-medium/70 font-mono text-[10px] font-bold text-white">5</span>
-              4–6 look closer
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-slate-300">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-severity-critical font-mono text-[10px] font-bold text-white bg-severity-critical">9</span>
-              7–10 act now
-            </span>
-          </div>
-
-          {/* CTA */}
-          <div className="flex justify-end pt-1">
+          {/* CTAs — start now, or take the guided tour first */}
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button
-              onClick={onClose}
-              className="flex items-center gap-2 rounded-lg bg-cyber-500 px-6 py-2.5 text-sm font-bold text-bg shadow hover:bg-cyber-400 transition"
+              onClick={onTakeTour}
+              className="rounded-lg border border-border-strong px-4 py-2.5 text-[13px] font-semibold text-slate-300 transition hover:border-cyber-500/50 hover:text-white"
+            >
+              Take the guided tour
+            </button>
+            <button
+              onClick={onStart}
+              className="flex items-center justify-center gap-2 rounded-lg bg-cyber-500 px-6 py-2.5 text-[13px] font-bold text-bg shadow transition hover:bg-cyber-400"
             >
               <Zap className="h-4 w-4" />
               Start my shift
@@ -388,6 +399,13 @@ export default function DashboardPage() {
     if (!localStorage.getItem(COMPANY_KEY)) setShowCompanySelector(true);
   };
 
+  /** Briefing → guided tour. Dismiss the modal FIRST so the two never overlap. */
+  const handleTakeTour = () => {
+    localStorage.setItem(WELCOME_KEY, "1");
+    setShowWelcome(false);
+    startDashboardTour();
+  };
+
   const handleSelectCompany = (id: string) => {
     setSelectedCompanyId(id);
     localStorage.setItem(COMPANY_KEY, id);
@@ -481,7 +499,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      {showWelcome && <SOCWelcomeModal onClose={handleCloseWelcome} />}
+      {showWelcome && <SOCWelcomeModal onStart={handleCloseWelcome} onTakeTour={handleTakeTour} />}
 
       {showCompanySelector && (
         <CompanySelector
@@ -505,6 +523,16 @@ export default function DashboardPage() {
         subtitle={`${selectedCompany.industry} · ${selectedCompany.hq} · ${selectedCompany.size.toLocaleString()} employees`}
         actions={
           <div className="flex items-center gap-2">
+            {/* The SIEM tour is opt-in (it no longer auto-opens over the shift
+                briefing), so it needs a permanent, discoverable way back in. */}
+            <button
+              onClick={startDashboardTour}
+              title="Replay the SIEM dashboard tour"
+              className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover transition"
+            >
+              <BookOpen className="h-3.5 w-3.5 text-slate-400" />
+              Tour
+            </button>
             <button
               onClick={() => setShowCompanySelector(true)}
               className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover transition"

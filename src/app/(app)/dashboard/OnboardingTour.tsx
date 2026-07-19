@@ -315,16 +315,34 @@ function TourCard({
 }
 
 // ─── Dashboard Tour ────────────────────────────────────────────────────────────
+
+/**
+ * The tour is OPT-IN. It used to auto-open on a 900ms timer, which meant a
+ * first-time analyst got the welcome briefing modal AND this 10-step tour on
+ * screen at the same time — two stacked dark overlays competing for attention,
+ * and 13 screens of instruction before they were allowed to do anything.
+ * Now the briefing modal (dashboard/page.tsx) is the single entry point and
+ * offers the tour as a choice; this component only opens when explicitly asked.
+ */
+export const START_DASHBOARD_TOUR_EVENT = "soc:start-dashboard-tour";
+
+/** Launch the SIEM tour from anywhere (briefing modal CTA, "Tour" button…). */
+export function startDashboardTour() {
+  window.dispatchEvent(new CustomEvent(START_DASHBOARD_TOUR_EVENT));
+}
+
+/** True once the analyst has finished/skipped the tour at least once. */
+export function hasSeenDashboardTour(): boolean {
+  try { return Boolean(localStorage.getItem(DASHBOARD_TOUR_KEY)); } catch { return false; }
+}
+
 export function DashboardTour() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    try {
-      if (!localStorage.getItem(DASHBOARD_TOUR_KEY)) {
-        const t = setTimeout(() => setVisible(true), 900);
-        return () => clearTimeout(t);
-      }
-    } catch { /* localStorage unavailable */ }
+    const onStart = () => setVisible(true);
+    window.addEventListener(START_DASHBOARD_TOUR_EVENT, onStart);
+    return () => window.removeEventListener(START_DASHBOARD_TOUR_EVENT, onStart);
   }, []);
 
   function handleDone() {
