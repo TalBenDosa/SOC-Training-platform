@@ -1200,7 +1200,7 @@ const mitreAttackEvent: TelemetryEvent = {
     },
     RiskState: "atRisk",
     RiskLevel: "high",
-    RiskDetail: "adminConfirmedSigninCompromised",
+    RiskDetail: "none",
     DetectionSource: "MicrosoftCloudAppSecurity",
     AlertId: "ALERT-2024-061047832",
   },

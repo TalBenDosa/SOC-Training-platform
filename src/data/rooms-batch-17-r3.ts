@@ -75,7 +75,7 @@ const certInvestigationEvent: TelemetryEvent = {
     "ssl.issuer": "CN=ci-artifact-sync.io",
     "ssl.cert_serial": "01",
     "ssl.not_valid_before": "2026-04-04T08:00:00Z",
-    "ssl.not_valid_after": "2026-04-04T08:00:00Z",
+    "ssl.not_valid_after": "2027-04-04T08:00:00Z",
     "ssl.validation_status": "self signed certificate",
     "ssl.ja3": "72a589da586844d7f0818ce684948eea",
     "ssl.jarm": "27d3ed3ed0003ed1dc42d43d00041d5d6e2ecd3b0d0e2f6f2c0c0c0c0c0c0c",

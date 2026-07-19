@@ -1180,7 +1180,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
         mitre_technique: "T1566.001 - Phishing: Spearphishing Attachment / T1078 - Valid Accounts",
         raw: {
           "email.from": "ceo@corp-secure.com",
-          "email.reply_to": "attacker@gmail.com",
+          "email.reply_to": "r.donovan1985@gmail.com",
           "email.to": "finance@corp.com",
           "email.subject": "URGENT: Approve Wire Transfer $250,000",
           "email.message_id": "<abc@mail-out.corp-secure.com>",
@@ -1197,13 +1197,13 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
           question: "The email shows 'CEO John Smith <ceo@corp-secure.com>' in the From field. Which header field reveals that replies would actually go to an attacker's address?",
           options: [
             "email.message_id — the Message-ID shows the real destination",
-            "email.reply_to — set to attacker@gmail.com instead of the company domain",
+            "email.reply_to — set to r.donovan1985@gmail.com instead of the company domain",
             "email.x_originating_ip — the IP address reveals the attacker's identity",
             "email.authentication_results — the DMARC fail reveals the reply destination",
           ],
           answer: 1,
           explanation:
-            "The email.reply_to field is set to attacker@gmail.com — a completely different domain from the purported sender (corp-secure.com). When the finance employee clicks 'Reply,' their email client will automatically address the reply to attacker@gmail.com, not to the CEO. The attacker then receives the reply (which might include a confirmation of the wire transfer or sensitive financial details). This Reply-To mismatch is a classic BEC technique — the From address looks legitimate but all correspondence goes to the attacker.",
+            "The email.reply_to field is set to r.donovan1985@gmail.com — a completely different domain from the purported sender (corp-secure.com). When the finance employee clicks 'Reply,' their email client will automatically address the reply to r.donovan1985@gmail.com, not to the CEO. The attacker then receives the reply (which might include a confirmation of the wire transfer or sensitive financial details). This Reply-To mismatch is a classic BEC technique — the From address looks legitimate but all correspondence goes to the attacker.",
           xp: 35,
         },
         {
@@ -1227,7 +1227,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       type: "flag" as const,
       id: "email-sec-flag1",
       prompt: `In the phishing email log above, the attacker set the Reply-To header to redirect any replies away from the CEO and to an attacker-controlled address. Enter the exact email address found in the email.reply_to field.`,
-      answer: "attacker@gmail.com",
+      answer: "r.donovan1985@gmail.com",
       hint: "Look at the email.reply_to field in the raw log. The attacker used a free webmail provider, not the company domain.",
       xp: 40,
     },

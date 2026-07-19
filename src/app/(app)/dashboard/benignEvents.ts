@@ -1509,7 +1509,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     description: "Inbound SSH connection attempt from TOR exit node 185.220.101.55 to 10.10.20.14 — blocked by firewall",
     raw: { "event.action": "block", "source.ip": "185.220.101.55",
            "destination.ip": "10.10.20.14", "destination.port": "22",
-           "source.geo.country_name": "Germany", "threat.category": "TOR",
+           "source.geo.country_name": "Netherlands", "threat.category": "TOR",
            "rule.name": "BLOCK-INBOUND-SSH", "rule.action": "deny",
            "network.bytes": "0", "session.blocked": "true",
            "threat.indicator": "TOR exit node" },
@@ -1864,7 +1864,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DHCP ─────────────────────────────────────────────────────────────────
   {
-    id: "b_dhcp_01", ts: T(0), source: "ad", vendor: "Windows DHCP Server",
+    id: "b_dhcp_01", ts: T(0), source: "dhcp", vendor: "Windows DHCP Server",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-FIN-2847", src_ip: "10.10.20.14",
     description: "WS-FIN-2847 renewed DHCP lease",
@@ -1875,7 +1875,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Azure AD (Entra ID) — SSO sign-ins ──────────────────────────────────
   {
-    id: "b_okta_01", ts: T(5), source: "ad", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_01", ts: T(5), source: "o365", vendor: "Azure AD (Entra ID)",
     event_type: "auth_success", severity: "informational",
     user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     description: "r.williams signed in to Salesforce",
@@ -1889,7 +1889,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_okta_02", ts: T(17), source: "ad", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_02", ts: T(17), source: "o365", vendor: "Azure AD (Entra ID)",
     event_type: "auth_success", severity: "informational",
     user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.55",
     description: "d.brown signed in to Workday",
@@ -1901,7 +1901,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_okta_03", ts: T(32), source: "ad", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_03", ts: T(32), source: "o365", vendor: "Azure AD (Entra ID)",
     event_type: "mfa_challenge", severity: "low",
     user_email: "a.jones@nexacorp.com", src_ip: "82.102.14.211",
     description: "a.jones two-factor push for GitHub Enterprise approved",
@@ -1915,7 +1915,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_okta_04", ts: T(58), source: "ad", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_04", ts: T(58), source: "o365", vendor: "Azure AD (Entra ID)",
     event_type: "auth_success", severity: "informational",
     user_email: "m.edwards@nexacorp.com", user_title: "Finance Manager", src_ip: "10.10.10.5",
     description: "m.edwards signed in to ServiceNow",
@@ -2220,7 +2220,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   {
     id: "b_itv_05", ts: "2026-05-10T16:38:00.000Z",
-    source: "ad", event_type: "role_assignment", severity: "high",
+    source: "o365", event_type: "role_assignment", severity: "high",
     vendor: "Azure AD (Entra ID)",
     hostname: "DC-PROD-01", user_email: "l.clark@nexacorp.com",
     description: "l.clark assigned Global Administrator role in Azure AD",
@@ -2292,7 +2292,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "185.220.101.45", "host.name": "SRV-NXC-DC01",
            "spray.attempt_count": "47", "spray.unique_usernames": "12",
            "spray.window_seconds": "180", "geo.country": "NL",
-           "threat.ioc.type": "tor_exit_node", "firedtimes": 47, "event.action_result": "deny" },
+           "threat.ioc.type": "tor_exit_node", "event.action_result": "deny" },
   },
   {
     id: "b_bf_02", ts: T(35), source: "ad", vendor: "Microsoft Active Directory",
@@ -2306,7 +2306,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "spray.attempt_count": "89", "spray.unique_usernames": "18",
            "spray.window_seconds": "300", "spray.targeted_accounts": "j.chen,r.williams,s.patel,p.wright,m.edwards",
            "geo.country": "NL", "threat.ioc.type": "tor_exit_node",
-           "firedtimes": 89, "event.action_result": "deny" },
+           "event.action_result": "deny" },
   },
   {
     id: "b_bf_03", ts: T(37), source: "ad", vendor: "Microsoft Active Directory",
@@ -2318,7 +2318,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "lockout.accounts": "jchen,rwilliams,spatel,ajones,tbrown,lclark",
            "lockout.count": "6", "lockout.policy": "5 failures / 30 min",
            "host.name": "SRV-NXC-DC01", "caller.computer": "EXT-VPN-GW01",
-           "spray.ongoing": "true", "firedtimes": 6, "event.action_result": "deny" },
+           "spray.ongoing": "true", "event.action_result": "deny" },
   },
   {
     id: "b_bf_04", ts: T(39), source: "firewall", vendor: "Palo Alto Networks",
@@ -2332,7 +2332,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "pan.direction": "client-to-server", "pan.category": "brute-force",
            "source.ip": "185.220.101.45", "destination.ip": "10.10.1.2",
            "pan.session_count": "127", "pan.block_duration_min": "60",
-           "firedtimes": 127, "event.action_result": "blocked" },
+           "repeatcnt": "127", "event.action_result": "blocked" },
   },
   {
     id: "b_bf_05", ts: T(53), source: "vpn", vendor: "Palo Alto GlobalProtect",
@@ -2345,7 +2345,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "pan.gateway": "gp.nexacorp.com", "pan.attempt_count": "22",
            "pan.unique_usernames": "5",
            "source.ip": "91.108.56.181", "geo.country": "RU", "geo.city": "Moscow",
-           "threat.classification": "brute_force", "firedtimes": 22, "event.action_result": "deny" },
+           "threat.classification": "brute_force", "event.action_result": "deny" },
   },
   {
     id: "b_bf_06", ts: T(71), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
@@ -2360,7 +2360,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "http.method": "POST", "http.url": "https://mail.nexacorp.com/owa/auth",
            "http.status": "403", "http.request_count": "31",
            "source.ip": "78.141.203.22", "geo.country": "UA",
-           "pan.user_agents_seen": "3", "firedtimes": 31, "event.action_result": "blocked" },
+           "pan.user_agents_seen": "3", "repeatcnt": "31", "event.action_result": "blocked" },
   },
 
   // ── Bulk data copy — benign baseline ─────────────────────────────────────────
@@ -2417,7 +2417,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "dlp.file_count": "3200", "dlp.bytes_copied": "7302848000",
            "dlp.destination_type": "RemovableMedia", "dlp.drive_label": "USB001",
            "dlp.sensitive_type": "Employee Records", "dlp.record_count": "3200",
-           "user.department": "HR", "firedtimes": 1, "action_result": "blocked" },
+           "user.department": "HR", "action_result": "blocked" },
   },
   {
     id: "b_copy_atk_02", ts: T(162), source: "cloudtrail", vendor: "AWS CloudTrail",
@@ -2431,7 +2431,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "aws.cloudtrail.bytes_transferred": "15258867507", "aws.cloudtrail.object_count": "892",
            "aws.cloudtrail.user_identity.user_name": "t.harris", "aws.cloudtrail.user_agent": "aws-cli/2.15 Python/3.11",
            "aws.cloudtrail.request_time": "2026-05-10T22:47:00Z",
-           "user.normal_work_hours": "08:00-18:00", "firedtimes": 1, "action_result": "allowed" },
+           "user.normal_work_hours": "08:00-18:00", "action_result": "allowed" },
   },
 
   // ── Email forwarding — benign baseline ───────────────────────────────────────
@@ -2477,8 +2477,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "data.office365.Conditions": "All messages",
            "data.office365.ForwardAsAttachment": "false", "data.office365.DeleteMessage": "false",
            "data.office365.ClientIP": "185.220.101.45", "data.office365.ResultStatus": "True",
-           "source.geo.country": "RU", "forward.destination_type": "external_encrypted",
-           "forward.tor_exit": "true", "firedtimes": 1, "action_result": "allowed" },
+           "source.geo.country": "NL", "forward.destination_type": "external_encrypted",
+           "forward.tor_exit": "true", "action_result": "allowed" },
   },
   {
     id: "b_fwd_atk_02", ts: T(215), source: "o365", vendor: "Microsoft 365",
@@ -2492,8 +2492,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "data.office365.ForwardAsAttachment": "false", "data.office365.KeepForwardedMessages": "true",
            "data.office365.ClientIP": "91.108.4.222", "data.office365.ResultStatus": "True",
            "domain.age_days": "3", "domain.registrar": "NameCheap",
-           "source.geo.country": "CN", "forward.destination_type": "typosquat",
-           "firedtimes": 1, "action_result": "allowed" },
+           "source.geo.country": "RU", "forward.destination_type": "typosquat",
+           "action_result": "allowed" },
   },
 
   // ── BATCH-2 — expanded benign event pool (80+ events) ─────────────────────
@@ -2502,9 +2502,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_08", ts: T(13), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-001", src_ip: "10.100.50.31",
+    hostname: "LT-ENG-4401", src_ip: "10.100.50.31",
     dns: { query: "slack.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-001 looked up slack.com",
+    description: "LT-ENG-4401 looked up slack.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2519,9 +2519,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_09", ts: T(27), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-003", src_ip: "10.100.50.33",
+    hostname: "LT-ENG-4403", src_ip: "10.100.50.33",
     dns: { query: "github.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-003 looked up github.com",
+    description: "LT-ENG-4403 looked up github.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2536,9 +2536,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_10", ts: T(41), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-005", src_ip: "10.100.50.35",
+    hostname: "LT-ENG-4405", src_ip: "10.100.50.35",
     dns: { query: "registry.npmjs.org", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-005 looked up registry.npmjs.org",
+    description: "LT-ENG-4405 looked up registry.npmjs.org",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2553,9 +2553,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_11", ts: T(56), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "MACBOOK-TCHEN", src_ip: "10.100.50.41",
+    hostname: "LT-ENG-4400", src_ip: "10.100.50.41",
     dns: { query: "accounts.google.com", query_type: "A", rcode: "NOERROR" },
-    description: "MACBOOK-TCHEN looked up accounts.google.com",
+    description: "LT-ENG-4400 looked up accounts.google.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2587,9 +2587,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_13", ts: T(85), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-007", src_ip: "10.100.50.37",
+    hostname: "LT-ENG-4407", src_ip: "10.100.50.37",
     dns: { query: "zoom.us", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-007 looked up zoom.us",
+    description: "LT-ENG-4407 looked up zoom.us",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2621,9 +2621,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_15", ts: T(108), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-prod-001", src_ip: "10.20.12.51",
+    hostname: "LT-OPS-4501", src_ip: "10.20.12.51",
     dns: { query: "ocsp.digicert.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-prod-001 looked up ocsp.digicert.com",
+    description: "LT-OPS-4501 looked up ocsp.digicert.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2638,9 +2638,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_16", ts: T(119), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-009", src_ip: "10.100.50.39",
+    hostname: "LT-ENG-4409", src_ip: "10.100.50.39",
     dns: { query: "fonts.googleapis.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-009 looked up fonts.googleapis.com",
+    description: "LT-ENG-4409 looked up fonts.googleapis.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2672,9 +2672,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_18", ts: T(143), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-002", src_ip: "10.100.50.32",
+    hostname: "LT-ENG-4402", src_ip: "10.100.50.32",
     dns: { query: "api.openai.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-002 looked up api.openai.com",
+    description: "LT-ENG-4402 looked up api.openai.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2689,9 +2689,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_19", ts: T(153), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-prod-002", src_ip: "10.20.12.52",
+    hostname: "LT-OPS-4502", src_ip: "10.20.12.52",
     dns: { query: "ctldl.windowsupdate.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-prod-002 looked up ctldl.windowsupdate.com",
+    description: "LT-OPS-4502 looked up ctldl.windowsupdate.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2706,9 +2706,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_20", ts: T(161), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-011", src_ip: "10.100.50.42",
+    hostname: "LT-ENG-4411", src_ip: "10.100.50.42",
     dns: { query: "stackoverflow.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-011 looked up stackoverflow.com",
+    description: "LT-ENG-4411 looked up stackoverflow.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2723,9 +2723,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_21", ts: T(168), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-004", src_ip: "10.100.50.34",
+    hostname: "LT-ENG-4404", src_ip: "10.100.50.34",
     dns: { query: "cdn.jsdelivr.net", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-004 looked up cdn.jsdelivr.net",
+    description: "LT-ENG-4404 looked up cdn.jsdelivr.net",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2740,9 +2740,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_22", ts: T(174), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-prod-003", src_ip: "10.20.12.53",
+    hostname: "LT-OPS-4503", src_ip: "10.20.12.53",
     dns: { query: "teams.microsoft.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-prod-003 looked up teams.microsoft.com",
+    description: "LT-OPS-4503 looked up teams.microsoft.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2757,9 +2757,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_23", ts: T(19), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-006", src_ip: "10.100.50.36",
+    hostname: "LT-ENG-4406", src_ip: "10.100.50.36",
     dns: { query: "pypi.org", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-006 looked up pypi.org",
+    description: "LT-ENG-4406 looked up pypi.org",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2774,9 +2774,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_24", ts: T(48), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-008", src_ip: "10.100.50.38",
+    hostname: "LT-ENG-4408", src_ip: "10.100.50.38",
     dns: { query: "app.intercom.io", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-008 looked up app.intercom.io",
+    description: "LT-ENG-4408 looked up app.intercom.io",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2791,9 +2791,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_25", ts: T(63), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-010", src_ip: "10.100.50.40",
+    hostname: "LT-ENG-4410", src_ip: "10.100.50.40",
     dns: { query: "drive.google.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-010 looked up drive.google.com",
+    description: "LT-ENG-4410 looked up drive.google.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2808,9 +2808,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_26", ts: T(77), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-012", src_ip: "10.100.50.43",
+    hostname: "LT-ENG-4412", src_ip: "10.100.50.43",
     dns: { query: "update.googleapis.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-012 looked up update.googleapis.com",
+    description: "LT-ENG-4412 looked up update.googleapis.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2825,9 +2825,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_27", ts: T(90), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-prod-004", src_ip: "10.20.12.54",
+    hostname: "LT-OPS-4504", src_ip: "10.20.12.54",
     dns: { query: "www.linkedin.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-prod-004 looked up www.linkedin.com",
+    description: "LT-OPS-4504 looked up www.linkedin.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2842,9 +2842,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_28", ts: T(103), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-001", src_ip: "10.100.50.31",
+    hostname: "LT-ENG-4401", src_ip: "10.100.50.31",
     dns: { query: "cdn.openai.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-001 looked up cdn.openai.com",
+    description: "LT-ENG-4401 looked up cdn.openai.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2859,9 +2859,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_29", ts: T(116), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-003", src_ip: "10.100.50.33",
+    hostname: "LT-ENG-4403", src_ip: "10.100.50.33",
     dns: { query: "docs.microsoft.com", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-003 looked up docs.microsoft.com",
+    description: "LT-ENG-4403 looked up docs.microsoft.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2893,9 +2893,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_31", ts: T(155), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "mac-eng-005", src_ip: "10.100.50.35",
+    hostname: "LT-ENG-4405", src_ip: "10.100.50.35",
     dns: { query: "cdn.sstatic.net", query_type: "A", rcode: "NOERROR" },
-    description: "mac-eng-005 looked up cdn.sstatic.net",
+    description: "LT-ENG-4405 looked up cdn.sstatic.net",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2910,9 +2910,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_32", ts: T(170), source: "sysmon", vendor: "Microsoft Sysmon",
     event_type: "dns_query", severity: "informational",
-    hostname: "MACBOOK-TCHEN", src_ip: "10.100.50.41",
+    hostname: "LT-ENG-4400", src_ip: "10.100.50.41",
     dns: { query: "login.microsoftonline.com", query_type: "A", rcode: "NOERROR" },
-    description: "MACBOOK-TCHEN looked up login.microsoftonline.com",
+    description: "LT-ENG-4400 looked up login.microsoftonline.com",
     raw: {
       "event.code": "22",
       "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2929,13 +2929,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_11", ts: T(14), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-001", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
+    hostname: "LT-ENG-4401", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
     process: { name: "code.exe", pid: 5120, parent_name: "explorer.exe", parent_pid: 2010, integrity: "medium" },
-    description: "k.osei launched VS Code on mac-eng-001",
+    description: "k.osei launched VS Code on LT-ENG-4401",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-001",
+      "DeviceName": "LT-ENG-4401",
       "FileName": "Code.exe",
       "FolderPath": "C:\\Program Files\\Microsoft VS Code\\Code.exe",
       "ProcessId": "5120",
@@ -2951,13 +2951,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_12", ts: T(28), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-002", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
+    hostname: "LT-ENG-4402", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
     process: { name: "python.exe", pid: 6230, parent_name: "code.exe", parent_pid: 5100, integrity: "medium" },
-    description: "a.jones ran python.exe from VS Code on mac-eng-002",
+    description: "a.jones ran python.exe from VS Code on LT-ENG-4402",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-002",
+      "DeviceName": "LT-ENG-4402",
       "FileName": "python.exe",
       "FolderPath": "C:\\Python311\\python.exe",
       "ProcessId": "6230",
@@ -2973,13 +2973,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_13", ts: T(43), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-003", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
+    hostname: "LT-ENG-4403", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
     process: { name: "git.exe", pid: 7340, parent_name: "bash.exe", parent_pid: 7200, integrity: "medium" },
-    description: "k.taylor ran git.exe via bash on mac-eng-003",
+    description: "k.taylor ran git.exe via bash on LT-ENG-4403",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-003",
+      "DeviceName": "LT-ENG-4403",
       "FileName": "git.exe",
       "FolderPath": "C:\\Program Files\\Git\\cmd\\git.exe",
       "ProcessId": "7340",
@@ -3017,13 +3017,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_15", ts: T(74), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-004", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
+    hostname: "LT-ENG-4404", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
     process: { name: "docker.exe", pid: 9110, parent_name: "explorer.exe", parent_pid: 2210, integrity: "medium" },
-    description: "k.osei launched docker.exe on mac-eng-004",
+    description: "k.osei launched docker.exe on LT-ENG-4404",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-004",
+      "DeviceName": "LT-ENG-4404",
       "FileName": "docker.exe",
       "FolderPath": "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
       "ProcessId": "9110",
@@ -3039,13 +3039,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_16", ts: T(87), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-005", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
+    hostname: "LT-ENG-4405", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
     process: { name: "kubectl.exe", pid: 4890, parent_name: "bash.exe", parent_pid: 4800, integrity: "medium" },
-    description: "a.jones ran kubectl.exe on mac-eng-005",
+    description: "a.jones ran kubectl.exe on LT-ENG-4405",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-005",
+      "DeviceName": "LT-ENG-4405",
       "FileName": "kubectl.exe",
       "FolderPath": "C:\\Program Files\\Kubernetes\\kubectl.exe",
       "ProcessId": "4890",
@@ -3083,13 +3083,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_18", ts: T(110), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-006", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
+    hostname: "LT-ENG-4406", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
     process: { name: "curl.exe", pid: 5512, parent_name: "bash.exe", parent_pid: 5400, integrity: "medium" },
-    description: "k.taylor ran curl.exe from bash on mac-eng-006",
+    description: "k.taylor ran curl.exe from bash on LT-ENG-4406",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-006",
+      "DeviceName": "LT-ENG-4406",
       "FileName": "curl.exe",
       "FolderPath": "C:\\Windows\\System32\\curl.exe",
       "ProcessId": "5512",
@@ -3128,13 +3128,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_20", ts: T(133), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-007", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
+    hostname: "LT-ENG-4407", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
     process: { name: "chrome.exe", pid: 6680, parent_name: "explorer.exe", parent_pid: 2300, integrity: "medium" },
-    description: "k.osei launched Chrome on mac-eng-007",
+    description: "k.osei launched Chrome on LT-ENG-4407",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-007",
+      "DeviceName": "LT-ENG-4407",
       "FileName": "chrome.exe",
       "FolderPath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       "ProcessId": "6680",
@@ -3150,13 +3150,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_21", ts: T(144), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-008", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
+    hostname: "LT-ENG-4408", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
     process: { name: "7z.exe", pid: 7770, parent_name: "explorer.exe", parent_pid: 2400, integrity: "medium" },
-    description: "a.jones ran 7z.exe to archive logs on mac-eng-008",
+    description: "a.jones ran 7z.exe to archive logs on LT-ENG-4408",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-008",
+      "DeviceName": "LT-ENG-4408",
       "FileName": "7z.exe",
       "FolderPath": "C:\\Program Files\\7-Zip\\7z.exe",
       "ProcessId": "7770",
@@ -3172,13 +3172,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_22", ts: T(154), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-009", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
+    hostname: "LT-ENG-4409", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
     process: { name: "calc.exe", pid: 1900, parent_name: "explorer.exe", parent_pid: 2500, integrity: "medium" },
-    description: "k.taylor opened Calculator on mac-eng-009",
+    description: "k.taylor opened Calculator on LT-ENG-4409",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-009",
+      "DeviceName": "LT-ENG-4409",
       "FileName": "calc.exe",
       "FolderPath": "C:\\Windows\\System32\\calc.exe",
       "ProcessId": "1900",
@@ -3194,13 +3194,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_23", ts: T(163), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-010", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
+    hostname: "LT-ENG-4410", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer",
     process: { name: "msiexec.exe", pid: 8880, parent_name: "svchost.exe", parent_pid: 820, integrity: "high" },
-    description: "IT deployed software via msiexec.exe on mac-eng-010",
+    description: "IT deployed software via msiexec.exe on LT-ENG-4410",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-010",
+      "DeviceName": "LT-ENG-4410",
       "FileName": "msiexec.exe",
       "FolderPath": "C:\\Windows\\System32\\msiexec.exe",
       "ProcessId": "8880",
@@ -3216,13 +3216,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_24", ts: T(171), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "MACBOOK-TCHEN", user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
+    hostname: "LT-ENG-4400", user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
     process: { name: "code.exe", pid: 3440, parent_name: "explorer.exe", parent_pid: 2100, integrity: "medium" },
-    description: "j.chen launched VS Code on MACBOOK-TCHEN",
+    description: "j.chen launched VS Code on LT-ENG-4400",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "MACBOOK-TCHEN",
+      "DeviceName": "LT-ENG-4400",
       "FileName": "Code.exe",
       "FolderPath": "C:\\Program Files\\Microsoft VS Code\\Code.exe",
       "ProcessId": "3440",
@@ -3238,13 +3238,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_25", ts: T(176), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-011", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
+    hostname: "LT-ENG-4411", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin",
     process: { name: "git.exe", pid: 4100, parent_name: "code.exe", parent_pid: 3980, integrity: "medium" },
-    description: "a.jones committed code via git.exe on mac-eng-011",
+    description: "a.jones committed code via git.exe on LT-ENG-4411",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-011",
+      "DeviceName": "LT-ENG-4411",
       "FileName": "git.exe",
       "FolderPath": "C:\\Program Files\\Git\\cmd\\git.exe",
       "ProcessId": "4100",
@@ -3260,13 +3260,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_26", ts: T(179), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-eng-012", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
+    hostname: "LT-ENG-4412", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer",
     process: { name: "chrome.exe", pid: 7910, parent_name: "explorer.exe", parent_pid: 2700, integrity: "medium" },
-    description: "k.taylor launched Chrome on mac-eng-012",
+    description: "k.taylor launched Chrome on LT-ENG-4412",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-eng-012",
+      "DeviceName": "LT-ENG-4412",
       "FileName": "chrome.exe",
       "FolderPath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       "ProcessId": "7910",
@@ -3282,13 +3282,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_27", ts: T(17), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-prod-001", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
+    hostname: "LT-OPS-4501", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
     process: { name: "node.exe", pid: 6600, parent_name: "explorer.exe", parent_pid: 2010, integrity: "medium" },
-    description: "t.harris started node.exe on mac-prod-001",
+    description: "t.harris started node.exe on LT-OPS-4501",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-prod-001",
+      "DeviceName": "LT-OPS-4501",
       "FileName": "node.exe",
       "FolderPath": "C:\\Program Files\\nodejs\\node.exe",
       "ProcessId": "6600",
@@ -3304,13 +3304,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_28", ts: T(37), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-prod-002", user_email: "l.clark@nexacorp.com", user_title: "IT Admin",
+    hostname: "LT-OPS-4502", user_email: "l.clark@nexacorp.com", user_title: "IT Admin",
     process: { name: "python.exe", pid: 5550, parent_name: "cmd.exe", parent_pid: 5400, integrity: "medium" },
-    description: "l.clark ran python.exe script on mac-prod-002",
+    description: "l.clark ran python.exe script on LT-OPS-4502",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-prod-002",
+      "DeviceName": "LT-OPS-4502",
       "FileName": "python.exe",
       "FolderPath": "C:\\Python311\\python.exe",
       "ProcessId": "5550",
@@ -3326,13 +3326,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_29", ts: T(66), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-prod-003", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
+    hostname: "LT-OPS-4503", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
     process: { name: "winrar.exe", pid: 4020, parent_name: "explorer.exe", parent_pid: 2010, integrity: "medium" },
-    description: "t.harris archived project files with WinRAR on mac-prod-003",
+    description: "t.harris archived project files with WinRAR on LT-OPS-4503",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-prod-003",
+      "DeviceName": "LT-OPS-4503",
       "FileName": "WinRAR.exe",
       "FolderPath": "C:\\Program Files\\WinRAR\\WinRAR.exe",
       "ProcessId": "4020",
@@ -3348,13 +3348,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_30", ts: T(84), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "mac-prod-004", user_email: "l.clark@nexacorp.com", user_title: "IT Admin",
+    hostname: "LT-OPS-4504", user_email: "l.clark@nexacorp.com", user_title: "IT Admin",
     process: { name: "chrome.exe", pid: 3310, parent_name: "explorer.exe", parent_pid: 2010, integrity: "medium" },
-    description: "l.clark launched Chrome on mac-prod-004",
+    description: "l.clark launched Chrome on LT-OPS-4504",
     raw: {
       "event.provider": "Microsoft Defender ATP",
       "ActionType": "ProcessCreated",
-      "DeviceName": "mac-prod-004",
+      "DeviceName": "LT-OPS-4504",
       "FileName": "chrome.exe",
       "FolderPath": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       "ProcessId": "3310",
@@ -3372,8 +3372,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_07", ts: T(22), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-001", src_ip: "10.100.50.31", dst_ip: "52.96.0.1", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-001 to outlook.office365.com",
+    hostname: "LT-ENG-4401", src_ip: "10.100.50.31", dst_ip: "52.96.0.1", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4401 to outlook.office365.com",
     network: { domain: "outlook.office365.com", bytes_out: 3200, bytes_in: 11400 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.31", "destination.ip": "52.96.0.1",
@@ -3385,8 +3385,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_08", ts: T(38), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-002", src_ip: "10.100.50.32", dst_ip: "170.114.52.2", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-002 to zoom.us",
+    hostname: "LT-ENG-4402", src_ip: "10.100.50.32", dst_ip: "170.114.52.2", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4402 to zoom.us",
     network: { domain: "zoom.us", bytes_out: 8800, bytes_in: 34200 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.32", "destination.ip": "170.114.52.2",
@@ -3398,8 +3398,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_09", ts: T(52), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-003", src_ip: "10.100.50.33", dst_ip: "140.82.112.3", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-003 to github.com",
+    hostname: "LT-ENG-4403", src_ip: "10.100.50.33", dst_ip: "140.82.112.3", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4403 to github.com",
     network: { domain: "github.com", bytes_out: 22000, bytes_in: 68000 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.33", "destination.ip": "140.82.112.3",
@@ -3411,8 +3411,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_10", ts: T(65), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-004", src_ip: "10.100.50.34", dst_ip: "54.192.84.100", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-004 to slack.com",
+    hostname: "LT-ENG-4404", src_ip: "10.100.50.34", dst_ip: "54.192.84.100", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4404 to slack.com",
     network: { domain: "slack.com", bytes_out: 4100, bytes_in: 22700 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.34", "destination.ip": "54.192.84.100",
@@ -3424,8 +3424,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_11", ts: T(79), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-005", src_ip: "10.100.50.35", dst_ip: "142.250.80.46", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-005 to www.google.com",
+    hostname: "LT-ENG-4405", src_ip: "10.100.50.35", dst_ip: "142.250.80.46", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4405 to www.google.com",
     network: { domain: "www.google.com", bytes_out: 1800, bytes_in: 14300 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.35", "destination.ip": "142.250.80.46",
@@ -3437,8 +3437,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_12", ts: T(93), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-006", src_ip: "10.100.50.36", dst_ip: "13.107.6.175", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-006 to teams.microsoft.com",
+    hostname: "LT-ENG-4406", src_ip: "10.100.50.36", dst_ip: "13.107.6.175", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4406 to teams.microsoft.com",
     network: { domain: "teams.microsoft.com", bytes_out: 9600, bytes_in: 41200 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.36", "destination.ip": "13.107.6.175",
@@ -3463,8 +3463,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_14", ts: T(120), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-007", src_ip: "10.100.50.37", dst_ip: "170.114.52.50", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-007 to zoomgov.com",
+    hostname: "LT-ENG-4407", src_ip: "10.100.50.37", dst_ip: "170.114.52.50", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4407 to zoomgov.com",
     network: { domain: "zoomgov.com", bytes_out: 7700, bytes_in: 38100 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.37", "destination.ip": "170.114.52.50",
@@ -3476,8 +3476,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_15", ts: T(135), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-008", src_ip: "10.100.50.38", dst_ip: "54.175.34.29", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-008 to hub.docker.com",
+    hostname: "LT-ENG-4408", src_ip: "10.100.50.38", dst_ip: "54.175.34.29", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4408 to hub.docker.com",
     network: { domain: "hub.docker.com", bytes_out: 14200, bytes_in: 87600 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.38", "destination.ip": "54.175.34.29",
@@ -3489,8 +3489,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_16", ts: T(148), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-009", src_ip: "10.100.50.39", dst_ip: "20.190.128.1", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-009 to login.microsoftonline.com",
+    hostname: "LT-ENG-4409", src_ip: "10.100.50.39", dst_ip: "20.190.128.1", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4409 to login.microsoftonline.com",
     network: { domain: "login.microsoftonline.com", bytes_out: 2600, bytes_in: 9100 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.39", "destination.ip": "20.190.128.1",
@@ -3502,8 +3502,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_17", ts: T(158), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "MACBOOK-TCHEN", src_ip: "10.100.50.41", dst_ip: "142.250.80.78", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from MACBOOK-TCHEN to drive.google.com",
+    hostname: "LT-ENG-4400", src_ip: "10.100.50.41", dst_ip: "142.250.80.78", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4400 to drive.google.com",
     network: { domain: "drive.google.com", bytes_out: 6300, bytes_in: 31200 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.41", "destination.ip": "142.250.80.78",
@@ -3515,8 +3515,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_18", ts: T(166), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-010", src_ip: "10.100.50.40", dst_ip: "52.85.83.100", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-010 to slack-files.com",
+    hostname: "LT-ENG-4410", src_ip: "10.100.50.40", dst_ip: "52.85.83.100", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4410 to slack-files.com",
     network: { domain: "slack-files.com", bytes_out: 3800, bytes_in: 19500 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.40", "destination.ip": "52.85.83.100",
@@ -3528,8 +3528,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_19", ts: T(173), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-011", src_ip: "10.100.50.42", dst_ip: "13.107.64.1", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-011 to teams.microsoft.com",
+    hostname: "LT-ENG-4411", src_ip: "10.100.50.42", dst_ip: "13.107.64.1", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4411 to teams.microsoft.com",
     network: { domain: "teams.microsoft.com", bytes_out: 11400, bytes_in: 53800 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.42", "destination.ip": "13.107.64.1",
@@ -3541,8 +3541,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_20", ts: T(178), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-eng-012", src_ip: "10.100.50.43", dst_ip: "140.82.112.5", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-eng-012 to api.github.com",
+    hostname: "LT-ENG-4412", src_ip: "10.100.50.43", dst_ip: "140.82.112.5", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-ENG-4412 to api.github.com",
     network: { domain: "api.github.com", bytes_out: 18900, bytes_in: 62700 },
     raw: {
       "event.action": "allow", "source.ip": "10.100.50.43", "destination.ip": "140.82.112.5",
@@ -3554,8 +3554,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fw_21", ts: T(180), source: "firewall", vendor: "Palo Alto Networks",
     event_type: "net_connection", severity: "informational",
-    hostname: "mac-prod-004", src_ip: "10.20.12.54", dst_ip: "20.190.128.1", dst_port: 443, protocol: "HTTPS",
-    description: "Outbound HTTPS from mac-prod-004 to login.microsoftonline.com",
+    hostname: "LT-OPS-4504", src_ip: "10.20.12.54", dst_ip: "20.190.128.1", dst_port: 443, protocol: "HTTPS",
+    description: "Outbound HTTPS from LT-OPS-4504 to login.microsoftonline.com",
     network: { domain: "login.microsoftonline.com", bytes_out: 2200, bytes_in: 7800 },
     raw: {
       "event.action": "allow", "source.ip": "10.20.12.54", "destination.ip": "20.190.128.1",
@@ -3755,7 +3755,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.action": "vpn_connected", "user.email": "k.osei@nexacorp.com",
       "source.ip": "77.125.48.220", "source.geo.country_name": "Israel",
       "source.geo.city_name": "Tel Aviv", "gp.tunnel_ip": "10.100.50.31",
-      "gp.client_hostname": "mac-eng-001", "gp.device_registered": "true",
+      "gp.client_hostname": "LT-ENG-4401", "gp.device_registered": "true",
       "gp.auth_method": "Azure AD + MFA", "gp.gateway": "gw-nexacorp-il01",
     },
   },
@@ -3807,7 +3807,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.action": "vpn_connected", "user.email": "t.harris@nexacorp.com",
       "source.ip": "82.102.18.100", "source.geo.country_name": "United Kingdom",
       "source.geo.city_name": "Manchester", "gp.tunnel_ip": "10.10.1.5",
-      "gp.client_hostname": "MACBOOK-TCHEN", "gp.device_registered": "true",
+      "gp.client_hostname": "LT-ENG-4400", "gp.device_registered": "true",
       "gp.auth_method": "Azure AD + MFA", "gp.gateway": "gw-nexacorp-lon01",
     },
   },
@@ -3816,9 +3816,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_prx_05", ts: T(36), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
     event_type: "http_request", severity: "informational",
-    hostname: "mac-eng-001", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer", src_ip: "10.100.50.31",
+    hostname: "LT-ENG-4401", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer", src_ip: "10.100.50.31",
     network: { url: "https://docs.github.com/en/rest", domain: "docs.github.com", method: "GET", status: 200, bytes_in: 54200 },
-    description: "Outbound HTTPS from mac-eng-001 to docs.github.com",
+    description: "Outbound HTTPS from LT-ENG-4401 to docs.github.com",
     raw: {
       "url.domain": "docs.github.com", "url.full": "https://docs.github.com/en/rest",
       "pan.url.category": "computer-and-internet-info", "pan.app": "github",
@@ -3830,9 +3830,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_prx_06", ts: T(69), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
     event_type: "http_request", severity: "informational",
-    hostname: "mac-eng-003", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer", src_ip: "10.100.50.33",
+    hostname: "LT-ENG-4403", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer", src_ip: "10.100.50.33",
     network: { url: "https://techcommunity.microsoft.com/t5/azure-devops", domain: "techcommunity.microsoft.com", method: "GET", status: 200, bytes_in: 38400 },
-    description: "Outbound HTTPS from mac-eng-003 to techcommunity.microsoft.com",
+    description: "Outbound HTTPS from LT-ENG-4403 to techcommunity.microsoft.com",
     raw: {
       "url.domain": "techcommunity.microsoft.com",
       "url.full": "https://techcommunity.microsoft.com/t5/azure-devops",
@@ -3859,9 +3859,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_prx_08", ts: T(126), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
     event_type: "http_request", severity: "informational",
-    hostname: "mac-eng-005", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin", src_ip: "10.100.50.35",
+    hostname: "LT-ENG-4405", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin", src_ip: "10.100.50.35",
     network: { url: "https://pypi.org/simple/requests/", domain: "pypi.org", method: "GET", status: 200, bytes_in: 12700 },
-    description: "Outbound HTTPS from mac-eng-005 to pypi.org",
+    description: "Outbound HTTPS from LT-ENG-4405 to pypi.org",
     raw: {
       "url.domain": "pypi.org", "url.full": "https://pypi.org/simple/requests/",
       "pan.url.category": "computer-and-internet-info", "pan.app": "web-browsing",
@@ -3873,9 +3873,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_prx_09", ts: T(157), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
     event_type: "http_request", severity: "informational",
-    hostname: "mac-eng-007", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer", src_ip: "10.100.50.37",
+    hostname: "LT-ENG-4407", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer", src_ip: "10.100.50.37",
     network: { url: "https://www.linkedin.com/feed/", domain: "www.linkedin.com", method: "GET", status: 200, bytes_in: 44800 },
-    description: "Outbound HTTPS from mac-eng-007 to www.linkedin.com",
+    description: "Outbound HTTPS from LT-ENG-4407 to www.linkedin.com",
     raw: {
       "url.domain": "www.linkedin.com", "url.full": "https://www.linkedin.com/feed/",
       "pan.url.category": "social-networking", "pan.app": "linkedin",
@@ -5104,7 +5104,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ueba_02", ts: T(10), source: "ueba", vendor: "Exabeam",
     event_type: "risk_score_change", severity: "informational",
-    hostname: "mac-eng-003",
+    hostname: "LT-ENG-4403",
     user_email: "k.taylor@nexacorp.com",
     description: "Daily risk score update for k.taylor — normal developer activity",
     raw: {
@@ -6113,7 +6113,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_aad_01", ts: T(4), source: "o365", vendor: "Azure Active Directory",
     event_type: "auth_success", severity: "informational",
-    hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen signed in to Microsoft 365 from Windows 11 — MFA satisfied via Authenticator app",
     raw: {
       "data.office365.AzureActiveDirectoryEventType": "1",
@@ -6599,7 +6599,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.LogonProcessName": "Kerberos",
       "winlog.event_data.FailureReason": "%%2312",
       "winlog.event_data.Status": "0xC000006D",
-      "winlog.event_data.SubStatus": "0xC0000070",
+      "winlog.event_data.SubStatus": "0xC0000071",
       "winlog.event_data.SubjectUserName": "NEXACORP$",
       "winlog.event_data.SubjectDomainName": "NEXACORP",
       "logon.type": "3",
@@ -7391,7 +7391,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.EndpointMetaData.Application": "chrome.exe",
       "data.office365.EndpointMetaData.BrowserUrl": "https://mail.google.com/mail/u/0/#compose",
       "data.office365.EndpointMetaData.EgressType": "Clipboard",
-      "rule.groups": ["hipaa", "pci_dss"],
       "event.action": "dlp-rule-match",
       "event.outcome": "blocked",
       "host.name": "WS-NURSE-WARD4",
@@ -7400,7 +7399,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MedCore — Medical Device NAC Auth ────────────────────────────────────────
   {
-    id: "b_mc_nac_01", ts: T(5), source: "ad", vendor: "Cisco ISE",
+    id: "b_mc_nac_01", ts: T(5), source: "nac", vendor: "Cisco ISE",
     event_type: "nac_allow", severity: "informational",
     hostname: "INFUSION-PUMP-WARD4-02", user_email: "device-svc@medcorehealth.org", src_ip: "172.16.20.52",
     description: "Infusion pump INFUSION-PUMP-WARD4-02 connected to the hospital network and passed its security check",
@@ -7918,7 +7917,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.EndpointMetaData.Application": "EXCEL.EXE",
       "data.office365.EndpointMetaData.EgressType": "RemovableMedia",
       "data.office365.EndpointMetaData.RemovableMediaDeviceId": "USB\\VID_0781&PID_5591",
-      "rule.groups": ["pci_dss"],
       "event.action": "dlp-rule-match",
       "event.outcome": "blocked",
       "host.name": "WS-FIN-2847",
@@ -7942,7 +7940,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.ExchangeMetaData.Subject": "Employee NI Records — Annual Update",
       "data.office365.ExchangeMetaData.From": "s.patel@nexacorp.com",
       "data.office365.ExchangeMetaData.To": "payroll-services@external-payroll.co.uk",
-      "rule.groups": ["gdpr", "hipaa"],
       "event.action": "dlp-rule-match",
       "event.outcome": "blocked",
       "host.name": "WS-HR-1142",
@@ -7967,7 +7964,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.EndpointMetaData.BrowserUrl": "https://drive.google.com/upload",
       "data.office365.EndpointMetaData.EgressType": "CloudEgress",
       "data.office365.EndpointMetaData.FileSizeInBytes": "29360128",
-      "rule.groups": ["gdpr"],
       "event.action": "dlp-rule-match",
       "event.outcome": "allowed-with-alert",
       "host.name": "LT-DEV-0931",
@@ -7992,7 +7988,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.EndpointMetaData.Application": "WINWORD.EXE",
       "data.office365.EndpointMetaData.EgressType": "Print",
       "data.office365.EndpointMetaData.PrinterName": "HP-Color-Laserjet-3rd-Floor",
-      "rule.groups": ["gdpr"],
       "event.action": "dlp-rule-match",
       "event.outcome": "allowed-with-audit",
       "host.name": "WS-ENG-3301",
