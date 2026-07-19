@@ -1086,8 +1086,25 @@ const DOMAIN_FIELD_KEYS = new Set([
   "dns.question.name", "url.domain", "url.full", "source.domain", "destination.domain",
 ]);
 
+/**
+ * Does this field hold a SHA256 the analyst can run a threat-intel check on?
+ *
+ * The key test used to accept only "file.hash.sha256" / "*.sha256", which
+ * silently hid the Check Hash button on most real vendor logs — CrowdStrike
+ * writes cs.SHA256HashData, Sysmon writes Hashes, Defender writes SHA256, none
+ * of which end in ".sha256". Matching on the vendor's actual field names is
+ * what makes the button appear where a student would expect it.
+ */
 function isSha256Field(key: string, val: string) {
-  return (key === "file.hash.sha256" || key.endsWith(".sha256")) && /^[a-f0-9]{64}$/i.test(val);
+  if (!/^[a-f0-9]{64}$/i.test(val)) return false;
+  const k = key.toLowerCase();
+  return (
+    k === "file.hash.sha256" ||
+    k.endsWith(".sha256") ||
+    k.endsWith("sha256hashdata") ||   // CrowdStrike  cs.SHA256HashData
+    k.endsWith("sha256") ||           // Defender / MDE  SHA256, process.hash.sha256
+    k.endsWith(".hashes") || k === "hashes"   // Sysmon  Hashes
+  );
 }
 function isIpCheckField(key: string, val: string) {
   return IP_FIELD_KEYS.has(key) && isPublicIp(val);

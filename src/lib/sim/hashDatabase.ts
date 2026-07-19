@@ -225,6 +225,27 @@ export const CLEAN_HASHES: CleanHashEntry[] = [
     description: "Microsoft Teams 1.6 — legitimate collaboration app",
     vt_detections: 0, vt_total: 72, malicious: false,
   },
+  // Linux/dev-tooling binaries — the benign CI-runner and developer-laptop
+  // events reference these, so a hash check on them resolves to a real clean
+  // verdict instead of "unknown".
+  {
+    sha256: "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c",
+    name: "node",
+    description: "Node.js 20.11.1 LTS runtime (linux-x64) — legitimate developer tooling",
+    vt_detections: 0, vt_total: 72, malicious: false,
+  },
+  {
+    sha256: "66415be1301aabdb6c9cdc252a9974c21bca97d808c0533f3071b34e2d033b6b",
+    name: "snyk",
+    description: "Snyk CLI 1.1291.0 — legitimate dependency-vulnerability scanner",
+    vt_detections: 0, vt_total: 72, malicious: false,
+  },
+  {
+    sha256: "cb69a6407feda62eda2edd0c792640cb437c4aa0274873a7cf9bd75b6c504695",
+    name: "ssh",
+    description: "OpenSSH client 9.6p1 (Ubuntu) — legitimate remote-access client",
+    vt_detections: 0, vt_total: 72, malicious: false,
+  },
 ];
 
 // ─── Lookup helpers ──────────────────────────────────────────────────────────
