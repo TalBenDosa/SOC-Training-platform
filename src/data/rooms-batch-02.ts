@@ -157,6 +157,21 @@ Attackers love to hide malicious traffic by using unexpected ports. For example:
 - An attacker using RDP (port 3389) from the internet to an internal machine is a huge red flag
 
 When you see a connection log, always check: is this port expected for this type of traffic? Is this the right protocol for this port? Mismatches are suspicious.`,
+        diagramCaption: "TCP three-way handshake — and what a SYN flood breaks",
+        diagram: `sequenceDiagram
+    participant C as Client
+    participant S as Server
+    Note over C,S: Normal connection — all three steps complete
+    C->>S: 1. SYN (seq=x)
+    S->>C: 2. SYN-ACK (seq=y, ack=x+1)
+    C->>S: 3. ACK (ack=y+1)
+    Note over C,S: Connection ESTABLISHED — data flows
+    C->>S: HTTP GET /
+    S->>C: HTTP 200 OK
+    Note over C,S: SYN flood — step 3 never arrives
+    C->>S: SYN (spoofed source)
+    S->>C: SYN-ACK (waits, holds a slot)
+    Note over S: Half-open connections pile up<br/>until the table is exhausted (DoS)`,
       },
       {
         type: "reading" as const,

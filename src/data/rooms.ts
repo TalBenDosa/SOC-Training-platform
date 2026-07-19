@@ -35,6 +35,16 @@ export interface ReadingTask {
   heading: string;
   content: string;       // markdown-like text with \n\n for paragraphs
   codeExample?: string;  // optional code/log block
+  /**
+   * Optional Mermaid diagram source (flowchart, sequenceDiagram, etc.) rendered
+   * below the content. Used for the structural ideas that a wall of text
+   * explains badly — protocol handshakes, kill chains, ticket flows, trust
+   * relationships. Kept as SOURCE rather than an image so the labels (ports,
+   * flags, field names) stay exact, searchable and reviewable in git.
+   */
+  diagram?: string;
+  /** Caption shown on the diagram's header bar. Defaults to "Diagram". */
+  diagramCaption?: string;
 }
 
 export interface QuestionTask {

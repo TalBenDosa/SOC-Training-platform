@@ -745,7 +745,7 @@ const rooms = [
     description:
       "Learn how to write, tune, and manage SIEM detection rules — from Sigma format to MITRE ATT&CK coverage mapping, alert fatigue, and the full rule lifecycle.",
     difficulty: "advanced",
-    category: "SIEM & Detection",
+    category: "SIEM",
     estimatedMinutes: 50,
     xp: 530,
     icon: "⚙️",

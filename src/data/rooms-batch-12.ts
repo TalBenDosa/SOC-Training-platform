@@ -8,7 +8,7 @@ const rooms = [
     description:
       "Learn how to build, test, document, and maintain detection use cases — the engine that powers every SOC alert. Go from raw threat idea to deployed Sigma rule.",
     difficulty: "advanced",
-    category: "SIEM & Detection",
+    category: "SIEM",
     estimatedMinutes: 50,
     xp: 500,
     icon: "📐",
