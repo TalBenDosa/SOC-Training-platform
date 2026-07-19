@@ -24,7 +24,7 @@ export type LogSource =
 
 export type EventType =
   | "process_create" | "process_terminate" | "process_access"
-  | "file_create" | "file_modify" | "file_delete" | "file_rename" | "file_copy"
+  | "file_create" | "file_access" | "file_modify" | "file_delete" | "file_rename" | "file_copy"
   | "registry_set" | "registry_delete" | "registry_rename"
   | "net_connection" | "net_blocked" | "dns_query" | "http_request" | "http_blocked"
   | "auth_success" | "auth_failure" | "mfa_challenge" | "mfa_denied" | "mfa_push_sent"

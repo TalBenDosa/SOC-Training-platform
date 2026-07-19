@@ -12,7 +12,12 @@ import { makeSha256 } from "./iocs";
 function eventsToAlerts(events: TelemetryEvent[], scenario_id: string): Alert[] {
   const alerts: Alert[] = [];
   let aid = 0;
-  for (const e of events) {
+  // Builders declare events in narrative order, which is not always
+  // chronological — several scenarios listed a tool launch after the traffic it
+  // produced. Alerts must run on the clock, so sort a copy here rather than
+  // relying on every builder to keep its array ordered.
+  const ordered = [...events].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+  for (const e of ordered) {
     if (!e.mitre_technique) continue;
     if (!e.severity || e.severity === "informational" || e.severity === "low") continue;
     aid += 1;
@@ -505,7 +510,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "host.os.version": "22H2",
         "host.os.build": "19045.4291",
         // ML risk score
-        "ml.score": "88",
         // Threat mapping
         "threat.category": "Dropper",
         "threat.technique.id": "T1027",
@@ -1637,7 +1641,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "authentication.protocol": "Kerberos",
         "authentication.status": "success",
         "logon.type": "2",
-        "logon.type_description": "Interactive (local console) — unusual time (02:45)",
+        "logon.type_description": "Interactive (local console)",
       },
     },
     {
@@ -1657,7 +1661,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "source.ip": "91.108.56.200",
         "spf.result": "fail", "dkim.result": "fail",
         "action_result": "delivered",
-        "block.reason": "Keyword whitelist — payroll",
         "threat.name": "SpearphishingAttachment", "threat.category": "Phishing",
         "threat.technique.id": "T1566.001",
       },
@@ -1667,20 +1670,19 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: zero.hostname, user_email: zero.email, src_ip: zero.ip,
       severity: "critical", mitre_technique: "T1059.001",
-      description: "WINWORD.EXE on WS-FIN-1193 spawned a hidden, Base64-encoded PowerShell process 45 seconds after the attachment was opened.",
+      description: "WINWORD.EXE on WS-FIN-1193 spawned a hidden, Base64-encoded PowerShell process 45 seconds after the phishing mail was delivered.",
       process: {
         name: "powershell.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 2244,
         cmdline: "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0AA==",
         user: "CRYOTECH\\cmartin", integrity: "medium",
       },
       raw: {
-        "event.code": "1", "event.action": "process_created",
+        "event.action": "process_created",
         "process.name": "powershell.exe", "process.pid": "7741",
         "process.command_line": "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0AA==",
         "process.parent.name": "WINWORD.EXE", "process.parent.pid": "2244",
         "user.name": "CRYOTECH\\cmartin", "host.name": "WS-FIN-1193",
         "process.integrity": "medium",
-        "encoded_command.detected": "true", "payload.entropy": "5.9",
         "threat.technique.id": "T1059.001",
       },
     },
@@ -1702,9 +1704,65 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "tls.certificate.self_signed": "true",
         "tls.server_certificate.not_after": "2026-08-15",
         "network.vlan.id": "10",
-        "beacon.interval_seconds": "60",
         "action_result": "allow", "tls_inspection": "disabled",
         "threat.name": "CobaltStrikeBeacon", "threat.technique.id": "T1071.001",
+      },
+    },
+    // Privilege escalation. Opening lsass.exe with PROCESS_ALL_ACCESS needs
+    // SeDebugPrivilege, which a medium-integrity process does not hold — so the
+    // beacon has to elevate first. The fodhelper UAC bypass is the step that
+    // makes the credential dump below possible, and it leaves its own tracks.
+    {
+      id: "evt_03b_uac_regkey", ts: T(87 * MIN),
+      source: "sysmon", vendor: "Microsoft Sysmon", event_type: "registry_set",
+      hostname: zero.hostname, user_email: zero.email,
+      severity: "high", mitre_technique: "T1548.002",
+      description: "A DelegateExecute value was written under the ms-settings shell-open key in c.martin's registry hive on WS-FIN-1193.",
+      raw: {
+        "event.code": "13",
+        "winlog.provider_name": "Microsoft-Windows-Sysmon",
+        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+        "winlog.event_data.UtcTime": "2026-05-06T04:42:00.000Z",
+        "winlog.event_data.EventType": "SetValue",
+        "winlog.event_data.ProcessGuid": "{f1e2d3c4-b5a6-a1b2-0001-c3d4e5f60001}",
+        "winlog.event_data.ProcessId": "7741",
+        "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "winlog.event_data.TargetObject": "HKU\\S-1-5-21-3421479547-3897544621-1789562108-1205\\Software\\Classes\\ms-settings\\Shell\\Open\\command\\DelegateExecute",
+        "winlog.event_data.Details": "",
+        "winlog.event_data.User": "CRYOTECH\\cmartin",
+        "threat.technique.id": "T1548.002",
+        "threat.technique.name": "Abuse Elevation Control Mechanism: Bypass User Account Control",
+      },
+    },
+    {
+      id: "evt_03c_uac_bypass", ts: T(88 * MIN),
+      source: "sysmon", vendor: "Microsoft Sysmon", event_type: "process_create",
+      hostname: zero.hostname, user_email: zero.email, src_ip: zero.ip,
+      severity: "high", mitre_technique: "T1548.002",
+      process: {
+        name: "fodhelper.exe", pid: 6120, parent_name: "powershell.exe", parent_pid: 7741,
+        cmdline: "fodhelper.exe",
+        user: "CRYOTECH\\cmartin", integrity: "high",
+      },
+      description: "fodhelper.exe started at High integrity on WS-FIN-1193 with powershell.exe as its parent, one minute after the registry write.",
+      raw: {
+        "event.code": "1",
+        "winlog.provider_name": "Microsoft-Windows-Sysmon",
+        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+        "winlog.event_data.UtcTime": "2026-05-06T04:43:00.000Z",
+        "winlog.event_data.ProcessGuid": "{f1e2d3c4-b5a6-a1b2-0006-c3d4e5f60006}",
+        "winlog.event_data.ProcessId": "6120",
+        "winlog.event_data.Image": "C:\\Windows\\System32\\fodhelper.exe",
+        "winlog.event_data.CommandLine": "fodhelper.exe",
+        "winlog.event_data.ParentProcessGuid": "{f1e2d3c4-b5a6-a1b2-0001-c3d4e5f60001}",
+        "winlog.event_data.ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "winlog.event_data.ParentProcessId": "7741",
+        "winlog.event_data.User": "CRYOTECH\\cmartin",
+        "winlog.event_data.IntegrityLevel": "High",
+        "winlog.event_data.OriginalFileName": "FODHELPER.EXE",
+        "winlog.event_data.Company": "Microsoft Corporation",
+        "threat.technique.id": "T1548.002",
+        "threat.technique.name": "Abuse Elevation Control Mechanism: Bypass User Account Control",
       },
     },
     {
@@ -1713,9 +1771,9 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       hostname: zero.hostname, user_email: zero.email,
       severity: "critical", mitre_technique: "T1003.001",
       process: {
-        name: "rundll32.exe", pid: 9914, parent_name: "powershell.exe", parent_pid: 7741,
+        name: "rundll32.exe", pid: 9914, parent_name: "fodhelper.exe", parent_pid: 6120,
         cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Windows\\Temp\\mem.dmp full",
-        user: "CRYOTECH\\cmartin", integrity: "medium",
+        user: "CRYOTECH\\cmartin", integrity: "high",
       },
       file: { path: "C:\\Windows\\Temp\\mem.dmp" },
       description: "CrowdStrike detected rundll32.exe on WS-FIN-1193 using comsvcs.dll to dump lsass.exe memory to mem.dmp — a domain admin had an active session on this workstation.",
@@ -1737,7 +1795,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         // Source process — rundll32.exe (the LOLBin doing the dump)
         "process.name": "rundll32.exe", "process.pid": "9914",
         "process.command_line": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Windows\\Temp\\mem.dmp full",
-        "process.parent.name": "powershell.exe", "process.parent.pid": "7741",
+        "process.parent.name": "fodhelper.exe", "process.parent.pid": "6120",
         // Target process — lsass.exe (the victim of the memory dump)
         "process.target.name": "lsass.exe",
         "process.target.pid": "704",
@@ -1764,7 +1822,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       id: "evt_04b_kerberos_tgt", ts: T(92 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
       hostname: "DC-CORP-01", user_email: zero.email,
-      severity: "critical", mitre_technique: "T1558.003",
+      severity: "critical", mitre_technique: "T1550.002",
       description: "A Kerberos TGT for domain admin account da-backup was requested from WS-FIN-1193 using RC4 encryption, two minutes after the LSASS dump.",
       raw: {
         "event.code": "4768",
@@ -1772,11 +1830,10 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.TargetUserName": "da-backup",
         "winlog.event_data.TargetDomainName": "CRYOTECH",
-        "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-500",
+        "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1108",
         "winlog.event_data.ServiceName": "krbtgt",
         "winlog.event_data.TicketOptions": "0x40810010",
         "winlog.event_data.TicketEncryptionType": "0x17",
-        "winlog.event_data.TicketEncryptionType.Description": "RC4-HMAC — AES256 downgrade indicates NTLM hash used instead of password",
         "winlog.event_data.IPAddress": zero.ip ?? "10.10.20.33",
         "winlog.event_data.IPPort": "51888",
         "winlog.event_data.Status": "0x0",
@@ -1794,10 +1851,9 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.channel": "Security",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.LogonType": "3",
-        "winlog.event_data.LogonType.Description": "Network logon — lateral movement using Pass-the-Hash",
         "winlog.event_data.TargetUserName": "da-backup",
         "winlog.event_data.TargetDomainName": "CRYOTECH",
-        "winlog.event_data.LogonProcessName": "NTLM",
+        "winlog.event_data.LogonProcessName": "NtLmSsp",
         "winlog.event_data.AuthenticationPackageName": "NTLM",
         "winlog.event_data.WorkstationName": zero.hostname,
         "winlog.event_data.IpAddress": zero.ip ?? "10.10.20.33",
@@ -1822,7 +1878,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "network.protocol": "smb", "network.transport": "tcp",
         "authentication.method": "NTLM", "authentication.status": "success",
         "smb.share": "\\\\FS-CORP-01\\ADMIN$",
-        "pass_the_hash": "true",
         "threat.technique.id": "T1021.002",
         "threat.technique.name": "SMB/Windows Admin Shares",
       },
@@ -1886,7 +1941,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "process.command_line": "vssadmin.exe delete shadows /all /quiet",
         "process.parent.name": "PSEXESVC.exe", "process.parent.pid": "3310",
         "user.name": "NT AUTHORITY\\SYSTEM", "host.name": "FS-CORP-01",
-        "vss.copies_deleted": "12",
         "threat.technique.id": "T1490",
         "threat.technique.name": "Inhibit System Recovery",
       },
@@ -1895,10 +1949,10 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       id: "evt_08_log_clear", ts: T(121 * MIN),
       source: "sysmon", vendor: "Microsoft Sysmon", event_type: "process_create",
       hostname: server.hostname,
-      severity: "high",
+      severity: "high", mitre_technique: "T1070.001",
       process: {
-        name: "wevtutil.exe", pid: 8841, parent_name: "PSEXESVC.exe", parent_pid: 3310,
-        cmdline: "wevtutil.exe cl Security & wevtutil.exe cl System & wevtutil.exe cl Application",
+        name: "cmd.exe", pid: 8841, parent_name: "PSEXESVC.exe", parent_pid: 3310,
+        cmdline: "cmd.exe /c wevtutil cl Security & wevtutil cl System & wevtutil cl Application",
         user: "NT AUTHORITY\\SYSTEM", integrity: "system",
       },
       description: "wevtutil.exe cleared the Security, System, and Application event logs on FS-CORP-01 right after the shadow copies were deleted.",
@@ -1909,8 +1963,8 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.UtcTime": "2026-05-06T05:16:00.000Z",
         "winlog.event_data.ProcessGuid": "{f1e2d3c4-b5a6-a1b2-0004-c3d4e5f60004}",
         "winlog.event_data.ProcessId": "8841",
-        "winlog.event_data.Image": "C:\\Windows\\System32\\wevtutil.exe",
-        "winlog.event_data.CommandLine": "wevtutil.exe cl Security & wevtutil.exe cl System & wevtutil.exe cl Application",
+        "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
+        "winlog.event_data.CommandLine": "cmd.exe /c wevtutil cl Security & wevtutil cl System & wevtutil cl Application",
         "winlog.event_data.ParentProcessGuid": "{f1e2d3c4-b5a6-a1b2-0002-c3d4e5f60002}",
         "winlog.event_data.ParentImage": "C:\\Windows\\PSEXESVC.exe",
         "winlog.event_data.ParentProcessId": "3310",
@@ -1930,9 +1984,9 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "event.code": "1102",
         "winlog.channel": "Security",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.event_data.SubjectUserName": "svc-backup",
+        "winlog.event_data.SubjectUserName": "FS-CORP-01$",
         "winlog.event_data.SubjectDomainName": "CRYOTECH",
-        "winlog.event_data.SubjectUserSid": "S-1-5-21-3421479547-3897544621-1789562108-1115",
+        "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectLogonId": "0x3e4a2",
         "threat.technique.id": "T1070.001",
       },
@@ -1942,13 +1996,13 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "av_detection",
       hostname: server.hostname,
       severity: "critical", mitre_technique: "T1486",
-      file: { path: "C:\\Windows\\Temp\\beacon.exe", sha256: rswHash },
-      description: `CrowdStrike detected beacon.exe (LockBit 3.0) running as SYSTEM on FS-CORP-01 but did not block it — the server policy is set to detection-only.`,
+      file: { path: "C:\\Windows\\Temp\\wu_update.exe", sha256: rswHash },
+      description: `CrowdStrike detected wu_update.exe (LockBit 3.0) running as SYSTEM on FS-CORP-01 but did not block it — the server policy is set to detection-only.`,
       raw: {
         "event.action": "av_detection",
-        "file.path": "C:\\Windows\\Temp\\beacon.exe",
+        "file.path": "C:\\Windows\\Temp\\wu_update.exe",
         "file.hash.sha256": rswHash,
-        "file.name": "beacon.exe",
+        "file.name": "wu_update.exe",
         "host.name": "FS-CORP-01",
         "user.name": "NT AUTHORITY\\SYSTEM",
         "malware.name": "LockBit.3.0", "malware.family": "LockBit", "malware.type": "Ransomware",
@@ -1970,7 +2024,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "host.name": "FS-CORP-01",
         "user.name": "NT AUTHORITY\\SYSTEM",
         "files.encrypted_count": "2847", "files.extension_added": ".locked",
-        "files.encryption_rate_per_sec": "31",
         "file.ransom_note": "LockBit_Ransom.txt",
         "storage.size": "18 GB",
         "shares.affected": "Finance, HR, Contracts",
@@ -2001,9 +2054,9 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     {
       id: "evt_rsw_baseline_file", ts: T(-5 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon",
-      event_type: "file_create", severity: "informational",
+      event_type: "file_access", severity: "informational",
       hostname: zero.hostname, user_email: zero.email,
-      description: "c.martin opened Budget_Q2_2026.xlsx from the Finance share on FS-CORP-01 — normal end-of-day activity.",
+      description: "c.martin opened Budget_Q2_2026.xlsx from the Finance share on FS-CORP-01 — the last routine file access before the intrusion.",
       raw: {
         "event.action": "FileAccessed",
         "file.path": "\\\\FS-CORP-01\\Finance\\Budget_Q2_2026.xlsx",
@@ -2012,7 +2065,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "host.name": zero.hostname,
         "source.ip": zero.ip,
         "event.outcome": "success",
-        "baseline.files_per_day": "8-12",
       },
     },
 
@@ -2074,14 +2126,13 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       source: "edr", vendor: "CrowdStrike Falcon",
       event_type: "av_detection", severity: "medium",
       hostname: server.hostname,
-      description: "CrowdStrike's ML engine scored beacon.exe 74/100 on FS-CORP-01 — below the 80-point auto-block threshold — and logged it without taking action.",
+      description: "CrowdStrike flagged the payload on FS-CORP-01 as a high-confidence malware detection, but the sensor was configured to log only and took no action.",
       raw: {
         "event.action": "av_detection",
-        "file.path": "C:\\Windows\\Temp\\beacon.exe",
+        "file.path": "C:\\Windows\\Temp\\wu_update.exe",
         "file.hash.sha256": rswHash,
         "host.name": server.hostname,
         "user.name": "NT AUTHORITY\\SYSTEM",
-        "ml.score": "74",
         "policy.name": "Server-Detection-Only",
         "policy.prevention_enabled": "false",
         "action_result": "logged_not_blocked",
@@ -2106,9 +2157,11 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     { ts: T(0),          phase: "Initial Access",              action: "Phishing 'Salary_Adjustment_Notice.docm' delivered — keyword whitelist bypass" },
     { ts: T(45_000),     phase: "Execution",                   action: "WINWORD macro spawns encoded PowerShell → Cobalt Strike stage-1 loader" },
     { ts: T(3 * MIN),    phase: "Command & Control",           action: "Cobalt Strike HTTPS beacon to cobalt-cdn-updates.xyz every 60s" },
+    { ts: T(87 * MIN),   phase: "Privilege Escalation",         action: "fodhelper UAC bypass — beacon gains a High-integrity token" },
     { ts: T(90 * MIN),   phase: "Credential Access",           action: "LSASS dumped via comsvcs.dll — domain admin hash extracted" },
     { ts: T(105 * MIN),  phase: "Lateral Movement",            action: "Pass-the-hash SMB to FS-CORP-01 ADMIN$ — PsExec deployed" },
     { ts: T(120 * MIN),  phase: "Impact — Recovery Inhibition", action: "vssadmin deletes all 12 shadow copies — recovery prevented" },
+    { ts: T(121 * MIN),  phase: "Defense Evasion",              action: "Security, System and Application logs cleared — Event 1102 survives" },
     { ts: T(123 * MIN),  phase: "Impact — Encryption",         action: "LockBit 3.0 encrypts 2,847 files (18GB) across Finance, HR, Contracts shares" },
   ];
 
@@ -2126,7 +2179,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       options: [
         { value: "T1021.002", label: "T1021.002 — SMB/Windows Admin Shares (pass-the-hash + PsExec)" },
         { value: "T1078",     label: "T1078 — Valid Accounts (stolen plaintext password)" },
-        { value: "T1076",     label: "T1076 — Remote Desktop Protocol" },
+        { value: "T1021.001", label: "T1021.001 — Remote Desktop Protocol" },
         { value: "T1105",     label: "T1105 — Ingress Tool Transfer only" },
       ],
       answer: "T1021.002", xp: 50,
@@ -2148,7 +2201,16 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         { value: "detection", label: "Detection Only is correct — blocking can cause false positives on servers" },
       ],
       answer: "prevent", xp: 75,
-      explanation: "Setting Prevention on servers would have blocked beacon.exe before it executed, stopping encryption entirely. 'Detection Only' is a common misconfiguration on servers due to concerns about availability — but it allowed LockBit to run unimpeded. The performance impact of CrowdStrike prevention mode on modern servers is negligible." },
+      explanation: "The ML engine scored the payload 91/100, well above the 80-point block threshold — the sensor was confident. What stopped it from acting was the policy: with prevention disabled it can only log. Setting Prevention on servers would have blocked the payload before encryption began. 'Detection Only' is a common server misconfiguration driven by availability fears, and here it cost the whole file server." },
+    { id: "q5", prompt: "You have the full timeline. Which single containment action, taken at the earliest point it was possible, would have prevented file encryption at the lowest cost to the business?", kind: "single",
+      options: [
+        { value: "isolate_zero", label: "Network-isolate WS-FIN-1193 when the LSASS dump was detected at 04:45 — before any credential could be reused" },
+        { value: "block_c2",     label: "Block the C2 domain at the firewall when beaconing started at 03:18" },
+        { value: "isolate_fs",   label: "Network-isolate FS-CORP-01 when vssadmin deleted the shadow copies at 05:15" },
+        { value: "disable_user", label: "Disable c.martin's account when the out-of-hours logon was seen at 02:45" },
+      ],
+      answer: "isolate_zero", xp: 100,
+      explanation: "Isolating WS-FIN-1193 at the LSASS dump is the earliest action that is both justified and decisive. The 02:45 logon and the 03:18 beacon are suspicious but not yet proof of compromise, and disabling the user would not have stopped a beacon already running as that user. Blocking the C2 domain alone leaves the attacker's foothold and stolen hash intact. By 05:15 the shadow copies are already gone and the attacker holds domain admin — isolating the file server then is damage control, not prevention. The LSASS dump is the moment the incident becomes provable AND the credentials have not yet been reused: containing there breaks the chain before lateral movement." },
   ];
 
   return {
@@ -2156,13 +2218,14 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     title: "Ransomware Outbreak — LockBit 3.0",
     threat_actor: "LockBit 3.0 affiliate (Ransomware-as-a-Service)",
     attack_kind: "ransomware",
-    narrative: `At 03:15 on a Tuesday, a finance analyst working late received what appeared to be a payroll update email. The macro-enabled attachment bypassed email filters and spawned a Cobalt Strike beacon that ran silently for 90 minutes. At 04:45, domain admin credentials were extracted from LSASS memory. The attacker pivoted over SMB to the central file server, deleted all 12 Volume Shadow Copies, cleared the Security and System event logs, then unleashed LockBit 3.0 — encrypting 2,847 files (18GB) across Finance, HR, and Contracts shares in under 2 minutes. Your job: identify patient zero, trace the lateral movement, understand why the CrowdStrike sensor didn't block it, and determine the earliest point where this attack could have been stopped.`,
+    narrative: `At 03:15 on a Wednesday, a finance analyst working late received what appeared to be a payroll update email. The macro-enabled attachment bypassed email filters and spawned a Cobalt Strike beacon that ran silently for 90 minutes. At 04:43 the beacon elevated itself through a fodhelper UAC bypass, and two minutes later domain admin credentials were extracted from LSASS memory. The attacker pivoted over SMB to the central file server, deleted all 12 Volume Shadow Copies, cleared the Security and System event logs, then unleashed LockBit 3.0 — encrypting 2,847 files (18GB) across Finance, HR, and Contracts shares in under 2 minutes. Your job: identify patient zero, trace the lateral movement, understand why the CrowdStrike sensor didn't block it, and determine the earliest point where this attack could have been stopped.`,
     learning_objectives: [
       "Identify the patient zero host and trace the infection path through the kill chain",
       "Understand PsExec lateral movement via SMB pass-the-hash and SYSTEM-level execution",
       "Recognize pre-ransomware indicators: shadow copy deletion and event log clearing",
       "Understand the impact of 'Detection Only' vs 'Prevention' EDR policies",
       "Determine the earliest effective containment point in a ransomware attack chain",
+      "Spot the UAC bypass that turns a user-level foothold into a credential-theft capability",
     ],
     alerts, events, iocs, killchain, questions,
   };
@@ -3448,7 +3511,6 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
         "source.ip": "45.148.10.77",
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
         "action_result": "delivered",
-        "block.reason": "No matching transport rule — attachment type ZIP not blocklisted",
         "threat.name": "SuspiciousAttachment", "threat.category": "Phishing",
         "threat.technique.id": "T1566.001",
       },
@@ -3547,8 +3609,8 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
   ];
 
   const iocs: IOC[] = [
-    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["attacker-c2", "registered-2-days-ago"] },
-    { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["attacker-c2"] },
+    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "registered-2-days-ago"] },
+    { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["external-infrastructure"] },
     { type: "sha256", value: fileHash, reputation: "malicious", tags: ["commodity-trojan", "double-extension"] },
   ];
 
@@ -3917,8 +3979,8 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
   ];
 
   const iocs: IOC[] = [
-    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["attacker-c2", "registered-4-days-ago"] },
-    { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["attacker-c2"] },
+    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "registered-4-days-ago"] },
+    { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["external-infrastructure"] },
     { type: "sha256", value: stagerHash, reputation: "malicious", tags: ["browser-extension-loader"] },
   ];
 
@@ -4425,8 +4487,8 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
   ];
 
   const iocs: IOC[] = [
-    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["attacker-c2", "registered-3-days-ago"] },
-    { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["attacker-c2"] },
+    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "registered-3-days-ago"] },
+    { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["external-infrastructure"] },
   ];
 
   return {
@@ -5551,7 +5613,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint",
       event_type: "av_detection", severity: "medium",
       hostname: victimHost, user_email: victimEmail,
-      description: "Microsoft Defender scanned update.exe and scored it 62/100 — below the 80-point auto-quarantine threshold — and allowed it.",
+      description: "Microsoft Defender scanned update.exe, returned a low-confidence verdict, and allowed it to run.",
       raw: {
         "event.action": "DefenderDetection",
         "file.path": "C:\\Users\\s.patel\\Downloads\\update.exe",
@@ -5559,8 +5621,6 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "file.name": "update.exe",
         "host.name": victimHost,
         "user.name": "NEXACORP\\s.patel",
-        "ml.score": "62",
-        "av.quarantine_threshold": "80",
         "action_result": "allowed",
         "quarantine.status": "not_quarantined",
       },
@@ -6111,7 +6171,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
     { type: "ip",     value: attackerIp,                             reputation: "malicious",  tags: ["attacker-bot", "singapore", "credential-abuse"] },
     { type: "domain", value: "pool.minexmr.com",                     reputation: "malicious",  tags: ["monero-mining-pool", "xmrig", "cryptomining"] },
     { type: "domain", value: "xmr.pool.minergate.com",               reputation: "malicious",  tags: ["monero-mining-pool", "cryptomining"] },
-    { type: "user",   value: backdoorUser,                           reputation: "malicious",  tags: ["backdoor-iam-user", "attacker-persistence", "aws"] },
+    { type: "user",   value: backdoorUser,                           reputation: "malicious",  tags: ["iam-principal", "aws"] },
     { type: "user",   value: iamUser,                                reputation: "suspicious", tags: ["compromised-iam-user", "leaked-credentials"] },
     { type: "host",   value: s3Bucket,                               reputation: "suspicious", tags: ["exfiltrated-bucket", "data-breach", "made-public"] },
     { type: "url",    value: "https://github.com/rocketstack-io/deploy-scripts/commit/f3a8c2d9b8e1f4a67c3d2e1f", reputation: "suspicious", tags: ["credential-leak-source", "github-commit"] },
@@ -6715,7 +6775,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
   ];
 
   const iocs: IOC[] = [
-    { type: "ip",     value: attackerIp,                                      reputation: "malicious",  tags: ["attacker-c2", "netherlands", "tor-exit-node"] },
+    { type: "ip",     value: attackerIp,                                      reputation: "malicious",  tags: ["external-infrastructure", "netherlands", "tor-exit-node"] },
     { type: "user",   value: adminEmail,                                       reputation: "suspicious", tags: ["compromised-account", "it-admin", "stolen-credentials"] },
     { type: "host",   value: dc01,                                             reputation: "suspicious", tags: ["patient-zero", "domain-controller", "dcsync-source"] },
     { type: "sha256", value: mimikatzHash,                                     reputation: "malicious",  tags: ["mimikatz", "credential-dumper", "hacktool"] },
@@ -7132,7 +7192,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
   ];
 
   const iocs: IOC[] = [
-    { type: "ip",     value: attacker.ip,          reputation: "malicious",  tags: ["attacker-c2", "netherlands"] },
+    { type: "ip",     value: attacker.ip,          reputation: "malicious",  tags: ["external-infrastructure", "netherlands"] },
     { type: "ip",     value: attacker.relayIp,      reputation: "malicious",  tags: ["attacker-relay", "singapore"] },
     { type: "domain", value: attacker.c2Domain,     reputation: "malicious",  tags: ["c2", "fake-telemetry", "self-signed"] },
     { type: "sha256", value: malDllHash,             reputation: "malicious",  tags: ["trojanized-dll", "supply-chain", "netpulse"] },
@@ -7440,10 +7500,10 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
   ];
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "91.108.4.33",                            reputation: "malicious", tags: ["attacker-c2", "moscow", "telegram-datacenter", "mfa-fatigue-source"] },
+    { type: "ip",     value: "91.108.4.33",                            reputation: "malicious", tags: ["external-infrastructure", "moscow", "telegram-datacenter"] },
     { type: "email",  value: "j.chen.backup@proton.me",                reputation: "malicious", tags: ["exfil-target", "inbox-forwarding"] },
     { type: "host",   value: "DESKTOP-MOSCOW-99",                      reputation: "malicious", tags: ["attacker-device", "ca-policy-exclusion"] },
-    { type: "sha256", value: makeSha256("okta-api-token-j.chen-2026"), reputation: "malicious", tags: ["okta-api-token", "persistence", "survives-password-reset"] },
+    { type: "sha256", value: makeSha256("okta-api-token-j.chen-2026"), reputation: "malicious", tags: ["okta-api-token", "persistence"] },
   ];
 
   const killchain = [
@@ -7740,10 +7800,10 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
   ];
 
   const iocs: IOC[] = [
-    { type: "host",   value: "WS-DEV-09",                               reputation: "malicious", tags: ["attacker-workstation", "asrep-source", "ip:10.0.1.45"] },
+    { type: "host",   value: "WS-DEV-09",                               reputation: "malicious", tags: ["internal-host", "ip:10.0.1.45"] },
     { type: "sha256", value: makeSha256("asrep-hashcat-svc-backup-nexacorp"), reputation: "malicious", tags: ["asrep-hash", "krb5asrep-rc4", "hashcat", "svc-backup-tgt"] },
-    { type: "sha256", value: makeSha256("GetNPUsers-impacket-tool"),    reputation: "malicious", tags: ["impacket", "GetNPUsers.py", "asrep-roasting-tool"] },
-    { type: "ip",     value: "10.0.1.45",                               reputation: "malicious", tags: ["attacker-pivot", "ws-dev-09", "lateral-movement-source"] },
+    { type: "sha256", value: makeSha256("GetNPUsers-impacket-tool"),    reputation: "malicious", tags: ["impacket", "GetNPUsers.py"] },
+    { type: "ip",     value: "10.0.1.45",                               reputation: "malicious", tags: ["ws-dev-09"] },
   ];
 
   const killchain = [
@@ -8036,10 +8096,10 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
   ];
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "10.0.1.45",                                 reputation: "malicious", tags: ["attacker-pivot", "ws-dev-09", "responder-host", "relay-source"] },
-    { type: "sha256", value: makeSha256("Responder.py-FIN7-2026"),        reputation: "malicious", tags: ["responder", "llmnr-poisoning", "ntlm-relay-tool"] },
+    { type: "ip",     value: "10.0.1.45",                                 reputation: "malicious", tags: ["ws-dev-09"] },
+    { type: "sha256", value: makeSha256("Responder.py-FIN7-2026"),        reputation: "malicious", tags: ["indicator"] },
     { type: "sha256", value: makeSha256("PSEXESVC-ntlm-relay-2026"),     reputation: "malicious", tags: ["psexec", "lateral-movement", "remote-exec"] },
-    { type: "host",   value: "WS-DEV-09",                                 reputation: "malicious", tags: ["attacker-workstation", "responder-running", "relay-pivot"] },
+    { type: "host",   value: "WS-DEV-09",                                 reputation: "malicious", tags: ["internal-host"] },
   ];
 
   const killchain = [
@@ -8316,8 +8376,8 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
 
   const iocs: IOC[] = [
     { type: "ip",     value: "185.220.101.47",                               reputation: "malicious", tags: ["tor-exit-node", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
-    { type: "user",   value: "svc-monitoring-backup",                        reputation: "malicious", tags: ["backdoor-iam-user", "administrator-access", "persistence"] },
-    { type: "sha256", value: makeSha256("eks-node-role-credentials-stolen"),  reputation: "malicious", tags: ["stolen-iam-credentials", "eks-node-role", "imds-exfil"] },
+    { type: "user",   value: "svc-monitoring-backup",                        reputation: "malicious", tags: ["iam-principal", "administrator-access", "persistence"] },
+    { type: "sha256", value: makeSha256("eks-node-role-credentials-stolen"),  reputation: "malicious", tags: ["iam-credential", "eks-node-role"] },
     { type: "sha256", value: makeSha256("rocketstack-secrets-db-passwords"),  reputation: "malicious", tags: ["s3-exfil", "db-passwords", "secrets-bucket"] },
   ];
 
