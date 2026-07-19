@@ -13,7 +13,7 @@ into active, exploitable exposures.
 | # | Finding | Severity | Status |
 |---|---|---|---|
 | F1 | Every LLM-calling API route was reachable with **no authentication** → anonymous financial-DoS (drain the AI budget) | **Critical** | ✅ Fixed & deployed |
-| F2 | `profiles` table **world-readable** via anon key → user enumeration + admin-account disclosure | **High** | ⚠️ Fix ready — 1 SQL paste needed |
+| F2 | `profiles` table **world-readable** via anon key → user enumeration + admin-account disclosure | **High** | ✅ Fixed & verified (anon read → `[]`) |
 | F5 | **Open redirect** in `/auth/callback` via unvalidated `next` param → phishing off a trusted domain | Medium | ✅ Fixed & deployed |
 | F3 | Rate limiting is in-memory (per-instance) — weak on serverless | Medium | ⬜ Documented follow-up |
 | F4 | CSP is Report-Only (and permits `unsafe-inline`/`unsafe-eval`) | Low | ⬜ Documented follow-up |
