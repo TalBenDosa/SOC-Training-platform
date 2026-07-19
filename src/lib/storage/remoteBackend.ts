@@ -29,8 +29,14 @@ function safeParse<T>(raw: string | undefined | null, fallback: T): T {
 
 export interface RemoteBackendHandle {
   backend: StorageBackend;
-  /** Loads all rows for `userId` into the cache. Returns true if the account had NO data yet (fresh signup — a good moment to import local progress). */
-  hydrate: () => Promise<{ wasEmpty: boolean }>;
+  /**
+   * Loads all rows for `userId` into the cache.
+   * `wasEmpty` — the account has no progress yet (fresh signup — a good moment to import local progress).
+   * `rowsMissing` — the account's provisioned rows (profiles + user_progress, created by the signup
+   * trigger) don't exist at all. A valid session pointing at a DELETED user looks exactly like this;
+   * the caller should sign out rather than treat it as a fresh account.
+   */
+  hydrate: () => Promise<{ wasEmpty: boolean; rowsMissing: boolean }>;
 }
 
 export function createRemoteBackend(supabase: SupabaseClient, userId: string): RemoteBackendHandle {
@@ -147,7 +153,7 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
     },
   };
 
-  async function hydrate(): Promise<{ wasEmpty: boolean }> {
+  async function hydrate(): Promise<{ wasEmpty: boolean; rowsMissing: boolean }> {
     const [profileRes, userProgressRes, roomRes, sessionsRes, scenariosRes] = await Promise.all([
       supabase.from("profiles").select("xp").eq("id", userId).maybeSingle(),
       supabase.from("user_progress").select("*").eq("user_id", userId).maybeSingle(),
@@ -202,7 +208,10 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
 
     const wasEmpty = xp === 0 && roomMap && Object.keys(roomMap).length === 0
       && sessions.length === 0 && scenarios.length === 0;
-    return { wasEmpty };
+    // The signup trigger always creates both rows, so both missing means the
+    // account itself is gone (deleted user with a still-valid session).
+    const rowsMissing = !profileRes.data && !userProgressRes.data;
+    return { wasEmpty, rowsMissing };
   }
 
   return { backend, hydrate };

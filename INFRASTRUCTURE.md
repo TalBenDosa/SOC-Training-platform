@@ -27,17 +27,28 @@ Today every per-user read/write goes through `src/lib/storage/progress.ts`, back
 - ⬜ **Remaining (mechanical, same keys — safe to do incrementally):** `room_progress` (RoomClient/rooms page/progress), `soc_dashboard_sessions` (useLiveEvents/progress), `soc_scenario_history` (ScenarioClient/progress), `soc_company_cleared_v1`, `soc_streak_freeze_dates`. Facade methods already exist for all of them (`getRoomProgress`/`saveRoomProgress`, `getDashboardSessions`/`appendDashboardSession`, `getScenarioHistory`/`appendScenarioRecord`, `getClearedCompanies`/`addClearedCompany`, `getStreakFreezeDates`/`saveStreakFreezeDates`).
 - **Admin/content keys** (`generated_*`, `admin_*`, `published_scenarios`) are staff tooling — a separate Phase-2 concern (content moves server-side behind a staff role), not per-learner data.
 
-## Deploying (recommended path: Vercel)
+## Deploying — LIVE on Vercel (2026-07-19)
 
-1. Import the repo into **Vercel** (auto-detects Next.js).
-2. Set env vars from `.env.example` in the Vercel project (Production + Preview). At minimum the app runs with none (stub content); add `ANTHROPIC_API_KEY` for real AI, and the Supabase/Auth vars once Phase 1 lands.
-3. Add a custom domain; TLS is automatic.
-4. CI (`.github/workflows/ci.yml`) gates PRs; Vercel builds preview deploys per PR.
-5. **Phase 0.7:** create an Upstash Redis DB, set `UPSTASH_REDIS_REST_*`, and implement `UpstashRateLimitStore` in `rateLimit.ts` (the only change needed for durable, cross-instance limiting).
+**Production URL:** https://soc-training-platform-jade.vercel.app
+Vercel project `tal-ben-dosa/soc-training-platform`, connected to the GitHub repo (`TalBenDosa/SOC-Training-platform`) — **every push to the default branch now auto-deploys**. Production env vars set (3 Supabase + Anthropic/OpenAI keys, all encrypted). Security headers verified live on the production URL (HSTS, X-Frame-Options DENY, nosniff, CSP-Report-Only).
 
-## Auth & accounts — now built (Supabase Auth, email+password)
+**Verified end-to-end on production:** a real signup on the live /signup page created the `auth.users` row, the trigger created `profiles` + `user_progress`, and the user was auto-signed-in (Confirm-email is OFF for the beta — see below). Test user deleted afterward.
 
-The code side of Phase 1 is done: signup, login, password reset, session refresh, and the DB-backed storage backend all exist and build cleanly. **Nothing is live yet** because no Supabase project is connected — every auth page detects this and shows a graceful "Continue as guest" fallback (verified live: `/login` with no env configured renders "Accounts aren't set up yet" instead of crashing).
+Setup notes / follow-ups:
+1. **"Confirm email" is currently OFF** in Supabase (Sign In / Providers → User Signups). Reason: Supabase's built-in email sender allows only ~2 emails/hour, which broke signups ("email rate limit exceeded"). Before public launch: set up custom SMTP (Postmark/Resend/SendGrid) in Supabase → Auth → Emails, then turn Confirm email back ON.
+2. Supabase Auth **Site URL** = the production URL; **Redirect URLs** = production/** + localhost:3000/** (Auth → URL Configuration).
+3. A Vercel CLI token (`claude-setup-cli`, scope TalBenDosa, expires 2026-07-26) lives in `.env.local` as `VERCEL_TOKEN`; revoke it in Vercel → Account Settings → Tokens if unneeded.
+4. Add a custom domain in Vercel → Project → Domains when ready; TLS is automatic.
+5. CI (`.github/workflows/ci.yml`) gates PRs; Vercel builds preview deploys per PR.
+6. **Phase 0.7:** create an Upstash Redis DB, set `UPSTASH_REDIS_REST_*`, and implement `UpstashRateLimitStore` in `rateLimit.ts` (the only change needed for durable, cross-instance limiting).
+
+## Auth & accounts — LIVE (Supabase Auth, email+password)
+
+**Connected and verified end-to-end on 2026-07-19** against project `wrxhxtdllbctsawvewue` ("Hack The SOC Real"): a real signup through `/signup` created a row in `auth.users`, the `0003_auth_trigger.sql` trigger fired and created matching `profiles` + `user_progress` rows (confirmed via the PostgREST API), and the confirmation-email gate showed correctly. The test account was deleted after verification (cascaded cleanly). If no Supabase project is configured, every auth page still falls back gracefully to "Continue as guest" — verified separately.
+
+**Gotcha for next time (cost ~30 min to diagnose):** Supabase's **"Direct connection"** string (`db.<ref>.supabase.co`) resolves **IPv6-only** — it will fail with a DNS/hostname-resolution error on any machine or network without IPv6 (common on Windows + typical ISPs). Always use the **Session pooler** connection string instead (`aws-0-<region>.pooler.supabase.com`, user `postgres.<ref>` not just `postgres`) for `DATABASE_URL` / migration pushes — it's IPv4-compatible. Get it from the project's green **Connect** button → Direct → Connection Method → **Session pooler**.
+
+**Also note:** newer Supabase projects show **"Publishable key"** / **"Secret keys"** in Settings → API instead of the legacy **anon** / **service_role** names — they map 1:1 to `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` respectively and work as drop-in values.
 
 | Area | File(s) |
 |---|---|
