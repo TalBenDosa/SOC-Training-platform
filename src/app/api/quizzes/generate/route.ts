@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 
 // ─── Extended type for generated quizzes ─────────────────────────────────────
@@ -160,6 +161,9 @@ function buildLocalQuiz(
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   const body = await req.json().catch(() => ({}));
   const {
     title = "Generated Quiz",

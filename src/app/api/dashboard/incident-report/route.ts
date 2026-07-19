@@ -17,6 +17,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { getAuthedUser } from "@/lib/auth/apiGuard";
 
 export const runtime = "nodejs";
 
@@ -233,8 +234,10 @@ export async function POST(req: Request) {
     } satisfies IncidentReportResponse);
   }
 
+  // The paid LLM path is gated behind a signed-in user so anonymous callers
+  // can't run up the AI bill. Guests still get a full (heuristic) grade.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  if (!apiKey || !(await getAuthedUser())) {
     return NextResponse.json(heuristicGrade(body));
   }
 

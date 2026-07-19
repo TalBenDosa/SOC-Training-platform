@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 import {
   buildPhishingToExfil,
   buildBecScenario,
@@ -369,6 +370,9 @@ const ATTACK_DESCRIPTIONS: Record<string, string> = {
 // ─── Main route ───────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   const body = await req.json().catch(() => ({}));
   const { attackType = "random" } = body as { attackType?: string };
 

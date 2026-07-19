@@ -15,6 +15,7 @@ export const dynamic    = "force-dynamic";
 export const maxDuration = 300;
 
 import OpenAI from "openai";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 import type { GeneratedLesson } from "../generate/route";
 
 // ─── OpenAI client ────────────────────────────────────────────────────────────
@@ -417,6 +418,9 @@ Return ONLY this JSON (no markdown fences, no extra keys):
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   const body = await req.json().catch(() => ({})) as {
     topic?: string;
     difficulty?: string;

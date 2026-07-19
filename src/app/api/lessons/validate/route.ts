@@ -12,6 +12,7 @@
 export const dynamic = "force-dynamic";
 
 import OpenAI from "openai";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 
 const MODEL = "gpt-4o-mini";
 
@@ -70,6 +71,9 @@ interface LessonInput {
 }
 
 export async function POST(req: Request) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   if (!process.env.OPENAI_API_KEY) {
     return Response.json(
       { error: "OPENAI_API_KEY not configured" },

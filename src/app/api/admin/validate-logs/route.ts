@@ -19,8 +19,12 @@ import type { NextRequest } from "next/server";
 import { validateEvents } from "@/lib/sim/logValidator";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS, COMPANY_ATTACKS } from "@/lib/sim/companyProfiles";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 
 export async function GET(_req: NextRequest) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   // ── 1. Collect all events across every data source ──────────────────────
   // Start with NexaCorp's benign background events
   const allEvents: (typeof BENIGN_EVENTS)[0][] = [...BENIGN_EVENTS];

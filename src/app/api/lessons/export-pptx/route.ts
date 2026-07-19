@@ -4,6 +4,7 @@
  * Accepts lesson JSON, returns a .pptx binary stream.
  */
 import PptxGenJS from "pptxgenjs";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 import type { LessonForExport } from "@/lib/lessons/exportPptx";
 
 // ─── Theme ────────────────────────────────────────────────────────────────────
@@ -234,6 +235,9 @@ function buildTakeawaysSlide(pptx: any, lesson: LessonForExport, slideNum: numbe
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   const lesson = await req.json().catch(() => null) as LessonForExport | null;
 
   if (!lesson?.title || !Array.isArray(lesson.sections)) {

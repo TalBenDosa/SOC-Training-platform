@@ -11,6 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { findLesson } from "@/lib/lessons/paths";
+import { getAuthedUser } from "@/lib/auth/apiGuard";
 
 export const runtime = "nodejs";
 
@@ -181,11 +182,17 @@ export async function GET(
     return NextResponse.json(cache.get(cacheKey));
   }
 
+  // Real AI generation is gated behind a signed-in user so anonymous callers
+  // can't run up the AI bill by enumerating lesson slugs. Guests get the stub.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  const authed = apiKey ? await getAuthedUser() : null;
+  if (!apiKey || !authed) {
     const stub = buildStub(found.lesson.title, found.lesson.topic);
     stub.lessonSlug = lessonSlug;
-    cache.set(cacheKey, stub);
+    // Only persist the stub when there is genuinely no AI backend; if AI exists
+    // but the caller is a guest, don't poison the cache for a future signed-in
+    // user who should receive real generated content.
+    if (!apiKey) cache.set(cacheKey, stub);
     return NextResponse.json(stub);
   }
 

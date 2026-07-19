@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -218,6 +219,9 @@ function buildLocalLesson(
 // ─── Route (Gemini-powered) ───────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   const body = await req.json().catch(() => ({}));
   const {
     title,

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { requireAdmin } from "@/lib/auth/apiGuard";
 import type { GeneratedLesson } from "../generate/route";
 import type { ExtractedSlide } from "@/lib/lessons/importPptx";
 
@@ -108,6 +109,9 @@ Rules:
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate.error;
+
   if (!process.env.OPENAI_API_KEY) {
     return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 400 });
   }
