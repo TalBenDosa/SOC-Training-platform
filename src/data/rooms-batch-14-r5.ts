@@ -151,7 +151,7 @@ const gcpRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 70,
-  xp: 650,
+  xp: 320,
   icon: "🌐",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [

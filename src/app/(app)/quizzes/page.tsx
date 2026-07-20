@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
-import { QUIZZES } from "@/lib/quizzes/data";
+import { ALL_QUIZZES as QUIZZES } from "@/lib/quizzes/data";
 import type { Quiz } from "@/lib/quizzes/data";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
 import { cn } from "@/lib/utils";

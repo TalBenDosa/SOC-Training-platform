@@ -83,7 +83,7 @@ const crowdstrikeFalcon: Room = {
   difficulty: "intermediate",
   category: "Endpoint Security",
   estimatedMinutes: 50,
-  xp: 550,
+  xp: 365,
   icon: "🦅",
   prerequisites: ["endpoint-security-fundamentals"],
   tasks: [
@@ -440,7 +440,7 @@ const sentinelOne: Room = {
   difficulty: "intermediate",
   category: "Endpoint Security",
   estimatedMinutes: 50,
-  xp: 550,
+  xp: 365,
   icon: "🔮",
   prerequisites: ["endpoint-security-fundamentals"],
   tasks: [
@@ -799,7 +799,7 @@ const malwareAnalysisFundamentals: Room = {
   difficulty: "intermediate",
   category: "Threat Intelligence",
   estimatedMinutes: 55,
-  xp: 550,
+  xp: 365,
   icon: "🦠",
   prerequisites: ["endpoint-security-fundamentals"],
   tasks: [
@@ -1167,7 +1167,7 @@ const iocAnalysis: Room = {
   difficulty: "intermediate",
   category: "Threat Intelligence",
   estimatedMinutes: 50,
-  xp: 500,
+  xp: 365,
   icon: "🔎",
   prerequisites: ["malware-analysis-fundamentals"],
   tasks: [

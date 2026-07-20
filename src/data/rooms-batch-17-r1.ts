@@ -94,7 +94,7 @@ const tcpipDeepDiveRoom = {
   difficulty: "advanced" as const,
   category: "Network Security" as const,
   estimatedMinutes: 65,
-  xp: 620,
+  xp: 400,
   icon: "🔬",
   prerequisites: ["networking-fundamentals", "firewall-network-security"],
   tasks: [

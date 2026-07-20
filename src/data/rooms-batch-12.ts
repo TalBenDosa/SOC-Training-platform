@@ -10,7 +10,7 @@ const rooms = [
     difficulty: "advanced",
     category: "SIEM",
     estimatedMinutes: 50,
-    xp: 500,
+    xp: 155,
     icon: "📐",
     prerequisites: ["siem-fundamentals", "mitre-attack"],
     tasks: [
@@ -282,7 +282,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "SOC Operations",
     estimatedMinutes: 35,
-    xp: 300,
+    xp: 115,
     icon: "📝",
     prerequisites: ["alert-triage", "soc-structure"],
     tasks: [
@@ -557,7 +557,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "SOC Operations",
     estimatedMinutes: 30,
-    xp: 300,
+    xp: 115,
     icon: "📞",
     prerequisites: ["alert-triage", "soc-structure"],
     tasks: [
@@ -807,7 +807,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "SOC Operations",
     estimatedMinutes: 35,
-    xp: 350,
+    xp: 130,
     icon: "🚨",
     prerequisites: ["alert-triage", "incident-response-methodology"],
     tasks: [

@@ -22,7 +22,7 @@ const investigationMethodology = {
   difficulty: "intermediate" as const,
   category: "Incident Response",
   estimatedMinutes: 55,
-  xp: 550,
+  xp: 280,
   icon: "🔬",
   prerequisites: ["alert-triage", "windows-event-logs"],
   tasks: [
@@ -336,7 +336,7 @@ const threatHuntingFundamentals = {
   difficulty: "advanced" as const,
   category: "Threat Intelligence",
   estimatedMinutes: 60,
-  xp: 650,
+  xp: 280,
   icon: "🎯",
   prerequisites: ["investigation-methodology", "mitre-attack"],
   tasks: [
@@ -636,7 +636,7 @@ const digitalForensicsBasics = {
   difficulty: "intermediate" as const,
   category: "Forensics",
   estimatedMinutes: 50,
-  xp: 550,
+  xp: 280,
   icon: "🔏",
   prerequisites: ["windows-event-logs", "linux-log-analysis"],
   tasks: [
@@ -939,7 +939,7 @@ const emailSecurity = {
   difficulty: "intermediate" as const,
   category: "Threat Detection",
   estimatedMinutes: 45,
-  xp: 400,
+  xp: 210,
   icon: "📨",
   prerequisites: ["networking-protocols"],
   tasks: [

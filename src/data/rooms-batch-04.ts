@@ -94,7 +94,7 @@ const logManagement: Room = {
   difficulty: "beginner",
   category: "SIEM",
   estimatedMinutes: 35,
-  xp: 300,
+  xp: 185,
   icon: "📂",
   prerequisites: ["linux-log-analysis"],
   tasks: [
@@ -409,7 +409,7 @@ const siemFundamentals: Room = {
   difficulty: "intermediate",
   category: "SIEM",
   estimatedMinutes: 50,
-  xp: 450,
+  xp: 145,
   icon: "🔭",
   prerequisites: ["log-management"],
   tasks: [
@@ -701,7 +701,7 @@ const wazuhFundamentals: Room = {
   difficulty: "intermediate",
   category: "SIEM",
   estimatedMinutes: 55,
-  xp: 500,
+  xp: 155,
   icon: "🔐",
   prerequisites: ["siem-fundamentals"],
   tasks: [
@@ -1054,7 +1054,7 @@ const sentinelFundamentals: Room = {
   difficulty: "intermediate",
   category: "SIEM",
   estimatedMinutes: 55,
-  xp: 530,
+  xp: 200,
   icon: "☁️",
   prerequisites: ["siem-fundamentals"],
   tasks: [

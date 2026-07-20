@@ -64,7 +64,7 @@ const k8sSecurityRoom = {
   difficulty: "advanced" as const,
   category: "Cloud Security",
   estimatedMinutes: 55,
-  xp: 550,
+  xp: 250,
   icon: "🐳",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [

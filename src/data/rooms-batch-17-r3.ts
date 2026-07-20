@@ -92,7 +92,7 @@ const tlsRoom = {
   difficulty: "advanced" as const,
   category: "Network Security" as const,
   estimatedMinutes: 70,
-  xp: 640,
+  xp: 400,
   icon: "🔐",
   prerequisites: ["tcpip-deep-dive"],
   tasks: [

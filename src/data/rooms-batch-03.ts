@@ -27,7 +27,7 @@ const activeDirectory: Room = {
   difficulty: "intermediate",
   category: "Identity",
   estimatedMinutes: 50,
-  xp: 450,
+  xp: 395,
   icon: "🏢",
   prerequisites: ["windows-fundamentals"],
   tasks: [
@@ -412,7 +412,7 @@ const windowsEventLogs: Room = {
   difficulty: "intermediate",
   category: "Log Analysis",
   estimatedMinutes: 50,
-  xp: 450,
+  xp: 195,
   icon: "📋",
   prerequisites: ["windows-fundamentals"],
   tasks: [
@@ -632,7 +632,7 @@ const linuxFundamentals: Room = {
   difficulty: "beginner",
   category: "Endpoint Security",
   estimatedMinutes: 45,
-  xp: 350,
+  xp: 150,
   icon: "🐧",
   prerequisites: ["networking-fundamentals"],
   tasks: [
@@ -818,7 +818,7 @@ const linuxLogAnalysis: Room = {
   difficulty: "intermediate",
   category: "Log Analysis",
   estimatedMinutes: 45,
-  xp: 400,
+  xp: 200,
   icon: "🔍",
   prerequisites: ["linux-fundamentals"],
   tasks: [

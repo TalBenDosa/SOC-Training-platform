@@ -94,7 +94,7 @@ const tunnelingRoom = {
   difficulty: "advanced" as const,
   category: "Network Security" as const,
   estimatedMinutes: 70,
-  xp: 650,
+  xp: 410,
   icon: "🕳️",
   prerequisites: ["tcpip-deep-dive", "dns-deep-dive"],
   tasks: [

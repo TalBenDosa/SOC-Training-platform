@@ -48,7 +48,7 @@ const firewallMasterclass = {
   difficulty: "intermediate" as const,
   category: "Network Security",
   estimatedMinutes: 70,
-  xp: 650,
+  xp: 170,
   icon: "🔥",
   prerequisites: ["networking-protocols", "firewall-network-security"],
   tasks: [

@@ -154,7 +154,7 @@ const dlpRoom = {
   difficulty: "intermediate" as const,
   category: "Data Security",
   estimatedMinutes: 65,
-  xp: 600,
+  xp: 340,
   icon: "🔐",
   prerequisites: ["log-management"],
   tasks: [

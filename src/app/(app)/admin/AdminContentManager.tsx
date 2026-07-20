@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { SCENARIOS } from "@/lib/sim/scenarios";
-import { QUIZZES } from "@/lib/quizzes/data";
+import { ALL_QUIZZES as QUIZZES } from "@/lib/quizzes/data";
 import { LESSON_PATHS } from "@/lib/lessons/paths";
 import type { GeneratedLesson } from "@/app/api/lessons/generate/route";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";

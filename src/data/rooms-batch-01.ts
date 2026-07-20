@@ -62,7 +62,7 @@ const introRoom = {
   difficulty: "beginner" as const,
   category: "Foundations",
   estimatedMinutes: 40,
-  xp: 300,
+  xp: 175,
   icon: "🛡️",
   prerequisites: [],
   tasks: [
@@ -417,7 +417,7 @@ const socStructureRoom = {
   difficulty: "beginner" as const,
   category: "SOC Operations",
   estimatedMinutes: 38,
-  xp: 320,
+  xp: 150,
   icon: "🏢",
   prerequisites: ["intro-cybersecurity"],
   tasks: [
@@ -814,7 +814,7 @@ const killChainRoom = {
   difficulty: "beginner" as const,
   category: "Threat Detection",
   estimatedMinutes: 42,
-  xp: 350,
+  xp: 160,
   icon: "⛓️",
   prerequisites: ["intro-cybersecurity", "soc-structure"],
   tasks: [
@@ -1214,7 +1214,7 @@ const mitreAttackRoom = {
   difficulty: "beginner" as const,
   category: "Threat Intelligence",
   estimatedMinutes: 45,
-  xp: 380,
+  xp: 185,
   icon: "🎯",
   prerequisites: ["intro-cybersecurity", "soc-structure", "cyber-kill-chain"],
   tasks: [

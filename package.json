@@ -17,7 +17,8 @@
     "normalize:vendors": "node scripts/normalize-vendors.mjs",
     "normalize:vendors:write": "node scripts/normalize-vendors.mjs --write",
     "backfill:vendors": "node scripts/backfill-missing-vendors.mjs",
-    "validate:scenarios": "tsx scripts/validate-scenarios.mjs"
+    "validate:scenarios": "tsx scripts/validate-scenarios.mjs",
+    "validate:content": "tsx scripts/validate-content.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

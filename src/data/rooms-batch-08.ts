@@ -25,7 +25,7 @@ const threatIntelligence = {
   difficulty: "intermediate" as const,
   category: "Threat Intelligence",
   estimatedMinutes: 50,
-  xp: 500,
+  xp: 310,
   icon: "🕵️",
   prerequisites: ["mitre-attack", "ioc-analysis"],
   tasks: [
@@ -365,7 +365,7 @@ const osintFundamentals = {
   difficulty: "intermediate" as const,
   category: "Threat Intelligence",
   estimatedMinutes: 45,
-  xp: 450,
+  xp: 280,
   icon: "🔭",
   prerequisites: ["threat-intelligence"],
   tasks: [
@@ -706,7 +706,7 @@ const incidentResponseMethodology = {
   difficulty: "intermediate" as const,
   category: "Incident Response",
   estimatedMinutes: 55,
-  xp: 550,
+  xp: 335,
   icon: "🚨",
   prerequisites: ["alert-triage"],
   tasks: [
@@ -1093,7 +1093,7 @@ const alertTriage = {
   difficulty: "intermediate" as const,
   category: "SOC Operations",
   estimatedMinutes: 50,
-  xp: 500,
+  xp: 310,
   icon: "⚡",
   prerequisites: ["siem-fundamentals"],
   tasks: [

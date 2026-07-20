@@ -61,7 +61,7 @@ const avVsEdrMasterclass = {
   difficulty: "intermediate" as const,
   category: "Endpoint Security",
   estimatedMinutes: 70,
-  xp: 650,
+  xp: 180,
   icon: "🛡️",
   prerequisites: ["endpoint-security-fundamentals"],
   tasks: [

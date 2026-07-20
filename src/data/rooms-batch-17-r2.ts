@@ -90,7 +90,7 @@ const dnsDeepDiveRoom = {
   difficulty: "advanced" as const,
   category: "Network Security" as const,
   estimatedMinutes: 65,
-  xp: 630,
+  xp: 400,
   icon: "🧭",
   prerequisites: ["networking-protocols", "dns-investigation"],
   tasks: [

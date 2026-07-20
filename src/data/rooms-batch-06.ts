@@ -22,7 +22,7 @@ const exchangeOnlineSecurity: Room = {
   difficulty: "intermediate",
   category: "Cloud Security",
   estimatedMinutes: 45,
-  xp: 450,
+  xp: 220,
   icon: "📧",
   prerequisites: ["microsoft-365-security"],
   tasks: [
@@ -342,7 +342,7 @@ const sharepointTeamsMonitoring: Room = {
   difficulty: "intermediate",
   category: "Cloud Security",
   estimatedMinutes: 40,
-  xp: 400,
+  xp: 220,
   icon: "💬",
   prerequisites: ["microsoft-365-security"],
   tasks: [
@@ -652,7 +652,7 @@ const endpointSecurityFundamentals: Room = {
   difficulty: "beginner",
   category: "Endpoint Security",
   estimatedMinutes: 45,
-  xp: 400,
+  xp: 220,
   icon: "💻",
   prerequisites: ["windows-fundamentals"],
   tasks: [
@@ -1023,7 +1023,7 @@ const defenderXdr: Room = {
   difficulty: "intermediate",
   category: "Endpoint Security",
   estimatedMinutes: 55,
-  xp: 550,
+  xp: 290,
   icon: "🛡️",
   prerequisites: ["endpoint-security-fundamentals", "microsoft-365-security"],
   tasks: [

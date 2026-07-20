@@ -12,7 +12,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "Threat Detection",
     estimatedMinutes: 45,
-    xp: 450,
+    xp: 180,
     icon: "🎣",
     prerequisites: ["email-security"],
     tasks: [
@@ -252,7 +252,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "Log Analysis",
     estimatedMinutes: 35,
-    xp: 350,
+    xp: 175,
     icon: "🔒",
     prerequisites: ["networking-protocols", "siem-fundamentals"],
     tasks: [
@@ -493,7 +493,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "Log Analysis",
     estimatedMinutes: 40,
-    xp: 400,
+    xp: 175,
     icon: "🧱",
     prerequisites: ["firewall-network-security", "siem-fundamentals"],
     tasks: [
@@ -740,7 +740,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "Threat Detection",
     estimatedMinutes: 40,
-    xp: 400,
+    xp: 175,
     icon: "🌐",
     prerequisites: ["networking-protocols", "siem-fundamentals"],
     tasks: [

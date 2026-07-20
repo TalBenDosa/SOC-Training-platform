@@ -75,7 +75,7 @@ const emailRoom = {
   difficulty: "advanced" as const,
   category: "Network Security" as const,
   estimatedMinutes: 65,
-  xp: 630,
+  xp: 405,
   icon: "✉️",
   prerequisites: ["email-security", "phishing-analysis"],
   tasks: [

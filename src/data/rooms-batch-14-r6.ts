@@ -118,7 +118,7 @@ const soarRoom = {
   difficulty: "intermediate" as const,
   category: "SOC Operations",
   estimatedMinutes: 60,
-  xp: 600,
+  xp: 380,
   icon: "⚙️",
   prerequisites: ["siem-fundamentals", "alert-triage"],
   tasks: [

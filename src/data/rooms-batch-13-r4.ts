@@ -46,7 +46,7 @@ const nacMasterclass = {
   difficulty: "intermediate" as const,
   category: "Network Security",
   estimatedMinutes: 65,
-  xp: 600,
+  xp: 170,
   icon: "🔐",
   prerequisites: ["networking-protocols", "active-directory"],
   tasks: [

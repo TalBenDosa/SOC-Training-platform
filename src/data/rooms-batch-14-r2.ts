@@ -108,7 +108,7 @@ const analystMindsetRoom = {
   difficulty: "beginner" as const,
   category: "SOC Operations",
   estimatedMinutes: 55,
-  xp: 500,
+  xp: 370,
   icon: "🧠",
   prerequisites: ["soc-structure"],
   tasks: [

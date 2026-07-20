@@ -10,7 +10,7 @@ const detectionRulesTuningRoom = {
   difficulty: "intermediate" as const,
   category: "SIEM",
   estimatedMinutes: 50,
-  xp: 500,
+  xp: 280,
   icon: "⚙️",
   prerequisites: ["siem-fundamentals"],
   tasks: [
@@ -468,7 +468,7 @@ const logSourcesIntegrationRoom = {
   difficulty: "intermediate" as const,
   category: "SIEM",
   estimatedMinutes: 45,
-  xp: 450,
+  xp: 250,
   icon: "🔌",
   prerequisites: ["log-management"],
   tasks: [
@@ -849,7 +849,7 @@ const microsoft365SecurityRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 50,
-  xp: 500,
+  xp: 280,
   icon: "🏢",
   prerequisites: ["siem-fundamentals"],
   tasks: [
@@ -1272,7 +1272,7 @@ const entraIdRoom = {
   difficulty: "intermediate" as const,
   category: "Identity",
   estimatedMinutes: 55,
-  xp: 500,
+  xp: 280,
   icon: "🆔",
   prerequisites: ["active-directory", "microsoft-365-security"],
   tasks: [

@@ -152,7 +152,7 @@ const azureSecurityRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 70,
-  xp: 675,
+  xp: 320,
   icon: "🔷",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [

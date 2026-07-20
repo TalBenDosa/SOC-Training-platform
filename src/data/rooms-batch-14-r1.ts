@@ -162,7 +162,7 @@ const awsSecurityRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 75,
-  xp: 700,
+  xp: 315,
   icon: "☁️",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [

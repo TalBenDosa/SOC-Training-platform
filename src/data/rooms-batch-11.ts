@@ -12,7 +12,7 @@ const rooms = [
     difficulty: "intermediate",
     category: "Threat Detection",
     estimatedMinutes: 45,
-    xp: 450,
+    xp: 185,
     icon: "🔑",
     prerequisites: ["windows-event-logs"],
     tasks: [
@@ -211,7 +211,7 @@ const rooms = [
     difficulty: "advanced",
     category: "Threat Detection",
     estimatedMinutes: 50,
-    xp: 500,
+    xp: 270,
     icon: "👑",
     prerequisites: ["auth-identity-monitoring"],
     tasks: [
@@ -516,7 +516,7 @@ const rooms = [
     difficulty: "advanced",
     category: "Cloud Security",
     estimatedMinutes: 55,
-    xp: 550,
+    xp: 195,
     icon: "☁️",
     prerequisites: ["auth-identity-monitoring"],
     tasks: [
@@ -750,7 +750,7 @@ const rooms = [
     difficulty: "advanced",
     category: "SIEM",
     estimatedMinutes: 50,
-    xp: 530,
+    xp: 225,
     icon: "⚙️",
     prerequisites: ["siem-fundamentals", "auth-identity-monitoring"],
     tasks: [

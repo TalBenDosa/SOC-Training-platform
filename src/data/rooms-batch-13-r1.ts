@@ -35,7 +35,7 @@ const protocolsMasterclass = {
   difficulty: "intermediate" as const,
   category: "Network Security",
   estimatedMinutes: 75,
-  xp: 700,
+  xp: 165,
   icon: "📡",
   prerequisites: ["networking-fundamentals"],
   tasks: [

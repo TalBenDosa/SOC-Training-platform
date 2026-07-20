@@ -86,7 +86,7 @@ const winProtoRoom = {
   difficulty: "advanced" as const,
   category: "Network Security" as const,
   estimatedMinutes: 70,
-  xp: 650,
+  xp: 400,
   icon: "🗝️",
   prerequisites: ["active-directory", "windows-event-logs"],
   tasks: [

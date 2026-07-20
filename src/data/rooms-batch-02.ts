@@ -12,7 +12,7 @@ const rooms = [
     difficulty: "beginner" as const,
     category: "Network Security" as const,
     estimatedMinutes: 45,
-    xp: 300,
+    xp: 110,
     icon: "🌐",
     prerequisites: [],
     tasks: [
@@ -372,7 +372,7 @@ When you're investigating a security incident, these networking concepts form yo
     difficulty: "beginner" as const,
     category: "Network Security" as const,
     estimatedMinutes: 40,
-    xp: 300,
+    xp: 115,
     icon: "📡",
     prerequisites: ["networking-fundamentals"],
     tasks: [
@@ -727,7 +727,7 @@ These questions form the foundation of network-based threat investigation.`,
     difficulty: "beginner" as const,
     category: "Network Security" as const,
     estimatedMinutes: 40,
-    xp: 350,
+    xp: 110,
     icon: "🛡️",
     prerequisites: ["networking-protocols"],
     tasks: [
@@ -1115,7 +1115,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
     difficulty: "beginner" as const,
     category: "Endpoint Security" as const,
     estimatedMinutes: 45,
-    xp: 350,
+    xp: 110,
     icon: "🪟",
     prerequisites: ["networking-fundamentals"],
     tasks: [

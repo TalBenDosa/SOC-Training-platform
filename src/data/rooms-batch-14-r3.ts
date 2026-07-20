@@ -249,7 +249,7 @@ const edgeCaseRoom = {
   difficulty: "advanced" as const,
   category: "Threat Detection",
   estimatedMinutes: 80,
-  xp: 800,
+  xp: 360,
   icon: "🕵️",
   prerequisites: ["investigation-methodology", "alert-triage"],
   tasks: [

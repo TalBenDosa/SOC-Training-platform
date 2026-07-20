@@ -12,7 +12,7 @@ import type { ValidationReport, ValidationIssue, IssueSeverity } from "@/lib/sim
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { cn } from "@/lib/utils";
 import { SCENARIOS, buildScenarioBySlug } from "@/lib/sim/scenarios";
-import { QUIZZES } from "@/lib/quizzes/data";
+import { ALL_QUIZZES as QUIZZES } from "@/lib/quizzes/data";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";

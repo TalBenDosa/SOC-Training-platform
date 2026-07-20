@@ -988,6 +988,18 @@ export const QUIZZES: Quiz[] = [
   },
 ];
 
+// Quiz packs live in their own files so the catalogue can grow without this one
+// becoming unreviewable. Everything that reads QUIZZES — the index, the admin
+// content manager, getQuiz — picks them up from here automatically.
+import { QUIZZES_ENDPOINT_IDENTITY } from "./data-endpoint-identity";
+import { QUIZZES_DETECTION_APPSEC } from "./data-detection-appsec";
+
+export const ALL_QUIZZES: Quiz[] = [
+  ...QUIZZES,
+  ...QUIZZES_ENDPOINT_IDENTITY,
+  ...QUIZZES_DETECTION_APPSEC,
+];
+
 export function getQuiz(slug: string): Quiz | undefined {
-  return QUIZZES.find(q => q.slug === slug);
+  return ALL_QUIZZES.find(q => q.slug === slug);
 }
