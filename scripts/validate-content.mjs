@@ -186,6 +186,29 @@ for (const r of ROOMS) {
   }
 }
 
+// ── Foundational concept coverage ──────────────────────────────────────────
+// A term appearing somewhere is not the same as a room teaching it. An audit
+// found "base64" in 17 rooms and "hash" in 22 — but every one was a passing
+// use inside an advanced application, and no room anywhere taught the actual
+// distinction between encoding, encryption and hashing. The test that matters
+// is whether a BEGINNER-tier room has a reading section dedicated to it.
+const FOUNDATIONS = {
+  "encoding vs encryption vs hashing": /encod|hashing|encrypt/i,
+  "timestamps and timezones":          /timestamp|time ?zone|utc|epoch|timeline/i,
+  "anatomy of a log entry":            /anatomy|log entry|log format|field/i,
+  "identity: credentials and sessions":/credential|session|token|authentication/i,
+  "malware taxonomy":                  /malware|trojan|worm|ransomware|dropper|loader/i,
+  "asset context and prioritisation":  /asset|criticality|blast radius|prioriti/i,
+  "security product behaviours":       /product|sees|detection surface|blind/i,
+};
+const beginnerHeadings = ROOMS
+  .filter(r => r.difficulty === "beginner")
+  .flatMap(r => (r.tasks ?? []).filter(t => t.type === "reading").map(t => t.heading ?? ""));
+
+const uncoveredFoundations = Object.entries(FOUNDATIONS)
+  .filter(([, re]) => !beginnerHeadings.some(h => re.test(h)))
+  .map(([label]) => label);
+
 // ── Coverage: is what we examine actually taught? ──────────────────────────
 const practised = new Map();
 for (const def of SCENARIOS) {
@@ -203,9 +226,16 @@ const orphans = [...practised.entries()]
 const errors = findings.filter(f => f.sev === "ERROR");
 const warns = findings.filter(f => f.sev === "WARN");
 
+const beginnerCount = ROOMS.filter(r => r.difficulty === "beginner").length;
 console.log(`\n\x1b[1mContent gate\x1b[0m   ${ROOMS.length} rooms, ${QUIZZES.length} quizzes`);
 console.log(`  errors ${errors.length}   warnings ${warns.length}`);
-console.log(`  techniques practised in scenarios but taught nowhere: ${orphans.length}/${practised.size}\n`);
+console.log(`  techniques practised in scenarios but taught nowhere: ${orphans.length}/${practised.size}`);
+console.log(`  beginner-tier rooms: ${beginnerCount}/${ROOMS.length} (${Math.round(beginnerCount / ROOMS.length * 100)}%)`);
+if (uncoveredFoundations.length) {
+  console.log(`  \x1b[33mfoundational concepts with no beginner-tier reading section:\x1b[0m`);
+  for (const f of uncoveredFoundations) console.log(`    - ${f}`);
+}
+console.log();
 
 const show = list => {
   for (const f of list) console.log(`    ${f.where.padEnd(46)} ${f.msg}`);
