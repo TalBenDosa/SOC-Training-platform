@@ -62,7 +62,7 @@ const kerberoastSweepEvent: TelemetryEvent = {
     "event.code": "4769",
     "winlog.channel": "Security",
     "winlog.computer_name": "DC02.solvix.local",
-    "winlog.event_data.TargetUserName": "sqlrpt_svc",
+    "winlog.event_data.TargetUserName": "m.reyes",
     "winlog.event_data.TargetDomainName": "SOLVIX.LOCAL",
     "winlog.event_data.ServiceName": "MSSQLSvc/sqlrpt02.solvix.local:1433",
     "winlog.event_data.TicketEncryptionType": "0x17",
@@ -70,11 +70,7 @@ const kerberoastSweepEvent: TelemetryEvent = {
     "winlog.event_data.Status": "0x0",
     "winlog.event_data.IpAddress": "10.40.6.90",
     "winlog.event_data.IpPort": "0",
-    "winlog.event_data.RequestorName": "m.reyes@SOLVIX.LOCAL",
     "winlog.event_id": 4769,
-    tgs_requests_last_120s: 47,
-    unique_service_names_last_120s: 44,
-    encryption_type_breakdown_last_120s: { "0x17": 45, "0x12": 2 },
   },
 };
 
@@ -476,12 +472,12 @@ const winProtoRoom = {
       id: "winproto-la2",
       heading: "A Rapid Sequence of Service Ticket Requests for Different SPNs",
       context:
-        "m.reyes's account (the same account from the previous investigation) has been active on DC02 as well. In a two-minute window, DC02 logged 47 separate Kerberos service ticket requests from this account, targeting 44 distinct service principal names. Review the representative event below, one of those 47 requests.",
+        "m.reyes's account (the same account from the previous investigation) has been active on DC02 as well. In a two-minute window, DC02 logged 47 separate Kerberos service ticket requests from this account, targeting 44 distinct service principal names — 45 of the 47 came back RC4-HMAC (0x17) and 2 came back AES-256 (0x12). Review the representative event below, one of those 47 requests.",
       event: kerberoastSweepEvent,
       questions: [
         {
           question:
-            "TargetUserName is 'sqlrpt_svc' (a service account) and TicketEncryptionType is '0x17', with encryption_type_breakdown_last_120s showing 0x17: 45 and 0x12: 2 across all 47 requests. Given that 0x17 is RC4-HMAC and 0x12 is AES-256, what does this breakdown suggest about how these tickets were requested?",
+            "TargetUserName is 'm.reyes' (the requesting account) and TicketEncryptionType on this sample is '0x17'. Per the breakdown stated above — 45 of 47 requests came back 0x17, only 2 came back 0x12 — and given that 0x17 is RC4-HMAC and 0x12 is AES-256, what does this suggest about how these tickets were requested?",
           options: [
             "The account m.reyes is configured to only support RC4 encryption and has no choice in the matter",
             "The overwhelming majority of these TGS requests specifically obtained RC4-HMAC (0x17) tickets rather than the stronger AES encryption also available in this domain — RC4 is dramatically faster to crack offline, and deliberately requesting or ending up with it across almost every request in a rapid, multi-SPN sweep is consistent with tooling built for offline password cracking rather than normal application behavior",
@@ -495,7 +491,7 @@ const winProtoRoom = {
         },
         {
           question:
-            "tgs_requests_last_120s is 47 and unique_service_names_last_120s is 44 — nearly a 1:1 ratio of requests to distinct SPNs targeted. Why is this ratio, on its own, a stronger signal than the single request shown in the raw event?",
+            "47 requests against 44 distinct SPNs, as stated above, is nearly a 1:1 ratio of requests to distinct services targeted. Why is this ratio, on its own, a stronger signal than the single request shown in the raw event?",
           options: [
             "It isn't stronger — a single TGS-REQ for one SPN is exactly as suspicious as 47 requests for 44 different SPNs",
             "A regular application or user account requesting a service ticket for the ONE specific service it actually needs to use is completely normal Kerberos behavior; requesting tickets for 44 DIFFERENT services in two minutes from one account has no normal application explanation and matches exactly the pattern of systematically harvesting every roastable SPN found via an earlier LDAP recon query, rather than any single legitimate access need",

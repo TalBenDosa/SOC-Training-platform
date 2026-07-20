@@ -134,6 +134,8 @@
     "Windows DNS Server": "Windows DNS Server",
     "Windows TerminalServices": "Windows TerminalServices",
     "VMware ESXi": "VMware ESXi",
-    "VMware vCenter Server": "VMware vCenter Server"
+    "VMware vCenter Server": "VMware vCenter Server",
+    "Tenable.io": "Tenable.io",
+    "Velociraptor": "Velociraptor"
   }
 }

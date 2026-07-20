@@ -69,7 +69,13 @@ Rules:
   Never more than two `reading` tasks in a row.
 - Use **at least four different task types** per room. A room of reading +
   question only is a slideshow.
-- `xp` on the Room must equal the sum of its task xp plus a base of 50.
+- `xp` on the Room must equal the EXACT sum of its task xp — no added base. The
+  app awards xp per task (`TaskPlayer` grants `task.xp`) and there is no
+  completion bonus, so the room card's number is only honest if it equals what
+  a student can actually earn. (An earlier version of this spec said "+50 base"
+  — that was wrong, sourced from a different subsystem, and produced rooms that
+  overstated their own XP. Verify against `RoomClient.tsx` if in doubt, not this
+  file's memory of it.)
 - `prerequisites` must reference **real room ids** that exist. Check first.
 - Every room must contain **at least one `log_analysis` or `analyst_choice`**
   task built on a realistic `TelemetryEvent`, because reading a log is the job.

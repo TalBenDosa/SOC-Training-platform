@@ -36,8 +36,6 @@ const bruteForceRawEvent: TelemetryEvent = {
     "winlog.event_data.IpAddress": "185.220.101.47",
     "winlog.event_data.WorkstationName": "-",
     "winlog.event_data.FailureReason": "%%2313",
-    "soar.correlation.failed_attempt_count": "23",
-    "soar.correlation.window_seconds": "360",
   },
 };
 

@@ -39,10 +39,6 @@ const dnsTunnelEvent: TelemetryEvent = {
     "winlog.event_data.ProcessGuid": "{4a1c7e2b-9f30-6604-1a00-000000004b02}",
     "winlog.event_data.User": "SOLVIX\\r.donahue",
     "winlog.event_data.UtcTime": "2026-03-04 01:12:44.201",
-    queries_last_360s: 214,
-    unique_subdomains_last_360s: 211,
-    avg_query_label_length_chars: 37.4,
-    query_type_breakdown_last_360s: { TXT: 168, A: 46 },
   },
 };
 
@@ -76,9 +72,6 @@ const dgaBurstEvent: TelemetryEvent = {
     RA: true,
     answers: [],
     TTLs: [],
-    domains_queried_last_8min: 340,
-    nxdomain_count_last_8min: 318,
-    distinct_tlds_last_8min: ["top", "xyz", "info", "cc", "biz"],
   },
 };
 
@@ -409,12 +402,12 @@ const dnsDeepDiveRoom = {
       id: "dns-la1",
       heading: "Investigating a Burst of High-Entropy TXT Queries",
       context:
-        "WKS-FIN07 belongs to r.donahue in Accounts Payable. EDR telemetry shows this workstation has issued 214 DNS queries in the last 6 minutes, almost entirely against subdomains of updates.solvix-cdn-relay.net — a domain that does not appear anywhere in Solvix's approved vendor/CDN allowlist. Review the representative Sysmon Event ID 22 record below.",
+        "WKS-FIN07 belongs to r.donahue in Accounts Payable. EDR telemetry shows this workstation has issued 214 DNS queries in the last 6 minutes — 211 of them to unique subdomains averaging 37.4 characters, and 168 of the 214 asking for a TXT record rather than A — almost entirely against subdomains of updates.solvix-cdn-relay.net, a domain that does not appear anywhere in Solvix's approved vendor/CDN allowlist. Review the representative Sysmon Event ID 22 record below.",
       event: dnsTunnelEvent,
       questions: [
         {
           question:
-            "QueryName is 'a3f9e7c1b8d2f04e91a6c5b7d8e2f109c4.updates.solvix-cdn-relay.net' with QueryResults showing a TXT record answer. Combined with avg_query_label_length_chars: 37.4 and unique_subdomains_last_360s: 211 out of queries_last_360s: 214, what does this combination suggest?",
+            "QueryName is 'a3f9e7c1b8d2f04e91a6c5b7d8e2f109c4.updates.solvix-cdn-relay.net' with QueryResults showing a TXT record answer. Combined with the 37.4-character average label length and the 211-of-214 unique-subdomain ratio stated above, what does this combination suggest?",
           options: [
             "This is normal CDN cache-busting behavior — long random labels under a CDN-style domain name are completely routine",
             "The near-1:1 ratio of unique subdomains to total queries, combined with a consistently long, high-entropy label and a preference for TXT responses, matches the statistical signature of DNS tunneling — each query behaving like a distinct chunk of encoded data rather than a repeated, cacheable hostname",
@@ -463,12 +456,12 @@ const dnsDeepDiveRoom = {
       id: "dns-la2",
       heading: "A Burst of Failed Lookups Against Freshly-Changing Domains",
       context:
-        "The corporate resolver's aggregate query logs flagged WKS-OPS22 (10.40.7.61) for an unusual failure rate. In an 8-minute window, this host queried 340 distinct domains, of which 318 returned NXDOMAIN. Review the representative Zeek dns.log record below, one of the failed queries from that set.",
+        "The corporate resolver's aggregate query logs flagged WKS-OPS22 (10.40.7.61) for an unusual failure rate. In an 8-minute window, this host queried 340 distinct domains across the TLDs .top, .xyz, .info, .cc and .biz, of which 318 returned NXDOMAIN. Review the representative Zeek dns.log record below, one of the failed queries from that set.",
       event: dgaBurstEvent,
       questions: [
         {
           question:
-            "The sample query is for 'kqxpzr4t.top' and rcode_name is 'NXDOMAIN', with distinct_tlds_last_8min showing top, xyz, info, cc, and biz. Combined with nxdomain_count_last_8min: 318 out of domains_queried_last_8min: 340, what pattern does this match most closely?",
+            "The sample query is for 'kqxpzr4t.top' and rcode_name is 'NXDOMAIN'. Combined with the TLD spread and the 318-of-340 NXDOMAIN rate stated above, what pattern does this match most closely?",
           options: [
             "A misconfigured internal application repeatedly retrying the same failed hostname due to a typo",
             "The pattern matches DGA malware behavior: a high volume of distinct, freshly-changing second-level domains, spread across several low-reputation TLDs, with an overwhelming (93.5%) NXDOMAIN rate — consistent with malware working through an algorithmically-generated candidate list, most of which the attacker never actually registered",
@@ -539,8 +532,6 @@ const dnsDeepDiveRoom = {
           "destination.ip": "1.1.1.1",
           "destination.port": 443,
           "network.protocol": "https",
-          connections_last_4h: 1840,
-          browser_process_hint: "firefox.exe",
         },
       },
       correct_verdict: "false_positive",

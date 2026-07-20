@@ -115,8 +115,11 @@ for (const r of ROOMS) {
     if (t.type === "log_analysis") return s + (t.questions ?? []).reduce((a, x) => a + (x.xp ?? 0), 0);
     return s;
   }, 0);
-  if (typeof r.xp === "number" && sum > 0 && Math.abs(r.xp - (sum + 50)) > 25) {
-    add("WARN", at, `room xp ${r.xp} but tasks sum to ${sum} (+50 base = ${sum + 50})`);
+  // The app awards xp per task and has no completion bonus (verified against
+  // RoomClient.tsx), so the room's stated xp must equal the task sum exactly —
+  // anything else overstates what a student can actually earn.
+  if (typeof r.xp === "number" && sum > 0 && r.xp !== sum) {
+    add("ERROR", at, `room xp ${r.xp} but tasks sum to exactly ${sum} — the card overstates earnable XP`);
   }
 
   for (const t of tasks) {
@@ -143,6 +146,13 @@ for (const r of ROOMS) {
     // the log rules that kept getting violated in scenarios
     const ev = t.event;
     if (ev?.raw) {
+      // A single-observation DEVICE log (Windows Security, Sysmon, an EDR
+      // process/DNS event, a cloud audit log, a proxy transaction) records one
+      // action and cannot carry a windowed aggregate. A SIEM correlation rule
+      // (Wazuh, Sentinel, QRadar…) or a SOAR case record genuinely can — that
+      // synthesis is its whole job. Only flag the former.
+      const AGGREGATING_SOURCES = new Set(["siem", "soar", "threat_intel"]);
+      const aggregatesAreLegitimate = AGGREGATING_SOURCES.has(ev.source);
       for (const [k, v] of Object.entries(ev.raw)) {
         if (/\.Description$/.test(k)) {
           add("ERROR", w, `raw field "${k}" — that key does not exist in the Windows schema and always hides a hint`);
@@ -150,6 +160,20 @@ for (const r of ROOMS) {
         if (/^(pass_the_hash|hash_mismatch|is_malicious)$/.test(k) ||
             /^baseline\.|_per_minute$|_per_sec$|^time_since_|^ml\.score$/.test(k)) {
           add("ERROR", w, `raw field "${k}" states a conclusion the student should derive`);
+        }
+        if (!aggregatesAreLegitimate && /_last_\d+[a-z]*$|_count$|_breakdown/.test(k)) {
+          // A single Windows/EDR/cloud-audit log entry records one action, not
+          // an aggregation window. The Kerberos room shipped exactly this
+          // (tgs_requests_last_180s on a raw 4769) and it wasn't caught until a
+          // manual spot-check found it — it is not limited to that one room.
+          add("ERROR", w, `raw field "${k}" is a windowed aggregate on a single-observation source (source="${ev.source}") — a device log doesn't emit this; state it in the task's context instead, or re-source the event as a SIEM/SOAR record if the aggregation is the point`);
+        }
+        // A field literally named for a party-not-supported-by-the-event, e.g.
+        // "RequestorName" invented alongside a real "TargetUserName" on a 4769,
+        // where TargetUserName already IS the requester. Not general enough to
+        // regex reliably — flagged as a warning to prompt a manual look.
+        if (/^winlog\.event_data\.(Requestor|Requester)Name$/.test(k)) {
+          add("WARN", w, `"${k}" — verify this field actually exists on the event; Windows 4768/4769 do not carry a separate requestor-name field`);
         }
         if (typeof v === "string" && /\b(indicates?|consistent with|suspicious|lateral movement)\b/i.test(v) && k.endsWith("Description")) {
           add("ERROR", w, `raw field "${k}" reads like analysis`);

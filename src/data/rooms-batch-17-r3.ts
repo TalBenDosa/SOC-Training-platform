@@ -42,10 +42,6 @@ const tlsBeaconEvent: TelemetryEvent = {
     duration: 0.891,
     orig_bytes: 216,
     resp_bytes: 198,
-    sessions_last_96min: 96,
-    interval_seconds_avg: 60.4,
-    interval_seconds_stddev: 5.1,
-    orig_bytes_stddev_across_sessions: 4.2,
   },
 };
 
@@ -416,12 +412,12 @@ const tlsRoom = {
       id: "tls-la1",
       heading: "Investigating a Repeating TLS Session Pattern",
       context:
-        "WKS-MKT09 belongs to a member of the marketing team whose normal daily traffic is almost entirely to well-known SaaS marketing/analytics platforms. A network anomaly rule flagged repeated sessions to 146.70.87.201, an IP with no prior history on this network before today. Review the representative session record below.",
+        "WKS-MKT09 belongs to a member of the marketing team whose normal daily traffic is almost entirely to well-known SaaS marketing/analytics platforms. A network anomaly rule flagged repeated sessions to 146.70.87.201, an IP with no prior history on this network before today: 96 sessions over 96 minutes, averaging one every 60.4 seconds with a standard deviation of only 5.1 seconds, and the bytes sent per session vary by a standard deviation of just 4.2 bytes. Review the representative session record below.",
       event: tlsBeaconEvent,
       questions: [
         {
           question:
-            "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.cert_chain_issuer and ssl.cert_chain_subject both 'CN=cdn-assets-static.net', alongside sessions_last_96min: 96 and interval_seconds_avg: 60.4 with interval_seconds_stddev: 5.1. What does this combination suggest?",
+            "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.cert_chain_issuer and ssl.cert_chain_subject both 'CN=cdn-assets-static.net'. Combined with the 96-sessions-in-96-minutes timing pattern stated above, what does this combination suggest?",
           options: [
             "This is routine CDN asset-loading traffic — CDN domains are always trustworthy regardless of certificate details",
             "A self-signed certificate on a destination presenting itself with a generic CDN-style name, combined with 96 sessions repeating at a tightly consistent ~60-second interval (a standard deviation of only 5.1 seconds around that average), matches the beacon-timing and certificate-anomaly patterns described in this room's detection checklist far more closely than ordinary asset-loading traffic, which would not repeat at such a fixed interval",
@@ -435,7 +431,7 @@ const tlsRoom = {
         },
         {
           question:
-            "orig_bytes_stddev_across_sessions is 4.2 (a very small variation in bytes sent, session after session). Why does this specific metric matter alongside the timing pattern?",
+            "The byte-count standard deviation across sessions is 4.2, stated above — a very small variation in bytes sent, session after session. Why does this specific metric matter alongside the timing pattern?",
           options: [
             "It doesn't add anything beyond what the timing interval already shows",
             "Near-identical byte counts session after session is the shape of a simple, repeated check-in request rather than ordinary browsing, which would show highly variable request/response sizes depending on what content is actually being loaded each time — this is the session-size-consistency signal from Reading 4, independent of and reinforcing the timing signal",

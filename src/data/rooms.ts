@@ -7,6 +7,8 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { roomsBatch18 } from "./rooms-batch-18";
+import { roomsBatch19 } from "./rooms-batch-19";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -178,4 +180,6 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch15), // kubernetes-container-security
   ...cast(roomsBatch16), // azure-security
   ...cast(roomsBatch17), // tcpip-deep-dive, dns-deep-dive, tls-encrypted-traffic, windows-protocols-lateral, email-protocols-forensics, tunneling-c2-channels
+  ...cast(roomsBatch18), // kerberos-authentication, windows-privilege-escalation, persistence-mechanisms
+  ...cast(roomsBatch19), // vulnerability-management, memory-disk-forensics
 ];

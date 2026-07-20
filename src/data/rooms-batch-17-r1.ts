@@ -45,9 +45,6 @@ const synScanEvent: TelemetryEvent = {
     missed_bytes: 0,
     local_orig: true,
     local_resp: true,
-    dst_ports_touched_last_38s: 1024,
-    unique_dst_ports_touched_last_38s: 1024,
-    conn_state_breakdown_last_38s: { S0: 1017, RSTR: 6, SF: 1 },
   },
 };
 
@@ -430,7 +427,7 @@ const tcpipDeepDiveRoom = {
       id: "tcpip-la1",
       heading: "Investigating a Rapid Port Sweep Against an Internal Server",
       context:
-        "You're triaging a NIDS alert. SRV-CORE02 (10.40.2.30) is a domain-joined print/file server that normally only receives connections on ports 445, 139, and 3389 from a small set of known IT hosts. The sensor captured 1,024 separate connection records from WKS-ENG14 (10.40.6.114) against SRV-CORE02 in a 38-second window. The record below is one representative sample from that set.",
+        "You're triaging a NIDS alert. SRV-CORE02 (10.40.2.30) is a domain-joined print/file server that normally only receives connections on ports 445, 139, and 3389 from a small set of known IT hosts. The sensor captured 1,024 separate connection records from WKS-ENG14 (10.40.6.114) against SRV-CORE02 in a 38-second window: 1,017 ended S0 (no reply), 6 ended RSTR (destination reset), and 1 reached SF (full handshake). The record below is one representative sample from that set.",
       event: synScanEvent,
       questions: [
         {
@@ -449,7 +446,7 @@ const tcpipDeepDiveRoom = {
         },
         {
           question:
-            "The raw record also shows dst_ports_touched_last_38s: 1024 and a conn_state_breakdown of {S0: 1017, RSTR: 6, SF: 1}. How should this aggregate change your read of the single sample record above?",
+            "The task's opening context states this sample is one of 1,024 connections in 38 seconds, of which 1,017 got the same S0 (no reply) outcome, 6 got RSTR, and 1 got SF (full handshake). How should that aggregate change your read of the single sample record above?",
           options: [
             "It shouldn't — each connection attempt should be evaluated completely independently of any others",
             "It confirms this sample record is one of a systematic sweep across essentially the entire well-known port range from a single internal source against a single target in under a minute — individually ambiguous flow records become an unambiguous scan pattern in aggregate",

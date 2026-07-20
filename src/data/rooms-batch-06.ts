@@ -593,7 +593,6 @@ When you receive a DLP alert or a bulk-download alert:
           "data.office365.SourceFileName": "Q4_Revenue_Report.xlsx",
           "data.office365.SourceRelativeUrl": "/sites/Finance/Shared Documents/",
           "rule.description": "Mass file download detected — 847 files in 4 minutes",
-          "data.file_count": "847",
           "data.office365.SiteUrl": "https://corp.sharepoint.com/sites/Finance",
           "data.office365.EventData": "{\"ListItemUniqueId\":\"a7f9c2e1-...\",\"DestinationUrl\":\"\"}",
           "rule.level": "high"
@@ -631,9 +630,9 @@ When you receive a DLP alert or a bulk-download alert:
     {
       type: "flag",
       id: "spt-teams-f1",
-      prompt: "Look at the bulk-download log analysis above. According to the raw log field `data.file_count`, exactly how many files were downloaded in this incident?",
+      prompt: "Look at the bulk-download log analysis above. According to the alert, exactly how many files were downloaded in this incident?",
       answer: "847",
-      hint: "Look at the raw log field called data.file_count. It is a number.",
+      hint: "The count is in the task's opening context, and again in the rule.description field.",
       xp: 50,
     } satisfies FlagTask,
 
