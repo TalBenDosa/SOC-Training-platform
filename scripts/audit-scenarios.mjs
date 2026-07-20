@@ -89,9 +89,40 @@ for (const { slug, b } of bundles) {
   if (!b.narrative) add("ERROR", slug, "no narrative — nothing to debrief with after submission");
   if ((b.questions ?? []).length < 3) add("WARN", slug, `${(b.questions ?? []).length} questions`);
   for (const q of b.questions ?? []) {
-    if (q.kind === "mcq" && Array.isArray(q.options)) {
-      const vals = q.options.map(o => (typeof o === "string" ? o : o.value));
-      if (!vals.includes(q.answer)) add("ERROR", `${slug}/${q.id ?? "?"}`, `answer "${q.answer}" matches no option`);
+    if (!Array.isArray(q.options) || q.options.length < 2) continue;
+    const opts = q.options.map(o => (typeof o === "string" ? { value: o, label: o } : o));
+    const ans = Array.isArray(q.answer) ? q.answer : [q.answer];
+
+    for (const a of ans) {
+      if (!opts.some(o => o.value === a)) add("ERROR", `${slug}/${q.id ?? "?"}`, `answer "${a}" matches no option`);
+    }
+
+    // Answerable by shape alone.
+    //
+    // Measured at 71% guessable before this existed: the correct answer was
+    // the FIRST option in 79 of 112 questions, and in 34 of them it was also
+    // far the longest — worst case 4.96x, a 114-character containment action
+    // beside two 23-character throwaways.
+    //
+    // Position is now handled at render time (options are shuffled), but
+    // LENGTH is a property of the data and has to be enforced here.
+    //
+    // Multi-select aware: compares the longest CORRECT option against the
+    // longest distractor, since with several right answers any of them being
+    // conspicuously long gives the set away.
+    //
+    // The fix when this fires is to EXPAND the distractors into equally
+    // specific wrong actions — never to trim the correct answer, whose
+    // specificity is the teaching content.
+    const right = opts.filter(o => ans.includes(o.value));
+    const wrong = opts.filter(o => !ans.includes(o.value));
+    if (right.length && wrong.length) {
+      const rl = Math.max(...right.map(o => String(o.label).length));
+      const wl = Math.max(...wrong.map(o => String(o.label).length));
+      if (rl > wl * 1.45) {
+        add("ERROR", `${slug}/${q.id ?? "?"}`,
+          `correct option is ${Math.round((rl / wl) * 100)}% of the longest distractor — answerable without reading`);
+      }
     }
   }
 }
