@@ -174,7 +174,7 @@ function descForTechnique(t: string, e: TelemetryEvent): string {
     case "T1021.001": return `RDP session from external IP to domain controller${host}${user} — never legitimate outside IT break-glass procedures.`;
     case "T1136.001": return `Shadow admin account created and added to Domain Admins${host}${user} — disguised as service account for stealthy persistence.`;
     case "T1070.001": return `Security audit log cleared (Event 1102)${host} — attacker destroying forensic evidence. This is the last event before logs disappear.`;
-    case "T1195.002": return `Trojanized vendor software installed${host} — signed by real vendor cert but contains malicious DLL payload.`;
+    case "T1195.002": return `Trojanized vendor software installed${host} — signed by real vendor cert but contains a malicious payload.`;
     case "T1083":     return `Credential hunting: find scanning /home /root /etc for credentials, .env, .pem files${host}.`;
     case "T1021.004": return `SSH lateral movement using stolen private key${host} — no password required; attacker pivoting to database and CI/CD servers.`;
     case "T1053.003": return `Cron job written to /etc/cron.d${host} — re-launches malicious process every 15 minutes, survives reboots.`;
@@ -3183,7 +3183,7 @@ export const SCENARIOS = [
     difficulty: "advanced", attack_kind: "supply_chain",
     threat_actor: "APT-SHADOWSUPPLY (nation-state supply chain operator)",
     build: buildSupplyChainScenario,
-    summary: "A trojanized vendor update installs a malicious DLL disguised as telemetry, establishes C2, steals AWS credentials, and exfiltrates 2.3GB of production data — all via a legitimately-signed package." },
+    summary: "A trojanized vendor update installs a malicious shared object disguised as telemetry, establishes C2, steals AWS credentials, and exfiltrates 2.3GB of production data — all via a legitimately-signed package." },
   { slug: "mfa-fatigue-ato",
     title: "MFA Fatigue → Okta Account Takeover",
     difficulty: "beginner", attack_kind: "mfa_fatigue_ato",
@@ -7191,7 +7191,15 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
         "cs.ParentBaseFileName": "netpulse-agent",
         "cs.SHA256HashData": malDllHash,
         "cs.UserName": "root",
-        "cs.IntegrityLevel": "4096",
+        // The malicious shared object the trojanized package dropped. It was
+        // named in the narrative and the attack timeline but appeared in NO
+        // event, so an analyst could not recover it from the telemetry — the
+        // story asserted a payload the logs never showed. Surfaced here as the
+        // loaded module, which is where it would genuinely be observed.
+        "cs.ModuleLoad": "/lib/x86_64-linux-gnu/libnetpulse_core.so.2",
+        // NOTE: no cs.IntegrityLevel here. Integrity levels are a WINDOWS
+        // construct; this host is declared host.os.type "linux", which has no
+        // such concept. It was present and wrong.
         "host.os.type": "linux",
         "code.signature.trusted": false,
         "code.signature.status": "unsigned",
@@ -7415,7 +7423,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
   ];
 
   const killchain = [
-    { ts: T(0),         phase: "Initial Access",    action: "Trojanized NetPulse v4.2.2 downloaded — legitimate signed package, malicious DLL embedded inside (T1195.002)" },
+    { ts: T(0),         phase: "Initial Access",    action: "Trojanized NetPulse v4.2.2 downloaded — legitimate signed package, malicious shared object embedded inside (T1195.002)" },
     { ts: T(2 * MIN),   phase: "Execution",         action: "Signed installer runs — drops malicious libnetpulse_core.so.2 to /lib/x86_64-linux-gnu/ (T1036.005)" },
     { ts: T(5 * MIN),   phase: "Execution",         action: "netpulse-agent spawns child from wrong path — hash mismatch vs. known-good (T1195.002)" },
     { ts: T(8 * MIN),   phase: "C2",                action: "HTTPS beacon every 45s to api.telemetry-cdn.net — self-signed cert, domain 3 days old (T1071.001)" },
@@ -7476,7 +7484,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
         { value: "revoke",   label: "Revoke the stolen AWS IAM credentials for user devops-ci — stops cloud exfiltration and lateral cloud movement" },
         { value: "isolate",  label: "Network-isolate prod-srv-01 via EDR — cuts C2 beacon and blocks SSH lateral movement to db-primary and jenkins" },
         { value: "notify",   label: "Notify the NetPulse vendor about the compromised update package" },
-        { value: "submit",   label: "Submit the malicious DLL hash to VirusTotal for community threat sharing" },
+        { value: "submit",   label: "Submit the malicious shared-object hash to VirusTotal for community threat sharing" },
       ],
       answer: ["revoke", "isolate"],
       explanation: "IAM credential revocation immediately stops all S3 exfiltration and further cloud discovery. EDR network isolation severs the C2 channel and prevents further SSH lateral movement to the database and CI/CD systems. Vendor notification and VirusTotal submission are important but are not immediate containment actions — they can wait 30 minutes while the active threat is stopped.",
@@ -7489,7 +7497,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
     threat_actor: "APT-SHADOWSUPPLY (nation-state supply chain operator)",
     attack_kind: "supply_chain",
     briefing: "CrowdStrike raised a detection on prod-srv-01 at 14:35. The host completed a scheduled NetPulse agent auto-update earlier that afternoon under an approved change record. The firewall shows repeated outbound HTTPS from this server since. Confirm whether the two are related.",
-    narrative: `On a Tuesday afternoon, RocketStack's production server ran a routine auto-update for the NetPulse infrastructure monitoring agent. The download came from the real vendor CDN, the installer carried an authentic NetPulse code-signing certificate, and the update was in the change management calendar. What no one at RocketStack knew was that APT-SHADOWSUPPLY — a nation-state group specializing in software supply chain attacks — had compromised NetPulse Solutions' build pipeline three days earlier and embedded a malicious DLL (libnetpulse_core.so.2) inside the v4.2.2 package. Within 5 minutes of installation the malware spawned a child process from an unexpected path, established a C2 beacon to a 3-day-old domain masquerading as vendor telemetry, and wrote a cron job for persistence. Over the following 20 minutes it systematically hunted for credentials, read AWS access keys from /root/.aws/credentials, and began enumerating RocketStack's entire cloud infrastructure. The final blow: 2.3 GB of production database backups and customer PII exfiltrated via 847 S3 API calls — sourced through a Singapore relay that initially appeared unrelated to the C2. Your job: identify the supply chain indicator that exposes the trojanized update, trace the attacker's proxy chain across log sources, and define the two immediate containment actions.`,
+    narrative: `On a Tuesday afternoon, RocketStack's production server ran a routine auto-update for the NetPulse infrastructure monitoring agent. The download came from the real vendor CDN, the installer carried an authentic NetPulse code-signing certificate, and the update was in the change management calendar. What no one at RocketStack knew was that APT-SHADOWSUPPLY — a nation-state group specializing in software supply chain attacks — had compromised NetPulse Solutions' build pipeline three days earlier and embedded a malicious shared object (libnetpulse_core.so.2) inside the v4.2.2 package. Within 5 minutes of installation the malware spawned a child process from an unexpected path, established a C2 beacon to a 3-day-old domain masquerading as vendor telemetry, and wrote a cron job for persistence. Over the following 20 minutes it systematically hunted for credentials, read AWS access keys from /root/.aws/credentials, and began enumerating RocketStack's entire cloud infrastructure. The final blow: 2.3 GB of production database backups and customer PII exfiltrated via 847 S3 API calls — sourced through a Singapore relay that initially appeared unrelated to the C2. Your job: identify the supply chain indicator that exposes the trojanized update, trace the attacker's proxy chain across log sources, and define the two immediate containment actions.`,
     learning_objectives: [
       "Understand why supply chain attacks bypass traditional controls: the initial download is legitimate and signed by a trusted vendor certificate",
       "Identify supply chain compromise indicators: wrong binary installation path, SHA256 hash mismatch vs. vendor known-good, unexpected child process from vendor parent",

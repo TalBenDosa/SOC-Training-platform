@@ -1,0 +1,158 @@
+/**
+ * Scenario integrity audit.
+ *
+ * The platform's core promise is that an attack STORY is simulated in LOGS, and
+ * the analyst reconstructs it and writes a report. That promise breaks in ways
+ * no typecheck can see, so this checks the four that matter:
+ *
+ *   1. DUPLICATION  — the same event reused across scenarios, or within one.
+ *   2. LOGIC        — timestamps out of order, or a story that ends before it
+ *                     starts.
+ *   3. STORY        — a briefing and a debrief narrative actually exist.
+ *   4. ALIGNMENT    — the entities the narrative NAMES (hosts, users, IPs,
+ *                     files) actually appear in the events. This is the one
+ *                     that catches "the story says the attacker used
+ *                     svc_backup, but no event mentions svc_backup" — a
+ *                     scenario that cannot be solved from its own logs.
+ *
+ * Reported as findings, not assertions: some overlap between scenarios is
+ * legitimate (a corporate proxy IP recurs), so this ranks and explains rather
+ * than failing blindly.
+ */
+import { pathToFileURL } from "node:url";
+import path from "node:path";
+import crypto from "node:crypto";
+
+const ROOT = process.cwd();
+const imp = f => import(pathToFileURL(path.join(ROOT, f)).href);
+const m = await imp("src/lib/sim/scenarios.ts");
+
+const findings = [];
+const add = (sev, where, msg) => findings.push({ sev, where, msg });
+
+const bundles = [];
+for (const s of m.SCENARIOS) {
+  const b = m.buildScenarioBySlug(s.slug);
+  if (!b) { add("ERROR", s.slug, "buildScenarioBySlug returned nothing"); continue; }
+  bundles.push({ slug: s.slug, b });
+}
+
+// ── 1. Duplication ──────────────────────────────────────────────────────────
+// Fingerprint on the raw block, which is the actual telemetry. Two events with
+// the same raw are the same log line, whatever the surrounding prose says.
+const seen = new Map();
+for (const { slug, b } of bundles) {
+  const within = new Map();
+  for (const e of b.events ?? []) {
+    const raw = JSON.stringify(e.raw ?? {});
+    if (raw === "{}" ) continue;
+    const h = crypto.createHash("sha1").update(raw).digest("hex").slice(0, 12);
+
+    if (within.has(h)) add("ERROR", `${slug}/${e.id ?? "?"}`,
+      `identical raw block to ${within.get(h)} in the same scenario`);
+    else within.set(h, e.id ?? "?");
+
+    if (seen.has(h) && seen.get(h).slug !== slug) {
+      add("WARN", `${slug}/${e.id ?? "?"}`,
+        `identical raw block to ${seen.get(h).slug}/${seen.get(h).id} — copy-paste across scenarios`);
+    } else if (!seen.has(h)) seen.set(h, { slug, id: e.id ?? "?" });
+  }
+}
+
+// Near-duplicate narratives / briefings — a story reused with names swapped.
+for (let i = 0; i < bundles.length; i++)
+  for (let j = i + 1; j < bundles.length; j++) {
+    const a = (bundles[i].b.briefing ?? "").toLowerCase();
+    const c = (bundles[j].b.briefing ?? "").toLowerCase();
+    if (a && a === c) add("ERROR", `${bundles[i].slug} + ${bundles[j].slug}`, "identical briefing text");
+  }
+
+// ── 2. Logic ────────────────────────────────────────────────────────────────
+for (const { slug, b } of bundles) {
+  const ts = (b.events ?? []).map(e => e.ts ?? e.timestamp).filter(Boolean).map(t => new Date(t).getTime());
+  if (ts.some(Number.isNaN)) add("ERROR", slug, "an event timestamp does not parse");
+  // NOTE: authoring order is deliberately NOT checked. ScenarioClient sorts by
+  // `ts` before rendering (ScenarioClient.tsx:300), so events authored grouped
+  // by log source still reach the analyst in time order. An earlier version of
+  // this audit flagged 11 scenarios for it — all false positives.
+  if (ts.length > 1) {
+    const span = (Math.max(...ts) - Math.min(...ts)) / 3600000;
+    if (span > 24 * 30) add("WARN", slug, `story spans ${Math.round(span / 24)} days — long for one incident`);
+  }
+  const n = (b.events ?? []).length;
+  if (n < 6) add("WARN", slug, `only ${n} events — thin for reconstructing a story from logs`);
+}
+
+// ── 3. Story present ────────────────────────────────────────────────────────
+for (const { slug, b } of bundles) {
+  if (!b.briefing) add("ERROR", slug, "no briefing — the analyst opens the ticket with no context");
+  if (!b.narrative) add("ERROR", slug, "no narrative — nothing to debrief with after submission");
+  if ((b.questions ?? []).length < 3) add("WARN", slug, `${(b.questions ?? []).length} questions`);
+  for (const q of b.questions ?? []) {
+    if (q.kind === "mcq" && Array.isArray(q.options)) {
+      const vals = q.options.map(o => (typeof o === "string" ? o : o.value));
+      if (!vals.includes(q.answer)) add("ERROR", `${slug}/${q.id ?? "?"}`, `answer "${q.answer}" matches no option`);
+    }
+  }
+}
+
+// ── 4. Story ↔ log alignment ────────────────────────────────────────────────
+// Pull the concrete entities out of the narrative and check the events mention
+// them. A name in the story that appears nowhere in the telemetry means the
+// analyst is expected to conclude something the logs never showed.
+// Identifiers only. An earlier version matched any hyphenated token, which
+// swept up ordinary English compound adjectives — "second-stage",
+// "nation-state", "freshly-registered" — and reported them as missing
+// hostnames. That produced 20+ findings of which nearly all were noise, and
+// noise at that volume hides the two real ones.
+//
+// A real entity in this corpus looks like an identifier, not like prose: it
+// carries a digit, an underscore, a dotted username (j.chen), a file
+// extension, an IP, or a domain. Hyphenated pairs of dictionary words do not
+// qualify, so they are no longer matched at all rather than being chased with
+// an ever-growing stop-list.
+const ENTITY = [
+  { kind: "ip",       re: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
+  { kind: "file",     re: /\b[\w-]+\.(?:exe|dll|ps1|bat|vbs|js|zip|7z|dmp|aspx|jsp|sh|py)\b/gi },
+  { kind: "domain",   re: /\b[a-z0-9-]{3,}\.(?:com|net|org|io|ru|cn|xyz|top|info)\b/gi },
+  { kind: "user",     re: /\b[a-z]{1,2}\.[a-z]{3,}\b/gi },              // j.chen, ab.smith
+  { kind: "account",  re: /\b[a-z][a-z0-9]*_[a-z0-9_]{2,}\b/gi },        // svc_backup, libnetpulse_core
+  { kind: "host",     re: /\b[a-z][a-z0-9]*-?[a-z0-9]*\d{2,}\b/gi },     // WKS-4471, SRV12
+];
+// Tokens that look like identifiers but are vocabulary, not entities.
+//
+// Threat-actor designations (APT29, UNC3944, FIN7…) belong here specifically:
+// they legitimately appear in the debrief narrative and legitimately do NOT
+// appear in raw telemetry. Attribution is an analyst's conclusion drawn from
+// tradecraft, never a field a sensor writes. Flagging them as "named in the
+// story but missing from the logs" inverts the actual lesson.
+const ATTACKER_NAME = /^(apt|unc|fin|ta|temp|g)\d{2,5}$/i;
+const STOP = new Set(["t1078", "t1190", "t1059", "t1083", "t1110", "t1621", "t1558", "t1550", "t1098"]);
+
+for (const { slug, b } of bundles) {
+  const blob = JSON.stringify(b.events ?? []).toLowerCase();
+  const story = `${b.narrative ?? ""}`;
+  const missing = [];
+  for (const { kind, re } of ENTITY) {
+    for (const mt of story.matchAll(re)) {
+      const tok = mt[0].toLowerCase();
+      if (STOP.has(tok) || ATTACKER_NAME.test(tok) || tok.length < 5) continue;
+      if (!blob.includes(tok)) missing.push(`${tok} (${kind})`);
+    }
+  }
+  const uniq = [...new Set(missing)];
+  if (uniq.length) {
+    add(uniq.length >= 4 ? "ERROR" : "WARN", slug,
+      `narrative names ${uniq.length} entit${uniq.length === 1 ? "y" : "ies"} absent from the logs: ${uniq.slice(0, 6).join(", ")}${uniq.length > 6 ? " …" : ""}`);
+  }
+}
+
+// ── Report ──────────────────────────────────────────────────────────────────
+const errors = findings.filter(f => f.sev === "ERROR");
+const warns  = findings.filter(f => f.sev === "WARN");
+console.log(`\n\x1b[1mScenario audit\x1b[0m   ${bundles.length} scenarios, ${bundles.reduce((a, x) => a + (x.b.events ?? []).length, 0)} events`);
+console.log(`  errors ${errors.length}   warnings ${warns.length}\n`);
+for (const f of errors) console.log(`\x1b[31m  ERROR  ${f.where}\n         ${f.msg}\x1b[0m`);
+for (const f of warns)  console.log(`\x1b[33m  WARN   ${f.where}\n         ${f.msg}\x1b[0m`);
+if (!errors.length) console.log("\x1b[32m  PASS — no blocking scenario defects.\x1b[0m");
+process.exit(errors.length ? 1 : 0);

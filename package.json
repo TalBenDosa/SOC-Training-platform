@@ -19,7 +19,8 @@
     "backfill:vendors": "node scripts/backfill-missing-vendors.mjs",
     "validate:scenarios": "tsx scripts/validate-scenarios.mjs",
     "validate:content": "tsx scripts/validate-content.mjs",
-    "validate:diagrams": "tsx scripts/validate-diagrams.mjs"
+    "validate:diagrams": "tsx scripts/validate-diagrams.mjs",
+    "audit:scenarios": "tsx scripts/audit-scenarios.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

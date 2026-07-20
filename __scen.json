@@ -1,0 +1,232 @@
+[
+  {
+    "slug": "phishing-malware-basic",
+    "difficulty": "beginner",
+    "events": 4,
+    "questions": 3,
+    "narrative": 358,
+    "briefing": 225,
+    "objectives": 4,
+    "verdict": "?"
+  },
+  {
+    "slug": "usb-malware-basic",
+    "difficulty": "beginner",
+    "events": 4,
+    "questions": 3,
+    "narrative": 322,
+    "briefing": 228,
+    "objectives": 4,
+    "verdict": "?"
+  },
+  {
+    "slug": "phishing-to-cloud-exfil",
+    "difficulty": "intermediate",
+    "events": 19,
+    "questions": 4,
+    "narrative": 878,
+    "briefing": 224,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "bec-mailbox-rule",
+    "difficulty": "beginner",
+    "events": 13,
+    "questions": 4,
+    "narrative": 793,
+    "briefing": 240,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "ransomware-lockbit",
+    "difficulty": "advanced",
+    "events": 21,
+    "questions": 5,
+    "narrative": 829,
+    "briefing": 202,
+    "objectives": 6,
+    "verdict": "?"
+  },
+  {
+    "slug": "oauth-app-persistence",
+    "difficulty": "advanced",
+    "events": 13,
+    "questions": 4,
+    "narrative": 783,
+    "briefing": 258,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "insider-threat-finance",
+    "difficulty": "intermediate",
+    "events": 13,
+    "questions": 4,
+    "narrative": 791,
+    "briefing": 226,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "kerberoasting",
+    "difficulty": "advanced",
+    "events": 11,
+    "questions": 4,
+    "narrative": 505,
+    "briefing": 249,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "dns-tunneling",
+    "difficulty": "advanced",
+    "events": 9,
+    "questions": 4,
+    "narrative": 586,
+    "briefing": 248,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "lolbins",
+    "difficulty": "advanced",
+    "events": 14,
+    "questions": 4,
+    "narrative": 683,
+    "briefing": 243,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "cloud-cryptomining",
+    "difficulty": "intermediate",
+    "events": 11,
+    "questions": 4,
+    "narrative": 1079,
+    "briefing": 256,
+    "objectives": 6,
+    "verdict": "?"
+  },
+  {
+    "slug": "dcsync-golden-ticket",
+    "difficulty": "advanced",
+    "events": 10,
+    "questions": 4,
+    "narrative": 1201,
+    "briefing": 259,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "supply-chain-vendor-update",
+    "difficulty": "advanced",
+    "events": 11,
+    "questions": 4,
+    "narrative": 1347,
+    "briefing": 273,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "mfa-fatigue-ato",
+    "difficulty": "beginner",
+    "events": 10,
+    "questions": 4,
+    "narrative": 551,
+    "briefing": 224,
+    "objectives": 4,
+    "verdict": "?"
+  },
+  {
+    "slug": "asrep-roasting",
+    "difficulty": "intermediate",
+    "events": 10,
+    "questions": 4,
+    "narrative": 480,
+    "briefing": 228,
+    "objectives": 4,
+    "verdict": "?"
+  },
+  {
+    "slug": "ntlm-relay-responder",
+    "difficulty": "advanced",
+    "events": 10,
+    "questions": 4,
+    "narrative": 610,
+    "briefing": 240,
+    "objectives": 4,
+    "verdict": "?"
+  },
+  {
+    "slug": "k8s-pod-escape-imds",
+    "difficulty": "advanced",
+    "events": 10,
+    "questions": 4,
+    "narrative": 627,
+    "briefing": 249,
+    "objectives": 4,
+    "verdict": "?"
+  },
+  {
+    "slug": "oauth-consent-grant-phishing",
+    "difficulty": "expert",
+    "events": 10,
+    "questions": 4,
+    "narrative": 725,
+    "briefing": 241,
+    "objectives": 4,
+    "verdict": "?"
+  },
+  {
+    "slug": "backup-agent-false-positive",
+    "difficulty": "beginner",
+    "events": 10,
+    "questions": 5,
+    "narrative": 1047,
+    "briefing": 316,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "web-shell-sqli",
+    "difficulty": "advanced",
+    "events": 14,
+    "questions": 5,
+    "narrative": 1218,
+    "briefing": 263,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "linux-ssh-cryptominer",
+    "difficulty": "intermediate",
+    "events": 13,
+    "questions": 5,
+    "narrative": 1596,
+    "briefing": 223,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "aitm-token-theft",
+    "difficulty": "advanced",
+    "events": 12,
+    "questions": 5,
+    "narrative": 1066,
+    "briefing": 233,
+    "objectives": 5,
+    "verdict": "?"
+  },
+  {
+    "slug": "esxi-ransomware",
+    "difficulty": "expert",
+    "events": 14,
+    "questions": 5,
+    "narrative": 1148,
+    "briefing": 224,
+    "objectives": 5,
+    "verdict": "?"
+  }
+]
