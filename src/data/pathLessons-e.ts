@@ -47,7 +47,7 @@ const lessons = [
         "question": "You are a SOC analyst and your EDR fires on WINWORD.EXE spawning powershell.exe with a -EncodedCommand argument. Using the Cyber Kill Chain, what is the single most valuable next action?",
         "options": [
           {
-            "label": "Close the alert as a benign admin script since PowerShell is used legitimately",
+            "label": "Close the alert as benign, because the finance team's Excel and Word templates routinely launch encoded PowerShell helpers, which makes an Office parent process expected here",
             "value": "a"
           },
           {
@@ -55,11 +55,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Immediately reimage the host without gathering any further evidence",
+            "label": "Reimage the host from a known-good image, because wiping the machine removes the exploitation stage and prevents the kill chain from reaching installation or command and control",
             "value": "c"
           },
           {
-            "label": "Block powershell.exe on every endpoint in the environment",
+            "label": "Push a policy blocking powershell.exe on every endpoint, because removing the interpreter fleet-wide addresses the delivery stage of the kill chain and closes the path this attacker used",
             "value": "d"
           }
         ],
@@ -70,11 +70,11 @@ const lessons = [
         "question": "You are a SOC analyst documenting a case and need to distinguish a technique from a procedure in ATT&CK terms. Which of the following is a PROCEDURE rather than a technique?",
         "options": [
           {
-            "label": "Command and Scripting Interpreter (T1059)",
+            "label": "Command and Scripting Interpreter (T1059) — the ATT&CK entry for adversary abuse of command and script interpreters",
             "value": "a"
           },
           {
-            "label": "PowerShell (T1059.001)",
+            "label": "PowerShell (T1059.001) — the sub-technique covering adversary use of the PowerShell interpreter on Windows hosts",
             "value": "b"
           },
           {
@@ -82,7 +82,7 @@ const lessons = [
             "value": "c"
           },
           {
-            "label": "Execution (TA0002)",
+            "label": "Execution (TA0002) — the tactic describing the adversary goal of running attacker-controlled code on a target system",
             "value": "d"
           }
         ],
@@ -116,7 +116,7 @@ const lessons = [
         "question": "You are a SOC analyst and leadership asks whether your organization would detect a specific ransomware group's known techniques. Which ATT&CK-based approach gives an evidence-backed answer?",
         "options": [
           {
-            "label": "Estimate from memory which alerts fired most often last quarter",
+            "label": "Estimate from memory which alerts fired most often last quarter and report those as the techniques you would detect, since alert volume reflects where your detection strength is",
             "value": "a"
           },
           {
@@ -124,11 +124,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Count the total number of detection rules in the SIEM and report the number",
+            "label": "Count the total number of enabled detection rules in the SIEM and compare it against the number of techniques in ATT&CK Enterprise, reporting the percentage as your coverage figure",
             "value": "c"
           },
           {
-            "label": "Assume full coverage because the SOC has an EDR product deployed",
+            "label": "Report full coverage of the group's techniques on the basis that the EDR is deployed fleet-wide in prevention mode, since the vendor maps its behavioral detections to ATT&CK",
             "value": "d"
           }
         ],
@@ -218,7 +218,7 @@ const lessons = [
         "question": "You are a SOC analyst triaging a suspicious executable. A multi-engine reputation service returns 0 out of 70 detections. What is the correct interpretation?",
         "options": [
           {
-            "label": "The file is definitively safe and the ticket can be closed",
+            "label": "The file is safe to release and the ticket can be closed, because seventy engines examining the same sample with different signature sets is broad enough agreement to settle the verdict",
             "value": "a"
           },
           {
@@ -226,11 +226,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "The reputation service is broken and should be ignored entirely",
+            "label": "The reputation service should be disregarded for this sample, because multi-engine scores reflect only consumer antivirus products and add nothing to an enterprise triage decision",
             "value": "c"
           },
           {
-            "label": "It confirms the file is malicious because attackers always evade all engines",
+            "label": "A zero score is itself the incriminating signal, because commodity software is normally detected by at least a few engines and a clean sheet indicates deliberate evasion of the whole panel",
             "value": "d"
           }
         ],
@@ -241,7 +241,7 @@ const lessons = [
         "question": "You are a SOC analyst who has confirmed one infected host and extracted a C2 domain and a mutex named Global\\RC_9f3a2b from the sandbox report. Which pivot best scopes how widely the campaign has spread?",
         "options": [
           {
-            "label": "Only block the sample's SHA256 fleet-wide, since the hash uniquely identifies every infected host",
+            "label": "Block the sample's SHA256 fleet-wide and use the block events as your scope, because any host that runs the malware will generate a hash-block event and reveal itself",
             "value": "a"
           },
           {
@@ -249,11 +249,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Reimage the single known host and close the incident, since one host was confirmed",
+            "label": "Reimage the confirmed host and close the incident, because removing the only endpoint where the sample was observed eliminates the C2 channel the campaign depends on",
             "value": "c"
           },
           {
-            "label": "Search only for the exact original file name, since malware always keeps the same name",
+            "label": "Search the EDR for the original file name across all endpoints, because operators reuse the same dropped file name for a campaign and the name is a more reliable pivot than network indicators",
             "value": "d"
           }
         ],

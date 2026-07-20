@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -9,6 +9,9 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { findLesson, adjacentLessons } from "@/lib/lessons/paths";
+import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
+import { isMermaidSource } from "@/lib/lessons/mermaid";
+import { shuffleSeeded } from "@/lib/lessons/shuffle";
 import type { GeneratedLesson, LessonPage, LessonQuizQuestion } from "@/app/api/lessons/[slug]/route";
 
 // ─── Markdown renderer (lightweight, no external dep) ────────────────────────
@@ -78,6 +81,29 @@ function Quiz({
   const [submitted, setSubmitted] = useState(false);
   const [score, setScore] = useState(0);
 
+  /**
+   * Display order for each question's options.
+   *
+   * WHY: across the platform's 92 lesson quiz questions the correct answer was
+   * "b" 72 times, "c" 17, "a" 3 and "d" never — so always picking "b" scored
+   * 78% without reading anything. Authors reach for the second slot, and no
+   * amount of care per-lesson fixes a bias that only shows up in aggregate.
+   * Shuffling at render time fixes it for existing AND future content, which
+   * hand-rebalancing the data files would not.
+   *
+   * Deterministic, not random: seeded by the question text so a given question
+   * always presents in the same order. A fresh order on every keystroke would
+   * make options jump under the cursor mid-answer, and re-ordering after
+   * submission would scramble the results the learner is reading.
+   *
+   * SAFE because grading compares opt.value to q.answer (see handleSubmit) —
+   * it never depends on position. Only the visual order changes.
+   */
+  const shuffled = useMemo(
+    () => questions.map(q => shuffleSeeded(q.options, q.question)),
+    [questions],
+  );
+
   const handleSubmit = () => {
     let correct = 0;
     for (let i = 0; i < questions.length; i++) {
@@ -107,7 +133,7 @@ function Quiz({
             {i + 1}. {q.question}
           </p>
           <div className="space-y-2">
-            {q.options.map(opt => {
+            {shuffled[i].map(opt => {
               const isSelected = answers[i] === opt.value;
               const isCorrect  = submitted && opt.value === q.answer;
               const isWrong    = submitted && isSelected && opt.value !== q.answer;
@@ -184,10 +210,18 @@ function LessonPageView({ page }: { page: LessonPage }) {
     <div className="space-y-4">
       <h2 className="text-xl font-bold text-white">{page.title}</h2>
       <MarkdownBlock text={page.body} />
+      {/* Mermaid source renders as a diagram; anything else (SPL/KQL queries,
+          comparison tables) stays a code block. Without this branch a lesson
+          diagram displayed as literal `flowchart TD` text — the component
+          existed but had only ever been wired into rooms. */}
       {page.codeExample && (
-        <div className="overflow-x-auto rounded border border-border bg-bg">
-          <pre className="p-4 font-mono text-xs text-neon-green leading-relaxed">{page.codeExample}</pre>
-        </div>
+        isMermaidSource(page.codeExample)
+          ? <MermaidDiagram chart={page.codeExample} />
+          : (
+            <div className="overflow-x-auto rounded border border-border bg-bg">
+              <pre className="p-4 font-mono text-xs text-neon-green leading-relaxed">{page.codeExample}</pre>
+            </div>
+          )
       )}
       {page.keyPoints.length > 0 && (
         <div className="rounded border border-cyber-500/20 bg-cyber-500/5 p-4">

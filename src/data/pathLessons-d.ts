@@ -47,7 +47,7 @@ const lessons = [
         "question": "You are a SOC analyst and you run a query for all authentication events on a critical file server over the last 24 hours, expecting to see the daily backup service account activity, but the SIEM returns zero results. Before concluding the server had no logins, what is the most important thing to verify first?",
         "options": [
           {
-            "label": "That the server has no security software installed, since that would explain the silence",
+            "label": "That the file server has no endpoint security software installed, because a host without an EDR agent generates no Windows Security events, which would explain the silence",
             "value": "a"
           },
           {
@@ -55,11 +55,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "That the attacker deleted the logs, since zero results always indicates tampering",
+            "label": "That the attacker cleared the Windows Security log on the server, because Event ID 1102 shows logs can be purged locally and a wiped log is the standard cause of an empty result",
             "value": "c"
           },
           {
-            "label": "That your account has permission to escalate the incident to tier 2",
+            "label": "That your analyst account holds the permissions required to escalate the case to tier 2, because escalation rights and search rights are granted by the same SIEM role",
             "value": "d"
           }
         ],
@@ -97,15 +97,15 @@ const lessons = [
             "value": "a"
           },
           {
-            "label": "Only a signature match against a threat-intel hash list",
+            "label": "Only a signature match against a threat-intel hash list, because reputation lookups on the hashes in the account's sessions reveal how many IPs and countries it used",
             "value": "b"
           },
           {
-            "label": "A join across five unrelated indexes with no aggregation",
+            "label": "A join across five indexes with no aggregation, because joining preserves every field and the distinct IP and country counts can be read directly off the result set",
             "value": "c"
           },
           {
-            "label": "A raw event dump with no filter, sorted by field name alphabetically",
+            "label": "A raw event dump with no filter, sorted by field name alphabetically, because sorting groups the successes and failures together so you can count each block by eye",
             "value": "d"
           }
         ],
@@ -116,7 +116,7 @@ const lessons = [
         "question": "You are a SOC analyst who has enriched a password-spray alert and found that one of the targeted accounts is a domain administrator, and there is a successful sign-in from the spraying IP immediately after the failures. What is the appropriate action?",
         "options": [
           {
-            "label": "Close as a false positive, since most spray attempts fail and this is probably noise",
+            "label": "Close as a false positive, because spray attempts overwhelmingly fail and the single success is best explained by the legitimate owner signing in from a corporate VPN egress that happens to share the flagged IP",
             "value": "a"
           },
           {
@@ -124,11 +124,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Do nothing until the same alert fires a second time to reduce false positives",
+            "label": "Hold the alert open and take no action until the rule fires a second time on the same account, because a single correlated hit is below the confidence threshold that justifies waking an incident responder",
             "value": "c"
           },
           {
-            "label": "Immediately reimage every server in the environment without notifying anyone",
+            "label": "Reimage every server the domain-admin account has authenticated to in the last month before notifying anyone, because rebuilding the systems the credential touched is the fastest way to remove the attacker",
             "value": "d"
           }
         ],
@@ -195,7 +195,7 @@ const lessons = [
         "question": "You are a SOC analyst investigating a workstation where an attacker ran malicious PowerShell entirely in memory using a base64-encoded command, with no executable ever written to disk. Why would traditional signature-based antivirus most likely have missed this, and why does EDR catch it?",
         "options": [
           {
-            "label": "Antivirus missed it because the machine was offline; EDR catches it because it is always online",
+            "label": "Antivirus missed it because the machine was disconnected from the corporate network when the command ran, so it could not reach the cloud signature service; EDR catches it because its sensor buffers telemetry locally until the host reconnects",
             "value": "a"
           },
           {
@@ -203,11 +203,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Antivirus missed it because PowerShell is unsupported; EDR catches it by blocking PowerShell entirely",
+            "label": "Antivirus missed it because its engine only inspects PowerShell content once a script is written to disk; EDR catches it by blocking powershell.exe outright on managed endpoints so encoded commands cannot run",
             "value": "c"
           },
           {
-            "label": "Antivirus missed it because the hash was too long; EDR catches it because it uses shorter hashes",
+            "label": "Antivirus missed it because the encoded command was longer than the byte pattern its signature engine hashes; EDR catches it by hashing the decoded script in memory and matching that hash against the same blocklist",
             "value": "d"
           }
         ],
@@ -218,7 +218,7 @@ const lessons = [
         "question": "You are a SOC analyst and your EDR reports that a dropped file, svc32.exe, was successfully quarantined on an endpoint. A colleague suggests closing the alert since the file is gone. What is the correct reasoning?",
         "options": [
           {
-            "label": "Agree and close it, because quarantining the file removes the entire threat",
+            "label": "Agree and close it, because quarantine moves the executable into an encrypted vault where it cannot run, and with the payload neutralized any registry or scheduled-task entries pointing at it are left harmless",
             "value": "a"
           },
           {
@@ -226,11 +226,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Agree and close it, because EDR never quarantines a file unless the whole chain is stopped",
+            "label": "Agree and close it, because the EDR raises the quarantine event only after its behavioral engine has traced the full process tree and terminated every related child process and connection",
             "value": "c"
           },
           {
-            "label": "Escalate to reimage every machine in the company immediately, because one quarantine implies total compromise",
+            "label": "Escalate for a company-wide reimage of all endpoints tonight, because a payload that reached disk on one host means the same dropper was almost certainly delivered fleet-wide by the same campaign",
             "value": "d"
           }
         ],
@@ -264,7 +264,7 @@ const lessons = [
         "question": "You are a SOC analyst and a high-confidence ransomware detection with active file encryption is firing on a single non-critical user laptop. You have console access to isolate the host. What is the most appropriate action and reasoning?",
         "options": [
           {
-            "label": "Do nothing and wait for a second alert, to avoid a possible false positive",
+            "label": "Hold off and wait for a second detection before isolating, because ransomware rules commonly fire on backup agents performing bulk file rewrites and a single alert is not enough to disrupt a user",
             "value": "a"
           },
           {
@@ -272,11 +272,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Immediately isolate every domain controller in the environment as a precaution",
+            "label": "Isolate the domain controllers first, because ransomware operators reach file shares through them and cutting DC network access halts encryption everywhere while the laptop is investigated",
             "value": "c"
           },
           {
-            "label": "Never isolate, because isolation always destroys all forensic evidence",
+            "label": "Leave the host on the network and collect a full memory image first, because isolation drops the encryption keys held in RAM and the volatile artifacts needed to recover the files",
             "value": "d"
           }
         ],

@@ -102,7 +102,7 @@ const CORE_LESSONS = [
         "question": "You are a SOC analyst and you observe a Windows workstation at 10.10.5.42 making SMB connections (destination.port=445) to 47 different internal servers within a 10-minute window, with several of those connections accessing the ADMIN$ share. Which detection logic best identifies this behavior as lateral movement?",
         "options": [
           {
-            "label": "Aggregate by destination.ip and alert on any access to ADMIN$",
+            "label": "Aggregate by destination.ip and alert whenever the ADMIN$ share is accessed, since the set of servers being reached is what defines the blast radius of the intrusion",
             "value": "a"
           },
           {
@@ -110,11 +110,11 @@ const CORE_LESSONS = [
             "value": "b"
           },
           {
-            "label": "Alert on any SMB connection where smb.dialect equals SMBv2",
+            "label": "Alert on any SMB connection where smb.dialect equals SMBv2, since attacker tooling negotiates down to the older dialect while patched Windows hosts stay on SMBv3",
             "value": "c"
           },
           {
-            "label": "Alert on any HTTP traffic from the workstation to port 80",
+            "label": "Alert on any HTTP traffic from the workstation to port 80, since lateral movement tooling is staged over cleartext HTTP before the SMB connections start",
             "value": "d"
           }
         ],
@@ -125,11 +125,11 @@ const CORE_LESSONS = [
         "question": "You are a SOC analyst doing a cross-protocol entity sweep on a host that triggered a low-confidence EDR alert. Which pivot field is most valuable for stitching together DNS, HTTPS, SMB, and authentication evidence into a single investigation timeline?",
         "options": [
           {
-            "label": "destination.port, because it identifies the application protocol",
+            "label": "destination.port, because it names the application protocol behind each record and groups the evidence into one timeline",
             "value": "a"
           },
           {
-            "label": "http.response.status_code, because it indicates request success",
+            "label": "http.response.status_code, because it shows which requests succeeded and keeps only the sessions that returned data",
             "value": "b"
           },
           {
@@ -137,7 +137,7 @@ const CORE_LESSONS = [
             "value": "c"
           },
           {
-            "label": "tls.client.ja3, because it fingerprints the TLS client",
+            "label": "tls.client.ja3, because it fingerprints the client stack and follows one process across every protocol it touches",
             "value": "d"
           }
         ],
@@ -251,11 +251,11 @@ const CORE_LESSONS = [
         "question": "You are a SOC analyst investigating a suspicious attachment with SHA256 hash 'e3b0c44...'. You need to determine whether any endpoints in your tenant actually executed the file after the email was delivered. Which Microsoft 365 Defender advanced hunting table should you query?",
         "options": [
           {
-            "label": "EmailEvents — it contains all attachment execution data",
+            "label": "EmailEvents — it records each delivered attachment along with what the endpoint did with it",
             "value": "a"
           },
           {
-            "label": "UrlClickEvents — file executions are logged as URL clicks",
+            "label": "UrlClickEvents — Safe Links rewrites the attachment link, so the file open is tracked as a click",
             "value": "b"
           },
           {
@@ -263,7 +263,7 @@ const CORE_LESSONS = [
             "value": "c"
           },
           {
-            "label": "IdentityLogonEvents — file executions show as user logons",
+            "label": "IdentityLogonEvents — it links file activity to the account that authenticated on the device",
             "value": "d"
           }
         ],
@@ -278,15 +278,15 @@ const CORE_LESSONS = [
             "value": "a"
           },
           {
-            "label": "Outbound emails larger than 10 MB",
+            "label": "Outbound messages larger than 10 MB, since copying the mailbox out is how access survives a reset",
             "value": "b"
           },
           {
-            "label": "Failed sign-in attempts on the mailbox",
+            "label": "Failed sign-in attempts on the mailbox, since they show the attacker returning to the account",
             "value": "c"
           },
           {
-            "label": "Calendar invites to external participants",
+            "label": "Calendar invites to external participants, since a recurring meeting gives a scheduled foothold",
             "value": "d"
           }
         ],
@@ -377,11 +377,11 @@ const CORE_LESSONS = [
         "question": "You are a SOC analyst hunting for credential dumping. Which Sysmon Event ID and field combination provides the highest-fidelity signal for Mimikatz-style LSASS access (T1003.001)?",
         "options": [
           {
-            "label": "Event ID 1 with Image=mimikatz.exe",
+            "label": "Event ID 1 (ProcessCreate) with Image=mimikatz.exe, because the dumping tool has to run on disk before it can open LSASS memory",
             "value": "a"
           },
           {
-            "label": "Event ID 3 with DestinationPort=445",
+            "label": "Event ID 3 (NetworkConnect) with DestinationPort=445, because harvested credentials are relayed off the host over the SMB channel",
             "value": "b"
           },
           {
@@ -389,7 +389,7 @@ const CORE_LESSONS = [
             "value": "c"
           },
           {
-            "label": "Event ID 11 with TargetFilename ending in .dmp",
+            "label": "Event ID 11 (FileCreate) with TargetFilename ending in .dmp, because credential theft is carried out by writing an LSASS memory dump",
             "value": "d"
           }
         ],
@@ -463,6 +463,7 @@ const CORE_LESSONS = [
 // [2]=windows event logs. The 14 pathLessons are interleaved with those three
 // so the whole list reads as one ordered curriculum, beginner → advanced.
 import { ATTACK_TYPE_LESSONS } from "./attackTypeLessons";
+import { PLAYBOOK_LESSONS } from "./playbookLessons";
 
 export const BUILTIN_LESSONS = [
   pathA[0], pathA[1],   // 1-2  What a SOC is · How computers & networks work
@@ -486,4 +487,6 @@ export const BUILTIN_LESSONS = [
   // rather than runtime-generated, because a fabricated field or a wrong ATT&CK
   // mapping in attack theory is a falsehood a learner carries into their first job.
   ...ATTACK_TYPE_LESSONS,
+  // 24 — what to DO with a detection, not just how to spot one.
+  ...PLAYBOOK_LESSONS,
 ];

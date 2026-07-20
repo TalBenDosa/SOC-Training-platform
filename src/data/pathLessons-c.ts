@@ -93,11 +93,11 @@ const lessons = [
         "question": "You are a SOC analyst investigating a 4624 event with LogonType 3, AuthenticationPackageName NTLM, for the account admin-dwong, originating from workstation WKS-2210 — a host that account has never used before. Which follow-up question and evidence best confirms whether this is pass-the-hash?",
         "options": [
           {
-            "label": "Check whether destination.port was 445, since SMB proves lateral movement on its own",
+            "label": "Confirm destination.port was 445, because an NTLM logon over SMB is a reliable indicator of a replayed hash and is sufficient on its own to call it pass-the-hash",
             "value": "a"
           },
           {
-            "label": "Check the TicketEncryptionType on the event, since RC4 confirms hash theft",
+            "label": "Check TicketEncryptionType on the event and treat 0x17 as the confirmation, since an RC4-HMAC ticket means the NTLM hash was reused rather than a password being typed",
             "value": "b"
           },
           {
@@ -105,7 +105,7 @@ const lessons = [
             "value": "c"
           },
           {
-            "label": "Confirm the SubStatus is 0xC0000064, which indicates the account was impersonated",
+            "label": "Look at the SubStatus code on the 4624 event; a value of 0xC0000064 shows the credential was presented as a hash, which distinguishes pass-the-hash from a normal logon",
             "value": "d"
           }
         ],
@@ -241,7 +241,7 @@ const lessons = [
         "question": "You are a SOC analyst and auth.log on an internet-facing host shows roughly 120 'Failed password' entries from 203.0.113.9 in 90 seconds, immediately followed by one 'Accepted password for root from 203.0.113.9'. What should you prioritize and why?",
         "options": [
           {
-            "label": "Nothing — SSH brute force is background noise and the accepted login is unrelated",
+            "label": "Deprioritize it: internet-facing hosts see constant SSH scanning, and an Accepted password entry indicates the legitimate administrator typed the correct password",
             "value": "a"
           },
           {
@@ -249,11 +249,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Block port 80 on the firewall, since HTTP is the entry vector",
+            "label": "Block inbound port 80 at the perimeter, because the attacker most likely obtained the root password through the web application before reusing it over SSH",
             "value": "c"
           },
           {
-            "label": "Rotate the TLS certificate, since the certificate was compromised",
+            "label": "Rotate the host's TLS certificate, since a successful password login means the server's key material was captured and is being replayed by the attacker",
             "value": "d"
           }
         ],

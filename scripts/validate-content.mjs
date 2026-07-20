@@ -20,6 +20,10 @@ const ROOT = process.cwd();
 const imp = f => import(pathToFileURL(path.join(ROOT, f)).href);
 
 const { ROOMS } = await imp("src/data/rooms.ts");
+// Lessons were absent from this gate entirely, which is how 33 length-biased
+// questions shipped unnoticed: checkOptionBalance existed, but nothing ever
+// handed it a lesson. See the lessons section below.
+const { BUILTIN_LESSONS } = await imp("src/data/builtinLessons.ts");
 const quizMod = await imp("src/lib/quizzes/data.ts");
 // ALL_QUIZZES is the combined catalogue (base + packs). Falling back to QUIZZES
 // would silently skip every packaged quiz, which is exactly the kind of blind
@@ -32,16 +36,71 @@ const add = (sev, where, msg) => findings.push({ sev, where, msg });
 
 const DEPRECATED = ["T1076", "T1086", "T1064", "T1035", "T1117"];
 
-/** Options answerable by shape alone — the correct one being much the longest. */
-function checkOptionBalance(where, options, correctIdx) {
+/**
+ * Options answerable by shape alone — the correct one being much the longest.
+ *
+ * The failure mode this catches is real and was widespread: a correct answer
+ * written as a full 200-character justification, surrounded by 60-character
+ * dismissals. A student who knows nothing scores full marks by always picking
+ * the longest option, and the assessment measures nothing.
+ *
+ * `sev` lets lessons enforce this as an ERROR while quiz packs stay on WARN —
+ * lessons are now clean, so a regression there should block; the quiz packs
+ * have not had their pass yet and would turn the gate red on arrival.
+ *
+ * The right fix when this fires is to EXPAND the distractors into plausible
+ * wrong answers, not to trim the correct one — the reasoning in the correct
+ * answer is what teaches.
+ */
+function checkOptionBalance(where, options, correctIdx, sev = "WARN") {
   if (!Array.isArray(options) || options.length < 2) return;
   const right = options[correctIdx];
   if (typeof right !== "string") return;
   const wrong = options.filter((_, i) => i !== correctIdx);
   const longestWrong = Math.max(...wrong.map(o => String(o).length));
   if (right.length > longestWrong * 1.7) {
-    add("WARN", where,
+    add(sev, where,
       `correct option is ${Math.round(right.length / longestWrong * 100)}% of the longest distractor — answerable without reading`);
+  }
+}
+
+// ── Lessons ────────────────────────────────────────────────────────────────
+// Lesson quizzes use a DIFFERENT option shape from quiz-pack questions:
+//   lesson: options [{ label, value }], answer "a".."d"   (value, not index)
+//   quiz:   options ["text", ...],      answer 0..n       (index)
+// checkOptionBalance speaks the quiz shape, so lessons are projected onto it
+// before being handed over. Getting this wrong is precisely what let the
+// original bias hide: a checker that silently returns on an unexpected shape
+// reports success rather than "I could not look".
+const lessonSlugs = new Set();
+for (const l of BUILTIN_LESSONS) {
+  const at = `lesson/${l.slug}`;
+  if (lessonSlugs.has(l.slug)) add("ERROR", at, "duplicate lesson slug");
+  lessonSlugs.add(l.slug);
+
+  for (const [i, q] of (l.quiz ?? []).entries()) {
+    const w = `${at}/q${i + 1}`;
+
+    if (!Array.isArray(q.options) || q.options.length < 3) {
+      add("ERROR", w, "fewer than 3 options");
+      continue;
+    }
+    const labels = q.options.map(o => String(o?.label ?? ""));
+    const correctIdx = q.options.findIndex(o => o?.value === q.answer);
+    if (correctIdx === -1) {
+      // A question whose answer matches no option can never be got right.
+      add("ERROR", w, `answer "${q.answer}" matches no option value`);
+      continue;
+    }
+    if (labels.some(s => s === "")) add("ERROR", w, "an option has an empty label");
+    if (new Set(labels).size !== labels.length) {
+      add("ERROR", w, "duplicate option text — one distractor is unusable");
+    }
+    checkOptionBalance(w, labels, correctIdx, "ERROR");
+
+    for (const d of DEPRECATED) {
+      if (JSON.stringify(q).includes(d)) add("ERROR", w, `cites deprecated ATT&CK ID ${d}`);
+    }
   }
 }
 

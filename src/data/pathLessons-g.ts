@@ -242,7 +242,7 @@ const lessons = [
         "question": "You are a SOC analyst and while writing the report you remember the C2 IP was 'something like 185.220.something' but you cannot immediately find the exact value in your notes. The report is due. What should you do?",
         "options": [
           {
-            "label": "Write 185.220.101.44 from memory — it is close enough and the report needs a value",
+            "label": "Write 185.220.101.44 from memory, since the network prefix is what responders will block anyway and the exact last octet can be corrected later",
             "value": "a"
           },
           {
@@ -250,11 +250,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Leave the IP field blank and hope no one asks",
+            "label": "Leave the IP field blank and submit on time, since the timeline already describes the beaconing and responders can pull the address from the logs themselves",
             "value": "c"
           },
           {
-            "label": "Use a placeholder like 'x.x.x.x' and submit the report as final",
+            "label": "Use a placeholder like 'x.x.x.x' and submit the report as final, since the placeholder makes it obvious to any reader that the value is still outstanding",
             "value": "d"
           }
         ],
@@ -265,7 +265,7 @@ const lessons = [
         "question": "You are a SOC analyst reviewing a draft report from a colleague. It contains a thorough technical timeline and a full IOC table, but the only impact statement is 'suspicious activity occurred on a server.' What is the most important improvement to request?",
         "options": [
           {
-            "label": "Add more Sysmon Event IDs to the timeline for completeness",
+            "label": "Add more Sysmon Event IDs to the timeline for completeness, since a denser sequence of process and network events lets the reader work out the impact",
             "value": "a"
           },
           {
@@ -273,11 +273,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Remove the IOC table because executives will not read it",
+            "label": "Remove the IOC table, since executives skip indicator lists and a shorter report is far more likely to be read end to end by the decision-makers",
             "value": "c"
           },
           {
-            "label": "Change the font and formatting to look more professional",
+            "label": "Apply the standard report template and formatting, since a consistent professional layout is what makes the findings credible to the management audience",
             "value": "d"
           }
         ],

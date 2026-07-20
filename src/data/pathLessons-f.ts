@@ -79,10 +79,10 @@ const lessons = [
       {
         "question": "You are a SOC analyst who has confirmed an active C2 beacon on a host and is preparing containment. The intrusion appears to still be in the collection phase, before any confirmed data has left. Why does immediately isolating the host from the network neutralize the intruder's control even if the implant is not yet removed from disk?",
         "options": [
-          { "label": "Because isolating the host deletes the implant binary automatically", "value": "a" },
+          { "label": "Because EDR network isolation also quarantines the implant binary as part of containment, so the malicious code leaves the host at the same moment", "value": "a" },
           { "label": "Because without the C2 channel the implant cannot receive tasking or return output, so the operator loses interactive control even though the code remains on disk", "value": "b" },
-          { "label": "Because DNS tunneling stops working once the host is isolated but HTTPS C2 continues", "value": "c" },
-          { "label": "Because isolation only matters after exfiltration has already completed", "value": "d" }
+          { "label": "Because isolation blocks DNS resolution while the EDR management tunnel stays up, so DNS-based C2 dies but HTTPS beaconing keeps reaching the operator", "value": "c" },
+          { "label": "Because containment is judged after the fact, so isolation matters once exfiltration has finished and you need to stop the operator coming back to the host", "value": "d" }
         ],
         "answer": "b",
         "explanation": "An implant is inert without its command-and-control link — every attacker action after initial access (enumeration, privilege escalation, lateral movement, exfiltration) requires issuing a command and receiving the result over C2. Severing the channel makes the operator blind and deaf even though the code still sits on disk, which is exactly why network isolation is the fastest way to neutralize a live intruder before full eradication. Isolation does not delete files, it cuts all network channels (not selectively DNS or HTTPS), and its greatest value is preventing exfil, not reacting after it."
@@ -158,10 +158,10 @@ const lessons = [
       {
         "question": "You are a SOC analyst writing an incident report. Your firewall logs show 4 GB sent from a host to an unknown external IP with almost nothing received back. Which statement correctly distinguishes what you should report as fact versus assumption?",
         "options": [
-          { "label": "Report as fact: 'the attacker exfiltrated the customer database,' because a large outbound transfer proves data theft", "value": "a" },
+          { "label": "Report as fact: 'the attacker exfiltrated the customer database,' because a 4 GB outbound transfer to an unknown external IP is data theft by definition and hedged wording only slows the response team down", "value": "a" },
           { "label": "Report as fact: '4 GB was sent to the external IP with minimal data received'; report as an assessed (not confirmed) inference: 'this is likely exfiltration, confidence medium, DLP not yet confirmed'", "value": "b" },
-          { "label": "Report nothing until you are 100% certain what the bytes contained", "value": "c" },
-          { "label": "Invent a likely destination domain and add it to the IOC block list to be safe", "value": "d" }
+          { "label": "Report nothing until DLP or full packet capture confirms exactly what the bytes contained, because an incident record that carries unconfirmed assessments will not hold up later and damages your credibility", "value": "c" },
+          { "label": "Report the destination as a likely known malware domain and push that domain to the block list, because acting on a plausible indicator early is cheap insurance while confirmation catches up", "value": "d" }
         ],
         "answer": "b",
         "explanation": "The log directly recorded the volume and direction of the transfer — that is a fact you can cite. Whether those bytes were the customer database, a beacon, or something benign is an inference that must be labeled with a confidence level and the evidence still needed (DLP confirmation of content). Stating the exfil of a specific database as fact reports an assumption as observation; refusing to report anything until total certainty paralyzes response; and inventing a domain to block is the cardinal sin of fabricating an unsourced IOC."
@@ -169,10 +169,10 @@ const lessons = [
       {
         "question": "You are a SOC analyst reviewing an 'impossible travel' alert: a user signed in from two distant cities within 27 minutes. Before concluding the account is compromised, which reasoning approach is most sound?",
         "options": [
-          { "label": "Immediately disable the account, since impossible travel always means compromise", "value": "a" },
+          { "label": "Immediately disable the account and force a password reset, because a distance that cannot be travelled in 27 minutes is proof enough and containment before analysis is the safer default", "value": "a" },
           { "label": "Hold multiple hypotheses (compromise, VPN/proxy relocating geography, stale geolocation data), identify the distinct evidence each predicts, and let the logs disprove the alternatives", "value": "b" },
-          { "label": "Close it as a false positive, since impossible travel is usually a VPN", "value": "c" },
-          { "label": "Assume the geolocation is wrong and take no further action", "value": "d" }
+          { "label": "Close it as a false positive, since a corporate VPN egress explains nearly all impossible travel alerts and chasing them consumes triage time better spent elsewhere", "value": "c" },
+          { "label": "Assume the geolocation database is stale and take no further action, because IP-to-city mapping is unreliable and both sign-ins succeeded without error", "value": "d" }
         ],
         "answer": "b",
         "explanation": "Sound reasoning holds several plausible hypotheses at once — account compromise, a VPN or corporate proxy relocating the apparent geography, and stale or incorrect geolocation data — because each predicts different evidence (new device and MFA anomalies for compromise, a known VPN egress range for the proxy case, consistent multi-source geolocation for the data-error case). You then run queries to distinguish them and let the evidence select the winner. Every other option commits prematurely to one explanation, which is exactly the tunnel-vision and anchoring failure the mindset is meant to prevent."
@@ -180,10 +180,10 @@ const lessons = [
       {
         "question": "You are a SOC analyst who has found strong evidence of active compromise on a domain controller, but containing it requires isolating the host and pulling a memory image — actions beyond your access. You are not yet 100% certain of every detail. What is the most professional next step?",
         "options": [
-          { "label": "Keep investigating alone for several more hours until you are completely certain, to avoid looking unsure", "value": "a" },
+          { "label": "Keep investigating alone for several more hours until you are completely certain, because escalating a domain controller incident that turns out to be benign burns senior responder time and undermines your credibility", "value": "a" },
           { "label": "Escalate now, clearly stating what you observed, what you assess, your confidence level, and exactly what you need — because high impact plus actions beyond your authority are escalation triggers, and certainty is not required", "value": "b" },
-          { "label": "Close the alert, since you cannot personally perform the containment", "value": "c" },
-          { "label": "Perform the isolation yourself even though it exceeds your authority", "value": "d" }
+          { "label": "Close the alert with a note on the limitation, since containment on a domain controller is outside your access and an alert you cannot action should not sit open in the queue", "value": "c" },
+          { "label": "Perform the isolation and memory capture yourself, because speed matters more than process on a domain controller and the required authority can be granted retroactively", "value": "d" }
         ],
         "answer": "b",
         "explanation": "Escalation is a professional control, not an admission of failure, and the triggers here are unambiguous: a domain controller is a high-impact crown-jewel asset and containment requires authority beyond your access. Reasonable suspicion of significant impact — not certainty — is the bar, so you escalate now and state clearly what you observed, what you assess, your confidence, and what you need. Sitting on a genuine incident for hours out of pride is the exact failure the lesson warns against; closing it abandons a real threat; and acting beyond your authority bypasses controls that exist for good reason."

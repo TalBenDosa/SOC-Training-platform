@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 import { Search, Clock, FileText, ChevronLeft, ChevronRight, CheckCircle2, X } from "lucide-react";
+import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
+import { isMermaidSource } from "@/lib/lessons/mermaid";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -220,6 +222,29 @@ function SectionPageContent({
 
       {/* ── Body text ──────────────────────────────────────────── */}
       {renderContent(section.content)}
+
+      {/* ── Code example / diagram ─────────────────────────────────
+          This modal reader used to stop at section.content, silently
+          dropping codeExample — which 98 of the platform's 115 lesson
+          sections carry. The other reader
+          (learn/[slug]/[lesson]/page.tsx) rendered it, so the same
+          lesson taught different material depending on which route you
+          reached it through: every SPL/KQL query and comparison table
+          was invisible here.
+
+          Mermaid source is detected and rendered as an actual diagram
+          rather than dumped as code — MermaidDiagram already existed but
+          was wired only into rooms, so a diagram in a lesson displayed
+          as raw `flowchart TD` text. */}
+      {section.codeExample && (
+        isMermaidSource(section.codeExample)
+          ? <MermaidDiagram chart={section.codeExample} />
+          : (
+            <div className="overflow-x-auto rounded-lg border border-[#1e2d4a] bg-[#0a1020]">
+              <pre className="p-4 font-mono text-xs leading-relaxed text-neon-green">{section.codeExample}</pre>
+            </div>
+          )
+      )}
 
     </div>
   );

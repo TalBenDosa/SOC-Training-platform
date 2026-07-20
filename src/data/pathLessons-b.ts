@@ -70,7 +70,7 @@ const lessons = [
         "question": "You are a SOC analyst investigating whether a laptop reached out to a malicious external server. The firewall log clearly shows the laptop's IP connecting to a suspicious destination, but your manager asks which user and which program on the laptop made the connection. Why can the firewall log alone not answer that?",
         "options": [
           {
-            "label": "Firewall logs are always unstructured, so the fields cannot be parsed",
+            "label": "Firewall logs arrive as unstructured free text rather than key-value pairs, so the user and process fields are present in the line but cannot be parsed reliably enough for the SIEM to display them",
             "value": "a"
           },
           {
@@ -78,11 +78,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Firewalls only record failed connections, never successful ones",
+            "label": "The firewall only logs traffic that its rules deny, so an allowed outbound connection produces no record and you would need to enable full session logging to see the user behind it",
             "value": "c"
           },
           {
-            "label": "The firewall log must have been corrupted during normalization",
+            "label": "The firewall log was corrupted somewhere between the sensor and the SIEM, dropping the user and process fields that the device originally wrote, so requesting a re-ingest of that time range will recover them",
             "value": "d"
           }
         ],
@@ -93,7 +93,7 @@ const lessons = [
         "question": "You are a SOC analyst and the same login event appears one way in the raw log a server wrote and slightly differently in your SIEM's normalized view. Which statement best captures how you should treat these two versions?",
         "options": [
           {
-            "label": "The normalized SIEM view is always perfect, so the raw log can be safely deleted",
+            "label": "Trust the normalized view over the raw log, because the SIEM parser applies vendor-supplied field mappings that correct inconsistencies in what the machine wrote; the raw text is kept only for compliance retention, not for analysis",
             "value": "a"
           },
           {
@@ -101,11 +101,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "The raw log and the normalized log are unrelated records of different events",
+            "label": "Treat them as two independent events and count them separately, since the SIEM writes its own record when it ingests the line; correlating them would double-count the same login and inflate your incident metrics",
             "value": "c"
           },
           {
-            "label": "You should only ever trust unstructured logs and ignore anything in JSON",
+            "label": "Work only from the raw text and disregard the normalized fields, because JSON and other structured formats are produced by the SIEM rather than the device, so every structured field is an interpretation that cannot be used as evidence",
             "value": "d"
           }
         ],
@@ -116,7 +116,7 @@ const lessons = [
         "question": "You are a SOC analyst who notices user jsmith logged in from the office IP at 08:14, and after pivoting on the account you find an earlier successful login at 07:05 from an external IP that geolocates to another country. What investigative concept does chaining these pivots reveal, and why is pivoting the right technique here?",
         "options": [
           {
-            "label": "It reveals nothing useful, because a single login line is never worth investigating",
+            "label": "It reveals little, because both events are successful authentications and pivoting on user.name only surfaces more of the same account's normal activity; the correct move is to wait for a failed-logon spike before opening an investigation",
             "value": "a"
           },
           {
@@ -124,11 +124,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "It reveals a brute-force attack, identifiable purely from the two successful logins",
+            "label": "It reveals a brute-force attack, because two successful logons for one account within about an hour is the signature pattern of password guessing, and the right pivot is on the source port to see how many attempts were made",
             "value": "c"
           },
           {
-            "label": "It proves the account is safe, because both logins succeeded",
+            "label": "It shows the account is fine, because both authentications returned success and a compromised credential would have produced an error code; the useful pivot here is on the destination host to confirm the resources were reached",
             "value": "d"
           }
         ],
@@ -195,7 +195,7 @@ const lessons = [
         "question": "You are a SOC analyst reviewing process telemetry from a Windows workstation and you see that WINWORD.EXE is the parent process of a powershell.exe instance running a hidden, encoded command. Why is this parent-child relationship, rather than either program on its own, the key indicator?",
         "options": [
           {
-            "label": "Because powershell.exe is malware and should never run on any machine",
+            "label": "Because powershell.exe with a hidden, encoded command line is malicious on its own, so the parent process adds nothing — the encoded command is sufficient to declare the alert a true positive",
             "value": "a"
           },
           {
@@ -203,11 +203,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Because WINWORD.EXE is not a real Windows program",
+            "label": "Because WINWORD.EXE is not a Microsoft binary but a renamed dropper, so the real indicator is the spoofed parent name rather than any relationship between the two processes",
             "value": "c"
           },
           {
-            "label": "Because the PID number of PowerShell is always malicious",
+            "label": "Because the PowerShell process has a higher PID than WINWORD.EXE, and a child with a higher PID than its parent is the accepted way to prove code injection took place",
             "value": "d"
           }
         ],
@@ -241,7 +241,7 @@ const lessons = [
         "question": "You are a SOC analyst investigating a Windows host and you find a new value under HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run named 'OneDriveSync' pointing to C:\\Users\\jsmith\\AppData\\Roaming\\odsync.exe. Which reasoning best explains why this deserves suspicion?",
         "options": [
           {
-            "label": "Any value in the registry is malicious by definition, so all Run keys should be deleted",
+            "label": "Any value under a Run key is a persistence mechanism, so the safest response is to delete the Run entries on this host and let legitimate applications recreate the ones they need at next launch",
             "value": "a"
           },
           {
@@ -249,11 +249,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "The registry cannot store program paths, so this entry must be corrupted",
+            "label": "The registry stores configuration values rather than executable paths, so a Run value pointing at an .exe file is a sign of a corrupted or malformed key rather than of deliberate persistence",
             "value": "c"
           },
           {
-            "label": "HKCU means the value affects the whole machine, which is always dangerous",
+            "label": "Because the value sits in HKCU, it applies to every account on the computer and launches for all of them at logon, so the hive alone makes this entry a machine-wide risk regardless of the path it points to",
             "value": "d"
           }
         ],
@@ -264,7 +264,7 @@ const lessons = [
         "question": "You are a SOC analyst and an alert fires because certutil.exe on a finance workstation ran with a command line that downloaded an executable from a raw IP address. A junior colleague says certutil is a signed Microsoft tool so it must be safe. What is the correct way to reason about this LOLBin?",
         "options": [
           {
-            "label": "The colleague is right; because certutil is Microsoft-signed, no certutil activity ever needs investigation",
+            "label": "The colleague is right in practice: certutil ships with Windows and is Authenticode-signed by Microsoft, and application control such as WDAC or AppLocker permits signed Microsoft binaries, so an EDR alert on a signed system binary is a tuning problem and the case should be closed as a false positive",
             "value": "a"
           },
           {
@@ -272,11 +272,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "You should immediately blocklist certutil.exe across the entire company",
+            "label": "Push an immediate enterprise-wide block on certutil.exe through application control, because removing the tool eliminates the technique; LOLBin risk is best handled by denying the binaries outright, and the individual command line does not need to be reviewed once the block is in place",
             "value": "c"
           },
           {
-            "label": "The signature proves it downloaded a safe file, so no further action is needed",
+            "label": "The signature on certutil.exe covers everything the tool writes to disk, so the downloaded executable inherits Microsoft's trust chain and is safe by construction; document the download in the ticket and close the alert without pulling the file for analysis",
             "value": "d"
           }
         ],

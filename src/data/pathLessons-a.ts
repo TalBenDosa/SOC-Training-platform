@@ -116,7 +116,7 @@ const lessons = [
         "question": "You are a SOC analyst who has confirmed an account compromise and need to escalate to Tier 2. Which handoff will let Tier 2 act fastest and reflects why 'the ticket is the product'?",
         "options": [
           {
-            "label": "A message saying 'a.cohen looks compromised, please handle'",
+            "label": "A chat message to the Tier 2 channel saying a.cohen looks compromised and asking them to take it over, because a live conversation transfers context faster than writing it down",
             "value": "a"
           },
           {
@@ -124,11 +124,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Closing the alert as malicious and letting Tier 2 discover it on their own",
+            "label": "Closing the alert as malicious in the SIEM and letting the case queue notify Tier 2, since the tool already records the verdict and the detection logic documents the evidence",
             "value": "c"
           },
           {
-            "label": "Forwarding the raw alert with no notes so Tier 2 can start fresh without your bias",
+            "label": "Forwarding the raw alert with no notes so Tier 2 can reach an independent conclusion; passing along your analysis first would anchor them and risks propagating a Tier 1 mistake",
             "value": "d"
           }
         ],
@@ -218,7 +218,7 @@ const lessons = [
         "question": "You are a SOC analyst tracing malicious activity. An external web server's log shows the attacker connected from public IP 203.0.113.7, but your internal EDR only shows private 10.x addresses. Why might a single laptop appear under both, and how do you link them?",
         "options": [
           {
-            "label": "The laptop was reassigned a new IP; there is no way to link the two",
+            "label": "The laptop was reassigned a different address by DHCP between the two events, so the records cannot be correlated unless the DHCP lease table is retained",
             "value": "a"
           },
           {
@@ -226,11 +226,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "The two logs refer to completely different devices and cannot be related",
+            "label": "The two logs describe different devices, because a host keeps one address end to end and any change of IP in transit means the packets came from a separate machine",
             "value": "c"
           },
           {
-            "label": "The public IP is the internal one; RFC 1918 ranges include 203.0.113.0",
+            "label": "203.0.113.7 is itself an internal address, since RFC 1918 reserves the 203.0.113.0/24 block for private use, so both logs are already showing private IPs",
             "value": "d"
           }
         ],
@@ -241,7 +241,7 @@ const lessons = [
         "question": "You are a SOC analyst reviewing traffic and you notice one host sending many TCP SYN packets to hundreds of different destination ports, with almost no SYN-ACK responses. What does this pattern most likely indicate?",
         "options": [
           {
-            "label": "Normal encrypted web browsing, since HTTPS uses TCP",
+            "label": "Normal encrypted web browsing, because a browser opens many parallel TCP sessions and the SYN-ACKs are simply not recorded by the sensor",
             "value": "a"
           },
           {
@@ -249,11 +249,11 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "A completed file transfer, because SYN packets carry the file data",
+            "label": "A large completed file transfer, because each block of the file is sent inside its own SYN packet and replies arrive only at the end",
             "value": "c"
           },
           {
-            "label": "A UDP DNS flood, since DNS relies on the three-way handshake",
+            "label": "A DNS amplification flood, since each DNS query opens a TCP handshake to a different port and the unanswered SYNs are normal",
             "value": "d"
           }
         ],
