@@ -100,6 +100,7 @@ const rooms = [
           event_type: "auth_failure",
           hostname: "DC01.corp.internal",
           severity: "high",
+          vendor: "Windows Security",
           raw: {
             "event.code": "4625",
             "winlog.channel": "Security",
@@ -303,6 +304,7 @@ const rooms = [
           event_type: "privilege_escalation",
           hostname: "DC01.corp.internal",
           severity: "critical",
+          vendor: "Windows Security",
           raw: {
             "event.code": "4672",
             "winlog.channel": "Security",
@@ -607,6 +609,7 @@ const rooms = [
           event_type: "cloud_api_call",
           hostname: undefined,
           severity: "critical",
+          vendor: "AWS CloudTrail",
           raw: {
             "aws.cloudtrail.eventName": "CreateUser",
             "aws.cloudtrail.eventSource": "iam.amazonaws.com",
@@ -688,7 +691,7 @@ const rooms = [
           id: "evt-cloud-ac-001",
           ts: "2026-06-23T11:47:33.000Z",
           source: "cloudtrail" as const,
-          vendor: "AWS CloudTrail + GuardDuty",
+          vendor: "AWS CloudTrail",
           event_type: "cloud_api_call" as const,
           severity: "high" as const,
           hostname: "i-0c3d4e5f6a7b8c9d0",

@@ -234,6 +234,7 @@ A good case ticket contains:
         src_ip: "10.0.1.45",
         description: "Service account network logon from unexpected workstation using NTLM",
         mitre_technique: "T1078.002 - Valid Accounts: Domain Accounts",
+        vendor: "Windows Security",
         raw: {
           "event.code": "4624",
           "winlog.event_data.TargetUserName": "svc-backup",

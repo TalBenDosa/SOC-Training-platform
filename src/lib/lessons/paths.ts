@@ -37,7 +37,6 @@ export function titleToSlug(title: string): string {
 
 export const LESSON_PATHS: PathMeta[] = [
   // ─── Add learning paths here ──────────────────────────────────────────────
-  /*
   {
     slug: "soc-analyst",
     title: "SOC Analyst",
@@ -235,7 +234,6 @@ export const LESSON_PATHS: PathMeta[] = [
       },
     ],
   },
-  */
 ];
 
 /** Look up a specific lesson and its context (path, module, lesson). */

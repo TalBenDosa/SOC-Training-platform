@@ -522,7 +522,7 @@ const dnsDeepDiveRoom = {
         id: "evt-dns-ac1-001",
         ts: "2026-03-05T11:20:00.000Z",
         source: "proxy",
-        vendor: "Zscaler",
+        vendor: "Zscaler Internet Access",
         event_type: "net_connection",
         severity: "low",
         hostname: "WKS-DEV18.solvix.local",

@@ -32,6 +32,26 @@ jobs:
       - name: Typecheck
         run: npm run type-check
 
+      # Content gate. Every `raw: {...}` block claims "this is what <vendor>
+      # actually emits" — expert review found invented fields (crowdstrike.Confidence,
+      # s1.extensionAdded, RequestorName on 4769) that graded answers depended on.
+      # Baselined: blocks NEW violations while the existing backlog is worked down.
+      - name: Validate vendor log fields
+        run: npm run validate:logs
+
+      # Vendor vocabulary guard: normalize-vendors exits 1 on any `vendor:` string
+      # that is not in the controlled map, so new content cannot reintroduce drift
+      # (the corpus had 117 strings for ~59 real products before normalisation).
+      - name: Vendor vocabulary is normalised
+        run: npm run normalize:vendors
+
+      # Scenario content gate. Three expert reviews found the same defects across
+      # every scenario: chains requiring privileges the timeline never grants,
+      # raw logs carrying the analyst's conclusion, events that raise no alert,
+      # and questions answerable by option length. Each rule here encodes one.
+      - name: Validate scenario content
+        run: npm run validate:scenarios
+
       - name: Build
         run: npm run build
         env:

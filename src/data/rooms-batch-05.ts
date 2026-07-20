@@ -1161,6 +1161,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
         description:
           "New inbox forwarding rule created — mail being forwarded to external address with deletion of originals",
         mitre_technique: "T1114.003",
+        vendor: "Microsoft 365 Unified Audit Log",
         raw: {
           "data.office365.Operation": "New-InboxRule",
           "data.office365.UserId": "j.chen@corp.com",
@@ -1599,6 +1600,7 @@ When sign-in logs show authentication from two locations too far apart to travel
         description:
           "High-risk sign-in failure — CEO account targeted from unusual geographic location with risky IP",
         mitre_technique: "T1078",
+        vendor: "Microsoft 365 Unified Audit Log",
         raw: {
           "data.office365.Operation": "UserLoginFailed",
           "data.office365.UserId": "ceo@corp.com",

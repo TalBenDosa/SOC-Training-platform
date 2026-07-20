@@ -25,7 +25,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Active Directory — normal logins ────────────────────────────────────────
   {
-    id: "b_ad_01", ts: T(0), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_01", ts: T(0), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
     description: "j.chen signed in to WS-FIN-2847",
@@ -61,7 +61,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_02", ts: T(3), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_02", ts: T(3), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", user_title: "Risk Analyst", src_ip: "10.10.30.55",
     description: "s.patel signed in to WS-HR-1142",
@@ -70,7 +70,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_ad_03", ts: T(7), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_03", ts: T(7), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin", src_ip: "10.100.50.23",
     description: "a.jones signed in to LT-DEV-0931 (network logon)",
@@ -79,7 +79,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_ad_04", ts: T(12), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_04", ts: T(12), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor unlocked WS-ENG-3301",
@@ -88,7 +88,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_ad_05", ts: T(18), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_05", ts: T(18), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "svc-backup@nexacorp.com", src_ip: "10.20.12.15",
     description: "svc-backup service logon to SRV-NXC-DC01",
@@ -124,7 +124,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_06", ts: T(25), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_06", ts: T(25), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "WS-FIN-2847", user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     description: "r.williams typed the wrong password signing in to WS-FIN-2847",
@@ -162,7 +162,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_10", ts: T(55), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_10", ts: T(55), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-EXCH01", user_email: "svc-exchange@nexacorp.com", src_ip: "10.20.12.11",
     description: "svc-exchange Kerberos TGT renewed on SRV-NXC-EXCH01",
@@ -186,7 +186,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_11", ts: T(8), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_11", ts: T(8), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "m.torres@nexacorp.com", src_ip: "10.100.50.31",
     description: "A sign-in attempt for m.torres failed because the username does not exist",
@@ -224,7 +224,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_12", ts: T(42), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_12", ts: T(42), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FILES01", user_email: "a.cohen@nexacorp.com", src_ip: "10.10.30.55",
     description: "a.cohen logged on to SRV-NXC-FILES01 via Remote Desktop",
@@ -261,7 +261,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_13", ts: T(67), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_13", ts: T(67), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FS02", user_email: "d.brown@nexacorp.com", src_ip: "10.10.30.62",
     description: "d.brown authenticated to SRV-NXC-FS02 via network (mapped drive)",
@@ -298,7 +298,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_14", ts: T(88), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_14", ts: T(88), source: "ad", vendor: "Windows Security",
     event_type: "account_lockout", severity: "medium",
     hostname: "SRV-NXC-DC01", user_email: "p.garcia@nexacorp.com", src_ip: "10.10.20.58",
     description: "p.garcia account locked out after 5 consecutive failed password attempts from WS-MKTG-0301",
@@ -325,7 +325,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Password Change Events ────────────────────────────────────────────────
   {
-    id: "b_pwd_01", ts: T(10), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_pwd_01", ts: T(10), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "informational",
     hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.62",
     description: "d.brown changed password",
@@ -335,7 +335,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.30.62", "event.action_result": "allow" },
   },
   {
-    id: "b_pwd_02", ts: T(22), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_pwd_02", ts: T(22), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "informational",
     hostname: "WS-ENG-3301", user_email: "l.clark@nexacorp.com", src_ip: "10.10.40.91",
     description: "l.clark changed password",
@@ -345,7 +345,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.40.91", "event.action_result": "allow" },
   },
   {
-    id: "b_pwd_03", ts: T(35), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_pwd_03", ts: T(35), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
     description: "j.chen changed password",
@@ -356,7 +356,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   },
   // Admin password reset — elevated severity
   {
-    id: "b_pwd_04", ts: T(41), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_pwd_04", ts: T(41), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "medium",
     hostname: "SRV-NXC-DC01", user_email: "it-admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it-admin reset svc-reporting's password",
@@ -368,7 +368,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   },
   // Admin account password reset — higher severity
   {
-    id: "b_pwd_05", ts: T(62), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_pwd_05", ts: T(62), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "medium",
     hostname: "SRV-NXC-DC01", user_email: "it-admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it-admin reset t.harris's password (Domain Admin)",
@@ -383,7 +383,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   },
   // Service account password reset — medium severity
   {
-    id: "b_pwd_06", ts: T(78), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_pwd_06", ts: T(78), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "medium",
     hostname: "SRV-NXC-DC01", user_email: "it-admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it-admin reset svc-backup's password",
@@ -399,7 +399,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── AD — group and account admin ────────────────────────────────────────────
   {
-    id: "b_ad_07", ts: T(6), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_07", ts: T(6), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "low",
     user_email: "it-admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it-admin reset svc-reporting's password",
@@ -409,7 +409,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_ad_08", ts: T(24), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_08", ts: T(24), source: "ad", vendor: "Windows Security",
     event_type: "group_modify", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it-admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it-admin added k.osei to VPN-Users domain group",
@@ -443,7 +443,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Local Group Membership Changes (Event ID 4732) ──────────────────────────
   {
-    id: "b_grp_01", ts: T(35), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_grp_01", ts: T(35), source: "ad", vendor: "Windows Security",
     event_type: "group_modify", severity: "informational",
     hostname: "SRV-NXC-DEV01", user_email: "t.harris@nexacorp.com", user_title: "IT Admin",
     src_ip: "10.10.1.5",
@@ -476,7 +476,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_grp_02", ts: T(58), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_grp_02", ts: T(58), source: "ad", vendor: "Windows Security",
     event_type: "group_modify", severity: "informational",
     hostname: "SRV-NXC-MON01", user_email: "it-admin@nexacorp.com",
     src_ip: "10.10.1.5",
@@ -509,7 +509,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_grp_03", ts: T(112), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_grp_03", ts: T(112), source: "ad", vendor: "Windows Security",
     event_type: "group_modify", severity: "low",
     hostname: "SRV-NXC-BACKUP01", user_email: "it-admin@nexacorp.com",
     src_ip: "10.10.1.5",
@@ -544,7 +544,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_ad_09", ts: T(40), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_ad_09", ts: T(40), source: "ad", vendor: "Windows Security",
     event_type: "account_lockout", severity: "medium",
     user_email: "l.clark@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.40.88",
     description: "l.clark locked out after 5 failed attempts",
@@ -556,7 +556,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── O365 / Exchange — normal email traffic ────────────────────────────────
   {
-    id: "b_o365_01", ts: T(2), source: "o365", vendor: "Microsoft Exchange Online",
+    id: "b_o365_01", ts: T(2), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_received", severity: "informational",
     user_email: "s.patel@nexacorp.com", user_title: "Risk Analyst",
     description: "Newsletter email received from newsletter@github.com — delivered to s.patel@nexacorp.com",
@@ -586,7 +586,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_02", ts: T(5), source: "o365", vendor: "Microsoft Exchange Online",
+    id: "b_o365_02", ts: T(5), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_sent", severity: "informational",
     user_email: "a.jones@nexacorp.com",
     description: "Email sent by a.jones@nexacorp.com to vendor@aws-partner.com — outbound DLP scan passed",
@@ -612,7 +612,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Email header training: suspicious Reply-To mismatch ──────────────────
   {
-    id: "b_email_replyto_mismatch", ts: T(14), source: "o365", vendor: "Microsoft Exchange Online",
+    id: "b_email_replyto_mismatch", ts: T(14), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_received", severity: "medium",
     user_email: "j.chen@nexacorp.com", user_title: "Finance Manager",
     src_ip: "45.142.212.100",
@@ -683,7 +683,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_03", ts: T(9), source: "o365", vendor: "Microsoft Exchange Online",
+    id: "b_o365_03", ts: T(9), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_received", severity: "informational",
     user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer",
     description: "Meeting invite received from no-reply@zoom.us — delivered to r.williams@nexacorp.com",
@@ -712,7 +712,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_04", ts: T(14), source: "o365", vendor: "Microsoft 365 Audit",
+    id: "b_o365_04", ts: T(14), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "sharepoint_access", severity: "informational",
     user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.55",
     description: "d.brown accessed SalaryBands.xlsx on SharePoint /sites/HR",
@@ -721,7 +721,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.30.55", "event.outcome": "success" },
   },
   {
-    id: "b_o365_05", ts: T(22), source: "o365", vendor: "Microsoft Teams",
+    id: "b_o365_05", ts: T(22), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "teams_message", severity: "informational",
     user_email: "k.taylor@nexacorp.com",
     description: "k.taylor posted in Teams #engineering-standup",
@@ -730,7 +730,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "teams.team": "Engineering" },
   },
   {
-    id: "b_o365_az_fail_01", ts: T(14), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_az_fail_01", ts: T(14), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_failure", severity: "low",
     hostname: undefined, user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams failed to log in to Azure AD — wrong password",
@@ -767,7 +767,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_az_fail_02", ts: T(77), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_az_fail_02", ts: T(77), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_failure", severity: "low",
     hostname: undefined, user_email: "k.taylor@nexacorp.com", src_ip: "85.114.44.221",
     geo: { country: "Germany", city: "Berlin", latitude: 52.5200, longitude: 13.4050 },
@@ -805,7 +805,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_az_success_foreign", ts: T(103), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_az_success_foreign", ts: T(103), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "low",
     hostname: undefined, user_email: "j.chen@nexacorp.com", src_ip: "203.99.18.47",
     geo: { country: "United States", city: "San Francisco", latitude: 37.7749, longitude: -122.4194 },
@@ -842,7 +842,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_az_success_normal", ts: T(5), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_az_success_normal", ts: T(5), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: undefined, user_email: "s.levi@nexacorp.com", src_ip: "77.125.48.113",
     geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
@@ -879,7 +879,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_mfa_success", ts: T(6), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_mfa_success", ts: T(6), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "mfa_challenge", severity: "informational",
     hostname: undefined, user_email: "s.levi@nexacorp.com", src_ip: "77.125.48.113",
     geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
@@ -911,7 +911,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_mfa_denied", ts: T(51), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_mfa_denied", ts: T(51), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "mfa_denied", severity: "medium",
     hostname: undefined, user_email: "a.cohen@nexacorp.com", src_ip: "91.108.4.15",
     geo: { country: "Russia", city: "Moscow", latitude: 55.7558, longitude: 37.6173 },
@@ -943,7 +943,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_pwd_change", ts: T(92), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_pwd_change", ts: T(92), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "account_modify", severity: "informational",
     hostname: undefined, user_email: "p.garcia@nexacorp.com", src_ip: "10.10.20.58",
     description: "p.garcia changed their own Azure AD password — standard self-service password change",
@@ -1305,7 +1305,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_edr_08", ts: T(45), source: "windows_security", vendor: "Microsoft Active Directory",
+    id: "b_edr_08", ts: T(45), source: "windows_security", vendor: "Windows Security",
     event_type: "scheduled_task", severity: "informational",
     hostname: "SRV-NXC-DC01",
     description: "ScheduledDefrag task ran on SRV-NXC-DC01",
@@ -1369,7 +1369,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DNS — normal lookups ──────────────────────────────────────────────────
   {
-    id: "b_dns_01", ts: T(1), source: "dns", vendor: "Windows DNS",
+    id: "b_dns_01", ts: T(1), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
     hostname: "WS-FIN-2847", src_ip: "10.10.20.14",
     dns: { query: "windowsupdate.microsoft.com", query_type: "A", rcode: "NOERROR" },
@@ -1379,7 +1379,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.20.14" },
   },
   {
-    id: "b_dns_02", ts: T(4), source: "dns", vendor: "Windows DNS",
+    id: "b_dns_02", ts: T(4), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
     hostname: "WS-HR-1142", src_ip: "10.10.30.55",
     dns: { query: "login.microsoftonline.com", query_type: "A", rcode: "NOERROR" },
@@ -1389,7 +1389,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.30.55" },
   },
   {
-    id: "b_dns_03", ts: T(10), source: "dns", vendor: "Windows DNS",
+    id: "b_dns_03", ts: T(10), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
     hostname: "LT-DEV-0931", src_ip: "10.100.50.23",
     dns: { query: "api.github.com", query_type: "A", rcode: "NOERROR" },
@@ -1399,7 +1399,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.100.50.23" },
   },
   {
-    id: "b_dns_04", ts: T(16), source: "dns", vendor: "Windows DNS",
+    id: "b_dns_04", ts: T(16), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
     hostname: "WS-ENG-3301", src_ip: "10.10.40.88",
     dns: { query: "teams.microsoft.com", query_type: "A", rcode: "NOERROR" },
@@ -1409,7 +1409,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.40.88" },
   },
   {
-    id: "b_dns_05", ts: T(23), source: "dns", vendor: "Windows DNS",
+    id: "b_dns_05", ts: T(23), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
     hostname: "WS-FIN-2847", src_ip: "10.10.20.14",
     dns: { query: "outlook.office365.com", query_type: "MX", rcode: "NOERROR" },
@@ -1418,7 +1418,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "dns.response_code": "NOERROR", "source.ip": "10.10.20.14" },
   },
   {
-    id: "b_dns_06", ts: T(31), source: "dns", vendor: "Windows DNS",
+    id: "b_dns_06", ts: T(31), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
     hostname: "SRV-NXC-FS02", src_ip: "10.20.12.22",
     dns: { query: "s3.amazonaws.com", query_type: "A", rcode: "NOERROR" },
@@ -1428,7 +1428,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.20.12.22" },
   },
   {
-    id: "b_dns_07", ts: T(39), source: "dns", vendor: "Windows DNS",
+    id: "b_dns_07", ts: T(39), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
     hostname: "WS-HR-1142", src_ip: "10.10.30.55",
     dns: { query: "zoom.us", query_type: "A", rcode: "NOERROR" },
@@ -1440,7 +1440,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Firewall — normal allowed traffic ─────────────────────────────────────
   {
-    id: "b_fw_01", ts: T(2), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_01", ts: T(2), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "WS-FIN-2847", src_ip: "10.10.20.14", dst_ip: "20.190.128.1",
     dst_port: 443, protocol: "HTTPS",
@@ -1451,7 +1451,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "network.bytes_in": "8200", "rule.name": "ALLOW-O365", "application": "office365" },
   },
   {
-    id: "b_fw_02", ts: T(6), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_02", ts: T(6), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-DEV-0931", src_ip: "10.100.50.23", dst_ip: "140.82.112.5",
     dst_port: 443, protocol: "HTTPS",
@@ -1461,7 +1461,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "destination.port": "443", "rule.name": "ALLOW-DEVTOOLS", "application": "github" },
   },
   {
-    id: "b_fw_03", ts: T(11), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_03", ts: T(11), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     src_ip: "10.20.12.22", dst_ip: "52.216.24.17", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS connection from SRV-NXC-FS02 to s3.amazonaws.com",
@@ -1471,7 +1471,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "network.bytes_out": "4200000", "application": "amazonaws" },
   },
   {
-    id: "b_fw_04", ts: T(17), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_04", ts: T(17), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "WS-ENG-3301", src_ip: "10.10.40.88", dst_ip: "52.113.194.132",
     dst_port: 443, protocol: "HTTPS",
@@ -1481,7 +1481,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "destination.port": "443", "rule.name": "ALLOW-O365", "application": "ms-teams" },
   },
   {
-    id: "b_fw_05", ts: T(26), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_05", ts: T(26), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "WS-FIN-2847", src_ip: "10.10.20.14", dst_ip: "31.13.70.36",
     dst_port: 443, protocol: "HTTPS",
@@ -1491,7 +1491,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "destination.port": "443", "rule.name": "ALLOW-WEB", "application": "linkedin" },
   },
   {
-    id: "b_fw_06", ts: T(35), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_06", ts: T(35), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-DEV-0931", src_ip: "10.100.50.23", dst_ip: "104.16.249.249",
     dst_port: 443, protocol: "HTTPS",
@@ -1503,7 +1503,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   },
   // Firewall blocks
   {
-    id: "b_fw_block_01", ts: T(8), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_block_01", ts: T(8), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_blocked", severity: "medium",
     src_ip: "185.220.101.55", dst_ip: "10.10.20.14", dst_port: 22, protocol: "SSH",
     description: "Inbound SSH connection attempt from TOR exit node 185.220.101.55 to 10.10.20.14 — blocked by firewall",
@@ -1515,7 +1515,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "threat.indicator": "TOR exit node" },
   },
   {
-    id: "b_fw_block_02", ts: T(22), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_block_02", ts: T(22), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_blocked", severity: "medium",
     hostname: "WS-ENG-3301", src_ip: "10.10.40.88", dst_ip: "91.108.56.199",
     dst_port: 4444, protocol: "tcp",
@@ -1529,7 +1529,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── VPN — normal connections ───────────────────────────────────────────────
   {
-    id: "b_vpn_01", ts: T(0), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_01", ts: T(0), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     user_email: "a.jones@nexacorp.com", user_title: "Systems Admin", src_ip: "82.102.14.211",
     description: "a.jones connected VPN from United Kingdom",
@@ -1540,7 +1540,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "gp.auth_method": "Azure AD + MFA", "gp.gateway": "gw-nexacorp-lon01" },
   },
   {
-    id: "b_vpn_02", ts: T(19), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_02", ts: T(19), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     user_email: "p.wright@nexacorp.com", user_title: "Legal Counsel", src_ip: "103.145.12.44",
     description: "p.wright connected VPN from Singapore",
@@ -1550,7 +1550,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "gp.auth_method": "Azure AD + MFA", "gp.gateway": "gw-nexacorp-apac01" },
   },
   {
-    id: "b_vpn_03", ts: T(44), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_03", ts: T(44), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_logout", severity: "informational",
     user_email: "a.jones@nexacorp.com",
     description: "a.jones VPN session ended (44 min)",
@@ -1561,7 +1561,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Proxy / URL Filtering — normal web traffic ───────────────────────────
   {
-    id: "b_prx_01", ts: T(3), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_01", ts: T(3), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.55",
     network: { url: "https://www.bbc.com/news", domain: "www.bbc.com", method: "GET",
@@ -1574,7 +1574,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "user.email": "d.brown@nexacorp.com", "source.ip": "10.10.30.55" },
   },
   {
-    id: "b_prx_02", ts: T(11), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_02", ts: T(11), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     network: { url: "https://stackoverflow.com/questions/77823", domain: "stackoverflow.com",
@@ -1587,7 +1587,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "user.email": "k.taylor@nexacorp.com", "source.ip": "10.10.40.88" },
   },
   {
-    id: "b_prx_03", ts: T(20), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_03", ts: T(20), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
     network: { url: "https://app.docusign.com/documents", domain: "app.docusign.com",
@@ -1600,7 +1600,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "user.email": "j.chen@nexacorp.com", "source.ip": "10.10.20.14" },
   },
   {
-    id: "b_prx_04", ts: T(28), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_04", ts: T(28), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     network: { url: "https://registry.npmjs.org/react", domain: "registry.npmjs.org",
@@ -1875,7 +1875,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Azure AD (Entra ID) — SSO sign-ins ──────────────────────────────────
   {
-    id: "b_okta_01", ts: T(5), source: "o365", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_01", ts: T(5), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     description: "r.williams signed in to Salesforce",
@@ -1889,7 +1889,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_okta_02", ts: T(17), source: "o365", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_02", ts: T(17), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.55",
     description: "d.brown signed in to Workday",
@@ -1901,7 +1901,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_okta_03", ts: T(32), source: "o365", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_03", ts: T(32), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "mfa_challenge", severity: "low",
     user_email: "a.jones@nexacorp.com", src_ip: "82.102.14.211",
     description: "a.jones two-factor push for GitHub Enterprise approved",
@@ -1915,7 +1915,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_okta_04", ts: T(58), source: "o365", vendor: "Azure AD (Entra ID)",
+    id: "b_okta_04", ts: T(58), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     user_email: "m.edwards@nexacorp.com", user_title: "Finance Manager", src_ip: "10.10.10.5",
     description: "m.edwards signed in to ServiceNow",
@@ -1929,7 +1929,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DLP ──────────────────────────────────────────────────────────────────
   {
-    id: "b_dlp_01", ts: T(20), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_dlp_01", ts: T(20), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "medium",
     user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
     description: "j.chen emailed SSN data to external@gmail.com",
@@ -1943,7 +1943,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "dlp.triggered": "true" },
   },
   {
-    id: "b_dlp_02", ts: T(37), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_dlp_02", ts: T(37), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel sent HR document (Employee Data) via email",
@@ -1958,7 +1958,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── WAF / Threat Prevention ───────────────────────────────────────────────
   {
-    id: "b_waf_01", ts: T(9), source: "ids", vendor: "Palo Alto NGFW Threat Prevention",
+    id: "b_waf_01", ts: T(9), source: "ids", vendor: "Palo Alto Networks PAN-OS",
     event_type: "ids_blocked", severity: "low",
     src_ip: "45.83.66.131", dst_port: 443,
     description: "SQL injection attempt from 45.83.66.131 targeting /api/login — blocked by WAF",
@@ -1972,7 +1972,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.geo.country_name": "Russia" },
   },
   {
-    id: "b_waf_02", ts: T(25), source: "proxy", vendor: "Palo Alto NGFW Threat Prevention",
+    id: "b_waf_02", ts: T(25), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     src_ip: "185.101.93.10", dst_port: 443,
     description: "POST request from 185.101.93.10 to /api/search — allowed, origin Netherlands",
@@ -1987,7 +1987,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── IDS ──────────────────────────────────────────────────────────────────
   {
-    id: "b_ids_01", ts: T(16), source: "firewall", vendor: "Palo Alto IPS",
+    id: "b_ids_01", ts: T(16), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "ids_signature", severity: "medium",
     src_ip: "91.108.56.199", dst_ip: "10.10.20.14", dst_port: 80,
     description: "Nmap OS scan from 91.108.56.199 to 10.10.20.14 — IDS signature match, origin Germany",
@@ -2003,7 +2003,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── SaaS / ITSM ───────────────────────────────────────────────────────────
   {
-    id: "b_saas_01", ts: T(10), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_saas_01", ts: T(10), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     network: { url: "https://nexacorp.atlassian.net/browse/SEC-4821",
@@ -2017,7 +2017,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "10.10.20.14" },
   },
   {
-    id: "b_saas_02", ts: T(30), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_saas_02", ts: T(30), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     network: { url: "https://nexacorp.service-now.com/incident.do",
@@ -2083,7 +2083,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fp_005", ts: "2026-05-10T13:10:00.000Z",
     source: "o365", event_type: "sharepoint_download", severity: "medium",
-    vendor: "Microsoft 365",
+    vendor: "Microsoft 365 Unified Audit Log",
     hostname: undefined, user_email: "l.harrison@nexacorp.com", src_ip: "10.10.40.12",
     expected_verdict: "fp",
     fp_explanation: "HR manager downloaded 2.3 GB of onboarding materials from SharePoint to prepare for the new graduate intake next week. The download was from a known internal library (/sites/HRPortal/OnboardingMaterials) to a corporate laptop — consistent with the user's role and recurring seasonal pattern.",
@@ -2093,7 +2093,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fp_006", ts: "2026-05-10T08:00:00.000Z",
     source: "o365", event_type: "auth_success", severity: "medium",
-    vendor: "Azure AD (Entra ID)",
+    vendor: "Microsoft Entra ID",
     hostname: "WS-FIN-0412", user_email: "m.chen@nexacorp.com", src_ip: "185.46.212.33",
     expected_verdict: "fp",
     fp_explanation: "m.chen is attending a client meeting in Singapore (trip confirmed in Workday HR system). The login from a Singapore IP to a managed device via GlobalProtect VPN is expected. Conditional Access policy passed: compliant device + MFA approved.",
@@ -2103,7 +2103,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fp_007", ts: "2026-05-10T09:00:00.000Z",
     source: "o365", event_type: "auth_failure", severity: "medium",
-    vendor: "Azure AD (Entra ID)",
+    vendor: "Microsoft Entra ID",
     hostname: undefined, user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.11",
     expected_verdict: "fp",
     fp_explanation: "j.chen returned from annual leave and failed 4 password attempts before resetting via SSPR. Pattern: multiple failures in quick succession on a Monday morning from a corporate device — classic post-holiday forgotten-password scenario, not a brute-force attack.",
@@ -2135,7 +2135,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fp_010", ts: "2026-05-10T22:15:00.000Z",
     source: "o365", event_type: "auth_success", severity: "medium",
-    vendor: "Azure AD (Entra ID)",
+    vendor: "Microsoft Entra ID",
     hostname: "WS-FIN-2847", user_email: "t.brooks@nexacorp.com", src_ip: "86.12.44.201",
     expected_verdict: "fp",
     fp_explanation: "t.brooks (Senior Analyst) regularly works late before quarterly reporting deadlines. The 22:15 login from a residential IP (broadband, UK) matches their WFH address recorded in HR. MFA was approved on their registered phone. Out-of-hours logins from known home IPs are expected for senior finance staff during quarter-end.",
@@ -2148,7 +2148,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_itv_01", ts: "2026-05-10T09:47:00.000Z",
     source: "ad", event_type: "account_modify", severity: "medium",
-    vendor: "Microsoft Active Directory",
+    vendor: "Windows Security",
     hostname: "DC-PROD-01", user_email: "it-admin@nexacorp.com",
     description: "it-admin reset password for j.chen via ADUC",
     it_verify_result: "confirmed",
@@ -2164,7 +2164,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_itv_02", ts: "2026-05-10T11:22:00.000Z",
     source: "ad", event_type: "group_modify", severity: "medium",
-    vendor: "Microsoft Active Directory",
+    vendor: "Windows Security",
     hostname: "DC-PROD-01", user_email: "it-admin@nexacorp.com",
     description: "it-admin added p.wright to Domain Admins group",
     it_verify_result: "confirmed",
@@ -2190,7 +2190,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_itv_03", ts: "2026-05-10T14:05:00.000Z",
     source: "ad", event_type: "privilege_escalation", severity: "high",
-    vendor: "Microsoft Active Directory",
+    vendor: "Windows Security",
     hostname: "SRV-ERP-02", user_email: "svc-reporting@nexacorp.com",
     description: "svc-reporting granted SeDebugPrivilege on SRV-ERP-02",
     it_verify_result: "unverified",
@@ -2205,7 +2205,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_itv_04", ts: "2026-05-10T15:51:00.000Z",
     source: "ad", event_type: "account_create", severity: "medium",
-    vendor: "Microsoft Active Directory",
+    vendor: "Windows Security",
     hostname: "DC-PROD-01", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
     description: "t.harris created new AD account for vendor contractor",
     it_verify_result: "confirmed",
@@ -2221,7 +2221,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_itv_05", ts: "2026-05-10T16:38:00.000Z",
     source: "o365", event_type: "role_assignment", severity: "high",
-    vendor: "Azure AD (Entra ID)",
+    vendor: "Microsoft Entra ID",
     hostname: "DC-PROD-01", user_email: "l.clark@nexacorp.com",
     description: "l.clark assigned Global Administrator role in Azure AD",
     it_verify_result: "unverified",
@@ -2238,7 +2238,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   // ── Normal auth failures — daily noise (mistyped passwords, expired creds) ──
 
   {
-    id: "b_fail_01", ts: T(8), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_fail_01", ts: T(8), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
     description: "j.chen failed sign-in to WS-FIN-2847 (bad password)",
@@ -2248,7 +2248,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "host.name": "WS-FIN-2847", "event.action_result": "deny" },
   },
   {
-    id: "b_fail_02", ts: T(29), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_fail_02", ts: T(29), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_failed", severity: "low",
     user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "84.17.46.200",
     description: "r.williams failed VPN authentication on NXC-VPN-GW01 — incorrect OTP code entered",
@@ -2258,7 +2258,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "source.ip": "84.17.46.200", "event.action_result": "deny" },
   },
   {
-    id: "b_fail_03", ts: T(47), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_fail_03", ts: T(47), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-EXCHANGE", user_email: "svc-exchange@nexacorp.com", src_ip: "10.10.1.20",
     description: "svc-exchange failed NTLM re-auth (service restart needed)",
@@ -2268,7 +2268,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "host.name": "SRV-NXC-EXCHANGE", "event.action_result": "deny" },
   },
   {
-    id: "b_fail_04", ts: T(64), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_fail_04", ts: T(64), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor failed unlock on WS-ENG-3301 (CapsLock on)",
@@ -2282,7 +2282,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   // These simulate a real credential spray / brute force — high rule level, MITRE T1110
 
   {
-    id: "b_bf_01", ts: T(33), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_bf_01", ts: T(33), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "high",
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
@@ -2295,7 +2295,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "threat.ioc.type": "tor_exit_node", "event.action_result": "deny" },
   },
   {
-    id: "b_bf_02", ts: T(35), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_bf_02", ts: T(35), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "high",
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
@@ -2309,7 +2309,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "deny" },
   },
   {
-    id: "b_bf_03", ts: T(37), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_bf_03", ts: T(37), source: "ad", vendor: "Windows Security",
     event_type: "account_lockout", severity: "high",
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
@@ -2321,7 +2321,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "spray.ongoing": "true", "event.action_result": "deny" },
   },
   {
-    id: "b_bf_04", ts: T(39), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_bf_04", ts: T(39), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "ids_blocked", severity: "high",
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45", dst_ip: "10.10.1.2",
     dst_port: 445, protocol: "tcp",
@@ -2335,7 +2335,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "repeatcnt": "127", "event.action_result": "blocked" },
   },
   {
-    id: "b_bf_05", ts: T(53), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_bf_05", ts: T(53), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_failed", severity: "medium",
     src_ip: "91.108.56.181",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
@@ -2348,7 +2348,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "threat.classification": "brute_force", "event.action_result": "deny" },
   },
   {
-    id: "b_bf_06", ts: T(71), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_bf_06", ts: T(71), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_blocked", severity: "medium",
     src_ip: "78.141.203.22", dst_ip: "203.0.113.100",
     dst_port: 443,
@@ -2390,7 +2390,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Bulk data copy — FP training (looks suspicious, is legitimate) ────────────
   {
-    id: "b_copy_fp_01", ts: T(132), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_copy_fp_01", ts: T(132), source: "dlp", vendor: "Microsoft Purview",
     event_type: "file_create", severity: "medium",
     hostname: "WS-FIN-2847", user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     description: "r.williams copied 1,842 files (9.3 GB) from Finance share to USB E: on WS-FIN-2847",
@@ -2406,7 +2406,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Bulk data copy — suspicious (attack event) ────────────────────────────────
   {
-    id: "b_copy_atk_01", ts: T(147), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_copy_atk_01", ts: T(147), source: "dlp", vendor: "Microsoft Purview",
     event_type: "file_create", severity: "high",
     hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", src_ip: "10.10.40.12",
     description: "d.brown copied 3,200 employee PII records (6.8 GB) to personal USB E: on WS-HR-1142",
@@ -2436,7 +2436,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Email forwarding — benign baseline ───────────────────────────────────────
   {
-    id: "b_fwd_01", ts: T(175), source: "o365", vendor: "Microsoft 365",
+    id: "b_fwd_01", ts: T(175), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "account_modify", severity: "low",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
     description: "j.chen created inbox forwarding rule on Exchange — forwards internal Finance alerts to shared team mailbox",
@@ -2449,7 +2449,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "forward.destination_type": "internal", "action_result": "allowed" },
   },
   {
-    id: "b_fwd_fp_01", ts: T(188), source: "o365", vendor: "Microsoft 365",
+    id: "b_fwd_fp_01", ts: T(188), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "account_modify", severity: "medium",
     user_email: "s.patel@nexacorp.com", src_ip: "10.10.40.20",
     description: "s.patel created inbox forwarding rule — forwards all mail to s.patel@outlook.com",
@@ -2465,7 +2465,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Email forwarding — suspicious (attack events) ─────────────────────────────
   {
-    id: "b_fwd_atk_01", ts: T(201), source: "o365", vendor: "Microsoft 365",
+    id: "b_fwd_atk_01", ts: T(201), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "account_modify", severity: "high",
     user_email: "r.williams@nexacorp.com", src_ip: "185.220.101.45",
     description: "Inbox forwarding rule created on r.williams account — all email silently forwarded to rwilliams.backup@proton.me",
@@ -2481,7 +2481,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "forward.tor_exit": "true", "action_result": "allowed" },
   },
   {
-    id: "b_fwd_atk_02", ts: T(215), source: "o365", vendor: "Microsoft 365",
+    id: "b_fwd_atk_02", ts: T(215), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "account_modify", severity: "critical",
     user_email: "p.wright@nexacorp.com", src_ip: "91.108.4.222",
     description: "Exec inbox forwarding rule created on p.wright account — ALL email forwarded externally to attacker-controlled domain",
@@ -3370,7 +3370,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Firewall Events — batch 2 (15 events) ────────────────────────────────
   {
-    id: "b_fw_07", ts: T(22), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_07", ts: T(22), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4401", src_ip: "10.100.50.31", dst_ip: "52.96.0.1", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4401 to outlook.office365.com",
@@ -3383,7 +3383,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_08", ts: T(38), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_08", ts: T(38), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4402", src_ip: "10.100.50.32", dst_ip: "170.114.52.2", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4402 to zoom.us",
@@ -3396,7 +3396,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_09", ts: T(52), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_09", ts: T(52), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4403", src_ip: "10.100.50.33", dst_ip: "140.82.112.3", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4403 to github.com",
@@ -3409,7 +3409,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_10", ts: T(65), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_10", ts: T(65), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4404", src_ip: "10.100.50.34", dst_ip: "54.192.84.100", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4404 to slack.com",
@@ -3422,7 +3422,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_11", ts: T(79), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_11", ts: T(79), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4405", src_ip: "10.100.50.35", dst_ip: "142.250.80.46", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4405 to www.google.com",
@@ -3435,7 +3435,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_12", ts: T(93), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_12", ts: T(93), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4406", src_ip: "10.100.50.36", dst_ip: "13.107.6.175", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4406 to teams.microsoft.com",
@@ -3448,7 +3448,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_13", ts: T(107), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_13", ts: T(107), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-DEV-0931", src_ip: "10.100.50.23", dst_ip: "104.16.119.96", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-DEV-0931 to registry.npmjs.org",
@@ -3461,7 +3461,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_14", ts: T(120), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_14", ts: T(120), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4407", src_ip: "10.100.50.37", dst_ip: "170.114.52.50", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4407 to zoomgov.com",
@@ -3474,7 +3474,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_15", ts: T(135), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_15", ts: T(135), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4408", src_ip: "10.100.50.38", dst_ip: "54.175.34.29", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4408 to hub.docker.com",
@@ -3487,7 +3487,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_16", ts: T(148), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_16", ts: T(148), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4409", src_ip: "10.100.50.39", dst_ip: "20.190.128.1", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4409 to login.microsoftonline.com",
@@ -3500,7 +3500,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_17", ts: T(158), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_17", ts: T(158), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4400", src_ip: "10.100.50.41", dst_ip: "142.250.80.78", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4400 to drive.google.com",
@@ -3513,7 +3513,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_18", ts: T(166), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_18", ts: T(166), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4410", src_ip: "10.100.50.40", dst_ip: "52.85.83.100", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4410 to slack-files.com",
@@ -3526,7 +3526,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_19", ts: T(173), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_19", ts: T(173), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4411", src_ip: "10.100.50.42", dst_ip: "13.107.64.1", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4411 to teams.microsoft.com",
@@ -3539,7 +3539,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_20", ts: T(178), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_20", ts: T(178), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-ENG-4412", src_ip: "10.100.50.43", dst_ip: "140.82.112.5", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-ENG-4412 to api.github.com",
@@ -3552,7 +3552,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_fw_21", ts: T(180), source: "firewall", vendor: "Palo Alto Networks",
+    id: "b_fw_21", ts: T(180), source: "firewall", vendor: "Palo Alto Networks PAN-OS",
     event_type: "net_connection", severity: "informational",
     hostname: "LT-OPS-4504", src_ip: "10.20.12.54", dst_ip: "20.190.128.1", dst_port: 443, protocol: "HTTPS",
     description: "Outbound HTTPS from LT-OPS-4504 to login.microsoftonline.com",
@@ -3567,7 +3567,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Auth Events — batch 2 (10 events) ────────────────────────────────────
   {
-    id: "b_auth_01", ts: T(11), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_01", ts: T(11), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FILES01", user_email: "k.osei@nexacorp.com", src_ip: "10.100.50.31",
     description: "k.osei network logon to SRV-NXC-FILES01 (mapped drive)",
@@ -3584,7 +3584,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_02", ts: T(31), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_02", ts: T(31), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FS02", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams network logon to SRV-NXC-FS02 (shared folder)",
@@ -3601,7 +3601,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_03", ts: T(50), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_03", ts: T(50), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FILES01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel network logon to SRV-NXC-FILES01 (HR share)",
@@ -3618,7 +3618,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_04", ts: T(68), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_04", ts: T(68), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-EXCH01", user_email: "svc-backup@nexacorp.com", src_ip: "10.20.12.22",
     description: "svc-backup Kerberos TGT renewed on SRV-NXC-EXCH01",
@@ -3637,7 +3637,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_05", ts: T(81), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_05", ts: T(81), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "svc-reporting@nexacorp.com", src_ip: "10.20.12.11",
     description: "svc-reporting Kerberos TGT renewed on SRV-NXC-DC01",
@@ -3656,7 +3656,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_06", ts: T(94), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_06", ts: T(94), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FILES01", user_email: "t.harris@nexacorp.com", src_ip: "10.10.1.5",
     description: "t.harris RDP logon to SRV-NXC-FILES01",
@@ -3674,7 +3674,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_07", ts: T(111), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_07", ts: T(111), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FS02", user_email: "l.clark@nexacorp.com", src_ip: "10.10.40.91",
     description: "l.clark network logon to SRV-NXC-FS02 (IT share)",
@@ -3691,7 +3691,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_08", ts: T(128), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_08", ts: T(128), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DEV01", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     description: "a.jones RDP logon to SRV-NXC-DEV01 (dev server)",
@@ -3709,7 +3709,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_09", ts: T(145), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_09", ts: T(145), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-FILES01", user_email: "m.edwards@nexacorp.com", src_ip: "10.10.10.5",
     description: "m.edwards network logon to SRV-NXC-FILES01 (exec share)",
@@ -3726,7 +3726,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_auth_10", ts: T(160), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_auth_10", ts: T(160), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "svc-exchange@nexacorp.com", src_ip: "10.20.12.11",
     description: "svc-exchange Kerberos TGS ticket issued on SRV-NXC-DC01",
@@ -3747,7 +3747,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── VPN Events — batch 2 (5 events) ─────────────────────────────────────
   {
-    id: "b_vpn_04", ts: T(15), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_04", ts: T(15), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     user_email: "k.osei@nexacorp.com", user_title: "Software Engineer", src_ip: "77.125.48.220",
     description: "k.osei connected VPN from Israel",
@@ -3760,7 +3760,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_vpn_05", ts: T(46), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_05", ts: T(46), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "82.102.14.190",
     description: "r.williams connected VPN from United Kingdom",
@@ -3773,7 +3773,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_vpn_06", ts: T(80), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_06", ts: T(80), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     user_email: "l.clark@nexacorp.com", user_title: "IT Admin", src_ip: "77.125.50.44",
     description: "l.clark connected VPN from Israel",
@@ -3786,7 +3786,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_vpn_07", ts: T(115), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_07", ts: T(115), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     user_email: "m.edwards@nexacorp.com", user_title: "Finance Manager", src_ip: "66.249.90.5",
     description: "m.edwards connected VPN from United States",
@@ -3799,7 +3799,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_vpn_08", ts: T(150), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_vpn_08", ts: T(150), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead", src_ip: "82.102.18.100",
     description: "t.harris connected VPN from United Kingdom",
@@ -3814,7 +3814,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Proxy / Web Events — batch 2 (5 events) ──────────────────────────────
   {
-    id: "b_prx_05", ts: T(36), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_05", ts: T(36), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "LT-ENG-4401", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer", src_ip: "10.100.50.31",
     network: { url: "https://docs.github.com/en/rest", domain: "docs.github.com", method: "GET", status: 200, bytes_in: 54200 },
@@ -3828,7 +3828,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_prx_06", ts: T(69), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_06", ts: T(69), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "LT-ENG-4403", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer", src_ip: "10.100.50.33",
     network: { url: "https://techcommunity.microsoft.com/t5/azure-devops", domain: "techcommunity.microsoft.com", method: "GET", status: 200, bytes_in: 38400 },
@@ -3843,7 +3843,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_prx_07", ts: T(99), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_07", ts: T(99), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     network: { url: "https://app.intercom.io/a/inbox", domain: "app.intercom.io", method: "GET", status: 200, bytes_in: 29100 },
@@ -3857,7 +3857,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_prx_08", ts: T(126), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_08", ts: T(126), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "LT-ENG-4405", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin", src_ip: "10.100.50.35",
     network: { url: "https://pypi.org/simple/requests/", domain: "pypi.org", method: "GET", status: 200, bytes_in: 12700 },
@@ -3871,7 +3871,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_prx_09", ts: T(157), source: "proxy", vendor: "Palo Alto NGFW URL Filtering",
+    id: "b_prx_09", ts: T(157), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "LT-ENG-4407", user_email: "k.osei@nexacorp.com", user_title: "Software Engineer", src_ip: "10.100.50.37",
     network: { url: "https://www.linkedin.com/feed/", domain: "www.linkedin.com", method: "GET", status: 200, bytes_in: 44800 },
@@ -4388,7 +4388,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   // ── Kubernetes audit logs — normal cluster activity ──────────────────────────
 
   {
-    id: "b_k8s_01", ts: T(5), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_01", ts: T(5), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "devops created a new pod in production namespace",
@@ -4414,7 +4414,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s_02", ts: T(28), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_02", ts: T(28), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "devops deleted scaled-down pod in production namespace",
@@ -4438,7 +4438,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s_03", ts: T(15), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_03", ts: T(15), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "svc-deploy service account read app ConfigMap in production",
@@ -4462,7 +4462,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s_04", ts: T(42), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_04", ts: T(42), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "devops updated nexacorp-api deployment with new image tag v2.2.0",
@@ -4487,7 +4487,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s_05", ts: T(20), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_05", ts: T(20), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "reporting service account accessed DB credentials secret in production",
@@ -4511,7 +4511,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s_06", ts: T(8), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_06", ts: T(8), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "kubelet listed node status from kube-system",
@@ -4534,7 +4534,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s_07", ts: T(55), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_07", ts: T(55), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "devops listed ClusterRoleBindings for RBAC audit review",
@@ -4557,7 +4557,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s_08", ts: T(65), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_k8s_08", ts: T(65), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "k8s-api-server",
     description: "devops opened a shell inside a running pod to troubleshoot an issue",
@@ -5227,7 +5227,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Linux / SSH / auditd ──────────────────────────────────────────────────
   {
-    id: "b_linux2_01", ts: T(8 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_01", ts: T(8 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "auth_success",
     hostname: "SRV-PROD-001", user_email: "deploy@rocketstack.io",
     severity: "informational",
@@ -5247,7 +5247,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_02", ts: T(8 * 60 + 5), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_02", ts: T(8 * 60 + 5), source: "linux_audit", vendor: "Linux auditd",
     event_type: "linux_execve",
     hostname: "SRV-PROD-001", user_email: "deploy@rocketstack.io",
     severity: "low",
@@ -5270,7 +5270,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_03", ts: T(6 * 60 + 15), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_03", ts: T(6 * 60 + 15), source: "linux_audit", vendor: "Linux auditd",
     event_type: "linux_cron",
     hostname: "SRV-PROD-001",
     severity: "informational",
@@ -5285,7 +5285,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_04", ts: T(9 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_04", ts: T(9 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "auth_failure",
     hostname: "SRV-PROD-001",
     severity: "low",
@@ -5302,7 +5302,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_05", ts: T(10 * 60 + 30), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_05", ts: T(10 * 60 + 30), source: "linux_audit", vendor: "Linux auditd",
     event_type: "service_install",
     hostname: "SRV-PROD-001",
     severity: "low",
@@ -5318,7 +5318,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_06", ts: T(11 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_06", ts: T(11 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "file_modify",
     hostname: "SRV-PROD-001", user_email: "deploy@rocketstack.io",
     severity: "low",
@@ -5338,7 +5338,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_07", ts: T(14 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_07", ts: T(14 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "account_modify",
     hostname: "SRV-PROD-001", user_email: "ops-admin@rocketstack.io",
     severity: "medium",
@@ -5360,7 +5360,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_08", ts: T(15 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_08", ts: T(15 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "process_create",
     hostname: "SRV-PROD-001", user_email: "deploy@rocketstack.io",
     severity: "informational",
@@ -5380,7 +5380,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_09", ts: T(9 * 60 + 45), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_09", ts: T(9 * 60 + 45), source: "linux_audit", vendor: "Linux auditd",
     event_type: "auth_success",
     hostname: "SRV-PROD-001", user_email: "deploy@rocketstack.io",
     severity: "informational",
@@ -5397,7 +5397,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_10", ts: T(7 * 60 + 30), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_10", ts: T(7 * 60 + 30), source: "linux_audit", vendor: "Linux auditd",
     event_type: "account_modify",
     hostname: "SRV-PROD-001", user_email: "ops-admin@rocketstack.io",
     severity: "medium",
@@ -5417,7 +5417,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_11", ts: T(8 * 60 + 20), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_11", ts: T(8 * 60 + 20), source: "linux_audit", vendor: "Linux auditd",
     event_type: "linux_execve",
     hostname: "SRV-GL-LINUX01", user_email: "k.bauer@globallogis.de",
     severity: "low",
@@ -5437,7 +5437,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_12", ts: T(6 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_12", ts: T(6 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "file_create",
     hostname: "SRV-PROD-001",
     severity: "informational",
@@ -5456,7 +5456,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_13", ts: T(13 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_13", ts: T(13 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "net_connection",
     hostname: "SRV-PROD-001",
     severity: "informational",
@@ -5476,7 +5476,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_14", ts: T(16 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_14", ts: T(16 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "file_delete",
     hostname: "SRV-PROD-001", user_email: "deploy@rocketstack.io",
     severity: "informational",
@@ -5495,7 +5495,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_linux2_15", ts: T(17 * 60), source: "linux_audit", vendor: "Ubuntu Linux",
+    id: "b_linux2_15", ts: T(17 * 60), source: "linux_audit", vendor: "Linux auditd",
     event_type: "process_create",
     hostname: "SRV-PROD-001",
     severity: "informational",
@@ -5513,7 +5513,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Database Audit Events (SQL Server / MySQL) ────────────────────────────
   {
-    id: "b_sqlsrv_01", ts: T(8 * 60 + 30), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_01", ts: T(8 * 60 + 30), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "db_auth",
     hostname: "NEXACORP-SQL01", user_email: "svc-finance-app@nexacorp.com",
     severity: "informational",
@@ -5536,7 +5536,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_02", ts: T(8 * 60 + 35), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_02", ts: T(8 * 60 + 35), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "db_query",
     hostname: "NEXACORP-SQL01", user_email: "svc-finance-app@nexacorp.com",
     severity: "informational",
@@ -5559,7 +5559,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_03", ts: T(9 * 60), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_03", ts: T(9 * 60), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "db_query",
     hostname: "NEXACORP-SQL01", user_email: "svc-finance-app@nexacorp.com",
     severity: "informational",
@@ -5581,7 +5581,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_04", ts: T(10 * 60), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_04", ts: T(10 * 60), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "auth_failure",
     hostname: "NEXACORP-SQL01",
     severity: "low",
@@ -5604,7 +5604,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_05", ts: T(11 * 60), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_05", ts: T(11 * 60), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "db_query",
     hostname: "NEXACORP-SQL01", user_email: "dba@nexacorp.com",
     severity: "medium",
@@ -5628,7 +5628,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_06", ts: T(2 * 60), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_06", ts: T(2 * 60), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "scheduled_task",
     hostname: "NEXACORP-SQL01",
     severity: "informational",
@@ -5649,7 +5649,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_07", ts: T(14 * 60), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_07", ts: T(14 * 60), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "db_schema_change",
     hostname: "NEXACORP-SQL01", user_email: "dba@nexacorp.com",
     severity: "medium",
@@ -5673,7 +5673,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_08", ts: T(4 * 60), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_08", ts: T(4 * 60), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "scheduled_task",
     hostname: "NEXACORP-SQL01",
     severity: "informational",
@@ -5696,7 +5696,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_09", ts: T(3 * 60), source: "db_monitor", vendor: "Microsoft SQL Server",
+    id: "b_sqlsrv_09", ts: T(3 * 60), source: "db_monitor", vendor: "Microsoft SQL Server Audit",
     event_type: "db_query",
     hostname: "NEXACORP-SQL01", user_email: "dba@nexacorp.com",
     severity: "informational",
@@ -5719,7 +5719,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sqlsrv_10", ts: T(12 * 60), source: "db_monitor", vendor: "MySQL",
+    id: "b_sqlsrv_10", ts: T(12 * 60), source: "db_monitor", vendor: "MySQL Enterprise Audit",
     event_type: "db_query",
     hostname: "SRV-GL-LINUX01", user_email: "app-wms@globallogis.de",
     severity: "low",
@@ -5926,7 +5926,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Kubernetes Audit Events ───────────────────────────────────────────────
   {
-    id: "b_k8s2_01", ts: T(8 * 60 + 10), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_01", ts: T(8 * 60 + 10), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call",
     hostname: "gke-prod-node-01", user_email: "ci-pipeline@rocketstack.io",
     severity: "informational",
@@ -5951,7 +5951,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s2_02", ts: T(8 * 60 + 25), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_02", ts: T(8 * 60 + 25), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "process_terminate",
     hostname: "gke-prod-node-01", user_email: "ci-pipeline@rocketstack.io",
     severity: "informational",
@@ -5972,7 +5972,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s2_03", ts: T(10 * 60), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_03", ts: T(10 * 60), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call",
     hostname: "gke-prod-node-01", user_email: "ops@rocketstack.io",
     severity: "low",
@@ -5993,7 +5993,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s2_04", ts: T(11 * 60 + 30), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_04", ts: T(11 * 60 + 30), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "role_assignment",
     hostname: "gke-prod-node-01", user_email: "ops@rocketstack.io",
     severity: "medium",
@@ -6016,7 +6016,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s2_05", ts: T(8 * 60 + 5), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_05", ts: T(8 * 60 + 5), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "process_create",
     hostname: "gke-prod-node-01",
     severity: "informational",
@@ -6038,7 +6038,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s2_06", ts: T(15 * 60), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_06", ts: T(15 * 60), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "process_access",
     hostname: "gke-prod-node-02", user_email: "dev@rocketstack.io",
     severity: "medium",
@@ -6063,7 +6063,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s2_07", ts: T(13 * 60), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_07", ts: T(13 * 60), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "ids_signature",
     hostname: "gke-prod-node-01",
     severity: "low",
@@ -6086,7 +6086,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_k8s2_08", ts: T(12 * 60), source: "k8s_audit", vendor: "Kubernetes / GKE",
+    id: "b_k8s2_08", ts: T(12 * 60), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "cloud_api_call",
     hostname: "gke-prod-node-01", user_email: "ops@rocketstack.io",
     severity: "low",
@@ -6111,7 +6111,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── Azure AD / Entra ID — Sign-In Events (success + failure) ─────────────────
   {
-    id: "b_aad_01", ts: T(4), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_01", ts: T(4), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen signed in to Microsoft 365 from Windows 11 — MFA satisfied via Authenticator app",
@@ -6144,7 +6144,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_02", ts: T(11), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_02", ts: T(11), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "MBP-SALES-112", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams signed in to Outlook mobile on iPhone — MFA satisfied",
@@ -6176,7 +6176,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_03", ts: T(19), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_03", ts: T(19), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_failure", severity: "low",
     hostname: "WS-FIN-2847", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams typed the wrong password signing in to Microsoft 365",
@@ -6205,7 +6205,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_04", ts: T(33), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_04", ts: T(33), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_failure", severity: "low",
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     description: "a.jones signed in correctly but did not complete the MFA step",
@@ -6234,7 +6234,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_05", ts: T(48), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_05", ts: T(48), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "svc-reporting@nexacorp.com", src_ip: "10.10.1.30",
     description: "The svc-reporting service account tried to sign in but the account is disabled",
@@ -6258,7 +6258,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_06", ts: T(61), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_06", ts: T(61), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor signed in to SharePoint Online — Conditional Access passed, managed device",
@@ -6288,7 +6288,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_07", ts: T(74), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_07", ts: T(74), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_failure", severity: "low",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel was blocked from signing in because their device is not managed by IT",
@@ -6317,7 +6317,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_08", ts: T(89), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_08", ts: T(89), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org", src_ip: "172.16.10.22",
     description: "dr.vandijk signed in to Microsoft 365 from clinical workstation — MFA via phone call",
@@ -6345,7 +6345,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_09", ts: T(99), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_09", ts: T(99), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_success", severity: "informational",
     hostname: "LAPTOP-RS-DEV-044", user_email: "a.kim@rocketstack.io", src_ip: "10.0.1.44",
     description: "a.kim signed in to Azure portal — MFA via FIDO2 security key",
@@ -6373,7 +6373,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_aad_10", ts: T(112), source: "o365", vendor: "Azure Active Directory",
+    id: "b_aad_10", ts: T(112), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "m.torres@nexacorp.com", src_ip: "10.100.50.31",
     description: "A sign-in attempt for m.torres failed because that account does not exist",
@@ -6402,7 +6402,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DC / Event Viewer — Logon / Logoff (4624 · 4625 · 4634) ─────────────────
   {
-    id: "b_dc_logon_01", ts: T(5), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_01", ts: T(5), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen connected to a file share on SRV-NXC-DC01",
@@ -6433,7 +6433,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_02", ts: T(13), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_02", ts: T(13), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel's office printer signed in to SRV-NXC-DC01 to print a document",
@@ -6462,7 +6462,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_03", ts: T(27), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_03", ts: T(27), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin remotely connected to SRV-NXC-DC01 for maintenance",
@@ -6492,7 +6492,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_04", ts: T(38), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_04", ts: T(38), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-FILE01", user_email: "helpdesk@nexacorp.com", src_ip: "10.10.1.12",
     description: "Helpdesk remotely connected to SRV-FILE01 for support ticket INC-10045",
@@ -6521,7 +6521,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_05", ts: T(52), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_05", ts: T(52), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor failed to connect to SRV-NXC-DC01 with the wrong password",
@@ -6551,7 +6551,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_06", ts: T(63), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_06", ts: T(63), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "d.morgan@nexacorp.com", src_ip: "10.10.20.77",
     description: "d.morgan failed to remotely connect to SRV-NXC-DC01 — username not found",
@@ -6581,7 +6581,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_07", ts: T(81), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_07", ts: T(81), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-FILE01", user_email: "svc-backup@nexacorp.com", src_ip: "10.10.1.30",
     description: "svc-backup failed to connect to SRV-FILE01 — its account password has expired",
@@ -6611,7 +6611,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_08", ts: T(95), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_08", ts: T(95), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin's remote session on SRV-NXC-DC01 ended",
@@ -6631,7 +6631,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_09", ts: T(107), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_09", ts: T(107), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-FILE01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen disconnected from the SRV-FILE01 file share",
@@ -6651,7 +6651,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_logon_10", ts: T(119), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_logon_10", ts: T(119), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin used a domain-admin account to deploy a Group Policy update on SRV-NXC-DC01",
@@ -6679,7 +6679,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DC / Event Viewer — SMB Share Access (5140 · 5145) ───────────────────────
   {
-    id: "b_dc_smb_01", ts: T(7), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_smb_01", ts: T(7), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen opened the Finance file share on SRV-NXC-DC01",
@@ -6704,7 +6704,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_smb_02", ts: T(16), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_smb_02", ts: T(16), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel's computer downloaded Group Policy settings from the domain controller",
@@ -6729,7 +6729,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_smb_03", ts: T(23), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_smb_03", ts: T(23), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
     hostname: "SRV-FILE01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor opened a report file on the SRV-FILE01 Shared folder",
@@ -6757,7 +6757,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_smb_04", ts: T(36), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_smb_04", ts: T(36), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
     hostname: "SRV-FILE01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin uploaded a Windows patch file to the SRV-FILE01 IT-Deploy folder",
@@ -6785,7 +6785,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_smb_05", ts: T(71), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_smb_05", ts: T(71), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams's computer retrieved a domain logon script from the domain controller",
@@ -6812,7 +6812,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DC / Event Viewer — RDP Session Events (4778 · 4779 · TerminalServices) ───
   {
-    id: "b_dc_rdp_01", ts: T(29), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_rdp_01", ts: T(29), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-FILE01", user_email: "helpdesk@nexacorp.com", src_ip: "10.10.1.12",
     description: "Helpdesk reconnected to their remote session on SRV-FILE01",
@@ -6833,7 +6833,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_rdp_02", ts: T(43), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_rdp_02", ts: T(43), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-FILE01", user_email: "helpdesk@nexacorp.com", src_ip: "10.10.1.12",
     description: "Helpdesk's remote session on SRV-FILE01 disconnected temporarily",
@@ -6854,7 +6854,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_rdp_03", ts: T(28), source: "ad", vendor: "Microsoft TerminalServices",
+    id: "b_dc_rdp_03", ts: T(28), source: "ad", vendor: "Windows TerminalServices",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin's remote desktop credentials were verified on SRV-NXC-DC01",
@@ -6872,7 +6872,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_rdp_04", ts: T(29), source: "ad", vendor: "Microsoft TerminalServices",
+    id: "b_dc_rdp_04", ts: T(29), source: "ad", vendor: "Windows TerminalServices",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin's remote desktop session on SRV-NXC-DC01 started",
@@ -6890,7 +6890,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_rdp_05", ts: T(97), source: "ad", vendor: "Microsoft TerminalServices",
+    id: "b_dc_rdp_05", ts: T(97), source: "ad", vendor: "Windows TerminalServices",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin's remote desktop session on SRV-NXC-DC01 ended",
@@ -6909,7 +6909,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DC / Event Viewer — Kerberos (4768 · 4769 · 4771) ────────────────────────
   {
-    id: "b_dc_kerb_01", ts: T(3), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_kerb_01", ts: T(3), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen signed in for the day and received a domain login ticket",
@@ -6936,7 +6936,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_kerb_02", ts: T(8), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_kerb_02", ts: T(8), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen's computer requested access to a file share on SRV-FILE01",
@@ -6960,7 +6960,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_kerb_03", ts: T(31), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_kerb_03", ts: T(31), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin's computer requested access to remotely connect to SRV-NXC-DC01",
@@ -6984,7 +6984,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_kerb_04", ts: T(57), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_kerb_04", ts: T(57), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor's sign-in request to the domain controller failed with a wrong password",
@@ -7010,7 +7010,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DC / Event Viewer — NTLM · Special Privileges (4776 · 4672) ──────────────
   {
-    id: "b_dc_ntlm_01", ts: T(14), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_ntlm_01", ts: T(14), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel's office printer authenticated to the domain controller",
@@ -7028,7 +7028,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_ntlm_02", ts: T(65), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_ntlm_02", ts: T(65), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-NXC-DC01", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams's sign-in to the domain controller failed with a wrong password",
@@ -7046,7 +7046,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_privs_01", ts: T(28), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_privs_01", ts: T(28), source: "ad", vendor: "Windows Security",
     event_type: "privileged_operation", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin signed in to SRV-NXC-DC01 with administrator-level privileges",
@@ -7064,7 +7064,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dc_privs_02", ts: T(39), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_dc_privs_02", ts: T(39), source: "ad", vendor: "Windows Security",
     event_type: "privileged_operation", severity: "informational",
     hostname: "SRV-FILE01", user_email: "helpdesk@nexacorp.com", src_ip: "10.10.1.12",
     description: "Helpdesk signed in to SRV-FILE01 remotely with elevated privileges",
@@ -7084,7 +7084,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MedCore DC Events — clinical workstation RDP + SMB ───────────────────────
   {
-    id: "b_mc_dc_01", ts: T(9), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_mc_dc_01", ts: T(9), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "SRV-MED-DC01", user_email: "dr.vandijk@medcorehealth.org", src_ip: "172.16.10.22",
     description: "dr.vandijk remotely connected to the clinical server SRV-MED-DC01",
@@ -7110,7 +7110,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mc_dc_02", ts: T(15), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_mc_dc_02", ts: T(15), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
     hostname: "SRV-MEDCORE-EMR01", user_email: "dr.vandijk@medcorehealth.org", src_ip: "172.16.10.22",
     description: "dr.vandijk's workstation connected to the Epic EMR data share",
@@ -7135,7 +7135,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mc_dc_03", ts: T(41), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_mc_dc_03", ts: T(41), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
     hostname: "SRV-MED-DC01", user_email: "nurse.station4@medcorehealth.org", src_ip: "172.16.20.44",
     description: "nurse.station4 failed to sign in after their smart card session timed out",
@@ -7165,7 +7165,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MedCore — Clinical Smart Card Logon/Logoff ────────────────────────────────
   {
-    id: "b_mc_sc_01", ts: T(6), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_mc_sc_01", ts: T(6), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org", src_ip: "172.16.10.22",
     description: "dr.vandijk signed in to clinical workstation WS-MED-022 with a smart card",
@@ -7191,7 +7191,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mc_sc_02", ts: T(44), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_mc_sc_02", ts: T(44), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-NURSE-WARD4", user_email: "nurse.station4@medcorehealth.org", src_ip: "172.16.20.44",
     description: "nurse.station4 removed their smart card and signed out of WS-NURSE-WARD4",
@@ -7211,7 +7211,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mc_sc_03", ts: T(22), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_mc_sc_03", ts: T(22), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
     hostname: "WS-RAD-LAB-01", user_email: "radiologist.j@medcorehealth.org", src_ip: "172.16.30.11",
     description: "radiologist.j signed in to radiology workstation WS-RAD-LAB-01 with a smart card",
@@ -7256,7 +7256,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mc_emr_02", ts: T(9), source: "proxy", vendor: "Palo Alto Networks",
+    id: "b_mc_emr_02", ts: T(9), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org", src_ip: "172.16.10.22",
     description: "dr.vandijk looked up a patient chart in Epic EMR",
@@ -7280,7 +7280,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MedCore — PACS Radiology Imaging ─────────────────────────────────────────
   {
-    id: "b_mc_pacs_01", ts: T(24), source: "proxy", vendor: "Palo Alto Networks",
+    id: "b_mc_pacs_01", ts: T(24), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "WS-RAD-LAB-01", user_email: "radiologist.j@medcorehealth.org", src_ip: "172.16.30.11",
     description: "radiologist.j pulled an MRI scan from the PACS imaging server",
@@ -7348,7 +7348,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MedCore — Lab Results HL7 FHIR API ───────────────────────────────────────
   {
-    id: "b_mc_lab_01", ts: T(31), source: "proxy", vendor: "Palo Alto Networks",
+    id: "b_mc_lab_01", ts: T(31), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org", src_ip: "172.16.10.22",
     description: "dr.vandijk retrieved a patient's lab results from the clinical lab system",
@@ -7373,7 +7373,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MedCore — HIPAA DLP Alert ─────────────────────────────────────────────────
   {
-    id: "b_mc_dlp_01", ts: T(58), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_mc_dlp_01", ts: T(58), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     hostname: "WS-NURSE-WARD4", user_email: "nurse.station4@medcorehealth.org", src_ip: "172.16.20.44",
     description: "DLP alert: nurse.station4 attempted to paste patient IDs into personal web email — blocked by HIPAA policy",
@@ -7425,7 +7425,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MedCore — Nurse Password Reset ───────────────────────────────────────────
   {
-    id: "b_mc_pwd_01", ts: T(73), source: "ad", vendor: "Microsoft Active Directory",
+    id: "b_mc_pwd_01", ts: T(73), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "informational",
     hostname: "SRV-MED-DC01", user_email: "nurse.station4@medcorehealth.org", src_ip: "10.10.1.12",
     description: "Helpdesk reset the password for nurse.station4 on request",
@@ -7526,7 +7526,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_rs_k8s_01", ts: T(20), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_rs_k8s_01", ts: T(20), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "k8s_pod_create", severity: "informational",
     hostname: "k8s-api-server", user_email: "a.kim@rocketstack.io", src_ip: "10.0.0.50",
     description: "ArgoCD created a new pod in production after a deployment update",
@@ -7547,7 +7547,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_rs_k8s_02", ts: T(21), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_rs_k8s_02", ts: T(21), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "k8s_pod_delete", severity: "informational",
     hostname: "k8s-api-server", user_email: "a.kim@rocketstack.io", src_ip: "10.0.0.50",
     description: "ArgoCD removed the old pod after the deployment update finished",
@@ -7566,7 +7566,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_rs_k8s_03", ts: T(47), source: "k8s_audit", vendor: "Kubernetes API Server",
+    id: "b_rs_k8s_03", ts: T(47), source: "k8s_audit", vendor: "Kubernetes Audit",
     event_type: "k8s_rbac", severity: "informational",
     hostname: "k8s-api-server", user_email: "a.kim@rocketstack.io", src_ip: "10.0.1.44",
     description: "a.kim granted a new hire read-only access to the staging environment",
@@ -7607,7 +7607,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_rs_prom_01", ts: T(25), source: "proxy", vendor: "Palo Alto Networks",
+    id: "b_rs_prom_01", ts: T(25), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
     hostname: "SRV-RS-MONITOR-01", user_email: "svc-prometheus@rocketstack.io", src_ip: "10.0.0.60",
     description: "Prometheus collected routine metrics from the API gateway",
@@ -7631,7 +7631,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── O365 Collaboration — Teams · SharePoint · Email ───────────────────────────
   {
-    id: "b_o365_teams_01", ts: T(8), source: "o365", vendor: "Microsoft Teams",
+    id: "b_o365_teams_01", ts: T(8), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "teams_message", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen posted a message in the finance-general Teams channel",
@@ -7650,7 +7650,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_teams_02", ts: T(34), source: "o365", vendor: "Microsoft Teams",
+    id: "b_o365_teams_02", ts: T(34), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "teams_message", severity: "informational",
     hostname: "MBP-SALES-112", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams shared a OneDrive file link in a private Teams chat",
@@ -7669,7 +7669,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_sp_01", ts: T(14), source: "o365", vendor: "Microsoft 365 Audit",
+    id: "b_o365_sp_01", ts: T(14), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "sharepoint_access", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen edited the Q3 budget spreadsheet in SharePoint",
@@ -7689,7 +7689,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_sp_02", ts: T(52), source: "o365", vendor: "Microsoft 365 Audit",
+    id: "b_o365_sp_02", ts: T(52), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "sharepoint_share", severity: "informational",
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     description: "a.jones shared a project proposal document with an external vendor contact",
@@ -7710,7 +7710,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_sp_03", ts: T(77), source: "o365", vendor: "Microsoft 365 Audit",
+    id: "b_o365_sp_03", ts: T(77), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "sharepoint_download", severity: "informational",
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor's OneDrive client synced 12 files from SharePoint",
@@ -7729,7 +7729,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_email_01", ts: T(11), source: "o365", vendor: "Microsoft Exchange Online",
+    id: "b_o365_email_01", ts: T(11), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_sent", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel emailed the monthly payroll summary to the finance team",
@@ -7756,7 +7756,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_cal_01", ts: T(43), source: "o365", vendor: "Microsoft Exchange Online",
+    id: "b_o365_cal_01", ts: T(43), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "cloud_api_call", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen created a recurring team meeting in Outlook calendar",
@@ -7776,7 +7776,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_o365_guest_01", ts: T(86), source: "o365", vendor: "Azure Active Directory",
+    id: "b_o365_guest_01", ts: T(86), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "account_create", severity: "informational",
     hostname: "SRV-NXC-DC01", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     description: "a.jones added an external vendor contact as a guest user in NexaCorp's Microsoft 365 tenant",
@@ -7798,7 +7798,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── MFA Challenge Events (multi-company) ────────────────────────────────────
   {
-    id: "b_mfa_01", ts: T(7), source: "o365", vendor: "Azure Active Directory",
+    id: "b_mfa_01", ts: T(7), source: "o365", vendor: "Microsoft Entra ID",
     event_type: "mfa_challenge", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen received an MFA push notification while signing in to Microsoft 365",
@@ -7821,7 +7821,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mfa_02", ts: T(22), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_mfa_02", ts: T(22), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "mfa_challenge", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", src_ip: "85.12.44.201",
     description: "s.patel was asked for a one-time code while connecting to VPN from home",
@@ -7841,7 +7841,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mfa_03", ts: T(23), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_mfa_03", ts: T(23), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "mfa_denied", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", src_ip: "85.12.44.201",
     description: "s.patel accidentally declined an MFA push notification on their phone",
@@ -7860,7 +7860,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_mfa_04", ts: T(24), source: "vpn", vendor: "Palo Alto GlobalProtect",
+    id: "b_mfa_04", ts: T(24), source: "vpn", vendor: "Palo Alto Networks PAN-OS",
     event_type: "vpn_login", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", src_ip: "85.12.44.201",
     description: "s.patel connected to VPN after approving MFA on the second attempt",
@@ -7899,7 +7899,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
 
   // ── DLP Variety Events ────────────────────────────────────────────────────────
   {
-    id: "b_dlp_usb_01", ts: T(49), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_dlp_usb_01", ts: T(49), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_block", severity: "low",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.55",
     description: "j.chen tried to copy a payroll file to a USB drive and was blocked",
@@ -7923,7 +7923,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dlp_email_01", ts: T(66), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_dlp_email_01", ts: T(66), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_block", severity: "low",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel's email to an external address was blocked for containing UK National Insurance numbers",
@@ -7946,7 +7946,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dlp_cloud_01", ts: T(78), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_dlp_cloud_01", ts: T(78), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     hostname: "LT-DEV-0931", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     description: "a.jones uploaded a 28MB file to personal Google Drive — allowed, but flagged for review",
@@ -7970,7 +7970,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_dlp_print_01", ts: T(91), source: "dlp", vendor: "Microsoft Purview DLP",
+    id: "b_dlp_print_01", ts: T(91), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     hostname: "WS-ENG-3301", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor printed a contract containing client personal data — allowed and logged for audit",

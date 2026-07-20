@@ -272,6 +272,7 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
         user_email: "finance@corp.com",
         mitre_technique: "T1566.002",
         mitre_tactic: "Initial Access",
+        vendor: "Microsoft 365 Unified Audit Log",
         raw: {
           "data.office365.Operation": "MessageReceived",
           "data.office365.InternetMessageId": "<7f3a9b21@mail.c0rp.com>",
@@ -582,6 +583,7 @@ When you receive a DLP alert or a bulk-download alert:
         src_ip: "10.0.1.55",
         mitre_technique: "T1213.002",
         mitre_tactic: "Collection",
+        vendor: "Microsoft 365 Unified Audit Log",
         raw: {
           "data.office365.Operation": "FileDownloaded",
           "data.office365.UserId": "departing.employee@corp.com",
@@ -936,7 +938,7 @@ Based on your analysis:
         id: "ep-la1-001",
         ts: "2025-11-19T14:32:07.000Z",
         source: "edr",
-        vendor: "CrowdStrike",
+        vendor: "CrowdStrike Falcon",
         event_type: "edr_alert",
         severity: "high",
         description: "CrowdStrike: Suspicious encoded PowerShell execution — possible post-exploitation",

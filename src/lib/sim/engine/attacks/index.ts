@@ -126,7 +126,7 @@ const playbookPhishingBEC: AttackPlaybook = {
         const ev: GeneratedEvent = {
           id: eid("phish_email"),
           source: "email_gateway",
-          vendor: "Microsoft 365 Defender",
+          vendor: "Microsoft Defender for Endpoint",
           event_type: "email_received",
           severity: "medium",
           mitre_technique: "T1566.001",
@@ -549,7 +549,7 @@ const playbookPhishingBEC: AttackPlaybook = {
         const ev2: GeneratedEvent = {
           id: eid("phish_pth"),
           source: "ad",
-          vendor: "Microsoft Active Directory",
+          vendor: "Windows Security",
           event_type: "auth_success",
           severity: "critical",
           mitre_technique: "T1550.002",
@@ -627,7 +627,7 @@ const playbookPasswordSpray: AttackPlaybook = {
         const events: GeneratedEvent[] = targets.map((target, i) => ({
           id: eid(`spray_fail${i}`),
           source: "ad" as const,
-          vendor: "Microsoft Active Directory",
+          vendor: "Windows Security",
           event_type: "auth_failure" as const,
           severity: "medium" as const,
           mitre_technique: "T1110.003",
@@ -686,7 +686,7 @@ const playbookPasswordSpray: AttackPlaybook = {
         const ev: GeneratedEvent = {
           id: eid("spray_success"),
           source: "ad",
-          vendor: "Microsoft Active Directory",
+          vendor: "Windows Security",
           event_type: "auth_success",
           severity: "critical",
           mitre_technique: "T1078",
@@ -741,7 +741,7 @@ const playbookPasswordSpray: AttackPlaybook = {
         const ev: GeneratedEvent = {
           id: eid("spray_mail"),
           source: "o365",
-          vendor: "Microsoft 365",
+          vendor: "Microsoft 365 Unified Audit Log",
           event_type: "email_received",
           severity: "high",
           mitre_technique: "T1114.002",
@@ -789,7 +789,7 @@ const playbookPasswordSpray: AttackPlaybook = {
         const ev: GeneratedEvent = {
           id: eid("spray_rule"),
           source: "o365",
-          vendor: "Microsoft 365",
+          vendor: "Microsoft 365 Unified Audit Log",
           event_type: "account_modify",
           severity: "critical",
           mitre_technique: "T1137.005",
@@ -1414,7 +1414,7 @@ const playbookPentestNoise: AttackPlaybook = {
         const events: GeneratedEvent[] = targets.map((target, i) => ({
           id: eid(`pentest_auth${i}`),
           source: "ad" as const,
-          vendor: "Microsoft Active Directory",
+          vendor: "Windows Security",
           event_type: "auth_failure" as const,
           severity: "low" as const,
           mitre_technique: "T1110.001",

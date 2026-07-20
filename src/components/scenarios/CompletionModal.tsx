@@ -19,6 +19,25 @@ export interface GradeResult {
   }[];
   aiFeedback: string;
   passed: boolean;
+  quizScore?: number;
+  /**
+   * Withheld from the page payload during the investigation — the narrative and
+   * objectives describe the intrusion in order and name its techniques, which is
+   * the work the analyst is doing. Delivered here once the report is submitted.
+   */
+  debrief?: {
+    narrative: string;
+    learningObjectives: string[];
+    killchain: { ts: string; phase: string; action: string }[];
+  };
+  report?: {
+    score: number;
+    rubric: { verdict: number; depth: number; evidence: number; reasoning: number };
+    words: number;
+    iocsCited: number;
+    iocsTotal: number;
+    verdictCorrect: boolean;
+  };
 }
 
 interface Props {

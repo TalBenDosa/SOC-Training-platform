@@ -111,6 +111,7 @@ const rooms = [
           event_type: "email_received",
           hostname: "mailgw-01.contoso.com",
           severity: "high",
+          vendor: "Microsoft 365 Unified Audit Log",
           raw: {
             "data.office365.Operation": "MessageReceived",
             "data.office365.UserId": "alice.chen@contoso.com",
@@ -591,6 +592,7 @@ const rooms = [
           event_type: "net_blocked",
           hostname: "fortigate-core-01.contoso.com",
           severity: "critical",
+          vendor: "Wazuh",
           raw: {
             "data.type": "traffic",
             "data.subtype": "forward",
@@ -837,6 +839,7 @@ const rooms = [
           event_type: "dns_query",
           hostname: "WKSTN-HR-033",
           severity: "critical",
+          vendor: "Windows Security",
           raw: {
             "event.code": "22",
             "event.module": "sysmon",
@@ -915,7 +918,7 @@ const rooms = [
           id: "evt-dns-ac-001",
           ts: "2026-06-25T14:32:07.000Z",
           source: "dns" as const,
-          vendor: "Sysmon + DNS Server",
+          vendor: "Microsoft Sysmon",
           event_type: "dns_query" as const,
           severity: "medium" as const,
           hostname: "WKSTN-DEV-019",

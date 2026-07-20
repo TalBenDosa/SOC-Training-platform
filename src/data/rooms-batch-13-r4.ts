@@ -5,7 +5,7 @@ const nacPostureEvent: TelemetryEvent = {
   id: "evt-nac-posture-001",
   ts: "2024-10-03T08:47:22.000Z",
   source: "nac",
-  vendor: "Cisco ISE 3.2",
+  vendor: "Cisco ISE",
   event_type: "nac_quarantine",
   severity: "medium",
   hostname: "ISE-PSN-01",
