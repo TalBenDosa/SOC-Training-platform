@@ -11,6 +11,10 @@ import { buildWebShellRceScenario }         from "./scenario-packs/webShellRce";
 import { buildLinuxSshCryptominerScenario } from "./scenario-packs/linuxSshCryptominer";
 import { buildAitmTokenTheftScenario }      from "./scenario-packs/aitmTokenTheft";
 import { buildEsxiRansomwareScenario }      from "./scenario-packs/esxiRansomware";
+import { buildBruteForceSingleAccountScenario } from "./scenario-packs/bruteForceSingleAccount";
+import { buildRogueAdminAccountScenario }   from "./scenario-packs/rogueAdminAccount";
+import { buildImpossibleTravelBasicScenario } from "./scenario-packs/impossibleTravelBasic";
+import { buildSoftwareInstallFalsePositiveScenario } from "./scenario-packs/softwareInstallFalsePositive";
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
@@ -3219,6 +3223,26 @@ export const SCENARIOS = [
     difficulty: "beginner", attack_kind: "false_positive",
     threat_actor: "None — authorised backup activity", build: withAlerts(buildBackupFalsePositiveScenario),
     summary: "A CRITICAL ransomware-behaviour alert on a production file server. Every scenario before this one was a real attack — this one is not, and the job is to prove it." },
+  { slug: "brute-force-single-account",
+    title: "Logon Failure Burst — Published Remote Desktop Server",
+    difficulty: "beginner", attack_kind: "credential_access",
+    threat_actor: "Opportunistic external attacker", build: withAlerts(buildBruteForceSingleAccountScenario),
+    summary: "Hundreds of failed logons against one account, and then one that succeeds. The failures are the noise; finding the success — and what the session did next — is the job." },
+  { slug: "rogue-admin-account",
+    title: "Out-of-Hours Account Creation — Service Desk Credentials",
+    difficulty: "beginner", attack_kind: "persistence",
+    threat_actor: "Attacker using stolen service desk credentials", build: withAlerts(buildRogueAdminAccountScenario),
+    summary: "A privileged account is created at 22:47 by an admin who is allowed to create accounts. Nothing here is technically forbidden — the question is whether it was authorised." },
+  { slug: "impossible-travel-basic",
+    title: "Sign-In From Two Countries — Accounts Payable Clerk",
+    difficulty: "beginner", attack_kind: "account_takeover",
+    threat_actor: "Business Email Compromise operator", build: withAlerts(buildImpossibleTravelBasicScenario),
+    summary: "The same account signs in from Tel Aviv and then Amsterdam hours apart. Impossible travel is a hypothesis, not a verdict — the telemetry decides whether it is a VPN artefact or a real takeover." },
+  { slug: "software-install-false-positive",
+    title: "Unsigned Binary Writes to Program Files — Engineering Workstation",
+    difficulty: "beginner", attack_kind: "false_positive",
+    threat_actor: "None — authorised software deployment", build: withAlerts(buildSoftwareInstallFalsePositiveScenario),
+    summary: "An EDR rule fires HIGH on behaviour that genuinely overlaps with a dropper. Closing an alert correctly needs evidence just as rigorous as opening one." },
   { slug: "web-shell-sqli",
     title: "SQL Injection → Web Shell → Server Compromise",
     difficulty: "advanced", attack_kind: "web_exploitation",

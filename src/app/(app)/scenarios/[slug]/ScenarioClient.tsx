@@ -15,6 +15,7 @@ import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery,
 } from "@/components/threat-intel/ThreatIntelDrawer";
+import { shuffleSeeded } from "@/lib/lessons/shuffle";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1056,7 +1057,13 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
                   </div>
                   {q.options && (
                     <ul className="mt-3 space-y-1.5">
-                      {q.options.map(o => {
+                      {/* Shuffled for display — see shuffleSeeded's header. Measured
+                          across the 89 scenario questions, the correct answer was the
+                          FIRST option 56 times (63%), so a student who never read a
+                          question and always clicked the top choice scored 63%.
+                          Grading compares o.value to q.answer, never position, so
+                          reordering is presentation-only. */}
+                      {shuffleSeeded(q.options, q.id ?? q.prompt).map(o => {
                         const selected = isMulti
                           ? (currentAnswer as string[] | undefined)?.includes(o.value)
                           : currentAnswer === o.value;

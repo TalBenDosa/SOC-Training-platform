@@ -141,6 +141,10 @@
     "Okta Verify": "Okta",
     "Zeek Network Security Monitor": "Corelight (Zeek)",
     "Suricata (IDS mode)": "Suricata",
-    "Suricata": "Suricata"
+    "Suricata": "Suricata",
+    "Cisco Secure Firewall": "Cisco ASA",
+    "Cisco ASA": "Cisco ASA",
+    "Infoblox NIOS": "Infoblox DNS",
+    "Microsoft Intune": "Microsoft Intune"
   }
 }
