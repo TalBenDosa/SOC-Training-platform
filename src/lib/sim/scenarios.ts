@@ -4688,9 +4688,12 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "winlog.channel": "Security",
         "winlog.computer_name": "DC01.nexacorp.com",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.event_data.TargetUserName": "svc-mssql",
+        // 4769: TargetUserName is the REQUESTING principal, not the service.
+        "winlog.event_data.TargetUserName": "m.cohen@NEXACORP.COM",
         "winlog.event_data.TargetDomainName": "NEXACORP.COM",
-        "winlog.event_data.ServiceName": "MSSQLSvc/srv-db01:1433",
+        // ServiceName carries the service ACCOUNT name; the SPN that was
+        // requested (MSSQLSvc/srv-db01:1433) is named in the event description.
+        "winlog.event_data.ServiceName": "svc-mssql",
         "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-1301",
         "winlog.event_data.TicketOptions": "0x40810000",
         "winlog.event_data.TicketEncryptionType": "0x17",
@@ -4720,9 +4723,12 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "winlog.channel": "Security",
         "winlog.computer_name": "DC01.nexacorp.com",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.event_data.TargetUserName": "svc-iis",
+        // 4769: TargetUserName is the REQUESTING principal, not the service.
+        "winlog.event_data.TargetUserName": "m.cohen@NEXACORP.COM",
         "winlog.event_data.TargetDomainName": "NEXACORP.COM",
-        "winlog.event_data.ServiceName": "HTTP/intranet.corp",
+        // ServiceName carries the service ACCOUNT name; the SPN that was
+        // requested (HTTP/intranet.corp) is named in the event description.
+        "winlog.event_data.ServiceName": "svc-iis",
         "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-1305",
         "winlog.event_data.TicketOptions": "0x40810000",
         "winlog.event_data.TicketEncryptionType": "0x17",
@@ -4751,9 +4757,12 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "winlog.channel": "Security",
         "winlog.computer_name": "DC01.nexacorp.com",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.event_data.TargetUserName": "svc-backup",
+        // 4769: TargetUserName is the REQUESTING principal, not the service.
+        "winlog.event_data.TargetUserName": "m.cohen@NEXACORP.COM",
         "winlog.event_data.TargetDomainName": "NEXACORP.COM",
-        "winlog.event_data.ServiceName": "BACKUP/srv-backup01",
+        // ServiceName carries the service ACCOUNT name; the SPN that was
+        // requested (BACKUP/srv-backup01) is named in the event description.
+        "winlog.event_data.ServiceName": "svc-backup",
         "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-1310",
         "winlog.event_data.TicketOptions": "0x40810000",
         "winlog.event_data.TicketEncryptionType": "0x17",
@@ -4867,8 +4876,8 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.TargetUserName": "m.cohen",
         "winlog.event_data.TicketEncryptionType": "0x12",
-        "winlog.event_data.TicketEncryptionType_description": "AES256-CTS-HMAC-SHA1-96 (strong — expected for normal auth)",
-        "winlog.event_data.ServiceName": "cifs/dev-repo01",
+        // Service ACCOUNT, not the SPN (cifs/dev-repo01) that was requested.
+        "winlog.event_data.ServiceName": "SRV-REPO01$",
         "event.code": "4769",
         "event.action": "kerberos-service-ticket-requested",
         "event.outcome": "success",
