@@ -462,6 +462,8 @@ const CORE_LESSONS = [
 // CORE_LESSONS index: [0]=network protocols, [1]=phishing investigation,
 // [2]=windows event logs. The 14 pathLessons are interleaved with those three
 // so the whole list reads as one ordered curriculum, beginner → advanced.
+import { ATTACK_TYPE_LESSONS } from "./attackTypeLessons";
+
 export const BUILTIN_LESSONS = [
   pathA[0], pathA[1],   // 1-2  What a SOC is · How computers & networks work
   pathB[0], pathB[1],   // 3-4  What a log is · Windows internals
@@ -476,4 +478,12 @@ export const BUILTIN_LESSONS = [
   pathE[1],             // 13   Malware triage without reverse engineering
   pathF[0], pathF[1],   // 14-15 C2 & exfiltration · The analyst mindset
   pathG[0], pathG[1],   // 16-17 Investigation workflow · Writing the incident report
+
+  // 18-23 — the attack-type series. A third organising axis alongside the
+  // role-based learning paths and the technology-based rooms: a student asking
+  // "what does lateral movement look like?" previously had no single place to
+  // go, only fragments spread across rooms and scenarios. Written and reviewed
+  // rather than runtime-generated, because a fabricated field or a wrong ATT&CK
+  // mapping in attack theory is a falsehood a learner carries into their first job.
+  ...ATTACK_TYPE_LESSONS,
 ];

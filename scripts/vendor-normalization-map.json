@@ -136,6 +136,11 @@
     "VMware ESXi": "VMware ESXi",
     "VMware vCenter Server": "VMware vCenter Server",
     "Tenable.io": "Tenable.io",
-    "Velociraptor": "Velociraptor"
+    "Velociraptor": "Velociraptor",
+    "Fortinet FortiGate IPS": "FortiGate",
+    "Okta Verify": "Okta",
+    "Zeek Network Security Monitor": "Corelight (Zeek)",
+    "Suricata (IDS mode)": "Suricata",
+    "Suricata": "Suricata"
   }
 }

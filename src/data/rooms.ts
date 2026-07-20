@@ -9,6 +9,10 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { roomsBatch18 } from "./rooms-batch-18";
 import { roomsBatch19 } from "./rooms-batch-19";
+import { roomsBatch20 } from "./rooms-batch-20";
+import { roomsBatch21 } from "./rooms-batch-21";
+import { roomsBatch22 } from "./rooms-batch-22";
+import { roomsBatch23 } from "./rooms-batch-23";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -182,4 +186,8 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch17), // tcpip-deep-dive, dns-deep-dive, tls-encrypted-traffic, windows-protocols-lateral, email-protocols-forensics, tunneling-c2-channels
   ...cast(roomsBatch18), // kerberos-authentication, windows-privilege-escalation, persistence-mechanisms
   ...cast(roomsBatch19), // vulnerability-management, memory-disk-forensics
+  ...cast(roomsBatch20), // encoding-encryption-hashing, timestamps-and-timelines
+  ...cast(roomsBatch21), // log-entry-anatomy, identity-basics
+  ...cast(roomsBatch22), // malware-types, asset-context-prioritisation
+  ...cast(roomsBatch23), // security-products-behaviour
 ];

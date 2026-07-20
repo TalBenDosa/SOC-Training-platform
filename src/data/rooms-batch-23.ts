@@ -80,7 +80,7 @@ const nessusScanIdsEvent: TelemetryEvent = {
   id: "evt-secprod-ac1-001",
   ts: "2026-05-14T02:03:11.421Z",
   source: "ids",
-  vendor: "Suricata (IDS mode)",
+  vendor: "Suricata",
   event_type: "ids_signature",
   severity: "low",
   hostname: "SENSOR-CORE-02",
