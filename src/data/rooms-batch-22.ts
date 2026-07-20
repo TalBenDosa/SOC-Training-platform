@@ -374,7 +374,10 @@ const malwareTypesRoom: Room = {
         "  F --> G{Encryption routine runs}\n" +
         "  G -->|Real key exists, decryptor sold for payment| H[Ransomware: files encrypted, ransom note dropped]\n" +
         "  G -->|No key, no intent to ever decrypt| I[Wiper: files destroyed, ransom note is a lie]\n" +
-        "  subgraph Actionable window -- before encryption\n" +
+        // The title needs an explicit id + quoted label: a bare `subgraph`
+        // title containing `--` is read as edge syntax and fails to parse, which
+        // silently cost this room its diagram.
+        "  subgraph AW[\"Actionable window - before encryption\"]\n" +
         "  D\n" +
         "  E\n" +
         "  F\n" +
