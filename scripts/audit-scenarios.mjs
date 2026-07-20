@@ -67,6 +67,42 @@ for (let i = 0; i < bundles.length; i++)
     if (a && a === c) add("ERROR", `${bundles[i].slug} + ${bundles[j].slug}`, "identical briefing text");
   }
 
+// ── 1b. Cryptographic coherence: one SHA256 = one file ──────────────────────
+// A hash is an identity. If two differently-named files share one, or one file
+// carries two hashes, the corpus teaches that hash pivoting is unreliable —
+// while several scenarios explicitly teach the opposite in their explanations.
+//
+// The common failure is subtler than a copy-paste: a signed system binary's
+// PROCESS hash gets set to the hash of the PAYLOAD it executed, so a student
+// pivoting on the process hash concludes rundll32.exe or powershell.exe is
+// malware. Both process images and file blocks are checked here.
+const hashToNames = new Map();
+const nameToHashes = new Map();
+for (const { slug, b } of bundles) {
+  for (const e of b.events ?? []) {
+    const seen = [];
+    if (e.file?.sha256) seen.push([e.file.sha256, e.file.name ?? e.file.path ?? "?"]);
+    if (e.process?.hash?.sha256) seen.push([e.process.hash.sha256, e.process.name ?? "?"]);
+    for (const [h, name] of seen) {
+      const base = String(name).split(/[\\/]/).pop().toLowerCase();
+      if (!hashToNames.has(h)) hashToNames.set(h, new Set());
+      hashToNames.get(h).add(`${base}`);
+      const key = `${slug}::${base}`;
+      if (!nameToHashes.has(key)) nameToHashes.set(key, new Set());
+      nameToHashes.get(key).add(h);
+    }
+  }
+}
+for (const [h, names] of hashToNames) {
+  if (names.size > 1)
+    add("ERROR", `hash ${h.slice(0, 12)}…`,
+      `one SHA256 describes ${names.size} different files: ${[...names].join(", ")}`);
+}
+for (const [key, hashes] of nameToHashes) {
+  if (hashes.size > 1)
+    add("ERROR", key, `one file carries ${hashes.size} different SHA256 values`);
+}
+
 // ── 2. Logic ────────────────────────────────────────────────────────────────
 for (const { slug, b } of bundles) {
   const ts = (b.events ?? []).map(e => e.ts ?? e.timestamp).filter(Boolean).map(t => new Date(t).getTime());

