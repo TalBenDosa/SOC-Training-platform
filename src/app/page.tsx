@@ -23,13 +23,14 @@ export default function Landing() {
           <Link href="/rooms" className="hover:text-cyber-300">Learning Rooms</Link>
         </nav>
         <div className="flex items-center gap-3">
-          {/* Accounts are optional — guests keep working with on-device
-              progress. /login gracefully falls back if auth isn't configured. */}
+          {/* An account is now REQUIRED — every route below this page is gated
+              in middleware, so the primary CTA points at /signup rather than
+              deep-linking into the app and bouncing the visitor to /login. */}
           <Link href="/login" className="hidden text-sm text-slate-300 hover:text-cyber-300 sm:block">
             Sign in
           </Link>
-          <Link href="/dashboard">
-            <Button variant="primary">Enter SOC</Button>
+          <Link href="/signup">
+            <Button variant="primary">Create account</Button>
           </Link>
         </div>
       </header>
@@ -53,8 +54,8 @@ export default function Landing() {
             the ground truth.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/rooms"><Button size="lg" variant="primary">Start Learning</Button></Link>
-            <Link href="/dashboard"><Button size="lg" variant="outline">Open SOC Dashboard</Button></Link>
+            <Link href="/signup"><Button size="lg" variant="primary">Start Learning — it&apos;s free</Button></Link>
+            <Link href="/login"><Button size="lg" variant="outline">I already have an account</Button></Link>
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-500">
             <span>Inspired by CrowdStrike Falcon · Microsoft Sentinel · Splunk · Elastic Security · IBM QRadar · Wazuh</span>

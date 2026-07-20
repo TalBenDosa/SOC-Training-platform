@@ -143,9 +143,16 @@ export default function SignupPage() {
 
       <p className="mt-5 text-center text-xs text-slate-500">
         Already have an account? <Link href="/login" className="text-cyber-300 hover:underline">Sign in</Link>
+        {" · "}
+        <Link href="/reset-password" className="text-cyber-300 hover:underline">Forgot password?</Link>
       </p>
       <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
-        <CheckCircle2 className="h-3 w-3" /> Progress you&apos;ve made on this device carries over automatically.
+        {/* This used to read "progress you've made on this device carries over".
+            That stopped being true for new visitors once the routes were gated:
+            you can no longer reach a room without an account, so there is no
+            guest progress left to carry. It still holds for anyone who used the
+            platform BEFORE the gate, hence the conditional wording. */}
+        <CheckCircle2 className="h-3 w-3" /> Any progress from before you signed up carries over automatically.
       </p>
     </Card>
   );

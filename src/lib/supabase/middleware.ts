@@ -25,12 +25,25 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "./config";
 
-/** Reachable without signing in: the landing page and the auth flow itself. */
+/**
+ * Reachable without signing in: the landing page and the auth flow itself.
+ *
+ * Every entry here is a step someone with NO session must be able to complete,
+ * so the list is exactly the sign-in funnel and nothing else.
+ *
+ * `/reset-password` was missing from the first version of this gate, which
+ * deadlocked the one flow that only ever runs while logged out: the "Forgot
+ * password?" link on /login pointed at a page the gate bounced straight back
+ * to /login. A user who forgot their password had no way to recover it.
+ * /update-password (the second half of the flow, reached from the emailed
+ * link) was already listed — only the request page was missed.
+ */
 const PUBLIC_PREFIXES = [
   "/login",
   "/signup",
-  "/update-password",
-  "/auth",          // callback / email-confirmation routes
+  "/reset-password",   // request a reset email — runs while logged out
+  "/update-password",  // set the new password, reached from the emailed link
+  "/auth",             // callback / email-confirmation routes
 ];
 
 /** Admin-only. Content authoring — the panel the platform owner edits with. */
