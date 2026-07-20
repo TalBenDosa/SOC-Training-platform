@@ -13,6 +13,7 @@ import { roomsBatch20 } from "./rooms-batch-20";
 import { roomsBatch21 } from "./rooms-batch-21";
 import { roomsBatch22 } from "./rooms-batch-22";
 import { roomsBatch23 } from "./rooms-batch-23";
+import { roomsBatch24 } from "./rooms-batch-24";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -190,4 +191,5 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch21), // log-entry-anatomy, identity-basics
   ...cast(roomsBatch22), // malware-types, asset-context-prioritisation
   ...cast(roomsBatch23), // security-products-behaviour
+  ...cast(roomsBatch24), // credential-attacks-practice, lateral-movement-practice, web-attacks-practice
 ];
