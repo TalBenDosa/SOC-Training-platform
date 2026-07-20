@@ -889,9 +889,16 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
 
   return (
     <div>
+      {/* The subtitle was `Threat actor: ${bundle.threat_actor}`, displayed for
+          the whole investigation. Attribution is a conclusion the analyst is
+          supposed to reach; printing it up front removed the exercise, and on
+          the two false-positive scenarios the field literally read "None —
+          authorised backup activity", i.e. the verdict. The field is now blanked
+          server-side as well (see page.tsx); the ternary keeps the subtitle
+          meaningful if it ever arrives populated. */}
       <Topbar
         title={bundle.title}
-        subtitle={`Threat actor: ${bundle.threat_actor}`}
+        subtitle={bundle.threat_actor ? `Threat actor: ${bundle.threat_actor}` : "Active investigation — attribution to be determined"}
         actions={undefined}
       />
 

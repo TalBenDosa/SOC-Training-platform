@@ -121,8 +121,12 @@ export default function ScenariosPage() {
                 <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
                 <p className="mt-1 flex-1 text-sm text-slate-400">{s.summary}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  <Badge>{s.attack_kind.replaceAll("_", " ")}</Badge>
-                  <Badge variant="outline">{s.threat_actor}</Badge>
+                  {/* attack_kind and threat_actor both spoil the exercise from the
+                      card: attack_kind renders "false positive" and threat_actor
+                      renders "None - authorised backup activity", so a student
+                      knows the verdict before opening the scenario. Difficulty is
+                      the only property they legitimately need in order to choose. */}
+                  <Badge variant="outline">{s.difficulty}</Badge>
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <div className="text-[11px] text-slate-500">+250 XP · ~45 min</div>
@@ -153,8 +157,12 @@ export default function ScenariosPage() {
                 <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
                 <p className="mt-1 flex-1 text-sm text-slate-400 line-clamp-2">{s.narrative}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  <Badge>{s.attack_kind.replaceAll("_", " ")}</Badge>
-                  <Badge variant="outline">{s.threat_actor}</Badge>
+                  {/* attack_kind and threat_actor both spoil the exercise from the
+                      card: attack_kind renders "false positive" and threat_actor
+                      renders "None - authorised backup activity", so a student
+                      knows the verdict before opening the scenario. Difficulty is
+                      the only property they legitimately need in order to choose. */}
+                  <Badge variant="outline">{s.difficulty}</Badge>
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <div className="text-[11px] text-slate-500">
