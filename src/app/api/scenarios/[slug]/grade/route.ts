@@ -168,6 +168,13 @@ Write exactly 3 sentences of actionable, encouraging feedback. One sentence on t
   return NextResponse.json({
     score, xpEarned, timeBonusXp, perQuestion, aiFeedback, passed,
     quizScore,
+    // The debrief. Withheld from the page payload so it is not readable in
+    // view-source during the investigation; delivered here once the report is in.
+    debrief: {
+      narrative: bundle.narrative,
+      learningObjectives: bundle.learning_objectives ?? [],
+      killchain: bundle.killchain ?? [],
+    },
     report: {
       score: reportScore,
       rubric: reportRubric,

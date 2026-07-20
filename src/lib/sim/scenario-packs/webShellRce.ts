@@ -822,6 +822,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     title: "SQL Injection → Web Shell → Server Compromise",
     threat_actor: "TA-BRASSVINE (opportunistic web exploitation crew)",
     attack_kind: "web_exploitation",
+    briefing: "Two alerts for shop.cryotech.com are queued: a burst of blocked SQL injection attempts against the site this morning, and a Defender for Endpoint detection on WEB-SHOP-01 at 09:52 involving the IIS worker process. The quarterly PCI ASV scan is also running today.",
     narrative: `Cryotech's storefront, shop.cryotech.com, runs on IIS on WEB-SHOP-01 behind an ALB with an AWS WAF web ACL and the AWS managed rule sets enabled. On Tuesday 17 March the SOC's WAF dashboard looks healthy: dozens of SQL injection attempts, all blocked, 403 across the board. Some of them are the authorized quarterly PCI ASV scan; some of them are not.
 
 At 09:38 a single POST to an inventory lookup API — 12,438 bytes of JSON, an ordinary browser User-Agent, a source address that had not appeared before — is allowed through. IIS answers it with 200 and 3.3 MB. Nine minutes later a file called bootstrap.bundle.aspx appears in the site's JavaScript vendor folder, written there by the IIS worker process itself. By 10:04 something running as SYSTEM is uploading data to an external host.

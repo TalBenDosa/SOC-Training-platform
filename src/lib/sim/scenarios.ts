@@ -1024,6 +1024,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     title: "Phishing → Cloud Exfiltration",
     threat_actor: "TA-COBALTSPIDER (financially motivated)",
     attack_kind: "phishing_to_exfil",
+    briefing: "CrowdStrike raised a high-severity detection on WS-FIN-2847 (j.smith) at 10:00. Twenty minutes later Entra ID Identity Protection flagged the same user's account as High Risk. Both alerts are sitting unassigned in the queue.",
     narrative: `At 09:47, a finance analyst at Cryotech Industries received what appeared to be a routine vendor invoice. The macro-enabled Word attachment bypassed email security via a misconfigured transport rule. Twenty seconds after clicking "Enable Content", Office spawned a hidden PowerShell process loading a Cobalt Strike beacon. Within 90 seconds the host was beaconing to a 3-day-old domain, dropping a DLL into %TEMP%, and writing a Run key for persistence. Eighteen minutes in, LSASS was dumped using a built-in Windows DLL — no external tools. Thirty-five minutes later, the stolen credentials authenticated from the Netherlands, a hidden inbox rule silently rerouted financial emails, and 184MB of customer PII was pulled from S3. Your job: trace the full kill chain, identify the persistence mechanism, and determine what containment actions would have stopped the exfiltration.`,
     learning_objectives: [
       "Identify spearphishing delivery and recognize SPF/DKIM/DMARC bypass techniques",
@@ -1576,6 +1577,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     title: "Password Spray → BEC Mailbox Rule",
     threat_actor: "TA-VOIDPELICAN (Business Email Compromise operator)",
     attack_kind: "identity_bec",
+    briefing: "Entra ID flagged 47 failed sign-ins against Cryotech accounts from a single external address just after 08:00, and a.nelson and r.garcia both locked out. At 08:26 CFO p.johnson called the help desk to report unexpected prompts on his phone.",
     narrative: `Over a 4-minute window at 08:00, 47 authentication failures hit Finance and Executive accounts from a single Dutch IP — deliberately staying under the 5-attempt lockout threshold on most accounts. At 08:12, l.harris accepted an MFA push at 02:12 local time. Six minutes later the attacker had created a hidden inbox rule intercepting all wire/invoice/payment emails, scraped 340 emails to profile payment workflows, and enabled forwarding to a personal gmail address. At 08:25 a fraudulent $247K wire transfer request landed in the CFO's inbox. The CFO also received 8 MFA push notifications in 5 minutes — a fatigue attack to compromise the payment approver too. Your job: reconstruct the attack chain, identify all persistence mechanisms, and determine why revoking the session isn't enough.`,
     learning_objectives: [
       "Identify password spraying by recognizing below-threshold multi-account failure patterns",
@@ -2232,6 +2234,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     title: "Ransomware Outbreak — LockBit 3.0",
     threat_actor: "LockBit 3.0 affiliate (Ransomware-as-a-Service)",
     attack_kind: "ransomware",
+    briefing: "CrowdStrike raised a critical detection on FS-CORP-01 at 05:18 and the Finance share is reporting inaccessible files. A separate high-severity alert fired earlier on WS-FIN-1193. Both are queued to you.",
     narrative: `At 03:15 on a Wednesday, a finance analyst working late received what appeared to be a payroll update email. The macro-enabled attachment bypassed email filters and spawned a Cobalt Strike beacon that ran silently for 90 minutes. At 04:43 the beacon elevated itself through a fodhelper UAC bypass, and two minutes later domain admin credentials were extracted from LSASS memory. The attacker pivoted over SMB to the central file server, deleted all 12 Volume Shadow Copies, cleared the Security and System event logs, then unleashed LockBit 3.0 — encrypting 2,847 files (18GB) across Finance, HR, and Contracts shares in under 2 minutes. Your job: identify patient zero, trace the lateral movement, understand why the CrowdStrike sensor didn't block it, and determine the earliest point where this attack could have been stopped.`,
     learning_objectives: [
       "Identify the patient zero host and trace the infection path through the kill chain",
@@ -2707,6 +2710,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     title: "OAuth App Persistence — Cloud APT",
     threat_actor: "APT-CLOUDGHOUL (nation-state, cloud-focused IP theft)",
     attack_kind: "oauth_persistence",
+    briefing: "Microsoft 365 Security raised an alert on s.chen's account at 18:30 for ongoing mailbox and file access. The helpdesk had already reset this user's password that morning under ticket INC-4821, following a suspicious sign-in report. Queued to you for scoping.",
     narrative: `A Senior Product Engineer's Entra ID account was compromised after accepting an MFA push at 02:40. Within 5 minutes the attacker registered a convincingly named OAuth application ('MicrosoftSecurityUpdate') and granted it tenant-wide consent for mail and file access. When IT reset the password 7 hours later following a user complaint, the Graph API calls didn't stop — the OAuth app silently continued reading emails and downloading files for another 9 hours. By the time the CASB alerted, 330 emails had been read, a confidential $340M product roadmap had been exfiltrated, and 89 additional files totalling 340MB were gone. Your mission: explain the persistence mechanism, determine why the password reset failed, identify the correct remediation, and scope what was exfiltrated.`,
     learning_objectives: [
       "Understand how OAuth application consent creates persistence independent of user passwords",
@@ -3091,6 +3095,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
     title: "Insider Threat — Finance Data Exfiltration",
     threat_actor: "Malicious Insider (Finance Analyst, pending termination)",
     attack_kind: "insider_threat",
+    briefing: "Microsoft Purview DLP fired policy Finance-PII-Bulk-Download on m.torres at 13:25, sourced from WS-FIN-4421. Microsoft Sentinel UEBA raised a separate anomaly on the same account shortly after. No containment has been applied.",
     narrative: `HR notified payroll — but not IT Security — that a finance analyst was being terminated the following day. By 13:10, the analyst had already downloaded 47 payroll and compensation files from the Finance SharePoint site. Microsoft Purview DLP fired a High severity alert at 13:25, but the policy action was 'notify user only' — not block. A SanDisk USB drive was inserted 5 minutes later, and 26MB of files were copied within 23 seconds of mounting. An attempted Google Drive upload was blocked by Zscaler. A second exfiltration channel — email to a personal gmail account — succeeded because the DLP policy was also set to notify-only. Your job: determine what was successfully exfiltrated, identify every detection gap, and recommend both immediate containment and long-term policy changes.`,
     learning_objectives: [
       "Recognize multi-indicator insider threat patterns combining HR context with technical telemetry",
@@ -3431,6 +3436,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     title: "Account Compromise — Impossible Travel",
     threat_actor: "External Threat Actor (Credential Theft)",
     attack_kind: "account_compromise",
+    briefing: "Azure AD Identity Protection raised an impossible-travel alert on k.taylor at 09:04, and the VPN concentrator logged a second session for the same account minutes after the first. The user has not been contacted yet.",
     narrative: `At 09:00, k.taylor connected VPN normally from Tel Aviv. Four minutes later, the same credentials were used to connect from Lagos, Nigeria — 7,200 km away. This is physically impossible. The attacker, who had stolen k.taylor's credentials, logged in from Nigeria and immediately: authenticated to O365, created a hidden inbox forwarding rule (forwarding all emails to a ProtonMail address), and downloaded 847 engineering files from SharePoint in under 6 minutes.`,
     learning_objectives: [
       "Recognize impossible travel as a credential compromise indicator",
@@ -3634,6 +3640,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
     title: "Phishing Attachment → Malware Execution → Workstation Compromise",
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "phishing_malware_basic",
+    briefing: "CrowdStrike Falcon raised a critical detection on WS-HR-1182 (r.avraham) at 10:33 and quarantined a file. The mail gateway also logged an inbound attachment to the same user earlier this morning. Confirm what ran on the host.",
     narrative: `r.avraham received a phishing email disguised as a shipping notification, with a ZIP attachment hiding a trojan behind a double file extension (.pdf.exe). Minutes after opening it, the malware called out to a freshly-registered command-and-control domain and was later caught and quarantined by the EDR — but not before it had already run on the workstation.`,
     learning_objectives: [
       "Recognize a phishing email with a disguised executable attachment (T1566.001)",
@@ -3809,6 +3816,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
     title: "Malicious USB Drive → Trojan Persistence → Workstation Compromise",
     threat_actor: "Commodity Malware / Opportunistic Physical Access",
     attack_kind: "usb_malware_basic",
+    briefing: "CrowdStrike Falcon raised a critical detection on WS-OPS-2214 at 13:50 and quarantined a file. Removable-media activity was logged on the same workstation shortly beforehand. The assigned user, m.levi, has not reported anything.",
     narrative: `An untagged USB drive was plugged into WS-OPS-2214 and a file was copied to the Desktop. m.levi ran it, believing it to be a legitimate backup tool. The binary set up a Registry Run key to survive reboots and was later caught and quarantined by the EDR — but only after it had already gained a foothold on the workstation.`,
     learning_objectives: [
       "Recognize removable media as an infection vector, separate from email or the network",
@@ -4004,6 +4012,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
     title: "Sideloaded Browser Extension → PowerShell Spawned by Chrome",
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "browser_extension_malware_basic",
+    briefing: "CrowdStrike Falcon raised a critical detection on WS-MKT-3301 (d.cohen) at 09:12 and quarantined a folder under the user's profile. The firewall logged an outbound connection from the same host to an unfamiliar domain minutes earlier.",
     narrative: "d.cohen installed a browser extension promising to speed up Chrome, loaded through a developer-mode flag rather than the Chrome Web Store. Within minutes, chrome.exe spawned an encoded PowerShell command that reached out to a freshly-registered domain, and was later caught and quarantined by the EDR — but not before the beacon completed.",
     learning_objectives: [
       "Recognize a sideloaded browser extension as a persistence mechanism (T1176), separate from email or removable media",
@@ -4172,6 +4181,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
     title: "Tech-Support Scam → Unapproved Remote Access Tool",
     threat_actor: "Tech-Support Scam Operator (opportunistic, financially motivated)",
     attack_kind: "tech_support_scam_basic",
+    briefing: "SentinelOne terminated a process on WS-ACC-4477 at 14:20 and flagged unapproved software running under t.mizrahi's session. The user has not opened a ticket. Establish what was running and what it did while it was up.",
     narrative: "t.mizrahi received a call from someone claiming to be Microsoft technical support and was talked into downloading and running AnyDesk, then granting the caller remote control of WS-ACC-4477. The caller ran basic system enumeration commands through the remote session before SentinelOne flagged the unapproved remote-access tool and terminated it.",
     learning_objectives: [
       "Recognize that a legitimate, signed tool can still be the vehicle for an attack when used outside policy (T1219)",
@@ -4335,6 +4345,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
     title: "Cracked Software Installer → Scheduled Task Persistence",
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "cracked_software_installer_basic",
+    briefing: "Microsoft Defender quarantined a file on WS-ENG-2093 at 20:25 and reported removing a scheduled task on the same host. The activity is well outside business hours and y.golan is the assigned user, who has reported nothing.",
     narrative: "y.golan searched for a free way to activate Office, clicked a sponsored ad, and downloaded a trojanized activator installer late in the evening. Running it dropped a second executable that set up a recurring scheduled task for persistence, and was later caught and quarantined by Microsoft Defender — but only after the payload had already run.",
     learning_objectives: [
       "Recognize a trojanized installer served through a sponsored search-ad as an infection vector distinct from email or USB",
@@ -4511,6 +4522,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
     title: "Malicious Office Macro → PowerShell Execution",
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "malicious_macro_basic",
+    briefing: "CrowdStrike Falcon killed a process on WS-SALES-1876 (s.peretz) at 11:26. The mail gateway logged an inbound attachment to the same user a few minutes earlier, and the firewall shows an outbound connection from the host in between.",
     narrative: "s.peretz received a phishing email with a macro-enabled Word attachment disguised as an invoice review request. Enabling content caused WINWORD.EXE to spawn an encoded PowerShell command, which reached out to a freshly-registered domain before CrowdStrike caught and quarantined it.",
     learning_objectives: [
       "Recognize a macro-enabled Office attachment as a delivery mechanism (T1566.001)",
@@ -4910,6 +4922,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     title: "Kerberoasting → Service Account Compromise → xp_cmdshell",
     threat_actor: "Internal Attacker (Compromised Developer Account)",
     attack_kind: "credential_theft_kerberoasting",
+    briefing: "Microsoft Sentinel fired 'Anomalous Kerberos service ticket volume' for m.cohen on WS-DEV-4412 at 10:12, and Defender for Identity raised a separate reconnaissance alert on the same workstation. A related alert on srv-db01 is attached to the ticket.",
     narrative: `An attacker with a foothold on developer workstation WS-DEV-4412 used PowerView to enumerate all service principal names (SPNs) via LDAP. They then requested Kerberos TGS tickets for 12 service accounts in 90 seconds — all using weak RC4 encryption (0x17). These tickets were exfiltrated and cracked offline using hashcat. Fifteen minutes later, the cracked svc-mssql password was used to log in interactively to the database server. From there, xp_cmdshell was used to execute a PowerShell reverse shell.`,
     learning_objectives: [
       "Identify RC4 encryption (0x17) in Event ID 4769 as a Kerberoasting indicator",
@@ -5264,6 +5277,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     title: "DNS Tunneling — C2 Channel & Data Exfiltration",
     threat_actor: "APT-TUNNELRAT (Nation-State Affiliate)",
     attack_kind: "c2_dns_tunneling",
+    briefing: "Microsoft Sentinel fired a DNS query-volume anomaly on WS-ENG-3301 at 14:12 — the host is far above its own baseline. Defender for Endpoint has attached a process name to the traffic, and the firewall logged port 53 traffic to an unfamiliar domain.",
     narrative: `An attacker who had established initial access delivered dnscat2 via an encoded PowerShell command. The tool opened a covert C2 channel using DNS queries — encoding all communication as base32 subdomain names to the attacker-controlled domain c2-nexus-update.xyz. Commands were received via DNS TXT record responses. After recon commands, the attacker began exfiltrating sensitive data by encoding it into sequential DNS subdomain names, chunking a 29 KB file over 247 queries in 4 minutes — a DNS label is capped at 63 bytes, so each query carries only about 120 bytes of decoded data.`,
     learning_objectives: [
       "Recognize DNS tunneling indicators: high-entropy subdomains, long subdomain names, TXT record C2",
@@ -5843,6 +5857,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     title: "Living-off-the-Land (LOLBins) — certutil → regsvr32 → Persistence",
     threat_actor: "TA-GHOSTSHELL (APT Group)",
     attack_kind: "lolbins_defense_evasion",
+    briefing: "Microsoft Sentinel fired a rare-command-line detection on WS-HR-1133 (s.patel) at 11:05, and the firewall logged outbound HTTP from the same host to two external addresses in that window. A mail delivery to this user is also queued for review.",
     narrative: `A phishing email delivered a macro-enabled document to an HR workstation, spawning cmd.exe and beginning a 7-step LOLBin attack chain: certutil downloaded the initial payload (bypassing download controls since certutil is a trusted Windows binary), regsvr32 executed a remote COM scriptlet (Squiblydoo — bypasses AppLocker), mshta loaded a second-stage VBScript from URL, wmic performed process discovery, bitsadmin downloaded a persistence binary via a BITS job, rundll32 loaded an unsigned DLL from a user-writable path, and finally schtasks created a SYSTEM-level scheduled task that executes every 5 minutes. Every step used built-in, trusted Windows binaries to evade detection.`,
     learning_objectives: [
       "Identify the 7 most commonly abused LOLBins: certutil, regsvr32, mshta, wmic, bitsadmin, rundll32, schtasks",
@@ -6478,6 +6493,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
     title: "Cloud Credential Leak — Cryptomining + Data Breach",
     threat_actor: "Financially Motivated Actor (UNC3782)",
     attack_kind: "cloud_cryptomining",
+    briefing: "GitHub Advanced Security reported an exposed AWS access key in rocketstack-io/deploy-scripts at 09:03 and auto-revoked it. AWS Cost Anomaly Detection has since flagged a spend spike on the same account, and GuardDuty has an open finding. Scope the account.",
     narrative: `At 09:00, junior DevOps engineer a.levy accidentally committed AWS access keys to a public GitHub repository. GitHub's secret scanning detected the leak 3 minutes later and automatically revoked the key — but the damage was already done. Within 2 minutes of the commit, an automated bot operated by UNC3782 (a financially motivated threat actor known for scanning GitHub for cloud credentials) captured the keys and ran GetCallerIdentity to confirm they were valid. Over the next 24 minutes, the attacker executed a textbook cloud credential abuse playbook: rapid recon across S3, EC2, and Secrets Manager; launching 14 GPU instances (p3.8xlarge) across two regions to mine Monero at $342/hr; creating a backdoor IAM user with AdministratorAccess for persistence; and finally making a production S3 bucket public to exfiltrate 4.7GB of customer PII, payment tokens, and API keys. Your job: trace the attack from credential leak to data breach, identify the critical persistence mechanism that revoking the original key would not fix, and define the complete remediation sequence.`,
     learning_objectives: [
       "Understand how automated GitHub credential scanners work and why a 3-minute revocation window can still be too late",
@@ -7065,6 +7081,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     title: "DCSync → Golden Ticket (Domain Dominance)",
     threat_actor: "APT-IRONBEAR (nation-state, Russia nexus)",
     attack_kind: "dcsync_golden_ticket",
+    briefing: "An interactive RDP logon for it.admin was recorded on DC01 from an external address at 01:15 — the first time this account has authenticated from that country. Windows Defender raised a tool detection on the same host three minutes later. Nothing was blocked.",
     narrative: `At 01:15 AM Israeli time, NexaCorp's IT admin account — compromised weeks earlier via a targeted spearphishing campaign — was used to RDP directly into the primary Domain Controller from a Netherlands Tor exit node. The attacker moved methodically: first disabling Windows Defender via registry tamper, then launching Mimikatz to execute a DCSync attack using the legitimate DS-Replication-Get-Changes-All extended right. Within 10 minutes, the krbtgt account's NTLM hash was extracted — the domain's master Kerberos signing key. Using this hash, the attacker forged a Golden Ticket offline with a 10-year lifetime, granting unlimited, password-reset-resistant access to every service in the domain. The attacker then authenticated directly to the secondary DC using the forged ticket, ran ntdsutil to snapshot the entire Active Directory database (2.7 GB — every domain account's credentials), created a disguised shadow admin account svc-monitoring-prod, and finally cleared the Security event log to erase the evidence. Your job: trace the DCSync kill chain, identify the Golden Ticket indicators, and determine the correct incident response actions for a fully compromised Active Directory domain.`,
     learning_objectives: [
       "Identify DCSync attacks using Windows Event ID 4662 with DS-Replication-Get-Changes-All GUIDs",
@@ -7471,6 +7488,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
     title: "Supply Chain Attack — Malicious Vendor Update",
     threat_actor: "APT-SHADOWSUPPLY (nation-state supply chain operator)",
     attack_kind: "supply_chain",
+    briefing: "CrowdStrike raised a detection on prod-srv-01 at 14:35. The host completed a scheduled NetPulse agent auto-update earlier that afternoon under an approved change record. The firewall shows repeated outbound HTTPS from this server since. Confirm whether the two are related.",
     narrative: `On a Tuesday afternoon, RocketStack's production server ran a routine auto-update for the NetPulse infrastructure monitoring agent. The download came from the real vendor CDN, the installer carried an authentic NetPulse code-signing certificate, and the update was in the change management calendar. What no one at RocketStack knew was that APT-SHADOWSUPPLY — a nation-state group specializing in software supply chain attacks — had compromised NetPulse Solutions' build pipeline three days earlier and embedded a malicious DLL (libnetpulse_core.so.2) inside the v4.2.2 package. Within 5 minutes of installation the malware spawned a child process from an unexpected path, established a C2 beacon to a 3-day-old domain masquerading as vendor telemetry, and wrote a cron job for persistence. Over the following 20 minutes it systematically hunted for credentials, read AWS access keys from /root/.aws/credentials, and began enumerating RocketStack's entire cloud infrastructure. The final blow: 2.3 GB of production database backups and customer PII exfiltrated via 847 S3 API calls — sourced through a Singapore relay that initially appeared unrelated to the C2. Your job: identify the supply chain indicator that exposes the trojanized update, trace the attacker's proxy chain across log sources, and define the two immediate containment actions.`,
     learning_objectives: [
       "Understand why supply chain attacks bypass traditional controls: the initial download is legitimate and signed by a trusted vendor certificate",
@@ -7775,6 +7793,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     title: "MFA Fatigue → Okta Account Takeover",
     threat_actor: "UNC3944",
     attack_kind: "Identity Attack / Account Takeover",
+    briefing: "Okta flagged 47 consecutive failed authentications on j.chen's account from a foreign address between 01:20 and 01:32, followed by a successful login. A new device is now enrolled on the account. j.chen has not been reached.",
     narrative: "UNC3944 obtained j.chen's password from a credential marketplace. After covering their tracks with 47 noisy spray attempts, they authenticated and bypassed MFA by bombarding Jennifer Chen's phone with 60 push notifications over 11 minutes until she approved at 01:32 AM — fatigue-induced mistake. Within 2 minutes the attacker enrolled a new device from Moscow, collected her entire mailbox via Graph API, bulk-downloaded 847 SharePoint files, and established persistence via a new API token and a Conditional Access policy exclusion for their device.",
     learning_objectives: [
       "Recognize MFA push bombardment pattern (volume + timing anomaly)",
@@ -7790,6 +7809,9 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
 // ─── AS-REP Roasting → Offline Hash Crack (⭐⭐ Intermediate) ────────────────
 
 export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): ScenarioBundle {
+  // The Python interpreter hosting the Impacket module — the one artefact in an
+  // otherwise entirely internal AD attack that an analyst can actually look up.
+  const pyHash = makeSha256("python_exe_impacket_host");
   const B = new Date("2026-05-10T09:00:00Z").getTime();
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
@@ -7892,9 +7914,10 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
       description: "CrowdStrike detected m.johnson's account on WS-DEV-09 running GetNPUsers.py against nexacorp.local, writing hashcat-formatted output to /tmp/asrep_hashes.txt.",
       fp_explanation: "Python scripts run constantly on developer machines. 'GetNPUsers' isn't a well-known household tool name — many junior analysts don't recognize it as an Impacket attack module.",
       raw: {
-        "cs.ContextProcessName": "python3.exe",
-        "cs.CommandLine": "GetNPUsers.py nexacorp.local/ -no-pass -usersfile /tmp/users.txt -format hashcat -outputfile /tmp/asrep_hashes.txt",
+        "cs.ContextProcessName": "python.exe",
+        "cs.CommandLine": "GetNPUsers.py nexacorp.local/ -no-pass -usersfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\users.txt -format hashcat -outputfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\asrep_hashes.txt",
         "cs.FileName": "GetNPUsers.py",
+        "cs.SHA256HashData": pyHash,
         "cs.FilePath": "C:\\Users\\m.johnson\\AppData\\Local\\Temp\\impacket\\",
         "cs.UserName": "NEXACORP\\m.johnson",
         "cs.ParentProcessName": "cmd.exe",
@@ -8074,6 +8097,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     title: "AS-REP Roasting → Offline Hash Crack",
     threat_actor: "APT28 (Fancy Bear)",
     attack_kind: "Credential Access / Lateral Movement",
+    briefing: "CrowdStrike raised a detection on WS-DEV-09 under m.johnson's account at 09:04. DC01 logged a burst of Kerberos ticket issuance for three service accounts around the same time, and Zeek flagged the traffic between the two hosts.",
     narrative: "APT28 operator with foothold on developer workstation WS-DEV-09 discovers three NexaCorp service accounts with Kerberos pre-authentication disabled. Using Impacket GetNPUsers.py, they request AS-REP responses (TGTs) without providing credentials. The RC4-encrypted TGT hashes are cracked offline (silent period — no logs). Six hours later, the cracked svc-backup password is used to authenticate laterally, access NTDS.dit via shadow copy, and probe Domain Admin group membership.",
     learning_objectives: [
       "Understand that Kerberos Event 4768 with PreAuthType=0 means the account is vulnerable to AS-REP Roasting",
@@ -8368,6 +8392,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
     title: "NTLM Relay — Internal Credential Hijacking",
     threat_actor: "FIN7 (compromised internal machine)",
     attack_kind: "Credential Access / Lateral Movement",
+    briefing: "Zeek flagged LLMNR broadcast traffic on the finance VLAN at 10:12 and CrowdStrike raised a tooling detection on WS-DEV-09. Separately, SRV-FILE01 recorded a service installation and a network logon for l.nguyen. All three are on one ticket.",
     narrative: "FIN7 operator with foothold on developer workstation WS-DEV-09 runs Responder to poison LLMNR broadcasts. When finance analyst l.nguyen's machine (WS-FIN-03) attempts to connect to a typo’d share name, Responder intercepts the broadcast and presents itself as the target. WS-FIN-03 sends its NTLM challenge-response — Responder relays it to SRV-FILE01, authenticating as l.nguyen from the attacker’s IP. The attacker then deploys PSEXESVC for SYSTEM execution, dumps LSASS credentials, and pivots to three additional internal servers. No external C2, no malware dropped on WS-FIN-03 — just internal auth relay.",
     learning_objectives: [
       "Correlate three low-fidelity events (LLMNR broadcast, LLMNR response, auth failure) into a single attack chain",
@@ -8646,6 +8671,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     title: "Kubernetes Pod Escape → Cloud Metadata Theft",
     threat_actor: "APT40",
     attack_kind: "Cloud Attack / Container Escape",
+    briefing: "GuardDuty raised a finding against the production EKS cluster at 02:50 for anomalous use of the eks-node-role credentials. The Kubernetes audit log separately shows exec activity into container api-prod-7f8b9c by the ci-deploy-token service account.",
     narrative: "APT40 obtains a compromised CI/CD deploy token and uses it to exec into a production container via kubectl. Using nsenter, they escape to the EC2 node OS and query the AWS Instance Metadata Service (169.254.169.254) to steal the IAM role credentials bound to the node. From an external IP (Tor exit node), they enumerate the entire AWS account, access a secrets S3 bucket containing production database passwords, create a privileged pod in kube-system for cluster persistence, and create a backdoor IAM user with AdministratorAccess. Three log sources must be correlated: Kubernetes audit, EDR on the node, and AWS CloudTrail.",
     learning_objectives: [
       "Understand the container escape path: kubectl exec → nsenter → host OS access",
@@ -8940,6 +8966,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
     title: "OAuth Consent Grant Phishing — Silent BEC",
     threat_actor: "APT29 / Cozy Bear",
     attack_kind: "Identity Attack / Business Email Compromise",
+    briefing: "Microsoft Purview DLP fired at 23:30 when a document on the Finance SharePoint site was opened by an application named 'Productivity Suite Pro', and Sentinel UEBA raised the same service principal's risk score. The registered user is j.chen.",
     narrative: "APT29 registers a malicious Azure AD app named 'Productivity Suite Pro' on a typosquatted domain (productivty-suite.com — missing the 'i') and sends j.chen a phishing link. Chen clicks 'Allow' — granting the app Mail.ReadWrite + Files.ReadWrite.All + Calendars.Read. The app silently reads 1,247 emails, copies 312 SharePoint files including a confidential GlobalLogis contract, creates an inbox forwarding rule to an external address, and maps the org chart via calendar. No malware. No suspicious IPs. No credential theft. Everything happens through Microsoft's own Graph API using delegated permissions the user granted. The only IoCs are app registration age, unverified publisher, and a typosquatted redirect URI domain.",
     learning_objectives: [
       "Understand OAuth consent phishing: attacker uses legitimate Graph API permissions, no malware or credential theft needed",

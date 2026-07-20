@@ -58,6 +58,48 @@ for (const def of SCENARIOS) {
     add("ERROR", slug, "questions", "no questions — score computes as 0/0 and the scenario can never be passed");
   }
 
+  // ── 1b. The briefing must not answer the exercise ──────────────────────
+  // The analyst reconstructs the attack from the logs. Anything the ticket
+  // states up front is work the student never does — the LockBit briefing named
+  // the victim role, the lateral-movement protocol and the pre-encryption step,
+  // which between them answered four of its five questions.
+  if (!b.briefing) {
+    add("ERROR", slug, "briefing", "no briefing — the full narrative would be shown before any log is read");
+  } else {
+    const brief = b.briefing.toLowerCase();
+    if (b.briefing.length > 420) {
+      add("WARN", slug, "briefing", `${b.briefing.length} chars — a ticket is terse; long briefings smuggle in findings`);
+    }
+    if (/\bT1\d{3}(\.\d{3})?\b/i.test(b.briefing)) {
+      add("ERROR", slug, "briefing", "names an ATT&CK technique ID — that is the analyst's conclusion");
+    }
+    const TELLS = [
+      "lateral movement", "pass-the-hash", "pass the hash", "privilege escalation",
+      "exfiltrat", "patient zero", "kill chain", "killchain", "c2 ", "command and control",
+      "shadow copies", "credential dump", "lsass", "kerberoast", "golden ticket",
+      "web shell", "webshell", "uac bypass", "token theft", "session hijack",
+    ];
+    for (const t of TELLS) {
+      if (brief.includes(t)) {
+        add("ERROR", slug, "briefing", `states "${t}" — that is a finding the student should derive`);
+        break;
+      }
+    }
+    // A briefing that repeats a correct answer verbatim is the same defect.
+    for (const q of b.questions ?? []) {
+      const correct = Array.isArray(q.answer) ? q.answer : [q.answer];
+      for (const o of q.options ?? []) {
+        if (!correct.includes(o.value)) continue;
+        const words = o.label.toLowerCase().split(/[^a-z0-9.]+/).filter(w => w.length > 6);
+        const overlap = words.filter(w => brief.includes(w));
+        if (words.length >= 3 && overlap.length >= Math.ceil(words.length * 0.6)) {
+          add("ERROR", slug, `briefing/${q.id}`,
+            `briefing overlaps the correct answer ("${o.label.slice(0, 50)}…")`);
+        }
+      }
+    }
+  }
+
   // ── 2. Every learning objective must be assessed somewhere ─────────────
   if ((b.learning_objectives ?? []).length > (b.questions ?? []).length + 1) {
     add("WARN", slug, "objectives",

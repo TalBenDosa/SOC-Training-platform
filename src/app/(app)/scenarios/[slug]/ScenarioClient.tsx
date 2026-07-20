@@ -953,30 +953,48 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
 
       <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6">
 
-        {/* Incident Briefing */}
+        {/* ── Ticket ─────────────────────────────────────────────────────────
+            Before submission the analyst sees only what the SOC actually
+            received: the triggering alert and the asset. The full narrative
+            used to sit here in every phase and it described the intrusion in
+            order — in the LockBit scenario four of five questions could be
+            answered from that paragraph alone, without opening a log. It is
+            now the debrief, shown once the report is in. */}
         <div className="rounded border border-border/60 bg-[#0d1520] px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
-            <Badge>Scenario</Badge>
+            <Badge>{phase === "complete" ? "Debrief" : "Open Ticket"}</Badge>
             <Badge variant="outline">{bundle.alerts.length} alerts</Badge>
             <Badge variant="outline">{bundle.events.length} events</Badge>
-            <Badge variant="outline">{bundle.iocs.length} IOCs</Badge>
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-2">
-            Incident Briefing
+            {phase === "complete" ? "What actually happened" : "Reported by"}
           </p>
-          <p className="text-sm leading-relaxed text-slate-300">{bundle.narrative}</p>
+          <p className="text-sm leading-relaxed text-slate-300">
+            {phase === "complete"
+              ? (gradeResult?.debrief?.narrative || bundle.narrative)
+              : (bundle.briefing ?? "An alert fired on a monitored asset and was queued for triage. Work the log evidence below and write up what you find.")}
+          </p>
+          {phase !== "complete" && (
+            <p className="mt-3 border-t border-border/40 pt-3 text-xs text-slate-500">
+              Everything else — what happened, in what order, and how far it got — is yours
+              to reconstruct from the evidence.
+            </p>
+          )}
         </div>
 
-        {/* Learning Objectives */}
+        {/* Learning objectives name the techniques the questions ask about
+            ("PsExec lateral movement via SMB pass-the-hash" answers the lateral
+            movement question outright), so they belong in the debrief too. */}
+        {phase === "complete" && (
         <div className="rounded border border-neon-purple/20 bg-neon-purple/5 px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="rounded border border-neon-purple/30 bg-neon-purple/10 p-1.5">
               <Target className="h-4 w-4 text-neon-purple" />
             </div>
-            <span className="text-sm font-bold text-white">Learning Objectives</span>
+            <span className="text-sm font-bold text-white">What this scenario taught</span>
           </div>
           <ul className="space-y-2">
-            {bundle.learning_objectives.map((obj, i) => (
+            {(gradeResult?.debrief?.learningObjectives ?? bundle.learning_objectives).map((obj: string, i: number) => (
               <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-neon-purple/70" />
                 {obj}
@@ -984,6 +1002,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
             ))}
           </ul>
         </div>
+        )}
 
         {/* Security Events Log */}
         <ScenarioLogViewer events={bundle.events} />

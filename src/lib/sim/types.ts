@@ -194,6 +194,18 @@ export interface ScenarioBundle {
   title: string;
   threat_actor: string;
   attack_kind: string;
+  /**
+   * What the SOC actually receives when the ticket opens: the triggering alert
+   * and the asset, nothing more. It must NOT contain the attack chain, the
+   * attribution, or the impact — those are the analyst's findings.
+   *
+   * This exists because `narrative` was rendered above the log table in every
+   * phase, and it described the whole intrusion in order. In the LockBit
+   * scenario four of the five questions were answerable from that paragraph
+   * without opening a single log, which is the opposite of the exercise.
+   */
+  briefing?: string;
+  /** The full story. Shown only in the debrief, after the report is submitted. */
   narrative: string;
   learning_objectives: string[];
   alerts: Alert[];
