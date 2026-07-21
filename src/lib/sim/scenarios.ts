@@ -749,9 +749,11 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "azure.signinlogs.app_display_name": "Office 365 Exchange Online",
         "azure.signinlogs.resource_display_name": "Microsoft 365",
         "azure.signinlogs.client_app_used": "Browser",
-        "azure.signinlogs.authentication_requirement": "multiFactorAuthentication",
+        "azure.signinlogs.authentication_requirement": "singleFactorAuthentication",
         "azure.signinlogs.conditional_access_status": "notApplied",
-        "azure.signinlogs.risk_detail": "userPassedMFADrivenByRiskBasedPolicy",
+        // Was "userPassedMFADrivenByRiskBasedPolicy", which contradicts
+        // conditional_access_status notApplied in the same record.
+        "azure.signinlogs.risk_detail": "none",
         "azure.signinlogs.risk_level_aggregated": "high",
         "azure.signinlogs.risk_level_during_signin": "high",
         "azure.signinlogs.risk_state": "atRisk",
@@ -770,9 +772,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "azure.signinlogs.location.country_or_region": "NL",
         "azure.signinlogs.location.geo_coordinates.latitude": "52.3702",
         "azure.signinlogs.location.geo_coordinates.longitude": "4.8952",
-        "azure.signinlogs.mfa_detail.auth_method": "Session token replay (no interactive MFA prompt)",
-        "azure.signinlogs.mfa_detail.auth_detail": "MFA claim present in replayed token — method inconsistent with registered device",
-        "azure.signinlogs.authentication_details": "1st factor: password (success, from LSASS-dumped credential material)|2nd factor: MFA claim satisfied via stolen session token|First sign-in from Netherlands|No CA policy matched|Entra ID P2 risk-based CA not licensed",
         // ECS fields
         "event.action": "UserLoggedIn",
         "event.outcome": "success",
@@ -783,8 +782,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "source.geo.city_name": "Amsterdam",
         "user_agent.original": "python-requests/2.28.0",
         "authentication.status": "success",
-        "authentication.method": "Password + token replay",
-        "authentication.mfa": "token_replay",
+        "authentication.method": "Password",
         "risk.level": "High",
       },
     },
@@ -826,6 +824,55 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "source.ip": attackerIp,
       },
     },
+    // ── The credential the S3 exfiltration actually runs on ─────────────────
+    //
+    // ADDED. The scenario jumped straight from an LSASS dump to a 184 MB S3
+    // download attributed to j.smith, with nothing in between. An LSASS dump
+    // yields NTLM hashes and Kerberos tickets — it does NOT yield AWS access
+    // keys. No event read ~/.aws/credentials, called Secrets Manager, or
+    // touched a browser credential store, so the causal prerequisite for the
+    // entire final act was missing and a student tracing the chain would hit a
+    // wall they could not resolve.
+    //
+    // Two events close it: the beacon reading the profile off disk, then the
+    // key being exercised. GetCallerIdentity is also what a real operator runs
+    // first — it is how you find out whose key you just stole.
+    {
+      id: "evt_11b_aws_profile_read", ts: T(38 * MIN),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_access",
+      hostname: victim.hostname, user_email: victim.email,
+      severity: "high", mitre_technique: "T1552.001",
+      description: `The beacon on ${victim.hostname} read C:\\Users\\jsmith\\.aws\\credentials.`,
+      raw: {
+        "crowdstrike.event_simplename": "FileOpenInfo",
+        "crowdstrike.filename": "credentials",
+        "crowdstrike.filepath": "C:\\Users\\jsmith\\.aws\\",
+        "crowdstrike.process_name": "rundll32.exe",
+        "crowdstrike.username": "CRYOTECH\\jsmith",
+        "file.path": "C:\\Users\\jsmith\\.aws\\credentials",
+        "file.size": 217,
+        "event.action": "FileOpenInfo",
+        "event.outcome": "success",
+      },
+    },
+    {
+      id: "evt_11c_sts_identity", ts: T(40 * MIN),
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
+      user_email: victim.email, src_ip: attackerIp,
+      severity: "high", mitre_technique: "T1078.004",
+      description: `GetCallerIdentity was called with access key AKIA4XJ9PQ2M7RVTLB3D from ${attackerIp}.`,
+      raw: {
+        "aws.cloudtrail.eventName": "GetCallerIdentity",
+        "aws.cloudtrail.eventSource": "sts.amazonaws.com",
+        "aws.cloudtrail.userIdentity.type": "IAMUser",
+        "aws.cloudtrail.userIdentity.userName": "jsmith-analytics",
+        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA4XJ9PQ2M7RVTLB3D",
+        "aws.cloudtrail.sourceIPAddress": attackerIp,
+        "aws.cloudtrail.userAgent": "aws-cli/2.13.25 Python/3.11.6 Windows/10",
+        "aws.cloudtrail.awsRegion": "eu-west-1",
+        "event.outcome": "success",
+      },
+    },
     {
       id: "evt_12_s3_exfil", ts: T(43 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
@@ -835,15 +882,24 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       description: `j.smith's AWS credentials downloaded a 184MB customer financial archive from S3 from ${attackerIp} (Netherlands).`,
       raw: {
         "event.action": "GetObject", "event.outcome": "success",
-        "aws.cloudtrail.event_name": "GetObject",
-        "aws.cloudtrail.event_source": "s3.amazonaws.com",
+        // Field names aligned to eventName/eventSource, matching the two
+        // CloudTrail events that now precede this one — the same scenario was
+        // using snake_case here and camelCase there.
+        "aws.cloudtrail.eventName": "GetObject",
+        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
+        // The access key is what closes the pivot: same key as evt_11c, read
+        // off disk in evt_11b. Without it the analyst could see the download
+        // but never establish WHICH credential performed it.
+        "aws.cloudtrail.userIdentity.type": "IAMUser",
+        "aws.cloudtrail.userIdentity.userName": "jsmith-analytics",
+        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA4XJ9PQ2M7RVTLB3D",
         "aws.s3.bucket.name": "cryotech-crm-exports",
         "storage.object.name": "exports/customer-financial-data-2026.zip",
         "network.bytes_out": "184000000",
-        "cloud.provider": "aws", "cloud.region": "us-east-1",
+        "cloud.provider": "aws", "cloud.region": "eu-west-1",
         "source.ip": attackerIp,
-        "user.name": "jsmith",
-        "user_agent.original": "aws-cli/2.13.0",
+        "user.name": "jsmith-analytics",
+        "user_agent.original": "aws-cli/2.13.25 Python/3.11.6 Windows/10",
         "alert.name": "UnauthorizedAccess:IAMUser/AnomalousBehavior",
       },
     },
@@ -1193,9 +1249,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "azure.signinlogs.device_detail.is_managed": "false",
         "azure.signinlogs.location.city": "Amsterdam",
         "azure.signinlogs.location.country_or_region": "NL",
-        "azure.signinlogs.mfa_detail.auth_method": "Phone app notification",
-        "azure.signinlogs.mfa_detail.auth_detail": "MFA completed in mobile app",
-        "azure.signinlogs.authentication_details": "1st factor: Password (success)|2nd factor: Microsoft Authenticator push (accepted by user)|Context: first sign-in from NL|Risk: High|CA policy: none matched",
         // ECS fields
         "event.action": "UserLoggedIn",
         "event.outcome": "success",
@@ -1383,9 +1436,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "azure.signinlogs.location.city": "Amsterdam",
         "azure.signinlogs.location.country_or_region": "NL",
         "azure.signinlogs.device_detail.is_managed": "false",
-        "azure.signinlogs.mfa_detail.auth_method": "Phone app notification",
-        "azure.signinlogs.mfa_detail.auth_detail": "MFA denied by user — all 8 attempts",
-        "azure.signinlogs.authentication_details": "Push #1: Denied|Push #2: Denied|Push #3: Denied|Push #4: Denied|Push #5: Denied|Push #6: Denied|Push #7: Denied|Push #8: Denied|User reported suspicious via Authenticator app",
         // ECS fields
         "event.action": "MFA_PushDenied",
         "event.outcome": "failure",
@@ -2299,9 +2349,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "azure.signinlogs.device_detail.is_managed": "false",
         "azure.signinlogs.location.city": "Frankfurt",
         "azure.signinlogs.location.country_or_region": "DE",
-        "azure.signinlogs.mfa_detail.auth_method": "Phone app notification",
-        "azure.signinlogs.mfa_detail.auth_detail": "MFA completed in mobile app",
-        "azure.signinlogs.authentication_details": "1st factor: Password (success)|2nd factor: Microsoft Authenticator push (accepted by user at 02:40 local)|Context: first sign-in from Germany|Risk: High|CA policy: none matched",
         // ECS fields
         "event.action": "UserLoggedIn",
         "event.outcome": "success",
