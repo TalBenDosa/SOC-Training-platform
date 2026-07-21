@@ -122,7 +122,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "sshd on nix-bkp-01 began logging 'Invalid user' failures on tcp/2202. Over the next 21 minutes the same pattern arrived from at least three hosting-provider IPs (89.248.165.32, 194.26.229.11, 45.148.10.87), each trying a short list of generic names — admin, oracle, git, jenkins, postgres. This record is one representative attempt; sshd writes one line per attempt.",
+        "sshd on nix-bkp-01 logged an 'Invalid user' failure for jenkins from 89.248.165.32 on tcp/2202 — one representative record from a repeating pattern of generic usernames.",
       authentication: { method: "password", result: "failure" },
       raw: {
         "data.program_name": "sshd",
@@ -163,7 +163,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "The failure text changed. sshd stopped saying 'Invalid user' and started saying 'Failed password for svc-backup' — the account exists on this host. Guessing against svc-backup continued from 45.148.10.87 and 194.26.229.11 for six more minutes.",
+        "sshd failures on nix-bkp-01 switched from 'Invalid user' to 'Failed password for svc-backup', arriving from 45.148.10.87 on tcp/2202.",
       authentication: { method: "password", result: "failure" },
       raw: {
         "data.program_name": "sshd",
@@ -204,7 +204,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1078",
       mitre_tactic: "Initial Access",
       description:
-        "'Accepted password for svc-backup' — the only successful password authentication on this host all day. It came from 193.32.162.140, an address that appears in none of the preceding Failed password records. The guessing nodes never logged in; a different node used the working password.",
+        "'Accepted password for svc-backup' from 193.32.162.140 on tcp/2202 — session 41, auid 1004, the only successful password authentication on this host today.",
       authentication: { method: "password", result: "success" },
       raw: {
         "data.program_name": "sshd",
@@ -245,7 +245,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1033",
       mitre_tactic: "Discovery",
       description:
-        "Ninety seconds after the login, session 41 ran id, uname -a, cat /etc/os-release and crontab -l back to back from /home/svc-backup. The auditd SYSCALL record below is the `id` execution; uid, gid, euid and auid are all 1004.",
+        "Ninety seconds after the login, session 41 ran id, uname -a, cat /etc/os-release and crontab -l from /home/svc-backup. The SYSCALL record shown is the `id` execution.",
       process: {
         name: "id",
         pid: 1901,
@@ -301,7 +301,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1033",
       mitre_tactic: "Discovery",
       description:
-        "Session 41 ran `sudo -l` to test for a privilege path. auditd recorded USER_CMD with res=failed and sudo wrote 'user svc-backup is not allowed to run sudo on nix-bkp-01' to auth.log. This record is what bounds the rest of the incident: the attacker holds uid 1004 and nothing more.",
+        "Session 41 ran `sudo -l` on nix-bkp-01. auditd recorded USER_CMD with res=failed, and sudo logged 'svc-backup : user NOT in sudoers' from terminal pts/0.",
       process: {
         name: "sudo",
         pid: 1908,
@@ -347,7 +347,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1105",
       mitre_tactic: "Command and Control",
       description:
-        "curl fetched a 6.4 MB ELF binary over plain HTTP from 45.61.136.14 and saved it to /home/svc-backup/.cache/.fontconfig/kworker — a hidden directory inside the account's own home, which is the only tree uid 1004 can write to.",
+        "curl fetched a 6.4 MB ELF binary over plain HTTP from 45.61.136.14 and wrote it to /home/svc-backup/.cache/.fontconfig/kworker as uid 1004.",
       process: {
         name: "curl",
         pid: 1934,
@@ -401,7 +401,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1036.005",
       mitre_tactic: "Defense Evasion",
       description:
-        "chmod 755 was applied to the downloaded file. The PATH record shows ouid=1004 ogid=1004 — the file is owned by svc-backup, which is why no privilege was needed. The name 'kworker' imitates a Linux kernel worker thread, but real kworker threads are kernel tasks with no on-disk image and never live under /home.",
+        "chmod 755 was applied to /home/svc-backup/.cache/.fontconfig/kworker. The PATH record shows the file at mode 0100755 with ouid 1004 and ogid 1004.",
       process: {
         name: "chmod",
         pid: 1941,
@@ -457,7 +457,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1053.003",
       mitre_tactic: "Persistence",
       description:
-        "A per-user crontab was installed for svc-backup. Note the SYSCALL: uid and euid stay 1004, but egid becomes 102 — /usr/bin/crontab is setgid crontab, and that is the entire mechanism by which an unprivileged account is permitted to create a file under /var/spool/cron/crontabs. The resulting file is mode 0600, ouid 1004, ogid 102. Nothing was written to /etc/cron.d and no root-owned path was touched.",
+        "A per-user crontab was installed for svc-backup in session 41: /usr/bin/crontab created /var/spool/cron/crontabs/svc-backup at mode 0600, ouid 1004, ogid 102.",
       process: {
         name: "crontab",
         pid: 1958,
@@ -523,7 +523,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
       description:
-        "The binary was launched under the name 'kworker' from the hidden .fontconfig directory. The command line carries a Monero wallet address, a mining pool, and --max-cpu-usage 90. It runs as uid 1004 with parent bash, not as a kernel thread.",
+        "kworker launched from the hidden .fontconfig directory as uid 1004 with parent bash, carrying a Monero wallet, a pool address and --max-cpu-usage 90 on its command line.",
       process: {
         name: "kworker",
         pid: 1974,
@@ -569,7 +569,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
       description:
-        "A long-lived outbound TCP session from nix-bkp-01 to 51.222.12.201:3333 (pool.supportxmr.com, Canada) was permitted by the catch-all egress policy 42, which allows any outbound TCP. The byte ratio is the signature: tiny uploads, steady downloads, session still open after 40 minutes.",
+        "Outbound TCP from nix-bkp-01 to 51.222.12.201:3333 (pool.supportxmr.com, Canada) accepted by egress policy 42 — 96,420 bytes sent, 1,842,360 received.",
       network: { domain: pool.domain, bytes_in: 1_842_360, bytes_out: 96_420 },
       raw: {
         "data.type": "traffic",
@@ -654,7 +654,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
       description:
-        "The command-monitoring rule for sustained load fired on nix-bkp-01. The captured `top` output shows two CPU consumers on an 8-vCPU host: kworker at 690% and restic at 96%. Only one of them is accounted for by a scheduled job.",
+        "The sustained load-average rule fired on nix-bkp-01. The captured `top` output on this 8-vCPU host shows kworker at 690% CPU and restic at 96%.",
       rule: { id: "100742", name: "High sustained load average", category: "resource_anomaly" },
       raw: {
         "rule.id": "100742",

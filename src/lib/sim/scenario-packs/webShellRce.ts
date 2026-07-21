@@ -60,7 +60,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       hostname: web.hostname,
       severity: "informational",
       description:
-        "The ShopPortal IIS application pool started on WEB-SHOP-01 and its worker process logged on as the virtual account IIS APPPOOL\\ShopPortal. Note which privileges the service logon was granted — this is the ceiling of what anything running inside the web application can do.",
+        "The ShopPortal IIS application pool worker on WEB-SHOP-01 logged on as the virtual account IIS APPPOOL\\ShopPortal and was issued its service privilege set (Event 4672).",
       raw: {
         "winlog.event_id": "4672",
         "winlog.channel": "Security",
@@ -99,7 +99,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Reconnaissance",
       network: { url: `https://${web.site}/.git/config`, domain: web.site, method: "GET", status: 404, user_agent: uaPython },
       description:
-        "IIS access log (W3CIISLog) for shop.cryotech.com. This record is representative of 214 requests received in 96 seconds against paths that do not exist on the site — /.git/config, /backup.zip, /admin, /web.config.bak, /api/v1/swagger.json. Every one returned 404, and the client identified itself as python-requests.",
+        "IIS access record for shop.cryotech.com, representative of 214 requests in 96 seconds against paths that do not exist on the site — all 404, User-Agent python-requests.",
       raw: {
         TimeGenerated: "2026-03-17T09:00:00.412Z",
         Computer: "WEB-SHOP-01.cryotech.com",
@@ -199,7 +199,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaPython },
       description:
-        "AWS WAF blocked a tautology injection (q=widget' OR 1=1--) on the search endpoint from 45.146.130.72 — the same address that ran the 404 sweep 19 minutes earlier. The managed SQLi rule set matched on the query string and returned 403.",
+        "AWS WAF blocked a tautology injection (q=widget' OR 1=1--) on /products/search.aspx from 45.146.130.72 — managed SQLi rule matched the query string, 403 returned.",
       raw: {
         formatVersion: 1,
         timestamp: 1773739140000,
@@ -253,7 +253,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/products/detail.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaPython },
       description:
-        "AWS WAF blocked a UNION SELECT payload on the product-detail endpoint. The source is 45.146.130.88 — a different address in the same /24 as the previous probe, with the same User-Agent.",
+        "AWS WAF blocked a UNION SELECT payload on /products/detail.aspx from 45.146.130.88, User-Agent python-requests, 403 returned.",
       raw: {
         formatVersion: 1,
         timestamp: 1773739440000,
@@ -307,7 +307,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/api/v2/inventory/lookup`, domain: web.site, method: "POST", user_agent: uaChrome },
       description:
-        "AWS WAF passed a 12,438-byte POST to the inventory lookup API from 91.242.229.35, a third source address now presenting a normal browser User-Agent. Read the oversizeFields value and the excludedRules entry together before deciding whether this request was inspected at all.",
+        "AWS WAF returned ALLOW on a 12,438-byte POST to /api/v2/inventory/lookup from 91.242.229.35, presenting a Chrome browser User-Agent.",
       raw: {
         formatVersion: 1,
         timestamp: 1773740280000,
@@ -367,7 +367,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Initial Access",
       network: { url: `https://${web.site}/api/v2/inventory/lookup`, domain: web.site, method: "POST", status: 200, user_agent: uaChrome },
       description:
-        "IIS answered the inventory lookup POST with 200 and returned 3.3 MB — for an endpoint whose normal response is under 2 KB. TimeTaken was 11,284 ms. Note the cIP value: the site sits behind an ALB, so IIS records the load balancer, not the caller.",
+        "IIS answered the inventory lookup POST with 200, returning 3,312,486 bytes in 11,284 ms. The cIP recorded on the request is 10.40.12.9.",
       raw: {
         TimeGenerated: "2026-03-17T09:38:11.284Z",
         Computer: "WEB-SHOP-01.cryotech.com",
@@ -410,7 +410,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_technique: "T1213",
       mitre_tactic: "Collection",
       description:
-        "SQL Server Audit recorded the statement the web application actually sent. The inventory lookup query has been extended with a UNION against dbo.Customers and returned 42,318 rows. The statement ran as shopportal_app, the application's own login — the injection inherits exactly the permissions the web tier already had, no more.",
+        "SQL Server Audit recorded an inventory lookup SELECT extended with a UNION against dbo.Customers, run as shopportal_app and returning 42,318 rows.",
       raw: {
         event_time: "2026-03-17 09:38:11.2840000",
         sequence_number: "1",
@@ -453,7 +453,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_technique: "T1552",
       mitre_tactic: "Credential Access",
       description:
-        "Six minutes later the same injection point was used to read dbo.AppSettings, a 37-row configuration table. One of the rows it returned is the shared key that the site's legacy deployment handler (/admin/content/upload.ashx) checks before accepting a file.",
+        "Six minutes later the same statement pattern returned SettingKey and SettingValue from dbo.AppSettings — 37 rows, again as shopportal_app.",
       raw: {
         event_time: "2026-03-17 09:44:00.6120000",
         sequence_number: "1",
@@ -496,7 +496,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Persistence",
       network: { url: `https://${web.site}/admin/content/upload.ashx`, domain: web.site, method: "POST", status: 201, user_agent: uaChrome },
       description:
-        "A POST to the legacy deployment handler was accepted with 201. The query string carries the deploy key value that came out of dbo.AppSettings three minutes earlier, plus a target path inside the site's static asset folder and a filename ending in .aspx.",
+        "A POST to /admin/content/upload.ashx was accepted with 201. Its query string carries a key parameter, target assets/js/vendor and name bootstrap.bundle.aspx.",
       raw: {
         TimeGenerated: "2026-03-17T09:47:00.905Z",
         Computer: "WEB-SHOP-01.cryotech.com",
@@ -543,7 +543,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         extension: "aspx",
       },
       description:
-        "Defender for Endpoint recorded w3wp.exe creating an .aspx file inside the site's JavaScript vendor directory one second after the 201 upload response. The writing identity is the application pool account, which is why no administrator credential appears anywhere in this chain.",
+        "Defender for Endpoint recorded w3wp.exe, running as IIS APPPOOL\\ShopPortal, creating bootstrap.bundle.aspx in the site's JavaScript vendor directory.",
       raw: {
         Timestamp: "2026-03-17T09:47:01.133Z",
         DeviceName: "web-shop-01.cryotech.com",
@@ -587,7 +587,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         integrity: "medium",
       },
       description:
-        "w3wp.exe spawned cmd.exe on WEB-SHOP-01 — a web worker process should never be a parent of a command interpreter. Compare the account and integrity level here with the next event before you describe the attacker's privileges.",
+        "w3wp.exe spawned cmd.exe on WEB-SHOP-01, running whoami /priv, hostname and ipconfig /all in a single chained command line.",
       raw: {
         Timestamp: "2026-03-17T09:52:00.740Z",
         DeviceName: "web-shop-01.cryotech.com",
@@ -634,7 +634,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         integrity: "system",
       },
       description:
-        "An unsigned binary named srv.exe, dropped into the same vendor asset folder as the web shell and launched from it, produced a child cmd.exe running as NT AUTHORITY\\SYSTEM at System integrity. The parent is still the application pool account — the escalation itself is what changed the token, and evt_01 shows the privilege that made it possible.",
+        "srv.exe, run from the site's vendor asset folder by the app pool account, spawned a child cmd.exe running as NT AUTHORITY\\SYSTEM at System integrity.",
       raw: {
         Timestamp: "2026-03-17T09:58:00.318Z",
         DeviceName: "web-shop-01.cryotech.com",
@@ -679,7 +679,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Exfiltration",
       network: { url: `https://${c2Dom}/u`, domain: c2Dom, bytes_out: 3312486, bytes_in: 214 },
       description:
-        "curl.exe, running as SYSTEM under the escalated shell, uploaded a staged archive from the web server's temp directory to cdn-shopassets.link (194.26.29.114). The outbound byte count matches the size of the response the injected UNION produced at 09:38.",
+        "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (194.26.29.114) — 3,312,486 bytes out, 214 in.",
       raw: {
         Timestamp: "2026-03-17T10:04:00.552Z",
         DeviceName: "web-shop-01.cryotech.com",

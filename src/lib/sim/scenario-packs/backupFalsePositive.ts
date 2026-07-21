@@ -52,7 +52,7 @@ export function buildBackupFalsePositiveScenario(
       event_type: "policy_modification",
       severity: "informational",
       description:
-        "Change CHG0041887 was approved by the Infrastructure CAB: the FS-PROD-04 backup job moves from a nightly incremental at 23:00 to a weekly FULL backup starting at 02:00, writing to the BKP-REPO-01 repository. The first full run under the new policy is scheduled for the next maintenance window.",
+        "Change CHG0041887 records the FS-PROD-04 backup job moving from a nightly incremental at 23:00 to a weekly full backup at 02:00, writing to BKP-REPO-01.",
       raw: {
         "servicenow.table": "change_request",
         "servicenow.number": changeTicket,
@@ -84,7 +84,7 @@ export function buildBackupFalsePositiveScenario(
       user_email: svcAccount.email,
       severity: "informational",
       description:
-        "NEXACORP\\svc_bkp_agent logged on to FS-PROD-04 as LogonType 5 — a service logon issued by the Service Control Manager, not an interactive or network logon by a person.",
+        "NEXACORP\\svc_bkp_agent logged on to FS-PROD-04 with LogonType 5, issued by services.exe under the local system account (Event 4624).",
       authentication: { method: "Negotiate", result: "success", logon_type: 5 },
       raw: {
         // Windows Security Event 4624 — Successful Logon
@@ -126,7 +126,7 @@ export function buildBackupFalsePositiveScenario(
       user_email: svcAccount.email,
       severity: "medium",
       description:
-        "The svc_bkp_agent logon session on FS-PROD-04 was assigned SeBackupPrivilege, SeRestorePrivilege and SeSecurityPrivilege. SeBackupPrivilege lets the holder read any file on the volume regardless of the file's ACL.",
+        "The svc_bkp_agent logon session on FS-PROD-04 was assigned SeBackupPrivilege, SeRestorePrivilege, SeSecurityPrivilege and SeTakeOwnershipPrivilege (Event 4672).",
       raw: {
         // Windows Security Event 4672 — Special Privileges Assigned to New Logon
         "winlog.event_id": "4672",
@@ -157,7 +157,7 @@ export function buildBackupFalsePositiveScenario(
       src_ip: fileServer.ip,
       severity: "low",
       description:
-        "VeeamAgent.exe started on FS-PROD-04 under svc_bkp_agent. Its parent is services.exe (the Service Control Manager), and the command line carries a backup job GUID rather than any interactive argument.",
+        "VeeamAgent.exe started on FS-PROD-04 as svc_bkp_agent with services.exe as its parent, carrying a backup job GUID and /mode:full on the command line.",
       process: {
         name: "VeeamAgent.exe",
         pid: 5284,
@@ -212,7 +212,7 @@ export function buildBackupFalsePositiveScenario(
       user_email: svcAccount.email,
       severity: "medium",
       description:
-        "VeeamAgent.exe spawned vssadmin.exe on FS-PROD-04. Read the verb in the command line carefully — the exact sub-command matters far more than the fact that vssadmin ran at all.",
+        "VeeamAgent.exe spawned vssadmin.exe on FS-PROD-04, running as svc_bkp_agent at System integrity twenty seconds after the agent started.",
       process: {
         name: "vssadmin.exe",
         pid: 5311,
@@ -261,7 +261,7 @@ export function buildBackupFalsePositiveScenario(
       user_email: svcAccount.email,
       severity: "low",
       description:
-        "Representative object-access record from the D:\\Finance share on FS-PROD-04. Thousands of records like this one were written during the window; the AccessList on each of them is what tells you what was actually done to the file.",
+        "Representative 4663 object-access record from FS-PROD-04: VeeamAgent.exe accessed D:\\Finance\\FY2026\\Q1\\AR_aging_2026-02.xlsx under the svc_bkp_agent session.",
       file: {
         path: "D:\\Finance\\FY2026\\Q1\\AR_aging_2026-02.xlsx",
         name: "AR_aging_2026-02.xlsx",
@@ -304,7 +304,7 @@ export function buildBackupFalsePositiveScenario(
       user_email: svcAccount.email,
       severity: "high",
       description:
-        "A 26 GB file with the extension .vbk was created by VeeamAgent.exe. Note where it landed: the UNC path of the BKP-REPO-01 repository share, not alongside the source files on D:\\.",
+        "A 26 GB file named FS-PROD-04_2026-03-17T020000_FULL.vbk was created by VeeamAgent.exe on the share \\\\BKP-REPO-01\\repo01.",
       file: {
         path: "\\\\BKP-REPO-01\\repo01\\FS-PROD-04\\FS-PROD-04_2026-03-17T020000_FULL.vbk",
         name: "FS-PROD-04_2026-03-17T020000_FULL.vbk",
@@ -346,7 +346,7 @@ export function buildBackupFalsePositiveScenario(
       protocol: "tcp",
       severity: "medium",
       description:
-        "FS-PROD-04 opened a short outbound TLS session to an external address during the backup window. A production file server reaching the internet mid-job is worth an explanation — the destination has not been attributed here.",
+        "FS-PROD-04 opened a 3-second outbound TLS session to 104.18.27.94:443 during the backup window — 4,812 bytes sent, 2,190 received, allowed by rule Servers-to-Internet-Restricted.",
       network: { bytes_out: 4812, bytes_in: 2190 },
       raw: {
         "pan.type": "TRAFFIC",
@@ -386,7 +386,7 @@ export function buildBackupFalsePositiveScenario(
       mitre_technique: "T1486",
       mitre_tactic: "TA0040",
       description:
-        "Microsoft Defender for Endpoint raised a CRITICAL behavioural alert on FS-PROD-04: mass file access by a single process combined with volume shadow copy activity and rapid creation of large files with an unrecognised extension. No file was blocked and no process was terminated.",
+        "Defender for Endpoint raised a CRITICAL \"Ransomware behavior detected\" alert on FS-PROD-04 naming VeeamAgent.exe. RemediationAction is None.",
       raw: {
         Timestamp: T(W + 7 * MIN),
         AlertId: "da637-9021-4471-b3ae-2f8c19d5e004",
@@ -422,7 +422,7 @@ export function buildBackupFalsePositiveScenario(
       user_email: svcAccount.email,
       severity: "high",
       description:
-        "Sentinel summarised the whole window for the analyst: how many objects svc_bkp_agent touched, with which access rights, how many files changed name or were deleted, and what else the account did on the network during those minutes.",
+        "Sentinel rule HighVolumeFileAccess_SingleAccount summarised svc_bkp_agent's activity on FS-PROD-04 across a 360-second window.",
       raw: {
         "siem.rule_name": "HighVolumeFileAccess_SingleAccount",
         "siem.rule_id": "SEN-FILE-0231",

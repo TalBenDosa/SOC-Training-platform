@@ -154,7 +154,29 @@ for (const { slug, b } of bundles) {
 //
 // Both are WARN, not ERROR: the boundary is a writing judgement and a regex
 // should flag it for a human, not block a merge over a comma.
-const INSTRUCTIONAL = /\b(read (?:the|this|that|it)\b|compare (?:the|this|these|it)\b|note (?:the|that|where|how)\b|notice (?:the|that)\b|look at the\b|hold on to\b|you will meet\b|before you (?:decide|describe|conclude)\b|pay attention\b|keep in mind\b|ask yourself\b)/i;
+// Anchored to sentence start, because the damaging form is the IMPERATIVE
+// addressed to the reader. My first version matched "read the" anywhere, and
+// immediately fired on "The CI pipeline read the production database password
+// from AWS Secrets Manager" — an ordinary subject-verb-object observation.
+// Had I acted on that finding I would have rewritten a correct description to
+// satisfy a bad regex.
+// The imperative must be followed by a LOWERCASE word. That single constraint
+// removes the two false positives this check produced on its first run:
+//
+//   "The CI pipeline read the production database password from Secrets Manager"
+//        -> ordinary subject-verb-object, not an instruction
+//   "Check Point IPS dropped inbound traffic from 91.108.4.222"
+//        -> "Check Point" is the vendor's name
+//
+// A coaching sentence continues in lowercase ("Read the record…", "Compare
+// every field…"); a vendor name continues in capitals. Both near-misses would
+// have had me rewriting correct descriptions to satisfy a bad regex.
+const INSTRUCTIONAL = new RegExp(
+  "(^|[.;]\\s+)(read|compare|note|notice|check|consider|look)\\s+(the|this|these|that|every|each|what|whether|at the|for the)\\b"
+  + "|\\byou will (meet|see|find) (the|these|this|it)\\b"
+  + "|\\bbefore you (decide|describe|conclude|answer)\\b"
+  + "|\\b(ask yourself|pay attention|keep in mind|hold on to)\\b",
+);
 
 for (const { slug, b } of bundles) {
   for (const e of b.events ?? []) {
@@ -282,10 +304,86 @@ for (const { slug, b } of bundles) {
   }
 }
 
+// ── 5. The SAME rules over the dashboard's LIVE feed ────────────────────────
+//
+// The live feed is the other half of the platform: 699 events that a student
+// triages in real time. Every rule above applies to it just as much, and until
+// now none of them did — so the two corpora were drifting apart. The live feed
+// was carrying MITRE ATT&CK ids inside WAF raw blocks, which no WAF emits.
+//
+// One deliberate difference, and it matters: `threat.name` is NOT flagged here.
+// On these events it holds genuine vendor signature names — Trojan.GenericKD,
+// CobaltStrike.beacon.v4, SQLInjection — which is exactly what SentinelOne,
+// CrowdStrike and AWS WAF actually write. That is the opposite of the scenario
+// corpus, where the same key held MITRE technique NAMES dressed as signatures.
+// Same field, different content, different verdict. A gate that cannot tell
+// them apart would have deleted real telemetry.
+const liveMods = [
+  ["benignEvents", "src/app/(app)/dashboard/benignEvents.ts"],
+  ["companyProfiles", "src/lib/sim/companyProfiles.ts"],
+];
+const liveEvents = [];
+for (const [, file] of liveMods) {
+  let mod;
+  try { mod = await imp(file); } catch { continue; }
+  const walk = (o, d = 0) => {
+    if (!o || d > 6) return;
+    if (Array.isArray(o)) return o.forEach(x => walk(x, d + 1));
+    if (typeof o === "object") {
+      if (o.raw && o.description !== undefined) liveEvents.push(o);
+      Object.values(o).forEach(x => walk(x, d + 1));
+    }
+  };
+  Object.values(mod).forEach(v => walk(v));
+}
+
+// Deduplicate — the same event object is reachable through several exports.
+const seenLive = new Set();
+const live = liveEvents.filter(e => {
+  const k = e.id ?? JSON.stringify(e.raw);
+  if (seenLive.has(k)) return false;
+  seenLive.add(k); return true;
+});
+
+// ATT&CK ids belong on the platform's typed field, never in a vendor payload.
+const LIVE_CONCLUSION = /^(threat\.(technique|tactic)\.|is_malicious$|attack_type$|.*_verdict$)/i;
+for (const e of live) {
+  for (const k of Object.keys(e.raw ?? {})) {
+    if (LIVE_CONCLUSION.test(k)) {
+      add("ERROR", `live/${e.id ?? "?"}`,
+        `raw block carries "${k}" — a conclusion, not something a sensor writes`);
+    }
+  }
+  const d = String(e.description ?? "");
+  if (INSTRUCTIONAL.test(d)) {
+    add("WARN", `live/${e.id ?? "?"}`,
+      `description coaches the reader rather than reporting an observation: "${d.slice(0, 90)}"`);
+  }
+  if (d.length > 260) {
+    add("WARN", `live/${e.id ?? "?"}`, `description is ${d.length} chars — a console line, not a paragraph`);
+  }
+}
+
+// One hash = one file, over the live corpus too.
+const liveHash = new Map();
+for (const e of live) {
+  for (const [h, name] of [[e.file?.sha256, e.file?.name], [e.process?.hash?.sha256, e.process?.name]]) {
+    if (!h) continue;
+    if (!liveHash.has(h)) liveHash.set(h, new Set());
+    liveHash.get(h).add(String(name ?? "?").split(/[\\/]/).pop().toLowerCase());
+  }
+}
+for (const [h, names] of liveHash) {
+  if (names.size > 1)
+    add("ERROR", `live/hash ${h.slice(0, 12)}…`,
+      `one SHA256 describes ${names.size} different files: ${[...names].join(", ")}`);
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 const errors = findings.filter(f => f.sev === "ERROR");
 const warns  = findings.filter(f => f.sev === "WARN");
-console.log(`\n\x1b[1mScenario audit\x1b[0m   ${bundles.length} scenarios, ${bundles.reduce((a, x) => a + (x.b.events ?? []).length, 0)} events`);
+const scenarioEventCount = bundles.reduce((a, x) => a + (x.b.events ?? []).length, 0);
+console.log(`\n\x1b[1mTelemetry audit\x1b[0m   ${bundles.length} scenarios / ${scenarioEventCount} events   +   live feed / ${live.length} events`);
 console.log(`  errors ${errors.length}   warnings ${warns.length}\n`);
 for (const f of errors) console.log(`\x1b[31m  ERROR  ${f.where}\n         ${f.msg}\x1b[0m`);
 for (const f of warns)  console.log(`\x1b[33m  WARN   ${f.where}\n         ${f.msg}\x1b[0m`);

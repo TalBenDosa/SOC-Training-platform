@@ -45,7 +45,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       user_email: victim, user_title: "Financial Controller",
       network: { url: phishUrl, domain: phishHost },
       description:
-        "A mail claiming a vendor agreement needs signature was delivered to m.delgado. The display name reads 'NexaCorp IT Service Desk' but the envelope sender is on docu-sign-secure.com, and the embedded link points at login.nexacorp-sso.com — neither domain belongs to NexaCorp.",
+        "A signature-request mail was delivered to m.delgado from billing@docu-sign-secure.com, display name 'NexaCorp IT Service Desk', with a link to login.nexacorp-sso.com.",
       raw: {
         "pps.QID": "4A2F91C037",
         "pps.messageID": "<f21c9a4e-7b03-4d16-8e5a-2c9047ab6631@docu-sign-secure.com>",
@@ -79,7 +79,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
       network: { url: phishUrl, domain: phishHost, user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92" },
       description:
-        "URL Defense recorded m.delgado following the rewritten link four minutes after delivery. The click came from the Tel Aviv corporate egress on her own Edge browser, and the gateway permitted the destination.",
+        "URL Defense recorded m.delgado following the rewritten link four minutes after delivery, from the Tel Aviv corporate egress on Edge. Click status: permitted.",
       raw: {
         "pps.clickTime": T(4 * MIN),
         "pps.QID": "4A2F91C037",
@@ -104,7 +104,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       src_ip: "10.42.18.77",
       dns: { query: phishHost, query_type: "A", response: proxyIp, rcode: "NOERROR" },
       description:
-        "LT-FIN-0442 resolved login.nexacorp-sso.com. The answer is a single hosting-provider address in Amsterdam — NexaCorp's real sign-in traffic resolves to login.microsoftonline.com.",
+        "LT-FIN-0442 resolved login.nexacorp-sso.com to a single A record, 45.87.81.126, answered NOERROR from the internal Infoblox view.",
       raw: {
         "infoblox.client_ip": "10.42.18.77",
         "infoblox.query_name": phishHost,
@@ -129,7 +129,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       geo: { country: "Israel", city: "Tel Aviv" },
       network: { url: phishUrl, domain: phishHost, method: "GET", status: 200, bytes_in: 48213, bytes_out: 1024 },
       description:
-        "m.delgado's browser loaded the sign-in page from login.nexacorp-sso.com. Zscaler categorised the host as a newly registered domain and allowed it — the page it served is a proxy in front of the real Microsoft sign-in service.",
+        "m.delgado's browser loaded a sign-in page from login.nexacorp-sso.com, 200 returned. Zscaler categorised the host as Newly Registered Domains and allowed it.",
       raw: {
         "zscaler.login": victim,
         "zscaler.department": "Finance",
@@ -164,7 +164,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       geo: { country: "Israel", city: "Tel Aviv" },
       network: { url: `https://${phishHost}/common/login`, domain: phishHost, method: "POST", status: 302, bytes_in: 2211, bytes_out: 3874 },
       description:
-        "A POST to /common/login on the look-alike host carried the form body from the fake sign-in page, and the proxy answered 302. Everything the user typed — and everything Microsoft sent back — passed through this host.",
+        "A POST to /common/login on login.nexacorp-sso.com carried 3,874 bytes of form data and the host answered 302. Zscaler allowed the request.",
       raw: {
         "zscaler.login": victim,
         "zscaler.department": "Finance",
@@ -197,7 +197,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3676, longitude: 4.9041 },
       authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
       description:
-        "Entra ID recorded a successful interactive sign-in for m.delgado with multifactor satisfied by a live Authenticator approval. The client address is the Amsterdam host she was posting to, not the Tel Aviv egress her own browser traffic came from.",
+        "Entra ID recorded a successful interactive sign-in for m.delgado, multifactor satisfied by a live Authenticator approval, from 45.87.81.126 in Amsterdam (AS60068).",
       fp_explanation:
         "Every quality signal on this record is green — MFA satisfied, Conditional Access success, sign-in risk none. Analysts who triage on outcome fields alone will close it.",
       raw: {
@@ -280,7 +280,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       src_ip: corpEgress, dst_ip: "13.107.6.156", dst_port: 443, protocol: "tcp",
       network: { url: "https://www.office.com/", domain: "www.office.com", method: "GET", status: 200, bytes_in: 92440, bytes_out: 1470 },
       description:
-        "Nine seconds after the sign-in completed, the browser landed on the genuine www.office.com with the look-alike host as referer. From the user's seat the sign-in simply worked, which is why nothing was reported.",
+        "Nine seconds after the sign-in completed the browser loaded www.office.com, with https://login.nexacorp-sso.com/common/login recorded as the referer.",
       raw: {
         "zscaler.login": victim,
         "zscaler.location": "Tel Aviv HQ",
@@ -311,7 +311,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
       authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
       description:
-        "a.rosen signed in from Frankfurt while her baseline is Tel Aviv, which fired the same geo-change logic. Her record carries its own sessionId, a fresh Authenticator approval timed to this sign-in, an Entra-joined compliant device, and a named corporate VPN network location.",
+        "a.rosen signed in successfully from Frankfurt (AS202422) on the Entra-joined device LT-SLS-0117, with an Authenticator approval and a named corporate VPN network location.",
       fp_explanation:
         "Benign. This is what ordinary travel looks like: a new interactive sign-in with its own session and its own second factor, from a trusted named location on a managed device. Compare it field-for-field with aitm_09 before escalating either one.",
       it_verify_result: "confirmed",
@@ -389,7 +389,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
       description:
-        "A second Entra sign-in for m.delgado, six minutes after the first, carrying the identical sessionId 0f2c1e64-… from a different address, a different autonomous system and a different browser. No authentication step was performed — the multifactor requirement was met by a claim already inside the token.",
+        "A second, non-interactive Entra sign-in for m.delgado from 91.132.139.204 in Frankfurt (AS51167) on Chrome 121 — multifactor satisfied by a claim in the token.",
       raw: {
         "azure.signinlogs.category": "SignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -462,7 +462,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
       description:
-        "Seventeen seconds later the same session obtained a non-interactive token for Office 365 Exchange Online from the Frankfurt address, again with no authentication step performed.",
+        "A non-interactive token for Office 365 Exchange Online was issued to the OWA app from 91.132.139.204, again with no authentication step performed.",
       raw: {
         "azure.signinlogs.category": "NonInteractiveUserSignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -516,7 +516,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       geo: { country: "Germany", city: "Frankfurt" },
       cloud: { provider: "Microsoft", service: "Exchange Online", api_call: "MailItemsAccessed", resource: "m.delgado@nexacorp.com" },
       description:
-        "The Unified Audit Log recorded a mailbox bind against m.delgado's Inbox from the Frankfurt address, stamped with the same SessionId as the two Entra sign-ins.",
+        "The Unified Audit Log recorded a MailItemsAccessed bind against m.delgado's Inbox from 91.132.139.204, client string Client=OWA;Action=ViaProxy.",
       raw: {
         "data.office365.Operation": "MailItemsAccessed",
         "data.office365.RecordType": "50",
@@ -551,7 +551,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt" },
       description:
-        "A second Microsoft Authenticator method was registered on m.delgado's own account from the Frankfurt address. The initiator and the target are the same standard user account, and the Entra audit record shows no directory role in use — self-service registration is a normal user right, which is exactly why this persistence step raises no privilege error.",
+        "A second Microsoft Authenticator method was registered on m.delgado's account from 91.132.139.204 — initiator and target are the same user, with no directory role in use.",
       raw: {
         "azure.auditlogs.category": "AuditLogs",
         "azure.auditlogs.operationName": "User registered security info",

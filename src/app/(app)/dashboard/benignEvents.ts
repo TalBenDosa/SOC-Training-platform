@@ -4613,7 +4613,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.action": "waf-block",
       "event.outcome": "blocked",
       "threat.name": "SQLInjection",
-      "threat.technique.id": "T1190",
     },
   },
   {
@@ -4644,7 +4643,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.action": "waf-block",
       "event.outcome": "blocked",
       "threat.name": "CrossSiteScripting",
-      "threat.technique.id": "T1059.007",
     },
   },
   {
@@ -4674,7 +4672,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.action": "waf-block",
       "event.outcome": "blocked",
       "threat.name": "PathTraversal",
-      "threat.technique.id": "T1083",
     },
   },
   {
@@ -4839,7 +4836,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.outcome": "blocked",
       "threat.name": "Log4Shell",
       "threat.cve": "CVE-2021-44228",
-      "threat.technique.id": "T1190",
     },
   },
   {
@@ -4870,7 +4866,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.action": "waf-block",
       "event.outcome": "blocked",
       "threat.name": "CommandInjection",
-      "threat.technique.id": "T1059",
     },
   },
 

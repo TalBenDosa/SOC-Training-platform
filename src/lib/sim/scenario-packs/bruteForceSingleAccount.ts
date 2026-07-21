@@ -63,7 +63,7 @@ export function buildBruteForceSingleAccountScenario(
       mitre_tactic: "TA0001",
       geo: { country: "Russia", city: "Moscow", latitude: 55.75, longitude: 37.62 },
       description:
-        "An address in Russia opened an inbound TCP/3389 session to the published Remote Desktop server SRV-RDS-02. The perimeter rule permits RDP from anywhere, so the connection was allowed — allowed here means matched a rule, not vetted.",
+        "An address in Russia opened an inbound TCP/3389 session to the published Remote Desktop server SRV-RDS-02, allowed by the rule INBOUND-RDP-PUBLISHED.",
       network: { bytes_out: 9840, bytes_in: 26112 },
       raw: {
         "pan.type": "TRAFFIC",
@@ -108,7 +108,7 @@ export function buildBruteForceSingleAccountScenario(
       mitre_tactic: "TA0006",
       geo: { country: "Russia", city: "Moscow" },
       description:
-        "The first logon failure on SRV-RDS-02 was for the account name swolfe. Read TargetUserName and SubStatus together on this record, then compare both fields against the failures that follow a minute later — the two codes do not mean the same thing.",
+        "The first logon failure on SRV-RDS-02 was a 4625 for the account name swolfe, over NTLM from 91.108.23.146.",
       authentication: { method: "NTLM", result: "failure", logon_type: 3 },
       raw: {
         // Windows Security Event 4625 — An account failed to log on

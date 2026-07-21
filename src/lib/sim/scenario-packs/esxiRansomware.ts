@@ -55,7 +55,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1133",
       mitre_tactic: "Initial Access",
       description:
-        "Contractor account r.okonkwo established an SSL-VPN tunnel from a Bulgarian address on a Saturday evening and was assigned tunnel IP 10.99.8.44. The VPN-Contractors group authenticates with password only — FortiToken two-factor is applied to VPN-Employees but was never extended to contractors.",
+        "Contractor account r.okonkwo established an SSL-VPN tunnel from a Bulgarian address and was assigned tunnel IP 10.99.8.44; group VPN-Contractors, authenticated against LDAP.",
       raw: {
         "data.type": "event",
         "data.subtype": "vpn",
@@ -103,7 +103,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1046",
       mitre_tactic: "Discovery",
       description:
-        "Between 21:44 and 21:52 the VPN tunnel IP opened sessions to 118 addresses in the 10.20.5.0/24 management VLAN on ports 22, 443 and 902. Only 9 answered. Shown here is the session that reached the vCenter appliance's HTTPS interface. The contractor's normal access pattern is the 10.30.0.0/16 build network only.",
+        "Between 21:44 and 21:52 tunnel IP 10.99.8.44 opened sessions to 118 addresses in the 10.20.5.0/24 management VLAN on ports 22, 443 and 902; 9 answered. The vCenter HTTPS session is shown.",
       raw: {
         "data.type": "traffic",
         "data.subtype": "forward",
@@ -150,7 +150,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1110.003",
       mitre_tactic: "Credential Access",
       description:
-        "vCenter SSO rejected 61 logins from 10.99.8.44 in nine minutes, spread across 14 principals (vcadmin, vsphere-admin, backup, svc-veeam, administrator …) — four or five attempts each, spaced far enough apart that no account crossed the SSO lockout threshold of five failures in 180 seconds. One representative rejection is shown.",
+        "vCenter SSO rejected 61 logins from 10.99.8.44 in nine minutes across 14 principals, four or five attempts each. One representative BadUsernameSessionEvent is shown.",
       raw: {
         "vsphere.event.key": "4418902",
         "vsphere.event.chainId": "4418902",
@@ -185,7 +185,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1078.001",
       mitre_tactic: "Defense Evasion",
       description:
-        "The spray landed on administrator@vsphere.local — the built-in vSphere SSO account created at deployment. That account holds the Administrator role on the root inventory folder by definition, so this single successful login hands the attacker full control of every host, cluster and VM the appliance manages. vSphere SSO has no MFA configured.",
+        "vCenter recorded a UserLoginSessionEvent for VSPHERE.LOCAL\\Administrator from 10.99.8.44 via the vim-java client, session 52e1a3f9-7c40-4b18-9d02-6a1f88c3b410.",
       raw: {
         "vsphere.event.key": "4418967",
         "vsphere.event.chainId": "4418967",
@@ -223,7 +223,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1098",
       mitre_tactic: "Persistence",
       description:
-        "Logged in as the built-in SSO administrator, the attacker granted the Administrator role to a second SSO principal, svc-monitor, on the root Datacenters folder with propagation enabled. Role -1 (Administrator) carries Host.Config.Settings and VirtualMachine.Interact.PowerOff — the two privileges every later action in this timeline depends on. svc-monitor is the account used from here onwards.",
+        "A PermissionAddedEvent granted role -1 (Administrator) to VSPHERE.LOCAL\\svc-monitor on the root Datacenters folder with propagation enabled, issued by VSPHERE.LOCAL\\Administrator.",
       raw: {
         "vsphere.event.key": "4418988",
         "vsphere.event.chainId": "4418988",
@@ -263,7 +263,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1021.004",
       mitre_tactic: "Lateral Movement",
       description:
-        "The TSM-SSH service was started on esx-prod-03 through vCenter and its startup policy set to 'on'. The same change was made on esx-prod-04 and esx-prod-05 within 80 seconds. ESXi ships with SSH disabled and CryoTech's baseline keeps it disabled; there is no change record for tonight. Three hosts in the production cluster now accept interactive shell logins.",
+        "TSM-SSH was started on esx-prod-03 through vCenter by svc-monitor and its startup policy set to 'on'; the same change followed on esx-prod-04 and esx-prod-05 within 80 seconds.",
       raw: {
         "vsphere.event.eventTypeId": "esx.audit.ssh.enabled",
         "vsphere.event.severity": "info",
@@ -300,7 +300,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1562.004",
       mitre_tactic: "Defense Evasion",
       description:
-        "The ESXi host firewall's sshServer ruleset was reconfigured to accept connections from any source address. The baseline restricted it to the two jump hosts in 10.20.9.0/29. Nothing on the ESXi host is left that would reject the attacker's VPN tunnel address.",
+        "The ESXi host firewall ruleset sshServer on esx-prod-03 was set with allowedAll true and an empty allowed-IP list, by svc-monitor.",
       raw: {
         "vsphere.event.eventTypeId": "esx.audit.net.firewall.config.changed",
         "vsphere.event.severity": "info",
@@ -338,7 +338,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1098",
       mitre_tactic: "Persistence",
       description:
-        "The local root password on esx-prod-03 was changed through vCenter's host account management, which runs as vpxuser. SSH being open is not enough on its own — the attacker still needed a credential for the shell, and an Administrator-role vCenter session can simply set one. The same change followed on esx-prod-04 and esx-prod-05.",
+        "The local root password on esx-prod-03 was changed through vCenter host account management, initiator vpxuser, acting as svc-monitor. The same change followed on esx-prod-04 and esx-prod-05.",
       raw: {
         "vsphere.event.eventTypeId": "esx.audit.account.password.updated",
         "vsphere.event.severity": "info",
@@ -377,7 +377,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1021.004",
       mitre_tactic: "Lateral Movement",
       description:
-        "root logged in over SSH to esx-prod-03 from 10.99.8.44 — the VPN tunnel address assigned to r.okonkwo two hours earlier. From this point the attacker is operating on the hypervisor itself, underneath every guest operating system in the cluster.",
+        "root logged in over SSH to esx-prod-03 from 10.99.8.44 — the VPN tunnel address assigned to r.okonkwo thirty-seven minutes earlier.",
       raw: {
         "syslog.hostname": esxi.host,
         "syslog.program": "sshd",
@@ -413,7 +413,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1489",
       mitre_tactic: "Impact",
       description:
-        "The shell session enumerated every registered VM and then hard-powered them off in a loop. Between 22:21 and 22:26 all 96 VMs on PROD-CLUSTER-A were stopped. A running VM holds an exclusive lock on its -flat.vmdk, so nothing can rewrite those files until the VM is off — this is preparation, not the outage itself.",
+        "The root shell ran a loop over `vim-cmd vmsvc/getallvms` calling power.off on each entry; all 96 VMs on PROD-CLUSTER-A were stopped between 22:21 and 22:26.",
       raw: {
         "syslog.hostname": esxi.host,
         "syslog.program": "shell",
@@ -440,7 +440,7 @@ export function buildEsxiRansomwareScenario(
       mitre_technique: "T1489",
       mitre_tactic: "Impact",
       description:
-        "vCenter recorded a VmPoweredOffEvent for each of the 96 guests as the shell loop worked through them; the record for SQL-PROD-02 is shown. Note the empty userName — the power-off was issued from the host shell, not through vCenter, so the appliance can only observe the result and cannot attribute it to a vSphere principal.",
+        "vCenter recorded a VmPoweredOffEvent for each of the 96 guests; the record for SQL-PROD-02 on esx-prod-03 is shown, with an empty userName field.",
       raw: {
         "vsphere.event.key": "4419331",
         "vsphere.event.chainId": "4419331",
@@ -472,7 +472,7 @@ export function buildEsxiRansomwareScenario(
       hostname: "SQL-PROD-02",
       severity: "high",
       description:
-        "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27; the record for SQL-PROD-02 is shown. This is the first and only endpoint-side signal in the entire incident, and it is an absence rather than a detection. All 71 hosts are guests on PROD-CLUSTER-A. No Falcon sensor exists for any of CryoTech's six ESXi hosts — ESXi is a closed appliance and does not accept third-party agents — so nothing the attacker did after 22:01 was ever in the EDR's field of view.",
+        "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27, all of them guests on PROD-CLUSTER-A; the record for SQL-PROD-02 is shown, host status offline.",
       raw: {
         "crowdstrike.event_simplename": "SensorHeartbeatMissing",
         "crowdstrike.host.hostname": "SQL-PROD-02",
@@ -511,7 +511,7 @@ export function buildEsxiRansomwareScenario(
         size: 1476592,
       },
       description:
-        "A statically linked ELF-64 binary staged in /tmp/.x was made executable and pointed at the VMFS datastore mount with a 20% partial-encryption flag — enough to destroy every virtual disk header while running fast. Partial encryption is why 41 TB of VMDKs can be ruined in minutes. There is no Authenticode, no reputation service and no application allow-listing on ESXi; nothing on the host had any opinion about this file.",
+        "A 1.4 MB ELF binary staged in /tmp/.x was made executable and run against /vmfs/volumes/DS-PROD-01 with the flags -n 20 -t 32, from the root shell session.",
       raw: {
         "syslog.hostname": esxi.host,
         "syslog.program": "shell",
@@ -545,7 +545,7 @@ export function buildEsxiRansomwareScenario(
         size: 2914,
       },
       description:
-        "A shell loop copied akira_readme.txt into every VM folder on DS-PROD-01. When responders browsed the datastore minutes later, SQL-PROD-02-flat.vmdk had already become SQL-PROD-02-flat.vmdk.akira. The note names a Tor negotiation portal and claims data was taken before encryption.",
+        "A shell loop copied akira_readme.txt into every VM folder on DS-PROD-01; responders browsing the datastore found SQL-PROD-02-flat.vmdk renamed with a .akira suffix.",
       raw: {
         "syslog.hostname": esxi.host,
         "syslog.program": "shell",
