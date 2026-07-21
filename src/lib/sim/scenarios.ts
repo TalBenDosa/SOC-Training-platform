@@ -1548,13 +1548,12 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     { type: "ip",    value: attackerIp,                    reputation: "malicious",  tags: ["attacker", "bec"] },
     { type: "email", value: "l.harris.backup@gmail.com",   reputation: "suspicious", tags: ["exfil-target", "personal"] },
     { type: "user",  value: victim.email,                  reputation: "suspicious", tags: ["victim", "compromised"] },
-    { type: "user",  value: "support@cryotech-vendor.xyz", reputation: "suspicious", tags: ["attacker-email"] },
   ];
 
   const killchain = [
     { ts: T(0),        phase: "Credential Access",        action: "Password spray — 47 failures across 14 accounts from 158.131.159.30" },
     { ts: T(12 * MIN), phase: "Initial Access",           action: "l.harris accepted MFA push at 02:12 from Netherlands — account compromised" },
-    { ts: T(13 * MIN), phase: "Persistence / Collection", action: "Hidden inbox rule '..' intercepts all wire/invoice/payment emails → RSS Feeds" },
+    { ts: T(13 * MIN), phase: "Defense Evasion / Concealment", action: "Hidden inbox rule '..' diverts wire/invoice/payment mail to RSS Feeds, marked read" },
     { ts: T(15 * MIN), phase: "Collection",               action: "340 emails scraped in 2 minutes — attacker profiles payment workflows" },
     { ts: T(20 * MIN), phase: "Persistence",              action: "Auto-forward to personal gmail — persistent copy of all inbound mail" },
     { ts: T(25 * MIN), phase: "Impact",                   action: "$247K wire fraud email sent to CFO from compromised account" },
@@ -1605,7 +1604,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     threat_actor: "TA-VOIDPELICAN (Business Email Compromise operator)",
     attack_kind: "identity_bec",
     briefing: "Entra ID flagged 47 failed sign-ins against Cryotech accounts from a single external address just after 08:00, and a.nelson and r.garcia both locked out. At 08:26 CFO p.johnson called the help desk to report unexpected prompts on his phone.",
-    narrative: `Over a 4-minute window at 08:00, 47 authentication failures hit Finance and Executive accounts from a single Dutch IP — deliberately staying under the 5-attempt lockout threshold on most accounts. At 08:12, l.harris accepted an MFA push at 02:12 local time. Six minutes later the attacker had created a hidden inbox rule intercepting all wire/invoice/payment emails, scraped 340 emails to profile payment workflows, and enabled forwarding to a personal gmail address. At 08:25 a fraudulent $247K wire transfer request landed in the CFO's inbox. The CFO also received 8 MFA push notifications in 5 minutes — a fatigue attack to compromise the payment approver too. Your job: reconstruct the attack chain, identify all persistence mechanisms, and determine why revoking the session isn't enough.`,
+    narrative: `Over a 4-minute window at 08:00, 47 authentication failures hit Finance and Executive accounts from a single Dutch IP — deliberately staying under the 5-attempt lockout threshold on most accounts. At 08:12, l.harris accepted an MFA push at 02:12 local time. Six minutes later the attacker had created a hidden inbox rule intercepting all wire/invoice/payment emails, scraped 340 emails to profile payment workflows, and enabled forwarding to a personal gmail address. At 08:25 a fraudulent $247K wire transfer request landed in the CFO's inbox. The CFO also received 8 MFA push notifications in 5 minutes — a fatigue attack to compromise the payment approver too. Your job: reconstruct the attack chain, separate what HIDES the fraud from what OUTLIVES the session, and determine why revoking the session isn't enough.`,
     learning_objectives: [
       "Identify password spraying by recognizing below-threshold multi-account failure patterns",
       "Understand MFA fatigue (prompt bombing) and why push notifications are exploitable",
@@ -2321,30 +2320,22 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "azure.signinlogs.tenant_id": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
         "azure.signinlogs.location.country_or_region": "DE",
         "azure.signinlogs.location.city": "Frankfurt",
-        // Windows 4625 reference (DC-side)
-        "winlog.event_id": "4625",
-        "winlog.channel": "Security",
-        "winlog.computer_name": "DC01",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "2048401",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.TargetUserName": "s.chen",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
-        "winlog.event_data.Status": "0xC000006D",
-        "winlog.event_data.Status_description": "Unknown user name or bad password",
-        "winlog.event_data.SubStatus": "0xC000006A",
-        "winlog.event_data.SubStatus_description": "Wrong password",
-        "winlog.event_data.FailureReason": "%%2312",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.LogonProcessName": "NtLmSsp",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.WorkstationName": "-",
-        "winlog.event_data.IpAddress": sprayIp,
-        "winlog.event_data.IpPort": "52841",
+        // REMOVED: a full Windows Security 4625 that used to sit here alongside
+        // the Entra fields — 21 winlog keys in the same raw block as 12
+        // azure.signinlogs keys.
+        //
+        // No SIEM produces that record. They are two different products
+        // describing two different authentication systems, and a Microsoft 365
+        // password spray does not generate an on-prem 4625 at all unless
+        // pass-through authentication or ADFS is in play, neither of which this
+        // environment establishes. It also carried invented
+        // `Status_description` / `SubStatus_description` translation fields,
+        // which hand over exactly what a student is meant to look up.
+        //
+        // An analyst told to pivot on this raw block was reading something that
+        // could not exist.
         // ECS fields
-        "event.code": "4625",
+        "event.code": "50126",
         "event.action": "logon-failed",
         "event.outcome": "failure",
         "event.created": "2026-05-06T02:30:00.000Z",
