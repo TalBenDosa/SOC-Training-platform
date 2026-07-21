@@ -141,6 +141,36 @@ for (const { slug, b } of bundles) {
   }
 }
 
+// ── 1d. Event descriptions: observation, not instruction ────────────────────
+// The description is the console summary line an analyst reads before opening
+// the raw block. It states what was OBSERVED. Two failure modes:
+//
+//  - INSTRUCTIONAL VOICE ("Read X and Y together before deciding…", "Compare
+//    this record with evt_03…"). This performs the correlation step the graded
+//    question exists to assess, and it was present on 34 events. It reads as
+//    helpfulness, which is why it survived review for so long.
+//  - LENGTH. A console line is one or two sentences. Anything past ~240
+//    characters is a paragraph, and a paragraph is where conclusions hide.
+//
+// Both are WARN, not ERROR: the boundary is a writing judgement and a regex
+// should flag it for a human, not block a merge over a comma.
+const INSTRUCTIONAL = /\b(read (?:the|this|that|it)\b|compare (?:the|this|these|it)\b|note (?:the|that|where|how)\b|notice (?:the|that)\b|look at the\b|hold on to\b|you will meet\b|before you (?:decide|describe|conclude)\b|pay attention\b|keep in mind\b|ask yourself\b)/i;
+
+for (const { slug, b } of bundles) {
+  for (const e of b.events ?? []) {
+    const d = String(e.description ?? "");
+    if (!d) { add("WARN", `${slug}/${e.id ?? "?"}`, "event has no description"); continue; }
+    if (INSTRUCTIONAL.test(d)) {
+      add("WARN", `${slug}/${e.id ?? "?"}`,
+        `description coaches the reader rather than reporting an observation: "${d.slice(0, 90)}"`);
+    }
+    if (d.length > 260) {
+      add("WARN", `${slug}/${e.id ?? "?"}`,
+        `description is ${d.length} chars — a console line, not a paragraph`);
+    }
+  }
+}
+
 // ── 2. Logic ────────────────────────────────────────────────────────────────
 for (const { slug, b } of bundles) {
   const ts = (b.events ?? []).map(e => e.ts ?? e.timestamp).filter(Boolean).map(t => new Date(t).getTime());

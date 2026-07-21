@@ -67,8 +67,21 @@ const SEV_BADGE: Record<string, string> = {
 function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: ThreatQuery) => void }) {
   const [showJson, setShowJson] = useState(false);
 
+  // "Rule Description" used to render `Detection: ${ev.mitre_technique}` — so
+  // an event detail panel displayed "Detection: T1078" to a student who was, in
+  // several scenarios, about to be asked which technique this was. It was the
+  // same ATT&CK leak already stripped from 172 raw log blocks, surviving in the
+  // view layer.
+  //
+  // It was also not what a SIEM shows. A detail pane names the ANALYTIC that
+  // fired, not a framework id. We do not carry a rule name on the event, so
+  // rather than invent one this shows what the vendor itself recorded — the
+  // event action from the raw block — and falls back to the event type.
+  const vendorAction = String(
+    ev.raw?.["event.action"] ?? ev.raw?.["ActionType"] ?? ev.raw?.["event.dataset"] ?? "",
+  );
   const basicInfo: [string, string][] = [
-    ["Rule Description", ev.mitre_technique ? `Detection: ${ev.mitre_technique}` : ev.event_type],
+    ["Event Action",     vendorAction || ev.event_type.replace(/_/g, " ")],
     ["Source Type",      SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase()],
     ["Timestamp",        new Date(ev.ts).toLocaleString("en-GB")],
     ["Severity",         (ev.severity ?? "informational").toUpperCase()],
