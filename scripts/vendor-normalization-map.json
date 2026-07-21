@@ -145,6 +145,7 @@
     "Cisco Secure Firewall": "Cisco ASA",
     "Cisco ASA": "Cisco ASA",
     "Infoblox NIOS": "Infoblox DNS",
-    "Microsoft Intune": "Microsoft Intune"
+    "Microsoft Intune": "Microsoft Intune",
+    "Workday": "Workday"
   }
 }

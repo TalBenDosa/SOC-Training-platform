@@ -1,7 +1,7 @@
 {
   "note": "Pre-existing field violations, accepted so the gate can block NEW ones while the backlog is worked down. Shrink this list; never grow it.",
   "generated": "run `node scripts/validate-log-fields.mjs --baseline` to regenerate",
-  "count": 3890,
+  "count": 3891,
   "accepted": [
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:action_result",
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:aws.cloudtrail.awsRegion",
@@ -3364,8 +3364,11 @@
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:cron.command",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:cron.path",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:cron.schedule",
+    "src/lib/sim/scenarios.ts:crowdstrike-falcon:device.mount_point",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:device.removable_media.asset_tagged",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:device.removable_media.serial",
+    "src/lib/sim/scenarios.ts:crowdstrike-falcon:device.serial_number",
+    "src/lib/sim/scenarios.ts:crowdstrike-falcon:device_control.policy_action",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:file.count",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:file.ransom_note",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:file.signed",
@@ -3544,7 +3547,6 @@
     "src/lib/sim/scenarios.ts:microsoft-active-directory:created_account.group",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:created_account.name",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:created_account.upn",
-    "src/lib/sim/scenarios.ts:microsoft-active-directory:device_control.alert_on_removal",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:ds.object.sid",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:ds.object.target",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:kerberos.encryption_type",
@@ -3557,11 +3559,11 @@
     "src/lib/sim/scenarios.ts:microsoft-active-directory:logon.type_description",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:siem.account_group_membership",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:siem.account_privileged_on_dc_since",
+    "src/lib/sim/scenarios.ts:microsoft-active-directory:siem.linked_ticket",
+    "src/lib/sim/scenarios.ts:microsoft-active-directory:siem.ticket_summary",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:source.geo.city_name",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:source.geo.location.lat",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:source.geo.location.lon",
-    "src/lib/sim/scenarios.ts:microsoft-active-directory:usb.device.serial",
-    "src/lib/sim/scenarios.ts:microsoft-active-directory:usb.removed_at",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:user.title",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:winlog.channel",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:winlog.computer_name",
@@ -3891,7 +3893,6 @@
     "src/lib/sim/scenarios.ts:sysmon:winlog.provider_name",
     "src/lib/sim/scenarios.ts:zscaler-internet-access:block.reason",
     "src/lib/sim/scenarios.ts:zscaler-internet-access:channel.type",
-    "src/lib/sim/scenarios.ts:zscaler-internet-access:network.bytes_out",
-    "src/lib/sim/scenarios.ts:zscaler-internet-access:user.context"
+    "src/lib/sim/scenarios.ts:zscaler-internet-access:network.bytes_out"
   ]
 }

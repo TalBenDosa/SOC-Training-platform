@@ -1635,6 +1635,42 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
 
   const events: TelemetryEvent[] = [
     {
+      // ── Why a domain admin's credentials were in this workstation's memory ──
+      //
+      // ADDED. The LSASS dump at 04:45 yields da-backup's hash, and everything
+      // downstream — the TGT request, the pass-the-hash to the file server, the
+      // encryption — depends on that. But nothing showed a domain admin ever
+      // touching WS-FIN-1193, so the causal hinge of the whole scenario existed
+      // only as a clause in one event's description.
+      //
+      // A helpdesk remote-support session the previous afternoon is both the
+      // realistic explanation and the actual finding: the reason this ransomware
+      // reached a file server is that a Domain Admin account was used for
+      // desktop support and its credentials were left cached in memory. That is
+      // what goes in the report, and it is now discoverable.
+      id: "evt_00_da_session", ts: T(-14 * 60 * MIN),
+      source: "ad", vendor: "Windows Security", event_type: "auth_success",
+      hostname: zero.hostname, user_email: "da-backup@nexacorp.com",
+      severity: "informational",
+      description: "da-backup opened a Remote Desktop session on WS-FIN-1193 the previous afternoon and signed out 41 minutes later.",
+      raw: {
+        "event.code": "4624",
+        "winlog.channel": "Security",
+        "winlog.computer_name": "WS-FIN-1193",
+        "winlog.event_data.TargetUserName": "da-backup",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
+        "winlog.event_data.LogonType": "10",
+        "winlog.event_data.LogonProcessName": "User32 ",
+        "winlog.event_data.AuthenticationPackageName": "Negotiate",
+        "winlog.event_data.WorkstationName": "WS-ITHELP-02",
+        "winlog.event_data.IpAddress": "10.10.5.22",
+        "winlog.event_data.TargetLogonId": "0x5B21A7",
+        "siem.linked_ticket": "INC-38104",
+        "siem.ticket_summary": "Outlook profile rebuild — finance",
+        "siem.account_group_membership": "Domain Admins",
+      },
+    },
+    {
       id: "evt_00_context", ts: T(-30 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: zero.hostname, user_email: zero.email, src_ip: zero.ip,
@@ -2723,11 +2759,41 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
 
   const events: TelemetryEvent[] = [
     {
+      // ── The HR record the whole case turns on ───────────────────────────
+      //
+      // ADDED. The termination flag is q1's keyed answer, and it existed in
+      // exactly two places: this event's description prose, and a
+      // `user.context` field inside a ZSCALER PROXY record. A web proxy does
+      // not carry employment status — so the decisive fact was either unfound-
+      // able or found in a log that could not hold it.
+      //
+      // It now comes from the system that would actually own it. That also
+      // makes the finding checkable rather than asserted, which is the whole
+      // point of this scenario.
+      id: "evt_00_hr_lifecycle", ts: T(-45 * MIN),
+      source: "soar", vendor: "Workday", event_type: "account_modify",
+      user_email: insider.email,
+      severity: "informational",
+      description: "A worker lifecycle change was recorded for m.torres: employment end date set to the following day, initiated by HR Operations.",
+      raw: {
+        "workday.event_type": "Worker_Termination_Initiated",
+        "workday.worker_id": "WD-0044812",
+        "workday.worker_email": insider.email,
+        "workday.termination_date": "2026-05-13",
+        "workday.termination_reason_category": "Voluntary",
+        "workday.initiated_by": "hr.operations@cryotech.com",
+        "workday.notice_period_active": "true",
+        "workday.access_revocation_scheduled": "2026-05-13T18:00:00Z",
+        "event.action": "Worker_Termination_Initiated",
+        "event.outcome": "success",
+      },
+    },
+    {
       id: "evt_01_context", ts: T(0),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
       severity: "informational",
-      description: "m.torres, a Finance Analyst, logged on to WS-FIN-4421 at 13:00; HR records carry a termination flag effective the next day.",
+      description: "m.torres logged on to WS-FIN-4421 at 13:00.",
       raw: {
         // Windows Security Event 4624 — Successful Logon (pre-termination day)
         "winlog.event_id": "4624",
@@ -2821,7 +2887,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       description: `A SanDisk USB drive (serial ${usbSerial}) was connected to WS-FIN-4421, and 47 files were copied to it within 23 seconds of mounting.`,
       raw: {
         "crowdstrike.event_simplename": "RemovableMediaConnectedEvent",
-        "crowdstrike.detection.description": "Removable storage device mounted, followed by bulk file copy within seconds of mount.",
+        "crowdstrike.detection.description": "Removable storage volume mounted.",
         "crowdstrike.detection.scenario": "removable_media_bulk_copy",
         "crowdstrike.detection.technique": "Exfiltration over USB Device",
         "crowdstrike.detection.technique_id": "T1052.001",
@@ -2931,7 +2997,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "url.domain": "indeed.com, linkedin.com/jobs, glassdoor.com",
         "url.category": "Job Search",
         "action_result": "allow",
-        "user.context": "pending_termination",
       },
     },
     {
@@ -2939,14 +3004,35 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
       hostname: insider.hostname, user_email: insider.email, src_ip: insider.ip,
       severity: "informational",
-      description: "m.torres logged off WS-FIN-4421 at 16:00, two minutes after the USB drive was removed.",
+      description: "m.torres logged off WS-FIN-4421 at 16:00.",
       raw: {
         "event.code": "4634", "event.action": "logged-off", "event.outcome": "success",
-        "logon.type": "0",
+        // Type 2 (interactive), matching the logon in evt_01. It was 0, which is
+        // System and only appears at boot.
+        "logon.type": "2",
+        "winlog.event_data.TargetLogonId": "0x9C3E47",
         "user.name": "CRYOTECH\\mtorres",
         "host.name": "WS-FIN-4421", "source.ip": "10.10.20.91",
-        "usb.removed_at": "15:58:22", "usb.device.serial": usbSerial,
-        "device_control.alert_on_removal": "false",
+        // The USB fields that used to sit here moved to the device-control
+        // record below. A Windows Security 4634 carries no removable-media
+        // telemetry — that is EDR, and having it here taught a student to hunt
+        // for it in a log that will never hold it.
+      },
+    },
+    {
+      id: "evt_09b_usb_removed", ts: T(3 * 60 * MIN - 2 * MIN),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_access",
+      hostname: insider.hostname, user_email: insider.email,
+      severity: "low",
+      description: "The removable volume was disconnected from WS-FIN-4421 at 15:58.",
+      raw: {
+        "crowdstrike.event_simplename": "RemovableMediaVolumeUnmounted",
+        "crowdstrike.username": "CRYOTECH\\mtorres",
+        "device.serial_number": usbSerial,
+        "device.mount_point": "E:\\",
+        "device_control.policy_action": "monitor_only",
+        "event.action": "RemovableMediaVolumeUnmounted",
+        "event.outcome": "success",
       },
     },
 
