@@ -1,15 +1,23 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // refreshSupabaseSession sets ?next= when it redirects an unauthenticated
+  // visitor. Honour it so signing in returns them to what they asked for.
+  // Same-origin paths only — an open redirect here would let a crafted link
+  // bounce a freshly-authenticated user to an attacker-controlled page.
+  const rawNext = searchParams.get("next");
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/home";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +45,7 @@ export default function LoginPage() {
       );
       return;
     }
-    router.push("/rooms");
+    router.push(nextPath);
     router.refresh();
   }
 
@@ -106,5 +114,19 @@ export default function LoginPage() {
         New here? <Link href="/signup" className="text-cyber-300 hover:underline">Create an account</Link>
       </p>
     </Card>
+  );
+}
+
+/**
+ * useSearchParams() puts this page into client-side rendering, and Next
+ * requires a Suspense boundary around that during static export — without one
+ * the build fails on /login. The fallback is deliberately the same card shell
+ * so the boundary is invisible rather than flashing an empty page.
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<Card className="w-full max-w-md p-6 text-center text-sm text-slate-400">Loading…</Card>}>
+      <LoginForm />
+    </Suspense>
   );
 }

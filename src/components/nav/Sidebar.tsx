@@ -6,10 +6,11 @@ import { cn } from "@/lib/utils";
 import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Home,
 } from "lucide-react";
 
 const NAV_ITEMS = [
+  { href: "/home",      label: "Home",           icon: Home            },
   { href: "/rooms",     label: "Learning Rooms", icon: DoorOpen        },
   { href: "/dashboard", label: "SOC Dashboard",  icon: LayoutDashboard },
   { href: "/learn",     label: "Learning Path",  icon: BookOpen        },
