@@ -8448,7 +8448,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       event_type: "k8s_exec", severity: "medium", mitre_technique: "T1609",
       hostname: "api-prod-7f8b9c", src_ip: "185.220.101.47", dst_port: 443,
       description: "The ci-deploy-token service account ran kubectl exec into container api-prod-7f8b9c from 185.220.101.47, a known Tor exit node.",
-      fp_explanation: "kubectl exec is routine in dev/SRE workflows — developers regularly exec into containers for debugging. The CI/CD token is a legitimate service account. The external IP is the only initial anomaly.",
+      fp_explanation: "kubectl exec is routine in dev and SRE workflows — engineers exec into containers to debug them many times a day, and ci-deploy is a legitimate service account that is expected to touch production workloads.",
       raw: {
         "kubernetes.audit.verb": "create",
         "kubernetes.audit.objectRef.resource": "pods/exec",
@@ -8460,6 +8460,45 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
         "kubernetes.audit.responseStatus.code": 101,
         "kubernetes.audit.requestURI": "/api/v1/namespaces/production/pods/api-prod-7f8b9c/exec?command=sh&stdin=true&stdout=true&tty=true",
         "kubernetes.audit.userAgent": "kubectl/v1.28.2 (linux/amd64) kubernetes/9124985",
+      },
+    },
+    // ── The misconfiguration that MAKES the escape possible ─────────────────
+    //
+    // ADDED. Without this the scenario taught the single most common
+    // misconception in container security: that `nsenter --mount=/proc/1/ns/mnt`
+    // escapes an ordinary hardened container.
+    //
+    // It does not. Reaching the HOST's namespaces through /proc/1 requires the
+    // pod to run with hostPID (otherwise /proc/1 is the container's own PID 1
+    // and the command escapes nothing), and setns() requires CAP_SYS_ADMIN,
+    // which in practice means privileged. Neither was established anywhere for
+    // api-prod-7f8b9c — the only privileged pod in the scenario was a DIFFERENT
+    // pod created ten minutes later.
+    //
+    // Surfacing the pod spec turns the story from "the attacker ran a magic
+    // command" into "the escape was available because this production pod had
+    // been running privileged for months", which is the finding that belongs in
+    // the report and the thing that actually gets fixed afterwards.
+    {
+      id: "k8s_01b_pod_spec_review",
+      ts: T(1 * MIN),
+      source: "k8s_audit", vendor: "Kubernetes Audit",
+      event_type: "k8s_rbac", severity: "medium",
+      hostname: "api-prod-7f8b9c", src_ip: "185.220.101.47",
+      description: "The pod spec for api-prod-7f8b9c was read. The container runs with privileged true, hostPID true, and CAP_SYS_ADMIN.",
+      fp_explanation: "Reading a pod spec is ordinary operational activity, and this deployment has run with these settings since it was created — the workload needs host-level metrics collection.",
+      raw: {
+        "kubernetes.audit.verb": "get",
+        "kubernetes.audit.objectRef.resource": "pods",
+        "kubernetes.audit.objectRef.name": "api-prod-7f8b9c",
+        "kubernetes.audit.objectRef.namespace": "production",
+        "kubernetes.audit.user.username": "system:serviceaccount:cicd:ci-deploy",
+        "kubernetes.audit.sourceIPs[0]": "185.220.101.47",
+        "kubernetes.audit.responseStatus.code": 200,
+        "kubernetes.audit.responseObject.spec.hostPID": true,
+        "kubernetes.audit.responseObject.spec.containers[0].securityContext.privileged": true,
+        "kubernetes.audit.responseObject.spec.containers[0].securityContext.capabilities.add[0]": "SYS_ADMIN",
+        "kubernetes.audit.responseObject.metadata.creationTimestamp": "2025-11-04T08:12:44Z",
       },
     },
     {
@@ -8518,7 +8557,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       event_type: "cloud_api_call", severity: "medium", mitre_technique: "T1552.005",
       src_ip: "185.220.101.47", dst_port: 443,
       description: "GetCallerIdentity was called using the eks-node-role assumed role from 185.220.101.47 — an IP outside AWS's published ranges.",
-      fp_explanation: "GetCallerIdentity from EC2 role is common — SDKs call this on startup to verify credentials. The anomaly is that the source IP (185.220.101.47) is NOT an AWS IP range.",
+      fp_explanation: "GetCallerIdentity is one of the most common calls in any AWS account — the SDKs issue it on startup to confirm which identity they are running as, so it appears constantly in CloudTrail for healthy workloads.",
       raw: {
         "aws.cloudtrail.eventName": "GetCallerIdentity",
         "aws.cloudtrail.eventSource": "sts.amazonaws.com",
@@ -8607,7 +8646,12 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       source: "cloudtrail", vendor: "AWS CloudTrail",
       event_type: "account_create", severity: "critical", mitre_technique: "T1136.003",
       src_ip: "185.220.101.47",
-      description: "CreateUser created IAM user svc-monitoring-backup, which was then granted the AdministratorAccess managed policy — using the same assumed role.",
+      // SPLIT from a single record that carried eventName "CreateUser" together
+      // with requestParameters.policyArn. CreateUser accepts userName, path and
+      // tags — never a policy ARN. Attaching a managed policy is a separate
+      // AttachUserPolicy call, and merging them hid the single most important
+      // pivot in the scenario: the moment the privilege was actually granted.
+      description: "CreateUser created IAM user svc-monitoring-backup, called with the eks-node-role assumed role from 185.220.101.47.",
       raw: {
         "aws.cloudtrail.eventName": "CreateUser",
         "aws.cloudtrail.eventSource": "iam.amazonaws.com",
@@ -8615,17 +8659,42 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
         "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
         "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
         "aws.cloudtrail.requestParameters.userName": "svc-monitoring-backup",
-        "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess",
+        "aws.cloudtrail.requestParameters.path": "/",
         "aws.cloudtrail.responseElements.user.userId": "AIDIODR4TAW7CSEXAMPLE",
+        "aws.cloudtrail.responseElements.user.arn": "arn:aws:iam::123456789012:user/svc-monitoring-backup",
+      },
+    },
+    {
+      id: "k8s_11_iam_policy_attach",
+      ts: T(15 * MIN + 11_000),
+      source: "cloudtrail", vendor: "AWS CloudTrail",
+      event_type: "cloud_role_change", severity: "critical", mitre_technique: "T1098.003",
+      src_ip: "185.220.101.47",
+      description: "AttachUserPolicy attached the AWS-managed AdministratorAccess policy to svc-monitoring-backup, eleven seconds after the account was created.",
+      raw: {
+        "aws.cloudtrail.eventName": "AttachUserPolicy",
+        "aws.cloudtrail.eventSource": "iam.amazonaws.com",
+        "aws.cloudtrail.userIdentity.type": "AssumedRole",
+        "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
+        "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+        "aws.cloudtrail.requestParameters.userName": "svc-monitoring-backup",
+        "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess",
+        "aws.cloudtrail.responseElements": "null",
       },
     },
   ];
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "185.220.101.47",                               reputation: "malicious", tags: ["tor-exit-node", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
-    { type: "user",   value: "svc-monitoring-backup",                        reputation: "malicious", tags: ["iam-principal", "administrator-access", "persistence"] },
-    { type: "sha256", value: makeSha256("eks-node-role-credentials-stolen"),  reputation: "malicious", tags: ["iam-credential", "eks-node-role"] },
-    { type: "sha256", value: makeSha256("rocketstack-secrets-db-passwords"),  reputation: "malicious", tags: ["s3-exfil", "db-passwords", "secrets-bucket"] },
+    { type: "ip",     value: "185.220.101.47", reputation: "malicious", tags: ["tor-exit-node", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
+    { type: "user",   value: "svc-monitoring-backup", reputation: "malicious", tags: ["iam-principal", "administrator-access", "persistence"] },
+    // Were two `sha256` IOCs seeded from strings like
+    // "eks-node-role-credentials-stolen". Neither appeared in any event, and
+    // neither could: IAM credentials and an S3 object fetched via GetObject
+    // produce no file hash in this telemetry. Replaced with indicators the
+    // analyst can actually pivot on.
+    { type: "user",   value: "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123", reputation: "suspicious", tags: ["assumed-role", "credential-source"] },
+    { type: "url",    value: "s3://rocketstack-secrets-prod/db-passwords.json", reputation: "suspicious", tags: ["accessed-object", "secrets-bucket"] },
+    { type: "host",   value: "185.220.101.47:5000", reputation: "malicious", tags: ["attacker-registry", "image-source"] },
   ];
 
   const killchain = [
