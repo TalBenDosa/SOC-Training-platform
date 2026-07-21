@@ -14,16 +14,14 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth/AuthContext";
+import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useRank } from "@/lib/progression/useRank";
 import { ArrowRight } from "lucide-react";
 
 export default function WelcomePage() {
-  const { user } = useAuth();
   const { xp, rank, ready } = useRank();
-
-  // The closest thing to a name we hold without asking for one.
-  const name = user?.email?.split("@")[0] ?? "analyst";
+  // The nickname chosen at signup, falling back to the email local part.
+  const name = useDisplayName();
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">

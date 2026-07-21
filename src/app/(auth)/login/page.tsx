@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LogIn, AlertTriangle } from "lucide-react";
+import { LogIn, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -16,6 +16,9 @@ function LoginForm() {
   // visitor. Honour it so signing in returns them to what they asked for.
   // Same-origin paths only — an open redirect here would let a crafted link
   // bounce a freshly-authenticated user to an attacker-controlled page.
+  // Set by the signup flow so a new account gets an explicit confirmation
+  // here rather than landing on a bare form wondering whether it worked.
+  const justRegistered = searchParams.get("registered") === "1";
   const rawNext = searchParams.get("next");
   const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/welcome";
   const [email, setEmail] = useState("");
@@ -76,6 +79,15 @@ function LoginForm() {
           <p className="text-xs text-slate-500">Welcome back to your SOC shift.</p>
         </div>
       </div>
+
+      {justRegistered && (
+        <div className="mb-4 flex items-start gap-2 rounded border border-neon-green/30 bg-neon-green/5 px-3 py-2.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-neon-green" />
+          <p className="text-xs text-slate-300">
+            Your account is ready. Sign in to start training.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

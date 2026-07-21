@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UserPlus, Mail, CheckCircle2, AlertTriangle } from "lucide-react";
+import { UserPlus, Mail, CheckCircle2, AlertTriangle, Loader2, Check, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -13,9 +13,43 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [handle, setHandle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [signedUp, setSignedUp] = useState(false);
+  /** null = not checked yet (blank, or too short to be worth asking about). */
+  const [handleFree, setHandleFree] = useState<boolean | null>(null);
+  const [checkingHandle, setCheckingHandle] = useState(false);
+
+  const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
+  const normalisedHandle = handle.trim().toLowerCase();
+  const handleWellFormed = normalisedHandle === "" || HANDLE_RE.test(normalisedHandle);
+
+  // Availability is asked of the database, debounced, because profiles SELECT
+  // is owner-only — the browser cannot query the table directly. The RPC
+  // returns a single boolean and nothing else.
+  useEffect(() => {
+    if (normalisedHandle === "" || !HANDLE_RE.test(normalisedHandle)) {
+      setHandleFree(null);
+      return;
+    }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    let cancelled = false;
+    setCheckingHandle(true);
+    const t = setTimeout(async () => {
+      const { data, error: rpcError } = await supabase.rpc("handle_available", { candidate: normalisedHandle });
+      if (cancelled) return;
+      setCheckingHandle(false);
+      // A failed lookup must not read as "available" — that would let someone
+      // submit a taken name and only discover it after the account exists.
+      setHandleFree(rpcError ? null : Boolean(data));
+    }, 400);
+
+    return () => { cancelled = true; clearTimeout(t); setCheckingHandle(false); };
+  }, [normalisedHandle]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,6 +63,14 @@ export default function SignupPage() {
       setError("Passwords don't match.");
       return;
     }
+    if (normalisedHandle !== "" && !HANDLE_RE.test(normalisedHandle)) {
+      setError("A nickname must be 3-20 characters, using only letters, numbers and underscores.");
+      return;
+    }
+    if (normalisedHandle !== "" && handleFree === false) {
+      setError(`The nickname "${normalisedHandle}" is already taken. Pick another one.`);
+      return;
+    }
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
@@ -40,7 +82,12 @@ export default function SignupPage() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        // Read by the handle_new_user() trigger, which RE-VALIDATES it before
+        // use — this value is user-supplied and arrives unverified.
+        data: normalisedHandle ? { handle: normalisedHandle } : undefined,
+      },
     });
     setSubmitting(false);
 
@@ -51,8 +98,13 @@ export default function SignupPage() {
     // If email confirmation is disabled in the Supabase project, signUp already
     // returns an active session — go straight in. Otherwise show "check your email".
     if (data.session) {
-      router.push("/rooms");
-      router.refresh();
+      // Confirmation is disabled on this project, so the account is already
+      // active. Sign the fresh session out and hand them to the login form:
+      // the request was to land on sign-in, and arriving there already
+      // authenticated would be confusing.
+      await supabase.auth.signOut();
+      setSignedUp(true);
+      setTimeout(() => router.push("/login?registered=1"), 1600);
     } else {
       setCheckEmail(true);
     }
@@ -69,6 +121,27 @@ export default function SignupPage() {
         </p>
         <Link href="/rooms" className="mt-6 inline-block">
           <Button variant="primary">Continue as guest</Button>
+        </Link>
+      </Card>
+    );
+  }
+
+  if (signedUp) {
+    return (
+      <Card className="w-full max-w-md text-center">
+        <CheckCircle2 className="mx-auto h-8 w-8 text-neon-green" />
+        <h1 className="mt-4 text-lg font-bold text-white">Account created</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          {normalisedHandle
+            ? <>You&apos;ll be known as <span className="font-semibold text-white">{normalisedHandle}</span>. </>
+            : null}
+          Taking you to sign in…
+        </p>
+        <Loader2 className="mx-auto mt-5 h-4 w-4 animate-spin text-slate-500" />
+        {/* A manual way through, in case the redirect does not fire — the
+            previous flow left the user with no feedback and no next step. */}
+        <Link href="/login?registered=1" className="mt-5 inline-block">
+          <Button variant="outline" size="sm">Go to sign in</Button>
         </Link>
       </Card>
     );
@@ -104,6 +177,40 @@ export default function SignupPage() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
+          <div className="mb-1.5 flex items-baseline justify-between">
+            <label className="text-xs font-semibold text-slate-400">
+              Nickname <span className="font-normal text-slate-600">(optional)</span>
+            </label>
+            {/* Only speak once there is something worth saying. */}
+            {normalisedHandle !== "" && (
+              checkingHandle ? (
+                <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                  <Loader2 className="h-3 w-3 animate-spin" /> checking
+                </span>
+              ) : !handleWellFormed ? (
+                <span className="text-[11px] text-severity-high">3-20 chars: a-z, 0-9, _</span>
+              ) : handleFree === true ? (
+                <span className="flex items-center gap-1 text-[11px] text-neon-green">
+                  <Check className="h-3 w-3" /> available
+                </span>
+              ) : handleFree === false ? (
+                <span className="flex items-center gap-1 text-[11px] text-severity-high">
+                  <X className="h-3 w-3" /> taken
+                </span>
+              ) : null
+            )}
+          </div>
+          <input
+            type="text" autoComplete="username" value={handle} maxLength={20}
+            onChange={e => setHandle(e.target.value)}
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            placeholder="How you'll appear on the platform"
+          />
+          <p className="mt-1 text-[11px] text-slate-600">
+            Leave blank and we&apos;ll use the first part of your email.
+          </p>
+        </div>
+        <div>
           <label className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
           <input
             type="email" required autoComplete="email" value={email}
@@ -136,7 +243,7 @@ export default function SignupPage() {
           </div>
         )}
 
-        <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting}>
+        <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting || checkingHandle || handleFree === false || !handleWellFormed}>
           {submitting ? "Creating account…" : "Create account"}
         </Button>
       </form>

@@ -14,6 +14,7 @@
 // triaged a single alert. It now reflects real XP against the ladder in
 // lib/progression/ranks.ts, and updates the moment XP is awarded.
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useRank } from "@/lib/progression/useRank";
 import { initialFor } from "@/lib/progression/ranks";
 
@@ -21,8 +22,9 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
   const { user } = useAuth();
   const { rank, next, progress, ready } = useRank();
 
-  const displayName = user?.email?.split("@")[0] ?? "Guest";
-  const initial = initialFor(user?.email ?? null);
+  const displayName = useDisplayName();
+  // Initial follows the displayed name, so the bubble and the label agree.
+  const initial = user ? initialFor(displayName) : "A";
 
   // `ready` is false during SSR and the first paint, when XP is not yet
   // readable. Showing the lowest rank then would flash "Student" at a Tier 3
