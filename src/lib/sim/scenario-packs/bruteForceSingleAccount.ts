@@ -89,7 +89,6 @@ export function buildBruteForceSingleAccountScenario(
         "destination.ip": rds.ip,
         "destination.port": "3389",
         "action_result": "allow",
-        "threat.technique.id": "T1133",
       },
     },
 
@@ -141,7 +140,6 @@ export function buildBruteForceSingleAccountScenario(
         "source.ip": attackerIp,
         "user.name": wrongFormat,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1110.001",
       },
     },
 
@@ -193,7 +191,6 @@ export function buildBruteForceSingleAccountScenario(
         "source.ip": attackerIp,
         "user.name": victim.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1110.001",
       },
     },
 
@@ -245,7 +242,6 @@ export function buildBruteForceSingleAccountScenario(
         "source.ip": attackerIp,
         "user.name": victim.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1110.001",
       },
     },
 
@@ -300,7 +296,6 @@ export function buildBruteForceSingleAccountScenario(
         "source.ip": attackerIp,
         "user.name": victim.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1078",
       },
     },
 
@@ -351,7 +346,6 @@ export function buildBruteForceSingleAccountScenario(
         "source.ip": attackerIp,
         "user.name": victim.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1021.001",
       },
     },
 
@@ -408,7 +402,6 @@ export function buildBruteForceSingleAccountScenario(
         "user.logon_id": "0x2F92B71",
         "host.name": rds.hostname,
         "host.ip": rds.ip,
-        "threat.technique.id": "T1021.002",
       },
     },
 
@@ -503,7 +496,6 @@ export function buildBruteForceSingleAccountScenario(
         "source.ip": rds.ip,
         "user.name": victim.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1039",
       },
     },
 

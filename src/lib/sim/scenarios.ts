@@ -337,8 +337,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
         "action_result": "delivered",
         "block.reason": "Transport rule whitelist — keyword match: invoice",
-        "threat.name": "SpearphishingAttachment", "threat.category": "Phishing",
-        "threat.technique.id": "T1566.001",
+        "threat.category": "Phishing",
       },
     },
     {
@@ -422,10 +421,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "host.os.version": "22H2",
         "host.os.build": "19045.4291",
         // Threat mapping
-        "threat.technique.id": "T1059.001",
-        "threat.technique.name": "Command and Scripting Interpreter: PowerShell",
-        "threat.tactic.id": "TA0002",
-        "threat.tactic.name": "Execution",
       },
     },
     {
@@ -447,7 +442,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "pan.rule": "ALLOW-INTERNAL",
         "network.bytes_out": "84992", "network.bytes_in": "12288",
         "action_result": "allow",
-        "threat.technique.id": "T1021.002",
       },
     },
     {
@@ -520,10 +514,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         // ML risk score
         // Threat mapping
         "threat.category": "Dropper",
-        "threat.technique.id": "T1027",
-        "threat.technique.name": "Obfuscated Files or Information",
-        "threat.tactic.id": "TA0005",
-        "threat.tactic.name": "Defense Evasion",
       },
     },
     {
@@ -544,8 +534,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.event_data.TargetObject": "HKU\\S-1-5-21-3421479547-3897544621-1789562108-1103\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\WindowsUpdater",
         "winlog.event_data.Details": "rundll32.exe C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost32.dll,DllMain",
         "winlog.event_data.User": "CRYOTECH\\jsmith",
-        "threat.technique.id": "T1547.001",
-        "threat.technique.name": "Registry Run Keys / Startup Folder",
       },
     },
     {
@@ -567,8 +555,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "dns.response_code": "NOERROR",
         "source.ip": "10.10.20.47", "host.name": "WS-FIN-2847",
         "network.protocol": "dns",
-        "threat.technique.id": "T1071.004",
-        "threat.name": "DNS Tunneling",
       },
     },
     // Privilege escalation. The dump below opens lsass.exe with PROCESS_ALL_ACCESS,
@@ -597,8 +583,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.event_data.User": "CRYOTECH\\jsmith",
         "winlog.event_data.IntegrityLevel": "High",
         "winlog.event_data.Company": "Microsoft Corporation",
-        "threat.technique.id": "T1548.002",
-        "threat.technique.name": "Abuse Elevation Control Mechanism: Bypass User Account Control",
       },
     },
     {
@@ -688,10 +672,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "host.os.version": "22H2",
         "host.os.build": "19045.4291",
         // Threat mapping
-        "threat.technique.id": "T1003.001",
-        "threat.technique.name": "OS Credential Dumping: LSASS Memory",
-        "threat.tactic.id": "TA0006",
-        "threat.tactic.name": "Credential Access",
       },
     },
     {
@@ -792,8 +772,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "authentication.method": "Password + token replay",
         "authentication.mfa": "token_replay",
         "risk.level": "High",
-        "threat.technique.id": "T1078",
-        "threat.technique.name": "Valid Accounts",
       },
     },
     {
@@ -832,8 +810,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "event.outcome": "success",
         "user.email": "j.smith@cryotech.com",
         "source.ip": attackerIp,
-        "threat.technique.id": "T1564.008",
-        "threat.technique.name": "Exchange Email Delegate Permissions",
       },
     },
     {
@@ -855,8 +831,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "user.name": "jsmith",
         "user_agent.original": "aws-cli/2.13.0",
         "alert.name": "UnauthorizedAccess:IAMUser/AnomalousBehavior",
-        "threat.technique.id": "T1567.002",
-        "threat.technique.name": "Exfiltration to Cloud Storage",
       },
     },
 
@@ -907,7 +881,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.event_data.QueryResults": `type: 1 ${c2Ip};`,
         "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "host.name": victim.hostname,
-        "threat.technique.id": "T1071.001",
       },
     },
 
@@ -1099,8 +1072,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "logon.type": "3",
         "source.ip": sprayIp,
         "source.geo.country_name": "Netherlands",
-        "threat.technique.id": "T1110.003",
-        "threat.technique.name": "Password Spraying",
       },
     },
     {
@@ -1224,8 +1195,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "risk.level": "High",
         "logon.local_time": "02:12",
         "ca_policy_applied": "none",
-        "threat.technique.id": "T1078",
-        "threat.technique.name": "Valid Accounts",
       },
     },
     {
@@ -1264,8 +1233,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "event.outcome": "success",
         "user.email": "l.harris@cryotech.com",
         "source.ip": attackerIp,
-        "threat.technique.id": "T1564.008",
-        "threat.technique.name": "Exchange Email Delegate Permissions",
       },
     },
     {
@@ -1305,8 +1272,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "source.ip": attackerIp,
         "application.name": "Outlook Web App",
         "session.duration_seconds": "112",
-        "threat.technique.id": "T1114.002",
-        "threat.technique.name": "Email Collection: Remote Email Collection",
       },
     },
     {
@@ -1343,8 +1308,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "source.ip": attackerIp,
         "email.forwarding_address": "l.harris.backup@gmail.com",
         "email.deliver_and_forward": "true",
-        "threat.technique.id": "T1114.003",
-        "threat.technique.name": "Email Forwarding Rule",
       },
     },
     {
@@ -1419,8 +1382,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "source.ip": sprayIp,
         "mfa.push_count": "8",
         "mfa.window_minutes": "5",
-        "threat.technique.id": "T1621",
-        "threat.technique.name": "MFA Request Generation",
       },
     },
     {
@@ -1488,7 +1449,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "source.geo.country_name": "Netherlands",
         "source.geo.city_name": "Amsterdam",
         "threat.category": "BruteForce",
-        "threat.technique.id": "T1110.003",
       },
     },
 
@@ -1514,7 +1474,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "source.ip": attackerIp,
         "source.geo.country_name": "Netherlands",
         "user.email": victim.email,
-        "threat.technique.id": "T1114.002",
       },
     },
   ];
@@ -1683,8 +1642,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "source.ip": "91.108.56.200",
         "spf.result": "fail", "dkim.result": "fail",
         "action_result": "delivered",
-        "threat.name": "SpearphishingAttachment", "threat.category": "Phishing",
-        "threat.technique.id": "T1566.001",
+        "threat.category": "Phishing",
       },
     },
     {
@@ -1705,7 +1663,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "process.parent.name": "WINWORD.EXE", "process.parent.pid": "2244",
         "user.name": "CRYOTECH\\cmartin", "host.name": "WS-FIN-1193",
         "process.integrity": "medium",
-        "threat.technique.id": "T1059.001",
       },
     },
     {
@@ -1727,7 +1684,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "tls.server_certificate.not_after": "2026-08-15",
         "network.vlan.id": "10",
         "action_result": "allow", "tls_inspection": "disabled",
-        "threat.name": "CobaltStrikeBeacon", "threat.technique.id": "T1071.001",
       },
     },
     // Privilege escalation. Opening lsass.exe with PROCESS_ALL_ACCESS needs
@@ -1752,8 +1708,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.TargetObject": "HKU\\S-1-5-21-3421479547-3897544621-1789562108-1205\\Software\\Classes\\ms-settings\\Shell\\Open\\command\\DelegateExecute",
         "winlog.event_data.Details": "",
         "winlog.event_data.User": "CRYOTECH\\cmartin",
-        "threat.technique.id": "T1548.002",
-        "threat.technique.name": "Abuse Elevation Control Mechanism: Bypass User Account Control",
       },
     },
     {
@@ -1783,8 +1737,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.IntegrityLevel": "High",
         "winlog.event_data.OriginalFileName": "FODHELPER.EXE",
         "winlog.event_data.Company": "Microsoft Corporation",
-        "threat.technique.id": "T1548.002",
-        "threat.technique.name": "Abuse Elevation Control Mechanism: Bypass User Account Control",
       },
     },
     {
@@ -1834,10 +1786,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "file.type": "memory_dump",
         "user.name": "CRYOTECH\\cmartin",
         "host.name": "WS-FIN-1193",
-        "threat.technique.id": "T1003.001",
-        "threat.technique.name": "OS Credential Dumping: LSASS Memory",
-        "threat.tactic.id": "TA0006",
-        "threat.tactic.name": "Credential Access",
       },
     },
     {
@@ -1900,8 +1848,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "network.protocol": "smb", "network.transport": "tcp",
         "authentication.method": "NTLM", "authentication.status": "success",
         "smb.share": "\\\\FS-CORP-01\\ADMIN$",
-        "threat.technique.id": "T1021.002",
-        "threat.technique.name": "SMB/Windows Admin Shares",
       },
     },
     {
@@ -1933,8 +1879,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.Hashes": `SHA256=${psxHash}`,
         "winlog.event_data.Company": "Sysinternals - www.sysinternals.com",
         "winlog.event_data.OriginalFileName": "psexesvc.exe",
-        "threat.technique.id": "T1569.002",
-        "threat.technique.name": "Service Execution",
       },
     },
     {
@@ -1963,8 +1907,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "process.command_line": "vssadmin.exe delete shadows /all /quiet",
         "process.parent.name": "PSEXESVC.exe", "process.parent.pid": "3310",
         "user.name": "NT AUTHORITY\\SYSTEM", "host.name": "FS-CORP-01",
-        "threat.technique.id": "T1490",
-        "threat.technique.name": "Inhibit System Recovery",
       },
     },
     {
@@ -1992,8 +1934,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.ParentProcessId": "3310",
         "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
         "winlog.event_data.IntegrityLevel": "System",
-        "threat.technique.id": "T1070.001",
-        "threat.technique.name": "Clear Windows Event Logs",
       },
     },
     {
@@ -2010,7 +1950,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.SubjectDomainName": "CRYOTECH",
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectLogonId": "0x3e4a2",
-        "threat.technique.id": "T1070.001",
       },
     },
     {
@@ -2031,8 +1970,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "action_result": "detected_not_blocked",
         "policy.name": "Server-Detection-Only",
         "quarantine.status": "not_quarantined",
-        "threat.technique.id": "T1486",
-        "threat.technique.name": "Data Encrypted for Impact",
       },
     },
     {
@@ -2049,8 +1986,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "file.ransom_note": "LockBit_Ransom.txt",
         "storage.size": "18 GB",
         "shares.affected": "Finance, HR, Contracts",
-        "threat.technique.id": "T1486",
-        "threat.technique.name": "Data Encrypted for Impact",
       },
     },
     {
@@ -2068,7 +2003,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "ransom.demand_btc": "0.25", "ransom.deadline_hours": "72",
         "ransom.copies_dropped": "14",
         "url.full": "http://lockbit3olp7oetlc.onion",
-        "threat.name": "LockBit3.0", "threat.technique.id": "T1486",
       },
     },
 
@@ -2137,7 +2071,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "url.category": "Unknown",
         "network.bytes_out": "1024",
         "network.bytes_in": "8192",
-        "threat.technique.id": "T1071.001",
       },
     },
 
@@ -2321,8 +2254,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "logon.type": "3",
         "source.ip": sprayIp,
         "source.geo.country_name": "Germany",
-        "threat.technique.id": "T1110.003",
-        "threat.technique.name": "Password Spraying",
       },
     },
     {
@@ -2371,8 +2302,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "risk.level": "High",
         "logon.local_time": "02:40",
         "ca_policy_applied": "none",
-        "threat.technique.id": "T1078",
-        "threat.technique.name": "Valid Accounts",
       },
     },
     {
@@ -2415,8 +2344,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "application.name": "MicrosoftSecurityUpdate",
         "application.id": appId,
         "application.type": "OAuth2",
-        "threat.technique.id": "T1098.001",
-        "threat.technique.name": "Additional Cloud Credentials",
       },
     },
     {
@@ -2452,8 +2379,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "application.id": appId,
         "application.name": "MicrosoftSecurityUpdate",
         "iam.permission": "Mail.ReadWrite, Files.ReadWrite.All",
-        "threat.technique.id": "T1528",
-        "threat.technique.name": "Additional Cloud Credentials",
       },
     },
     {
@@ -2469,8 +2394,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         "mail.items_accessed": "187", "mail.folder": "Inbox",
         "authentication.method": "OAuth2",
-        "threat.technique.id": "T1114.002",
-        "threat.technique.name": "Remote Email Collection",
       },
     },
     {
@@ -2520,7 +2443,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         "mail.items_accessed": "143",
         "authentication.method": "OAuth2",
-        "threat.technique.id": "T1114.002",
       },
     },
     {
@@ -2540,7 +2462,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "cloud.resource.name": "/sites/ProductEngineering",
         "storage.classification": "Restricted",
         "network.bytes_out": "27100000",
-        "threat.technique.id": "T1530",
       },
     },
     {
@@ -2557,7 +2478,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         "file.count": "89", "files.confidential": "12", "files.restricted": "4",
         "network.bytes_out": "340000000",
-        "threat.technique.id": "T1530",
       },
     },
     {
@@ -2622,8 +2542,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "url.malicious_detected": "false",
         "data.office365.SafeLinks.Bypassed": "true",
         "action_result": "delivered",
-        "threat.name": "SpearphishingLink_OAuthConsent",
-        "threat.technique.id": "T1566.002",
       },
     },
 
@@ -2646,7 +2564,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "authentication.method": "OAuth2",
         "mail.folder_accessed": "Inbox",
         "source.ip": sprayIp,
-        "threat.technique.id": "T1114.002",
       },
     },
   ];
@@ -2811,7 +2728,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "cloud.resource.name": "cryotech.sharepoint.com/sites/Finance",
         "cloud.provider": "Microsoft365",
         "file.count": "12", "session.duration_seconds": "180",
-        "threat.technique.id": "T1530",
       },
     },
     {
@@ -2830,7 +2746,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "file.count": "47", "storage.size": "18.2 MB",
         "data.classification": "FinancialPII, HRConfidential",
         "action_result": "notified_not_blocked",
-        "threat.technique.id": "T1530",
       },
     },
     {
@@ -2855,8 +2770,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "removable_media.type": "USB Flash Drive",
         "usb.mount_point": "E:\\",
         "file.count": "47",
-        "threat.technique.id": "T1052.001",
-        "threat.technique.name": "Exfiltration over USB Device",
       },
     },
     {
@@ -2878,7 +2791,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "file.count": "8",
         "file.classification": "HRConfidential",
         "usb.device.serial": usbSerial,
-        "threat.technique.id": "T1052.001",
       },
     },
     {
@@ -2902,7 +2814,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "policy.name": "Personal-Cloud-Upload-Block",
         "block.reason": "DLP policy — Personal cloud upload blocked",
         "channel.type": "Browser Upload",
-        "threat.technique.id": "T1567",
       },
     },
     {
@@ -2924,7 +2835,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "policy.name": "Finance-PII-External-Email",
         "policy.action": "AuditAndNotify",
         "action_result": "delivered",
-        "threat.technique.id": "T1567",
       },
     },
     {
@@ -2941,7 +2851,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "cloud.resource.name": "cryotech.sharepoint.com/sites/HR",
         "data.classification": "HRConfidential, Restricted",
         "iam.permission": "read",
-        "threat.technique.id": "T1530",
       },
     },
     {
@@ -3012,7 +2921,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "ueba.combined_risk": "critical",
         "alert.name": "MassDownloadActivity",
         "source.ip": insider.ip,
-        "threat.technique.id": "T1530",
       },
     },
 
@@ -3556,8 +3464,7 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
         "source.ip": "45.148.10.77",
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
         "action_result": "delivered",
-        "threat.name": "SuspiciousAttachment", "threat.category": "Phishing",
-        "threat.technique.id": "T1566.001",
+        "threat.category": "Phishing",
       },
     },
     {
@@ -3599,7 +3506,6 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
         "user.name": "NEXACORP\\r.avraham",
         "host.name": victim.hostname,
         "host.ip": victim.ip,
-        "threat.technique.id": "T1204.002",
       },
     },
     {
@@ -3621,7 +3527,6 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
         "dns.query_domain": c2Domain,
         "domain.registration_age_days": "2",
         "action_result": "allow",
-        "threat.technique.id": "T1071.001",
       },
     },
     {
@@ -3648,7 +3553,6 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
         "process.hash.sha256": fileHash,
         "host.name": victim.hostname,
         "action_result": "quarantined",
-        "threat.technique.id": "T1204.002",
       },
     },
   ];
@@ -3780,7 +3684,6 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
         "process.parent.name": "explorer.exe",
         "user.name": "NEXACORP\\m.levi",
         "host.name": victim.hostname,
-        "threat.technique.id": "T1204.002",
       },
     },
     {
@@ -3803,7 +3706,6 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
         "process.hash.sha256": fileHash,
         "host.name": victim.hostname,
         "user.name": "NEXACORP\\m.levi",
-        "threat.technique.id": "T1547.001",
       },
     },
     {
@@ -3826,7 +3728,6 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
         "process.hash.sha256": fileHash,
         "host.name": victim.hostname,
         "action_result": "quarantined",
-        "threat.technique.id": "T1547.001",
       },
     },
   ];
@@ -3937,7 +3838,6 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
         "user.name": "NEXACORP\\d.cohen",
         "host.name": victim.hostname,
         "host.ip": victim.ip,
-        "threat.technique.id": "T1176",
       },
     },
     {
@@ -3971,7 +3871,6 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
         "process.parent.pid": "8814",
         "user.name": "NEXACORP\\d.cohen",
         "host.name": victim.hostname,
-        "threat.technique.id": "T1059.001",
       },
     },
     {
@@ -3993,7 +3892,6 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
         "dns.query_domain": c2Domain,
         "domain.registration_age_days": "4",
         "action_result": "allow",
-        "threat.technique.id": "T1071.001",
       },
     },
     {
@@ -4020,7 +3918,6 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
         "process.hash.sha256": stagerHash,
         "host.name": victim.hostname,
         "action_result": "quarantined",
-        "threat.technique.id": "T1059.001",
       },
     },
   ];
@@ -4448,8 +4345,7 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
         "action_result": "delivered",
         "block.reason": "No matching transport rule — macro-enabled document type not blocklisted",
-        "threat.name": "SuspiciousAttachment", "threat.category": "Phishing",
-        "threat.technique.id": "T1566.001",
+        "threat.category": "Phishing",
       },
     },
     {
@@ -4483,7 +4379,6 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
         "process.parent.pid": "4512",
         "user.name": "NEXACORP\\s.peretz",
         "host.name": victim.hostname,
-        "threat.technique.id": "T1059.001",
       },
     },
     {
@@ -4505,7 +4400,6 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
         "dns.query_domain": c2Domain,
         "domain.registration_age_days": "3",
         "action_result": "allow",
-        "threat.technique.id": "T1071.001",
       },
     },
     {
@@ -4531,7 +4425,6 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
         "crowdstrike.behaviors": "Known macro-loader signature match|Process terminated|Document quarantined",
         "host.name": victim.hostname,
         "action_result": "quarantined",
-        "threat.technique.id": "T1059.001",
       },
     },
   ];
@@ -4909,7 +4802,6 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "user.name": "NEXACORP\\m.cohen",
         "host.name": attackerHost,
         "source.ip": attackerIp,
-        "threat.technique.id": "T1087.002",
       },
     },
 
@@ -4939,7 +4831,6 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "host.name": "srv-file01",
         "source.ip": attackerIp,
         "authentication.protocol": "NTLM",
-        "threat.technique.id": "T1021.002",
       },
     },
   ];
@@ -5278,7 +5169,6 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
         "AccountName": "a.jones",
         "AccountDomain": "NEXACORP",
         "source.ip": victimIp,
-        "threat.technique.id": "T1071.004",
       },
     },
 
@@ -5445,8 +5335,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "source.ip": "91.108.56.207",
         "spf.result": "fail", "dkim.result": "fail",
         "action_result": "delivered",
-        "threat.name": "SpearphishingAttachment", "threat.category": "Phishing",
-        "threat.technique.id": "T1566.001",
+        "threat.category": "Phishing",
       },
     },
     // T+0: certutil.exe downloads payload (T1105)
@@ -5478,8 +5367,6 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
         "ProcessIntegrityLevel": "Medium",
-        "threat.technique.id": "T1204.002",
-        "threat.technique.name": "User Execution: Malicious File",
       },
     },
     {
@@ -5638,8 +5525,6 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "AccountDomain": "NEXACORP",
         "ProcessIntegrityLevel": "Medium",
         "RemoteUrl": "attacker.com",
-        "threat.technique.id": "T1059.001",
-        "threat.technique.name": "Command and Scripting Interpreter: PowerShell",
       },
     },
     {
@@ -5843,7 +5728,6 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "url.category": "Unknown/Uncategorized",
         "network.bytes_in": "204800",
         "source.geo.country_name": "Russia",
-        "threat.technique.id": "T1105",
       },
     },
 
@@ -5887,7 +5771,6 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "url.full": "http://attacker.com/payload.sct",
         "url.category": "Unknown/Uncategorized",
         "network.bytes_in": "8192",
-        "threat.technique.id": "T1218.010",
       },
     },
   ];
@@ -6037,8 +5920,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "threat.indicator.type": "aws-access-key",
         "threat.indicator.provider": "GitHub Advanced Security",
         "threat.indicator.confidence": "High",
-        "threat.technique.id": "T1552.001",
-        "threat.technique.name": "Credentials in Files",
         "action_result": "detected",
       },
     },
@@ -6112,7 +5993,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "GeoLocation.country_name": "Singapore",
         "GeoLocation.location.lat": 1.3521,
         "GeoLocation.location.lon": 103.8198,
-        "threat.technique.id": "T1580",
         "action_result": "allowed",
       },
     },
@@ -6157,7 +6037,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "ec2.instance_type": "p3.8xlarge",
         "ec2.instance_count": "8",
         "ec2.mining_pool": "pool.minexmr.com:4444",
-        "threat.technique.id": "T1578.002",
         "action_result": "allowed",
       },
     },
@@ -6202,7 +6081,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "ec2.instance_type": "p3.8xlarge",
         "ec2.instance_count": "6",
         "ec2.mining_pool": "xmr.pool.minergate.com:4444",
-        "threat.technique.id": "T1578.002",
         "action_result": "allowed",
       },
     },
@@ -6244,7 +6122,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "GeoLocation.location.lat": 1.3521,
         "GeoLocation.location.lon": 103.8198,
         "iam.new_user": backdoorUser,
-        "threat.technique.id": "T1136.003",
         "action_result": "allowed",
       },
     },
@@ -6287,7 +6164,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "iam.policy_attached": "AdministratorAccess",
         "iam.policy_arn": "arn:aws:iam::aws:policy/AdministratorAccess",
         "iam.policy_type": "AWS Managed",
-        "threat.technique.id": "T1098.001",
         "action_result": "allowed",
       },
     },
@@ -6405,7 +6281,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "GeoLocation.country_name": "Singapore",
         "GeoLocation.location.lat": 1.3521,
         "GeoLocation.location.lon": 103.8198,
-        "threat.technique.id": "T1530",
         "action_result": "allowed",
       },
     },
@@ -6446,7 +6321,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "GeoLocation.location.lat": 1.3521,
         "GeoLocation.location.lon": 103.8198,
         "network.bytes_out": "4718592000",
-        "threat.technique.id": "T1530",
         "action_result": "allowed",
       },
     },
@@ -6624,8 +6498,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "logon.type_description": "RemoteInteractive (RDP)",
         "authentication.protocol": "Negotiate",
         "authentication.status": "success",
-        "threat.technique.id": "T1021.001",
-        "threat.technique.name": "Remote Services: Remote Desktop Protocol",
       },
     },
 
@@ -6666,10 +6538,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "user.name": "NEXACORP\\ITAdmin",
         "host.name": dc01,
         "host.ip": "10.0.1.10",
-        "threat.technique.id": "T1003.001",
-        "threat.technique.name": "OS Credential Dumping: LSASS Memory",
-        "threat.tactic.id": "TA0006",
-        "threat.tactic.name": "Credential Access",
       },
     },
 
@@ -6709,10 +6577,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "process.command_line": "reg add \"HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\" /v DisableRealtimeMonitoring /t REG_DWORD /d 1 /f",
         "user.name": "NEXACORP\\ITAdmin",
         "host.name": dc01,
-        "threat.technique.id": "T1562.001",
-        "threat.technique.name": "Impair Defenses: Disable or Modify Tools",
-        "threat.tactic.id": "TA0005",
-        "threat.tactic.name": "Defense Evasion",
       },
     },
 
@@ -6750,10 +6614,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "user.name": "NEXACORP\\ITAdmin",
         "user.domain": "NEXACORP",
         "host.name": dc01,
-        "threat.technique.id": "T1003.006",
-        "threat.technique.name": "OS Credential Dumping: DCSync",
-        "threat.tactic.id": "TA0006",
-        "threat.tactic.name": "Credential Access",
       },
     },
 
@@ -6792,54 +6652,83 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "host.name": dc01,
         "ds.object.target": "krbtgt",
         "ds.object.sid": "S-1-5-21-2847391045-1923847562-3041928374-502",
-        "threat.technique.id": "T1003.006",
-        "threat.technique.name": "OS Credential Dumping: DCSync",
-        "threat.tactic.id": "TA0006",
-        "threat.tactic.name": "Credential Access",
       },
     },
 
-    // ── EVENT 6 — Golden Ticket Kerberos TGT with 10-year lifetime ──────────
+    // ── EVENT 6 — the forged TGT is USED: a TGS request with no TGT behind it ─
+    //
+    // REWRITTEN. This event previously showed the golden ticket as a 4769 that
+    // DC01 had ISSUED (Status 0x0, computer_name dc01), carrying
+    // `TicketLifetime: 87600` and `PreAuthType: 0`. Three things were wrong, and
+    // the third made the scenario teach the opposite of the truth:
+    //
+    //   1. `TicketLifetime` does not exist on ANY Windows Kerberos event.
+    //      Ticket lifetime is visible in `klist` on the client, never in DC
+    //      telemetry — and the graded question rested entirely on it.
+    //   2. `PreAuthType` is a 4768 field, not a 4769 field.
+    //   3. A golden ticket is forged OFFLINE from the krbtgt hash. The KDC never
+    //      sees it minted and writes no issuance record at all. The scenario's
+    //      own killchain said "forged offline" while its telemetry showed the DC
+    //      issuing it.
+    //
+    // What a golden ticket ACTUALLY leaves behind is this: the attacker skips
+    // the AS exchange entirely and presents the forged TGT to get service
+    // tickets, so a 4769 appears with NO 4768 anywhere before it for that
+    // account. That absence is the detection, and it is the reason golden
+    // tickets are hard — there is nothing anomalous in the ticket itself.
     {
       id: "evt_dc_06_golden_kerberos", ts: T(13 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
-      hostname: dc01, user_email: adminEmail,
-      severity: "critical", mitre_technique: "T1558.001",
-      description: "A Kerberos TGT for it.admin was issued with a lifetime of 87,600 hours (10 years) and RC4 encryption — the domain's Kerberos policy caps ticket lifetime at 10 hours.",
+      hostname: dc02, user_email: adminEmail,
+      severity: "high", mitre_technique: "T1558.001",
+      description: `A service ticket for cifs/${dc02} was requested for it.admin from ${attackerIp}, encrypted with RC4 (0x17). The domain has been AES-only since the 2024 hardening project.`,
       raw: {
         "winlog.event_id": "4769",
         "winlog.channel": "Security",
-        "winlog.computer_name": dc01,
+        "winlog.computer_name": dc02,
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.record_id": "2097938",
+        // TargetUserName is the requesting principal; ServiceName is the
+        // service account backing the SPN that was asked for.
         "winlog.event_data.TargetUserName": "it.admin@NEXACORP",
         "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.ServiceName": "krbtgt",
-        "winlog.event_data.ServiceSid": "S-1-5-21-2847391045-1923847562-3041928374-502",
+        "winlog.event_data.ServiceName": `${dc02.split(".")[0]}$`,
+        "winlog.event_data.ServiceSid": "S-1-5-21-2847391045-1923847562-3041928374-1108",
         "winlog.event_data.TicketOptions": "0x40810000",
         "winlog.event_data.TicketEncryptionType": "0x17",
-        "winlog.event_data.TicketLifetime": "87600",
-        "winlog.event_data.TicketLifetime.Unit": "hours",
         "winlog.event_data.Status": "0x0",
         "winlog.event_data.IpAddress": attackerIp,
         "winlog.event_data.IpPort": "51847",
-        "winlog.event_data.PreAuthType": "0",
         "event.code": "4769",
         "event.action": "kerberos-service-ticket-requested",
         "event.outcome": "success",
         "event.created": T(13 * MIN),
         "user.name": "it.admin@NEXACORP",
-        "host.name": dc01,
+        "host.name": dc02,
         "source.ip": attackerIp,
-        "kerberos.policy.max_lifetime_hours": "10",
-        "ueba.risk_score": 96,
-        "ueba.baseline.max_tgt_lifetime_hours": "10",
-        "ueba.observed_tgt_lifetime_hours": "87600",
-        "ueba.first_seen_in_tenant": "true",
-        "threat.technique.id": "T1558.001",
-        "threat.technique.name": "Steal or Forge Kerberos Tickets: Golden Ticket",
-        "threat.tactic.id": "TA0006",
-        "threat.tactic.name": "Credential Access",
+      },
+    },
+
+    // ── EVENT 6b — the hunt that makes the ABSENCE observable ───────────────
+    // You cannot see a missing log by staring at the feed, so the analyst has to
+    // go and prove the negative. This is the SIEM query result that does it, and
+    // it is deliberately a separate event: the student should understand that
+    // this fact was *retrieved*, not handed over.
+    {
+      id: "evt_dc_06b_no_preceding_tgt", ts: T(14 * MIN),
+      source: "siem", vendor: "Microsoft Sentinel", event_type: "threat_intel_match",
+      hostname: dc01, user_email: adminEmail,
+      severity: "high",
+      description: "A hunting query for Kerberos authentication events (4768) for it.admin across all domain controllers, covering the 24 hours before the service ticket request, returned zero rows. The account's last recorded 4768 was six days earlier.",
+      raw: {
+        "sentinel.query.name": "Kerberos TGS without preceding TGT",
+        "sentinel.query.window_hours": "24",
+        "sentinel.query.target_account": "it.admin@NEXACORP",
+        "sentinel.query.event_id_searched": "4768",
+        "sentinel.query.domain_controllers_covered": "DC-NEXACORP-01, DC-NEXACORP-02",
+        "sentinel.query.rows_returned": "0",
+        "sentinel.query.last_4768_for_account": "2026-05-28T09:14:22Z",
+        "sentinel.domain.kerberos_encryption_policy": "AES256_HMAC_SHA1 (RC4 disabled 2024-03-11)",
       },
     },
 
@@ -6885,8 +6774,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "logon.type": "3",
         "logon.type_description": "Network",
         "authentication.protocol": "Kerberos",
-        "threat.technique.id": "T1550.003",
-        "threat.technique.name": "Use Alternate Authentication Material: Pass the Ticket",
       },
     },
 
@@ -6952,10 +6839,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "user.name": "NEXACORP\\ITAdmin",
         "host.name": dc01,
         "host.ip": "10.0.1.10",
-        "threat.technique.id": "T1003.003",
-        "threat.technique.name": "OS Credential Dumping: NTDS",
-        "threat.tactic.id": "TA0006",
-        "threat.tactic.name": "Credential Access",
       },
     },
 
@@ -7004,10 +6887,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "created_account.name": "svc-monitoring-prod",
         "created_account.upn": "svc-monitoring-prod@nexacorp.com",
         "created_account.group": "Domain Admins",
-        "threat.technique.id": "T1136.001",
-        "threat.technique.name": "Create Account: Local Account",
-        "threat.tactic.id": "TA0003",
-        "threat.tactic.name": "Persistence",
       },
     },
 
@@ -7036,10 +6915,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "user.domain": "NEXACORP",
         "host.name": dc01,
         "log.name": "Security",
-        "threat.technique.id": "T1070.001",
-        "threat.technique.name": "Indicator Removal: Clear Windows Event Logs",
-        "threat.tactic.id": "TA0005",
-        "threat.tactic.name": "Defense Evasion",
       },
     },
   ];
@@ -7084,17 +6959,17 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     },
     {
       id: "q_dc_02",
-      prompt: "A Kerberos TGT is observed in Event 4769 with TicketEncryptionType 0x17 and a TicketLifetime of 87,600 hours. Which MITRE technique does this represent?",
+      prompt: "it.admin requests a service ticket (4769) from DC02, and a hunt across both domain controllers finds no 4768 for that account in the preceding 24 hours. What does that combination indicate, and why is it the tell?",
       kind: "single",
       options: [
-        { value: "T1558.001", label: "T1558.001 — Golden Ticket: forged TGT using stolen krbtgt hash" },
-        { value: "T1550.002", label: "T1550.002 — Pass-the-Hash: using NTLM hash for lateral movement" },
-        { value: "T1558.003", label: "T1558.003 — Kerberoasting: requesting TGS tickets for offline cracking" },
-        { value: "T1558.002", label: "T1558.002 — Silver Ticket: forged TGS ticket for a specific service" },
+        { value: "T1558.001", label: "A forged TGT is in play — it was minted offline from the krbtgt hash, so the KDC never issued one and no 4768 exists to find (T1558.001, Golden Ticket)" },
+        { value: "T1550.002", label: "The account's NTLM hash is being replayed over SMB, which produces Kerberos service tickets without any prior interactive authentication (T1550.002, Pass-the-Hash)" },
+        { value: "T1558.003", label: "A service account with an SPN is being roasted, and the TGS request is the harvest step whose ticket gets cracked offline afterwards (T1558.003, Kerberoasting)" },
+        { value: "T1558.002", label: "A service ticket was forged directly using the target service account's own hash, which bypasses the KDC for that one service (T1558.002, Silver Ticket)" },
       ],
       answer: "T1558.001",
       xp: 75,
-      explanation: "A Golden Ticket is a forged Kerberos TGT signed with the krbtgt account's hash, created entirely offline by tools like Mimikatz. The two telltale indicators are: (1) TicketEncryptionType 0x17 (RC4-HMAC) — attackers default to RC4 because it requires only the NTLM hash, not AES keys; and (2) an absurdly long lifetime (87,600 hours = 10 years) that no legitimate Kerberos policy would issue. A Silver Ticket (T1558.002) targets a specific service (not krbtgt). Kerberoasting (T1558.003) requests TGS tickets to crack offline but doesn't involve forging TGTs. Pass-the-Hash uses NTLM, not Kerberos tickets.",
+      explanation: "The missing 4768 IS the finding. Normal Kerberos is a two-step exchange: the client asks the KDC for a TGT (4768), then presents that TGT to request service tickets (4769). A Golden Ticket is forged offline from the krbtgt hash, so the attacker already holds a TGT the KDC never issued and skips the AS exchange entirely — producing a 4769 with nothing before it. That absence is what makes golden tickets hard: the ticket itself is cryptographically valid and looks entirely normal in isolation. The RC4 encryption (0x17) on a domain that has been AES-only since 2024 is the corroborating signal, because forging tools default to RC4 — it needs only the NTLM hash rather than the AES keys. Silver Ticket (T1558.002) forges a SERVICE ticket with the service account's hash and would show no 4769 either, since it skips the TGS exchange too — here we HAVE a 4769, so the KDC was involved and the forgery is upstream of it. Kerberoasting (T1558.003) is the reverse direction: it requests tickets in order to crack them, and requires a valid account to start from. Pass-the-Hash is NTLM, not Kerberos, and produces no ticket events at all.",
     },
     {
       id: "q_dc_03",

@@ -204,7 +204,6 @@ export function buildImpossibleTravelBasicScenario(
         "o365.ThreatTypes": "Phish",
         "o365.DetectionMethods": "None",
         action_result: "delivered",
-        "threat.technique.id": "T1566.002",
       },
     },
 
@@ -266,7 +265,6 @@ export function buildImpossibleTravelBasicScenario(
         "tls.server.subject": `CN=${phishDomain}`,
         "tls.server_certificate.not_before": "2026-06-05",
         action_result: "allowed",
-        "threat.technique.id": "T1539",
       },
     },
 
@@ -363,7 +361,6 @@ export function buildImpossibleTravelBasicScenario(
         RiskEventTypes_V2: ["unfamiliarFeatures", "unlikelyTravel"],
         SessionId: hostileSession,
         CorrelationId: "b58c2f47-0e91-4a6d-89b2-73f1c0d4a825",
-        "threat.technique.id": "T1078.004",
       },
     },
 
@@ -438,7 +435,6 @@ export function buildImpossibleTravelBasicScenario(
         "data.office365.Parameters.MarkAsRead": "True",
         "data.office365.Parameters.StopProcessingRules": "True",
         "data.office365.ResultStatus": "True",
-        "threat.technique.id": "T1114.003",
       },
     },
 
@@ -474,7 +470,6 @@ export function buildImpossibleTravelBasicScenario(
         "data.office365.Folders.Path": "\\Inbox\\Accounts Payable\\Vendor Banking",
         "data.office365.AppId": "00000002-0000-0ff1-ce00-000000000000",
         "data.office365.ResultStatus": "Succeeded",
-        "threat.technique.id": "T1114.002",
       },
     },
 

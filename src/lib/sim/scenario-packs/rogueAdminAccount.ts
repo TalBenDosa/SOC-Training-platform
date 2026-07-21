@@ -170,7 +170,6 @@ export function buildRogueAdminAccountScenario(
         "source.ip": originHost.ip,
         "user.name": admin.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1078",
       },
     },
 
@@ -251,7 +250,6 @@ export function buildRogueAdminAccountScenario(
         "event.outcome": "success",
         "user.name": admin.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1136.002",
       },
     },
 
@@ -293,7 +291,6 @@ export function buildRogueAdminAccountScenario(
         "group.name": "Domain Admins",
         "user.name": admin.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1098",
       },
     },
 
@@ -335,7 +332,6 @@ export function buildRogueAdminAccountScenario(
         "group.name": "Administrators",
         "user.name": admin.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1098",
       },
     },
 
@@ -385,7 +381,6 @@ export function buildRogueAdminAccountScenario(
         "source.ip": originHost.ip,
         "user.name": rogue.sam,
         "user.domain": "NEXACORP",
-        "threat.technique.id": "T1078",
       },
     },
 

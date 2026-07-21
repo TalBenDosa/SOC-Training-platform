@@ -103,6 +103,44 @@ for (const [key, hashes] of nameToHashes) {
     add("ERROR", key, `one file carries ${hashes.size} different SHA256 values`);
 }
 
+// ── 1c. No analyst conclusions inside raw log blocks ────────────────────────
+// A raw block is what a sensor wrote. Sensors do not write MITRE mappings,
+// verdicts, or the name of the attack. 172 of these were removed in one pass:
+// every Windows Security event in the corpus carried `threat.technique.name`,
+// which meant scenarios asking "which technique is this?" printed the answer in
+// the telemetry the student was reading.
+//
+// The event's TYPED `mitre_technique` field is untouched and deliberately not
+// checked here — that is platform metadata used for grading and never rendered
+// as a log field.
+// The KEY check is deliberately narrow. My first version matched any
+// `*.Description` field and immediately flagged `crowdstrike.detection.description`
+// and `pe.description` — both REAL vendor fields (the latter is PE file
+// metadata). Had I trusted it, I would have stripped legitimate telemetry to
+// satisfy my own gate. Only fields that no sensor emits are errors here.
+const CONCLUSION_KEY = /^(threat\.(technique|tactic)\.|threat\.name$|is_malicious$|attack_type$|.*_verdict$)/i;
+
+// Whether a description field LEAKS is about its contents, not its name. A
+// detection description saying "Suspicious process access to lsass.exe" is what
+// the product writes; one saying "USB mounted, followed by bulk copy within
+// seconds — classic exfiltration" is the analyst's correlation handed over.
+// This is a WARN because the line is a judgement call and the reviewer, not the
+// gate, should make it.
+const ANALYSIS_VALUE = /\b(classic|clearly|obviously|indicates? (an?|the) (attack|intrusion|compromise)|this is (an?|the)|attacker (is|has|was)|exfiltrat\w+ (attempt|activity)|followed by .* within seconds)\b/i;
+for (const { slug, b } of bundles) {
+  for (const e of b.events ?? []) {
+    for (const [k, v] of Object.entries(e.raw ?? {})) {
+      if (CONCLUSION_KEY.test(k)) {
+        add("ERROR", `${slug}/${e.id ?? "?"}`,
+          `raw block carries "${k}" — a conclusion, not something a sensor writes`);
+      } else if (typeof v === "string" && v.length > 40 && ANALYSIS_VALUE.test(v)) {
+        add("WARN", `${slug}/${e.id ?? "?"}`,
+          `raw field "${k}" reads like analysis rather than observation: "${v.slice(0, 80)}"`);
+      }
+    }
+  }
+}
+
 // ── 2. Logic ────────────────────────────────────────────────────────────────
 for (const { slug, b } of bundles) {
   const ts = (b.events ?? []).map(e => e.ts ?? e.timestamp).filter(Boolean).map(t => new Date(t).getTime());
