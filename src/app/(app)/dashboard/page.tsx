@@ -769,7 +769,7 @@ export default function DashboardPage() {
                   </h2>
                   <p className="mt-1.5 text-sm text-slate-400">
                     <span className="font-semibold text-neon-amber">{live.activeIncident?.title ?? "A multi-stage attack"}</span>{" "}
-                    ran to completion without being reported.
+                    ran to completion without being reported. Training is paused.
                   </p>
                   {/* Kept from the banner this replaces: a miss is a lesson, not
                       a penalty, and saying so is what stops it reading as
@@ -812,11 +812,14 @@ export default function DashboardPage() {
                   >
                     Try again — new attack
                   </Button>
+                  {/* Closing leaves the feed PAUSED on purpose. The events the
+                      debrief just walked through are still on screen, and
+                      resuming would push them away behind fresh noise. */}
                   <Button
                     variant="outline" className="w-full sm:w-auto"
                     onClick={() => { live.clearMissedAttack(); live.dismissIncident(); }}
                   >
-                    Close and review the feed
+                    Review the paused feed
                   </Button>
                 </div>
               </div>

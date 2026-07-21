@@ -1196,7 +1196,11 @@ export function useLiveEvents({
             // phase land in the feed first, so the learner sees the events the
             // debrief is about to walk them through.
             if (storyJustFinished && !isFP && !caughtRef.current) {
-              setTimeout(() => setMissedAttack(true), 2500);
+              // Stop the feed before the debrief lands, for the same reason as
+              // story mode: a modal over a still-scrolling feed reads as an
+              // interruption to click past rather than a result to read.
+              setIsStreaming(false);
+              setTimeout(() => setMissedAttack(true), 2000);
             }
           }
           return;
@@ -1334,7 +1338,14 @@ export function useLiveEvents({
     setTimeout(() => setNewIds(new Set()), 2000);
 
     if (storyCursorRef.current >= s.events.length) {
-      // Story fully injected — let the page arm the next one
+      // Story fully injected. If it was never flagged, this is the moment the
+      // attack is genuinely over — stop the feed and debrief. Pausing matters:
+      // letting benign events keep scrolling behind a modal that says "you
+      // missed it" invites the learner to dismiss and carry on without reading.
+      if (!caughtRef.current) {
+        setIsStreaming(false);
+        setTimeout(() => setMissedAttack(true), 2000);
+      }
       storyRef.current = null;
       onStoryCompleteRef.current?.();
     } else {
