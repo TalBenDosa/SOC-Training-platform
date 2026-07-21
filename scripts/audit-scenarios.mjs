@@ -83,6 +83,34 @@ for (const { slug, b } of bundles) {
     const seen = [];
     if (e.file?.sha256) seen.push([e.file.sha256, e.file.name ?? e.file.path ?? "?"]);
     if (e.process?.hash?.sha256) seen.push([e.process.hash.sha256, e.process.name ?? "?"]);
+
+    // Also read hashes out of the RAW block. This was a blind spot: dcsync's
+    // ntdsutil event carried the process-image hash only in
+    // `crowdstrike.sha256`, so the check saw one hash where there were two, and
+    // a signed Microsoft binary shared an identity with a 2.7 GB AD database
+    // extract for weeks. A vendor field is where an analyst actually pivots, so
+    // it has to be in scope.
+    for (const [k, v] of Object.entries(e.raw ?? {})) {
+      if (typeof v !== "string" || !/^[a-f0-9]{64}$/i.test(v)) continue;
+      if (!/sha256|hash/i.test(k)) continue;
+      // PARENT and TARGET hashes describe a different binary than this event's
+      // process, and attributing them to it invents a collision. `evt_09_lsass`
+      // legitimately carries rundll32's own hash next to powershell's as the
+      // parent — correct telemetry that my first version reported as one hash
+      // describing two files.
+      if (/parent|target|grandparent/i.test(k)) continue;
+      // Attribute the raw hash to the PROCESS IMAGE, which is what a hash on a
+      // process-create record identifies.
+      //
+      // Deliberately skipped when the event names no process: my first version
+      // fell back to the hostname, so a single file whose hash appeared on two
+      // events looked like "one SHA256 describes 2 different files:
+      // payload.exe, ws-hr-1182" — twelve findings, all of them the check
+      // arguing with itself. An unattributable hash is not evidence of a
+      // collision; it is just an absence, and the gate should say nothing.
+      if (!e.process?.name) continue;
+      seen.push([v, e.process.name]);
+    }
     for (const [h, name] of seen) {
       const base = String(name).split(/[\\/]/).pop().toLowerCase();
       if (!hashToNames.has(h)) hashToNames.set(h, new Set());
