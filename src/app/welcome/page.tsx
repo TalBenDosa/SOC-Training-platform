@@ -1,23 +1,24 @@
 "use client";
 /**
- * The screen a learner lands on straight after signing in.
+ * The entry screen shown once, immediately after signing in.
  *
- * Deliberately small: a greeting by name, the score, and the badge they hold.
- * An earlier version of this page carried streaks, achievement grids and a
- * full rank ladder — that belongs on /progress, which already exists for it.
- * The moment after sign-in should tell you who you are and where you stand,
- * then get out of the way.
+ * NOT a navigation destination — it is deliberately absent from the sidebar.
+ * A learner passes through it on the way into the platform; they do not come
+ * back to it. Everything it shows (score, badge) lives in the Topbar and on
+ * /progress for the rest of the session, so repeating it as a nav item would
+ * be a third copy of the same numbers.
+ *
+ * One greeting, the two facts that orient you, one way forward.
  */
 import Link from "next/link";
-import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useRank } from "@/lib/progression/useRank";
-import { BookOpen, Target } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
-export default function HomePage() {
+export default function WelcomePage() {
   const { user } = useAuth();
   const { xp, rank, ready } = useRank();
 
@@ -25,26 +26,27 @@ export default function HomePage() {
   const name = user?.email?.split("@")[0] ?? "analyst";
 
   return (
-    <div>
-      <Topbar title="Home" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">
+      {/* Background, matching the landing page's treatment */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-cyber-grid" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-cyber-glow" />
 
-      <main className="container mx-auto flex max-w-2xl flex-col items-center px-6 py-16 text-center">
+      <div className="w-full max-w-xl text-center">
 
         <p className="text-lg text-slate-300">
           Hello <span className="font-semibold text-white">{name}</span>
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-white">
+        <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">
           Welcome to <span className="text-cyber-300">Hack The SOC</span>
         </h1>
 
         {/* ── Score + badge ──────────────────────────────────────────── */}
         <Card className={cn(
-          "mt-10 w-full p-8 ring-1 transition-shadow",
+          "mt-10 p-8 ring-1 transition-shadow",
           ready ? `${rank.accent.ring} shadow-lg ${rank.accent.glow}` : "ring-border",
         )}>
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-12">
 
-            {/* Score */}
             <div>
               <p className="text-xs uppercase tracking-widest text-slate-500">Score</p>
               <p className="mt-1 font-mono text-4xl font-bold text-white">
@@ -55,7 +57,6 @@ export default function HomePage() {
 
             <div className="hidden h-16 w-px bg-border sm:block" />
 
-            {/* Badge */}
             <div className="flex items-center gap-3">
               <span className={cn(
                 "flex h-14 w-14 items-center justify-center rounded-xl bg-bg-elevated text-3xl ring-2",
@@ -74,11 +75,15 @@ export default function HomePage() {
           </div>
         </Card>
 
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Link href="/rooms"><Button variant="primary"><BookOpen className="mr-2 h-4 w-4" /> Learning rooms</Button></Link>
-          <Link href="/scenarios"><Button variant="outline"><Target className="mr-2 h-4 w-4" /> Investigations</Button></Link>
+        {/* ── The one way forward ────────────────────────────────────── */}
+        <div className="mt-10">
+          <Link href="/rooms">
+            <Button variant="primary" size="lg">
+              Start Training <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

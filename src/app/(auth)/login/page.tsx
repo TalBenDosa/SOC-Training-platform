@@ -17,7 +17,7 @@ function LoginForm() {
   // Same-origin paths only — an open redirect here would let a crafted link
   // bounce a freshly-authenticated user to an attacker-controlled page.
   const rawNext = searchParams.get("next");
-  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/home";
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/welcome";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
