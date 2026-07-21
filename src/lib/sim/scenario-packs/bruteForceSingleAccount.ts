@@ -160,7 +160,7 @@ export function buildBruteForceSingleAccountScenario(
       mitre_tactic: "TA0006",
       geo: { country: "Russia", city: "Moscow" },
       description:
-        "One minute later the failures switch to the account name s.wolfe and the SubStatus code changes. This is a representative record from the burst — 214 failures for this one account were written between 09:02 and 09:20, every one of them from the same address, and no other account was attempted.",
+        "One minute later the failures switch to the account name s.wolfe — a representative record from 214 failures written between 09:02 and 09:20, all from 91.108.23.146.",
       authentication: { method: "NTLM", result: "failure", logon_type: 3 },
       raw: {
         "winlog.event_id": "4625",
@@ -211,7 +211,7 @@ export function buildBruteForceSingleAccountScenario(
       mitre_tactic: "TA0006",
       geo: { country: "Russia", city: "Moscow" },
       description:
-        "The final 4625 in the burst, written at 09:19:20 for s.wolfe from the same address. The account was never locked out: the lockout policy on this domain does not apply to the group s.wolfe belongs to, so the attempts were free to continue.",
+        "The final 4625 of the burst, written at 09:19:20 for s.wolfe on SRV-RDS-02 from 91.108.23.146 over NTLM.",
       authentication: { method: "NTLM", result: "failure", logon_type: 3 },
       raw: {
         "winlog.event_id": "4625",
@@ -263,7 +263,7 @@ export function buildBruteForceSingleAccountScenario(
       mitre_tactic: "TA0001",
       geo: { country: "Russia", city: "Moscow" },
       description:
-        "A successful 4624 network logon for s.wolfe on SRV-RDS-02 at 09:20:00. Compare every field of this record against the 4625 records that precede it — the account, the server, the source address and the source port range are all the same, only the event ID and the outcome differ.",
+        "A successful 4624 network logon for s.wolfe on SRV-RDS-02 at 09:20:00, LogonType 3 over NTLM, from 91.108.23.146.",
       authentication: { method: "NTLM", result: "success", logon_type: 3 },
       raw: {
         // Windows Security Event 4624 — An account was successfully logged on
@@ -316,7 +316,7 @@ export function buildBruteForceSingleAccountScenario(
       mitre_tactic: "TA0008",
       geo: { country: "Russia", city: "Moscow" },
       description:
-        "Eight seconds after the network logon, a second 4624 on SRV-RDS-02 records LogonType 10 — RemoteInteractive. A desktop session is now open for s.wolfe, driven from the same address, with a full user profile loaded.",
+        "Eight seconds later a second 4624 on SRV-RDS-02 records LogonType 10 — RemoteInteractive — for s.wolfe from the same address, over Negotiate.",
       authentication: { method: "Negotiate", result: "success", logon_type: 10 },
       raw: {
         "winlog.event_id": "4624",
@@ -365,7 +365,7 @@ export function buildBruteForceSingleAccountScenario(
       mitre_technique: "T1021.002",
       mitre_tactic: "TA0008",
       description:
-        "Inside the new desktop session, cmd.exe spawned net.exe to map a drive letter to a share on FS-CORP-02. The binary is the signed Microsoft one and the command is something a helpdesk technician types every day — what matters is which share was chosen.",
+        "Inside the new desktop session cmd.exe spawned the signed net.exe, running: net use Z: \\\\FS-CORP-02\\HR-Confidential as NEXACORP\\s.wolfe.",
       process: {
         name: "net.exe",
         pid: 6248,
@@ -419,7 +419,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: rds.ip,
       severity: "medium",
       description:
-        "FS-CORP-02 recorded the share connection from its own side. Note the IpAddress on this record: the file server sees the Remote Desktop server's internal address, not the external address, because the session is being driven from inside that desktop.",
+        "FS-CORP-02 recorded a 5140 connection to the HR-Confidential share under the s.wolfe logon session, with IpAddress 10.30.9.20.",
       raw: {
         // Windows Security Event 5140 — A network share object was accessed
         "winlog.event_id": "5140",
@@ -513,7 +513,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: attackerIp,
       severity: "high",
       description:
-        "Sentinel raised the alert and attached the account's directory context: which department s.wolfe sits in, which shares this account had connected to over the previous ninety days, and which single external address every authentication in the window came from.",
+        "Sentinel raised the alert for s.wolfe with the account's directory context attached: department, group memberships, 90-day share history and the source addresses seen in the window.",
       raw: {
         "siem.rule_name": "ExternalAuthenticationBurst_SingleAccount",
         "siem.rule_id": "SEN-IDENT-0117",

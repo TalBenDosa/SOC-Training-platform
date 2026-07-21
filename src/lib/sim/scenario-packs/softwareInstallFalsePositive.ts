@@ -75,7 +75,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       event_type: "policy_modification",
       severity: "informational",
       description:
-        "A change record was raised by Endpoint Engineering to push version 2.4.1 of an internal telemetry collector to a named ring of engineering workstations, in a two-hour window that evening. Note the package name, the target group and the exact planned window — you will need all three later.",
+        "Change record CHG0043912 was raised by Endpoint Engineering: deploy MeshLink Collector 2.4.1 to ENG-Workstations-Ring2 in a 21:00–23:00 window that evening.",
       raw: {
         "servicenow.table": "change_request",
         "servicenow.number": changeTicket,
@@ -115,7 +115,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       user_email: requester,
       severity: "informational",
       description:
-        "In the Intune console, an application was assigned as a required install to a device group, with an install deadline that evening. The record carries the publisher, the version, the silent install command line and how many devices the group contains.",
+        "MeshLink Collector 2.4.1 was assigned in Intune as a required install to ENG-Workstations-Ring2, 214 devices, with an install deadline of 21:00 UTC.",
       raw: {
         "intune.category": "Application",
         "intune.activityType": "Assign",
@@ -164,7 +164,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       src_ip: host.ip,
       severity: "medium",
       description:
-        "An unsigned installer executed as SYSTEM on WS-ENG-4471 at 21:00. Nobody was logged on interactively. Read the parent process and the folder the installer ran from — both of them tell you where the file came from.",
+        "An unsigned installer, mlnk-collector-setup.exe, executed as NT AUTHORITY\\SYSTEM on WS-ENG-4471 at 21:00 with no interactive user session on the host.",
       process: {
         name: "mlnk-collector-setup.exe",
         pid: 7412,
@@ -216,7 +216,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       user_email: primaryUser,
       severity: "high",
       description:
-        "An 18 MB executable with no Authenticode signature was written into C:\\Program Files\\MeshLink\\bin on WS-ENG-4471 by the installer process. An unsigned binary landing in a protected program directory is a genuine reason to look closer — it is not by itself a reason to conclude anything.",
+        "An 18 MB executable with no Authenticode signature, mlnk-collector.exe, was written into C:\\Program Files\\MeshLink\\bin on WS-ENG-4471 by the installer process.",
       file: {
         path: "C:\\Program Files\\MeshLink\\bin\\mlnk-collector.exe",
         name: "mlnk-collector.exe",
@@ -260,7 +260,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       hostname: host.hostname,
       severity: "high",
       description:
-        "The Service Control Manager on WS-ENG-4471 registered a new service that starts automatically at boot and runs as LocalSystem. Persistence plus the highest local account is exactly the pair that a dropper wants — and also exactly what an agent-style product needs.",
+        "The Service Control Manager on WS-ENG-4471 registered the service MeshLinkCollector, start type auto start, running as LocalSystem (Event 7045).",
       raw: {
         // Windows Event 7045 — A service was installed in the system
         "winlog.event_id": "7045",
@@ -299,7 +299,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         rcode: "NOERROR",
       },
       description:
-        "WS-ENG-4471 resolved a hostname immediately after the service was registered. Look at which DNS zone answered and what address came back before deciding whether this is a callout worth worrying about.",
+        "WS-ENG-4471 resolved mesh-collect.corp.nexacorp.com to 10.30.9.40, answered NOERROR by the internal Infoblox view on DNS-CORE-02.",
       raw: {
         "dns.question.name": collectorFqdn,
         "dns.question.type": "A",
@@ -336,7 +336,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       severity: "medium",
       network: { bytes_out: 3140, bytes_in: 986 },
       description:
-        "A short TLS session left WS-ENG-4471 seconds after the service was created. Check the destination address and which firewall zones the session crossed — 'made a network connection' is not the same finding as 'called out to the internet'.",
+        "A 2-second TLS session left WS-ENG-4471 for 10.30.9.40:8443, crossing from the USERS zone to SERVERS — 3,140 bytes sent, 986 received.",
       raw: {
         "pan.type": "TRAFFIC",
         "pan.subtype": "end",
@@ -375,7 +375,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       user_email: primaryUser,
       severity: "high",
       description:
-        "CrowdStrike Falcon raised a HIGH behavioural detection on WS-ENG-4471: an unsigned executable written to a protected program directory, a LocalSystem service registered from it, and a network connection opened, all inside seventy seconds. The detection took no action — nothing was blocked, killed or quarantined.",
+        "Falcon raised a HIGH behavioural detection on WS-ENG-4471 — unsigned write to Program Files, LocalSystem service, network session within seventy seconds. Disposition: Detection, No Action.",
       raw: {
         "crowdstrike.event_simplename": "DetectionSummaryEvent",
         "crowdstrike.detection.id": "ldt:7a1c53e9b0d24f68a35c1e70bd94f2a6:5510884213",
@@ -413,7 +413,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       user_email: primaryUser,
       severity: "informational",
       description:
-        "The device install-status report for the application lists WS-ENG-4471 with an install state and an error code, together with the group the device is a member of and the deployment it was pulled in by. This is the record that ties a specific machine to a specific rollout.",
+        "The Intune device install-status report lists WS-ENG-4471 under deployment DPL-40218: installState installed, errorCode 0, assigned group ENG-Workstations-Ring2.",
       raw: {
         "intune.report": "DeviceInstallStatusByApp",
         "intune.appId": appId,
@@ -449,7 +449,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       hostname: host.hostname,
       severity: "medium",
       description:
-        "Sentinel widened the question from one machine to the whole estate: where else this file appeared, when it first appeared, which device groups those machines belong to, what else the file did on them, and whether any anti-malware engine anywhere has an opinion about it.",
+        "Sentinel ran an estate-wide prevalence review of the mlnk-collector.exe hash: 197 hosts carry it, all inside ENG-Workstations-Ring2, with zero anti-malware detections across vendors.",
       raw: {
         "siem.rule_name": "NewBinaryPrevalenceReview",
         "siem.rule_id": "SEN-END-0187",

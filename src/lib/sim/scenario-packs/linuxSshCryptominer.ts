@@ -591,7 +591,12 @@ export function buildLinuxSshCryptominerScenario(
         "data.dstcountry": "Canada",
         "data.sentbyte": 96_420,
         "data.rcvdbyte": 1_842_360,
-        "data.duration": 2_405,
+        // 120s, not 2405s. This event is stamped 22:52 and the miner that opens
+        // the session does not launch until 22:50 (lsc_10_miner_exec), so a
+        // 40-minute duration implied the session was established 38 minutes
+        // before the process existed. The rest of this pack's arithmetic
+        // reconciles to the minute, which is exactly why this stood out.
+        "data.duration": 120,
         "data.vd": "root",
         "data.logdesc": "Traffic Statistics",
         "data.msg": "connection accepted",

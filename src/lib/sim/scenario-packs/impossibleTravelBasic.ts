@@ -82,7 +82,7 @@ export function buildImpossibleTravelBasicScenario(
       geo: { country: "IL", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
       authentication: { method: "Password", mfa_type: "Mobile app notification", result: "success" },
       description:
-        "Dana Harel signed in to Exchange Online at 06:12 from her usual home address in Tel Aviv, on her corporate laptop LT-FIN-3390. This is the record every later sign-in on this account has to be compared against — note the device, the network and how MFA was completed.",
+        "Dana Harel signed in to Exchange Online at 06:12 from her home address in Tel Aviv on the corporate laptop LT-FIN-3390, MFA completed by Authenticator push.",
       raw: {
         OperationName: "Sign-in activity",
         Category: "SignInLogs",
@@ -145,7 +145,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: victim.homeIp,
       severity: "informational",
       description:
-        "d.harel connected to the corporate remote-access VPN from 82.166.44.19 and was given the internal address 10.99.14.62. Traffic that leaves the company through this gateway reaches the internet from the gateway's own public address, 194.90.7.20 — worth remembering when a later sign-in has to be attributed to a network.",
+        "d.harel connected to the corporate remote-access VPN from 82.166.44.19 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 194.90.7.20.",
       raw: {
         "event.action": "vpn-session-established",
         "cisco.asa.message_id": "722022",
@@ -183,7 +183,7 @@ export function buildImpossibleTravelBasicScenario(
       mitre_tactic: "TA0001",
       network: { domain: phishDomain },
       description:
-        "An external email reached d.harel claiming her sign-in session needed re-verification, with a link to nexacorp-signin-verify.com. The sending domain fails SPF and DMARC, and the display name imitates the internal service desk. The message was delivered to the inbox, not quarantined.",
+        "External mail to d.harel linking to nexacorp-signin-verify.com was delivered to the inbox. SPF and DMARC both fail; the display name reads \"NexaCorp Service Desk\".",
       raw: {
         "event.action": "EmailDelivered",
         "event.outcome": "success",
@@ -235,7 +235,7 @@ export function buildImpossibleTravelBasicScenario(
         user_agent: corpUserAgent,
       },
       description:
-        "LT-FIN-3390 loaded the linked page and then sent a POST containing form data to it. The proxy categorised the destination as a newly registered and observed domain and allowed the request — the category is a description of the site's age, not a safety verdict.",
+        "LT-FIN-3390 POSTed 2,418 bytes of form data to nexacorp-signin-verify.com/auth/session-check and received a 302. Zscaler categorised the host as newly registered and allowed it.",
       raw: {
         "zscaler.action": "Allowed",
         "zscaler.reason": "Allowed",
@@ -282,7 +282,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: victim.homeIp,
       severity: "informational",
       description:
-        "The d.harel VPN session on VPN-GW-01 was torn down at 07:40 after 1 hour 22 minutes, at the client's request. No further remote-access session was opened for this account. Anything this account does after 07:40 did not come through the corporate gateway.",
+        "The d.harel VPN session on VPN-GW-01 was torn down at 07:40 after 1h 22m, reason \"User Requested\". No further remote-access session was opened for this account.",
       raw: {
         "event.action": "vpn-session-terminated",
         "cisco.asa.message_id": "113019",
@@ -319,7 +319,7 @@ export function buildImpossibleTravelBasicScenario(
       geo: { country: "NL", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 },
       authentication: { method: "Previously satisfied", result: "success" },
       description:
-        "The same account signed in successfully to Exchange Online at 08:27 from 146.190.62.117 in Amsterdam. Read the DeviceDetail block, the AutonomousSystemNumber and the AuthenticationDetails entry closely and compare each of them with the 06:12 record.",
+        "The same account signed in successfully to Exchange Online at 08:27 from 146.190.62.117 in Amsterdam, on AutonomousSystemNumber 14061.",
       raw: {
         OperationName: "Sign-in activity",
         Category: "SignInLogs",
@@ -379,7 +379,7 @@ export function buildImpossibleTravelBasicScenario(
       mitre_technique: "T1078.004",
       mitre_tactic: "TA0001",
       description:
-        "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly. The rule compares two locations and a clock and nothing else — it does not know whether a VPN, a proxy or a stolen session is responsible.",
+        "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly: 3,290 km in 135 minutes, implied speed 1,462 km/h.",
       raw: {
         "siem.rule_name": "Impossible travel to an atypical location",
         "siem.rule_id": "SEN-IDN-0114",
@@ -415,7 +415,7 @@ export function buildImpossibleTravelBasicScenario(
       mitre_technique: "T1114.003",
       mitre_tactic: "TA0009",
       description:
-        "A new inbox rule named \"AP sync\" was created on the d.harel mailbox from 146.190.62.117. It copies mail matching payment keywords to an outside address and moves the originals into RSS Subscriptions, a folder nobody opens. The SessionId on this record is the one to check.",
+        "An inbox rule named \"AP sync\" was created on the d.harel mailbox from 146.190.62.117: mail matching payment keywords is forwarded to an external address and the originals moved to RSS Subscriptions.",
       raw: {
         "data.office365.Operation": "New-InboxRule",
         "data.office365.Workload": "Exchange",
@@ -453,7 +453,7 @@ export function buildImpossibleTravelBasicScenario(
       mitre_technique: "T1114.002",
       mitre_tactic: "TA0009",
       description:
-        "Exchange recorded a bulk read of the Vendor Banking folder in the d.harel mailbox from the Amsterdam address — 812 items in a single sync, from the same session that created the rule. Dana's own client syncs a handful of new items at a time.",
+        "Exchange recorded a MailItemsAccessed sync of 812 items from the Vendor Banking folder in the d.harel mailbox, from 146.190.62.117.",
       raw: {
         "data.office365.Operation": "MailItemsAccessed",
         "data.office365.Workload": "Exchange",
@@ -486,7 +486,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: attackerIp,
       severity: "critical",
       description:
-        "A message went out from the d.harel mailbox to a supplier contact at ridgeline-supply.com asking that June remittances be paid to new bank details. It was sent from 146.190.62.117 in the same session as the rule and the bulk read, and a copy does not appear in Sent Items.",
+        "A message with the subject \"Updated remittance details — June invoices\" and a PDF attached was sent from the d.harel mailbox to accounts@ridgeline-supply.com from 146.190.62.117.",
       raw: {
         "data.office365.Operation": "Send",
         "data.office365.Workload": "Exchange",
@@ -714,7 +714,7 @@ At 07:26 a message reached her inbox claiming her sign-in session needed re-veri
 
 At 08:27 the same account signed in successfully to Exchange Online from 146.190.62.117 in Amsterdam, on AutonomousSystemNumber 14061 — a hosting provider, not her ISP and not the 194.90.7.20 address the corporate gateway uses. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the token rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
 
-What the intruder did next removes any doubt. Everything from 08:27 onwards shares SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504. At 08:33 a rule called "AP sync" was created on the mailbox, forwarding anything matching invoice, remittance, bank details, IBAN or payment to ap-archive.2026@securemaildrop.net and moving the originals into RSS Subscriptions marked as read (T1114.003). At 08:41 the Vendor Banking folder was read in bulk — 812 items in a single sync (T1114.002). At 08:52 a message went out to a supplier contact at ridgeline-supply.com with new remittance details attached, sent from the Drafts folder so it never appeared in Sent Items where Dana would have seen it.
+What the intruder did next removes any doubt. Everything from 08:27 onwards shares SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504. At 08:33 a rule called "AP sync" was created on the mailbox, forwarding anything matching invoice, remittance, bank details, IBAN or payment to ap-archive.2026@securemaildrop.net and moving the originals into RSS Subscriptions marked as read (T1114.003). At 08:41 the Vendor Banking folder was read in bulk — 812 items in a single sync (T1114.002). At 08:52 a message went out to a supplier contact at ridgeline-supply.com with new remittance details attached, composed and sent inside the same session as the inbox rule and the bulk read.
 
 Containment is an identity action, not a host action: revoke the account's refresh tokens so the stolen session dies, force a password reset, delete the "AP sync" rule, and tell accounts payable to phone the supplier on a number from the contract rather than one from any email.`,
     learning_objectives: [

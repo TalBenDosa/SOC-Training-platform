@@ -62,7 +62,7 @@ export function buildRogueAdminAccountScenario(
       event_type: "policy_modification",
       severity: "informational",
       description:
-        "A new-hire onboarding request, RITM0092416, was approved by HR and assigned to the Service Desk queue. It names the person the account is for, the manager who signed it off, and the start date. Keep this record in view — you will want something to compare tonight's activity against.",
+        "New-hire onboarding request RITM0092416 was approved by HR Operations and assigned to the Service Desk queue, requested for n.peretz@nexacorp.com and assigned to t.aharoni.",
       raw: {
         "servicenow.table": "sc_req_item",
         "servicenow.number": onboardingTicket,
@@ -95,7 +95,7 @@ export function buildRogueAdminAccountScenario(
       it_verify_message:
         "Service Desk confirms this account was provisioned under approved onboarding request RITM0092416.",
       description:
-        "t.aharoni created the domain account n.peretz on DC01 at 14:16, six minutes after the onboarding request landed in the Service Desk queue. This is the routine version of the same operation you will see again later tonight.",
+        "t.aharoni created the domain account n.peretz on DC01 at 14:16 (Event 4720), six minutes after the onboarding request reached the Service Desk queue.",
       raw: {
         // Windows Security Event 4720 — A user account was created
         "winlog.event_id": "4720",
@@ -139,7 +139,7 @@ export function buildRogueAdminAccountScenario(
       mitre_technique: "T1078",
       mitre_tactic: "TA0001",
       description:
-        "At 22:47 the t.aharoni account opened a Remote Desktop session on the administrative server SRV-ADM-07. Read WorkstationName and IpAddress on this record and hold on to them — you will meet the same two values again later in the timeline.",
+        "At 22:47 the t.aharoni account opened a LogonType 10 Remote Desktop session on the administrative server SRV-ADM-07, WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
       authentication: { method: "Kerberos", result: "success", logon_type: 10 },
       raw: {
         // Windows Security Event 4624 — An account was successfully logged on
@@ -186,7 +186,7 @@ export function buildRogueAdminAccountScenario(
       user_email: admin.email,
       severity: "low",
       description:
-        "The t.aharoni logon session on SRV-ADM-07 was issued its privilege set. This is normal for a Service Desk administrator and is exactly why nothing that follows is rejected by Windows — the account holds the rights the operations require.",
+        "The t.aharoni logon session on SRV-ADM-07 was issued its privilege set (Event 4672), including SeSecurityPrivilege, SeTakeOwnershipPrivilege and SeLoadDriverPrivilege.",
       raw: {
         // Windows Security Event 4672 — Special privileges assigned to new logon
         "winlog.event_id": "4672",
@@ -226,7 +226,7 @@ export function buildRogueAdminAccountScenario(
       it_verify_message:
         "Service Desk searched the request and change queues for the last 30 days and found no record referencing this account name.",
       description:
-        "At 22:51 the same administrator account created the domain user s.katz on DC01. The 4720 record itself is structurally identical to the one written at 14:16 — same event ID, same creator, same directory. Compare the surrounding context rather than the record.",
+        "At 22:51 the same t.aharoni session created the domain user s.katz on DC01 — Event 4720, same creator and same directory as the record written at 14:16.",
       raw: {
         "winlog.event_id": "4720",
         "winlog.channel": "Security",
@@ -268,7 +268,7 @@ export function buildRogueAdminAccountScenario(
       mitre_technique: "T1098",
       mitre_tactic: "TA0003",
       description:
-        "Three minutes after it was created, s.katz was added to a security-enabled global group on DC01. Read TargetUserName on this record to see which group, and MemberName to see who was put into it.",
+        "Three minutes after it was created, s.katz was added to the security-enabled global group Domain Admins on DC01 (Event 4728), by t.aharoni.",
       raw: {
         // Windows Security Event 4728 — A member was added to a security-enabled global group
         "winlog.event_id": "4728",
@@ -309,7 +309,7 @@ export function buildRogueAdminAccountScenario(
       mitre_technique: "T1098",
       mitre_tactic: "TA0003",
       description:
-        "Two minutes later the same account was also added to the local Administrators group on SRV-ADM-07 itself. Event 4732 is the local-group counterpart of 4728, and it is written on the member server rather than on the domain controller.",
+        "Two minutes later s.katz was added to the local Administrators group on SRV-ADM-07, recorded as Event 4732 on the member server itself.",
       raw: {
         // Windows Security Event 4732 — A member was added to a security-enabled local group
         "winlog.event_id": "4732",
@@ -351,7 +351,7 @@ export function buildRogueAdminAccountScenario(
       mitre_technique: "T1078",
       mitre_tactic: "TA0001",
       description:
-        "At 23:02 the s.katz account logged on interactively to SRV-ADM-07 for the first time, eleven minutes after it came into existence. Compare WorkstationName and IpAddress on this record with the same two fields on evt_ra_03_admin_logon.",
+        "At 23:02 s.katz logged on to SRV-ADM-07 with LogonType 10, eleven minutes after the account was created — WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
       authentication: { method: "Kerberos", result: "success", logon_type: 10 },
       raw: {
         "winlog.event_id": "4624",
@@ -397,7 +397,7 @@ export function buildRogueAdminAccountScenario(
       user_email: rogue.email,
       severity: "high",
       description:
-        "The s.katz logon session was issued the privilege set that comes with the groups it was placed in, including SeDebugPrivilege and SeBackupPrivilege. This is the proof that the group additions actually took effect rather than merely being requested.",
+        "The s.katz logon session on SRV-ADM-07 was issued SeDebugPrivilege, SeBackupPrivilege, SeRestorePrivilege and SeLoadDriverPrivilege among others (Event 4672).",
       raw: {
         "winlog.event_id": "4672",
         "winlog.channel": "Security",
@@ -431,7 +431,7 @@ export function buildRogueAdminAccountScenario(
       user_email: admin.email,
       severity: "high",
       description:
-        "Sentinel raised the alert at 23:08 and attached the lookups an analyst would otherwise run by hand: which request records mention the new account, which device the acting administrator is assigned, which hosts that administrator has logged on from recently, and who WS-ENG-2208 belongs to.",
+        "Sentinel raised the alert at 23:08 with directory context attached: request-record lookups for s.katz, the acting administrator's assigned device and logon history, and WS-ENG-2208's owner.",
       raw: {
         "siem.rule_name": "PrivilegedGroupAddition_RecentlyCreatedAccount",
         "siem.rule_id": "SEN-IDENT-0244",
