@@ -32,13 +32,31 @@ export interface ScenarioRecord {
 export function getTotalXp(): number {
   return parseInt(backend.get(LEARNER_KEYS.totalXp) ?? "0", 10) || 0;
 }
+/**
+ * Broadcast an XP change so anything showing a rank or total can update without
+ * a reload. Before this, XP was written to storage and nothing was notified, so
+ * the rank badge only refreshed on navigation — which meant a learner never saw
+ * the moment they were promoted, which is the moment that matters.
+ *
+ * Guarded for SSR: these functions are imported by client components that Next
+ * also renders on the server, where `window` does not exist.
+ */
+export const XP_CHANGED_EVENT = "soc:xp-changed";
+function announceXp(total: number): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(XP_CHANGED_EVENT, { detail: { total } }));
+}
+
 export function setTotalXp(xp: number): void {
-  backend.set(LEARNER_KEYS.totalXp, String(Math.max(0, Math.round(xp))));
+  const next = Math.max(0, Math.round(xp));
+  backend.set(LEARNER_KEYS.totalXp, String(next));
+  announceXp(next);
 }
 /** Add (or subtract, floored at 0) XP to the running total. Returns the new total. */
 export function addTotalXp(delta: number): number {
   const next = Math.max(0, getTotalXp() + delta);
   backend.set(LEARNER_KEYS.totalXp, String(next));
+  announceXp(next);
   return next;
 }
 
