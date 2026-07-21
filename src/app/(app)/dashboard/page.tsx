@@ -754,36 +754,71 @@ export default function DashboardPage() {
             .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
             .slice(0, 6);
           return (
-            <div className="rounded-lg border border-neon-amber/40 bg-neon-amber/5 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <Siren className="mt-0.5 h-5 w-5 shrink-0 text-neon-amber" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-white">An attack slipped past — let&apos;s debrief</p>
-                  <p className="mt-0.5 text-xs text-slate-300 leading-relaxed">
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+              role="dialog" aria-modal="true" aria-labelledby="missed-attack-title"
+            >
+              <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-neon-amber/40 bg-bg shadow-2xl shadow-neon-amber/10">
+
+                <div className="border-b border-border px-7 py-6 text-center">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-neon-amber/10 ring-2 ring-neon-amber/40">
+                    <Siren className="h-7 w-7 text-neon-amber" />
+                  </span>
+                  <h2 id="missed-attack-title" className="mt-4 text-2xl font-bold text-white">
+                    You missed the attack
+                  </h2>
+                  <p className="mt-1.5 text-sm text-slate-400">
                     <span className="font-semibold text-neon-amber">{live.activeIncident?.title ?? "A multi-stage attack"}</span>{" "}
-                    ran its course before it was reported. No points lost — spotting the ones you miss is exactly how you build the eye for it. Here&apos;s what it looked like:
+                    ran to completion without being reported.
                   </p>
-                  {missedEvents.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {missedEvents.map(e => (
-                        <li key={e.id} className="flex gap-2 text-[11px] text-slate-400">
-                          <span className="shrink-0 font-mono text-slate-600">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
-                          <span className="truncate">{e.description ?? e.displayDescription}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <p className="mt-2 text-[11px] text-slate-500">
-                    Next time: when a process looks off, widen the timeline around it and check what it spawned and what it connected out to.
+                  {/* Kept from the banner this replaces: a miss is a lesson, not
+                      a penalty, and saying so is what stops it reading as
+                      punishment. */}
+                  <p className="mt-3 inline-block rounded-full bg-neon-green/10 px-3 py-1 text-xs font-medium text-neon-green">
+                    No points lost — spotting the ones you miss is how you build the eye for it
                   </p>
                 </div>
-                <button
-                  onClick={() => { live.clearMissedAttack(); live.dismissIncident(); }}
-                  className="shrink-0 text-slate-500 hover:text-slate-300"
-                  aria-label="Dismiss debrief"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+
+                {missedEvents.length > 0 && (
+                  <div className="px-7 py-6">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">What it looked like</p>
+                    <ol className="mt-4 space-y-3">
+                      {missedEvents.map((e, i) => (
+                        <li key={e.id} className="flex gap-3">
+                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 font-mono text-[10px] text-slate-400">
+                            {i + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <span className="font-mono text-[11px] text-slate-600">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
+                            <p className="text-xs leading-relaxed text-slate-300">{e.description ?? e.displayDescription}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3 border-t border-border px-7 py-5 sm:flex-row-reverse">
+                  {/* Genuinely different outcomes. Two buttons doing the same
+                      thing is the decorative-control problem this dashboard
+                      already had once. */}
+                  <Button
+                    variant="primary" className="w-full sm:w-auto"
+                    onClick={() => {
+                      live.clearMissedAttack();
+                      live.dismissIncident();
+                      handleStartTraining(sessionDifficulty ?? "medium");
+                    }}
+                  >
+                    Try again — new attack
+                  </Button>
+                  <Button
+                    variant="outline" className="w-full sm:w-auto"
+                    onClick={() => { live.clearMissedAttack(); live.dismissIncident(); }}
+                  >
+                    Close and review the feed
+                  </Button>
+                </div>
               </div>
             </div>
           );

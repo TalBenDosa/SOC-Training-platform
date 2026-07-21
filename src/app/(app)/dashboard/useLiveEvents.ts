@@ -1131,6 +1131,10 @@ export function useLiveEvents({
         // Fire next attack phase if due
         if (world.attack && attackDue(world)) {
           const attackEvents = advanceAttack(world);
+          // advanceAttack() clears world.attack once every phase has been
+          // injected. That — not the SLA clock — is the moment the story is
+          // over, and the only honest moment to show how it ended.
+          const storyJustFinished = world.attack === null;
           if (attackEvents && attackEvents.length > 0) {
             const isFP = world.attack?.isFP ?? false;
             const now  = Date.now();
@@ -1169,12 +1173,14 @@ export function useLiveEvents({
               setActiveIncident(incident);
               if (missTimerRef.current) clearTimeout(missTimerRef.current);
               missTimerRef.current = setTimeout(() => {
+                // SLA expiry counts the miss, but does NOT open the debrief.
+                // Phases are still arriving at this point — showing the ending
+                // here told the learner how the story finished before it had.
+                // The debrief opens when the story actually completes, below.
                 if (!caughtRef.current) {
-                  setMissedAttack(true);
                   setFnCount(c => c + 1);
                   // No XP clawback: losing points for not clicking fast enough on
-                  // a timer reads as a trap. The miss is surfaced as a debrief
-                  // (see the "you missed one" banner) — a lesson, not a penalty.
+                  // a timer reads as a trap.
                 }
                 if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
                 setAttackTimerSeconds(null);
@@ -1185,6 +1191,13 @@ export function useLiveEvents({
             setNewIds(batchIds);
             setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
             setTimeout(() => setNewIds(new Set()), 2000);
+
+            // The story ran to its end without being flagged. Let the final
+            // phase land in the feed first, so the learner sees the events the
+            // debrief is about to walk them through.
+            if (storyJustFinished && !isFP && !caughtRef.current) {
+              setTimeout(() => setMissedAttack(true), 2500);
+            }
           }
           return;
         }
@@ -1300,7 +1313,9 @@ export function useLiveEvents({
       setActiveIncident(incident);
       if (missTimerRef.current) clearTimeout(missTimerRef.current);
       missTimerRef.current = setTimeout(() => {
-        if (!caughtRef.current) { setMissedAttack(true); setFnCount(c => c + 1); } // no XP clawback — surfaced as a debrief, not a penalty
+        // Counts the miss only. The debrief waits for the story to finish —
+        // see the completion check where the attack clears.
+        if (!caughtRef.current) { setFnCount(c => c + 1); } // no XP clawback
         if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
         setAttackTimerSeconds(null);
         missTimerRef.current = null;
