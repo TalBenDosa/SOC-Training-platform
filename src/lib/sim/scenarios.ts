@@ -634,15 +634,22 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "process.token_type": "TokenPrimary",
         "process.session_id": "1",
         // Parent — powershell.exe
-        "process.parent.pid": "5512",
-        "process.parent.name": "powershell.exe",
-        "process.parent.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "process.parent.command_line": "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBFAFgAIAAoAG4AZQB3AC4tV2ViQ2xpZW50KS5Eb3dubG9hZFN0cmluZw==",
-        "process.parent.hash.sha256": "de96a6e69944335375dc1ac238336066889d9ffc7d73628ef4fe1b1848474f30",
-        // Grandparent — WINWORD.EXE
-        "process.grandparent.name": "WINWORD.EXE",
-        "process.grandparent.pid": "4128",
-        "process.grandparent.executable": "\\Device\\HarddiskVolume3\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+        // Must match the structured block: the dump runs from the ELEVATED
+        // computerdefaults.exe, which is the whole point of evt_08b. The raw
+        // block previously named powershell.exe here, so anyone reading the raw
+        // saw the LSASS open happening at medium integrity — the opposite of
+        // the lesson.
+        "process.parent.pid": "5980",
+        "process.parent.name": "computerdefaults.exe",
+        "process.parent.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\computerdefaults.exe",
+        "process.parent.command_line": "computerdefaults.exe",
+        "process.parent.integrity_level": "High",
+        // Grandparent is now powershell.exe — the medium-integrity beacon that
+        // launched the bypass. WINWORD.EXE moves one step further out.
+        "process.grandparent.name": "powershell.exe",
+        "process.grandparent.pid": "5512",
+        "process.grandparent.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "process.grandparent.integrity_level": "Medium",
         // Target process — lsass.exe (the victim of the memory dump)
         "process.target.name": "lsass.exe",
         "process.target.pid": "704",
@@ -2161,7 +2168,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         { value: "detection", label: "Detection Only is correct — blocking can cause false positives on servers" },
       ],
       answer: "prevent", xp: 75,
-      explanation: "The ML engine scored the payload 91/100, well above the 80-point block threshold — the sensor was confident. What stopped it from acting was the policy: with prevention disabled it can only log. Setting Prevention on servers would have blocked the payload before encryption began. 'Detection Only' is a common server misconfiguration driven by availability fears, and here it cost the whole file server." },
+      explanation: "The sensor did detect it — the detection record is right there in the feed. What stopped it from acting was the policy: with prevention disabled on this server it can only log what it sees. Setting Prevention on servers would have blocked the payload before encryption began. 'Detection Only' is a common server misconfiguration driven by availability fears, and here it cost the whole file server." },
     { id: "q5", prompt: "You have the full timeline. Which single containment action would have broken the attack chain before encryption — and held up as the right call at the moment it was taken?", kind: "single",
       options: [
         { value: "isolate_zero", label: "Network-isolate WS-FIN-1193 when the LSASS dump was detected at 04:45 — before any credential could be reused" },
@@ -3015,7 +3022,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
 
   return {
     scenario_id: scenarioId,
-    title: "Insider Threat — Finance Data Exfiltration",
+    title: "Bulk Finance Downloads and Removable Media — WS-FIN-4421",
     threat_actor: "Malicious Insider (Finance Analyst, pending termination)",
     attack_kind: "insider_threat",
     briefing: "Microsoft Purview DLP fired policy Finance-PII-Bulk-Download on m.torres at 13:25, sourced from WS-FIN-4421. Microsoft Sentinel UEBA raised a separate anomaly on the same account shortly after. No containment has been applied.",
@@ -3067,10 +3074,10 @@ export const SCENARIOS = [
     threat_actor: "APT-CLOUDGHOUL", build: buildOAuthScenario,
     summary: "A rogue OAuth app survives a password reset — silently exfiltrating 340MB of product roadmaps via Microsoft Graph API." },
   { slug: "insider-threat-finance",
-    title: "Insider Threat — Finance Data Exfiltration",
+    title: "Bulk Finance Downloads and Removable Media — WS-FIN-4421",
     difficulty: "intermediate", attack_kind: "insider_threat",
-    threat_actor: "Malicious Insider", build: buildInsiderThreatScenario,
-    summary: "A finance employee facing termination bulk-downloads payroll data, copies it to USB, and attempts cloud upload. Find every detection gap." },
+    threat_actor: "To be determined", build: buildInsiderThreatScenario,
+    summary: "DLP flagged a burst of downloads from a finance share, and removable media was mounted on the same workstation minutes later. Establish what happened and whether it was authorised." },
   { slug: "kerberoasting",
     title: "Kerberoasting → Service Account Compromise",
     difficulty: "advanced", attack_kind: "credential_theft_kerberoasting",
@@ -4720,7 +4727,11 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.TargetUserName": "svc-mssql",
         "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.LogonType": "2",
+        // Type 10 (RemoteInteractive), not 2. LogonType 2 is a physical console
+        // session and cannot carry a source IP from another machine — and both
+        // q3 and q4 build their reasoning on this field. A service account
+        // holding an interactive desktop is just as damning either way.
+        "winlog.event_data.LogonType": "10",
         "winlog.event_data.AuthenticationPackageName": "NTLM",
         "winlog.event_data.WorkstationName": attackerHost,
         "winlog.event_data.IpAddress": attackerIp,
@@ -4733,7 +4744,6 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         "host.name": "srv-db01",
         "source.ip": attackerIp,
         "authentication.protocol": "NTLM",
-        "file.hash.sha256": sqlHash,
       },
     },
 
@@ -4910,7 +4920,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       },
       {
         id: "kerb_q3_chain",
-        prompt: "evt_kerb_07_svcacct_login shows svc-mssql logging on to srv-db01 with LogonType 2, sourced from WS-DEV-4412 and using the NTLM package. Read alongside evt_kerb_03_tgs_sql. What does the pair actually establish?",
+        prompt: "evt_kerb_07_svcacct_login shows svc-mssql logging on to srv-db01 with LogonType 10, sourced from WS-DEV-4412 and using the NTLM package. Read alongside evt_kerb_03_tgs_sql. What does the pair actually establish?",
         kind: "single",
         options: [
           { value: "cracked_and_reused", label: "The svc-mssql ticket was cracked offline and its recovered password used to log on" },
@@ -4936,7 +4946,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         answer: ["svc_interactive", "xp_cmdshell_enc"],
         xp: 75,
         explanation:
-          "Service accounts are meant to be used *by services* — non-interactive logon types from the servers they run on. A LogonType 2 for svc-mssql sourced from a workstation has no benign explanation, and xp_cmdshell spawning hidden encoded PowerShell is command execution on the DB host (T1059.001), not database work. 'master_database' is a red herring: xp_cmdshell is an extended stored procedure that lives in master, so every legitimate call to it is also against master. 'osql_client' is likewise neutral — osql.exe is a Microsoft-supplied SQL client that DBAs use daily; the tool does not make the statement malicious, the statement does.",
+          "Service accounts are meant to be used *by services* — non-interactive logon types from the servers they run on. A LogonType 10 for svc-mssql sourced from a developer workstation has no benign explanation, and xp_cmdshell spawning hidden encoded PowerShell is command execution on the DB host (T1059.001), not database work. 'master_database' is a red herring: xp_cmdshell is an extended stored procedure that lives in master, so every legitimate call to it is also against master. 'osql_client' is likewise neutral — osql.exe is a Microsoft-supplied SQL client that DBAs use daily; the tool does not make the statement malicious, the statement does.",
       },
     ],
   };
