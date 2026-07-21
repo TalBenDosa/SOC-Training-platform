@@ -41,6 +41,15 @@ export interface Rank {
   minXp: number;
   /** What this rank means as an actual job. Shown as a tooltip / on the profile. */
   blurb: string;
+  /**
+   * Visual identity. A rank that looks identical to the one below it does not
+   * read as progression — climbing has to be VISIBLE, or the ladder is just a
+   * number that went up. Tailwind class fragments, kept here so the ladder and
+   * the badge can never drift apart.
+   */
+  accent: { text: string; ring: string; glow: string; bar: string };
+  /** Single glyph for the rank medallion. */
+  glyph: string;
 }
 
 export const RANKS: Rank[] = [
@@ -50,6 +59,8 @@ export const RANKS: Rank[] = [
     tier: "learning",
     minXp: 0,
     blurb: "Just started. Working through the foundations — how logs, networks and identities actually work.",
+    accent: { text: "text-slate-300", ring: "ring-slate-500/40", glow: "shadow-slate-500/10", bar: "bg-slate-400" },
+    glyph: "◇",
   },
   {
     id: "trainee",
@@ -57,6 +68,8 @@ export const RANKS: Rank[] = [
     tier: "trainee",
     minXp: 1_500,
     blurb: "Can read a log line and say what it records. Learning to tell normal from noteworthy.",
+    accent: { text: "text-neon-green", ring: "ring-neon-green/40", glow: "shadow-neon-green/20", bar: "bg-neon-green" },
+    glyph: "◈",
   },
   {
     id: "tier-1",
@@ -64,6 +77,8 @@ export const RANKS: Rank[] = [
     tier: "tier-1",
     minXp: 5_000,
     blurb: "Tier 1 — triage. Works the alert queue, separates false positives from real findings, and escalates with evidence.",
+    accent: { text: "text-cyber-300", ring: "ring-cyber-500/50", glow: "shadow-cyber-500/25", bar: "bg-cyber-400" },
+    glyph: "◆",
   },
   {
     id: "tier-2",
@@ -71,6 +86,8 @@ export const RANKS: Rank[] = [
     tier: "tier-2",
     minXp: 12_000,
     blurb: "Tier 2 — investigation. Reconstructs an intrusion across log sources, scopes it, and writes the incident report.",
+    accent: { text: "text-neon-purple", ring: "ring-neon-purple/50", glow: "shadow-neon-purple/25", bar: "bg-neon-purple" },
+    glyph: "✦",
   },
   {
     id: "tier-3",
@@ -78,6 +95,8 @@ export const RANKS: Rank[] = [
     tier: "tier-3",
     minXp: 22_000,
     blurb: "Tier 3 — threat hunting and incident lead. Hunts without an alert to start from, and decides containment.",
+    accent: { text: "text-neon-amber", ring: "ring-neon-amber/60", glow: "shadow-neon-amber/30", bar: "bg-neon-amber" },
+    glyph: "★",
   },
 ];
 

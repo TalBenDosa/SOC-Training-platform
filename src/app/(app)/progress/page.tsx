@@ -9,6 +9,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
+import { RANKS } from "@/lib/progression/ranks";
 import { levelFromXp, xpForLevel, rankFromXp } from "@/lib/utils";
 import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake } from "lucide-react";
 import Link from "next/link";
@@ -219,19 +220,11 @@ function computeBadges(
   return badges;
 }
 
-// Honest rank-progression ladder tied to the real thresholds in
-// rankFromXp() (lib/utils). These are skill milestones to climb toward, not
-// fabricated rival users — the previous fake leaderboard pinned a hardcoded
-// name at a fake XP regardless of the learner's real progress.
-const RANK_LADDER: { name: string; xp: number }[] = [
-  { name: "Recruit",        xp: 0 },
-  { name: "Tier 1 Analyst", xp: 1000 },
-  { name: "Tier 2 Analyst", xp: 3000 },
-  { name: "Tier 3 Analyst", xp: 7000 },
-  { name: "Threat Hunter",  xp: 15000 },
-  { name: "IR Lead",        xp: 30000 },
-  { name: "SOC Architect",  xp: 60000 },
-];
+// Rank ladder comes from lib/progression/ranks.ts — the same list the Topbar
+// and /home render. This file previously declared its own with different names
+// AND different thresholds, so the two screens disagreed about what rank the
+// learner held.
+const RANK_LADDER = RANKS.map(r => ({ name: `${r.label} (${r.tier})`, xp: r.minXp }));
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
