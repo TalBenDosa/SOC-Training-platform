@@ -560,7 +560,11 @@ export function buildBruteForceSingleAccountScenario(
       value: rds.hostname,
       first_seen: T(0),
       last_seen: T(26 * MIN),
-      reputation: "suspicious",
+      // "unknown", not "suspicious". Reputation describes whether the INDICATOR
+      // is hostile, and this is the organisation's own published RDP server —
+      // the victim, not adversary infrastructure. Tagging your own estate
+      // suspicious is how a real blocklist ends up blocking production.
+      reputation: "unknown",
       tags: ["internet-published", "rdp"],
     },
     {

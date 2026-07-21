@@ -485,7 +485,7 @@ export function buildRogueAdminAccountScenario(
       value: adminServer.hostname,
       first_seen: T(N),
       last_seen: T(N + 21 * MIN),
-      reputation: "suspicious",
+      reputation: "unknown",
       tags: ["administrative-server", "rdp-target"],
     },
     {
