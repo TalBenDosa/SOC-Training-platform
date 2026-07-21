@@ -118,7 +118,7 @@ function titleForTechnique(t: string, _e: TelemetryEvent): string {
     case "T1036.005": return "Malicious binary masquerading as legitimate vendor telemetry process";
     case "T1621":     return "MFA push bombardment — user fatigued into approving";
     case "T1558.004": return "AS-REP Roasting — TGT requested without pre-authentication";
-    case "T1557.001": return "LLMNR/NBT-NS Poisoning — Responder capturing NTLM hashes";
+    case "T1557.001": return "LLMNR/NBT-NS Poisoning — name-resolution answers from an unexpected host";
     case "T1610":     return "Malicious kubectl exec into production container";
     case "T1611":     return "Container escape to host — breakout onto the EC2 node OS";
     case "T1552.005": return "EC2 Instance Metadata Service (IMDS) queried for IAM credentials";
@@ -185,7 +185,7 @@ function descForTechnique(t: string, e: TelemetryEvent): string {
     case "T1036.005": return `Malicious process masquerading as legitimate vendor binary — wrong path, unsigned, SHA256 mismatch vs. known-good${host}.`;
     case "T1621":     return `${e.src_ip ?? "Attacker"} sent 60+ Okta push notifications to exhaust${user} — user approved at 01:32 AM after 11 minutes of bombardment.`;
     case "T1558.004": return `AS-REP Roasting: account has Kerberos pre-authentication disabled (PreAuthType=0) — attacker requested TGT without credentials and will crack offline${host}.`;
-    case "T1557.001": return `Responder intercepted LLMNR broadcast and responded with attacker IP — victim's NTLM hash captured and relayed to ${e.dst_ip ?? "target server"}${host}.`;
+    case "T1557.001": return `An LLMNR broadcast was answered by a host that does not own the requested name; the authentication that followed was relayed to ${e.dst_ip ?? "another server"}${host}.`;
     case "T1610":     return `kubectl exec into container ${e.hostname ?? "api-prod"} from unexpected external IP — attacker using compromised CI/CD token to gain container shell${host}.`;
     case "T1611":     return `nsenter used with host namespace flags to break out of the container onto the EC2 node OS${host} — container escape to full host access.`;
     case "T1552.005": return `curl to 169.254.169.254 (AWS IMDS) from inside container${host} — attacker retrieving IAM role credentials bound to the EC2 node to pivot to cloud.`;
@@ -3124,7 +3124,7 @@ export const SCENARIOS = [
     difficulty: "advanced", attack_kind: "ntlm_relay",
     threat_actor: "FIN7 (compromised internal machine)",
     build: buildNtlmRelayScenario,
-    summary: "Responder.py on WS-DEV-09 poisons LLMNR broadcasts, intercepting l.nguyen's NTLM challenge and relaying it to SRV-FILE01. Remote SYSTEM execution via PsExec, LSASS dump with 0x1FFFFF access, and SMB pivot to 3 internal servers — no external C2." },
+    summary: "An LLMNR poisoner on WS-DEV-09 intercepts l.nguyen's NTLM authentication and relays it to SRV-FILE01. Remote SYSTEM execution via PsExec, LSASS dump with 0x1FFFFF access, and SMB pivot to 3 internal servers — no external C2." },
   { slug: "k8s-pod-escape-imds",
     title: "Kubernetes Pod Escape → Cloud Metadata Theft",
     difficulty: "advanced", attack_kind: "k8s_pod_escape",
@@ -8109,25 +8109,36 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
       },
     },
     {
-      id: "ntlm_03_auth_failure_relay",
+      // REPLACED a 4625 that could not exist. The previous version put a failed
+      // NTLM logon on WS-DEV-09 with SubStatus 0xC000006A (wrong password).
+      //
+      // Two problems. In a relay the victim's NTLM blob is consumed by the
+      // attacker's userland tooling and never handed to the local LSA, so
+      // Windows writes no authentication record at all on that host. And
+      // 0xC000006A asserts the credential WAS validated and found wrong —
+      // three seconds before the same credential succeeds on SRV-FILE01. That
+      // pushed the analyst toward cracking or spraying, which is the wrong
+      // technique family entirely.
+      //
+      // What the victim actually leaves is an SMB session to the poisoner.
+      id: "ntlm_03_victim_smb_session",
       ts: T(5_000),
-      source: "ad", vendor: "Windows Security",
-      event_type: "auth_failure", severity: "medium", mitre_technique: "T1557.001",
-      hostname: "WS-DEV-09", user_email: "l.nguyen@nexacorp.com", src_ip: "10.0.1.31",
-      description: "l.nguyen's NTLM authentication from WS-FIN-03 to WS-DEV-09 failed with SubStatus 0xC000006A.",
-      fp_explanation: "Auth failure from WS-FIN-03 to WS-DEV-09 looks like l.nguyen mistyping a share path — this happens dozens of times per day across the organization.",
+      source: "firewall", vendor: "Corelight (Zeek)",
+      event_type: "net_connection", severity: "medium", mitre_technique: "T1557.001",
+      hostname: "WS-FIN-03", user_email: "l.nguyen@nexacorp.com", src_ip: "10.0.1.31",
+      description: "WS-FIN-03 opened an SMB session to 10.0.1.45 on port 445, three seconds after receiving the LLMNR answer.",
+      fp_explanation: "Workstation-to-workstation SMB is unusual but not unheard of on this network — a developer sharing a build folder produces the same shape.",
       raw: {
-        "event.code": "4625",
-        "winlog.channel": "Security",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.computer_name": "WS-DEV-09",
-        "winlog.event_data.TargetUserName": "l.nguyen",
-        "winlog.event_data.WorkstationName": "WS-FIN-03",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.SubStatus": "0xC000006A",
-        "winlog.event_data.IpAddress": "10.0.1.31",
-        "winlog.event_data.IpPort": "49821",
+        "zeek.log_type": "smb_mapping",
+        "zeek.uid": "CmZ8k24Xb9pQwL3vTf",
+        "id.orig_h": "10.0.1.31",
+        "id.orig_p": "49821",
+        "id.resp_h": "10.0.1.45",
+        "id.resp_p": "445",
+        "smb.path": "\\\\10.0.1.45\\FINANCE-ARCHIVE",
+        "smb.share_type": "DISK",
+        "smb.native_file_system": "",
+        "network.transport": "tcp",
       },
     },
     {
@@ -8136,17 +8147,22 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
       source: "edr", vendor: "CrowdStrike Falcon",
       event_type: "process_create", severity: "critical", mitre_technique: "T1557.001",
       hostname: "WS-DEV-09", user_email: "m.johnson@nexacorp.com",
-      description: "CrowdStrike detected m.johnson's account on WS-DEV-09 running Responder.py -I eth0 -rdwv from C:\\Tools\\Responder\\.",
+      // Was `python3.exe` running `Responder.py -I eth0` on a WINDOWS host.
+      // eth0 is a Linux interface name, the Windows Python binary is
+      // python.exe, and Responder needs to bind UDP 137/138/5355 and TCP
+      // 445/139 — which LanmanServer already holds on Windows. Inveigh is the
+      // Windows-native equivalent and does exactly this job.
+      description: "Inveigh.exe started on WS-DEV-09 under m.johnson's account with LLMNR, NBNS and SMB listeners enabled.",
       raw: {
-        "cs.ContextProcessName": "python3.exe",
-        "cs.CommandLine": "Responder.py -I eth0 -rdwv",
-        "cs.FileName": "Responder.py",
-        "cs.FilePath": "C:\\Tools\\Responder\\",
+        "cs.ContextProcessName": "Inveigh.exe",
+        "cs.CommandLine": "Inveigh.exe -LLMNR Y -NBNS Y -SMB Y -Inspect N -FileOutput Y",
+        "cs.FileName": "Inveigh.exe",
+        "cs.FilePath": "C:\\Users\\m.johnson\\AppData\\Local\\Temp\\",
         "cs.UserName": "NEXACORP\\m.johnson",
-        "cs.ParentProcessName": "cmd.exe",
+        "cs.ParentProcessName": "powershell.exe",
         "cs.LocalAddressIP4": "10.0.1.45",
         "cs.Severity": 95,
-        "cs.SHA256HashData": makeSha256("Responder.py-FIN7-2026"),
+        "cs.SHA256HashData": makeSha256("inveigh_exe_llmnr_poisoner"),
       },
     },
     {
@@ -8155,7 +8171,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
       source: "ad", vendor: "Windows Security",
       event_type: "auth_success", severity: "high", mitre_technique: "T1078",
       hostname: "SRV-FILE01", user_email: "l.nguyen@nexacorp.com", src_ip: "10.0.1.45",
-      description: "l.nguyen's account authenticated to SRV-FILE01 via a network logon (Type 3) sourced from WS-DEV-09.",
+      description: "l.nguyen authenticated to SRV-FILE01 with a network logon (Type 3) over NTLM. The record names WS-FIN-03 as the workstation and 10.0.1.45 as the source address.",
       raw: {
         "event.code": "4624",
         "winlog.channel": "Security",
@@ -8165,9 +8181,22 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
         "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.LogonType": "3",
         "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.WorkstationName": "WS-DEV-09",
+        // THE relay signature, and it was previously inverted.
+        //
+        // ntlmrelayx forwards the victim's NTLMSSP_AUTH message verbatim — it
+        // cannot rewrite the workstation name without invalidating the MIC. So
+        // the relayed 4624 names the VICTIM's machine (WS-FIN-03) while the
+        // packet arrives from the ATTACKER's address (10.0.1.45).
+        //
+        // That contradiction inside a single record is the highest-fidelity
+        // relay indicator there is. This event previously carried WS-DEV-09 in
+        // both fields, which is what a normal logon from that host would look
+        // like — teaching the exact opposite of the tell.
+        "winlog.event_data.WorkstationName": "WS-FIN-03",
         "winlog.event_data.IpAddress": "10.0.1.45",
         "winlog.event_data.IpPort": "49823",
+        "winlog.event_data.LmPackageName": "NTLM V2",
+        "winlog.event_data.KeyLength": "128",
       },
     },
     {
@@ -8245,33 +8274,81 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
       source: "firewall", vendor: "FortiGate",
       event_type: "net_connection", severity: "critical", mitre_technique: "T1021.002",
       hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_port: 445,
-      description: "The firewall logged outbound SMB (port 445) connections from SRV-FILE01 to three internal hosts (10.0.2.30, 10.0.2.31, 10.0.0.5) within the same session.",
+      // Was ONE record carrying `data.dstip: "10.0.2.30,10.0.2.31,10.0.0.5"` and
+      // `data.msg: "SMB lateral movement to multiple targets"`. FortiGate writes
+      // one record per session — dstip is never a list — and a traffic log does
+      // not editorialise. That msg field also handed over the conclusion this
+      // event exists for the analyst to reach. Split into three real sessions;
+      // the "three targets in one window" observation is now the student's.
+      description: "SRV-FILE01 opened an outbound SMB session to 10.0.2.30 on port 445.",
       raw: {
         "data.type": "traffic",
         "data.subtype": "forward",
         "data.srcip": "10.0.2.20",
+        "data.dstip": "10.0.2.30",
         "data.dstport": "445",
         "data.proto": "6",
         "data.action": "accept",
         "data.app": "SMB",
-        "data.sentbyte": 187423,
-        "data.rcvdbyte": 94211,
-        "data.msg": "SMB lateral movement to multiple targets",
-        "data.dstip": "10.0.2.30,10.0.2.31,10.0.0.5",
+        "data.sentbyte": 64_218,
+        "data.rcvdbyte": 31_907,
+        "data.sessionid": "48812207",
+      },
+    },
+    {
+      id: "ntlm_10b_lateral_smb",
+      ts: T(25 * MIN + 40_000),
+      source: "firewall", vendor: "FortiGate",
+      event_type: "net_connection", severity: "high", mitre_technique: "T1021.002",
+      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_port: 445,
+      description: "SRV-FILE01 opened an outbound SMB session to 10.0.2.31 on port 445.",
+      raw: {
+        "data.type": "traffic",
+        "data.subtype": "forward",
+        "data.srcip": "10.0.2.20",
+        "data.dstip": "10.0.2.31",
+        "data.dstport": "445",
+        "data.proto": "6",
+        "data.action": "accept",
+        "data.app": "SMB",
+        "data.sentbyte": 71_004,
+        "data.rcvdbyte": 38_622,
+        "data.sessionid": "48812341",
+      },
+    },
+    {
+      id: "ntlm_10c_lateral_smb",
+      ts: T(25 * MIN + 95_000),
+      source: "firewall", vendor: "FortiGate",
+      event_type: "net_connection", severity: "high", mitre_technique: "T1021.002",
+      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_port: 445,
+      description: "SRV-FILE01 opened an outbound SMB session to 10.0.0.5 on port 445.",
+      raw: {
+        "data.type": "traffic",
+        "data.subtype": "forward",
+        "data.srcip": "10.0.2.20",
+        "data.dstip": "10.0.0.5",
+        "data.dstport": "445",
+        "data.proto": "6",
+        "data.action": "accept",
+        "data.app": "SMB",
+        "data.sentbyte": 52_201,
+        "data.rcvdbyte": 23_682,
+        "data.sessionid": "48812498",
       },
     },
   ];
 
   const iocs: IOC[] = [
     { type: "ip",     value: "10.0.1.45",                                 reputation: "malicious", tags: ["ws-dev-09"] },
-    { type: "sha256", value: makeSha256("Responder.py-FIN7-2026"),        reputation: "malicious", tags: ["indicator"] },
+    { type: "sha256", value: makeSha256("inveigh_exe_llmnr_poisoner"), reputation: "malicious", tags: ["poisoning-tool", "workstation"] },
     { type: "sha256", value: makeSha256("PSEXESVC-ntlm-relay-2026"),     reputation: "malicious", tags: ["psexec", "lateral-movement", "remote-exec"] },
     { type: "host",   value: "WS-DEV-09",                                 reputation: "malicious", tags: ["internal-host"] },
   ];
 
   const killchain = [
-    { ts: T(0),           phase: "Collection",        action: "WS-FIN-03 broadcasts LLMNR query for nonexistent share — Responder intercepts the broadcast" },
-    { ts: T(1_000),       phase: "Credential Access", action: "Responder.py running on WS-DEV-09 poisons LLMNR response, redirecting WS-FIN-03 to attacker" },
+    { ts: T(0),           phase: "Collection",        action: "WS-FIN-03 broadcasts an LLMNR query for a name DNS could not resolve — the poisoner answers it" },
+    { ts: T(1_000),       phase: "Credential Access", action: "Inveigh on WS-DEV-09 answers the broadcast, redirecting WS-FIN-03 to the attacker host" },
     { ts: T(5_000),       phase: "Credential Access", action: "l.nguyen's NTLM challenge-response captured and relayed to SRV-FILE01" },
     { ts: T(8_000),       phase: "Lateral Movement",  action: "Relay succeeds — l.nguyen authenticated to SRV-FILE01 from attacker IP 10.0.1.45" },
     { ts: T(15 * MIN),    phase: "Execution",         action: "PSEXESVC.exe deployed via relayed credentials — remote SYSTEM execution on SRV-FILE01" },
@@ -8283,29 +8360,29 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
   const questions: ScenarioQuestion[] = [
     {
       id: "q1", xp: 25,
-      prompt: "Events 1, 2, and 3 each have a FP explanation. Which single event, when examined, definitively confirms a NTLM relay attack in progress?",
+      prompt: "Which single event, on its own and without correlating it against anything else, confirms an NTLM relay is under way?",
       kind: "single",
       options: [
-        { value: "a", label: "Event 1 — LLMNR broadcast from WS-FIN-03" },
-        { value: "b", label: "Event 3 — Auth failure when WS-FIN-03 connected to WS-DEV-09" },
-        { value: "c", label: "Event 4 — Responder.py running on WS-DEV-09 with CommandLine showing -rdwv flags" },
-        { value: "d", label: "Event 5 — l.nguyen authenticating to SRV-FILE01" },
+        { value: "a", label: "Event 1 — WS-FIN-03 broadcasting an LLMNR query for a name its DNS server could not resolve" },
+        { value: "b", label: "Event 3 — WS-FIN-03 opening an SMB session to another workstation rather than to a file server" },
+        { value: "c", label: "Event 4 — an LLMNR/NBNS poisoning tool running on WS-DEV-09 with its listener flags in the command line" },
+        { value: "d", label: "Event 5 — l.nguyen successfully authenticating to SRV-FILE01 over NTLM with a network logon" },
       ],
       answer: "c",
-      explanation: "Event 4 (Responder.py) is the only unambiguous indicator. LLMNR broadcasts and auth failures are normal noise. Even Event 5 could look like a legitimate network logon in isolation. Responder.py with LLMNR/NBT-NS poisoning flags is a known attack tool with no legitimate use in production — this is the confirmation.",
+      explanation: "Event 4 is the only unambiguous one. An LLMNR broadcast is ordinary Windows behaviour whenever DNS misses, and workstation-to-workstation SMB is unusual without being proof of anything. Event 5 is genuinely damning once you read WorkstationName against IpAddress — but that takes a comparison, whereas a process whose command line enables LLMNR, NBNS and SMB listeners has no legitimate purpose on a corporate endpoint and needs no correlation to interpret. It is also the earliest point at which containment would still have prevented the relay.",
     },
     {
       id: "q2", xp: 20,
-      prompt: "Event 5 shows l.nguyen authenticating to SRV-FILE01 from IP 10.0.1.45. What is the anomaly that reveals this is a relay attack?",
+      prompt: "Event 5 is a successful 4624 for l.nguyen on SRV-FILE01. Reading only that one record, what marks it as a relayed authentication?",
       kind: "single",
       options: [
-        { value: "a", label: "l.nguyen holds no group membership in the SRV-FILE01 share ACL, so the successful logon must have been forged" },
-        { value: "b", label: "The source IP 10.0.1.45 is WS-DEV-09 — l.nguyen's workstation is WS-FIN-03 (10.0.1.31), not WS-DEV-09" },
-        { value: "c", label: "The logon used NTLM rather than Kerberos, and NTLM to a domain-joined file server is by itself proof of relay" },
-        { value: "d", label: "The Event 4624 LogonType is 3 (network) rather than 2 (interactive), which is abnormal for a file server" },
+        { value: "a", label: "l.nguyen holds no group membership in the SRV-FILE01 share ACL, so a successful logon for that account cannot be genuine" },
+        { value: "b", label: "WorkstationName says WS-FIN-03 but the connection arrived from 10.0.1.45 — the machine naming itself is not the machine that connected" },
+        { value: "c", label: "The logon negotiated NTLM rather than Kerberos, and NTLM against a domain-joined file server is by itself sufficient proof of relay" },
+        { value: "d", label: "The LogonType is 3 (network) rather than 2 (interactive), which should never appear on a file server holding departmental shares" },
       ],
       answer: "b",
-      explanation: "The source IP is the key: l.nguyen's physical workstation is WS-FIN-03 (10.0.1.45 is WS-DEV-09). In a relay attack, Responder captures WS-FIN-03's NTLM credential challenge and replays it FROM WS-DEV-09 to SRV-FILE01. The victim's IP never appears in the SRV-FILE01 auth log — only the attacker's machine does.",
+      explanation: "One record contradicts itself, and that is the whole finding. The relaying tool forwards the victim's NTLMSSP_AUTH message byte for byte — it cannot rewrite the workstation name inside it without invalidating the message integrity code and breaking the authentication it is trying to complete. So the name travels with the stolen blob (WS-FIN-03, the victim) while the packet is emitted by the attacker's host (10.0.1.45). Those two fields describing different machines in a single 4624 is the highest-fidelity relay indicator there is, and it needs no asset inventory to spot — the record impeaches itself. Option (c) is the common overreach: NTLM to a file server is extremely ordinary, and treating it as proof would bury a SOC in false positives. Option (d) is simply what a file share looks like — LogonType 3 is the normal case there. Option (a) inverts how authentication and authorisation relate: the 4624 records that the credential was accepted, and share permissions are evaluated afterwards.",
     },
     {
       id: "q3", xp: 15,
@@ -8318,20 +8395,20 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
         { value: "d", label: "Windows Defender real-time protection was disabled on WS-FIN-03, so the tool ran unblocked" },
       ],
       answer: "b",
-      explanation: "NTLM relay requires two conditions: (1) LLMNR/NBT-NS enabled — allows the poisoning that captures the challenge. (2) SMB signing not required on the target — without message signing, relayed NTLM auth cannot be detected. Both must be remediated: disable LLMNR via GPO and enable 'Require SMB signing' on all servers.",
+      explanation: "Two conditions had to hold at once. LLMNR/NBT-NS being enabled is what let the attacker answer a name lookup they had no right to answer — that is the poisoning step. SMB signing not being required on SRV-FILE01 is what let the stolen authentication be accepted from a machine that did not originate it. Signing does not DETECT a relay; it PREVENTS one, and the mechanism matters: signing binds the session to a key derived during authentication, and the relaying attacker never possesses that key because they only forward the victim's messages without ever learning the secret behind them. The same fact explains something worth putting in the report: changing l.nguyen's password does not help here, because the attacker never learned her password or her hash — they borrowed a live authentication and spent it. Remediation is disabling LLMNR and NBT-NS by GPO and requiring SMB signing on servers, and neither is a detection control.",
     },
     {
       id: "q4", xp: 20,
-      prompt: "Which detection approach would have caught Event 4 (Responder.py) before the relay succeeded?",
+      prompt: "Which detection approach would have caught the poisoning tool in Event 4 before the relay succeeded?",
       kind: "single",
       options: [
         { value: "a", label: "Monitoring all UDP port 5355 LLMNR broadcast traffic on the workstation VLAN and alerting on any spike in name-resolution volume" },
-        { value: "b", label: "EDR process hash detection — Responder.py has known hashes and its parent chain (cmd.exe → python3.exe → Responder.py) is anomalous" },
+        { value: "b", label: "EDR process detection — the binary is known, and a command line enabling LLMNR, NBNS and SMB listeners has no legitimate use on an endpoint" },
         { value: "c", label: "Configuring a firewall rule that denies inbound TCP 445 to SRV-FILE01 from every workstation subnet so SMB relay cannot reach it" },
         { value: "d", label: "Alerting on every NTLM authentication failure recorded as Event ID 4625 on member servers and treating each one as a possible relay attempt" },
       ],
       answer: "b",
-      explanation: "EDR process detection catches Responder before any relay happens. Monitoring LLMNR traffic alone has too many FPs. Blocking port 445 would break legitimate file sharing. Alerting on every NTLM failure would generate thousands of FP alerts. The EDR CommandLine pattern 'Responder.py -I eth0' combined with its known SHA256 is the highest-fidelity pre-relay detection.",
+      explanation: "EDR catches the tool before a single credential is captured, which is the only point at which this is still preventable rather than merely detectable. Monitoring LLMNR broadcast volume fails because broadcasts are constant baseline noise on any Windows network and the poisoner adds almost none of it — the attacker ANSWERS traffic rather than generating it. Denying inbound 445 from workstation subnets is a prevention control rather than a detection, and it would break ordinary file sharing while doing nothing about a relay that stays inside one VLAN. Alerting on every 4625 buries the SOC in noise and, in this scenario, would have found nothing at all: a relay produces no failed logon on the poisoning host.",
     },
   ];
 
@@ -8341,12 +8418,12 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
     threat_actor: "FIN7 (compromised internal machine)",
     attack_kind: "Credential Access / Lateral Movement",
     briefing: "Zeek flagged LLMNR broadcast traffic on the finance VLAN at 10:12 and CrowdStrike raised a tooling detection on WS-DEV-09. Separately, SRV-FILE01 recorded a service installation and a network logon for l.nguyen. All three are on one ticket.",
-    narrative: "FIN7 operator with foothold on developer workstation WS-DEV-09 runs Responder to poison LLMNR broadcasts. When finance analyst l.nguyen's machine (WS-FIN-03) attempts to connect to a typo’d share name, Responder intercepts the broadcast and presents itself as the target. WS-FIN-03 sends its NTLM challenge-response — Responder relays it to SRV-FILE01, authenticating as l.nguyen from the attacker’s IP. The attacker then deploys PSEXESVC for SYSTEM execution, dumps LSASS credentials, and pivots to three additional internal servers. No external C2, no malware dropped on WS-FIN-03 — just internal auth relay.",
+    narrative: "An operator with a foothold on developer workstation WS-DEV-09 runs Inveigh to answer LLMNR broadcasts. When finance analyst l.nguyen's machine (WS-FIN-03) looks up a share name DNS cannot resolve, the poisoner answers and presents itself as the target. WS-FIN-03 sends its NTLM authentication — which is relayed onward to SRV-FILE01, arriving from the attacker's address while still carrying the victim's workstation name inside it. The attacker then deploys PSEXESVC for SYSTEM execution, dumps LSASS credentials, and pivots to three additional internal servers. No external C2, no malware dropped on WS-FIN-03 — just internal auth relay.",
     learning_objectives: [
       "Correlate three low-fidelity events (LLMNR broadcast, LLMNR response, auth failure) into a single attack chain",
       "Identify that relay auth source IP differs from the victim's actual workstation IP",
       "Understand that LLMNR disable + SMB signing are the dual prerequisites for relay prevention",
-      "Recognize Responder.py tool signature in EDR CommandLine",
+      "Recognise an LLMNR/NBNS poisoning tool from its listener flags in EDR command lines",
     ],
     alerts: eventsToAlerts(events, scenarioId),
     events, iocs, killchain, questions,
