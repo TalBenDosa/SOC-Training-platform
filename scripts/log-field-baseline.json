@@ -1,7 +1,7 @@
 {
   "note": "Pre-existing field violations, accepted so the gate can block NEW ones while the backlog is worked down. Shrink this list; never grow it.",
   "generated": "run `node scripts/validate-log-fields.mjs --baseline` to regenerate",
-  "count": 3905,
+  "count": 3906,
   "accepted": [
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:action_result",
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:aws.cloudtrail.awsRegion",
@@ -3458,6 +3458,7 @@
     "src/lib/sim/scenarios.ts:github-audit-log:github.secret_scanning.commit",
     "src/lib/sim/scenarios.ts:github-audit-log:github.secret_scanning.file_path",
     "src/lib/sim/scenarios.ts:github-audit-log:github.secret_scanning.line_number",
+    "src/lib/sim/scenarios.ts:github-audit-log:github.secret_scanning.provider_notified",
     "src/lib/sim/scenarios.ts:github-audit-log:github.secret_scanning.push_protection_bypassed",
     "src/lib/sim/scenarios.ts:github-audit-log:github.secret_scanning.repo",
     "src/lib/sim/scenarios.ts:github-audit-log:github.secret_scanning.resolution",

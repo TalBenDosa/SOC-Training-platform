@@ -678,8 +678,15 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       id: "evt_09b_kerberos_tgt", ts: T(24 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
       hostname: "DC01", user_email: victim.email,
-      severity: "high", mitre_technique: "T1558.003",
-      description: `A Kerberos TGT for jsmith was requested from WS-FIN-2847 using RC4 encryption (downgraded from AES256) minutes after the LSASS dump.`,
+      // T1550.002 Pass the Hash. A 4768 requesting a TGT with RC4 immediately
+      // after an LSASS dump is the overpass-the-hash signature: the attacker
+      // holds the NTLM hash, not the password, so pre-authentication is built
+      // with the RC4 key derived from that hash. It was mapped T1558.003
+      // (Kerberoasting), which is a 4769 TGS request against an SPN account
+      // cracked offline — a different event id, a different direction, and it
+      // requires a valid account to begin with.
+      severity: "high", mitre_technique: "T1550.002",
+      description: `A Kerberos TGT for jsmith was requested from WS-FIN-2847 using RC4 encryption minutes after the LSASS dump. The account's earlier sign-ins that day used AES256.`,
       raw: {
         "event.code": "4768",
         "winlog.channel": "Security",
@@ -2351,7 +2358,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       source: "o365", vendor: "Microsoft Entra ID", event_type: "account_modify",
       user_email: victim.email, src_ip: sprayIp,
       severity: "critical", mitre_technique: "T1528",
-      description: "s.chen granted the MicrosoftSecurityUpdate app tenant-wide (AllPrincipals) consent to Mail.ReadWrite and Files.ReadWrite.All — a permission grant that survives password resets.",
+      description: "s.chen granted the MicrosoftSecurityUpdate app consent to Mail.ReadWrite, Files.ReadWrite.All and User.ReadBasic.All. The consent was recorded from 91.108.56.199.",
       raw: {
         // O365 UAL + Entra ID Audit Log — Consent to application
         "data.office365.Id": "d4e5f6a1-b2c3-d4e5-f6a1-b2c3d4e5f6a2",
@@ -2366,11 +2373,15 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         // Entra ID Audit Log fields
         "azure.auditlogs.category": "ApplicationManagement",
         // OAuth consent detail fields
-        "oauth.consent.type": "AllPrincipals",
+        // Self-consent: the only kind an ordinary user can grant. It was
+        // logged as "AllPrincipals" with is_admin_consent false, which is a
+        // contradiction — AllPrincipals is tenant-wide admin consent by
+        // definition and a non-admin cannot produce it.
+        "oauth.consent.type": "Principal",
         "oauth.consent.scopes_granted": "Mail.ReadWrite|Files.ReadWrite.All|User.ReadBasic.All",
         "oauth.consent.principal_type": "User",
         "oauth.consent.is_admin_consent": "false",
-        "oauth.consent.tenant_wide": "true",
+        "oauth.consent.tenant_wide": "false",
         // ECS fields
         "event.action": "Consent to application",
         "event.outcome": "success",
@@ -2580,7 +2591,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
     { ts: T(0),           phase: "Credential Access",   action: "Password spray — 43 failures across 12 accounts below lockout threshold" },
     { ts: T(10 * MIN),    phase: "Initial Access",       action: "s.chen MFA push accepted — account compromised via prompt fatigue" },
     { ts: T(15 * MIN),    phase: "Persistence",          action: "Rogue OAuth app 'MicrosoftSecurityUpdate' registered with broad permissions" },
-    { ts: T(16 * MIN),    phase: "Persistence",          action: "Tenant-wide AllPrincipals consent granted — bypasses all future password resets" },
+    { ts: T(16 * MIN),    phase: "Persistence",          action: "OAuth consent granted to the rogue app — the grant outlives the credential reset that follows" },
     { ts: T(1 * HR + 15 * MIN), phase: "Collection",    action: "Graph API reads 187 emails from compromised mailbox" },
     { ts: T(7 * HR),      phase: "Detection Gap",        action: "IT resets password — OAuth consent not revoked, attack continues" },
     { ts: T(11 * HR),     phase: "Exfiltration",         action: "27.1MB confidential product roadmap downloaded via Graph API" },
@@ -2596,7 +2607,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         { value: "backup",   label: "The attacker had already created a second account with Global Administrator rights and used it instead" },
       ],
       answer: "consent", xp: 75,
-      explanation: "Once AllPrincipals consent is granted, the OAuth application can generate access tokens on behalf of any user using its own client credentials — completely independent of the user's password. Resetting s.chen's password has no effect on the app's ability to authenticate. The consent must be explicitly revoked in Entra ID → Enterprise Applications." },
+      explanation: "The password reset did what it says on the tin — in Entra ID a reset stamps refreshTokensValidFromDateTime and invalidates the app's existing refresh tokens. What it does NOT touch is the consent grant itself, which is a separate object on the service principal. So the app simply acquires a fresh token the next time s.chen signs in, with no second prompt, because she already consented and Entra does not ask twice. That is why the access resumes rather than stops: the helpdesk closed the credential and left the authorisation open. Only revoking the grant in Entra ID → Enterprise Applications removes the app's ability to obtain tokens at all. MFA re-registration is irrelevant here — the attacker never satisfies an authentication factor; the application does the authenticating." },
     { id: "q2", prompt: "Which MITRE technique covers the rogue OAuth application registration?", kind: "single",
       options: [
         { value: "T1078",     label: "T1078 — Valid Accounts" },
@@ -2605,7 +2616,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         { value: "T1556",     label: "T1556 — Modify Authentication Process" },
       ],
       answer: "T1098.001", xp: 50,
-      explanation: "T1098.001 covers adversaries registering or modifying applications in a cloud tenant to gain persistent access using delegated permissions. The rogue OAuth app with AllPrincipals consent is the textbook example of this technique." },
+      explanation: "T1098.001 covers adversaries registering or modifying applications in a cloud tenant to gain persistent access using delegated permissions. A rogue OAuth app holding a user's consent is the textbook example: the persistence lives on the service principal rather than on the account, so credential-centric response — password reset, MFA re-registration — leaves it entirely intact." },
     { id: "q3", prompt: "What is the FASTEST single action to stop ongoing data access through the OAuth app?", kind: "single",
       options: [
         { value: "revoke",  label: "Revoke consent to 'MicrosoftSecurityUpdate' in Entra ID Enterprise Applications" },
@@ -5661,8 +5672,13 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       process: {
         name: "schtasks.exe", pid: 7900, path: "C:\\Windows\\System32\\schtasks.exe",
         parent_name: "powershell.exe", parent_pid: 6200,
-        cmdline: "schtasks /create /tn \"NexaCorpHealthCheck\" /tr \"C:\\ProgramData\\nexacorp\\svchost_update.exe\" /sc minute /mo 5 /ru SYSTEM /f",
-        user: "s.patel", integrity: "high",
+        cmdline: "schtasks /create /tn \"NexaCorpHealthCheck\" /tr \"C:\\ProgramData\\nexacorp\\svchost_update.exe\" /sc minute /mo 5 /f",
+        // Medium, matching the powershell.exe parent. This was High with
+        // `/ru SYSTEM` on the command line, which needs local administrator —
+        // and nothing in this LOLBin chain ever elevates: there is no UAC
+        // bypass and no 4672 anywhere in the scenario. As written it taught
+        // that a standard user can register a SYSTEM task.
+        user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("schtasks_system_binary") },
       },
       raw: {
@@ -5674,12 +5690,12 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "ActionType": "ProcessCreated",
         "FileName": "schtasks.exe",
         "FolderPath": "C:\\Windows\\System32\\schtasks.exe",
-        "ProcessCommandLine": "schtasks /create /tn \"NexaCorpHealthCheck\" /tr \"C:\\ProgramData\\nexacorp\\svchost_update.exe\" /sc minute /mo 5 /ru SYSTEM /f",
+        "ProcessCommandLine": "schtasks /create /tn \"NexaCorpHealthCheck\" /tr \"C:\\ProgramData\\nexacorp\\svchost_update.exe\" /sc minute /mo 5 /f",
         "InitiatingProcessFileName": "powershell.exe",
         "InitiatingProcessFolderPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "InitiatingProcessAccountName": "s.patel",
         "InitiatingProcessAccountDomain": "NEXACORP",
-        "ProcessIntegrityLevel": "High",
+        "ProcessIntegrityLevel": "Medium",
         "SHA256": makeSha256("schtasks_system_binary"),
         "AccountName": "s.patel",
         "AccountDomain": "NEXACORP",
@@ -5864,7 +5880,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         kind: "multi",
         options: [
           { value: "bits_job", label: "The BITS job NexaCorpUpdate resumes its transfer automatically after the machine restarts" },
-          { value: "schtask_system", label: "The task NexaCorpHealthCheck re-runs the dropped binary as SYSTEM every five minutes" },
+          { value: "schtask_system", label: "The task NexaCorpHealthCheck re-runs the dropped binary every five minutes under the logged-on user" },
           { value: "rundll32_dllmain", label: "rundll32 loading evil.dll from C:\\Users\\Public keeps that DLL resident on the host" },
           { value: "wmic_enumeration", label: "wmic process list brief registers a permanent WMI event consumer on the workstation" },
         ],
@@ -5901,20 +5917,21 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       event_type: "threat_intel_match",
       severity: "high", mitre_technique: "T1552.001", mitre_tactic: "TA0006",
       user_email: "a.levy@rocketstack.io",
-      description: "GitHub Advanced Security detected an AWS access key committed to the public repo rocketstack-io/deploy-scripts by a.levy@rocketstack.io, and auto-revoked it 3 minutes later.",
+      description: "GitHub Advanced Security detected an AWS access key committed to the public repo rocketstack-io/deploy-scripts by a.levy@rocketstack.io and reported it to Amazon Web Services 3 minutes later.",
       raw: {
         "event.provider": "GitHub Advanced Security",
         "event.action": "secret_scanning_alert_created",
         "event.outcome": "detected",
         "github.secret_scanning.token_type": "aws_access_key_id",
-        "github.secret_scanning.secret": "AKIA247316892041XXXX",
+        "github.secret_scanning.secret": "AKIA247316892041LEAK",
         "github.secret_scanning.commit": "f3a8c2d9b8e1f4a67c3d2e1f",
         "github.secret_scanning.repo": "rocketstack-io/deploy-scripts",
         "github.secret_scanning.author": "a.levy@rocketstack.io",
         "github.secret_scanning.branch": "main",
         "github.secret_scanning.file_path": "scripts/deploy.sh",
         "github.secret_scanning.line_number": "14",
-        "github.secret_scanning.resolution": "revoked",
+        "github.secret_scanning.resolution": "reported_to_provider",
+        "github.secret_scanning.provider_notified": "Amazon Web Services",
         "github.secret_scanning.push_protection_bypassed": "false",
         "github.secret_scanning.alert_number": "42",
         "threat.indicator.type": "aws-access-key",
@@ -6338,7 +6355,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
   ];
 
   const killchain = [
-    { ts: T(0),        phase: "Credential Exposure",       action: "a.levy commits AWS key AKIA247316892041LEAK to public GitHub repo — secret scanning detects it after 3 minutes" },
+    { ts: T(0),        phase: "Credential Exposure",       action: "a.levy commits AWS key AKIA247316892041LEAK to public GitHub repo — secret scanning detects it and reports it to AWS after 3 minutes" },
     { ts: T(2 * MIN),  phase: "Initial Access",            action: "Attacker bot GetCallerIdentity from Singapore — confirms stolen credentials valid within 2 minutes of commit" },
     { ts: T(4 * MIN),  phase: "Discovery",                 action: "Automated cloud recon: 12 S3 buckets, EC2 across 3 regions, 9 Secrets Manager entries — 90 seconds total" },
     { ts: T(6 * MIN),  phase: "Resource Hijacking",        action: "RunInstances us-east-1: 8x p3.8xlarge with XMRig UserData — $195.84/hr mining Monero" },
@@ -6378,7 +6395,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       ],
       answer: "B",
       xp: 75,
-      explanation: "Revoking the original leaked key (AKIA247316892041LEAK) is the obvious first containment step — but it is completely ineffective if the attacker has already created a backdoor IAM user with AdministratorAccess. evt_cm_07 happens at T+13min, before the key revocation. After this event, the attacker controls the AWS account independently of the original stolen credential. Notice that evt_cm_10 (PutBucketPolicy) was performed by the backdoor user, not the original key — proving the persistence worked.",
+      explanation: "Revoking the leaked key (AKIA247316892041LEAK) is the obvious first containment step, and on its own it accomplishes nothing here. By T+13min the attacker has already created a second IAM user and attached AdministratorAccess to it, so their access no longer depends on the credential you are about to kill. The proof is in the telemetry rather than in the timing: evt_cm_10 (PutBucketPolicy) is performed by the BACKDOOR user, not by the leaked key. Containment has to enumerate what the stolen credential created before it is revoked — otherwise you close the door the attacker came through and leave the one they built.",
     },
     {
       id: "q3",
@@ -6417,7 +6434,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
     title: "Cloud Credential Leak — Cryptomining + Data Breach",
     threat_actor: "Financially Motivated Actor (UNC3782)",
     attack_kind: "cloud_cryptomining",
-    briefing: "GitHub Advanced Security reported an exposed AWS access key in rocketstack-io/deploy-scripts at 09:03 and auto-revoked it. AWS Cost Anomaly Detection has since flagged a spend spike on the same account, and GuardDuty has an open finding. Scope the account.",
+    briefing: "GitHub Advanced Security reported an exposed AWS access key in rocketstack-io/deploy-scripts at 09:03. AWS Cost Anomaly Detection has since flagged a spend spike on the same account, and GuardDuty has an open finding. Scope the account.",
     narrative: `At 09:00, junior DevOps engineer a.levy accidentally committed AWS access keys to a public GitHub repository. GitHub's secret scanning detected the leak 3 minutes later and automatically revoked the key — but the damage was already done. Within 2 minutes of the commit, an automated bot operated by UNC3782 (a financially motivated threat actor known for scanning GitHub for cloud credentials) captured the keys and ran GetCallerIdentity to confirm they were valid. Over the next 24 minutes, the attacker executed a textbook cloud credential abuse playbook: rapid recon across S3, EC2, and Secrets Manager; launching 14 GPU instances (p3.8xlarge) across two regions to mine Monero at $342/hr; creating a backdoor IAM user with AdministratorAccess for persistence; and finally making a production S3 bucket public to exfiltrate 4.7GB of customer PII, payment tokens, and API keys. Your job: trace the attack from credential leak to data breach, identify the critical persistence mechanism that revoking the original key would not fix, and define the complete remediation sequence.`,
     learning_objectives: [
       "Understand how automated GitHub credential scanners work and why a 3-minute revocation window can still be too late",
@@ -7684,12 +7701,12 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
       kind: "single",
       options: [
         { value: "a", label: "It turns off the MFA requirement tenant-wide, so every user in the organization can now sign in with a password alone" },
-        { value: "b", label: "It adds their device as permanently trusted — even after the password is reset, the attacker can re-authenticate without MFA" },
+        { value: "b", label: "Their unmanaged device is now exempt from the compliance requirement, so it keeps access even though it will never be Intune-compliant" },
         { value: "c", label: "It strips the sign-in log data from Entra ID, so the SOC loses the audit trail needed to investigate the account takeover" },
         { value: "d", label: "It elevates the compromised account to Global Administrator, giving the attacker full control of every Entra ID object in the tenant" },
       ],
       answer: "b",
-      explanation: "By excluding DESKTOP-MOSCOW-99 from 'Require Compliant Device', the attacker's device is permanently whitelisted. Even after j.chen changes her password, the attacker can log in without MFA approval again — a classic persistence-through-policy technique.",
+      explanation: "Read what the policy actually grants. 'Require Compliant Device' is a DEVICE-COMPLIANCE control, not an MFA control — the two are separate grant controls and usually live in separate policies. Excluding DESKTOP-MOSCOW-99 from it does not switch MFA off, and no Conditional Access exclusion lets anyone in without a password. What it does is exempt an unmanaged attacker-controlled machine from the one control that would otherwise have kept it out permanently, because that device is never going to become Intune-compliant. The persistence is real and it is the right answer — it just works through the compliance gate rather than the MFA gate. This distinction matters in practice: an analyst who reports 'MFA was disabled' sends the response team after the wrong control.",
     },
     {
       id: "q3", xp: 15,
