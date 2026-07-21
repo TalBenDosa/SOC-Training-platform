@@ -8009,6 +8009,44 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
         "crowdstrike.severity": 65,
       },
     },
+    // ── The DC access the NTDS dump requires ────────────────────────────────
+    //
+    // ADDED. asrep_08 grants SeBackupPrivilege on SRV-FILE01, and asrep_10 then
+    // runs ntdsutil on DC01. A privilege held on a file server confers nothing
+    // on a domain controller — and no event showed svc-backup reaching DC01 at
+    // all, so the final and most damaging step had no prerequisite.
+    //
+    // Worse than a missing event: q3's explanation invited the student to infer
+    // that the file-server privilege enabled the DC dump. The generic claim
+    // about SeBackupPrivilege is true; the chain the scenario implied was not.
+    //
+    // Making it explicit also sharpens the real lesson. Over-privileged backup
+    // service accounts holding rights on domain controllers are exactly why
+    // this attack matters, and that is now visible rather than assumed.
+    {
+      id: "asrep_09b_dc_logon",
+      ts: T(6 * HOUR + 12 * MIN),
+      source: "ad", vendor: "Windows Security",
+      event_type: "auth_success", severity: "high", mitre_technique: "T1078",
+      hostname: "DC01", user_email: "svc-backup@nexacorp.com", src_ip: "10.0.2.20",
+      description: "svc-backup authenticated to DC01 with a network logon (Type 3) from SRV-FILE01, and the session was assigned SeBackupPrivilege and SeRestorePrivilege.",
+      raw: {
+        "event.code": "4624",
+        "winlog.channel": "Security",
+        "winlog.computer_name": "DC01.nexacorp.com",
+        "winlog.event_data.TargetUserName": "svc-backup",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
+        "winlog.event_data.LogonType": "3",
+        "winlog.event_data.AuthenticationPackageName": "Kerberos",
+        "winlog.event_data.IpAddress": "10.0.2.20",
+        "winlog.event_data.TargetLogonId": "0x7A31C09",
+        // The 4672 that accompanies it — this is the account's standing
+        // entitlement on the DC, not something the attacker granted.
+        "winlog.event_data.PrivilegeList": "SeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeSecurityPrivilege",
+        "siem.account_group_membership": "Backup Operators",
+        "siem.account_privileged_on_dc_since": "2023-08-14",
+      },
+    },
     {
       id: "asrep_10_ntds_dump",
       ts: T(6 * HOUR + 20 * MIN),
@@ -8029,8 +8067,6 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
 
   const iocs: IOC[] = [
     { type: "host",   value: "WS-DEV-09",                               reputation: "malicious", tags: ["internal-host", "ip:10.0.1.45"] },
-    { type: "sha256", value: makeSha256("asrep-hashcat-svc-backup-nexacorp"), reputation: "malicious", tags: ["asrep-hash", "krb5asrep-rc4", "hashcat", "svc-backup-tgt"] },
-    { type: "sha256", value: makeSha256("GetNPUsers-impacket-tool"),    reputation: "malicious", tags: ["impacket", "GetNPUsers.py"] },
     { type: "ip",     value: "10.0.1.45",                               reputation: "malicious", tags: ["ws-dev-09"] },
   ];
 
@@ -8084,7 +8120,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
         { value: "d", label: "SeBackupPrivilege allows the account to stop the Windows Defender service and clear its exclusion list, blinding detection" },
       ],
       answer: "a",
-      explanation: "SeBackupPrivilege bypasses all file ACLs for 'backup purposes.' Combined with ntdsutil.exe, an attacker can copy NTDS.dit (the AD database) containing NTLM hashes for every domain account — instant domain compromise via Pass-the-Hash.",
+      explanation: "SeBackupPrivilege bypasses file ACLs for backup purposes, and combined with ntdsutil it allows a copy of NTDS.dit — the AD database holding an NTLM hash for every domain account. The detail that matters is WHERE the privilege is held. The grant on SRV-FILE01 gave the attacker nothing on the domain controller; what made the dump possible is that svc-backup was a member of Backup Operators ON DC01 and had been since 2023, which is visible in the logon that precedes the dump. That standing entitlement is the finding for the report: the account did not need to be escalated, it was already over-privileged, and no amount of password rotation fixes that.",
     },
     {
       id: "q4", xp: 25,
@@ -8107,7 +8143,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     threat_actor: "APT28 (Fancy Bear)",
     attack_kind: "Credential Access / Lateral Movement",
     briefing: "CrowdStrike raised a detection on WS-DEV-09 under m.johnson's account at 09:04. DC01 logged a burst of Kerberos ticket issuance for three service accounts around the same time, and Zeek flagged the traffic between the two hosts.",
-    narrative: "APT28 operator with foothold on developer workstation WS-DEV-09 discovers three NexaCorp service accounts with Kerberos pre-authentication disabled. Using Impacket GetNPUsers.py, they request AS-REP responses (TGTs) without providing credentials. The RC4-encrypted TGT hashes are cracked offline (silent period — no logs). Six hours later, the cracked svc-backup password is used to authenticate laterally, access NTDS.dit via shadow copy, and probe Domain Admin group membership.",
+    narrative: "APT28 operator with foothold on developer workstation WS-DEV-09 discovers three NexaCorp service accounts with Kerberos pre-authentication disabled. Using Impacket GetNPUsers.py, they request AS-REP responses (TGTs) without providing credentials. The RC4-encrypted TGT hashes are cracked offline (silent period — no logs). Six hours later the cracked svc-backup password is used to authenticate laterally. The account turns out to hold Backup Operators rights on the domain controller itself, and ntdsutil is used there to create an IFM snapshot containing the AD database.",
     learning_objectives: [
       "Understand that Kerberos Event 4768 with PreAuthType=0 means the account is vulnerable to AS-REP Roasting",
       "Recognize Impacket tooling signatures in EDR logs",

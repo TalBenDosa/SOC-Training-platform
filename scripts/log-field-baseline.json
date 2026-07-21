@@ -1,7 +1,7 @@
 {
   "note": "Pre-existing field violations, accepted so the gate can block NEW ones while the backlog is worked down. Shrink this list; never grow it.",
   "generated": "run `node scripts/validate-log-fields.mjs --baseline` to regenerate",
-  "count": 3888,
+  "count": 3890,
   "accepted": [
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:action_result",
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:aws.cloudtrail.awsRegion",
@@ -3555,6 +3555,8 @@
     "src/lib/sim/scenarios.ts:microsoft-active-directory:ldap.scope",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:log.name",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:logon.type_description",
+    "src/lib/sim/scenarios.ts:microsoft-active-directory:siem.account_group_membership",
+    "src/lib/sim/scenarios.ts:microsoft-active-directory:siem.account_privileged_on_dc_since",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:source.geo.city_name",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:source.geo.location.lat",
     "src/lib/sim/scenarios.ts:microsoft-active-directory:source.geo.location.lon",
