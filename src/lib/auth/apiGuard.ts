@@ -22,6 +22,7 @@ import "server-only";
  */
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/audit/logAudit";
 
 export interface AuthedUser {
   id: string;
@@ -48,14 +49,25 @@ export async function getAuthedUser(): Promise<AuthedUser | null> {
 
 type Gate = { user: AuthedUser } | { error: NextResponse };
 
-/** Hard gate: caller must be a signed-in admin. Use for staff-only / content-authoring routes. */
-export async function requireAdmin(): Promise<Gate> {
+/**
+ * Hard gate: caller must be a signed-in admin. Use for staff-only /
+ * content-authoring routes.
+ *
+ * Pass `action` (e.g. "lesson.generate") to record the privileged access in the
+ * audit trail on success. The write is awaited but fail-safe — logAudit never
+ * throws — so it can neither break nor slow-fail the guarded route. A DENIED
+ * attempt by a non-admin is logged too: an authenticated user probing an admin
+ * endpoint is exactly the kind of event a SOC (and a regulator) wants recorded.
+ */
+export async function requireAdmin(action?: string): Promise<Gate> {
   const user = await getAuthedUser();
   if (!user) {
     return { error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
   }
   if (user.role !== "admin") {
+    if (action) await logAudit({ actorId: user.id, action: `${action}.denied`, metadata: { role: user.role } });
     return { error: NextResponse.json({ error: "Admin access required." }, { status: 403 }) };
   }
+  if (action) await logAudit({ actorId: user.id, action });
   return { user };
 }

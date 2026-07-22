@@ -219,7 +219,7 @@ function buildLocalLesson(
 // ─── Route (Gemini-powered) ───────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("lesson.generate");
   if ("error" in gate) return gate.error;
 
   const body = await req.json().catch(() => ({}));

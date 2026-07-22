@@ -202,6 +202,9 @@ export default function Landing() {
         <div className="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 text-xs text-slate-500 md:flex-row">
           <Logo size="sm" />
           <p>© 2026 HACK THE SOC · Synthetic data only · Not a replacement for production SOC tooling.</p>
+          <Link href="/privacy" className="text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
+            Privacy &amp; data
+          </Link>
         </div>
       </footer>
     </div>

@@ -370,7 +370,7 @@ const ATTACK_DESCRIPTIONS: Record<string, string> = {
 // ─── Main route ───────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("scenario.generate");
   if ("error" in gate) return gate.error;
 
   const body = await req.json().catch(() => ({}));

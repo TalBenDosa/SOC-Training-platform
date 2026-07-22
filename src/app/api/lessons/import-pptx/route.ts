@@ -109,7 +109,7 @@ Rules:
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("lesson.import_pptx");
   if ("error" in gate) return gate.error;
 
   if (!process.env.OPENAI_API_KEY) {

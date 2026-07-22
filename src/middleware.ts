@@ -14,11 +14,10 @@ import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "@/lib/supaba
  *    deployment that is a financial-DoS vector (anyone can drain the API budget)
  *    and a prompt-injection surface. This caps request volume per client IP.
  *
- *    SCOPE / LIMITS: counters live in per-instance memory, so on a serverless/
- *    edge platform they reset on cold start and aren't shared across instances.
- *    This is a deliberate FIRST layer; production MUST back it with a durable
- *    store (Upstash Redis / Vercel KV) keyed by IP + user id, plus real auth on
- *    the write endpoints. Tracked in PRODUCTION_READINESS_PLAN.md (Phase 0/4).
+ *    STORE: durable when UPSTASH_REDIS_REST_URL/TOKEN are set (cross-instance
+ *    fixed-window over Upstash REST); otherwise falls back to a per-instance
+ *    in-memory counter that resets on cold start. See src/lib/security/rateLimit.ts.
+ *    Write endpoints are additionally gated by real auth (getUser) below.
  *
  * 2. Supabase session refresh (all page routes).
  *    Auth tokens are short-lived; touching the session here on every navigation
@@ -102,7 +101,7 @@ export async function middleware(req: NextRequest) {
     const windowMs = 60_000;
     const key = `${expensive ? "x" : "g"}:${ip}`;
 
-    const { ok, retryAfter } = checkRateLimit(key, limit, windowMs);
+    const { ok, retryAfter } = await checkRateLimit(key, limit, windowMs);
     if (!ok) {
       return NextResponse.json(
         { error: "Too many requests — slow down and try again shortly." },

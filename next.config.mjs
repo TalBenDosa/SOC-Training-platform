@@ -4,13 +4,21 @@
 // Applied to every route. Baseline hardening against clickjacking, MIME sniffing,
 // referrer leakage, and unwanted browser features, plus HSTS for TLS enforcement.
 //
-// CSP is shipped in *Report-Only* mode first: it does NOT block anything yet, it
-// only reports violations. This is the safe rollout — it lets us discover what
-// inline scripts/styles the app (Next.js runtime, framer-motion, recharts) needs
-// before switching to an enforcing policy, so we never break the running app.
-// TODO(prod): after collecting reports, tighten to an enforcing Content-Security-Policy
-// with per-request nonces for inline scripts, and remove 'unsafe-inline'/'unsafe-eval'.
-const cspReportOnly = [
+// CSP is now ENFORCING (was Report-Only). The structural directives below are
+// actively blocked: no plugins (object-src 'none'), no <base> hijack
+// (base-uri 'self'), no cross-origin form posts (form-action 'self'), no framing
+// (frame-ancestors 'none'), and default-src/connect/img/font are pinned to the
+// origin + the few hosts the app legitimately needs (Supabase over https, data/
+// blob images). This shrinks the XSS/exfiltration blast radius immediately.
+//
+// KNOWN REMAINING GAP: script-src still allows 'unsafe-inline'/'unsafe-eval'.
+// Next.js injects inline bootstrap scripts and some deps eval, so removing these
+// requires switching CSP emission to the middleware with a per-request nonce
+// (script-src 'self' 'nonce-<rand>' 'strict-dynamic'). Tracked as the final CSP
+// hardening step — until then, injected inline <script> is still permitted, which
+// is why the app ALSO neutralises XSS at the source (HTML-escaping in the
+// markdown renderer, Mermaid securityLevel:"strict"). Defense in depth, both ends.
+const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
@@ -30,7 +38,7 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
-  { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
+  { key: "Content-Security-Policy", value: csp },
 ];
 
 const nextConfig = {

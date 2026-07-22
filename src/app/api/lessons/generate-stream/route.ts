@@ -418,7 +418,7 @@ Return ONLY this JSON (no markdown fences, no extra keys):
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("lesson.generate_stream");
   if ("error" in gate) return gate.error;
 
   const body = await req.json().catch(() => ({})) as {

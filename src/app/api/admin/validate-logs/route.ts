@@ -22,7 +22,7 @@ import { COMPANY_EVENTS, COMPANY_ATTACKS } from "@/lib/sim/companyProfiles";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 
 export async function GET(_req: NextRequest) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("admin.validate_logs");
   if ("error" in gate) return gate.error;
 
   // ── 1. Collect all events across every data source ──────────────────────

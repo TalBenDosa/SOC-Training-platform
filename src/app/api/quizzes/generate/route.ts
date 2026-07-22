@@ -161,7 +161,7 @@ function buildLocalQuiz(
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("quiz.generate");
   if ("error" in gate) return gate.error;
 
   const body = await req.json().catch(() => ({}));
