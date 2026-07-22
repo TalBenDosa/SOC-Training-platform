@@ -4,7 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, FileText, Trophy, CheckCircle2, Shield } from "lucide-react";
 import Link from "next/link";
 import { cn, formatTs } from "@/lib/utils";
-import { addTotalXp } from "@/lib/storage/progress";
+import { addTotalXp, appendScenarioRecord } from "@/lib/storage/progress";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -877,10 +877,13 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
       setGradeResult(result);
       setPhase("complete");
 
-      // Persist to localStorage so the progress page can display history
+      // Persist through the storage facade (Phase-1 seam). For a signed-in user
+      // this reaches the DB `scenario_history` table via remoteBackend; for a
+      // guest it writes the same "soc_scenario_history" localStorage key. ONE
+      // write, no double-entry. (Was a raw localStorage.setItem that never
+      // reached the DB — see AppSec finding #6 / persistence-migration Stage 1.)
       try {
-        const history = JSON.parse(localStorage.getItem("soc_scenario_history") ?? "[]");
-        history.push({
+        appendScenarioRecord({
           slug,
           title: bundle.title,
           score:    result.score,
@@ -888,8 +891,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           timeTaken: elapsed,
           date: new Date().toISOString(),
         });
-        localStorage.setItem("soc_scenario_history", JSON.stringify(history.slice(-50)));
-        // Also update cumulative XP — via the storage facade (Phase-1 seam).
+        // Cumulative XP total — also via the facade.
         addTotalXp(result.xpEarned + (result.timeBonusXp ?? 0));
       } catch { /* ignore storage errors */ }
     } catch {

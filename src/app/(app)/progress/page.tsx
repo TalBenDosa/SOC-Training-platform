@@ -15,7 +15,7 @@ import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, 
 import Link from "next/link";
 import { ROOMS } from "@/data/rooms";
 import type { RoomTask } from "@/data/rooms";
-import { getTotalXp } from "@/lib/storage/progress";
+import { getTotalXp, getScenarioHistory } from "@/lib/storage/progress";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -339,16 +339,14 @@ export default function ProgressPage() {
     } catch { /* ignore corrupt data */ }
 
     let scenarioAvg = 0;
-    // Read scenario history
+    // Read scenario history through the storage facade (Phase-1 seam): DB-backed
+    // `scenario_history` for signed-in users, localStorage for guests — same key.
     try {
-      const raw = localStorage.getItem("soc_scenario_history");
-      if (raw) {
-        const history: ScenarioRecord[] = JSON.parse(raw);
+      const history = getScenarioHistory();
+      if (history.length) {
         const sorted = history.slice().reverse().slice(0, 20);
         setScenarioHistory(sorted);
-        scenarioAvg = history.length
-          ? Math.round(history.reduce((s, r) => s + r.score, 0) / history.length)
-          : 0;
+        scenarioAvg = Math.round(history.reduce((s, r) => s + r.score, 0) / history.length);
 
         // Build last-7-days activity chart from scenario completions
         const days: Record<string, number> = {};
