@@ -19,7 +19,7 @@
 | 3 | Rate-limit בזיכרון | ✅ **תוקן** | `UpstashRateLimitStore` עמיד, נבחר אוטומטית עם env; fallback ללא רגרסיה |
 | 4 | CSP Report-Only | ✅ **תוקן** | הופעל כ-CSP אוכף; אומת שאין חסימות בדפים |
 | 5 | אין נוהל אירוע/דיווח | ✅ **תוקן** | `SECURITY_INCIDENT_RESPONSE.md` |
-| 6 | XP ניתן לכתיבה | ⚠️ **נדחה מנומק** | חקירה מלאה: **כל** נתוני ה-XP נכתבים מהלקוח — לא רק `profiles.xp` אלא גם `xp_earned` בכל שלוש טבלאות ההשלמה (room_progress/dashboard_sessions/scenario_history). לכן גם "לגזור מהרשומות" אינו tamper-proof. תיקון אמיתי = grading סמכותי בצד-שרת לכל מקור XP (rooms/scenarios/dashboard) — פרויקט רב-משטחי שדורש אימות ריצה מאחורי ה-auth שאי-אפשר לבצע כאן בלי סיכון לשיבוש ה-XP/rank של כל המשתמשים. Low, לא גבול-גישה. פירוט מלא ב-§6 |
+| 6 | XP ניתן לכתיבה | ✅ **תוקן** (ממתין להרצת migration 0008) | בוצע ב-3 שלבים: (1+2) ניתוב כל ההשלמות דרך ה-facade כך שטבלאות ה-DB מתמלאות; (3) `profiles.xp` נגזר בצד-שרת (`xp_offset + sum(records)`) ו-`revoke update(xp,level)` חוסם כתיבה מהלקוח. שיטת ה-offset **לא מאפסת** XP קיים. שאריות מתועדות (זיוף רשומות) ב-§7 |
 | 7 | אין גילוי פרטיות | ✅ **תוקן** | עמוד `/privacy` ציבורי + גילוי תת-מעבדים (Anthropic/OpenAI) |
 | 8 | postcss XSS | 🟡 **שיורי** | מוטמע ב-Next; נסגר עם שדרוג Next 16 (build-time, ללא משטח ריצה) |
 
