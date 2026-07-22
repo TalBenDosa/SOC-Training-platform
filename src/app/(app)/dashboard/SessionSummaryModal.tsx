@@ -64,7 +64,7 @@ export function SessionSummaryModal({ record, reportPassed, onClose, objectives,
           {/* Company objectives checklist */}
           {objectives && objectives.length > 0 && (
             <div className="rounded-lg border border-border/60 bg-bg/50 p-4">
-              <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-500">Company Objectives</p>
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">Company Objectives</p>
               <div className="space-y-2">
                 {objectives.map((obj, i) => (
                   <div key={i} className="flex items-center gap-2.5">
@@ -86,7 +86,7 @@ export function SessionSummaryModal({ record, reportPassed, onClose, objectives,
                 ))}
               </div>
               {!canClearCompany && objectives.some(o => !o.met) && (
-                <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
+                <p className="mt-3 text-[10px] text-slate-400 leading-relaxed">
                   Complete all objectives to secure this company and unlock the next one.
                 </p>
               )}

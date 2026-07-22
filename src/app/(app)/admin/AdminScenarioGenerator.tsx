@@ -59,7 +59,7 @@ const SEV_COLORS: Record<string, string> = {
   high:          "text-severity-high",
   medium:        "text-severity-medium",
   low:           "text-slate-300",
-  informational: "text-slate-500",
+  informational: "text-slate-400",
 };
 
 // ─── Event row ────────────────────────────────────────────────────────────────
@@ -106,10 +106,10 @@ function EventRow({ ev }: { ev: TelemetryEvent }) {
         )}
       >
         <td className="w-6 pl-3 py-2.5">
-          <ChevronRight className={cn("h-3 w-3 text-slate-500 transition-transform", expanded && "rotate-90")} />
+          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">{timeStr}</td>
-        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-500 whitespace-nowrap">{ev.hostname ?? "—"}</td>
+        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">{ev.hostname ?? "—"}</td>
         <td className="py-2.5 pr-3">
           <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px]", srcColor)}>
             {srcLabel}
@@ -123,7 +123,7 @@ function EventRow({ ev }: { ev: TelemetryEvent }) {
         <td className="py-2.5 pr-4 text-[11px] text-slate-300 max-w-sm">
           <span className="line-clamp-2">{ev.description ?? ev.event_type}</span>
         </td>
-        <td className="py-2.5 pr-4 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+        <td className="py-2.5 pr-4 font-mono text-[10px] text-slate-400 whitespace-nowrap">
           {ev.mitre_technique ?? "—"}
         </td>
       </tr>
@@ -138,11 +138,11 @@ function EventRow({ ev }: { ev: TelemetryEvent }) {
                 </div>
               )}
               <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Log Fields (ECS)</p>
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Log Fields (ECS)</p>
                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {ecsFields.map(([k, v]) => (
                     <div key={k} className="flex gap-2 min-w-0">
-                      <span className="w-44 shrink-0 font-mono text-[10px] text-slate-500 truncate">{k}</span>
+                      <span className="w-44 shrink-0 font-mono text-[10px] text-slate-400 truncate">{k}</span>
                       <span className="font-mono text-[10px] text-slate-300 break-all">{v}</span>
                     </div>
                   ))}
@@ -218,8 +218,8 @@ export function AdminScenarioGeneratorContent() {
         {sidebarOpen ? (
           <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
             <div className="flex items-center justify-between mb-3 px-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Attack Type</p>
-              <button onClick={() => setSidebarOpen(false)} className="rounded p-0.5 text-slate-500 hover:text-slate-300 transition-colors">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Attack Type</p>
+              <button onClick={() => setSidebarOpen(false)} className="rounded p-0.5 text-slate-400 hover:text-slate-300 transition-colors">
                 <ChevronLeft className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -236,7 +236,7 @@ export function AdminScenarioGeneratorContent() {
                       : "text-slate-400 hover:bg-border/60 hover:text-slate-200"
                   )}
                 >
-                  <Icon className={cn("h-3.5 w-3.5 shrink-0", attackType === t.id ? t.color : "text-slate-500")} />
+                  <Icon className={cn("h-3.5 w-3.5 shrink-0", attackType === t.id ? t.color : "text-slate-400")} />
                   {t.label}
                 </button>
               );
@@ -252,7 +252,7 @@ export function AdminScenarioGeneratorContent() {
           </div>
         ) : (
           <div className="flex flex-col items-center py-3 gap-1.5">
-            <button onClick={() => setSidebarOpen(true)} title="Expand" className="rounded p-1.5 text-slate-500 hover:bg-border hover:text-slate-200 transition-colors">
+            <button onClick={() => setSidebarOpen(true)} title="Expand" className="rounded p-1.5 text-slate-400 hover:bg-border hover:text-slate-200 transition-colors">
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
             <div className="my-1 h-px w-6 bg-border/60" />
@@ -260,7 +260,7 @@ export function AdminScenarioGeneratorContent() {
               const Icon = t.icon;
               return (
                 <button key={t.id} onClick={() => { setAttackType(t.id); setSidebarOpen(true); }} title={t.label}
-                  className={cn("rounded p-1.5 transition-colors", attackType === t.id ? "bg-cyber-500/20 text-cyber-300" : "text-slate-600 hover:text-slate-300 hover:bg-border/60")}>
+                  className={cn("rounded p-1.5 transition-colors", attackType === t.id ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300 hover:bg-border/60")}>
                   <Icon className="h-3.5 w-3.5" />
                 </button>
               );
@@ -284,7 +284,7 @@ export function AdminScenarioGeneratorContent() {
                 <Zap className="h-7 w-7 text-cyber-300/40" />
               </div>
               <p className="text-sm text-slate-400">Select an attack type and click Generate</p>
-              <p className="text-[11px] text-slate-600">Creates a realistic incident with 11 matching log events</p>
+              <p className="text-[11px] text-slate-400">Creates a realistic incident with 11 matching log events</p>
             </div>
           </div>
         )}
@@ -295,7 +295,7 @@ export function AdminScenarioGeneratorContent() {
             <div className="text-center space-y-4">
               <Loader2 className="mx-auto h-8 w-8 animate-spin text-cyber-300" />
               <p className="text-sm text-slate-300">Generating incident scenario…</p>
-              <p className="text-[11px] text-slate-500">Writing narrative and crafting log events</p>
+              <p className="text-[11px] text-slate-400">Writing narrative and crafting log events</p>
             </div>
           </div>
         )}
@@ -324,7 +324,7 @@ export function AdminScenarioGeneratorContent() {
               </div>
 
               <div className="rounded border border-border bg-[#0d1520] px-4 py-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-1.5">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
                   <Info className="h-3 w-3" /> Incident Briefing
                 </p>
                 <div className="space-y-2">
@@ -335,7 +335,7 @@ export function AdminScenarioGeneratorContent() {
               </div>
 
               <div className="rounded border border-border bg-[#0d1520] px-4 py-3 space-y-1.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Event Summary</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Event Summary</p>
                 <div className="space-y-1 text-[11px]">
                   {[
                     ["Total events",  String(scenario.events.length),                                                                     "text-white"],
@@ -344,7 +344,7 @@ export function AdminScenarioGeneratorContent() {
                     ["Log sources",   String(new Set(scenario.events.map(e => e.source)).size),                                            "text-slate-300"],
                   ].map(([label, val, cls]) => (
                     <div key={label} className="flex justify-between">
-                      <span className="text-slate-500">{label}</span>
+                      <span className="text-slate-400">{label}</span>
                       <span className={cn("font-mono", cls)}>{val}</span>
                     </div>
                   ))}
@@ -372,22 +372,22 @@ export function AdminScenarioGeneratorContent() {
             {/* Right: full-height log table */}
             <div className="flex-1 flex flex-col overflow-hidden bg-[#050a10]">
               <div className="flex items-center justify-between border-b border-border/60 px-5 py-3 shrink-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                   Log Timeline — {scenario.events.length} events
                 </p>
-                <span className="text-[10px] text-slate-600">Click any row to expand fields</span>
+                <span className="text-[10px] text-slate-400">Click any row to expand fields</span>
               </div>
               <div className="flex-1 overflow-y-auto">
                 <table className="w-full">
                   <thead className="sticky top-0 bg-[#050a10]/95 backdrop-blur z-10">
                     <tr className="border-b border-border/40">
                       <th className="w-6 pl-3" />
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Time</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Host</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Source</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Sev</th>
-                      <th className="py-2 pr-4 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Description</th>
-                      <th className="py-2 pr-4 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">MITRE</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Time</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Host</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Source</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Sev</th>
+                      <th className="py-2 pr-4 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Description</th>
+                      <th className="py-2 pr-4 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">MITRE</th>
                     </tr>
                   </thead>
                   <tbody>

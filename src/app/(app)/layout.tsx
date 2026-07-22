@@ -7,7 +7,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <MotionProvider>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 min-w-0">{children}</main>
+        <main id="main-content" className="flex-1 min-w-0">{children}</main>
       </div>
       <EarnMoment />
     </MotionProvider>

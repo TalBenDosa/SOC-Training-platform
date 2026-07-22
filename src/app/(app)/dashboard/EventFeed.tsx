@@ -91,17 +91,17 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
           onMouseLeave={() => setVisible(false)}
         >
           <p className="text-[10px] font-bold text-white mb-2">{guide.label}</p>
-          <p className="text-[9px] text-slate-500 mb-2">{guide.vendors}</p>
+          <p className="text-[9px] text-slate-400 mb-2">{guide.vendors}</p>
           <div className="mb-2">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">What it monitors</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">What it monitors</p>
             <ul className="space-y-0.5">
               {guide.whatMonitors.map((item, i) => (
-                <li key={i} className="text-[10px] text-slate-300 flex gap-1.5"><span className="text-slate-600 shrink-0">•</span>{item}</li>
+                <li key={i} className="text-[10px] text-slate-300 flex gap-1.5"><span className="text-slate-400 shrink-0">•</span>{item}</li>
               ))}
             </ul>
           </div>
           <div className="mb-2">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Key fields</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Key fields</p>
             <div className="flex flex-wrap gap-1">
               {guide.keyFields.map(f => (
                 <code key={f} className="rounded bg-slate-800/80 px-1 py-0.5 font-mono text-[9px] text-cyber-300">{f}</code>
@@ -420,7 +420,7 @@ function DetailPanel({
         {/* IT Verification Widget — shown for admin/privileged action events */}
         {!showRawJson && hasItVerify && event.it_verify_result && (
           <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">IT Verification</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">IT Verification</p>
             {itVerifyState === "idle" && (
               <>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -477,7 +477,7 @@ function DetailPanel({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-[#0d1520] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    <BookOpen className="h-3 w-3 text-slate-500" />
+                    <BookOpen className="h-3 w-3 text-slate-400" />
                     {rawLog.format}
                   </span>
                   <button
@@ -491,7 +491,7 @@ function DetailPanel({
                 <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[10px] leading-relaxed text-slate-300 whitespace-pre">
                   {rawLog.text}
                 </pre>
-                <p className="text-[10px] leading-relaxed text-slate-500">
+                <p className="text-[10px] leading-relaxed text-slate-400">
                   This is how <span className="text-slate-400">{rawLog.format.split(",")[0]}</span> arrives in the SIEM before parsing — the same bytes a real analyst pivots on. The Analysis tab parses these fields into a readable view.
                 </p>
               </div>
@@ -501,18 +501,18 @@ function DetailPanel({
           <>
             {/* Basic Info */}
             <div id="ef-detail-basic-info" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Basic Information</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Basic Information</p>
               <div className="space-y-2">
                 {fullDescription && (
                   <div className="flex gap-3 pb-2 mb-1 border-b border-border/40">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-500">Description</span>
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">Description</span>
                     <span className="text-[11px] leading-relaxed text-slate-200 break-words">{fullDescription}</span>
                   </div>
                 )}
                 {/* SHA256 — opens internal panel */}
                 {sha256 && /^[a-f0-9]{64}$/i.test(sha256) && (
                   <div className="flex gap-3 pb-2 mb-1 border-b border-border/40 items-start">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-500">File Hash</span>
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">File Hash</span>
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <span className="font-mono text-[10px] text-neon-amber break-all">{sha256}</span>
                       <button
@@ -527,7 +527,7 @@ function DetailPanel({
                 )}
                 {basicInfo.map(([label, value, colorClass]) => (
                   <div key={label} className="flex gap-3">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-500">{label}</span>
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">{label}</span>
                     <span className={cn("font-mono text-[11px] text-slate-200 break-all", colorClass)}>{value}</span>
                   </div>
                 ))}
@@ -539,7 +539,7 @@ function DetailPanel({
 
             {/* Detailed Log Data */}
             <div id="ef-detail-log-data" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Detailed Log Data</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Detailed Log Data</p>
               <div className="space-y-1.5">
                 {(() => {
                   return detailedFields.map(([k, v]) => {
@@ -550,7 +550,7 @@ function DetailPanel({
 
                   return (
                     <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
-                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
+                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
                       <div className="flex flex-col gap-1.5 min-w-0">
                         <span className={cn(
                           "font-mono text-[10px] break-all",
@@ -635,7 +635,7 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="rounded border border-neon-purple/50 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-purple">{technique.id}</span>
-              {tactic && <span className="text-[10px] text-slate-500">{tactic.name}</span>}
+              {tactic && <span className="text-[10px] text-slate-400">{tactic.name}</span>}
             </div>
             <h3 className="text-sm font-semibold text-white">{technique.name}</h3>
           </div>
@@ -648,7 +648,7 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
           {/* What attacker does */}
           {technique.whatAttackerDoes && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-2">What the attacker does</p>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What the attacker does</p>
               <p className="text-[11px] leading-relaxed text-slate-200">{technique.whatAttackerDoes}</p>
             </div>
           )}
@@ -656,7 +656,7 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
           {/* Log indicators */}
           {technique.logIndicators && technique.logIndicators.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-2">What to look for in logs</p>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What to look for in logs</p>
               <ul className="space-y-1.5">
                 {technique.logIndicators.map((ind, i) => (
                   <li key={i} className="flex items-start gap-2 text-[11px] text-slate-300">
@@ -678,7 +678,7 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
 
           {/* Data sources */}
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-1.5">Data sources</p>
+            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-1.5">Data sources</p>
             <div className="flex flex-wrap gap-1">
               {technique.data_sources.map(ds => (
                 <span key={ds} className="rounded border border-slate-600/50 bg-slate-800/50 px-2 py-0.5 text-[9px] text-slate-400">{ds}</span>
@@ -741,13 +741,13 @@ function SocMethodologyBanner() {
         <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-cyber-500">SOC Analysis Guide</span>
         <div className="flex items-center gap-2 ml-2 flex-1">
           {!expanded && steps.map(s => (
-            <span key={s.num} className="hidden sm:flex items-center gap-1 text-[9px] text-slate-600">
-              <span className="font-bold text-slate-500">{s.num}.</span> {s.label}
+            <span key={s.num} className="hidden sm:flex items-center gap-1 text-[9px] text-slate-400">
+              <span className="font-bold text-slate-400">{s.num}.</span> {s.label}
               {s.num !== "5" && <span className="text-slate-700 ml-1">→</span>}
             </span>
           ))}
         </div>
-        <span className="text-[9px] text-slate-600 ml-auto shrink-0">{expanded ? "▲ hide" : "▼ show steps"}</span>
+        <span className="text-[9px] text-slate-400 ml-auto shrink-0">{expanded ? "▲ hide" : "▼ show steps"}</span>
       </button>
 
       {expanded && (
@@ -758,7 +758,7 @@ function SocMethodologyBanner() {
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyber-500/15 text-[9px] font-bold text-cyber-400">{s.num}</span>
                 <span className="text-[10px] font-bold text-white">{s.label}</span>
               </div>
-              <p className="text-[9px] leading-relaxed text-slate-500">{s.detail}</p>
+              <p className="text-[9px] leading-relaxed text-slate-400">{s.detail}</p>
             </div>
           ))}
         </div>
@@ -808,7 +808,7 @@ const EventRow = memo(function EventRow({
         )}
       >
         <td className="w-6 pl-3">
-          <ChevronRight className={cn("h-3 w-3 text-slate-500 transition-transform", expanded && "rotate-90")} />
+          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-xs text-slate-200">{event.hostname ?? "—"}</td>
@@ -880,7 +880,7 @@ const EventRow = memo(function EventRow({
               forms their own conclusion, and the Incident Report is the single
               place they state and are graded on their findings. */}
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[10px] text-slate-500">{event.ruleId}</span>
+            <span className="font-mono text-[10px] text-slate-400">{event.ruleId}</span>
             {event.mitre_technique && <MitreBadge technique={event.mitre_technique} />}
           </div>
         </td>
@@ -973,8 +973,8 @@ export function EventFeed({
     <div className="flex flex-col">
       {/* Time-range filter */}
       <div id="ef-filter-row" className="flex items-center gap-2 border-b border-border/40 bg-bg-elevated/60 px-4 py-2">
-        <Clock className="h-3 w-3 shrink-0 text-slate-500" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Time range</span>
+        <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Time range</span>
         <div className="flex items-center gap-1">
           {TIME_OPTIONS.map(opt => (
             <button key={opt.value} onClick={() => setTimeFilter(opt.value)}
@@ -982,14 +982,14 @@ export function EventFeed({
                 "rounded px-2.5 py-0.5 text-[10px] font-semibold transition",
                 timeFilter === opt.value
                   ? "bg-cyber-500/20 text-cyber-300 border border-cyber-500/40"
-                  : "text-slate-500 hover:text-slate-300 border border-transparent hover:border-border/60"
+                  : "text-slate-400 hover:text-slate-300 border border-transparent hover:border-border/60"
               )}
             >
               {opt.label}
             </button>
           ))}
         </div>
-        <span className="ml-auto font-mono text-[10px] text-slate-600">{filtered.length} events</span>
+        <span className="ml-auto font-mono text-[10px] text-slate-400">{filtered.length} events</span>
       </div>
 
       <SocMethodologyBanner />
@@ -997,7 +997,7 @@ export function EventFeed({
       <div id="ef-event-table" className="max-h-[530px] overflow-y-auto overflow-x-auto">
         <table className="w-full min-w-[720px] text-xs">
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
-            <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+            <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
               <th className="w-6 pl-3 py-2" />
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
@@ -1022,7 +1022,7 @@ export function EventFeed({
             </AnimatePresence>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-xs text-slate-500">
+                <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
                   No events match the current filter.
                 </td>
               </tr>

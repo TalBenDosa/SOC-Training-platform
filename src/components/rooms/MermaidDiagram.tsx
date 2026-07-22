@@ -84,7 +84,7 @@ export function MermaidDiagram({ chart, caption }: { chart: string; caption?: st
   if (failed) {
     return (
       <figure className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
-        <figcaption className="px-4 py-2 border-b border-border bg-bg-elevated/40 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <figcaption className="px-4 py-2 border-b border-border bg-bg-elevated/40 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
           Diagram source
         </figcaption>
         <pre className="px-4 py-4 font-mono text-xs text-slate-400 overflow-x-auto whitespace-pre">{chart.trim()}</pre>
@@ -94,7 +94,7 @@ export function MermaidDiagram({ chart, caption }: { chart: string; caption?: st
 
   return (
     <figure className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
-      <figcaption className="px-4 py-2 border-b border-border bg-bg-elevated/40 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <figcaption className="px-4 py-2 border-b border-border bg-bg-elevated/40 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
         {caption ?? "Diagram"}
       </figcaption>
       <div className="overflow-x-auto px-4 py-5">

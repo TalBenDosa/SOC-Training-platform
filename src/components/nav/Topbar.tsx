@@ -58,7 +58,7 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
             </span>
             <span className="hidden md:flex flex-col items-start leading-tight">
               <span className="text-xs font-semibold text-slate-100">{ready ? rank.label : displayName}</span>
-              <span className="text-[10px] text-slate-500 font-mono">{tierLine}</span>
+              <span className="text-[10px] text-slate-400 font-mono">{tierLine}</span>
             </span>
             {/* Progress toward the next rank. Omitted at max rank, where a bar
                 pinned at 100% reads as a stalled loader rather than an

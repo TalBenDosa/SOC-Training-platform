@@ -470,9 +470,9 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-cyber-300" />
           <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Threat Intelligence</span>
-          <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-500">File Hash</span>
+          <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-400">File Hash</span>
         </div>
-        <button onClick={onClose} className="text-slate-500 hover:text-white transition rounded p-0.5">
+        <button onClick={onClose} className="text-slate-400 hover:text-white transition rounded p-0.5">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -480,7 +480,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {/* Hash */}
         <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-1">SHA-256</p>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1">SHA-256</p>
           <p className="font-mono text-[10px] text-neon-amber break-all leading-relaxed">{data.hash}</p>
         </div>
 
@@ -509,35 +509,35 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
         {/* Malware details */}
         {isMal && (
           <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2">
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Malware Classification</p>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Malware Classification</p>
             {data.malwareName && (
               <div className="flex gap-3 items-baseline">
-                <span className="w-28 shrink-0 text-[10px] text-slate-500">Detection Name</span>
+                <span className="w-28 shrink-0 text-[10px] text-slate-400">Detection Name</span>
                 <span className="font-mono text-[10px] text-severity-critical">{data.malwareName}</span>
               </div>
             )}
             {data.malwareFamily && (
               <div className="flex gap-3 items-baseline">
-                <span className="w-28 shrink-0 text-[10px] text-slate-500">Family</span>
+                <span className="w-28 shrink-0 text-[10px] text-slate-400">Family</span>
                 <span className="font-mono text-[10px] text-slate-200">{data.malwareFamily}</span>
               </div>
             )}
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">File Type</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">File Type</span>
               <span className="font-mono text-[10px] text-slate-200">{data.fileType}</span>
             </div>
             {data.fileName && (
               <div className="flex gap-3 items-baseline">
-                <span className="w-28 shrink-0 text-[10px] text-slate-500">File Name</span>
+                <span className="w-28 shrink-0 text-[10px] text-slate-400">File Name</span>
                 <span className="font-mono text-[10px] text-slate-200">{data.fileName}</span>
               </div>
             )}
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">First Seen</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">First Seen</span>
               <span className="font-mono text-[10px] text-slate-200">{data.firstSeen}</span>
             </div>
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">Last Seen</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">Last Seen</span>
               <span className="font-mono text-[10px] text-slate-200">{data.lastSeen}</span>
             </div>
           </div>
@@ -546,7 +546,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
         {/* Tags */}
         {data.tags.length > 0 && (
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Tags</p>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Tags</p>
             <div className="flex flex-wrap gap-1.5">
               {data.tags.map(tag => (
                 <span key={tag} className="rounded border border-border/60 bg-black/20 px-2 py-0.5 font-mono text-[9px] text-slate-400">
@@ -559,8 +559,8 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
 
         {/* Engine table */}
         <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">
-            Security Vendor Analysis &nbsp;<span className="text-slate-600">({detected}/{total} detected)</span>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">
+            Security Vendor Analysis &nbsp;<span className="text-slate-400">({detected}/{total} detected)</span>
           </p>
           <div className="rounded border border-border/60 overflow-hidden text-[10px]">
             {data.engines.map((eng, i) => (
@@ -569,7 +569,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
                 i > 0 && "border-t border-border/30",
                 eng.detected ? "bg-severity-critical/5" : ""
               )}>
-                <span className={cn("font-medium w-[140px] shrink-0", eng.detected ? "text-slate-200" : "text-slate-500")}>{eng.name}</span>
+                <span className={cn("font-medium w-[140px] shrink-0", eng.detected ? "text-slate-200" : "text-slate-400")}>{eng.name}</span>
                 {eng.detected
                   ? <span className="font-mono text-severity-critical truncate">{eng.result}</span>
                   : <span className="text-slate-700">— (no detection)</span>
@@ -581,7 +581,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
 
         {/* Disclaimer */}
         <div className="rounded border border-border/30 bg-black/20 px-3 py-2">
-          <p className="text-[9px] text-slate-600 leading-relaxed">
+          <p className="text-[9px] text-slate-400 leading-relaxed">
             Simulated threat intelligence for training purposes. Results are derived from log metadata and do not represent live external lookups.
           </p>
         </div>
@@ -601,9 +601,9 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-neon-blue" />
           <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Threat Intelligence</span>
-          <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-500">IP Address</span>
+          <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-400">IP Address</span>
         </div>
-        <button onClick={onClose} className="text-slate-500 hover:text-white transition rounded p-0.5">
+        <button onClick={onClose} className="text-slate-400 hover:text-white transition rounded p-0.5">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -611,7 +611,7 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {/* IP */}
         <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-1">IP Address</p>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1">IP Address</p>
           <p className="font-mono text-base font-bold text-neon-blue">{data.ip}</p>
         </div>
 
@@ -639,34 +639,34 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
 
         {/* IP info */}
         <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2">
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">IP Information</p>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">IP Information</p>
           {data.country && (
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">Country</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">Country</span>
               <span className="text-[10px] text-slate-200">{data.countryFlag} {data.country}</span>
             </div>
           )}
           {data.isp && (
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">ISP / Org</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">ISP / Org</span>
               <span className="font-mono text-[10px] text-slate-200">{data.isp}</span>
             </div>
           )}
           {data.usageType && (
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">Usage Type</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">Usage Type</span>
               <span className="text-[10px] text-slate-200">{data.usageType}</span>
             </div>
           )}
           {data.abusive && data.totalReports > 0 && (
             <>
               <div className="flex gap-3 items-baseline">
-                <span className="w-28 shrink-0 text-[10px] text-slate-500">Total Reports</span>
+                <span className="w-28 shrink-0 text-[10px] text-slate-400">Total Reports</span>
                 <span className="font-mono text-[10px] text-severity-critical">{data.totalReports.toLocaleString()}</span>
               </div>
               {data.lastReported && (
                 <div className="flex gap-3 items-baseline">
-                  <span className="w-28 shrink-0 text-[10px] text-slate-500">Last Reported</span>
+                  <span className="w-28 shrink-0 text-[10px] text-slate-400">Last Reported</span>
                   <span className="font-mono text-[10px] text-slate-200">{data.lastReported}</span>
                 </div>
               )}
@@ -677,7 +677,7 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
         {/* Categories */}
         {data.categories.length > 0 && (
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Abuse Categories</p>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Abuse Categories</p>
             <div className="flex flex-wrap gap-1.5">
               {data.categories.map(cat => (
                 <span key={cat} className="rounded border border-severity-critical/40 bg-severity-critical/10 px-2 py-0.5 text-[9px] font-semibold text-severity-critical">
@@ -690,7 +690,7 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
 
         {/* Disclaimer */}
         <div className="rounded border border-border/30 bg-black/20 px-3 py-2">
-          <p className="text-[9px] text-slate-600 leading-relaxed">
+          <p className="text-[9px] text-slate-400 leading-relaxed">
             Simulated threat intelligence for training purposes. Results are derived from log metadata and do not represent live external lookups.
           </p>
         </div>
@@ -708,9 +708,9 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-neon-green" />
           <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Threat Intelligence</span>
-          <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-500">Domain</span>
+          <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-400">Domain</span>
         </div>
-        <button onClick={onClose} className="text-slate-500 hover:text-white transition rounded p-0.5">
+        <button onClick={onClose} className="text-slate-400 hover:text-white transition rounded p-0.5">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -718,7 +718,7 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {/* Domain */}
         <div>
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Domain</p>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Domain</p>
           <p className="font-mono text-sm font-bold text-neon-green break-all">{data.domain}</p>
         </div>
 
@@ -743,16 +743,16 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
 
         {/* WHOIS-style info */}
         <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2">
-          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Registration Info</p>
+          <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Registration Info</p>
           {data.registrar && (
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">Registrar</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">Registrar</span>
               <span className="font-mono text-[10px] text-slate-200">{data.registrar}</span>
             </div>
           )}
           {data.creationDate && (
             <div className="flex gap-3 items-baseline">
-              <span className="w-28 shrink-0 text-[10px] text-slate-500">Created</span>
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">Created</span>
               <span className={cn("font-mono text-[10px]", data.ageDays <= 30 ? "text-severity-critical" : "text-slate-200")}>
                 {data.creationDate} ({data.ageDays} day{data.ageDays === 1 ? "" : "s"} old)
               </span>
@@ -763,7 +763,7 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
         {/* Categories */}
         {data.categories.length > 0 && (
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Categories</p>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Categories</p>
             <div className="flex flex-wrap gap-1.5">
               {data.categories.map(cat => (
                 <span key={cat} className="rounded border border-severity-critical/40 bg-severity-critical/10 px-2 py-0.5 text-[9px] font-semibold text-severity-critical">
@@ -777,7 +777,7 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
         {/* Tags */}
         {data.tags.length > 0 && (
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Tags</p>
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Tags</p>
             <div className="flex flex-wrap gap-1.5">
               {data.tags.map(tag => (
                 <span key={tag} className="rounded border border-border/60 bg-black/20 px-2 py-0.5 font-mono text-[9px] text-slate-400">
@@ -790,7 +790,7 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
 
         {/* Disclaimer */}
         <div className="rounded border border-border/30 bg-black/20 px-3 py-2">
-          <p className="text-[9px] text-slate-600 leading-relaxed">
+          <p className="text-[9px] text-slate-400 leading-relaxed">
             Simulated threat intelligence for training purposes. Results are derived from log metadata and do not represent live external lookups.
           </p>
         </div>

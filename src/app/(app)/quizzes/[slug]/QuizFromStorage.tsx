@@ -25,7 +25,7 @@ export function QuizFromStorage({ slug }: { slug: string }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg">
         <div className="text-center">
-          <p className="text-4xl font-bold text-slate-600 mb-4">404</p>
+          <p className="text-4xl font-bold text-slate-400 mb-4">404</p>
           <p className="text-sm text-slate-400 mb-6">Quiz not found.</p>
           <Link
             href="/quizzes"

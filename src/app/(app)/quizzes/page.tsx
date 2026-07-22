@@ -119,14 +119,14 @@ export default function QuizzesPage() {
           ].map(s => (
             <div key={s.label} className="rounded border border-border/60 bg-[#0d1520] px-5 py-4">
               <p className="font-mono text-2xl font-bold text-cyber-300">{s.value}</p>
-              <p className="mt-1 text-xs text-slate-500">{s.label}</p>
+              <p className="mt-1 text-xs text-slate-400">{s.label}</p>
             </div>
           ))}
         </div>
 
         {/* Hidden notice */}
         {hidden.length > 0 && (
-          <div className="mb-6 flex items-center gap-2 rounded border border-border/40 bg-bg-elevated px-4 py-2 text-[11px] text-slate-500">
+          <div className="mb-6 flex items-center gap-2 rounded border border-border/40 bg-bg-elevated px-4 py-2 text-[11px] text-slate-400">
             <EyeOff className="h-3.5 w-3.5 shrink-0" />
             {hidden.length} quiz{hidden.length > 1 ? "zes" : ""} hidden by admin — manage in Admin → Content Library
           </div>
@@ -157,7 +157,7 @@ export default function QuizzesPage() {
         {allQuizzes.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-16 text-center">
             <p className="text-sm text-slate-400">All quizzes are hidden.</p>
-            <p className="text-xs text-slate-600 mt-1">Restore them in Admin → Content Library.</p>
+            <p className="text-xs text-slate-400 mt-1">Restore them in Admin → Content Library.</p>
           </div>
         )}
       </div>

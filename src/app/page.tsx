@@ -57,7 +57,7 @@ export default function Landing() {
             <Link href="/signup"><Button size="lg" variant="primary">Start Learning — it&apos;s free</Button></Link>
             <Link href="/login"><Button size="lg" variant="outline">I already have an account</Button></Link>
           </div>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-500">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-400">
             <span>Inspired by CrowdStrike Falcon · Microsoft Sentinel · Splunk · Elastic Security · IBM QRadar · Wazuh</span>
           </div>
         </div>
@@ -70,9 +70,9 @@ export default function Landing() {
                 <span className="h-2.5 w-2.5 rounded-full bg-severity-critical" />
                 <span className="h-2.5 w-2.5 rounded-full bg-severity-medium" />
                 <span className="h-2.5 w-2.5 rounded-full bg-neon-green" />
-                <span className="ml-3 font-mono text-xs text-slate-500">soc.cryotech.io / live</span>
+                <span className="ml-3 font-mono text-xs text-slate-400">soc.cryotech.io / live</span>
               </div>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-500">tenant: demo</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-slate-400">tenant: demo</span>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
               {[
@@ -82,14 +82,14 @@ export default function Landing() {
                 { l: "Alerts / 24h",   v: "1,284", a: "text-neon-green" },
               ].map(s => (
                 <div key={s.l} className="rounded-md border border-border bg-bg-elevated p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">{s.l}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{s.l}</p>
                   <p className={`mt-1 font-mono text-2xl font-bold ${s.a}`}>{s.v}</p>
                 </div>
               ))}
             </div>
             <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
               <div className="md:col-span-2 rounded-md border border-border bg-bg-elevated p-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Live alert feed</p>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Live alert feed</p>
                 <ul className="space-y-1.5 font-mono text-xs">
                   {[
                     ["09:47:12","critical","CRWD-9F3A7C12","Encoded PowerShell from WINWORD.EXE","WS-FIN-3041"],
@@ -100,7 +100,7 @@ export default function Landing() {
                     ["09:54:18","high","AWS-CT2278","S3 GetObject 184MB customer-exports","a.park@cryotech.io"],
                   ].map(([t, sev, id, msg, host]) => (
                     <li key={id} className="grid grid-cols-[60px_70px_120px_1fr_140px] gap-2 border-b border-border/50 py-1.5 text-slate-300 last:border-0">
-                      <span className="text-slate-500">{t}</span>
+                      <span className="text-slate-400">{t}</span>
                       <span className={
                         sev === "critical" ? "text-severity-critical" :
                         sev === "high" ? "text-severity-high" : "text-severity-medium"}>
@@ -108,13 +108,13 @@ export default function Landing() {
                       </span>
                       <span className="text-cyber-300">{id}</span>
                       <span className="truncate text-slate-200">{msg}</span>
-                      <span className="truncate text-slate-500">{host}</span>
+                      <span className="truncate text-slate-400">{host}</span>
                     </li>
                   ))}
                 </ul>
               </div>
               <div className="rounded-md border border-border bg-bg-elevated p-3">
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">Top MITRE</p>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Top MITRE</p>
                 <ul className="space-y-2 text-xs">
                   {[
                     ["T1059.001","PowerShell",98],
@@ -199,12 +199,17 @@ export default function Landing() {
       </section>
 
       <footer className="border-t border-border py-8">
-        <div className="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 text-xs text-slate-500 md:flex-row">
+        <div className="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 text-xs text-slate-400 md:flex-row">
           <Logo size="sm" />
           <p>© 2026 HACK THE SOC · Synthetic data only · Not a replacement for production SOC tooling.</p>
-          <Link href="/privacy" className="text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
-            Privacy &amp; data
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
+              Privacy &amp; data
+            </Link>
+            <Link href="/accessibility" className="text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
+              Accessibility
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

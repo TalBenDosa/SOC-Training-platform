@@ -130,7 +130,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">LO-3 — Attack Chain Reconstruction</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">LO-3 — Attack Chain Reconstruction</p>
             <h2 className="text-sm font-bold text-white">Build the Kill Chain</h2>
           </div>
           <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white transition">
@@ -193,7 +193,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                             {!submitted && (
                               <button
                                 onClick={() => handleRemove(phase)}
-                                className="shrink-0 text-slate-500 hover:text-white"
+                                className="shrink-0 text-slate-400 hover:text-white"
                               >
                                 <X className="h-2.5 w-2.5" />
                               </button>
@@ -213,13 +213,13 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                       </div>
                     ) : (
                       <div className="flex-1 flex items-center justify-center">
-                        <p className="text-[9px] text-slate-600">Drop event here</p>
+                        <p className="text-[9px] text-slate-400">Drop event here</p>
                       </div>
                     )}
                   </div>
 
                   {i < PHASES.length - 1 && (
-                    <ChevronRight className="h-3 w-3 text-slate-600 shrink-0" />
+                    <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
                   )}
                 </div>
               );
@@ -228,9 +228,9 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
 
           {/* Event pool */}
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-2">Events to Assign</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2">Events to Assign</p>
             {unplaced.length === 0 ? (
-              <p className="text-[10px] text-slate-500 italic">All events have been placed.</p>
+              <p className="text-[10px] text-slate-400 italic">All events have been placed.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {unplaced.map(event => (
@@ -288,7 +288,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
 
         {/* Footer */}
         <div className="border-t border-border/50 px-6 py-3 flex items-center justify-between bg-[#060b12]">
-          <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300 transition">
+          <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
             {submitted ? "Close" : "Skip for now"}
           </button>
           {!submitted && (
@@ -299,7 +299,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                 "flex items-center gap-2 rounded border px-4 py-2 text-xs font-bold transition",
                 canSubmit
                   ? "border-neon-green/40 bg-neon-green/10 text-neon-green hover:bg-neon-green/20"
-                  : "border-border/40 text-slate-600 cursor-not-allowed opacity-50"
+                  : "border-border/40 text-slate-400 cursor-not-allowed opacity-50"
               )}
             >
               <Check className="h-3.5 w-3.5" /> Submit Chain

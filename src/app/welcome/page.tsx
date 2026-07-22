@@ -46,10 +46,10 @@ export default function WelcomePage() {
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-center sm:gap-12">
 
             <div>
-              <p className="text-xs uppercase tracking-widest text-slate-500">Score</p>
+              <p className="text-xs uppercase tracking-widest text-slate-400">Score</p>
               <p className="mt-1 font-mono text-4xl font-bold text-white">
                 {ready ? xp.toLocaleString() : "–"}
-                <span className="ml-1.5 text-base font-normal text-slate-500">XP</span>
+                <span className="ml-1.5 text-base font-normal text-slate-400">XP</span>
               </p>
             </div>
 
@@ -58,16 +58,16 @@ export default function WelcomePage() {
             <div className="flex items-center gap-3">
               <span className={cn(
                 "flex h-14 w-14 items-center justify-center rounded-xl bg-bg-elevated text-3xl ring-2",
-                ready ? `${rank.accent.ring} ${rank.accent.text}` : "ring-border text-slate-600",
+                ready ? `${rank.accent.ring} ${rank.accent.text}` : "ring-border text-slate-400",
               )}>
                 {ready ? rank.glyph : "·"}
               </span>
               <div className="text-left">
-                <p className="text-xs uppercase tracking-widest text-slate-500">Badge</p>
-                <p className={cn("mt-0.5 text-xl font-bold", ready ? rank.accent.text : "text-slate-500")}>
+                <p className="text-xs uppercase tracking-widest text-slate-400">Badge</p>
+                <p className={cn("mt-0.5 text-xl font-bold", ready ? rank.accent.text : "text-slate-400")}>
                   {ready ? rank.label : "–"}
                 </p>
-                <p className="font-mono text-[11px] text-slate-500">{ready ? rank.tier : ""}</p>
+                <p className="font-mono text-[11px] text-slate-400">{ready ? rank.tier : ""}</p>
               </div>
             </div>
           </div>

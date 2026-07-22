@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Suspense } from "react";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -10,6 +11,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 function LoginForm() {
+  usePageTitle("Sign in");
   const router = useRouter();
   const searchParams = useSearchParams();
   // refreshSupabaseSession sets ?next= when it redirects an unauthenticated
@@ -76,7 +78,7 @@ function LoginForm() {
         </span>
         <div>
           <h1 className="text-lg font-bold text-white">Sign in</h1>
-          <p className="text-xs text-slate-500">Welcome back to your SOC shift.</p>
+          <p className="text-xs text-slate-400">Welcome back to your SOC shift.</p>
         </div>
       </div>
 
@@ -91,23 +93,25 @@ function LoginForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
+          <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
           <input
+            id="login-email"
             type="email" required autoComplete="email" value={email}
             onChange={e => setEmail(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="you@company.com"
           />
         </div>
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label className="text-xs font-semibold text-slate-400">Password</label>
+            <label htmlFor="login-password" className="text-xs font-semibold text-slate-400">Password</label>
             <Link href="/reset-password" className="text-[11px] text-cyber-300 hover:underline">Forgot password?</Link>
           </div>
           <input
+            id="login-password"
             type="password" required autoComplete="current-password" value={password}
             onChange={e => setPassword(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
           />
         </div>
 
@@ -122,7 +126,7 @@ function LoginForm() {
         </Button>
       </form>
 
-      <p className="mt-5 text-center text-xs text-slate-500">
+      <p className="mt-5 text-center text-xs text-slate-400">
         New here? <Link href="/signup" className="text-cyber-300 hover:underline">Create an account</Link>
       </p>
     </Card>

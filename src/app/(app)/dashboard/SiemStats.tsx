@@ -71,7 +71,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
           timerColor === "medium"   ? "border-severity-medium/50 bg-severity-medium/8" :
                                       "border-neon-green/40 bg-neon-green/8"
         )}>
-          <span className="text-[10px] text-slate-500 font-medium"><Term k="sla">SLA</Term></span>
+          <span className="text-[10px] text-slate-400 font-medium"><Term k="sla">SLA</Term></span>
           <span className={cn(
             "font-mono text-[11px] font-bold",
             timerColor === "critical" ? "text-severity-critical" :
@@ -83,7 +83,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
       {/* Events/min */}
       <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/30 bg-cyber-500/10 px-3 py-1.5">
         <span className="h-1.5 w-1.5 rounded-full bg-cyber-400 animate-pulse" />
-        <span className="text-[10px] text-slate-500 font-medium">Events/min</span>
+        <span className="text-[10px] text-slate-400 font-medium">Events/min</span>
         <span className="font-mono text-[11px] font-bold text-cyber-300">{eventsPerMin}</span>
       </div>
 
@@ -92,7 +92,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
         <>
           {/* Top Source */}
           <div className="inline-flex items-center gap-2 rounded-md border border-neon-amber/30 bg-neon-amber/8 px-3 py-1.5">
-            <span className="text-[10px] text-slate-500 font-medium">Top Source</span>
+            <span className="text-[10px] text-slate-400 font-medium">Top Source</span>
             <span className="font-mono text-[11px] font-bold text-neon-amber">
               {SOURCE_LABEL[topSrc] ?? topSrc.toUpperCase()}
             </span>
@@ -100,13 +100,13 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
 
           {/* Top Host */}
           <div className="inline-flex items-center gap-2 rounded-md border border-neon-green/30 bg-neon-green/8 px-3 py-1.5">
-            <span className="text-[10px] text-slate-500 font-medium">Top Host</span>
+            <span className="text-[10px] text-slate-400 font-medium">Top Host</span>
             <span className="font-mono text-[11px] font-bold text-neon-green">{topHost}</span>
           </div>
 
           {/* Unique IPs */}
           <div className="inline-flex items-center gap-2 rounded-md border border-neon-purple/30 bg-neon-purple/8 px-3 py-1.5">
-            <span className="text-[10px] text-slate-500 font-medium">Unique IPs</span>
+            <span className="text-[10px] text-slate-400 font-medium">Unique IPs</span>
             <span className="font-mono text-[11px] font-bold text-neon-purple">{uniqueIps.size}</span>
           </div>
         </>
@@ -121,7 +121,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
           ? "border-severity-medium/40 bg-severity-medium/8"
           : "border-border/60 bg-bg/40"
       )}>
-        <span className="text-[10px] text-slate-500 font-medium"><Term k="alert">Alert</Term> Rate</span>
+        <span className="text-[10px] text-slate-400 font-medium"><Term k="alert">Alert</Term> Rate</span>
         <span className={cn(
           "font-mono text-[11px] font-bold",
           alertPct >= 20 ? "text-severity-critical" :
@@ -134,7 +134,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
       {/* Avg Catch Speed — only visible after catching at least one attack */}
       {showAll && avgCatchMs != null && (
         <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/30 bg-cyber-500/8 px-3 py-1.5">
-          <span className="text-[10px] text-slate-500 font-medium">Avg Speed</span>
+          <span className="text-[10px] text-slate-400 font-medium">Avg Speed</span>
           <span className="font-mono text-[11px] font-bold text-cyber-300">{fmtSpeed(avgCatchMs)}</span>
         </div>
       )}
@@ -142,7 +142,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
       {/* Compact-mode expander */}
       <button
         onClick={() => setShowAll(v => !v)}
-        className="ml-auto text-[10px] font-semibold text-slate-500 hover:text-slate-300 transition"
+        className="ml-auto text-[10px] font-semibold text-slate-400 hover:text-slate-300 transition"
       >
         {showAll ? "− less" : "+ more stats"}
       </button>

@@ -165,7 +165,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
               ].map(s => (
                 <div key={s.label} className="px-6 py-4 text-center">
                   <p className="font-mono text-xl font-bold text-cyber-300">{s.value}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{s.label}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -183,7 +183,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
 
             {/* Rules */}
             <div className="px-8 py-5 space-y-2 border-b border-border/60">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-3">How It Works</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">How It Works</p>
               {[
                 "Each question has one correct answer",
                 "Confirm your answer to reveal the explanation",
@@ -255,7 +255,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
               ].map(s => (
                 <div key={s.label} className="px-4 py-3 text-center">
                   <p className="font-mono text-lg font-bold text-cyber-300">{s.value}</p>
-                  <p className="text-[10px] text-slate-500">{s.label}</p>
+                  <p className="text-[10px] text-slate-400">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -278,7 +278,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
           </div>
 
           {/* Per-question breakdown */}
-          <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500 mb-3">Question Breakdown</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">Question Breakdown</h3>
           <div className="space-y-3">
             {quiz.questions.map((q, idx) => {
               const s = stateMap[q.id];
@@ -308,7 +308,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                       <p className={cn("text-[11px] mb-1.5", correct ? "text-neon-green" : "text-slate-400")}>
                         {correct ? "✓" : "Correct:"} {q.options[q.answer]}
                       </p>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">{q.explanation}</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">{q.explanation}</p>
                     </div>
                     {correct && (
                       <span className="shrink-0 rounded bg-neon-green/10 px-1.5 py-0.5 font-mono text-[10px] text-neon-green">
@@ -340,8 +340,8 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
         {/* Progress bar */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] text-slate-500">{answeredQ}/{totalQ} answered</span>
-            <span className="text-[11px] text-slate-500">
+            <span className="text-[11px] text-slate-400">{answeredQ}/{totalQ} answered</span>
+            <span className="text-[11px] text-slate-400">
               +{Object.values(stateMap).reduce((s, st, idx) => {
                 const q = quiz.questions[idx];
                 return s + (st?.revealed && st.selected === q?.answer ? (q?.xp ?? 0) : 0);
@@ -412,12 +412,12 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                     !qState.revealed && selected  && "border-cyber-500/50 bg-cyber-500/10 text-white",
                     revCorr   && "border-neon-green/50 bg-neon-green/10 text-neon-green",
                     revWrong  && "border-severity-high/50 bg-severity-high/10 text-severity-high",
-                    qState.revealed && !selected && idx !== question.answer && "border-border/40 bg-bg/50 text-slate-500",
+                    qState.revealed && !selected && idx !== question.answer && "border-border/40 bg-bg/50 text-slate-400",
                   )}
                 >
                   <span className={cn(
                     "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold",
-                    !qState.revealed && !selected && "border-slate-500/40 text-slate-500",
+                    !qState.revealed && !selected && "border-slate-500/40 text-slate-400",
                     !qState.revealed && selected  && "border-cyber-400 text-cyber-300",
                     revCorr   && "border-neon-green text-neon-green",
                     revWrong  && "border-severity-high text-severity-high",
@@ -474,7 +474,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
         {current > 0 && !qState.revealed && (
           <button
             onClick={() => setCurrent(c => c - 1)}
-            className="mt-4 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition"
+            className="mt-4 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 transition"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Previous question
           </button>

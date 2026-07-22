@@ -100,7 +100,7 @@ export default function ScenariosPage() {
 
         {/* Hidden-items notice */}
         {hidden.length > 0 && (
-          <div className="flex items-center gap-2 rounded border border-border/40 bg-bg-elevated px-4 py-2 text-[11px] text-slate-500">
+          <div className="flex items-center gap-2 rounded border border-border/40 bg-bg-elevated px-4 py-2 text-[11px] text-slate-400">
             <EyeOff className="h-3.5 w-3.5 shrink-0" />
             {hidden.length} scenario{hidden.length > 1 ? "s" : ""} hidden by admin — manage in Admin → Content Library
           </div>
@@ -129,7 +129,7 @@ export default function ScenariosPage() {
                   <Badge variant="outline">{s.difficulty}</Badge>
                 </div>
                 <div className="mt-4 flex items-center justify-between">
-                  <div className="text-[11px] text-slate-500">+250 XP · ~45 min</div>
+                  <div className="text-[11px] text-slate-400">+250 XP · ~45 min</div>
                   <Link href={`/scenarios/${s.slug}`}>
                     <Button variant="primary" size="sm">Launch</Button>
                   </Link>
@@ -165,7 +165,7 @@ export default function ScenariosPage() {
                   <Badge variant="outline">{s.difficulty}</Badge>
                 </div>
                 <div className="mt-4 flex items-center justify-between">
-                  <div className="text-[11px] text-slate-500">
+                  <div className="text-[11px] text-slate-400">
                     {new Date(s.published_at).toLocaleDateString()}
                   </div>
                   <Button variant="secondary" size="sm" onClick={() => launchGenerated(s)}>
@@ -179,9 +179,9 @@ export default function ScenariosPage() {
 
         {visibleBuiltIn.length === 0 && published.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-16 text-center">
-            <ShieldQuestion className="h-12 w-12 text-slate-600 mb-4" />
+            <ShieldQuestion className="h-12 w-12 text-slate-400 mb-4" />
             <p className="text-sm text-slate-400">All scenarios are hidden.</p>
-            <p className="text-xs text-slate-600 mt-1">Restore them in Admin → Content Library.</p>
+            <p className="text-xs text-slate-400 mt-1">Restore them in Admin → Content Library.</p>
           </div>
         )}
       </div>

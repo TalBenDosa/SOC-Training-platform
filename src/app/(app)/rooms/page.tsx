@@ -111,7 +111,7 @@ export default function RoomsPage() {
             </div>
             {/* Progress summary */}
             <div className="hidden lg:flex flex-col items-end gap-1 shrink-0">
-              <p className="text-[11px] text-slate-500 uppercase tracking-wider font-semibold">Your Progress</p>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Your Progress</p>
               <p className="text-2xl font-bold font-mono text-white">
                 {totalCompleted}/{ROOMS.length}
               </p>
@@ -158,7 +158,7 @@ export default function RoomsPage() {
               {cat}
             </button>
           ))}
-          <span className="ml-auto self-center text-[11px] text-slate-600">
+          <span className="ml-auto self-center text-[11px] text-slate-400">
             {filtered.length} room{filtered.length !== 1 ? "s" : ""}
           </span>
         </div>
@@ -178,7 +178,7 @@ export default function RoomsPage() {
 
         {filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-16 text-center">
-            <BookOpen className="h-12 w-12 text-slate-600 mb-4" />
+            <BookOpen className="h-12 w-12 text-slate-400 mb-4" />
             <p className="text-sm text-slate-400">No rooms in this category yet.</p>
           </div>
         )}

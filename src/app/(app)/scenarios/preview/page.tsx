@@ -129,7 +129,7 @@ const SEV_BADGE: Record<string, string> = {
   high:          "border-severity-high/40 bg-severity-high/15 text-severity-high",
   medium:        "border-severity-medium/40 bg-severity-medium/15 text-severity-medium",
   low:           "border-slate-500/30 bg-slate-500/15 text-slate-400",
-  informational: "border-slate-500/20 bg-slate-500/10 text-slate-500",
+  informational: "border-slate-500/20 bg-slate-500/10 text-slate-400",
 };
 const IOC_TYPE_BADGE: Record<Ioc["type"], string> = {
   ip:      "bg-neon-blue/10 text-neon-blue border-neon-blue/30",
@@ -197,10 +197,10 @@ function EventRow({
         )}
       >
         <td className="w-6 pl-3 py-2.5">
-          <ChevronRight className={cn("h-3 w-3 text-slate-500 transition-transform", expanded && "rotate-90")} />
+          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">{timeStr}</td>
-        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-500 whitespace-nowrap">{ev.hostname ?? "—"}</td>
+        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">{ev.hostname ?? "—"}</td>
         <td className="py-2.5 pr-3">
           <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 font-mono text-[10px]", srcColor)}>
             {srcLabel}
@@ -214,7 +214,7 @@ function EventRow({
         <td className="py-2.5 pr-4 text-[11px] text-slate-300 max-w-sm">
           <span className="line-clamp-2">{ev.description ?? ev.event_type}</span>
         </td>
-        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-500 whitespace-nowrap">
+        <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">
           {ev.mitre_technique ?? "—"}
         </td>
         {/* Mark FP button */}
@@ -225,7 +225,7 @@ function EventRow({
               "rounded p-1 transition-colors",
               markedFp
                 ? "bg-neon-amber/20 text-neon-amber"
-                : "text-slate-600 hover:text-neon-amber hover:bg-neon-amber/10 opacity-0 group-hover:opacity-100"
+                : "text-slate-400 hover:text-neon-amber hover:bg-neon-amber/10 opacity-0 group-hover:opacity-100"
             )}
           >
             <ThumbsDown className="h-3 w-3" />
@@ -263,11 +263,11 @@ function EventRow({
               )}
 
               <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Log Fields (ECS)</p>
+                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Log Fields (ECS)</p>
                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {ecsFields.map(([k, v]) => (
                     <div key={k} className="flex gap-2 min-w-0">
-                      <span className="w-44 shrink-0 font-mono text-[10px] text-slate-500 truncate">{k}</span>
+                      <span className="w-44 shrink-0 font-mono text-[10px] text-slate-400 truncate">{k}</span>
                       <span className={cn(
                         "font-mono text-[10px] break-all",
                         k === "file.hash.sha256" ? "text-cyber-300" : "text-slate-300"
@@ -399,26 +399,26 @@ function CompletionOverlay({
           {/* Score + grade */}
           <div className="flex items-center justify-between rounded border border-border bg-[#0d1520] px-5 py-4">
             <div className="text-center">
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">Score</p>
-              <p className="font-mono text-3xl font-bold text-white mt-1">{score.total}<span className="text-slate-500 text-lg">/100</span></p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Score</p>
+              <p className="font-mono text-3xl font-bold text-white mt-1">{score.total}<span className="text-slate-400 text-lg">/100</span></p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">Grade</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Grade</p>
               <p className={cn("font-mono text-4xl font-bold mt-1", gradeColor)}>{grade}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">Time</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Time</p>
               <p className="font-mono text-2xl font-bold text-cyber-300 mt-1">{formatTime(timeTaken)}</p>
             </div>
             <div className="text-center">
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">IOC Tagged</p>
-              <p className="font-mono text-2xl font-bold text-neon-green mt-1">{taggedIocs.length}<span className="text-slate-500 text-sm">/{allIocs.length}</span></p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">IOC Tagged</p>
+              <p className="font-mono text-2xl font-bold text-neon-green mt-1">{taggedIocs.length}<span className="text-slate-400 text-sm">/{allIocs.length}</span></p>
             </div>
           </div>
 
           {/* Score breakdown */}
           <div className="rounded border border-border bg-[#0d1520] px-4 py-3">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Score Breakdown</p>
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Score Breakdown</p>
             <div className="space-y-2">
               {score.breakdown.map(item => (
                 <div key={item.label} className="space-y-1">
@@ -441,18 +441,18 @@ function CompletionOverlay({
 
           {/* FP detection result */}
           <div className="rounded border border-border bg-[#0d1520] px-4 py-3">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">False Positive Detection</p>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">False Positive Detection</p>
             <div className="flex gap-4 text-[11px]">
               <div>
-                <span className="text-slate-500">FP events in scenario:</span>
+                <span className="text-slate-400">FP events in scenario:</span>
                 <span className="ml-2 font-mono font-bold text-neon-amber">{realFpCount}</span>
               </div>
               <div>
-                <span className="text-slate-500">Correctly identified:</span>
+                <span className="text-slate-400">Correctly identified:</span>
                 <span className="ml-2 font-mono font-bold text-neon-green">{correctFp}</span>
               </div>
               <div>
-                <span className="text-slate-500">Incorrectly flagged:</span>
+                <span className="text-slate-400">Incorrectly flagged:</span>
                 <span className="ml-2 font-mono font-bold text-severity-high">{fpMarked.length - correctFp}</span>
               </div>
             </div>
@@ -577,7 +577,7 @@ export default function ScenarioPreviewPage() {
         <div className="flex items-center gap-4 rounded border border-cyber-500/20 bg-cyber-500/5 px-5 py-2.5 shrink-0 flex-wrap">
           {/* Timer */}
           <div className="flex items-center gap-2">
-            <Clock className={cn("h-4 w-4", running ? "text-neon-green" : "text-slate-500")} />
+            <Clock className={cn("h-4 w-4", running ? "text-neon-green" : "text-slate-400")} />
             <span className="font-mono text-xl font-bold text-cyber-300 tabular-nums">{formatTime(elapsed)}</span>
             {!running && (
               <button onClick={startTimer} className="ml-1 rounded border border-cyber-500/30 bg-cyber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyber-300 hover:bg-cyber-500/20 transition-colors">
@@ -595,7 +595,7 @@ export default function ScenarioPreviewPage() {
           <div className="flex items-center gap-1.5 text-[11px]">
             <Tag className="h-3.5 w-3.5 text-slate-400" />
             <span className="text-slate-300">Evidence:</span>
-            <span className={cn("font-mono font-bold", taggedIocs.length > 0 ? "text-neon-green" : "text-slate-500")}>
+            <span className={cn("font-mono font-bold", taggedIocs.length > 0 ? "text-neon-green" : "text-slate-400")}>
               {taggedIocs.length}/{iocs.length}
             </span>
           </div>
@@ -630,7 +630,7 @@ export default function ScenarioPreviewPage() {
 
             {/* Narrative */}
             <div className="rounded border border-border bg-[#0d1520] px-5 py-4 shrink-0">
-              <p className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+              <p className="mb-3 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                 <Info className="h-3 w-3" /> Incident Briefing
               </p>
               <div className="space-y-2">
@@ -643,7 +643,7 @@ export default function ScenarioPreviewPage() {
             {/* Log events table */}
             <div className="flex flex-col flex-1 min-h-0 rounded border border-border bg-[#080d14] overflow-hidden">
               <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5 shrink-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                   Log Timeline — {filteredEvents.length} events
                 </p>
                 {/* Severity filter */}
@@ -651,7 +651,7 @@ export default function ScenarioPreviewPage() {
                   {["all", "critical", "high", "medium", "low", "fp"].map(sev => (
                     <button key={sev} onClick={() => setFilterSev(sev)}
                       className={cn("rounded px-2 py-0.5 text-[10px] font-semibold uppercase transition-colors",
-                        filterSev === sev ? "bg-cyber-500/20 text-cyber-300" : "text-slate-500 hover:text-slate-300"
+                        filterSev === sev ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300"
                       )}>
                       {sev === "all" ? "All" : sev === "fp" ? "FP" : sev.slice(0, 4)}
                     </button>
@@ -664,13 +664,13 @@ export default function ScenarioPreviewPage() {
                   <thead className="sticky top-0 bg-[#080d14]/95 backdrop-blur z-10">
                     <tr className="border-b border-border/40">
                       <th className="w-6 pl-3" />
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Time</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Host</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Source</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Sev</th>
-                      <th className="py-2 pr-4 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">Description</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest">MITRE</th>
-                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-500 uppercase tracking-widest" title="Mark as False Positive">FP</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Time</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Host</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Source</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Sev</th>
+                      <th className="py-2 pr-4 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Description</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">MITRE</th>
+                      <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest" title="Mark as False Positive">FP</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -678,7 +678,7 @@ export default function ScenarioPreviewPage() {
                       <EventRow key={ev.id} ev={ev} markedFp={fpEvents.includes(ev.id)} onToggleFp={toggleFpEvent} />
                     ))}
                     {filteredEvents.length === 0 && (
-                      <tr><td colSpan={8} className="py-8 text-center text-xs text-slate-500">No events match the current filter.</td></tr>
+                      <tr><td colSpan={8} className="py-8 text-center text-xs text-slate-400">No events match the current filter.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -692,27 +692,30 @@ export default function ScenarioPreviewPage() {
             {/* IOC Tracker */}
             <div className="rounded border border-border bg-[#080d14] shrink-0">
               <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
                   <Target className="h-3 w-3" /> IOC Tracker
                 </p>
-                <span className="font-mono text-[10px] text-slate-500">{taggedIocs.length}/{iocs.length}</span>
+                <span className="font-mono text-[10px] text-slate-400">{taggedIocs.length}/{iocs.length}</span>
               </div>
               <div className="max-h-56 overflow-y-auto divide-y divide-border/40">
                 {iocs.length === 0
-                  ? <p className="px-4 py-6 text-center text-[11px] text-slate-500">No IOCs extracted</p>
+                  ? <p className="px-4 py-6 text-center text-[11px] text-slate-400">No IOCs extracted</p>
                   : iocs.map(ioc => {
                       const hashEntry = ioc.type === "hash" ? lookupHash(ioc.value) : null;
                       return (
                         <div key={ioc.value}
                           className={cn("group flex items-start gap-2 px-3 py-2.5 transition-colors", ioc.tagged ? "bg-neon-green/5" : "hover:bg-bg-hover/40")}
                         >
-                          {/* Tag checkbox */}
-                          <div onClick={() => toggleTag(ioc.value)}
-                            className={cn("mt-0.5 flex h-3.5 w-3.5 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors",
+                          {/* Tag toggle — a real button so it is keyboard-operable
+                              and announces its pressed state (WCAG 2.1.1 / 4.1.2). */}
+                          <button type="button" onClick={() => toggleTag(ioc.value)}
+                            aria-pressed={ioc.tagged}
+                            aria-label={ioc.tagged ? `Untag ${ioc.value}` : `Tag ${ioc.value} as an IOC`}
+                            className={cn("mt-0.5 flex h-3.5 w-3.5 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-neon-green/40",
                               ioc.tagged ? "border-neon-green bg-neon-green/20" : "border-slate-600"
                             )}>
-                            {ioc.tagged && <div className="h-1.5 w-1.5 rounded-full bg-neon-green" />}
-                          </div>
+                            {ioc.tagged && <span className="block h-1.5 w-1.5 rounded-full bg-neon-green" />}
+                          </button>
                           <div className="min-w-0 flex-1">
                             <span className={cn("inline-flex items-center rounded border px-1 py-0 text-[9px] font-semibold uppercase tracking-wider", IOC_TYPE_BADGE[ioc.type])}>
                               {ioc.type}
@@ -748,7 +751,7 @@ export default function ScenarioPreviewPage() {
             {/* Notes */}
             <div className="rounded border border-border bg-[#080d14]">
               <div className="border-b border-border/60 px-4 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
                   <FileText className="h-3 w-3" /> Investigation Notes
                 </p>
               </div>
@@ -756,7 +759,7 @@ export default function ScenarioPreviewPage() {
                 <textarea value={notes} onChange={e => { setNotes(e.target.value); startTimer(); }}
                   placeholder="Document your findings, timeline reconstruction, attacker TTPs, and evidence…"
                   rows={7}
-                  className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                  className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                 />
               </div>
             </div>
@@ -764,7 +767,7 @@ export default function ScenarioPreviewPage() {
             {/* Verdict */}
             <div className="rounded border border-border bg-[#080d14]">
               <div className="border-b border-border/60 px-4 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
                   <Zap className="h-3 w-3" /> Analyst Verdict
                 </p>
               </div>
@@ -772,7 +775,7 @@ export default function ScenarioPreviewPage() {
                 <textarea value={verdict} onChange={e => { setVerdict(e.target.value); startTimer(); }}
                   placeholder="Initial access vector, lateral movement, data impacted, recommended containment steps…"
                   rows={5}
-                  className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                  className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                 />
                 <Button variant="primary" className="w-full justify-center" onClick={submitInvestigation}>
                   <Shield className="h-4 w-4" /> Submit Investigation

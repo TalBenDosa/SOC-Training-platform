@@ -257,7 +257,7 @@ function XpLevel({ xp }: { xp: number }) {
             </div>
             <span>{nextLvlXp.toLocaleString()} XP</span>
           </div>
-          <p className="mt-0.5 text-[10px] text-slate-500">
+          <p className="mt-0.5 text-[10px] text-slate-400">
             {nextLvlXp - xp} XP to Level {level + 1}
           </p>
         </div>
@@ -289,7 +289,7 @@ function StatsStrip({ user }: { user: UserData }) {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{label}</p>
                 <p className="mt-2 font-mono text-3xl font-semibold text-white">{value}</p>
-                <p className="mt-0.5 text-xs text-slate-500">{sub}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
               </div>
               <div className={cn("rounded-lg border border-border p-2", accentMap[accent])}>{icon}</div>
             </div>
@@ -510,14 +510,14 @@ export default function ProgressPage() {
                       : `${Math.round(avgDecisionLatencyMs / 1000)}s`
                     : "—"}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-500">Per room task — paired with accuracy, not a replacement for it</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">Per room task — paired with accuracy, not a replacement for it</p>
               </div>
               <div className="rounded-lg border border-border bg-bg-elevated p-3">
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                   <Eye className="h-3.5 w-3.5 text-neon-purple" /> Events Opened / Session
                 </div>
                 <p className="mt-1.5 font-mono text-xl font-bold text-white">{avgEventsOpened ?? "—"}</p>
-                <p className="mt-0.5 text-[10px] text-slate-500">Investigation thoroughness on the Dashboard</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">Investigation thoroughness on the Dashboard</p>
               </div>
               <div className="rounded-lg border border-border bg-bg-elevated p-3">
                 {/* Neutral framing, not a red "failure" tile — a miss is a
@@ -526,8 +526,8 @@ export default function ProgressPage() {
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                   <Scale className="h-3.5 w-3.5 text-neon-amber" /> Catch Rate / Missed Attacks
                 </div>
-                <p className="mt-1.5 font-mono text-xl font-bold text-white">{catchRate ?? "—"}{catchRate !== null && "%"} <span className="text-slate-600">/</span> {totalFn}</p>
-                <p className="mt-0.5 text-[10px] text-slate-500">Attacks caught before the SLA expired vs. ones that slipped past</p>
+                <p className="mt-1.5 font-mono text-xl font-bold text-white">{catchRate ?? "—"}{catchRate !== null && "%"} <span className="text-slate-400">/</span> {totalFn}</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">Attacks caught before the SLA expired vs. ones that slipped past</p>
               </div>
             </div>
           </Card>
@@ -543,7 +543,7 @@ export default function ProgressPage() {
                 <TrendingUp className="h-4 w-4 text-cyber-300" />
                 Activity Progress (Last 7 Days)
               </h3>
-              <span className="text-xs text-slate-500">XP earned per day</span>
+              <span className="text-xs text-slate-400">XP earned per day</span>
             </div>
             <div className="mt-4 h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -576,7 +576,7 @@ export default function ProgressPage() {
                 <Zap className="h-4 w-4 text-neon-purple" />
                 Skills Breakdown
               </h3>
-              <span className="text-xs text-slate-500">Based on your activity</span>
+              <span className="text-xs text-slate-400">Based on your activity</span>
             </div>
             <div className="mt-2 h-56">
               <ResponsiveContainer width="100%" height="100%">
@@ -611,7 +611,7 @@ export default function ProgressPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-[10px] text-slate-600">
+            <p className="mt-2 text-[10px] text-slate-400">
               Computed from your SOC Dashboard sessions and completed scenarios.
             </p>
           </Card>
@@ -630,9 +630,9 @@ export default function ProgressPage() {
             </div>
             {scenarioHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Target className="h-8 w-8 text-slate-600" />
+                <Target className="h-8 w-8 text-slate-400" />
                 <p className="mt-2 text-sm text-slate-400">No scenarios completed yet</p>
-                <p className="mt-1 text-xs text-slate-600">Complete a scenario to see your results here</p>
+                <p className="mt-1 text-xs text-slate-400">Complete a scenario to see your results here</p>
                 <Link href="/scenarios" className="mt-4">
                   <span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-3 py-1.5 text-xs font-semibold text-cyber-300 hover:bg-cyber-500/20">
                     Start a Scenario
@@ -641,7 +641,7 @@ export default function ProgressPage() {
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                <thead className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                   <tr>
                     <th className="px-5 py-2">Scenario</th>
                     <th className="py-2">Date</th>
@@ -676,7 +676,7 @@ export default function ProgressPage() {
             <Card padded={false}>
               <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <h3 className="text-sm font-semibold text-white">Rank Progression</h3>
-                <span className="text-[10px] uppercase tracking-wider text-slate-500">Your XP: {totalXp.toLocaleString()}</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">Your XP: {totalXp.toLocaleString()}</span>
               </div>
               <ul>
                 {RANK_LADDER.map((tier, i) => {
@@ -695,20 +695,20 @@ export default function ProgressPage() {
                         "flex h-7 w-7 items-center justify-center rounded-full border font-mono text-[10px] font-bold",
                         current   ? "border-cyber-500/50 bg-cyber-500/15 text-cyber-300" :
                         achieved  ? "border-neon-green/40 bg-neon-green/10 text-neon-green" :
-                                    "border-border bg-bg text-slate-600"
+                                    "border-border bg-bg text-slate-400"
                       )}>
                         {achieved ? "✓" : i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={cn(
                           "text-xs font-semibold truncate",
-                          current ? "text-cyber-300" : achieved ? "text-slate-200" : "text-slate-500"
+                          current ? "text-cyber-300" : achieved ? "text-slate-200" : "text-slate-400"
                         )}>
                           {tier.name}
                           {current && <span className="ml-1 text-[10px] text-cyber-500">(you)</span>}
                         </p>
                       </div>
-                      <span className={cn("font-mono text-xs font-bold", achieved ? "text-cyber-300" : "text-slate-600")}>
+                      <span className={cn("font-mono text-xs font-bold", achieved ? "text-cyber-300" : "text-slate-400")}>
                         {tier.xp.toLocaleString()} XP
                       </span>
                     </li>
@@ -733,13 +733,13 @@ export default function ProgressPage() {
                     )} />
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-slate-100">{b.name}</p>
-                      <p className="text-[10px] text-slate-500">{b.desc}</p>
+                      <p className="text-[10px] text-slate-400">{b.desc}</p>
                     </div>
                     <Badge variant="outline" className="shrink-0">{b.tier}</Badge>
                   </li>
                 ))}
                 {badges.length < 5 && (
-                  <li className="rounded border border-dashed border-border px-3 py-2 text-center text-[10px] text-slate-600">
+                  <li className="rounded border border-dashed border-border px-3 py-2 text-center text-[10px] text-slate-400">
                     Catch attacks, secure companies and complete scenarios to unlock more badges
                   </li>
                 )}

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useRouter } from "next/navigation";
 import { UserPlus, Mail, CheckCircle2, AlertTriangle, Loader2, Check, X } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -9,6 +10,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default function SignupPage() {
+  usePageTitle("Create account");
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -137,7 +139,7 @@ export default function SignupPage() {
             : null}
           Taking you to sign in…
         </p>
-        <Loader2 className="mx-auto mt-5 h-4 w-4 animate-spin text-slate-500" />
+        <Loader2 className="mx-auto mt-5 h-4 w-4 animate-spin text-slate-400" />
         {/* A manual way through, in case the redirect does not fire — the
             previous flow left the user with no feedback and no next step. */}
         <Link href="/login?registered=1" className="mt-5 inline-block">
@@ -171,20 +173,20 @@ export default function SignupPage() {
         </span>
         <div>
           <h1 className="text-lg font-bold text-white">Create your account</h1>
-          <p className="text-xs text-slate-500">Free — your progress follows you across devices.</p>
+          <p className="text-xs text-slate-400">Free — your progress follows you across devices.</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <div className="mb-1.5 flex items-baseline justify-between">
-            <label className="text-xs font-semibold text-slate-400">
-              Nickname <span className="font-normal text-slate-600">(optional)</span>
+            <label htmlFor="signup-handle" className="text-xs font-semibold text-slate-400">
+              Nickname <span className="font-normal text-slate-400">(optional)</span>
             </label>
             {/* Only speak once there is something worth saying. */}
             {normalisedHandle !== "" && (
               checkingHandle ? (
-                <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                <span className="flex items-center gap-1 text-[11px] text-slate-400">
                   <Loader2 className="h-3 w-3 animate-spin" /> checking
                 </span>
               ) : !handleWellFormed ? (
@@ -201,39 +203,43 @@ export default function SignupPage() {
             )}
           </div>
           <input
+            id="signup-handle"
             type="text" autoComplete="username" value={handle} maxLength={20}
             onChange={e => setHandle(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="How you'll appear on the platform"
           />
-          <p className="mt-1 text-[11px] text-slate-600">
+          <p className="mt-1 text-[11px] text-slate-400">
             Leave blank and we&apos;ll use the first part of your email.
           </p>
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
+          <label htmlFor="signup-email" className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
           <input
+            id="signup-email"
             type="email" required autoComplete="email" value={email}
             onChange={e => setEmail(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="you@company.com"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">Password</label>
+          <label htmlFor="signup-password" className="mb-1.5 block text-xs font-semibold text-slate-400">Password</label>
           <input
+            id="signup-password"
             type="password" required minLength={8} autoComplete="new-password" value={password}
             onChange={e => setPassword(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="At least 8 characters"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">Confirm password</label>
+          <label htmlFor="signup-confirm" className="mb-1.5 block text-xs font-semibold text-slate-400">Confirm password</label>
           <input
+            id="signup-confirm"
             type="password" required autoComplete="new-password" value={confirm}
             onChange={e => setConfirm(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
           />
         </div>
 
@@ -248,12 +254,12 @@ export default function SignupPage() {
         </Button>
       </form>
 
-      <p className="mt-5 text-center text-xs text-slate-500">
+      <p className="mt-5 text-center text-xs text-slate-400">
         Already have an account? <Link href="/login" className="text-cyber-300 hover:underline">Sign in</Link>
         {" · "}
         <Link href="/reset-password" className="text-cyber-300 hover:underline">Forgot password?</Link>
       </p>
-      <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-400">
         {/* This used to read "progress you've made on this device carries over".
             That stopped being true for new visitors once the routes were gated:
             you can no longer reach a room without an account, so there is no

@@ -60,7 +60,7 @@ function LoadingSkeleton() {
       <div className="mt-6 h-24 w-full rounded bg-bg-elevated" />
       <div className="h-3 w-full rounded bg-bg-elevated" />
       <div className="h-3 w-3/4 rounded bg-bg-elevated" />
-      <p className="mt-4 flex items-center gap-2 text-xs text-slate-500">
+      <p className="mt-4 flex items-center gap-2 text-xs text-slate-400">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Generating lesson content with AI…
       </p>
@@ -124,7 +124,7 @@ function Quiz({
       <div className="flex items-center gap-3">
         <BookOpen className="h-5 w-5 text-cyber-300" />
         <h3 className="text-base font-semibold text-white">Knowledge Check</h3>
-        <span className="text-xs text-slate-500">{questions.length} questions · 70% to pass</span>
+        <span className="text-xs text-slate-400">{questions.length} questions · 70% to pass</span>
       </div>
 
       {questions.map((q, i) => (
@@ -296,7 +296,7 @@ export default function LessonReader() {
           </Link>
           <div className="flex-1">
             {meta && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 {meta.path.title} · {meta.module.title}
               </p>
             )}
@@ -316,7 +316,7 @@ export default function LessonReader() {
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <span className="text-[10px] font-mono text-slate-500">
+            <span className="text-[10px] font-mono text-slate-400">
               {isQuizPage ? "Quiz" : `Page ${pageIdx + 1}`} / {totalPages}
             </span>
           </div>

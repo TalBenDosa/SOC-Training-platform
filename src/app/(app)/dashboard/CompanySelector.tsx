@@ -47,7 +47,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
           </div>
           <div className="flex flex-col items-end gap-2">
             {onClose && (
-              <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition text-xs border border-border rounded px-2 py-1">
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-300 transition text-xs border border-border rounded px-2 py-1">
                 ESC
               </button>
             )}
@@ -97,7 +97,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
               >
                 {/* Status badge */}
                 {isLocked && (
-                  <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                     <Lock className="h-2.5 w-2.5" /> Locked
                   </span>
                 )}
@@ -115,7 +115,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
                 {/* Lock overlay */}
                 {isLocked && (
                   <div className="absolute inset-0 flex items-center justify-center rounded-xl">
-                    <Lock className="h-8 w-8 text-slate-600" />
+                    <Lock className="h-8 w-8 text-slate-400" />
                   </div>
                 )}
 
@@ -123,14 +123,14 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
                 <div className="flex items-start gap-3 mb-3">
                   <span className="text-2xl">{INDUSTRY_ICON[c.industry] ?? "🏢"}</span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{c.industry}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{c.industry}</p>
                     <h3 className="text-sm font-bold text-white leading-tight">{c.name}</h3>
                     <p className="text-[10px] text-slate-400">{c.tagline}</p>
                   </div>
                 </div>
 
                 {/* Meta row */}
-                <div className="flex items-center gap-3 mb-3 text-[10px] text-slate-500">
+                <div className="flex items-center gap-3 mb-3 text-[10px] text-slate-400">
                   <span className="flex items-center gap-1">
                     <Building2 className="h-3 w-3" /> {c.hq}
                   </span>
@@ -141,7 +141,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
                 {/* Architecture stack */}
                 <div className="mt-auto space-y-1.5 rounded-lg border border-border/40 bg-bg/60 px-3 py-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Security Stack</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Security Stack</p>
                   <StackRow icon={<Shield className="h-3 w-3" />} label="EDR"      value={c.architecture.edr}      color="text-cyber-300" />
                   <StackRow icon={<Cloud  className="h-3 w-3" />} label="Cloud"    value={c.architecture.cloud}    color="text-neon-blue" />
                   <StackRow icon={<Server className="h-3 w-3" />} label="Identity" value={c.architecture.idp}      color="text-neon-purple" />
@@ -162,7 +162,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
         </div>
 
         {/* Footer */}
-        <div className="border-t border-border/60 bg-bg/40 px-8 py-3 text-[10px] text-slate-500">
+        <div className="border-t border-border/60 bg-bg/40 px-8 py-3 text-[10px] text-slate-400">
           Identify the attack and submit an escalation ticket to secure a company and unlock the next one.
         </div>
       </div>
@@ -175,8 +175,8 @@ function StackRow({
 }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-slate-600">{icon}</span>
-      <span className="w-14 shrink-0 text-[9px] text-slate-600 uppercase tracking-wider">{label}</span>
+      <span className="text-slate-400">{icon}</span>
+      <span className="w-14 shrink-0 text-[9px] text-slate-400 uppercase tracking-wider">{label}</span>
       <span className={cn("text-[10px] font-medium truncate", color)}>{value}</span>
     </div>
   );

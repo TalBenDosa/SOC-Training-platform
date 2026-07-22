@@ -180,7 +180,7 @@ export function IncidentReportModal({
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-cyber-300 shrink-0" />
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">Tier-1 Analyst Report</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Tier-1 Analyst Report</p>
                 <h2 className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
               </div>
             </div>
@@ -198,7 +198,7 @@ export function IncidentReportModal({
                 <p className="text-[10px] text-slate-400 leading-relaxed">
                   Describe: <span className="text-slate-300">what attack occurred</span> · <span className="text-slate-300">which <Term k="ioc">IOCs</Term> from the logs prove it (real IPs, users, hosts — quote them exactly)</span> · <span className="text-slate-300">what action to take</span> · <span className="text-slate-300">business impact</span>
                 </p>
-                <p className="mt-2 text-[10px] text-slate-500">
+                <p className="mt-2 text-[10px] text-slate-400">
                   The feed stays live beside you — click any row to re-read its raw fields while you write.
                 </p>
               </div>
@@ -206,23 +206,23 @@ export function IncidentReportModal({
               {/* Mode toggle */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Incident Summary</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Incident Summary</p>
                   {(gWhat || gIocs || gAction || gImpact || summary) && (
-                    <span className="text-[9px] text-slate-600">· draft saved, safe to close and come back</span>
+                    <span className="text-[9px] text-slate-400">· draft saved, safe to close and come back</span>
                   )}
                 </div>
                 <div className="flex rounded border border-border/60 overflow-hidden">
                   <button
                     onClick={() => setMode(true)}
                     className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
-                      guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-500 hover:text-slate-300")}
+                      guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
                   >
                     Guided
                   </button>
                   <button
                     onClick={() => setMode(false)}
                     className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
-                      !guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-500 hover:text-slate-300")}
+                      !guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
                   >
                     Free text
                   </button>
@@ -251,7 +251,7 @@ export function IncidentReportModal({
                         value={f.value}
                         onChange={e => f.set(e.target.value)}
                         autoFocus={i === 0}
-                        className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                        className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                         placeholder={f.ph}
                       />
                     </div>
@@ -261,7 +261,7 @@ export function IncidentReportModal({
                 /* Free-text mode — the classic single textarea */
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
-                    <span className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-600" : "text-neon-green")}>
+                    <span className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-400" : "text-neon-green")}>
                       {summary.length} chars {summary.length < 30 ? `(min 30)` : ""}
                     </span>
                   </div>
@@ -270,14 +270,14 @@ export function IncidentReportModal({
                     value={summary}
                     onChange={e => setSummary(e.target.value)}
                     autoFocus
-                    className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                    className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                     placeholder="Example: I detected a password spray attack targeting multiple accounts from IP 91.108.4.154. The attacker tried over 40 failed logins before succeeding with r.patel's credentials. I collected the source IP and compromised username as IOCs. Recommended action: block the IP at the firewall, reset r.patel's password, and review all successful logins from that IP."
                   />
                 </div>
               )}
 
               <div className="flex items-center justify-between pt-1">
-                <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300 transition">
+                <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
                   Cancel
                 </button>
                 <button
@@ -287,7 +287,7 @@ export function IncidentReportModal({
                     "flex items-center gap-2 rounded border px-4 py-2 text-xs font-bold transition",
                     canSubmit
                       ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300 hover:bg-cyber-500/20"
-                      : "border-border/40 text-slate-600 cursor-not-allowed opacity-50"
+                      : "border-border/40 text-slate-400 cursor-not-allowed opacity-50"
                   )}
                 >
                   <FileText className="h-3.5 w-3.5" /> Submit Report

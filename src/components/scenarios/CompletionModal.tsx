@@ -228,21 +228,21 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
               <p className="font-mono text-2xl font-bold text-white">{result.score}%</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Score</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">Score</p>
             </div>
             <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
               <p className="font-mono text-2xl font-bold text-cyber-300">+{totalXp}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">XP Earned</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">XP Earned</p>
             </div>
             <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
               <p className="font-mono text-2xl font-bold text-slate-200">{formatTime(timeTaken)}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Time</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">Time</p>
             </div>
           </div>
 
           {/* Progress bar */}
           <div>
-            <div className="mb-1.5 flex justify-between text-[10px] text-slate-500">
+            <div className="mb-1.5 flex justify-between text-[10px] text-slate-400">
               <span>Score Progress</span>
               <span>{result.score >= 70 ? "Passed ✓" : "Need 70% to pass"}</span>
             </div>
@@ -257,7 +257,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
 
           {/* Question breakdown */}
           <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
               Question Breakdown
             </p>
             <div className="space-y-2">
@@ -273,7 +273,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
                     }
                     <div className="min-w-0">
                       <p className="text-xs text-slate-200">
-                        <span className="font-mono text-[10px] text-slate-500 mr-1.5">Q{i + 1}.</span>
+                        <span className="font-mono text-[10px] text-slate-400 mr-1.5">Q{i + 1}.</span>
                         {q.prompt}
                       </p>
                       {!q.correct && (
@@ -283,7 +283,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
                           </span>
                         </p>
                       )}
-                      <p className="mt-1 text-[10px] text-slate-500">{q.explanation}</p>
+                      <p className="mt-1 text-[10px] text-slate-400">{q.explanation}</p>
                       {q.correct && (
                         <p className="mt-0.5 text-[10px] text-neon-green/70">+{q.xp} XP</p>
                       )}
@@ -297,7 +297,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
           {/* AI Feedback */}
           {result.aiFeedback && (
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                 AI Analyst Feedback
               </p>
               <div className="rounded border border-cyber-500/20 bg-cyber-500/5 px-4 py-3">

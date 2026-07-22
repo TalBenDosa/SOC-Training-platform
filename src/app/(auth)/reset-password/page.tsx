@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { KeyRound, Mail } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +9,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default function ResetPasswordPage() {
+  usePageTitle("Reset password");
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -58,16 +60,17 @@ export default function ResetPasswordPage() {
         </span>
         <div>
           <h1 className="text-lg font-bold text-white">Reset your password</h1>
-          <p className="text-xs text-slate-500">We&apos;ll email you a reset link.</p>
+          <p className="text-xs text-slate-400">We&apos;ll email you a reset link.</p>
         </div>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
+          <label htmlFor="reset-email" className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
           <input
+            id="reset-email"
             type="email" required autoComplete="email" value={email}
             onChange={e => setEmail(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="you@company.com"
           />
         </div>
@@ -78,7 +81,7 @@ export default function ResetPasswordPage() {
           {submitting ? "Sending…" : "Send reset link"}
         </Button>
       </form>
-      <p className="mt-5 text-center text-xs text-slate-500">
+      <p className="mt-5 text-center text-xs text-slate-400">
         <Link href="/login" className="text-cyber-300 hover:underline">Back to sign in</Link>
       </p>
     </Card>

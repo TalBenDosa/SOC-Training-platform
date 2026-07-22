@@ -138,7 +138,7 @@ function ContentRow({
       hidden && "opacity-50"
     )}>
       <div className="min-w-0 flex-1">
-        <p className={cn("text-[12px] font-medium", hidden ? "text-slate-500 line-through" : "text-slate-200")}>{title}</p>
+        <p className={cn("text-[12px] font-medium", hidden ? "text-slate-400 line-through" : "text-slate-200")}>{title}</p>
         {meta && <div className="mt-0.5 flex items-center gap-1.5">{meta}</div>}
       </div>
       {generated && (
@@ -151,7 +151,7 @@ function ContentRow({
           <button
             onClick={onRestore}
             title="Restore"
-            className="rounded p-1.5 text-slate-500 hover:bg-neon-green/10 hover:text-neon-green transition-colors"
+            className="rounded p-1.5 text-slate-400 hover:bg-neon-green/10 hover:text-neon-green transition-colors"
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
@@ -159,7 +159,7 @@ function ContentRow({
           <button
             onClick={onHide}
             title="Delete / Hide"
-            className="rounded p-1.5 text-slate-600 hover:bg-severity-critical/10 hover:text-severity-critical transition-colors"
+            className="rounded p-1.5 text-slate-400 hover:bg-severity-critical/10 hover:text-severity-critical transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -168,7 +168,7 @@ function ContentRow({
           <button
             onClick={onDelete}
             title="Permanently delete"
-            className="rounded p-1.5 text-slate-600 hover:bg-severity-critical/10 hover:text-severity-critical transition-colors"
+            className="rounded p-1.5 text-slate-400 hover:bg-severity-critical/10 hover:text-severity-critical transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -197,11 +197,11 @@ function ScenariosTab({
     <div className="flex flex-col min-h-0 overflow-hidden">
       {/* Built-in scenarios */}
       <div className="border-b border-border/60 bg-[#0a0f1a] px-4 py-2.5 shrink-0 flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2">
           <Shield className="h-3 w-3" /> Built-in Scenarios
-          <span className="text-slate-600">({totalVisible} visible · {totalHidden} hidden)</span>
+          <span className="text-slate-400">({totalVisible} visible · {totalHidden} hidden)</span>
         </p>
-        <span className="text-[10px] text-slate-600">Use the Scenario Generator tab to create new</span>
+        <span className="text-[10px] text-slate-400">Use the Scenario Generator tab to create new</span>
       </div>
       <div className="overflow-y-auto flex-1">
         {SCENARIOS.map(s => (
@@ -214,8 +214,8 @@ function ScenariosTab({
                 <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase", DIFFICULTY_BADGE[s.difficulty] ?? DIFFICULTY_BADGE.beginner)}>
                   {s.difficulty}
                 </span>
-                <span className="text-[10px] text-slate-500">{s.attack_kind.replace(/_/g, " ")}</span>
-                <span className="text-[10px] text-slate-600 truncate">{s.threat_actor}</span>
+                <span className="text-[10px] text-slate-400">{s.attack_kind.replace(/_/g, " ")}</span>
+                <span className="text-[10px] text-slate-400 truncate">{s.threat_actor}</span>
               </>
             }
             onHide={() => onHide(s.slug)}
@@ -227,9 +227,9 @@ function ScenariosTab({
         {published.length > 0 && (
           <>
             <div className="border-b border-t border-border/60 bg-[#0a0f1a] px-4 py-2 shrink-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2">
                 <Zap className="h-3 w-3 text-neon-green" /> AI-Generated & Published
-                <span className="text-slate-600">({published.length})</span>
+                <span className="text-slate-400">({published.length})</span>
               </p>
             </div>
             {published.map(s => (
@@ -242,8 +242,8 @@ function ScenariosTab({
                     <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase", DIFFICULTY_BADGE[s.difficulty] ?? DIFFICULTY_BADGE.beginner)}>
                       {s.difficulty}
                     </span>
-                    <span className="text-[10px] text-slate-500">{s.attack_kind?.replace(/_/g, " ")}</span>
-                    <span className="text-[10px] text-slate-600">{new Date(s.published_at).toLocaleDateString()}</span>
+                    <span className="text-[10px] text-slate-400">{s.attack_kind?.replace(/_/g, " ")}</span>
+                    <span className="text-[10px] text-slate-400">{new Date(s.published_at).toLocaleDateString()}</span>
                   </>
                 }
                 onHide={() => onDeletePublished(s.id)}
@@ -254,7 +254,7 @@ function ScenariosTab({
         )}
 
         {published.length === 0 && (
-          <p className="py-3 text-center text-xs text-slate-600">No AI-generated scenarios published yet. Use the Scenario Generator tab.</p>
+          <p className="py-3 text-center text-xs text-slate-400">No AI-generated scenarios published yet. Use the Scenario Generator tab.</p>
         )}
       </div>
     </div>
@@ -322,12 +322,12 @@ function LessonsTab({
           onClick={() => setShowGenerator(v => !v)}
           className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover/30 transition-colors"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2">
             <Plus className="h-3 w-3 text-cyber-300" />
             <span className="text-cyber-300">Lesson Generator</span>
-            <span className="text-slate-600">— AI creates lesson from syllabus</span>
+            <span className="text-slate-400">— AI creates lesson from syllabus</span>
           </p>
-          {showGenerator ? <ChevronUp className="h-3.5 w-3.5 text-slate-500" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-500" />}
+          {showGenerator ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
         </button>
 
         {showGenerator && (
@@ -335,18 +335,18 @@ function LessonsTab({
             <div className="grid grid-cols-2 gap-3">
               {/* Title */}
               <div className="col-span-2">
-                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Lesson Title *</label>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Lesson Title *</label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Detecting Lateral Movement with Sysmon"
-                  className="w-full rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/40 focus:outline-none"
+                  className="w-full rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none"
                 />
               </div>
               {/* Topic */}
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Topic</label>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Topic</label>
                 <select
                   value={form.topic}
                   onChange={e => setForm(f => ({ ...f, topic: e.target.value }))}
@@ -358,7 +358,7 @@ function LessonsTab({
               {/* Difficulty + Sections */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Difficulty</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Difficulty</label>
                   <select
                     value={form.difficulty}
                     onChange={e => setForm(f => ({ ...f, difficulty: e.target.value }))}
@@ -371,7 +371,7 @@ function LessonsTab({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Sections</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Sections</label>
                   <select
                     value={form.sections}
                     onChange={e => setForm(f => ({ ...f, sections: Number(e.target.value) }))}
@@ -383,15 +383,15 @@ function LessonsTab({
               </div>
               {/* Syllabus */}
               <div className="col-span-2">
-                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">
-                  Syllabus / Learning Objectives <span className="text-slate-600">(one per line)</span>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                  Syllabus / Learning Objectives <span className="text-slate-400">(one per line)</span>
                 </label>
                 <textarea
                   value={form.syllabus}
                   onChange={e => setForm(f => ({ ...f, syllabus: e.target.value }))}
                   placeholder={"Understand NTLM relay attack mechanics\nDetect lateral movement in Windows event logs\nBuild detection rules for PsExec usage"}
                   rows={4}
-                  className="w-full resize-none rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 font-mono text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/40 focus:outline-none"
+                  className="w-full resize-none rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none"
                 />
               </div>
             </div>
@@ -416,7 +416,7 @@ function LessonsTab({
                   <p className="text-[11px] font-semibold text-neon-green flex items-center gap-1.5">
                     <Check className="h-3.5 w-3.5" /> Lesson generated — {preview.title}
                   </p>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400">
                     <span>~{preview.estimatedMinutes} min</span>
                     <span>+{preview.xp} XP</span>
                     <span>{preview.sections.length} sections</span>
@@ -450,9 +450,9 @@ function LessonsTab({
 
       {/* Lesson list */}
       <div className="flex items-center justify-between border-b border-border/60 bg-[#0a0f1a] px-4 py-2 shrink-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
           <BookOpen className="h-3 w-3" /> Lesson Library
-          <span className="text-slate-600">({filtered.filter(l => !hidden.includes(l.slug)).length} visible)</span>
+          <span className="text-slate-400">({filtered.filter(l => !hidden.includes(l.slug)).length} visible)</span>
         </p>
         <select
           value={filterPath}
@@ -480,8 +480,8 @@ function LessonsTab({
                     <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase", DIFFICULTY_BADGE[l.difficulty] ?? DIFFICULTY_BADGE.beginner)}>
                       {l.difficulty}
                     </span>
-                    <span className="text-[10px] text-slate-500">{l.topic}</span>
-                    <span className="text-[10px] text-slate-600">+{l.xp} XP · ~{l.estimatedMinutes}min</span>
+                    <span className="text-[10px] text-slate-400">{l.topic}</span>
+                    <span className="text-[10px] text-slate-400">+{l.xp} XP · ~{l.estimatedMinutes}min</span>
                   </>
                 }
                 onHide={() => onDeleteGenerated(l.id)}
@@ -503,8 +503,8 @@ function LessonsTab({
                 <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase", DIFFICULTY_BADGE[l.difficulty] ?? DIFFICULTY_BADGE.beginner)}>
                   {l.difficulty}
                 </span>
-                <span className="text-[10px] text-slate-500 truncate max-w-[200px]">{l.moduleTitle}</span>
-                <span className="text-[10px] text-slate-600">+{l.xp} XP · ~{l.min}min</span>
+                <span className="text-[10px] text-slate-400 truncate max-w-[200px]">{l.moduleTitle}</span>
+                <span className="text-[10px] text-slate-400">+{l.xp} XP · ~{l.min}min</span>
               </>
             }
             onHide={() => onHide(l.slug)}
@@ -574,12 +574,12 @@ function QuizzesTab({
           onClick={() => setShowGenerator(v => !v)}
           className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover/30 transition-colors"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-2">
             <Plus className="h-3 w-3 text-cyber-300" />
             <span className="text-cyber-300">Quiz Generator</span>
-            <span className="text-slate-600">— AI creates quiz questions by topic</span>
+            <span className="text-slate-400">— AI creates quiz questions by topic</span>
           </p>
-          {showGenerator ? <ChevronUp className="h-3.5 w-3.5 text-slate-500" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-500" />}
+          {showGenerator ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
         </button>
 
         {showGenerator && (
@@ -587,18 +587,18 @@ function QuizzesTab({
             <div className="grid grid-cols-2 gap-3">
               {/* Title */}
               <div className="col-span-2">
-                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Quiz Title *</label>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Quiz Title *</label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   placeholder="e.g. Advanced Threat Hunting Techniques"
-                  className="w-full rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/40 focus:outline-none"
+                  className="w-full rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none"
                 />
               </div>
               {/* Topic */}
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Topic</label>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Topic</label>
                 <select
                   value={form.topic}
                   onChange={e => setForm(f => ({ ...f, topic: e.target.value }))}
@@ -610,7 +610,7 @@ function QuizzesTab({
               {/* Difficulty + count */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Difficulty</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Difficulty</label>
                   <select
                     value={form.difficulty}
                     onChange={e => setForm(f => ({ ...f, difficulty: e.target.value as "Beginner"|"Intermediate"|"Advanced" }))}
@@ -622,7 +622,7 @@ function QuizzesTab({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">Questions</label>
+                  <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">Questions</label>
                   <select
                     value={form.count}
                     onChange={e => setForm(f => ({ ...f, count: Number(e.target.value) }))}
@@ -634,15 +634,15 @@ function QuizzesTab({
               </div>
               {/* Focus areas */}
               <div className="col-span-2">
-                <label className="block text-[10px] uppercase tracking-widest text-slate-500 mb-1">
-                  Focus Areas <span className="text-slate-600">(optional — specific subtopics to emphasize)</span>
+                <label className="block text-[10px] uppercase tracking-widest text-slate-400 mb-1">
+                  Focus Areas <span className="text-slate-400">(optional — specific subtopics to emphasize)</span>
                 </label>
                 <input
                   type="text"
                   value={form.focus}
                   onChange={e => setForm(f => ({ ...f, focus: e.target.value }))}
                   placeholder="e.g. Kerberoasting, DCSync, Pass-the-Hash, LSASS dumping"
-                  className="w-full rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/40 focus:outline-none"
+                  className="w-full rounded border border-border/40 bg-[#0a0f1a] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none"
                 />
               </div>
             </div>
@@ -667,7 +667,7 @@ function QuizzesTab({
                   <p className="text-[11px] font-semibold text-neon-green flex items-center gap-1.5">
                     <Check className="h-3.5 w-3.5" /> {preview.questions.length} questions generated
                   </p>
-                  <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400">
                     <span>~{preview.estimatedMinutes} min</span>
                     <span>{preview.difficulty}</span>
                     <button
@@ -689,7 +689,7 @@ function QuizzesTab({
                           {q.options.map((opt, oi) => (
                             <li key={oi} className={cn(
                               "text-[10px] pl-3",
-                              oi === q.answer ? "text-neon-green font-semibold" : "text-slate-500"
+                              oi === q.answer ? "text-neon-green font-semibold" : "text-slate-400"
                             )}>
                               {String.fromCharCode(65+oi)}. {opt} {oi === q.answer && "✓"}
                             </li>
@@ -720,9 +720,9 @@ function QuizzesTab({
 
       {/* Quiz list */}
       <div className="border-b border-border/60 bg-[#0a0f1a] px-4 py-2 shrink-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 flex items-center gap-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
           <HelpCircle className="h-3 w-3" /> Quiz Library
-          <span className="text-slate-600">({QUIZZES.filter(q => !hidden.includes(q.slug)).length + generated.length} active)</span>
+          <span className="text-slate-400">({QUIZZES.filter(q => !hidden.includes(q.slug)).length + generated.length} active)</span>
         </p>
       </div>
 
@@ -743,8 +743,8 @@ function QuizzesTab({
                     <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase", DIFFICULTY_BADGE[q.difficulty] ?? DIFFICULTY_BADGE.beginner)}>
                       {q.difficulty}
                     </span>
-                    <span className="text-[10px] text-slate-500">{q.category}</span>
-                    <span className="text-[10px] text-slate-600">{q.questions.length} Qs · ~{q.estimatedMinutes}min</span>
+                    <span className="text-[10px] text-slate-400">{q.category}</span>
+                    <span className="text-[10px] text-slate-400">{q.questions.length} Qs · ~{q.estimatedMinutes}min</span>
                   </>
                 }
                 onHide={() => onDeleteGenerated(q.id)}
@@ -766,8 +766,8 @@ function QuizzesTab({
                 <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase", DIFFICULTY_BADGE[q.difficulty] ?? DIFFICULTY_BADGE.beginner)}>
                   {q.difficulty}
                 </span>
-                <span className="text-[10px] text-slate-500">{q.category}</span>
-                <span className="text-[10px] text-slate-600">{q.questions.length} Qs · ~{q.estimatedMinutes}min</span>
+                <span className="text-[10px] text-slate-400">{q.category}</span>
+                <span className="text-[10px] text-slate-400">{q.questions.length} Qs · ~{q.estimatedMinutes}min</span>
               </>
             }
             onHide={() => onHide(q.slug)}
@@ -871,7 +871,7 @@ export function AdminContentManagerContent() {
           count={quizCount}
         />
         <div className="ml-auto pr-4">
-          <p className="text-[10px] text-slate-600">
+          <p className="text-[10px] text-slate-400">
             🗑 Hidden items still exist in source — use Restore to re-enable
           </p>
         </div>

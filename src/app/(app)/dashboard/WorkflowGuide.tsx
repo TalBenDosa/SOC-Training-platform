@@ -25,7 +25,7 @@ export function WorkflowGuide({ reportPassed }: Props) {
       reportPassed ? "border-neon-green/40 bg-neon-green/5" : "border-cyber-500/25 bg-cyber-500/[0.04]"
     )}>
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
+        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
           Analyst Workflow
         </span>
 

@@ -45,6 +45,7 @@ const PUBLIC_PREFIXES = [
   "/update-password",  // set the new password, reached from the emailed link
   "/auth",             // callback / email-confirmation routes
   "/privacy",          // public transparency notice — must be readable by anyone
+  "/accessibility",    // public accessibility statement — legal requirement, open to all
 ];
 
 /** Admin-only. Content authoring — the panel the platform owner edits with. */

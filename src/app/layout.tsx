@@ -29,6 +29,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} dark`}>
       <body className="antialiased">
+        {/* Skip link (WCAG 2.4.1): first focusable element, hidden until focused,
+            lets keyboard/screen-reader users jump past the repeated nav to the
+            page's <main id="main-content">. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-cyber-500 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-black focus:shadow-lg"
+        >
+          Skip to content
+        </a>
         <AuthProvider>
           <ProgressProvider>{children}</ProgressProvider>
         </AuthProvider>

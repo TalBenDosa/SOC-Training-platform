@@ -59,7 +59,7 @@ const SEV_BADGE: Record<string, string> = {
   high:          "bg-severity-high/15 text-severity-high border-severity-high/40",
   medium:        "bg-severity-medium/15 text-severity-medium border-severity-medium/40",
   low:           "bg-slate-500/15 text-slate-400 border-slate-500/30",
-  informational: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+  informational: "bg-slate-500/10 text-slate-400 border-slate-500/20",
 };
 
 // ─── Log row detail panel ─────────────────────────────────────────────────────
@@ -168,18 +168,18 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
               </div>
             )}
             <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Basic Information</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Basic Information</p>
               <div className="space-y-2">
                 {basicInfo.map(([label, value]) => (
                   <div key={label} className="flex gap-3">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-500">{label}</span>
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">{label}</span>
                     <span className="font-mono text-[11px] text-slate-200 break-all">{value}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Detailed Log Data</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Detailed Log Data</p>
               <div className="space-y-1.5">
                 {detailedFields.map(([k, v]) => {
                   const showHash   = isSha256Field(k, v);
@@ -189,7 +189,7 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
 
                   return (
                     <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
-                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
+                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
                       <div className="flex flex-col gap-1.5 min-w-0">
                         <span className={cn(
                           "font-mono text-[10px] break-all",
@@ -262,7 +262,7 @@ function LogRow({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: 
         )}
       >
         <td className="w-5 pl-3">
-          <ChevronRight className={cn("h-3 w-3 text-slate-500 transition-transform", expanded && "rotate-90")} />
+          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-200 max-w-[120px]">
@@ -352,7 +352,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
                   "rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition",
                   sevFilter === f
                     ? "bg-cyber-500/20 text-cyber-300 border border-cyber-500/30"
-                    : "text-slate-500 hover:text-slate-300"
+                    : "text-slate-400 hover:text-slate-300"
                 )}
               >
                 {f === "all" ? "All" : f === "medium" ? "≥ Medium" : "High/Critical"}
@@ -360,7 +360,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
             ))}
           </div>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
             <input
               type="text"
               placeholder="Search events…"
@@ -375,7 +375,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
       <div className="max-h-[520px] overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
-            <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+            <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
               <th className="w-5 pl-3 py-2" />
               <th className="py-2 pr-3">Time</th>
               <th className="py-2 pr-3">Agent</th>
@@ -390,7 +390,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-xs text-slate-500">No events match the filter.</td>
+                <td colSpan={6} className="py-8 text-center text-xs text-slate-400">No events match the filter.</td>
               </tr>
             )}
           </tbody>
@@ -490,7 +490,7 @@ function InvestigationPanel({
 
   const disabled = phase === "idle";
   const inputCls = cn(
-    "w-full rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:border-[#2dd4bf]/40 focus:outline-none",
+    "w-full rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-[#2dd4bf]/40 focus:outline-none",
     disabled && "opacity-40 cursor-not-allowed"
   );
 
@@ -515,7 +515,7 @@ function InvestigationPanel({
           </div>
           <h3 className="text-sm font-bold text-white">Investigation Report</h3>
         </div>
-        <span className="text-[10px] font-mono text-slate-500">
+        <span className="text-[10px] font-mono text-slate-400">
           {completedCount}<span className="text-slate-700">/4</span>
         </span>
       </div>
@@ -533,7 +533,7 @@ function InvestigationPanel({
                 "relative py-2.5 text-[11px] font-medium transition-colors",
                 active
                   ? "bg-[#2dd4bf] text-[#0d1520] font-semibold"
-                  : "text-slate-500 hover:text-slate-200 hover:bg-white/5"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
               )}
             >
               {tab.label}
@@ -552,7 +552,7 @@ function InvestigationPanel({
         {activeTab === "narrative" && (
           <div>
             <p className="mb-0.5 text-sm font-semibold text-white">Narrative</p>
-            <p className="mb-3 text-[11px] text-slate-500">Document your investigation process step by step</p>
+            <p className="mb-3 text-[11px] text-slate-400">Document your investigation process step by step</p>
             <textarea
               rows={10}
               disabled={disabled}
@@ -572,7 +572,7 @@ function InvestigationPanel({
         {activeTab === "findings" && (
           <div>
             <p className="mb-0.5 text-sm font-semibold text-white">Key Findings</p>
-            <p className="mb-3 text-[11px] text-slate-500">MITRE techniques observed and specific evidence</p>
+            <p className="mb-3 text-[11px] text-slate-400">MITRE techniques observed and specific evidence</p>
             <textarea
               rows={10}
               disabled={disabled}
@@ -620,7 +620,7 @@ function InvestigationPanel({
                 onChange={e => setNewValue(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addIoc(); } }}
                 placeholder="Indicator value (IP, domain, hash…)"
-                className="flex-1 rounded border border-border/60 bg-[#060b12] px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-600 focus:border-[#2dd4bf]/40 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 rounded border border-border/60 bg-[#060b12] px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:border-[#2dd4bf]/40 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               />
               <button
                 disabled={disabled || !newValue.trim()}
@@ -641,7 +641,7 @@ function InvestigationPanel({
                     <span className="flex-1 truncate font-mono text-[11px] text-slate-200">{ioc.value}</span>
                     <button
                       onClick={() => onRemoveIoc(ioc.id)}
-                      className="shrink-0 rounded p-0.5 text-slate-500 hover:text-severity-high hover:bg-severity-high/10 transition"
+                      className="shrink-0 rounded p-0.5 text-slate-400 hover:text-severity-high hover:bg-severity-high/10 transition"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -649,7 +649,7 @@ function InvestigationPanel({
                 ))}
               </ul>
             ) : (
-              <div className="rounded border border-dashed border-border/60 py-6 text-center text-[11px] text-slate-600">
+              <div className="rounded border border-dashed border-border/60 py-6 text-center text-[11px] text-slate-400">
                 No indicators added yet — analyse the logs above and add what you find.
               </div>
             )}
@@ -679,7 +679,7 @@ function InvestigationPanel({
                   <p className={cn("text-sm font-bold", verdict === "tp" ? "text-severity-critical" : "text-slate-300")}>
                     True Positive
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Confirmed malicious activity</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Confirmed malicious activity</p>
                 </div>
                 {verdict === "tp" && (
                   <span className="rounded bg-severity-critical/20 px-2 py-0.5 text-[10px] font-bold text-severity-critical">SELECTED</span>
@@ -702,7 +702,7 @@ function InvestigationPanel({
                   <p className={cn("text-sm font-bold", verdict === "fp" ? "text-neon-green" : "text-slate-300")}>
                     False Positive
                   </p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Legitimate / benign activity</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Legitimate / benign activity</p>
                 </div>
                 {verdict === "fp" && (
                   <span className="rounded bg-neon-green/20 px-2 py-0.5 text-[10px] font-bold text-neon-green">SELECTED</span>
@@ -712,7 +712,7 @@ function InvestigationPanel({
 
             {verdict && (
               <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                   Reasoning
                 </p>
                 <textarea
@@ -738,15 +738,15 @@ function InvestigationPanel({
             "w-full flex items-center justify-center gap-2 rounded py-2.5 text-sm font-semibold transition-colors",
             canFinalize && phase === "investigating"
               ? "bg-[#2dd4bf]/10 border border-[#2dd4bf]/40 text-[#2dd4bf] hover:bg-[#2dd4bf]/20"
-              : "bg-white/5 border border-border/40 text-slate-500 cursor-not-allowed"
+              : "bg-white/5 border border-border/40 text-slate-400 cursor-not-allowed"
           )}
         >
-          <Trophy className={cn("h-4 w-4", canFinalize ? "text-neon-amber" : "text-slate-600")} />
+          <Trophy className={cn("h-4 w-4", canFinalize ? "text-neon-amber" : "text-slate-400")} />
           Finalize &amp; Evaluate Investigation
         </button>
 
         {(!canFinalize || !quizComplete) && phase === "investigating" && (
-          <p className="mt-2 text-center text-[10px] text-slate-600">
+          <p className="mt-2 text-center text-[10px] text-slate-400">
             {!quizComplete && "Answer all quiz questions · "}
             {completedCount < 3 && `Complete ${3 - completedCount} more section${3 - completedCount !== 1 ? "s" : ""}`}
           </p>
@@ -936,7 +936,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
                 <span className="text-xs text-slate-400">Investigation Time</span>
               </div>
               {/* Progress indicators */}
-              <div className="flex items-center gap-3 text-xs text-slate-500">
+              <div className="flex items-center gap-3 text-xs text-slate-400">
                 <span className={cn("flex items-center gap-1", allAnswered && "text-neon-green")}>
                   <span className={cn("h-1.5 w-1.5 rounded-full", allAnswered ? "bg-neon-green" : "bg-slate-600")} />
                   Quiz {Object.keys(answers).length}/{bundle.questions.length}
@@ -948,7 +948,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
               </div>
               <div className="ml-auto flex items-center gap-2">
                 {!canSubmit && (
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-slate-400">
                     {!allAnswered ? "Answer all quiz questions" : "Set a TP/FP verdict"} to submit
                   </span>
                 )}
@@ -989,7 +989,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
             <Badge variant="outline">{bundle.alerts.length} alerts</Badge>
             <Badge variant="outline">{bundle.events.length} events</Badge>
           </div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">
             {phase === "complete" ? "What actually happened" : "Reported by"}
           </p>
           <p className="text-sm leading-relaxed text-slate-300">
@@ -998,7 +998,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
               : (bundle.briefing ?? "An alert fired on a monitored asset and was queued for triage. Work the log evidence below and write up what you find.")}
           </p>
           {phase !== "complete" && (
-            <p className="mt-3 border-t border-border/40 pt-3 text-xs text-slate-500">
+            <p className="mt-3 border-t border-border/40 pt-3 text-xs text-slate-400">
               Everything else — what happened, in what order, and how far it got — is yours
               to reconstruct from the evidence.
             </p>
@@ -1051,7 +1051,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         {/* Analyst Quiz */}
         <Card>
           <h3 className="text-sm font-semibold text-white">Analyst Quiz</h3>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-400">
             {phase === "idle"
               ? "Click \"Start Investigation\" above to begin the timed exercise."
               : "Answer all questions then submit your investigation."}
@@ -1071,7 +1071,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
                     <p className="text-sm text-slate-100">
                       <span className="mr-2 font-mono text-cyber-300">Q{idx + 1}.</span>
                       {q.prompt}
-                      {isMulti && <span className="ml-1 text-[10px] text-slate-500">(select all that apply)</span>}
+                      {isMulti && <span className="ml-1 text-[10px] text-slate-400">(select all that apply)</span>}
                     </p>
                     <span className="shrink-0 rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-0.5 font-mono text-[10px] text-cyber-300">
                       +{q.xp} XP
@@ -1114,7 +1114,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
                     </ul>
                   )}
                   {q.hint && (
-                    <p className="mt-2 text-[11px] text-slate-500 italic">Hint: {q.hint}</p>
+                    <p className="mt-2 text-[11px] text-slate-400 italic">Hint: {q.hint}</p>
                   )}
                 </li>
               );

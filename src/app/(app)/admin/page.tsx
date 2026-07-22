@@ -128,7 +128,7 @@ function Drawer({ open, onClose, title, children }: {
 
 // --------- Shared field components ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-const fieldCls = "w-full rounded border border-[#2a3555] bg-[#0f1423] px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-violet-500/50 focus:outline-none transition";
+const fieldCls = "w-full rounded border border-[#2a3555] bg-[#0f1423] px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none transition";
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -151,12 +151,12 @@ function FilterBar({ search, onSearch, filters, onFilter }: {
   return (
     <div className="flex items-center gap-3">
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
         <input
           value={search}
           onChange={e => onSearch(e.target.value)}
           placeholder="Search--¦"
-          className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-violet-500/50 focus:outline-none"
+          className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none"
         />
       </div>
       {[
@@ -192,9 +192,9 @@ function OverviewTab() {
           <div key={s.label} className="rounded-lg border border-[#2a3555] bg-[#0f1423] p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-slate-500">{s.label}</p>
+                <p className="text-[11px] uppercase tracking-wider text-slate-400">{s.label}</p>
                 <p className="mt-2 font-mono text-3xl font-bold text-white">{s.value}</p>
-                <p className="mt-1 text-[11px] text-slate-500">{s.sub}</p>
+                <p className="mt-1 text-[11px] text-slate-400">{s.sub}</p>
               </div>
               <s.icon className={cn("h-5 w-5 mt-0.5", s.color)} />
             </div>
@@ -208,10 +208,10 @@ function OverviewTab() {
             <div key={s.slug} className="flex items-center gap-3 rounded border border-[#1e2841] bg-[#0a0e1a] px-4 py-2.5">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-200 truncate">{s.title}</p>
-                <p className="text-[11px] text-slate-500 truncate">{s.summary.slice(0,80)}--¦</p>
+                <p className="text-[11px] text-slate-400 truncate">{s.summary.slice(0,80)}--¦</p>
               </div>
               <DiffBadge d={s.difficulty} />
-              <span className="font-mono text-[11px] text-slate-500">{SCENARIO_LOG_COUNTS[s.slug]} logs</span>
+              <span className="font-mono text-[11px] text-slate-400">{SCENARIO_LOG_COUNTS[s.slug]} logs</span>
             </div>
           ))}
         </div>
@@ -270,7 +270,7 @@ function UsersTab() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2841] shrink-0">
         <div>
           <h2 className="text-base font-semibold text-white flex items-center gap-2"><UsersIcon className="h-4 w-4 text-violet-400"/>User Management</h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">{users.filter(u=>u.status==="active").length} active · {users.filter(u=>u.status==="invited").length} invited · {users.filter(u=>u.status==="suspended").length} suspended</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{users.filter(u=>u.status==="active").length} active · {users.filter(u=>u.status==="invited").length} invited · {users.filter(u=>u.status==="suspended").length} suspended</p>
         </div>
         <button onClick={()=>{setAdding(v=>!v);cancelEdit();}} className="flex items-center gap-2 rounded bg-teal-600 hover:bg-teal-500 px-4 py-2 text-sm font-semibold text-white transition">
           <Plus className="h-4 w-4"/> Add User
@@ -287,13 +287,13 @@ function UsersTab() {
           <input type="date" value={newRow.endDate}   onChange={e=>setNewRow(f=>({...f,endDate:e.target.value}))}   className={fieldCls} />
           <div className="flex gap-1 justify-end">
             <button onClick={addUser}          className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-4 w-4"/></button>
-            <button onClick={()=>setAdding(false)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
+            <button onClick={()=>setAdding(false)} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
           </div>
         </div>
       )}
 
       {/* Table header */}
-      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 shrink-0">
+      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
         <span>Email</span><span>Role</span><span>Status</span><span>Access From</span><span>Access Until</span><span className="text-right">Actions</span>
       </div>
 
@@ -323,9 +323,9 @@ function UsersTab() {
               <div className="flex items-center justify-end gap-1">
                 {editing
                   ? <><button onClick={commitEdit} className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-3.5 w-3.5"/></button>
-                        <button onClick={cancelEdit} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-3.5 w-3.5"/></button></>
-                  : <><button onClick={()=>beginEdit(u)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
-                        <button onClick={()=>del(u.id)} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button></>
+                        <button onClick={cancelEdit} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-3.5 w-3.5"/></button></>
+                  : <><button onClick={()=>beginEdit(u)} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
+                        <button onClick={()=>del(u.id)} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button></>
                 }
               </div>
             </div>
@@ -461,7 +461,7 @@ function ScenariosTab() {
           <h2 className="text-base font-semibold text-white flex items-center gap-2">
             <Shield className="h-4 w-4 text-emerald-400"/>Scenario Management
           </h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">{filtered.length} scenarios · {filtered.filter(s=>s.status==="published").length} published</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{filtered.length} scenarios · {filtered.filter(s=>s.status==="published").length} published</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 rounded border border-[#2a3555] bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
@@ -482,7 +482,7 @@ function ScenariosTab() {
           {/* Controls row */}
           <div className="flex items-end gap-3">
             <div className="flex-1">
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Attack Category</label>
+              <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Attack Category</label>
               <select value={genAttack} onChange={e=>setGenAttack(e.target.value)} className={cn(fieldCls,"text-sm")}>
                 <option value="random"> Random --" surprise me</option>
                 <optgroup label="--------- Initial Access / Social Engineering ---------">
@@ -529,7 +529,7 @@ function ScenariosTab() {
             <button onClick={generateScenario} disabled={loading} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-5 py-2.5 text-sm font-semibold text-white transition whitespace-nowrap">
               {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating--¦</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Scenario</>}
             </button>
-            <button onClick={()=>{setShowGen(false);setGenPreview(null);setGenEvents([]);}} className="rounded p-2.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
+            <button onClick={()=>{setShowGen(false);setGenPreview(null);setGenEvents([]);}} className="rounded p-2.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
           </div>
 
           {genError && <p className="flex items-center gap-1.5 text-xs text-rose-400"><AlertTriangle className="h-3.5 w-3.5"/>{genError}</p>}
@@ -555,7 +555,7 @@ function ScenariosTab() {
               {/* Narrative */}
               {genPreview.narrative && (
                 <div className="rounded border border-[#2a3555] bg-[#080c15] px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Scenario Narrative</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Scenario Narrative</p>
                   <p className="text-[11px] leading-relaxed text-slate-300 whitespace-pre-line">{genPreview.narrative}</p>
                 </div>
               )}
@@ -563,9 +563,9 @@ function ScenariosTab() {
               {/* Generated log events --" expandable */}
               {genEvents.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                     Generated Log Events ({genEvents.length})
-                    <span className="ml-2 normal-case font-normal text-slate-600">Review before publishing · click any row for full fields</span>
+                    <span className="ml-2 normal-case font-normal text-slate-400">Review before publishing · click any row for full fields</span>
                   </p>
                   <div className="rounded border border-[#2a3555] bg-[#080c15] p-1.5 space-y-0.5">
                     {genEvents.map((ev, i) => (
@@ -586,7 +586,7 @@ function ScenariosTab() {
       </div>
 
       {/* Table header */}
-      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 shrink-0">
+      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
         <span>Title</span><span>Category</span><span>Difficulty</span><span>Logs</span><span>Status</span><span>Source</span><span className="text-right">Actions</span>
       </div>
 
@@ -594,24 +594,26 @@ function ScenariosTab() {
       <div className="flex-1 overflow-y-auto">
         {filtered.map(s => (
           <div key={s.slug} className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
-            <div className="min-w-0 cursor-pointer" onClick={()=>setDrawer(s)}>
+            <div role="button" tabIndex={0} className="min-w-0 cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                 onClick={()=>setDrawer(s)}
+                 onKeyDown={e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); setDrawer(s); } }}>
               <p className="text-sm font-semibold text-white truncate hover:text-violet-300 transition">{s.title}</p>
-              <p className="text-[11px] text-slate-500 truncate mt-0.5">{s.summary.slice(0,60)}{s.summary.length>60?"--¦":""}</p>
+              <p className="text-[11px] text-slate-400 truncate mt-0.5">{s.summary.slice(0,60)}{s.summary.length>60?"--¦":""}</p>
             </div>
             <CategoryBadge label={s.category} />
             <DiffBadge d={s.difficulty} />
             <span className="font-mono text-sm text-slate-300">{s.logCount}</span>
             <StatusDropdown status={s.status} onChange={v=>setStatus(s.slug,v)} />
-            <span className={cn("text-[11px] font-semibold", s.isGenerated?"text-violet-400":"text-slate-500")}>
+            <span className={cn("text-[11px] font-semibold", s.isGenerated?"text-violet-400":"text-slate-400")}>
               {s.isGenerated?"Generated":"Built-in"}
             </span>
             <div className="flex items-center justify-end gap-1">
-              <button onClick={()=>setDrawer(s)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
-              <button onClick={()=>s.isGenerated?deleteGenerated(s.slug):hideScenario(s.slug)} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button>
+              <button onClick={()=>setDrawer(s)} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
+              <button onClick={()=>s.isGenerated?deleteGenerated(s.slug):hideScenario(s.slug)} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button>
             </div>
           </div>
         ))}
-        <p className="px-6 py-3 text-[11px] text-slate-600">Showing {filtered.length} of {all.length} scenarios</p>
+        <p className="px-6 py-3 text-[11px] text-slate-400">Showing {filtered.length} of {all.length} scenarios</p>
       </div>
 
       {/* Scenario edit drawer */}
@@ -637,7 +639,7 @@ const SEV_CLS: Record<string, string> = {
   critical: "text-rose-400",
   high:     "text-orange-400",
   medium:   "text-amber-400",
-  low:      "text-slate-500",
+  low:      "text-slate-400",
 };
 
 function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
@@ -690,8 +692,8 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
         onClick={() => setOpen(v => !v)}
         className="flex w-full items-start gap-2.5 px-2.5 py-2 text-left"
       >
-        <ChevronRight className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform", open && "rotate-90")} />
-        <span className="font-mono text-[10px] text-slate-600 shrink-0 w-5 mt-0.5">{idx + 1}</span>
+        <ChevronRight className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform", open && "rotate-90")} />
+        <span className="font-mono text-[10px] text-slate-400 shrink-0 w-5 mt-0.5">{idx + 1}</span>
         <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase mt-0.5", srcCls)}>
           {ev.source}
         </span>
@@ -702,7 +704,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
           )}
         </div>
         {ev.severity && ev.severity !== "informational" && (
-          <span className={cn("shrink-0 text-[9px] font-bold uppercase mt-0.5", SEV_CLS[ev.severity] ?? "text-slate-500")}>
+          <span className={cn("shrink-0 text-[9px] font-bold uppercase mt-0.5", SEV_CLS[ev.severity] ?? "text-slate-400")}>
             {ev.severity}
           </span>
         )}
@@ -713,14 +715,14 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
         <div className="border-t border-[#1e2841] px-3 pb-3 pt-2.5 space-y-2.5">
           {/* JSON toggle */}
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Log Fields</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Log Fields</span>
             <button
               onClick={() => setShowJson(v => !v)}
               className={cn(
                 "flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-semibold transition",
                 showJson
                   ? "border-violet-500/40 bg-violet-500/10 text-violet-400"
-                  : "border-[#2a3555] text-slate-500 hover:text-slate-300"
+                  : "border-[#2a3555] text-slate-400 hover:text-slate-300"
               )}
             >
               <Code2 className="h-3 w-3" /> Raw JSON
@@ -735,7 +737,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
             <div className="space-y-1">
               {fields.map(([k, v]) => (
                 <div key={k} className="flex gap-3 items-start">
-                  <span className="w-52 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
+                  <span className="w-52 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
                   <span className="font-mono text-[10px] text-slate-200 break-all">{v}</span>
                 </div>
               ))}
@@ -799,15 +801,15 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{displayEvents.length}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">Log Events</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Log Events</p>
         </div>
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{bundle?.questions.length ?? "--"}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">Questions</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Questions</p>
         </div>
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{bundle?.iocs.length ?? "--"}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">IOCs</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">IOCs</p>
         </div>
       </div>
 
@@ -817,7 +819,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
           <div className="flex items-center justify-between mb-2">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Log Events ({displayEvents.length})
-              <span className="ml-2 text-[10px] normal-case text-slate-600 font-normal">click any row to see all fields</span>
+              <span className="ml-2 text-[10px] normal-case text-slate-400 font-normal">click any row to see all fields</span>
             </label>
             {!scenario.isGenerated && (
               <a
@@ -838,7 +840,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
         </div>
       )}
       {displayEvents.length === 0 && scenario.isGenerated && (
-        <div className="rounded border border-dashed border-[#2a3555] py-6 text-center text-[11px] text-slate-600">
+        <div className="rounded border border-dashed border-[#2a3555] py-6 text-center text-[11px] text-slate-400">
           Log events not available --" this scenario was published before event storage was added.
         </div>
       )}
@@ -864,7 +866,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
                   <span className={cn("shrink-0 text-[9px] font-bold uppercase",
                     ioc.reputation==="malicious"?"text-rose-400":
                     ioc.reputation==="suspicious"?"text-amber-400":
-                    ioc.reputation==="clean"?"text-emerald-400":"text-slate-500"
+                    ioc.reputation==="clean"?"text-emerald-400":"text-slate-400"
                   )}>{ioc.reputation}</span>
                 )}
               </div>
@@ -975,7 +977,7 @@ function QuizzesTab() {
           <h2 className="text-base font-semibold text-white flex items-center gap-2">
             <HelpCircle className="h-4 w-4 text-amber-400"/>Quiz Management
           </h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">{filtered.length} quizzes · {filtered.filter(q=>( statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} published</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{filtered.length} quizzes · {filtered.filter(q=>( statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} published</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 rounded border border-[#2a3555] bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
@@ -997,13 +999,13 @@ function QuizzesTab() {
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 flex gap-2">
               <div className="flex-1">
-                <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Quiz Title <span className="normal-case text-slate-600">(optional --" auto-generated if blank)</span></label>
+                <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Quiz Title <span className="normal-case text-slate-400">(optional --" auto-generated if blank)</span></label>
                 <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Advanced Threat Hunting" className={fieldCls} />
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-slate-500">Topic</label>
+                <label className="text-[10px] uppercase tracking-wider text-slate-400">Topic</label>
                 <button onClick={randomizeTopic} className="flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition">
                   <RotateCcw className="h-3 w-3"/>Random
                 </button>
@@ -1013,17 +1015,17 @@ function QuizzesTab() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Difficulty</label>
+              <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Difficulty</label>
               <select value={form.difficulty} onChange={e=>setForm(f=>({...f,difficulty:e.target.value as typeof form.difficulty}))} className={fieldCls}>
                 <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Focus Areas <span className="normal-case text-slate-600">(optional)</span></label>
+              <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Focus Areas <span className="normal-case text-slate-400">(optional)</span></label>
               <input value={form.focus} onChange={e=>setForm(f=>({...f,focus:e.target.value}))} placeholder="e.g. Kerberoasting, DCSync, Pass-the-Hash" className={fieldCls} />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Number of Questions</label>
+              <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Number of Questions</label>
               <select value={form.count} onChange={e=>setForm(f=>({...f,count:Number(e.target.value)}))} className={fieldCls}>
                 {[5,6,7,8,10,12,15].map(n=><option key={n}>{n}</option>)}
               </select>
@@ -1034,7 +1036,7 @@ function QuizzesTab() {
             <button onClick={generate} disabled={loading} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-5 py-2.5 text-sm font-semibold text-white transition">
               {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating--¦</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Quiz</>}
             </button>
-            <button onClick={()=>{setShowGen(false);setPreview(null);}} className="rounded p-2.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
+            <button onClick={()=>{setShowGen(false);setPreview(null);}} className="rounded p-2.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
           </div>
 
           {genError && <p className="text-xs text-rose-400 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5"/>{genError}</p>}
@@ -1058,21 +1060,21 @@ function QuizzesTab() {
 
               {/* Question list preview */}
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
                   Questions ({preview.questions.length}) --" review before publishing
                 </p>
                 <div className="space-y-2">
                   {preview.questions.map((q, i) => (
                     <div key={q.id} className="rounded border border-[#2a3555] bg-[#080c15] px-3 py-2.5">
                       <div className="flex items-start gap-2">
-                        <span className="font-mono text-[10px] text-slate-600 shrink-0 mt-0.5">{i+1}.</span>
+                        <span className="font-mono text-[10px] text-slate-400 shrink-0 mt-0.5">{i+1}.</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] text-slate-200 leading-snug">{q.question}</p>
                           <p className="mt-1 text-[10px] text-emerald-400">
                             ג" {typeof q.answer === "number" ? q.options[q.answer] : (Array.isArray(q.answer) ? (q.answer as string[]).join(", ") : String(q.answer))}
                           </p>
                           {q.explanation && (
-                            <p className="mt-0.5 text-[10px] text-slate-500 italic">{q.explanation}</p>
+                            <p className="mt-0.5 text-[10px] text-slate-400 italic">{q.explanation}</p>
                           )}
                         </div>
                         <span className="shrink-0 rounded border border-violet-500/20 bg-violet-500/5 px-1.5 py-0.5 font-mono text-[10px] text-violet-400">+{q.xp} XP</span>
@@ -1093,7 +1095,7 @@ function QuizzesTab() {
       </div>
 
       {/* Table header */}
-      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 shrink-0">
+      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
         <span>Title</span><span>Category</span><span>Difficulty</span><span>Questions</span><span>Status</span><span className="text-right">Actions</span>
       </div>
 
@@ -1105,12 +1107,14 @@ function QuizzesTab() {
           const qStatus = statusMap[qId] ?? "published";
           return (
             <div key={qId} className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
-              <div className="min-w-0 cursor-pointer" onClick={()=>setDrawer(quiz)}>
+              <div role="button" tabIndex={0} className="min-w-0 cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                   onClick={()=>setDrawer(quiz)}
+                   onKeyDown={e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); setDrawer(quiz); } }}>
                 <div className="flex items-center gap-2">
                   <span className="text-lg leading-none">{quiz.icon}</span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-white truncate hover:text-violet-300 transition">{quiz.title}</p>
-                    <p className="text-[11px] text-slate-500 truncate mt-0.5">{quiz.description?.slice(0,55)}{(quiz.description?.length??0)>55?"--¦":""}</p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{quiz.description?.slice(0,55)}{(quiz.description?.length??0)>55?"--¦":""}</p>
                   </div>
                 </div>
                 {isGen && <span className="ml-8 inline-block mt-1 rounded border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-violet-400">AI Generated</span>}
@@ -1120,14 +1124,14 @@ function QuizzesTab() {
               <span className="font-mono text-sm text-slate-300">{quiz.questions.length}</span>
               <StatusDropdown status={qStatus as ItemStatus} onChange={v=>setStatus(qId,v)} />
               <div className="flex items-center justify-end gap-1">
-                <button onClick={()=>setDrawer(quiz)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Eye className="h-3.5 w-3.5"/></button>
-                <button onClick={()=>setDrawer(quiz)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
-                <button onClick={()=>isGen?deleteGenerated((quiz as GeneratedQuiz).id):hideQuiz((quiz as Quiz).slug)} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button>
+                <button onClick={()=>setDrawer(quiz)} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Eye className="h-3.5 w-3.5"/></button>
+                <button onClick={()=>setDrawer(quiz)} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
+                <button onClick={()=>isGen?deleteGenerated((quiz as GeneratedQuiz).id):hideQuiz((quiz as Quiz).slug)} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button>
               </div>
             </div>
           );
         })}
-        <p className="px-6 py-3 text-[11px] text-slate-600">Showing {filtered.length} of {all.length} quizzes · Published: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} · Draft: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="draft").length}</p>
+        <p className="px-6 py-3 text-[11px] text-slate-400">Showing {filtered.length} of {all.length} quizzes · Published: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} · Draft: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="draft").length}</p>
       </div>
 
       {/* Quiz edit drawer */}
@@ -1184,13 +1188,13 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
               {editingQid===q.id && qDraft ? (
                 <div className="p-4 space-y-3">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Q{qi+1}</label>
+                    <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Q{qi+1}</label>
                     <textarea value={qDraft.question} onChange={e=>setQDraft(f=>f?{...f,question:e.target.value}:f)} rows={2} className={cn(fieldCls,"resize-none")} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {qDraft.options.map((opt,oi)=>(
                       <div key={oi}>
-                        <label className={cn("block text-[10px] uppercase tracking-wider mb-1", oi===qDraft.answer?"text-emerald-400":"text-slate-500")}>
+                        <label className={cn("block text-[10px] uppercase tracking-wider mb-1", oi===qDraft.answer?"text-emerald-400":"text-slate-400")}>
                           Option {String.fromCharCode(65+oi)}{oi===qDraft.answer?" ✓ correct":""}
                         </label>
                         <input value={opt} onChange={e=>{const o=[...qDraft.options];o[oi]=e.target.value;setQDraft(f=>f?{...f,options:o}:f);}} className={fieldCls} />
@@ -1199,18 +1203,18 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Correct Answer</label>
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Correct Answer</label>
                       <select value={qDraft.answer} onChange={e=>setQDraft(f=>f?{...f,answer:Number(e.target.value)}:f)} className={fieldCls}>
                         {qDraft.options.map((_,oi)=><option key={oi} value={oi}>Option {String.fromCharCode(65+oi)}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">XP</label>
+                      <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">XP</label>
                       <input type="number" value={qDraft.xp} onChange={e=>setQDraft(f=>f?{...f,xp:Number(e.target.value)}:f)} className={fieldCls} />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Explanation</label>
+                    <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Explanation</label>
                     <textarea value={qDraft.explanation} onChange={e=>setQDraft(f=>f?{...f,explanation:e.target.value}:f)} rows={2} className={cn(fieldCls,"resize-none")} />
                   </div>
                   <div className="flex gap-2">
@@ -1220,14 +1224,14 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
                 </div>
               ) : (
                 <div className="flex items-start gap-3 px-4 py-2.5">
-                  <span className="font-mono text-[10px] text-slate-500 shrink-0 w-5 mt-0.5">Q{qi+1}</span>
+                  <span className="font-mono text-[10px] text-slate-400 shrink-0 w-5 mt-0.5">Q{qi+1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] text-slate-200 leading-snug">{q.question}</p>
                     <p className="text-[11px] text-emerald-400/80 mt-0.5">ג" {q.options[q.answer]}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                    <button onClick={()=>{setEditingQid(q.id);setQDraft({...q,options:[...q.options]});}} className="rounded p-1 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3 w-3"/></button>
-                    <button onClick={()=>setQuestions(prev=>prev.filter(pq=>pq.id!==q.id))} className="rounded p-1 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3 w-3"/></button>
+                    <button onClick={()=>{setEditingQid(q.id);setQDraft({...q,options:[...q.options]});}} className="rounded p-1 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3 w-3"/></button>
+                    <button onClick={()=>setQuestions(prev=>prev.filter(pq=>pq.id!==q.id))} className="rounded p-1 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3 w-3"/></button>
                   </div>
                 </div>
               )}
@@ -1710,10 +1714,10 @@ function LessonsTab() {
       {/* ------ Search + Filter bar ------------------------------------------------------------------- */}
       <div className="px-6 py-3 border-b border-[#1e2841] shrink-0 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search by title or topic..."
-              className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
+              className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyan-500/50 focus:outline-none" />
           </div>
           <div className="flex items-center gap-1">
             {(["all", ...DIFF_OPTIONS] as const).map(d => (
@@ -1740,7 +1744,7 @@ function LessonsTab() {
                     <Sparkles className="h-7 w-7 text-cyan-400" />
                   </div>
                   <p className="text-sm font-semibold text-white mb-1">No lessons yet</p>
-                  <p className="text-[11px] text-slate-500 mb-5">Click &quot;Generate with AI&quot; to create your first research-backed lesson</p>
+                  <p className="text-[11px] text-slate-400 mb-5">Click &quot;Generate with AI&quot; to create your first research-backed lesson</p>
                   <button onClick={() => setShowGen(true)}
                     className="flex items-center gap-2 rounded bg-cyan-600 hover:bg-cyan-500 px-4 py-2 text-sm font-semibold text-white transition">
                     <Sparkles className="h-3.5 w-3.5" />Generate First Lesson
@@ -1749,7 +1753,7 @@ function LessonsTab() {
               ) : (
                 <>
                   <Search className="h-8 w-8 text-slate-700 mb-3" />
-                  <p className="text-sm text-slate-500">No lessons match your filters.</p>
+                  <p className="text-sm text-slate-400">No lessons match your filters.</p>
                   <button onClick={() => { setSearch(""); setDiffFilter("all"); }}
                     className="mt-3 text-[11px] text-cyan-400 hover:text-cyan-300 underline">Clear filters</button>
                 </>
@@ -1782,11 +1786,11 @@ function LessonsTab() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-white">Generate from Syllabus</h3>
-                  <p className="text-[10px] text-slate-500">Paste a syllabus — lessons generate one by one with AI validation</p>
+                  <p className="text-[10px] text-slate-400">Paste a syllabus — lessons generate one by one with AI validation</p>
                 </div>
               </div>
               <button onClick={() => !bulkRunning && setShowBulk(false)}
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-white transition">
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -1808,10 +1812,10 @@ function LessonsTab() {
                       rows={10}
                       disabled={bulkRunning}
                       placeholder={"Introduction to SOC Operations\nNetwork Protocol Analysis | intermediate\nDNS Tunneling Detection | advanced\nPhishing Email Investigation | beginner\nWindows Event Log Analysis\nSIEM and SPL Queries | intermediate"}
-                      className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 font-mono leading-relaxed focus:border-violet-500/60 focus:outline-none resize-none transition"
+                      className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 font-mono leading-relaxed focus:border-violet-500/60 focus:outline-none resize-none transition"
                     />
-                    <p className="mt-1.5 text-[10px] text-slate-600">
-                      Tip: add <code className="text-slate-500">| difficulty</code> after any topic to override the default. Max 20 lessons.
+                    <p className="mt-1.5 text-[10px] text-slate-400">
+                      Tip: add <code className="text-slate-400">| difficulty</code> after any topic to override the default. Max 20 lessons.
                     </p>
                   </div>
 
@@ -1841,7 +1845,7 @@ function LessonsTab() {
                         {items.length > 10 && <span className="text-violet-400/60 ml-2">· only first 20 will run</span>}
                       </div>
                     ) : bulkSyllabus.trim() ? (
-                      <div className="rounded-xl border border-slate-700/30 bg-slate-800/10 px-4 py-3 text-[12px] text-slate-500">
+                      <div className="rounded-xl border border-slate-700/30 bg-slate-800/10 px-4 py-3 text-[12px] text-slate-400">
                         No valid topics found yet
                       </div>
                     ) : null;
@@ -1862,7 +1866,7 @@ function LessonsTab() {
                       {bulkDone && <span className="text-violet-400"> · complete</span>}
                     </span>
                     {bulkDone && (
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-slate-400">
                         {bulkQueue.filter(i => i.validation?.recommendation === "publish").length} ready to publish
                         {" · "}
                         {bulkQueue.filter(i => i.validation?.recommendation === "review").length} need review
@@ -1906,7 +1910,7 @@ function LessonsTab() {
                               <p className="text-[13px] font-semibold text-white truncate">
                                 {item.outlineTitle ?? item.topic}
                               </p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">
+                              <p className="text-[10px] text-slate-400 mt-0.5">
                                 {item.status === "pending"    && "Waiting..."}
                                 {item.status === "generating" && `Writing section ${item.sections ?? 0}/${TOTAL_SECTIONS}...`}
                                 {item.status === "validating" && "Validating content..."}
@@ -1931,14 +1935,14 @@ function LessonsTab() {
                             <div className="shrink-0 flex items-center gap-1">
                               {(item.status === "error" || (item.status === "done" && rec === "regenerate")) && !bulkRunning && (
                                 <button onClick={() => rerunBulkItem(idx)}
-                                  className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-cyan-400 transition"
+                                  className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-cyan-400 transition"
                                   title="Regenerate this lesson">
                                   <RefreshCw className="h-3.5 w-3.5" />
                                 </button>
                               )}
                               {item.status === "done" && (
                                 <button onClick={() => setBulkExpanded(isExpanded ? null : idx)}
-                                  className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-slate-200 transition">
+                                  className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-slate-200 transition">
                                   {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                                 </button>
                               )}
@@ -2031,7 +2035,7 @@ function LessonsTab() {
                       Generating lessons — do not close this window
                     </div>
                   ) : (
-                    <div className="text-[12px] text-slate-500">
+                    <div className="text-[12px] text-slate-400">
                       {bulkDone ? "All lessons generated and saved." : "Queue paused."}
                     </div>
                   )}
@@ -2060,11 +2064,11 @@ function LessonsTab() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Generate SOC Lesson</h3>
-              <p className="text-[10px] text-slate-500">Agent searches the web and builds a full lesson</p>
+              <p className="text-[10px] text-slate-400">Agent searches the web and builds a full lesson</p>
             </div>
           </div>
           <button onClick={() => !genLoading && setShowGen(false)}
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-white transition">
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -2084,9 +2088,9 @@ function LessonsTab() {
               onKeyDown={e => e.key === "Enter" && !genLoading && genTopic.trim() && handleGenerate()}
               placeholder="e.g. Kerberoasting, Pass-the-Hash, Log4Shell..."
               disabled={genLoading}
-              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/20 disabled:opacity-40 transition"
+              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/20 disabled:opacity-40 transition"
             />
-            <p className="mt-1 text-[10px] text-slate-600">Press Enter to generate instantly</p>
+            <p className="mt-1 text-[10px] text-slate-400">Press Enter to generate instantly</p>
           </div>
 
           {/* ── Level ── */}
@@ -2110,7 +2114,7 @@ function LessonsTab() {
           {/* ── What the agent does ── */}
           {!genLoading && !genPartialSections.length && (
             <div className="rounded-xl border border-[#1e2841] bg-[#0d1322] p-4 space-y-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">What happens when you generate</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">What happens when you generate</p>
               {[
                 { icon: "🔍", text: "Agent searches 5+ web sources on the topic" },
                 { icon: "🧠", text: "Maps MITRE ATT&CK techniques and threat actors" },
@@ -2142,7 +2146,7 @@ function LessonsTab() {
                     style={{ width: `${Math.min(100, (genPartialSections.length / TOTAL_SECTIONS) * 100)}%` }}
                   />
                 </div>
-                <div className="mt-1 flex justify-between text-[10px] text-slate-600">
+                <div className="mt-1 flex justify-between text-[10px] text-slate-400">
                   <span>{genOutlineTitle ? genOutlineTitle.slice(0, 35) + (genOutlineTitle.length > 35 ? "..." : "") : "Building outline..."}</span>
                   <span>{genPartialSections.length}/{TOTAL_SECTIONS}</span>
                 </div>
@@ -2156,7 +2160,7 @@ function LessonsTab() {
                       <Check className="h-3 w-3 text-emerald-400 shrink-0" />
                       <span className="text-[11px] font-semibold text-emerald-300 truncate">{s.heading}</span>
                     </div>
-                    <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-1 pl-4">
+                    <p className="mt-0.5 text-[10px] text-slate-400 line-clamp-1 pl-4">
                       {s.content.slice(0, 90)}...
                     </p>
                   </div>
@@ -2194,7 +2198,7 @@ function LessonsTab() {
             }
           </button>
           {!genLoading && (
-            <p className="mt-2 text-center text-[10px] text-slate-600">
+            <p className="mt-2 text-center text-[10px] text-slate-400">
               8 sections with code examples + quiz questions
             </p>
           )}
@@ -2245,10 +2249,10 @@ function LessonCard({ lesson, onPreview, onEdit, onDelete }: {
           )}
         </div>
         <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition line-clamp-2 leading-snug mb-2">{lesson.title}</p>
-        <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{lesson.topic}</p>
+        <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">{lesson.topic}</p>
       </div>
       <div className="px-4 py-3 border-t border-[#1e2841] flex items-center justify-between">
-        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+        <div className="flex items-center gap-3 text-[10px] text-slate-400">
           <span>~{lesson.estimatedMinutes}m</span>
           <span className="text-amber-400 font-mono">+{lesson.xp} XP</span>
           <span>{lesson.sections.length} sec</span>
@@ -2262,7 +2266,7 @@ function LessonCard({ lesson, onPreview, onEdit, onDelete }: {
             className="flex items-center gap-1 rounded border border-[#2a3555] px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:border-cyan-500/30 hover:text-cyan-400 transition">
             <Eye className="h-3 w-3" />Preview
           </button>
-          <button onClick={onDelete} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition">
+          <button onClick={onDelete} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -2292,10 +2296,10 @@ function LessonPreviewModal({ lesson, onClose, onDelete }: {
               {lesson.researchUsed && (
                 <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400">נ"¬ Web Researched</span>
               )}
-              <span className="text-[10px] text-slate-500">~{lesson.estimatedMinutes}m · +{lesson.xp} XP · {lesson.sections.length} sections</span>
+              <span className="text-[10px] text-slate-400">~{lesson.estimatedMinutes}m · +{lesson.xp} XP · {lesson.sections.length} sections</span>
             </div>
             <h2 className="text-lg font-bold text-white truncate">{lesson.title}</h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">{lesson.topic}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{lesson.topic}</p>
           </div>
           <div className="flex items-center gap-2 ml-4 shrink-0">
             <button onClick={onDelete}
@@ -2310,22 +2314,22 @@ function LessonPreviewModal({ lesson, onClose, onDelete }: {
 
         <div className="flex-1 overflow-y-auto">
           <div className="px-6 py-5 border-b border-[#1e2841]">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-3">Introduction</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Introduction</p>
             <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">{lesson.intro}</p>
           </div>
 
           <div className="border-b border-[#1e2841]">
             <div className="px-6 py-3 border-b border-[#1e2841]">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Sections ({lesson.sections.length})</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sections ({lesson.sections.length})</p>
             </div>
             {lesson.sections.map((sec, i) => (
               <div key={i} className={cn("border-b border-[#1e2841] last:border-0 transition", openSection === i && "bg-[#080c15]")}>
                 <button onClick={() => setOpenSection(openSection === i ? null : i)}
                   className="flex w-full items-center gap-3 px-6 py-3.5 text-left hover:bg-[#0f1728] transition">
-                  <ChevronRight className={cn("h-3.5 w-3.5 text-slate-500 transition-transform shrink-0", openSection === i && "rotate-90")} />
-                  <span className="font-mono text-[10px] text-slate-600 w-4 shrink-0">{i + 1}</span>
+                  <ChevronRight className={cn("h-3.5 w-3.5 text-slate-400 transition-transform shrink-0", openSection === i && "rotate-90")} />
+                  <span className="font-mono text-[10px] text-slate-400 w-4 shrink-0">{i + 1}</span>
                   <span className="text-[13px] font-semibold text-slate-200 flex-1">{sec.heading}</span>
-                  <span className="text-[10px] text-slate-600">{sec.content.split(" ").length}w</span>
+                  <span className="text-[10px] text-slate-400">{sec.content.split(" ").length}w</span>
                 </button>
                 {openSection === i && (
                   <div className="border-t border-[#1e2841] px-6 pb-5 pt-4 space-y-3">
@@ -2424,7 +2428,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
   }
   function removeQuizQ(i: number) { setDraft(d => ({ ...d, quiz: (d.quiz ?? []).filter((_, idx) => idx !== i) })); }
 
-  const inputCls = "w-full rounded-lg border border-[#2a3555] bg-[#070b14] px-3 py-2 text-[13px] text-white placeholder-slate-600 focus:border-cyan-500/60 focus:outline-none resize-none";
+  const inputCls = "w-full rounded-lg border border-[#2a3555] bg-[#070b14] px-3 py-2 text-[13px] text-white placeholder-slate-500 focus:border-cyan-500/60 focus:outline-none resize-none";
   const TABS: { id: "overview"|"sections"; label: string }[] = [
     { id: "overview",   label: "Overview" },
     { id: "sections",   label: `Sections (${draft.sections.length})` },
@@ -2442,7 +2446,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
               <Edit2 className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold">Editing Lesson</p>
+              <p className="text-[11px] text-slate-400 uppercase tracking-widest font-semibold">Editing Lesson</p>
               <p className="text-sm font-bold text-white truncate max-w-[500px]">{draft.title}</p>
             </div>
           </div>
@@ -2463,7 +2467,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={cn("px-4 py-3 text-[12px] font-semibold border-b-2 -mb-px transition",
-                tab === t.id ? "border-cyan-500 text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-300")}>
+                tab === t.id ? "border-cyan-500 text-cyan-400" : "border-transparent text-slate-400 hover:text-slate-300")}>
               {t.label}
             </button>
           ))}
@@ -2476,21 +2480,21 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
           {tab === "overview" && (
             <div className="space-y-4 max-w-2xl">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Title</label>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Title</label>
                 <input className={inputCls} value={draft.title} onChange={e => setField("title", e.target.value)} />
               </div>
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Topic</label>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Topic</label>
                 <input className={inputCls} value={draft.topic} onChange={e => setField("topic", e.target.value)} />
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Difficulty</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Difficulty</label>
                   <div className="flex gap-2 flex-wrap">
                     {(["beginner","intermediate","advanced","expert"] as const).map(d => (
                       <button key={d} onClick={() => setField("difficulty", d)}
                         className={cn("rounded-lg border px-3 py-1.5 text-[11px] font-semibold capitalize transition",
-                          draft.difficulty === d ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-[#2a3555] text-slate-500 hover:border-slate-500")}>
+                          draft.difficulty === d ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-[#2a3555] text-slate-400 hover:border-slate-500")}>
                         {d}
                       </button>
                     ))}
@@ -2498,20 +2502,20 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">
-                  Introduction <span className="text-slate-600 font-normal normal-case">({draft.intro.length} chars)</span>
+                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+                  Introduction <span className="text-slate-400 font-normal normal-case">({draft.intro.length} chars)</span>
                 </label>
                 <textarea className={cn(inputCls, "min-h-[200px]")} value={draft.intro}
                   onChange={e => setField("intro", e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Est. Minutes</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Est. Minutes</label>
                   <input type="number" className={inputCls} value={draft.estimatedMinutes}
                     onChange={e => setField("estimatedMinutes", Number(e.target.value))} />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">XP</label>
+                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">XP</label>
                   <input type="number" className={inputCls} value={draft.xp}
                     onChange={e => setField("xp", Number(e.target.value))} />
                 </div>
@@ -2527,12 +2531,12 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                   {/* Section header */}
                   <button onClick={() => setOpenSec(openSec === i ? -1 : i)}
                     className="flex w-full items-center gap-3 px-4 py-3 hover:bg-[#0d1525] transition">
-                    <ChevronRight className={cn("h-3.5 w-3.5 text-slate-500 transition-transform shrink-0", openSec === i && "rotate-90")} />
-                    <span className="font-mono text-[10px] text-slate-600 w-5 shrink-0">{i + 1}</span>
+                    <ChevronRight className={cn("h-3.5 w-3.5 text-slate-400 transition-transform shrink-0", openSec === i && "rotate-90")} />
+                    <span className="font-mono text-[10px] text-slate-400 w-5 shrink-0">{i + 1}</span>
                     <span className="text-[13px] font-semibold text-slate-200 flex-1 text-left truncate">{sec.heading || "Untitled"}</span>
-                    <span className="text-[10px] text-slate-600 shrink-0">{sec.content.split(" ").length}w</span>
+                    <span className="text-[10px] text-slate-400 shrink-0">{sec.content.split(" ").length}w</span>
                     <button onClick={e => { e.stopPropagation(); removeSection(i); }}
-                      className="rounded p-1 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition ml-1">
+                      className="rounded p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition ml-1">
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </button>
@@ -2540,19 +2544,19 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                   {openSec === i && (
                     <div className="border-t border-[#2a3555] px-4 pb-4 pt-4 space-y-3">
                       <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Heading</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Heading</label>
                         <input className={inputCls} value={sec.heading}
                           onChange={e => updateSection(i, "heading", e.target.value)} />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                          Content <span className="text-slate-600 font-normal normal-case">({sec.content.split(" ").length} words)</span>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                          Content <span className="text-slate-400 font-normal normal-case">({sec.content.split(" ").length} words)</span>
                         </label>
                         <textarea className={cn(inputCls, "min-h-[220px] font-mono text-[12px]")} value={sec.content}
                           onChange={e => updateSection(i, "content", e.target.value)} />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Code Example</label>
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Code Example</label>
                         <textarea className={cn(inputCls, "min-h-[100px] font-mono text-[12px] text-emerald-300")}
                           value={sec.codeExample ?? ""} onChange={e => updateSection(i, "codeExample", e.target.value)} />
                       </div>
@@ -2561,7 +2565,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                 </div>
               ))}
               <button onClick={addSection}
-                className="flex items-center gap-2 rounded-xl border border-dashed border-[#2a3555] px-4 py-3 text-[12px] text-slate-500 hover:border-cyan-500/40 hover:text-cyan-400 w-full transition">
+                className="flex items-center gap-2 rounded-xl border border-dashed border-[#2a3555] px-4 py-3 text-[12px] text-slate-400 hover:border-cyan-500/40 hover:text-cyan-400 w-full transition">
                 <Plus className="h-4 w-4" />Add Section
               </button>
             </div>
@@ -2616,7 +2620,7 @@ function IssueRow({ issue }: { issue: ValidationIssue }) {
         <span className="text-slate-400 truncate">{issue.vendor.slice(0, 22)}</span>
         <span className="rounded border border-[#2a3555] bg-[#0c1120] px-1.5 py-px text-[9px] text-slate-400 font-mono truncate">{issue.source}</span>
         <span className="text-slate-300">{issue.message}</span>
-        <ChevronRight className={cn("h-3.5 w-3.5 text-slate-500 shrink-0 transition-transform", expanded && "rotate-90")} />
+        <ChevronRight className={cn("h-3.5 w-3.5 text-slate-400 shrink-0 transition-transform", expanded && "rotate-90")} />
       </div>
       {expanded && (
         <div className="px-4 pb-3 pt-1 bg-[#0a0e1c]">
@@ -2627,7 +2631,7 @@ function IssueRow({ issue }: { issue: ValidationIssue }) {
                 field: {issue.field}
               </span>
             )}
-            <span className="text-[10px] text-slate-500">event_type: {issue.event_type}</span>
+            <span className="text-[10px] text-slate-400">event_type: {issue.event_type}</span>
           </div>
           {issue.suggestion && (
             <p className="text-[11px] text-emerald-300/80 mt-1 flex items-start gap-1.5">
@@ -2711,10 +2715,10 @@ function LogValidatorTab() {
       {/* Empty / call-to-action state */}
       {!report && !loading && !error && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center px-8">
-          <ShieldCheck className="h-12 w-12 text-slate-600" />
+          <ShieldCheck className="h-12 w-12 text-slate-400" />
           <div>
             <p className="text-sm font-medium text-slate-300">Validate all platform logs</p>
-            <p className="text-[12px] text-slate-500 mt-1 max-w-sm">
+            <p className="text-[12px] text-slate-400 mt-1 max-w-sm">
               Checks field naming conventions for 18 vendor schemas --" CrowdStrike, MDE, Okta, AWS CloudTrail, FortiGate, Palo Alto, and more.
             </p>
           </div>
@@ -2734,7 +2738,7 @@ function LogValidatorTab() {
           {/* Summary cards */}
           <div className="grid grid-cols-4 gap-3 px-6 py-4 shrink-0 border-b border-[#1e2841]">
             <div className="rounded-lg border border-[#1e2841] bg-[#0a0e1c] p-3">
-              <div className="text-[10px] text-slate-500 mb-1">Total Events</div>
+              <div className="text-[10px] text-slate-400 mb-1">Total Events</div>
               <div className="text-2xl font-bold text-white">{report.total_events}</div>
               <div className="text-[10px] text-emerald-400 mt-0.5">{report.clean_events} clean</div>
             </div>
@@ -2742,26 +2746,26 @@ function LogValidatorTab() {
               onClick={() => setSevFilter(sevFilter === "error" ? "all" : "error")}>
               <div className="text-[10px] text-rose-400/70 mb-1">Errors</div>
               <div className="text-2xl font-bold text-rose-400">{report.summary.errors}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">wrong field names</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">wrong field names</div>
             </div>
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 cursor-pointer hover:bg-amber-500/10 transition"
               onClick={() => setSevFilter(sevFilter === "warning" ? "all" : "warning")}>
               <div className="text-[10px] text-amber-400/70 mb-1">Warnings</div>
               <div className="text-2xl font-bold text-amber-400">{report.summary.warnings}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">missing required fields</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">missing required fields</div>
             </div>
             <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 cursor-pointer hover:bg-sky-500/10 transition"
               onClick={() => setSevFilter(sevFilter === "info" ? "all" : "info")}>
               <div className="text-[10px] text-sky-400/70 mb-1">Info</div>
               <div className="text-2xl font-bold text-sky-400">{report.summary.infos}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">coverage hints</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">coverage hints</div>
             </div>
           </div>
 
           {/* Vendor breakdown */}
           <div className="px-6 py-3 border-b border-[#1e2841] shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">By Vendor:</span>
+              <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">By Vendor:</span>
               {Object.entries(report.by_vendor)
                 .filter(([, v]) => v.issues > 0)
                 .sort((a, b) => b[1].error_count - a[1].error_count)
@@ -2782,12 +2786,12 @@ function LogValidatorTab() {
           {/* Filters */}
           <div className="flex items-center gap-3 px-6 py-2.5 border-b border-[#1e2841] shrink-0">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search event, vendor, code--¦"
-                className="h-8 w-64 rounded border border-[#2a3555] bg-[#0a0e1c] pl-8 pr-3 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50"
+                className="h-8 w-64 rounded border border-[#2a3555] bg-[#0a0e1c] pl-8 pr-3 text-[11px] text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-violet-500/50"
               />
             </div>
             <div className="flex items-center gap-1">
@@ -2807,7 +2811,7 @@ function LogValidatorTab() {
               ))}
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">{filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}</span>
+              <span className="text-[11px] text-slate-400">{filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}</span>
               <button
                 onClick={runValidation}
                 className="flex items-center gap-1 rounded border border-[#2a3555] bg-[#0a0e1c] px-2.5 py-1 text-[10px] text-slate-400 hover:text-slate-200 transition"
@@ -2815,7 +2819,7 @@ function LogValidatorTab() {
                 <RefreshCw className="h-3 w-3" />
                 Re-run
               </button>
-              <span className="text-[10px] text-slate-600">
+              <span className="text-[10px] text-slate-400">
                 Generated {new Date(report.generated_at).toLocaleTimeString()}
               </span>
             </div>
@@ -2826,14 +2830,14 @@ function LogValidatorTab() {
             {/* Table header */}
             <div className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 px-4 py-2 border-b border-[#1e2841] bg-[#080c14] sticky top-0 z-10">
               {["Severity", "Event ID", "Vendor", "Source", "Message", ""].map(h => (
-                <span key={h} className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{h}</span>
+                <span key={h} className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{h}</span>
               ))}
             </div>
             {filteredIssues.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <ShieldCheck className="h-8 w-8 text-emerald-400 mb-3" />
                 <p className="text-sm font-medium text-emerald-300">No issues found</p>
-                <p className="text-[11px] text-slate-500 mt-1">All events match their vendor schemas</p>
+                <p className="text-[11px] text-slate-400 mt-1">All events match their vendor schemas</p>
               </div>
             ) : (
               filteredIssues.map(issue => <IssueRow key={`${issue.event_id}-${issue.code}`} issue={issue} />)
@@ -2882,7 +2886,7 @@ export default function AdminPage() {
                   : "text-slate-400 hover:text-slate-200 hover:bg-[#0f1423]"
               )}
             >
-              <t.icon className={cn("h-4 w-4", tab===t.id?"text-violet-400":"text-slate-500")} />
+              <t.icon className={cn("h-4 w-4", tab===t.id?"text-violet-400":"text-slate-400")} />
               {t.label}
             </button>
           ))}

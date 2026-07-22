@@ -71,7 +71,7 @@ function IocTagPopover({
       className="fixed z-50 bg-[#0d1520] border border-cyber-500/40 rounded-lg shadow-xl shadow-black/60 p-3 w-72"
       style={{ top: state.rect.bottom + 6, left: Math.min(state.rect.left, window.innerWidth - 300) }}
     >
-      <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold mb-2 px-0.5">Tag as IOC type</p>
+      <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-2 px-0.5">Tag as IOC type</p>
       <p className="text-xs text-slate-400 font-mono break-all mb-3 px-0.5 border-l-2 border-cyber-500/40 pl-2">
         {state.value.length > 60 ? state.value.slice(0, 60) + "…" : state.value}
       </p>
@@ -98,8 +98,8 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
   if (iocs.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-border/50 px-4 py-5 text-center">
-        <BookOpen className="h-5 w-5 text-slate-600 mx-auto mb-2" />
-        <p className="text-xs text-slate-500">Click any field value in the log to tag it as an IOC indicator.</p>
+        <BookOpen className="h-5 w-5 text-slate-400 mx-auto mb-2" />
+        <p className="text-xs text-slate-400">Click any field value in the log to tag it as an IOC indicator.</p>
       </div>
     );
   }
@@ -108,7 +108,7 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
       <div className="flex items-center gap-2 px-3 py-2 border-b border-cyber-500/20 bg-cyber-500/5">
         <Shield className="h-3.5 w-3.5 text-cyber-400" />
         <span className="text-[11px] font-bold uppercase tracking-wider text-cyber-400">IOC Notebook</span>
-        <span className="ml-auto text-[10px] font-mono text-slate-500">{iocs.length} indicator{iocs.length !== 1 ? "s" : ""}</span>
+        <span className="ml-auto text-[10px] font-mono text-slate-400">{iocs.length} indicator{iocs.length !== 1 ? "s" : ""}</span>
       </div>
       <div className="divide-y divide-border/30">
         {iocs.map((ioc, i) => {
@@ -119,12 +119,12 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
                 {d.label}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] text-slate-500 truncate">{ioc.field}</p>
+                <p className="text-[10px] text-slate-400 truncate">{ioc.field}</p>
                 <p className="text-xs font-mono text-white break-all leading-relaxed">{ioc.value}</p>
               </div>
               <button
                 onClick={() => onRemove(i)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 text-slate-600 hover:text-slate-300"
+                className="opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 text-slate-400 hover:text-slate-300"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -166,7 +166,7 @@ function InteractiveLogEventCard({
           </span>
           <span className="text-xs font-semibold text-white">{event.event_type}</span>
           <span className="text-xs text-slate-400">{event.hostname}</span>
-          <span className="ml-auto text-[10px] font-mono text-slate-500">{event.ts}</span>
+          <span className="ml-auto text-[10px] font-mono text-slate-400">{event.ts}</span>
         </div>
 
         {/* Hint bar */}
@@ -183,7 +183,7 @@ function InteractiveLogEventCard({
           >
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
             Raw Fields
-            <span className="ml-auto text-[10px] text-slate-600">{Object.keys(event.raw).length} fields</span>
+            <span className="ml-auto text-[10px] text-slate-400">{Object.keys(event.raw).length} fields</span>
           </button>
           {expanded && (
             <div className="px-4 pb-4 pt-1 font-mono text-[11px] space-y-0.5 max-h-80 overflow-y-auto">
@@ -247,7 +247,7 @@ function OptionButton({ label, index, selected, revealed, correctIndex, onSelect
         ? "border-neon-green/60 bg-neon-green/10 text-neon-green"
         : selected
           ? "border-severity-high/50 bg-severity-high/10 text-severity-high"
-          : "border-border/40 bg-bg-elevated/30 text-slate-500"
+          : "border-border/40 bg-bg-elevated/30 text-slate-400"
       : selected
         ? "border-cyber-500/60 bg-cyber-500/10 text-white"
         : "border-border/50 bg-bg-elevated/40 text-slate-300 hover:border-cyber-500/40 hover:bg-cyber-500/5 hover:text-white cursor-pointer",
@@ -317,7 +317,7 @@ function ReadingPlayer({ task, onComplete, isCompleted }: { task: ReadingTask; o
       {task.codeExample && (
         <div className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-elevated/40">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Example</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Example</span>
           </div>
           <pre className="px-4 py-4 font-mono text-sm text-cyber-300 overflow-x-auto leading-relaxed whitespace-pre-wrap">
             {task.codeExample}
@@ -491,7 +491,7 @@ function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysi
           return (
             <div key={i} className="space-y-3">
               <p className="text-sm font-semibold text-white">
-                <span className="text-slate-500 mr-2">Q{i + 1}.</span>
+                <span className="text-slate-400 mr-2">Q{i + 1}.</span>
                 {q.question}
               </p>
 
@@ -506,7 +506,7 @@ function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysi
                     );
                   })}
                   {iocs.length > 4 && (
-                    <span className="text-[10px] text-slate-500 self-center">+{iocs.length - 4} more in notebook</span>
+                    <span className="text-[10px] text-slate-400 self-center">+{iocs.length - 4} more in notebook</span>
                   )}
                 </div>
               )}
@@ -630,7 +630,7 @@ function FlagPlayer({ task, onComplete, isCompleted, prevLogEvent }: { task: Fla
             onKeyDown={e => e.key === "Enter" && submit()}
             placeholder="Enter your answer…"
             className={cn(
-              "h-10 flex-1 rounded-md border bg-[#080d14] px-3 font-mono text-sm text-white placeholder-slate-600",
+              "h-10 flex-1 rounded-md border bg-[#080d14] px-3 font-mono text-sm text-white placeholder-slate-500",
               "focus:outline-none focus:ring-2",
               status === "wrong"
                 ? "border-severity-high/50 focus:ring-severity-high/30"
@@ -672,7 +672,7 @@ function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
         </span>
         <span className="text-xs font-semibold text-white">{event.event_type}</span>
         <span className="text-xs text-slate-400">{event.hostname}</span>
-        <span className="ml-auto text-[10px] font-mono text-slate-500">{event.ts}</span>
+        <span className="ml-auto text-[10px] font-mono text-slate-400">{event.ts}</span>
       </div>
       <div>
         <button
@@ -681,7 +681,7 @@ function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
         >
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
           Raw Fields
-          <span className="ml-auto text-[10px] text-slate-600">{Object.keys(event.raw).length} fields</span>
+          <span className="ml-auto text-[10px] text-slate-400">{Object.keys(event.raw).length} fields</span>
         </button>
         {expanded && (
           <div className="px-4 pb-4 pt-1 font-mono text-[11px] space-y-0.5 max-h-80 overflow-y-auto">
@@ -763,7 +763,7 @@ function AnalystChoicePlayer({ task, onComplete, isCompleted }: { task: AnalystC
                     ? "border-neon-green/60 bg-neon-green/10 text-neon-green cursor-default"
                     : selected === v.key && !isCorrect
                       ? "border-severity-high/50 bg-severity-high/10 text-severity-high cursor-default"
-                      : "border-border/30 bg-bg-elevated/20 text-slate-600 cursor-default"
+                      : "border-border/30 bg-bg-elevated/20 text-slate-400 cursor-default"
                   : selected === v.key
                     ? v.activeClass
                     : "border-border/50 bg-bg-elevated/40 text-slate-400 hover:border-border/70 hover:text-slate-200 cursor-pointer",
@@ -864,7 +864,7 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
       <div className="grid grid-cols-2 gap-3">
         {/* Left column */}
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Match from</p>
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Match from</p>
           {task.pairs.map(pair => {
             const connectedRightId = connections[pair.id];
             const isSelected = selectedLeft === pair.id;
@@ -880,7 +880,7 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
                   revealed
                     ? isCorrect ? "border-neon-green/60 bg-neon-green/10 text-neon-green"
                       : isWrong ? "border-severity-high/50 bg-severity-high/10 text-severity-high"
-                      : "border-border/40 bg-bg-elevated/30 text-slate-500"
+                      : "border-border/40 bg-bg-elevated/30 text-slate-400"
                     : isSelected ? "border-cyber-500/70 bg-cyber-500/15 text-white"
                     : connectedRightId ? "border-cyber-500/30 bg-cyber-500/5 text-white"
                     : "border-border/50 bg-bg-elevated/40 text-slate-300 hover:border-cyber-500/40 hover:text-white",
@@ -897,7 +897,7 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
 
         {/* Right column */}
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
             {selectedLeft ? "Click to connect" : "Select left first"}
           </p>
           {shuffledRight.map(pair => {
@@ -915,7 +915,7 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
                   revealed
                     ? isCorrect ? "border-neon-green/60 bg-neon-green/10 text-neon-green"
                       : isWrong ? "border-severity-high/50 bg-severity-high/10 text-severity-high"
-                      : "border-border/40 bg-bg-elevated/30 text-slate-500"
+                      : "border-border/40 bg-bg-elevated/30 text-slate-400"
                     : selectedLeft && !isConnected ? "border-cyber-500/40 bg-cyber-500/5 text-slate-200 hover:border-cyber-500/70 hover:text-white cursor-pointer"
                     : isConnected ? "border-cyber-500/30 bg-cyber-500/5 text-white"
                     : "border-border/50 bg-bg-elevated/40 text-slate-300 cursor-default",
@@ -929,7 +929,7 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
       </div>
 
       {!revealed && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           {Object.keys(connections).length}/{task.pairs.length} pairs connected
           {selectedLeft ? " — now click an item on the right" : " — select an item on the left to begin"}
         </p>
@@ -1031,7 +1031,7 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
       <div className="grid gap-5 md:grid-cols-2">
         {/* Numbered slots */}
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Correct Order</p>
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Correct Order</p>
           {task.items.map((_, slotIdx) => {
             const placedId = placed[slotIdx];
             const placedItem = placedId ? task.items.find(i => i.id === placedId) : null;
@@ -1066,7 +1066,7 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
                   revealed && isCorrect ? "text-neon-green"
                     : revealed && isWrong ? "text-severity-high"
                     : placedItem ? "text-white"
-                    : "text-slate-600 italic",
+                    : "text-slate-400 italic",
                 )}>
                   {placedItem ? placedItem.text : "— empty —"}
                 </span>
@@ -1077,7 +1077,7 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
 
         {/* Items pool */}
         <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">
+          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
             {selectedItem ? "Now click a numbered slot" : "Select an item to place"}
           </p>
           {shuffledItems.map(item => {
@@ -1093,12 +1093,12 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
                   isSelected
                     ? "border-cyber-500/80 bg-cyber-500/15 text-white shadow-[0_0_10px_rgba(0,212,255,0.12)]"
                     : isPlaced
-                      ? "border-border/20 bg-bg-elevated/20 text-slate-600 cursor-pointer"
+                      ? "border-border/20 bg-bg-elevated/20 text-slate-400 cursor-pointer"
                       : "border-border/50 bg-bg-elevated/40 text-slate-300 hover:border-cyber-500/40 hover:text-white cursor-pointer",
                 )}
               >
                 {item.text}
-                {isPlaced && <span className="ml-2 text-[10px] text-slate-600">(placed — click to move)</span>}
+                {isPlaced && <span className="ml-2 text-[10px] text-slate-400">(placed — click to move)</span>}
               </button>
             );
           })}
@@ -1106,7 +1106,7 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
       </div>
 
       {!revealed && (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           {placed.filter(Boolean).length}/{task.items.length} items placed
           {selectedItem ? " — click a numbered slot on the left" : ""}
         </p>

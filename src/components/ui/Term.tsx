@@ -33,7 +33,7 @@ export function Term({ k, children }: { k: string; children: React.ReactNode }) 
           </span>
           <span className="block text-[10px] leading-relaxed text-slate-300 normal-case font-normal tracking-normal">{entry.def}</span>
           {entry.example && (
-            <span className="mt-1 block text-[10px] leading-relaxed text-slate-500 italic normal-case font-normal tracking-normal">
+            <span className="mt-1 block text-[10px] leading-relaxed text-slate-400 italic normal-case font-normal tracking-normal">
               e.g. {entry.example}
             </span>
           )}

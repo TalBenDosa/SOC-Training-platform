@@ -47,7 +47,7 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
       <div className="container mx-auto max-w-4xl px-6 py-6 space-y-4">
         {/* Path summary bar */}
         <div className="rounded-lg border border-border bg-bg-elevated px-5 py-3 flex items-center gap-4 text-sm text-slate-300">
-          <span className="text-slate-500">Progress</span>
+          <span className="text-slate-400">Progress</span>
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
             <div
               className="h-full rounded-full bg-gradient-to-r from-cyber-500 to-neon-green transition-all"
@@ -85,8 +85,8 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
                     <div className="flex items-center gap-3 min-w-0">
                       {isDone  ? <CheckCircle2 className="h-4 w-4 shrink-0 text-neon-green" /> :
                        isFirst  ? <PlayCircle   className="h-4 w-4 shrink-0 text-cyber-300"  /> :
-                       isLocked ? <Lock         className="h-4 w-4 shrink-0 text-slate-600"  /> :
-                                  <Circle       className="h-4 w-4 shrink-0 text-slate-600"  />}
+                       isLocked ? <Lock         className="h-4 w-4 shrink-0 text-slate-400"  /> :
+                                  <Circle       className="h-4 w-4 shrink-0 text-slate-400"  />}
                       <span className={cn("truncate", isDone ? "text-slate-400 line-through" : "text-slate-200")}>
                         {l.title}
                       </span>
@@ -94,7 +94,7 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
                         {kindLabel[l.kind]}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-slate-500 shrink-0 ml-3">
+                    <div className="flex items-center gap-3 text-[11px] text-slate-400 shrink-0 ml-3">
                       <span>{l.min} min</span>
                       <span className="font-mono text-cyber-300">+{l.xp} XP</span>
                       {!isLocked && (

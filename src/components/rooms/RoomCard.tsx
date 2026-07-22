@@ -75,8 +75,8 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Lock overlay */}
       {locked && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-bg/60 backdrop-blur-[2px]">
-          <Lock className="h-8 w-8 text-slate-500" />
-          <p className="text-center text-xs text-slate-500 px-4">
+          <Lock className="h-8 w-8 text-slate-400" />
+          <p className="text-center text-xs text-slate-400 px-4">
             Complete{" "}
             <span className="font-semibold text-slate-400">
               {room.prerequisites
@@ -127,11 +127,11 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Tags row */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Badge>{room.category}</Badge>
-        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
           <Clock className="h-3 w-3" />
           {room.estimatedMinutes} min
         </span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
           <Zap className="h-3 w-3 text-neon-amber" />
           {room.xp} XP
         </span>
@@ -140,7 +140,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Progress bar (only when started but not complete) */}
       {isStarted && (
         <div className="mt-4">
-          <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+          <div className="flex justify-between text-[10px] text-slate-400 mb-1">
             <span>{completedCount}/{totalTasks} tasks</span>
             <span>{Math.round((completedCount / totalTasks) * 100)}%</span>
           </div>
@@ -156,7 +156,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Completed full bar */}
       {isCompleted && (
         <div className="mt-4">
-          <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+          <div className="flex justify-between text-[10px] text-slate-400 mb-1">
             <span>{totalTasks}/{totalTasks} tasks</span>
             <span className="text-neon-green">100%</span>
           </div>
@@ -168,7 +168,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
 
       {/* Task count for not-started rooms */}
       {!isStarted && !isCompleted && (
-        <div className="mt-4 text-[11px] text-slate-600">
+        <div className="mt-4 text-[11px] text-slate-400">
           {totalTasks} task{totalTasks !== 1 ? "s" : ""}
         </div>
       )}

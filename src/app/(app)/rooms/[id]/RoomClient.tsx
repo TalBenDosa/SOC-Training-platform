@@ -232,14 +232,14 @@ export function RoomClient({ room }: RoomClientProps) {
             <p className="text-slate-400 text-sm mt-1">{room.title}</p>
           </div>
           <div className="rounded-lg border border-border bg-bg px-6 py-4">
-            <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Total XP Earned</p>
+            <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Total XP Earned</p>
             <p className="text-3xl font-bold font-mono text-neon-amber">+{totalXpEarned}</p>
-            <p className="text-[11px] text-slate-600 mt-1">{totalTasks} tasks completed</p>
+            <p className="text-[11px] text-slate-400 mt-1">{totalTasks} tasks completed</p>
           </div>
           <div className="rounded-lg border border-neon-green/30 bg-neon-green/5 px-6 py-3">
-            <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Score</p>
+            <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Score</p>
             <p className="text-xl font-bold text-neon-green">{scorePct}%</p>
-            <p className="text-[10px] text-slate-600 mt-0.5">Passed — {Math.round(ROOM_PASS_THRESHOLD * 100)}% required</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Passed — {Math.round(ROOM_PASS_THRESHOLD * 100)}% required</p>
           </div>
           <div className="flex flex-col gap-2">
             <Button variant="primary" size="lg" className="w-full" onClick={() => router.push("/rooms")}>
@@ -268,9 +268,9 @@ export function RoomClient({ room }: RoomClientProps) {
             <p className="text-slate-400 text-sm mt-1">{room.title}</p>
           </div>
           <div className="rounded-lg border border-border bg-bg px-6 py-4">
-            <p className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold mb-1">Your Score</p>
+            <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Your Score</p>
             <p className="text-3xl font-bold font-mono text-neon-amber">{scorePct}%</p>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-400 mt-1">
               {Math.round(ROOM_PASS_THRESHOLD * 100)}% needed to pass — you keep the {totalXpEarned} XP you've earned
             </p>
           </div>
@@ -309,7 +309,7 @@ export function RoomClient({ room }: RoomClientProps) {
             All Rooms
           </button>
           <h2 className="text-sm font-bold text-white leading-snug">{room.title}</h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">{room.difficulty} · {room.category}</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{room.difficulty} · {room.category}</p>
         </div>
 
         {/* Task list */}
@@ -327,7 +327,7 @@ export function RoomClient({ room }: RoomClientProps) {
                     ? "bg-cyber-500/10 text-white"
                     : done
                       ? "text-slate-400 hover:bg-bg-hover hover:text-slate-200 cursor-pointer"
-                      : "text-slate-600 cursor-default",
+                      : "text-slate-400 cursor-default",
                 )}
               >
                 {/* Status icon */}
@@ -337,11 +337,11 @@ export function RoomClient({ room }: RoomClientProps) {
                   ) : current ? (
                     <ChevronRight className="h-3.5 w-3.5 text-cyber-300" />
                   ) : (
-                    <Circle className="h-3.5 w-3.5 text-slate-600" />
+                    <Circle className="h-3.5 w-3.5 text-slate-400" />
                   )}
                 </span>
                 {/* Task type icon */}
-                <TaskIcon type={task.type} className={current ? "text-cyber-300" : done ? "text-slate-500" : "text-slate-700"} />
+                <TaskIcon type={task.type} className={current ? "text-cyber-300" : done ? "text-slate-400" : "text-slate-700"} />
                 {/* Title — use heading for reading tasks, question text for others */}
                 <span className="truncate">
                   {task.type === "reading"
@@ -368,7 +368,7 @@ export function RoomClient({ room }: RoomClientProps) {
         {/* Progress + XP */}
         <div className="p-4 border-t border-border space-y-3">
           <div>
-            <div className="flex justify-between text-[10px] text-slate-500 mb-1.5">
+            <div className="flex justify-between text-[10px] text-slate-400 mb-1.5">
               <span>{completedCount}/{totalTasks} complete</span>
               <span>{Math.round((completedCount / totalTasks) * 100)}%</span>
             </div>
@@ -382,7 +382,7 @@ export function RoomClient({ room }: RoomClientProps) {
           <div className="flex items-center gap-1.5 text-xs text-slate-400">
             <Zap className="h-3.5 w-3.5 text-neon-amber" />
             <span className="font-mono font-semibold text-neon-amber">+{totalXpEarned}</span>
-            <span className="text-slate-600">XP earned</span>
+            <span className="text-slate-400">XP earned</span>
           </div>
         </div>
       </aside>
@@ -398,7 +398,7 @@ export function RoomClient({ room }: RoomClientProps) {
             <ArrowLeft className="h-3.5 w-3.5" />
             Back
           </button>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-slate-400">
             Task {currentTaskIndex + 1} of {totalTasks}
           </span>
         </div>
@@ -415,11 +415,11 @@ export function RoomClient({ room }: RoomClientProps) {
                 Back
               </button>
             )}
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Task {currentTaskIndex + 1} of {totalTasks}
             </span>
-            <TaskIcon type={currentTask.type} className="text-slate-500" />
-            <span className="text-[11px] text-slate-600 capitalize">{currentTask.type.replace("_", " ")}</span>
+            <TaskIcon type={currentTask.type} className="text-slate-400" />
+            <span className="text-[11px] text-slate-400 capitalize">{currentTask.type.replace("_", " ")}</span>
           </div>
 
           {/* Task player */}

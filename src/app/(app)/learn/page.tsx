@@ -184,7 +184,7 @@ function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }
       </div>
 
       {/* stats */}
-      <div className="flex items-center gap-4 text-[12px] text-slate-500 border-t border-[#1e2d4a] pt-3">
+      <div className="flex items-center gap-4 text-[12px] text-slate-400 border-t border-[#1e2d4a] pt-3">
         <span className="flex items-center gap-1.5">
           <Clock className="h-3.5 w-3.5" />
           {lesson.estimatedMinutes} min
@@ -292,7 +292,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
             </div>
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-white truncate">{lesson.title}</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-slate-400 mt-0.5">
                 Page {page + 1} of {totalPages} · {lesson.estimatedMinutes} min read
               </p>
             </div>
@@ -363,7 +363,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
               <ChevronLeft className="h-4 w-4" /> Previous
             </button>
 
-            <span className="text-[11px] text-slate-600">{page + 1} / {totalPages}</span>
+            <span className="text-[11px] text-slate-400">{page + 1} / {totalPages}</span>
 
             <button
               onClick={page === totalPages - 1 ? onClose : onNext}
@@ -439,13 +439,13 @@ export default function LearnPage() {
         {/* ── Search + filter ─────────────────────────── */}
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search lessons..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/60"
+              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
             />
           </div>
           <div className="relative">
@@ -460,7 +460,7 @@ export default function LearnPage() {
               <option value="advanced">Advanced</option>
               <option value="expert">Expert</option>
             </select>
-            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 rotate-90 pointer-events-none" />
+            <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 rotate-90 pointer-events-none" />
           </div>
         </div>
 
@@ -470,7 +470,7 @@ export default function LearnPage() {
             <p className="text-base font-semibold text-slate-400">
               {lessons.length === 0 ? "No lessons yet" : "No lessons match your filters"}
             </p>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-slate-400">
               {lessons.length === 0
                 ? "Go to Admin → Lesson Management to generate lessons"
                 : <button onClick={() => { setSearch(""); setLevel("all"); }} className="text-cyan-400 hover:text-cyan-300 underline">Clear filters</button>
@@ -479,7 +479,7 @@ export default function LearnPage() {
           </div>
         ) : (
           <>
-            <p className="mb-4 text-[12px] text-slate-500">{filtered.length} item{filtered.length !== 1 ? "s" : ""}</p>
+            <p className="mb-4 text-[12px] text-slate-400">{filtered.length} item{filtered.length !== 1 ? "s" : ""}</p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map(l => (
                 <LessonCard key={l.id} lesson={l} onClick={() => setOpenLesson(l)} />

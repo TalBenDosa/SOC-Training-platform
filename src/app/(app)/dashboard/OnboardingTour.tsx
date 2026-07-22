@@ -248,11 +248,11 @@ function TourCard({
                   />
                 ))}
               </div>
-              <span className="font-mono text-[9px] text-slate-600 shrink-0">{step + 1}/{steps.length}</span>
+              <span className="font-mono text-[9px] text-slate-400 shrink-0">{step + 1}/{steps.length}</span>
               <button
                 onClick={onDone}
                 title="Skip tour"
-                className="text-slate-600 hover:text-slate-400 transition p-0.5 shrink-0"
+                className="text-slate-400 hover:text-slate-400 transition p-0.5 shrink-0"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -294,7 +294,7 @@ function TourCard({
 
             <button
               onClick={onDone}
-              className="text-[10px] text-slate-600 hover:text-slate-400 transition"
+              className="text-[10px] text-slate-400 hover:text-slate-400 transition"
             >
               Skip
             </button>

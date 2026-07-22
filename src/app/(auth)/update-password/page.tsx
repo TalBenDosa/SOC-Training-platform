@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { KeyRound } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -13,6 +14,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
  * (detectSessionInUrl, on by default) — this page just captures the new password.
  */
 export default function UpdatePasswordPage() {
+  usePageTitle("Set new password");
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -60,19 +62,21 @@ export default function UpdatePasswordPage() {
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">New password</label>
+          <label htmlFor="update-password" className="mb-1.5 block text-xs font-semibold text-slate-400">New password</label>
           <input
+            id="update-password"
             type="password" required minLength={8} autoComplete="new-password" value={password}
             onChange={e => setPassword(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">Confirm new password</label>
+          <label htmlFor="update-confirm" className="mb-1.5 block text-xs font-semibold text-slate-400">Confirm new password</label>
           <input
+            id="update-confirm"
             type="password" required autoComplete="new-password" value={confirm}
             onChange={e => setConfirm(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
           />
         </div>
         {error && (

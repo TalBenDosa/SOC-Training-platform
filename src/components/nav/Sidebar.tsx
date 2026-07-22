@@ -31,7 +31,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <nav className="flex-1 px-3 py-2">
-        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
           Navigation
         </p>
         <ul className="space-y-0.5">
@@ -61,7 +61,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       {/* User — real auth state. Guest (no account / Supabase not configured)
           keeps working exactly as before: progress just lives on this device. */}
       <div className="border-t border-border px-3 py-4">
-        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
           {user ? "Account" : "Guest"}
         </p>
         {user ? (
@@ -75,7 +75,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             <button
               onClick={() => { signOut(); onNavigate?.(); }}
               aria-label="Sign out"
-              className="shrink-0 rounded p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors"
+              className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>
@@ -106,7 +106,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href={DEV_TOOLS_ITEM.href}
           onClick={onNavigate}
-          className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-600 hover:bg-white/5 hover:text-slate-400 transition-colors"
+          className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-400 transition-colors"
         >
           <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
           <span>{DEV_TOOLS_ITEM.label}</span>

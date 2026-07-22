@@ -151,7 +151,7 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
 
           {/* Severity legend — the one visual cue worth learning up front */}
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border/50 bg-bg/50 px-4 py-3">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Severity</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Severity</span>
             {[
               { v: "1", label: "1–3 routine",    cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
               { v: "5", label: "4–6 look closer", cls: "border-severity-medium/80 bg-severity-medium/70 text-white" },
@@ -650,7 +650,7 @@ export default function DashboardPage() {
             <span className={cn("font-mono text-sm font-bold", threatLevelColor)}>{threatLevel}</span>
           </span>
           <span className="flex items-center gap-2 text-xs text-slate-400">
-            <BookOpen className="h-3.5 w-3.5 text-slate-500" />
+            <BookOpen className="h-3.5 w-3.5 text-slate-400" />
             <span className="font-semibold text-white">Companies</span>
             <span className="font-mono text-sm font-bold text-neon-purple">{clearedCompanies.length}/{COMPANY_ORDER.length}</span>
           </span>
@@ -672,7 +672,7 @@ export default function DashboardPage() {
               <span className="font-mono text-xs font-bold text-white">{sessionClock}</span>
             </span>
           ) : (
-            <span className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+            <span className="ml-auto flex items-center gap-2 text-xs text-slate-400">
               <span className="h-2 w-2 rounded-full bg-slate-600" />
               No active session — press
               <span className="font-semibold text-slate-400">Start Training</span>
@@ -685,7 +685,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3 rounded-lg border border-neon-purple/30 bg-neon-purple/5 px-5 py-3">
             <Target className="h-4 w-4 shrink-0 text-neon-purple" />
             <p className="text-sm text-slate-200">{scenarioObjective}</p>
-            <button onClick={() => setScenarioObjective(null)} className="ml-auto text-slate-500 hover:text-slate-300">
+            <button onClick={() => setScenarioObjective(null)} className="ml-auto text-slate-400 hover:text-slate-300">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -733,7 +733,7 @@ export default function DashboardPage() {
 
                 {missedEvents.length > 0 && (
                   <div className="px-7 py-6">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">What it looked like</p>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">What it looked like</p>
                     <ol className="mt-4 space-y-3">
                       {missedEvents.map((e, i) => (
                         <li key={e.id} className="flex gap-3">
@@ -741,7 +741,7 @@ export default function DashboardPage() {
                             {i + 1}
                           </span>
                           <div className="min-w-0">
-                            <span className="font-mono text-[11px] text-slate-600">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
+                            <span className="font-mono text-[11px] text-slate-400">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
                             <p className="text-xs leading-relaxed text-slate-300">{e.description ?? e.displayDescription}</p>
                           </div>
                         </li>
@@ -769,7 +769,7 @@ export default function DashboardPage() {
                       feed paused so the events under discussion stay on screen. */}
                   <button
                     onClick={() => { live.clearMissedAttack(); live.dismissIncident(); }}
-                    className="w-full rounded-md px-4 py-2 text-xs font-medium text-slate-500 transition hover:text-slate-300 sm:w-auto"
+                    className="w-full rounded-md px-4 py-2 text-xs font-medium text-slate-400 transition hover:text-slate-300 sm:w-auto"
                   >
                     Review the paused feed
                   </button>
@@ -795,7 +795,7 @@ export default function DashboardPage() {
               </span>
               <div>
                 <h3 className="text-sm font-semibold text-white">Live Event Feed</h3>
-                <p className="text-[10px] text-slate-500">Click a row to expand and read the full log</p>
+                <p className="text-[10px] text-slate-400">Click a row to expand and read the full log</p>
               </div>
             </div>
 
@@ -803,7 +803,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               {/* Search */}
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -835,8 +835,8 @@ export default function DashboardPage() {
 
           {/* Filter bar — row 1: level + source */}
           <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-bg/60 px-5 py-2.5">
-            <Filter className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Level:</span>
+            <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Level:</span>
 
             <div className="flex gap-1">
               {(["all", "low", "medium", "high"] as const).map((lv) => (
@@ -850,7 +850,7 @@ export default function DashboardPage() {
                         lv === "medium" ? "border-severity-medium/60 bg-severity-medium/15 text-severity-medium" :
                         lv === "low"    ? "border-slate-500/60 bg-slate-500/15 text-slate-300" :
                                           "border-cyber-500/60 bg-cyber-500/15 text-cyber-300"
-                      : "border-border text-slate-500 hover:border-border-strong hover:text-slate-300"
+                      : "border-border text-slate-400 hover:border-border-strong hover:text-slate-300"
                   )}
                 >
                   {lv === "all" ? "All" : lv === "low" ? "1-3 Low" : lv === "medium" ? "4-6 Med" : "7-10 High"}
@@ -858,7 +858,7 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <span className="text-[10px] text-slate-600">|</span>
+            <span className="text-[10px] text-slate-400">|</span>
 
             <select
               value={sourceFilter}
@@ -876,7 +876,7 @@ export default function DashboardPage() {
                 "ml-auto rounded border px-2 py-0.5 text-[10px] font-semibold transition",
                 advancedFilterCount > 0
                   ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300"
-                  : "border-border text-slate-500 hover:text-slate-300 hover:border-border-strong"
+                  : "border-border text-slate-400 hover:text-slate-300 hover:border-border-strong"
               )}
             >
               {showAdvancedFilters ? "− Fewer filters" : `+ More filters${advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ""}`}
@@ -902,7 +902,7 @@ export default function DashboardPage() {
                 ? "border-neon-blue/60 bg-neon-blue/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">User</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">User</span>
               <select
                 value={userFilter}
                 onChange={(e) => setUserFilter(e.target.value)}
@@ -925,7 +925,7 @@ export default function DashboardPage() {
                 ? "border-neon-green/60 bg-neon-green/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Host</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Host</span>
               <select
                 value={hostFilter}
                 onChange={(e) => setHostFilter(e.target.value)}
@@ -948,7 +948,7 @@ export default function DashboardPage() {
                 ? "border-neon-amber/60 bg-neon-amber/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">IP</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">IP</span>
               <select
                 value={ipFilter}
                 onChange={(e) => setIpFilter(e.target.value)}
@@ -971,7 +971,7 @@ export default function DashboardPage() {
                 ? "border-neon-purple/60 bg-neon-purple/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">MITRE</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">MITRE</span>
               <select
                 value={mitreFilter}
                 onChange={(e) => setMitreFilter(e.target.value)}
@@ -987,7 +987,7 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            <span className="ml-auto text-[10px] text-slate-600 font-mono">
+            <span className="ml-auto text-[10px] text-slate-400 font-mono">
               {filterOptions.users.length}u · {filterOptions.hosts.length}h · {filterOptions.ips.length} IPs
             </span>
           </div>

@@ -30,7 +30,7 @@ export function CompanyClearedModal({ clearedCompanyName, nextCompanyName, onCon
 
           {nextCompanyName ? (
             <div className="rounded-xl border border-cyber-500/30 bg-cyber-500/10 px-5 py-4 space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Now Unlocked</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Now Unlocked</p>
               <p className="text-lg font-bold text-cyber-300">{nextCompanyName}</p>
             </div>
           ) : (
