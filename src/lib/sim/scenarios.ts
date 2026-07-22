@@ -3026,19 +3026,33 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       },
     },
 
-    // ── CORRELATED: UEBA alert — bulk download 56x above baseline ────────────────
+    // ── CORRELATED: UEBA alert — bulk download well above baseline ──────────────
+    //
+    // The multiplier is anchored to numbers the student can actually derive from
+    // the other events: the baseline is 11 files in a full day (evt_insider_
+    // baseline_files), and 55 sensitive files were pulled from SharePoint across
+    // evt_02 (12) + evt_03 (47, overlapping) — the DLP alert counts 47. UEBA
+    // scores on RATE, and 47 files in ~15 minutes against 11 in 8 hours is
+    // roughly a 34x rate increase, which is what the alert now states. The old
+    // "56x" matched no figure in the scenario, and the anomaly score it cited
+    // had lost the field that carried it when the invented `ueba.*` namespace
+    // was removed — restored here as the real Sentinel BehaviorAnalytics fields.
     {
       id: "evt_insider_ueba_alert", ts: T(25 * MIN + 30_000),
       source: "siem", vendor: "Microsoft Sentinel UEBA",
       event_type: "ueba_anomaly", severity: "high",
       user_email: insider.email, src_ip: insider.ip,
       mitre_technique: "T1530",
-      description: "Microsoft Sentinel UEBA scored m.torres's SharePoint download volume as 56x their 30-day baseline, anomaly score 89/100.",
+      description: "Microsoft Sentinel flagged m.torres's SharePoint download rate as far above her 30-day norm — 47 sensitive files in about fifteen minutes against a baseline of roughly a dozen a day.",
       raw: {
         "event.action": "BehaviorAnomalyDetected",
         "event.outcome": "alerted",
         "user.email": insider.email,
-        "alert.name": "MassDownloadActivity",
+        "MassDownloadActivity": "true",
+        "behavior.name": "bulk_sharepoint_download",
+        "behavior.score": "47",         // files pulled in this ~15-min burst (raw count)
+        "anomaly.score": "89",          // 0-100 UEBA composite confidence
+        "ActionUncommonlyPerformedByUser": "true",
         "source.ip": insider.ip,
       },
     },
@@ -5119,8 +5133,8 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "sysmon", vendor: "Microsoft Sysmon", event_type: "dns_query",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "high", mitre_technique: "T1071.004", mitre_tactic: "Command and Control",
-      description: `WS-ENG-3301 queried a 53-character base32-encoded subdomain of ${c2Domain} — the first tunnel query from update.exe.`,
-      dns: { query: `KNCVGU2JJ5HD2MBRHNEE6U2UHVLVGLKFJZDS2MZTGAYTWVKTIVJD2.data.${c2Domain}`, query_type: "A", response: "192.168.100.5", rcode: "NOERROR" },
+      description: `WS-ENG-3301 issued a DNS query whose name packs three ~63-character base32 labels — about 190 encoded characters, ~120 bytes of decoded data — beneath ${c2Domain}, the first tunnel query from update.exe.`,
+      dns: { query: `KNCVGU2JJ5HD2MBRHNEE6U2UHVLVGLKFJZDS2MZTGAYTWVKTIVJD2MFXHI4TPKZ.MRSXG5DBNZ2GK43UGA2DAOBWGC3TFEB2GQ2LOEBRWYK3TUEB2WK4TFONXW4Z3JN.MFRGGZDFMZTWQ2LKNNWG233ONZSXE43UNFXW4ZLUFZSGK5DUOJ2XG5BANVXXA3D.data.${c2Domain}`, query_type: "A", response: "192.168.100.5", rcode: "NOERROR" },
       raw: {
         "event.code": "22",
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -5326,7 +5340,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     threat_actor: "APT-TUNNELRAT (Nation-State Affiliate)",
     attack_kind: "c2_dns_tunneling",
     briefing: "Microsoft Sentinel fired a DNS query-volume anomaly on WS-ENG-3301 at 14:12 — the host is far above its own baseline. Defender for Endpoint has attached a process name to the traffic, and the firewall logged port 53 traffic to an unfamiliar domain.",
-    narrative: `An attacker who had established initial access delivered dnscat2 via an encoded PowerShell command. The tool opened a covert C2 channel using DNS queries — encoding all communication as base32 subdomain names to the attacker-controlled domain c2-nexus-update.xyz. Commands were received via DNS TXT record responses. After recon commands, the attacker began exfiltrating sensitive data by encoding it into sequential DNS subdomain names, chunking a 29 KB file over 247 queries in 4 minutes — a DNS label is capped at 63 bytes, so each query carries only about 120 bytes of decoded data.`,
+    narrative: `An attacker who had established initial access delivered dnscat2 via an encoded PowerShell command. The tool opened a covert C2 channel using DNS queries — encoding all communication as base32 subdomain names to the attacker-controlled domain c2-nexus-update.xyz. Commands were received via DNS TXT record responses. After recon commands, the attacker began exfiltrating sensitive data by encoding it into sequential DNS subdomain names, chunking a 29 KB file over 247 queries in 4 minutes — each label is capped at 63 bytes and the whole query name at 255, so packing several labels into one name carries only about 120 bytes of decoded data per query.`,
     learning_objectives: [
       "Recognize DNS tunneling indicators: high-entropy subdomains, long subdomain names, TXT record C2",
       "Understand why volume (847 queries/min vs. baseline 23) is a key detection signal",
