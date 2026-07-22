@@ -51,10 +51,14 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
   function persist(key: string, value: string) {
     switch (key) {
       case LEARNER_KEYS.totalXp: {
-        const xp = parseInt(value, 10) || 0;
-        supabase.from("profiles").update({ xp }).eq("id", userId).then(({ error }) => {
-          if (error) log("totalXp", error);
-        });
+        // profiles.xp is SERVER-AUTHORITATIVE since migration 0008: a DB trigger
+        // keeps it at xp_offset + sum(xp_earned) across the completion tables, and
+        // the xp column is REVOKEd from client roles. We therefore do NOT write it
+        // here — the caller's value stays in the in-memory cache (set by
+        // backend.set) for immediate optimistic UI, and the true total is re-read
+        // from profiles on the next hydrate(). The completion-record writes below
+        // (roomProgress / dashboardSessions / scenarioHistory) are what actually
+        // move the server total. Writing xp here would only earn a denied 403.
         return;
       }
       case LEARNER_KEYS.roomProgress: {
