@@ -335,10 +335,11 @@ export default function DashboardPage() {
   // (EDR, O365, Firewall, Sysmon, etc.) not just AD.
   // liveRef lets onStoryComplete (called from inside the hook) reach live.startStory.
   const liveRef = useRef<import("./useLiveEvents").LiveEventsApi | null>(null);
-  // Halting the shift after too many misses. haltedRef mirrors the state so the
-  // callback below (invoked from inside the hook, over a stale closure) sees the
-  // current value and cannot arm another campaign after the shift has stopped.
-  const [sessionHalted, setSessionHalted] = useState(false);
+  // A missed attack now stops the shift on the FIRST miss — the full-screen
+  // "you didn't report the attack" modal handles it (see live.missedAttack
+  // below). haltedRef mirrors that stopped state so handleStoryComplete, which
+  // is invoked from inside the hook over a stale closure, cannot arm another
+  // campaign behind the modal.
   const haltedRef = useRef(false);
   const handleStoryComplete = () => {
     if (haltedRef.current) return;
@@ -518,34 +519,12 @@ export default function DashboardPage() {
    * keep stacking up after the analyst has clearly lost the thread just buries
    * them further; halting turns it into a clean restart point instead.
    */
-  const MAX_MISSED_ATTACKS = 3;
+  // The FIRST miss stops the shift. The hook has already paused the feed and
+  // raised live.missedAttack (the modal); here we just latch haltedRef so no
+  // further story is armed. Cleared when the learner restarts from the modal.
   useEffect(() => {
-    if (live.fnCount >= MAX_MISSED_ATTACKS && !haltedRef.current) {
-      haltedRef.current = true;
-      setSessionHalted(true);
-      live.pause();
-      setSessionStartedAt(null);
-      setSessionDifficulty(null);
-    }
-  }, [live.fnCount, live]);
-
-  /** Wipe the board and start a fresh shift after a halt. */
-  const handleRestartShift = () => {
-    haltedRef.current = false;
-    setSessionHalted(false);
-    live.clearMissedAttack();
-    const story = instantiateStory(
-      pickStoryForCompany(selectedCompanyId),
-      getCompanyEvents(selectedCompanyId)
-    );
-    setSessionStory(story);
-    setInjectedStories([story]);
-    setScenarioObjective(null);
-    live.reset(getCompanyEvents(selectedCompanyId), story);   // also zeroes fnCount
-    setSessionStartedAt(Date.now());
-    setSessionDifficulty(null);
-    setSessionElapsed(0);
-  };
+    if (live.missedAttack) haltedRef.current = true;
+  }, [live.missedAttack]);
 
   // Tick the session clock once a second while a session is running.
   useEffect(() => {
@@ -701,35 +680,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Shift halted — too many attacks went unreported */}
-        {sessionHalted && (
-          <div className="rounded-lg border border-severity-critical/40 bg-severity-critical/5 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-severity-critical" />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-white">
-                  Shift stopped — {MAX_MISSED_ATTACKS} attacks went unreported
-                </h3>
-                <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                  The feed is paused. Nothing is lost — read the debriefs above to see what each
-                  attack looked like, then start a clean shift when you are ready.
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Button variant="primary" size="sm" onClick={handleRestartShift}>
-                    <RefreshCw className="h-4 w-4" /> Start a fresh shift
-                  </Button>
-                  <button
-                    onClick={() => setSessionSummary(live.endSession())}
-                    className="rounded border border-border-strong px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:text-white"
-                  >
-                    See session summary
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Scenario objective banner */}
         {scenarioObjective && (
           <div className="flex items-center gap-3 rounded-lg border border-neon-purple/30 bg-neon-purple/5 px-5 py-3">
@@ -760,21 +710,23 @@ export default function DashboardPage() {
             >
               <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-neon-amber/40 bg-bg shadow-2xl shadow-neon-amber/10">
 
-                <div className="border-b border-border px-7 py-6 text-center">
-                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-neon-amber/10 ring-2 ring-neon-amber/40">
-                    <Siren className="h-7 w-7 text-neon-amber" />
+                <div className="border-b border-border px-7 py-8 text-center">
+                  <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-severity-critical/10 ring-2 ring-severity-critical/50">
+                    <AlertTriangle className="h-8 w-8 text-severity-critical" />
                   </span>
-                  <h2 id="missed-attack-title" className="mt-4 text-2xl font-bold text-white">
-                    You missed the attack
+                  <h2 id="missed-attack-title" className="mt-5 text-3xl font-bold text-white">
+                    You didn&apos;t report the attack
                   </h2>
-                  <p className="mt-1.5 text-sm text-slate-400">
-                    <span className="font-semibold text-neon-amber">{live.activeIncident?.title ?? "A multi-stage attack"}</span>{" "}
-                    ran to completion without being reported. Training is paused.
+                  <p className="mt-2 text-base font-semibold text-severity-critical">
+                    Training stopped
                   </p>
-                  {/* Kept from the banner this replaces: a miss is a lesson, not
-                      a penalty, and saying so is what stops it reading as
-                      punishment. */}
-                  <p className="mt-3 inline-block rounded-full bg-neon-green/10 px-3 py-1 text-xs font-medium text-neon-green">
+                  <p className="mt-2 text-sm text-slate-400">
+                    <span className="font-semibold text-neon-amber">{live.activeIncident?.title ?? "A multi-stage attack"}</span>{" "}
+                    ran to completion in the feed without being reported.
+                  </p>
+                  {/* A miss is a lesson, not a penalty — and saying so is what
+                      stops the full-screen stop reading as punishment. */}
+                  <p className="mt-4 inline-block rounded-full bg-neon-green/10 px-3 py-1 text-xs font-medium text-neon-green">
                     No points lost — spotting the ones you miss is how you build the eye for it
                   </p>
                 </div>
@@ -799,28 +751,28 @@ export default function DashboardPage() {
                 )}
 
                 <div className="flex flex-col gap-3 border-t border-border px-7 py-5 sm:flex-row-reverse">
-                  {/* Genuinely different outcomes. Two buttons doing the same
-                      thing is the decorative-control problem this dashboard
-                      already had once. */}
+                  {/* One clear way forward — you asked for a single "back to
+                      training" action, and a stopped shift has exactly one
+                      sensible next step. */}
                   <Button
-                    variant="primary" className="w-full sm:w-auto"
+                    variant="primary" size="lg" className="w-full"
                     onClick={() => {
+                      haltedRef.current = false;   // re-arm story injection
                       live.clearMissedAttack();
                       live.dismissIncident();
                       handleStartTraining(sessionDifficulty ?? "medium");
                     }}
                   >
-                    Try again — new attack
+                    <RefreshCw className="mr-2 h-4 w-4" /> Back to training
                   </Button>
-                  {/* Closing leaves the feed PAUSED on purpose. The events the
-                      debrief just walked through are still on screen, and
-                      resuming would push them away behind fresh noise. */}
-                  <Button
-                    variant="outline" className="w-full sm:w-auto"
+                  {/* Secondary, quiet: dismiss without restarting, leaving the
+                      feed paused so the events under discussion stay on screen. */}
+                  <button
                     onClick={() => { live.clearMissedAttack(); live.dismissIncident(); }}
+                    className="w-full rounded-md px-4 py-2 text-xs font-medium text-slate-500 transition hover:text-slate-300 sm:w-auto"
                   >
                     Review the paused feed
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>
