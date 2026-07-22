@@ -106,7 +106,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href={DEV_TOOLS_ITEM.href}
           onClick={onNavigate}
-          className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-slate-400 transition-colors"
+          className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
         >
           <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
           <span>{DEV_TOOLS_ITEM.label}</span>

@@ -102,3 +102,14 @@ export function getStreakFreezeDates(): string[] {
 export function saveStreakFreezeDates(dates: string[]): void {
   writeJson(LEARNER_KEYS.streakFreezes, dates);
 }
+
+// ─── Last session timestamp ──────────────────────────────────────────────────────
+// remoteBackend already maps LEARNER_KEYS.lastSession → user_progress.last_session;
+// this is the facade write path so it actually reaches the DB (was a raw
+// localStorage.setItem that never did).
+export function getLastSession(): string | null {
+  return backend.get(LEARNER_KEYS.lastSession);
+}
+export function setLastSession(iso: string): void {
+  backend.set(LEARNER_KEYS.lastSession, iso);
+}

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useLiveEvents } from "./useLiveEvents";
 import type { LiveEvent } from "./useLiveEvents";
 import { EventFeed } from "./EventFeed";
-import { addTotalXp } from "@/lib/storage/progress";
+import { addTotalXp, getClearedCompanies, addClearedCompany, setLastSession } from "@/lib/storage/progress";
 import { WorkflowGuide } from "./WorkflowGuide";
 import { BENIGN_EVENTS } from "./benignEvents";
 import { SiemStats } from "./SiemStats";
@@ -26,9 +26,7 @@ import {
   RefreshCw, Search, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
-const COMPANY_KEY       = "soc_selected_company_v1";
-const UNLOCKED_KEY      = "soc_company_progress_v1";
-const CLEARED_KEY       = "soc_company_cleared_v1";
+const COMPANY_KEY       = "soc_selected_company_v1";  // device-local UI preference (which company is open)
 const COMPANY_ORDER     = ["nexacorp", "rocketstack", "medcore", "globallogis", "quantumbank"];
 
 type SessionRecord = import("./useLiveEvents").DashboardSessionRecord;
@@ -300,14 +298,19 @@ export default function DashboardPage() {
   const [showChainBoard,      setShowChainBoard]      = useState(false);
 
   // ─── Company progression ──────────────────────────────────────────────────
-  const [unlockedCompanies, setUnlockedCompanies] = useState<string[]>(() => {
-    if (typeof window === "undefined") return ["nexacorp"];
-    try { return JSON.parse(localStorage.getItem(UNLOCKED_KEY) ?? '["nexacorp"]'); } catch { return ["nexacorp"]; }
-  });
-  const [clearedCompanies, setClearedCompanies] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem(CLEARED_KEY) ?? "[]"); } catch { return []; }
-  });
+  // Cleared companies persist through the storage facade → DB (user_progress.
+  // cleared_companies) for signed-in users, localStorage for guests. Previously
+  // this read/wrote raw localStorage, which for a signed-in user NEVER reached
+  // the DB (silent progress loss across devices) — QA finding, same class as the
+  // scenario/room/dashboard persistence migration.
+  const [clearedCompanies, setClearedCompanies] = useState<string[]>(() => getClearedCompanies());
+  // Unlocked is DERIVED, not separately stored: a company is open iff it is the
+  // first one or its predecessor in COMPANY_ORDER has been cleared. (The old
+  // UNLOCKED_KEY was never in the facade/DB at all.)
+  const unlockedCompanies = useMemo(
+    () => COMPANY_ORDER.filter((_, i) => i === 0 || clearedCompanies.includes(COMPANY_ORDER[i - 1])),
+    [clearedCompanies],
+  );
   const [showClearedModal, setShowClearedModal] = useState(false);
 
   // ─── Session summary modal ────────────────────────────────────────────────
@@ -372,7 +375,7 @@ export default function DashboardPage() {
     const delta = live.sessionXp - prevSessionXpRef.current;
     if (delta > 0 && typeof window !== "undefined") {
       addTotalXp(delta);
-      localStorage.setItem("soc_last_session", new Date().toISOString());
+      setLastSession(new Date().toISOString());
     }
     prevSessionXpRef.current = live.sessionXp;
   }, [live.sessionXp]);
@@ -471,14 +474,10 @@ export default function DashboardPage() {
   const nextCompany   = nextCompanyId ? COMPANY_PROFILES.find(c => c.id === nextCompanyId) ?? null : null;
 
   const handleClearCompany = () => {
-    const newCleared = [...new Set([...clearedCompanies, selectedCompanyId])];
-    setClearedCompanies(newCleared);
-    localStorage.setItem(CLEARED_KEY, JSON.stringify(newCleared));
-    if (nextCompanyId) {
-      const newUnlocked = [...new Set([...unlockedCompanies, nextCompanyId])];
-      setUnlockedCompanies(newUnlocked);
-      localStorage.setItem(UNLOCKED_KEY, JSON.stringify(newUnlocked));
-    }
+    // Persist through the facade → DB; unlocked is derived, so clearing the
+    // company automatically opens the next one via the useMemo above.
+    addClearedCompany(selectedCompanyId);
+    setClearedCompanies(getClearedCompanies());
     setSessionSummary(null);
     setShowClearedModal(true);
   };

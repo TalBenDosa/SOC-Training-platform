@@ -241,7 +241,7 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
           {hasChain && (
             <div className="border-t border-border/40 pt-3">
               <button
-                className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-400 transition-colors"
+                className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-200 transition-colors"
                 onClick={() => setShowChain(v => !v)}
               >
                 {showChain ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}

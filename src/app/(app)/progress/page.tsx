@@ -15,7 +15,12 @@ import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, 
 import Link from "next/link";
 import { ROOMS } from "@/data/rooms";
 import type { RoomTask } from "@/data/rooms";
-import { getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions } from "@/lib/storage/progress";
+import {
+  getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions,
+  getClearedCompanies,
+  getStreakFreezeDates as facadeGetStreakFreezes,
+  saveStreakFreezeDates as facadeSaveStreakFreezes,
+} from "@/lib/storage/progress";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,20 +99,14 @@ function computeStreak(dates: string[]): number {
 // learner has been building. Up to STREAK_FREEZES_PER_MONTH freezes can retro-
 // actively cover yesterday, so a lapse becomes a same-day save, not a loss the
 // learner only discovers next time they open this page.
-const STREAK_FREEZE_KEY = "soc_streak_freeze_dates";
 const STREAK_FREEZES_PER_MONTH = 2;
 
-/** Freeze dates used within the last 30 days (older ones don't count against the cap). */
+/** Freeze dates used within the last 30 days (older ones don't count against the cap).
+ *  Reads through the storage facade (DB-backed for signed-in users) — previously a
+ *  local shadow that wrote raw localStorage and never reached user_progress. */
 function loadStreakFreezeDates(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STREAK_FREEZE_KEY) ?? "[]") as string[];
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    return raw.filter(d => new Date(d).getTime() >= cutoff);
-  } catch { return []; }
-}
-
-function saveStreakFreezeDates(dates: string[]) {
-  try { localStorage.setItem(STREAK_FREEZE_KEY, JSON.stringify(dates)); } catch { /* ignore */ }
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return facadeGetStreakFreezes().filter(d => new Date(d).getTime() >= cutoff);
 }
 
 function avg(arr: number[]): number {
@@ -376,10 +375,10 @@ export default function ProgressPage() {
       setSkillsData(computeSkills(sessions, scenarioAvg, roomPerTaskXp));
     } catch { /* ignore corrupt data */ }
 
-    // Companies secured — drives completion rate + badges
+    // Companies secured — drives completion rate + badges. Via the facade so a
+    // signed-in user's DB-backed cleared_companies count is consistent everywhere.
     try {
-      const cleared = JSON.parse(localStorage.getItem("soc_company_cleared_v1") ?? "[]") as string[];
-      setClearedCount(cleared.length);
+      setClearedCount(getClearedCompanies().length);
     } catch { /* ignore corrupt data */ }
   }, []);
 
@@ -412,7 +411,7 @@ export default function ProgressPage() {
   function handleUseStreakFreeze() {
     const updated = [...streakFreezeDates, yesterdayD.toISOString()];
     setStreakFreezeDates(updated);
-    saveStreakFreezeDates(updated);
+    facadeSaveStreakFreezes(updated);
   }
   const dashboardMinutes = Math.round(
     dashSessions.reduce((sum, s) => sum + (s.durationMs ?? 0), 0) / 60_000

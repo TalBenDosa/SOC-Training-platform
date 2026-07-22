@@ -29,7 +29,7 @@ export default function WelcomePage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-cyber-grid" />
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-cyber-glow" />
 
-      <div className="w-full max-w-xl text-center">
+      <div id="main-content" className="w-full max-w-xl text-center">
 
         <p className="text-lg text-slate-300">
           Hello <span className="font-semibold text-white">{name}</span>

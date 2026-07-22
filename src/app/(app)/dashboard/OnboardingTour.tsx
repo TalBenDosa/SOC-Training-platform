@@ -252,7 +252,7 @@ function TourCard({
               <button
                 onClick={onDone}
                 title="Skip tour"
-                className="text-slate-400 hover:text-slate-400 transition p-0.5 shrink-0"
+                className="text-slate-400 hover:text-white transition p-0.5 shrink-0"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -294,7 +294,7 @@ function TourCard({
 
             <button
               onClick={onDone}
-              className="text-[10px] text-slate-400 hover:text-slate-400 transition"
+              className="text-[10px] text-slate-400 hover:text-white transition"
             >
               Skip
             </button>

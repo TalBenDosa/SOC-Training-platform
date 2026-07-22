@@ -36,7 +36,7 @@ export default function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="container mx-auto max-w-7xl px-6 py-16 md:py-24">
+      <section id="main-content" className="container mx-auto max-w-7xl px-6 py-16 md:py-24">
         <div className="mx-auto max-w-3xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyber-500/30 bg-cyber-500/5 px-3 py-1 text-xs">
             <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-green opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-neon-green" /></span>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
-  title: "Privacy & Data — HACK THE SOC",
+  title: "Privacy & Data",
   description: "What data HACK THE SOC stores, why, and who processes it.",
 };
 
@@ -12,7 +12,7 @@ export const metadata = {
 // grade free-text answers.
 export default function PrivacyPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-16 text-slate-300">
+    <main id="main-content" className="mx-auto max-w-3xl px-6 py-16 text-slate-300">
       <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-cyber-300">
         <ArrowLeft className="h-4 w-4" /> Back
       </Link>

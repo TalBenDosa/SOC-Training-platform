@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export const metadata = {
-  title: "Accessibility Statement — HACK THE SOC",
+  title: "Accessibility Statement",
   description: "Our accessibility commitment, the standard we target, known limitations, and how to reach us.",
 };
 

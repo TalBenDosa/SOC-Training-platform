@@ -13,9 +13,10 @@ import { getTotalXp } from "@/lib/storage/progress";
  * and fires a celebration toast on a level-up or rank promotion, wherever the
  * XP was earned (rooms, dashboard, scenarios).
  *
- * It polls localStorage because XP is written with plain setItem from several
- * places and same-tab writes don't emit a `storage` event. Polling one integer
- * every ~1.5s is negligible and catches every source without touching them.
+ * It polls the total XP via the storage facade (getTotalXp) because XP is
+ * written from several places and same-tab writes don't emit a `storage` event.
+ * Polling one integer every ~1.5s is negligible and catches every source
+ * (guest localStorage or signed-in DB) without touching them.
  */
 type Celebration = { kind: "rank" | "level"; title: string; sub: string };
 
