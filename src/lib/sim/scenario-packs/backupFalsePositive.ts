@@ -384,7 +384,7 @@ export function buildBackupFalsePositiveScenario(
       user_email: svcAccount.email,
       severity: "critical",
       mitre_technique: "T1486",
-      mitre_tactic: "TA0040",
+      mitre_tactic: "Impact",
       description:
         "Defender for Endpoint raised a CRITICAL \"Ransomware behavior detected\" alert on FS-PROD-04 naming VeeamAgent.exe. RemediationAction is None.",
       raw: {

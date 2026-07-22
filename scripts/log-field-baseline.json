@@ -1,7 +1,7 @@
 {
   "note": "Pre-existing field violations, accepted so the gate can block NEW ones while the backlog is worked down. Shrink this list; never grow it.",
   "generated": "run `node scripts/validate-log-fields.mjs --baseline` to regenerate",
-  "count": 3845,
+  "count": 3840,
   "accepted": [
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:action_result",
     "src/app/(app)/dashboard/benignEvents.ts:aws-cloudtrail:aws.cloudtrail.awsRegion",
@@ -2880,8 +2880,6 @@
     "src/lib/sim/scenario-packs/impossibleTravelBasic.ts:zscaler-internet-access:zscaler.threatname",
     "src/lib/sim/scenario-packs/impossibleTravelBasic.ts:zscaler-internet-access:zscaler.urlcategory",
     "src/lib/sim/scenario-packs/impossibleTravelBasic.ts:zscaler-internet-access:zscaler.urlsupercategory",
-    "src/lib/sim/scenario-packs/linuxSshCryptominer.ts:crowdstrike-falcon:cron.source_file",
-    "src/lib/sim/scenario-packs/linuxSshCryptominer.ts:crowdstrike-falcon:cron.source_file_owner",
     "src/lib/sim/scenario-packs/linuxSshCryptominer.ts:crowdstrike-falcon:host.os.type",
     "src/lib/sim/scenario-packs/linuxSshCryptominer.ts:fortigate:data.app",
     "src/lib/sim/scenario-packs/linuxSshCryptominer.ts:fortigate:data.appcat",
@@ -3338,9 +3336,6 @@
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:code.signature.status",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:code.signature.subject_name",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:code.signature.trusted",
-    "src/lib/sim/scenarios.ts:crowdstrike-falcon:cron.command",
-    "src/lib/sim/scenarios.ts:crowdstrike-falcon:cron.path",
-    "src/lib/sim/scenarios.ts:crowdstrike-falcon:cron.schedule",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:device.mount_point",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:device.removable_media.serial",
     "src/lib/sim/scenarios.ts:crowdstrike-falcon:device.serial_number",

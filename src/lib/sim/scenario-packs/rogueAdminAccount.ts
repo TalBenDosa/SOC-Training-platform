@@ -137,7 +137,7 @@ export function buildRogueAdminAccountScenario(
       src_ip: originHost.ip,
       severity: "medium",
       mitre_technique: "T1078",
-      mitre_tactic: "TA0001",
+      mitre_tactic: "Initial Access",
       description:
         "At 22:47 the t.aharoni account opened a LogonType 10 Remote Desktop session on the administrative server SRV-ADM-07, WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
       authentication: { method: "Kerberos", result: "success", logon_type: 10 },
@@ -221,7 +221,7 @@ export function buildRogueAdminAccountScenario(
       user_email: admin.email,
       severity: "high",
       mitre_technique: "T1136.002",
-      mitre_tactic: "TA0003",
+      mitre_tactic: "Persistence",
       it_verify_result: "unverified",
       it_verify_message:
         "Service Desk searched the request and change queues for the last 30 days and found no record referencing this account name.",
@@ -266,7 +266,7 @@ export function buildRogueAdminAccountScenario(
       user_email: admin.email,
       severity: "critical",
       mitre_technique: "T1098",
-      mitre_tactic: "TA0003",
+      mitre_tactic: "Persistence",
       description:
         "Three minutes after it was created, s.katz was added to the security-enabled global group Domain Admins on DC01 (Event 4728), by t.aharoni.",
       raw: {
@@ -307,7 +307,7 @@ export function buildRogueAdminAccountScenario(
       user_email: admin.email,
       severity: "high",
       mitre_technique: "T1098",
-      mitre_tactic: "TA0003",
+      mitre_tactic: "Persistence",
       description:
         "Two minutes later s.katz was added to the local Administrators group on SRV-ADM-07, recorded as Event 4732 on the member server itself.",
       raw: {
@@ -349,7 +349,7 @@ export function buildRogueAdminAccountScenario(
       src_ip: originHost.ip,
       severity: "critical",
       mitre_technique: "T1078",
-      mitre_tactic: "TA0001",
+      mitre_tactic: "Initial Access",
       description:
         "At 23:02 s.katz logged on to SRV-ADM-07 with LogonType 10, eleven minutes after the account was created — WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
       authentication: { method: "Kerberos", result: "success", logon_type: 10 },

@@ -506,8 +506,11 @@ export function buildLinuxSshCryptominerScenario(
           '.019:88251): argc=2 a0="crontab" a1="-"\ntype=PATH msg=audit(' +
           A(68) +
           '.019:88251): item=0 name="/var/spool/cron/crontabs/svc-backup" inode=1442817 dev=08:01 mode=0100600 ouid=1004 ogid=102 rdev=00:00 nametype=CREATE\nApr 14 22:48:01 nix-bkp-01 crontab[1958]: (svc-backup) REPLACE (svc-backup)',
-        "cron.file": "/var/spool/cron/crontabs/svc-backup",
-        "cron.content": `*/10 * * * * pgrep -u svc-backup -f kworker >/dev/null || ${minerPath} -o ${pool.domain}:${pool.port} -u ${wallet} -p ${host.name} -k --coin monero --max-cpu-usage 90 --background`,
+        // The `cron.file` / `cron.content` fields that were here are not auditd
+        // fields — auditd emits SYSCALL/PATH/USER_CMD records, and this event's
+        // full_log already shows the `crontab -` invocation and the created
+        // spool path. The scheduled command line is fully visible in
+        // lsc_10_miner_exec. Nothing is lost by dropping the fabricated pair.
       },
     },
 
@@ -639,8 +642,12 @@ export function buildLinuxSshCryptominerScenario(
         "crowdstrike.uid": "34",
         "crowdstrike.gid": "34",
         "crowdstrike.sha256": makeSha256("restic_0_16_4_linux_amd64"),
-        "cron.source_file": "/etc/cron.d/northwind-backup",
-        "cron.source_file_owner": "root",
+        // `cron.source_file_owner: root` used to carry q5's answer directly.
+        // The root provenance is instead expressed through the process lineage
+        // Falcon actually records — parent is /usr/sbin/cron (already named
+        // above), and the command_line runs from a system path — so the student
+        // infers "administrator-provisioned" rather than reading it off a flag.
+        "crowdstrike.parent_process_path": "/usr/sbin/cron",
         "host.os.type": "linux",
         "host.hostname": host.fqdn,
         "event.outcome": "success",

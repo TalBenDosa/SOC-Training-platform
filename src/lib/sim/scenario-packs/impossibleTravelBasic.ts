@@ -180,7 +180,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: "45.87.154.209",
       severity: "medium",
       mitre_technique: "T1566.002",
-      mitre_tactic: "TA0001",
+      mitre_tactic: "Initial Access",
       network: { domain: phishDomain },
       description:
         "External mail to d.harel linking to nexacorp-signin-verify.com was delivered to the inbox. SPF and DMARC both fail; the display name reads \"NexaCorp Service Desk\".",
@@ -224,7 +224,7 @@ export function buildImpossibleTravelBasicScenario(
       protocol: "tcp",
       severity: "high",
       mitre_technique: "T1539",
-      mitre_tactic: "TA0006",
+      mitre_tactic: "Credential Access",
       network: {
         url: `https://${phishDomain}/auth/session-check`,
         domain: phishDomain,
@@ -315,7 +315,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: attackerIp,
       severity: "high",
       mitre_technique: "T1078.004",
-      mitre_tactic: "TA0001",
+      mitre_tactic: "Initial Access",
       geo: { country: "NL", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 },
       authentication: { method: "Previously satisfied", result: "success" },
       description:
@@ -377,7 +377,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: attackerIp,
       severity: "high",
       mitre_technique: "T1078.004",
-      mitre_tactic: "TA0001",
+      mitre_tactic: "Initial Access",
       description:
         "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly: 3,290 km in 135 minutes, implied speed 1,462 km/h.",
       raw: {
@@ -413,7 +413,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: attackerIp,
       severity: "critical",
       mitre_technique: "T1114.003",
-      mitre_tactic: "TA0009",
+      mitre_tactic: "Collection",
       description:
         "An inbox rule named \"AP sync\" was created on the d.harel mailbox from 146.190.62.117: mail matching payment keywords is forwarded to an external address and the originals moved to RSS Subscriptions.",
       raw: {
@@ -451,7 +451,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: attackerIp,
       severity: "high",
       mitre_technique: "T1114.002",
-      mitre_tactic: "TA0009",
+      mitre_tactic: "Collection",
       description:
         "Exchange recorded a MailItemsAccessed sync of 812 items from the Vendor Banking folder in the d.harel mailbox, from 146.190.62.117.",
       raw: {

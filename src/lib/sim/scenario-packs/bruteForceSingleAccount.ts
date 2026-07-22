@@ -60,7 +60,7 @@ export function buildBruteForceSingleAccountScenario(
       protocol: "tcp",
       severity: "medium",
       mitre_technique: "T1133",
-      mitre_tactic: "TA0001",
+      mitre_tactic: "Initial Access",
       geo: { country: "Russia", city: "Moscow", latitude: 55.75, longitude: 37.62 },
       description:
         "An address in Russia opened an inbound TCP/3389 session to the published Remote Desktop server SRV-RDS-02, allowed by the rule INBOUND-RDP-PUBLISHED.",
@@ -105,7 +105,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: attackerIp,
       severity: "low",
       mitre_technique: "T1110.001",
-      mitre_tactic: "TA0006",
+      mitre_tactic: "Credential Access",
       geo: { country: "Russia", city: "Moscow" },
       description:
         "The first logon failure on SRV-RDS-02 was a 4625 for the account name swolfe, over NTLM from 91.108.23.146.",
@@ -157,7 +157,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: attackerIp,
       severity: "medium",
       mitre_technique: "T1110.001",
-      mitre_tactic: "TA0006",
+      mitre_tactic: "Credential Access",
       geo: { country: "Russia", city: "Moscow" },
       description:
         "One minute later the failures switch to the account name s.wolfe — a representative record from 214 failures written between 09:02 and 09:20, all from 91.108.23.146.",
@@ -208,7 +208,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: attackerIp,
       severity: "medium",
       mitre_technique: "T1110.001",
-      mitre_tactic: "TA0006",
+      mitre_tactic: "Credential Access",
       geo: { country: "Russia", city: "Moscow" },
       description:
         "The final 4625 of the burst, written at 09:19:20 for s.wolfe on SRV-RDS-02 from 91.108.23.146 over NTLM.",
@@ -260,7 +260,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: attackerIp,
       severity: "high",
       mitre_technique: "T1078",
-      mitre_tactic: "TA0001",
+      mitre_tactic: "Initial Access",
       geo: { country: "Russia", city: "Moscow" },
       description:
         "A successful 4624 network logon for s.wolfe on SRV-RDS-02 at 09:20:00, LogonType 3 over NTLM, from 91.108.23.146.",
@@ -313,7 +313,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: attackerIp,
       severity: "high",
       mitre_technique: "T1021.001",
-      mitre_tactic: "TA0008",
+      mitre_tactic: "Lateral Movement",
       geo: { country: "Russia", city: "Moscow" },
       description:
         "Eight seconds later a second 4624 on SRV-RDS-02 records LogonType 10 — RemoteInteractive — for s.wolfe from the same address, over Negotiate.",
@@ -363,7 +363,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: rds.ip,
       severity: "medium",
       mitre_technique: "T1021.002",
-      mitre_tactic: "TA0008",
+      mitre_tactic: "Lateral Movement",
       description:
         "Inside the new desktop session cmd.exe spawned the signed net.exe, running: net use Z: \\\\FS-CORP-02\\HR-Confidential as NEXACORP\\s.wolfe.",
       process: {
@@ -461,7 +461,7 @@ export function buildBruteForceSingleAccountScenario(
       src_ip: rds.ip,
       severity: "high",
       mitre_technique: "T1039",
-      mitre_tactic: "TA0009",
+      mitre_tactic: "Collection",
       description:
         "An object-access record from FS-CORP-02 showing a payroll workbook on the HR-Confidential share being opened with read access under the s.wolfe logon session.",
       file: {
