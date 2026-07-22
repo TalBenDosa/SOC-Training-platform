@@ -66,9 +66,7 @@ export default function AccessibilityPage() {
             problem, contact the platform&rsquo;s accessibility contact:
           </p>
           <ul className="ml-5 mt-2 list-disc space-y-1 text-slate-400">
-            <li>Accessibility contact: <span className="text-white">[add name / role]</span></li>
-            <li>Email: <span className="text-white">[add email]</span></li>
-            <li>Phone: <span className="text-white">[add phone]</span></li>
+            <li>Email: <a href="mailto:tal14997@gmail.com" className="text-cyber-300 underline-offset-2 hover:underline">tal14997@gmail.com</a></li>
           </ul>
           <p className="mt-2 text-sm text-slate-400">
             We will do our best to respond and to provide the information or service through an
