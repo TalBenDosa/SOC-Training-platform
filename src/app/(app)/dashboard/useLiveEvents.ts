@@ -8,6 +8,7 @@ import {
 } from "@/lib/sim/engine";
 import type { WorldState, GeneratedEvent } from "@/lib/sim/engine";
 import type { AttackStory } from "./attackStories";
+import { appendDashboardSession } from "@/lib/storage/progress";
 
 export interface ActiveIncident {
   id: string;
@@ -1489,10 +1490,12 @@ export function useLiveEvents({
       eventsOpenedCount,
       durationMs: Date.now() - sessionStartRef.current,
     };
-    if (typeof window !== "undefined") {
-      const existing = JSON.parse(localStorage.getItem("soc_dashboard_sessions") ?? "[]") as DashboardSessionRecord[];
-      localStorage.setItem("soc_dashboard_sessions", JSON.stringify([...existing, record].slice(-50)));
-    }
+    // Persist through the storage facade → DB `dashboard_sessions` for signed-in
+    // users, localStorage for guests (same "soc_dashboard_sessions" key). Uncapped
+    // on purpose: remoteBackend's insert diff needs the array strictly append-only,
+    // so a slice cap would silently drop DB inserts past it (persistence-migration
+    // Stage 2). The backend is SSR-safe, so no window guard is needed.
+    appendDashboardSession(record, Number.MAX_SAFE_INTEGER);
     return record;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionXp, fnCount, attacksCaughtCount, attacksPresentedCount, eventsOpenedCount, avgCatchMs]);

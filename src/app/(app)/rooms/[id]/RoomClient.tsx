@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { Room, RoomTask } from "@/data/rooms";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
-import { addTotalXp } from "@/lib/storage/progress";
+import { addTotalXp, getRoomProgress, saveRoomProgress } from "@/lib/storage/progress";
 
 // A room must score at least this fraction of its gradeable XP to count as
 // passed. Below this, the student must retry the room from the start — a
@@ -32,14 +32,16 @@ type RoomProgressEntry = {
 };
 type AllProgress = Record<string, RoomProgressEntry>;
 
+// Both delegate to the storage facade (src/lib/storage/progress.ts) — the same
+// "room_progress" key underneath, so guests are unaffected, but a signed-in
+// user's room progress now reaches the DB `room_progress` table via
+// remoteBackend instead of only localStorage (persistence-migration Stage 2).
 function loadProgress(): AllProgress {
-  try {
-    return JSON.parse(localStorage.getItem("room_progress") ?? "{}");
-  } catch { return {}; }
+  return getRoomProgress() as AllProgress;
 }
 
 function saveProgress(data: AllProgress) {
-  try { localStorage.setItem("room_progress", JSON.stringify(data)); } catch { /* ignore */ }
+  saveRoomProgress(data);
 }
 
 // Delegates to the storage facade (src/lib/storage/progress.ts) — the single

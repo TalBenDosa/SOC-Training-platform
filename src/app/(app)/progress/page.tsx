@@ -15,7 +15,7 @@ import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, 
 import Link from "next/link";
 import { ROOMS } from "@/data/rooms";
 import type { RoomTask } from "@/data/rooms";
-import { getTotalXp, getScenarioHistory } from "@/lib/storage/progress";
+import { getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions } from "@/lib/storage/progress";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -332,7 +332,7 @@ export default function ProgressPage() {
     // the only honest signal left for per-source / per-technique accuracy.
     const roomPerTaskXp: Record<string, number> = {};
     try {
-      const rp = JSON.parse(localStorage.getItem("room_progress") ?? "{}") as Record<string, { completedAt?: string; telemetry?: RoomTaskTelemetry[]; perTaskXp?: Record<string, number> }>;
+      const rp = getRoomProgress() as Record<string, { completedAt?: string; telemetry?: RoomTaskTelemetry[]; perTaskXp?: Record<string, number> }>;
       setRoomDates(Object.values(rp).map(r => r.completedAt).filter((d): d is string => !!d));
       setRoomTelemetry(Object.values(rp).flatMap(r => r.telemetry ?? []));
       for (const entry of Object.values(rp)) Object.assign(roomPerTaskXp, entry.perTaskXp ?? {});
@@ -362,8 +362,7 @@ export default function ProgressPage() {
 
     // Read dashboard sessions and compute real skills
     try {
-      const raw = localStorage.getItem("soc_dashboard_sessions");
-      const sessions: DashboardSession[] = raw ? JSON.parse(raw) : [];
+      const sessions = getDashboardSessions() as unknown as DashboardSession[];
       setDashSessions(sessions);
       // Merge XP from dashboard sessions into activity chart
       const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

@@ -5,6 +5,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { RoomCard } from "@/components/rooms/RoomCard";
 import { ROOMS } from "@/data/rooms";
+import { getRoomProgress } from "@/lib/storage/progress";
 import { BookOpen } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -25,9 +26,11 @@ export default function RoomsPage() {
   const [filter, setFilter]     = useState<Category>("All");
 
   useEffect(() => {
+    // Read via the storage facade (Phase-1 seam): DB-backed room_progress for
+    // signed-in users, localStorage for guests — same key. Keeps the rooms-list
+    // completion/unlock state consistent with what RoomClient now writes.
     try {
-      const raw = localStorage.getItem("room_progress");
-      if (raw) setProgress(JSON.parse(raw));
+      setProgress(getRoomProgress() as AllProgress);
     } catch { /* storage blocked */ }
   }, []);
 
