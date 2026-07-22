@@ -161,9 +161,10 @@ function buildStub(lessonTitle: string, topic: string): GeneratedLesson {
 
 export async function GET(
   _req: Request,
-  { params }: { params: { slug: string } },
+  { params }: { params: Promise<{ slug: string }> },
 ) {
-  const raw = decodeURIComponent(params.slug);
+  const { slug } = await params;
+  const raw = decodeURIComponent(slug);
   const sep = raw.indexOf("--");
   if (sep === -1) {
     return NextResponse.json({ error: "Invalid slug format. Expected: {pathSlug}--{lessonSlug}" }, { status: 400 });

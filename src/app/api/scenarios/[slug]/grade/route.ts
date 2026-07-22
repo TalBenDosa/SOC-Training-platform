@@ -6,9 +6,10 @@ export const runtime = "nodejs";
 
 export async function POST(
   req: Request,
-  { params }: { params: { slug: string } },
+  { params }: { params: Promise<{ slug: string }> },
 ) {
-  const slug = decodeURIComponent(params.slug);
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
   const bundle = buildScenarioBySlug(slug);
   if (!bundle) {
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });

@@ -2,8 +2,9 @@ import { buildScenarioBySlug } from "@/lib/sim/scenarios";
 import { notFound } from "next/navigation";
 import { ScenarioClient } from "./ScenarioClient";
 
-export default function ScenarioPage({ params }: { params: { slug: string } }) {
-  const bundle = buildScenarioBySlug(params.slug);
+export default async function ScenarioPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const bundle = buildScenarioBySlug(slug);
   if (!bundle) notFound();
 
   // The narrative and the learning objectives are the debrief — they describe
@@ -28,5 +29,5 @@ export default function ScenarioPage({ params }: { params: { slug: string } }) {
     learning_objectives: [],
     threat_actor: "",
   };
-  return <ScenarioClient bundle={withheld} slug={params.slug} />;
+  return <ScenarioClient bundle={withheld} slug={slug} />;
 }

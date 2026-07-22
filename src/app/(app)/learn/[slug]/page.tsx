@@ -22,8 +22,9 @@ const kindColor: Record<string, string> = {
   simulation: "text-neon-purple border-neon-purple/30 bg-neon-purple/10",
 };
 
-export default function PathDetail({ params }: { params: { slug: string } }) {
-  const path = LESSON_PATHS.find(p => p.slug === params.slug);
+export default async function PathDetail({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const path = LESSON_PATHS.find(p => p.slug === slug);
   if (!path) notFound();
 
   const totalLessons = path.modules.reduce((n, m) => n + m.lessons.length, 0);

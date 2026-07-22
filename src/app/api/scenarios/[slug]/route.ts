@@ -28,13 +28,14 @@ import { getAuthedUser } from "@/lib/auth/apiGuard";
  * builds its bundle server-side via buildScenarioBySlug). It is kept, sanitised,
  * rather than deleted so any external or future client has a safe shape.
  */
-export async function GET(_req: Request, { params }: { params: { slug: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const user = await getAuthedUser();
   if (!user) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
 
-  const bundle = buildScenarioBySlug(params.slug);
+  const { slug } = await params;
+  const bundle = buildScenarioBySlug(slug);
   if (!bundle) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Everything the learner legitimately needs in order to investigate — and

@@ -7,12 +7,13 @@ export async function generateStaticParams() {
   return QUIZZES.map(q => ({ slug: q.slug }));
 }
 
-export default async function QuizPage({ params }: { params: { slug: string } }) {
-  const quiz = getQuiz(params.slug);
+export default async function QuizPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const quiz = getQuiz(slug);
 
   // Known built-in quiz → render server-side
   if (quiz) return <QuizClient quiz={quiz} />;
 
   // Might be an AI-generated quiz stored in localStorage — delegate to client
-  return <QuizFromStorage slug={params.slug} />;
+  return <QuizFromStorage slug={slug} />;
 }
