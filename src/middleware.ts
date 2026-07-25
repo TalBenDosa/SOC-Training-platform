@@ -33,7 +33,6 @@ const EXPENSIVE = [
   "/api/lessons/import-pptx",
   "/api/lessons/validate",
   "/api/lessons/export-pptx",
-  "/api/dashboard/ai-grade",
   "/api/dashboard/incident-report",
   "/api/admin/",
 ];
