@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2, Circle, Lock, PlayCircle } from "lucide-react";
+import { Circle, PlayCircle } from "lucide-react";
 import { LESSON_PATHS } from "@/lib/lessons/paths";
 
 const kindLabel: Record<string, string> = {
@@ -30,12 +30,10 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
   const totalLessons = path.modules.reduce((n, m) => n + m.lessons.length, 0);
   const totalXp      = path.modules.reduce((n, m) => n + m.lessons.reduce((x, l) => x + l.xp, 0), 0);
 
-  // Simulate first two lessons as "completed" so the UI shows a progress example.
-  // In production this comes from Supabase lesson_progress table.
-  const completedSlugs = new Set<string>([
-    path.modules[0]?.lessons[0]?.slug ?? "",
-  ]);
-
+  // No fabricated progress: there is no lesson-progress store yet, and this is a
+  // server component that can't read client state anyway. Showing a made-up
+  // "1/N complete · 75 XP earned" bar is exactly the fake-gamification the
+  // platform forbids — so the path renders as an honest, fully-browsable outline.
   let globalIdx = 0;
 
   return (
@@ -45,22 +43,10 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
         subtitle={`${totalLessons} lessons · ${totalXp.toLocaleString()} XP`}
       />
       <div className="container mx-auto max-w-4xl px-6 py-6 space-y-4">
-        {/* Path summary bar */}
-        <div className="rounded-lg border border-border bg-bg-elevated px-5 py-3 flex items-center gap-4 text-sm text-slate-300">
-          <span className="text-slate-400">Progress</span>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-cyber-500 to-neon-green transition-all"
-              style={{ width: `${Math.round((completedSlugs.size / totalLessons) * 100)}%` }}
-            />
-          </div>
-          <span className="font-mono text-xs text-slate-400">
-            {completedSlugs.size}/{totalLessons} complete
-          </span>
-          <span className="font-mono text-xs text-cyber-300">
-            {completedSlugs.size * 75} / {totalXp} XP earned
-          </span>
-        </div>
+        {/* Honest path summary — the Topbar already carries the lesson/XP totals. */}
+        <p className="rounded-lg border border-border bg-bg-elevated px-5 py-3 text-sm text-slate-400">
+          {totalLessons} lessons · {totalXp.toLocaleString()} XP available. Work through the modules in order — start with the first lesson below.
+        </p>
 
         {path.modules.map((m, mi) => (
           <Card key={m.slug}>
@@ -73,23 +59,18 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
             </div>
 
             <ul className="mt-3 divide-y divide-border">
-              {m.lessons.map((l, li) => {
+              {m.lessons.map((l) => {
                 const isFirst    = globalIdx === 0;
-                const isDone     = completedSlugs.has(l.slug);
-                const isLocked   = globalIdx > completedSlugs.size + 1;
                 const lessonPath = `/learn/${path.slug}/${l.slug}`;
                 globalIdx++;
 
                 return (
-                  <li key={l.slug} className={cn("flex items-center justify-between py-2.5 text-sm", isLocked && "opacity-50")}>
+                  <li key={l.slug} className="flex items-center justify-between py-2.5 text-sm">
                     <div className="flex items-center gap-3 min-w-0">
-                      {isDone  ? <CheckCircle2 className="h-4 w-4 shrink-0 text-neon-green" /> :
-                       isFirst  ? <PlayCircle   className="h-4 w-4 shrink-0 text-cyber-300"  /> :
-                       isLocked ? <Lock         className="h-4 w-4 shrink-0 text-slate-400"  /> :
-                                  <Circle       className="h-4 w-4 shrink-0 text-slate-400"  />}
-                      <span className={cn("truncate", isDone ? "text-slate-400 line-through" : "text-slate-200")}>
-                        {l.title}
-                      </span>
+                      {isFirst
+                        ? <PlayCircle className="h-4 w-4 shrink-0 text-cyber-300" />
+                        : <Circle className="h-4 w-4 shrink-0 text-slate-400" />}
+                      <span className="truncate text-slate-200">{l.title}</span>
                       <span className={cn("rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-widest shrink-0", kindColor[l.kind])}>
                         {kindLabel[l.kind]}
                       </span>
@@ -97,13 +78,11 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
                     <div className="flex items-center gap-3 text-[11px] text-slate-400 shrink-0 ml-3">
                       <span>{l.min} min</span>
                       <span className="font-mono text-cyber-300">+{l.xp} XP</span>
-                      {!isLocked && (
-                        <Link href={lessonPath}>
-                          <Button size="sm" variant={isFirst && !isDone ? "primary" : "ghost"}>
-                            {isDone ? "Review" : "Open"}
-                          </Button>
-                        </Link>
-                      )}
+                      <Link href={lessonPath}>
+                        <Button size="sm" variant={isFirst ? "primary" : "ghost"}>
+                          {isFirst ? "Start" : "Open"}
+                        </Button>
+                      </Link>
                     </div>
                   </li>
                 );
