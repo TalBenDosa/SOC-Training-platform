@@ -1077,11 +1077,11 @@ const playbookRansomware: AttackPlaybook = {
           },
           raw: withCorr(
             {
-              "cs.FileName": "DECRYPT_FILES.txt",
-              "cs.FilePath": `C:\\Users\\${victim.id}\\Documents\\`,
-              "cs.ContextProcessName": "svchost32.exe",
-              "cs.OperationType": "WRITE",
-              "cs.ContextProcessId_decimal": String(dropperPid),
+              "crowdstrike.FileName": "DECRYPT_FILES.txt",
+              "crowdstrike.FilePath": `C:\\Users\\${victim.id}\\Documents\\`,
+              "crowdstrike.ContextProcessName": "svchost32.exe",
+              "crowdstrike.OperationType": "WRITE",
+              "crowdstrike.ContextProcessId_decimal": String(dropperPid),
               "data.files_encrypted": filesEncrypted,
               "data.file_extension_changed_to": ".locked",
               "data.ransom_note_dropped": "true",

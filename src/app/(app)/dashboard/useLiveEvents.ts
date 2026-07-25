@@ -807,7 +807,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     if (raw["rule.name"]) raw["panw.panos.ruleset"] = String(raw["rule.name"]);
   }
 
-  if (event.vendor?.includes("CrowdStrike") && !raw["cs.aid"]) {
+  if (event.vendor?.includes("CrowdStrike") && !raw["crowdstrike.aid"]) {
     // Deterministic 32-hex agent id from hostname — same host, same aid, like a real Falcon sensor
     const host = event.hostname ?? "unknown-host";
     let h1 = 5381, h2 = 52711;
@@ -816,8 +816,8 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
       h2 = ((h2 << 5) ^ h2 ^ host.charCodeAt(i)) >>> 0;
     }
     const hex = (n: number) => n.toString(16).padStart(8, "0");
-    raw["cs.aid"] = `${hex(h1)}${hex(h2)}${hex(h1 ^ h2)}${hex((h1 + h2) >>> 0)}`;
-    if (event.hostname && !raw["cs.ComputerName"]) raw["cs.ComputerName"] = event.hostname;
+    raw["crowdstrike.aid"] = `${hex(h1)}${hex(h2)}${hex(h1 ^ h2)}${hex((h1 + h2) >>> 0)}`;
+    if (event.hostname && !raw["crowdstrike.ComputerName"]) raw["crowdstrike.ComputerName"] = event.hostname;
   }
 
   // ── GeoLocation — auto-fill from event.geo struct OR src_ip ─────────────

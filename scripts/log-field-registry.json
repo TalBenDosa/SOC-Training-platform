@@ -3068,6 +3068,7 @@
     },
     "crowdstrike-falcon": {
       "label": "CrowdStrike Falcon",
+      "sourceNote": "CommandLine/ComputerName/ContextProcessName/ParentProcessName/FileName/FilePath/UserName/OperationType/aid and the *_decimal PID fields are genuine CrowdStrike Falcon Detection Summary / FDR (Falcon Data Replicator) raw sensor-event field names; FDR stores both a hex PID and a matching '<Field>_decimal' companion (ContextProcessId_decimal, TargetProcessId_decimal). Added 2026-07-25 replacing an invented 'cs.*' namespace with this codebase's established 'crowdstrike.*' prefix (already used pervasively elsewhere in the corpus, e.g. crowdstrike.HostName, crowdstrike.CommandLine in src/data/rooms-batch-06/07/09.ts).",
       "aliases": [
         "CrowdStrike",
         "CrowdStrike EDR",
@@ -3099,14 +3100,25 @@
         "authentication.status",
         "authentication.substatus",
         "autorun.key",
+        "crowdstrike.CommandLine",
+        "crowdstrike.ComputerName",
+        "crowdstrike.ContextProcessId_decimal",
+        "crowdstrike.ContextProcessName",
         "crowdstrike.DetectName",
+        "crowdstrike.FileName",
+        "crowdstrike.FilePath",
         "crowdstrike.IncidentType",
         "crowdstrike.Objective",
+        "crowdstrike.OperationType",
+        "crowdstrike.ParentProcessName",
         "crowdstrike.PatternDispositionDescription",
         "crowdstrike.SensorId",
         "crowdstrike.SeverityName",
         "crowdstrike.Tactic",
+        "crowdstrike.TargetProcessId_decimal",
         "crowdstrike.Technique",
+        "crowdstrike.UserName",
+        "crowdstrike.aid",
         "destination.domain",
         "destination.hostname",
         "destination.ip",
@@ -7962,6 +7974,7 @@
     },
     "microsoft-sentinel": {
       "label": "Microsoft Sentinel",
+      "sourceNote": "AlertName/AlertSeverity are genuine top-level columns of the Microsoft Sentinel/Log Analytics 'SecurityAlert' table. ExtendedProperties is that same table's real column for rule-specific data — Microsoft's own docs describe it as a dynamic/free-form JSON bag ('additional properties that are relevant to the alert'), and built-in analytics rules populate it with rule-author-chosen keys (e.g. 'Query', 'Search Query Results Overall Count'). Because the sub-keys are inherently rule-defined, any 'ExtendedProperties.<Name>' key is a legitimate representation of a Sentinel analytics-rule alert — this is not a fabricated fixed schema. Added 2026-07-25 replacing an invented 'siem.*' namespace that did not correspond to any real Sentinel field.",
       "aliases": [
         "Azure Sentinel",
         "Microsoft Sentinel",
@@ -7973,6 +7986,8 @@
         "AbnormalDataTransfer",
         "ActionUncommonlyPerformedByUser",
         "ActionUncommonlyPerformedInTenant",
+        "AlertName",
+        "AlertSeverity",
         "AnonymousIPAccess",
         "AtypicalTravel",
         "CountryUncommonlyConnectedFrom",
@@ -8028,6 +8043,7 @@
         "cloud.account.id",
         "cloud.provider",
         "cloud.resource.name",
+        "destination.domain",
         "destination.hostname",
         "destination.ip",
         "destination.port",
@@ -8119,7 +8135,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "ExtendedProperties."
+      ]
     },
     "microsoft-sql-audit": {
       "label": "Microsoft SQL Server Audit",
