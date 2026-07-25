@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star } from "lucide-react";
-import { rankForXp } from "@/lib/progression/ranks";
+import { rankForXp, type Rank } from "@/lib/progression/ranks";
 import { getTotalXp } from "@/lib/storage/progress";
+import { useFullName } from "@/lib/auth/useFullName";
+import { RankCertificateModal } from "@/components/certificate/RankCertificateModal";
 
 /**
  * The "earn moment": nothing ever celebrated crossing a rank threshold — the
@@ -35,8 +37,13 @@ function rankLabel(xp: number): string {
 export function EarnMoment() {
   const [mounted, setMounted] = useState(false);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+  // The promotion that should raise a certificate. Held separately from the
+  // toast so the two lifetimes are independent: the toast auto-hides, the
+  // certificate modal stays until dismissed.
+  const [certRank, setCertRank] = useState<{ rank: Rank; xp: number } | null>(null);
   const lastRankId = useRef<string | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const name = useFullName();
 
   useEffect(() => {
     setMounted(true);
@@ -49,6 +56,9 @@ export function EarnMoment() {
       // XP only ever increases, so any rank-id change is a promotion.
       if (lastRankId.current && rank.id !== lastRankId.current) {
         show({ title: "Rank Up!", sub: rankLabel(xp) });
+        // Student is the entry rank (0 XP) — you are never promoted INTO it, so
+        // every real promotion earns a certificate.
+        if (rank.id !== "student") setCertRank({ rank, xp });
       }
       lastRankId.current = rank.id;
     }, 1500);
@@ -68,7 +78,17 @@ export function EarnMoment() {
 
   if (!mounted) return null;
 
-  return createPortal(
+  return (
+    <>
+      {certRank && (
+        <RankCertificateModal
+          rank={certRank.rank}
+          xp={certRank.xp}
+          name={name}
+          onClose={() => setCertRank(null)}
+        />
+      )}
+      {createPortal(
     <AnimatePresence>
       {celebration && (
         <motion.div
@@ -97,5 +117,7 @@ export function EarnMoment() {
       )}
     </AnimatePresence>,
     document.body
+      )}
+    </>
   );
 }

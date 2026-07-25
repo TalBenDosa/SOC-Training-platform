@@ -16,6 +16,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [handle, setHandle] = useState("");
+  const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -80,15 +81,22 @@ export default function SignupPage() {
       return;
     }
 
+    // Metadata read by the handle_new_user() trigger, which RE-VALIDATES it
+    // before use — these values are user-supplied and arrive unverified. The
+    // full name becomes profiles.display_name and is what a certificate prints;
+    // both fields are optional, so an empty object degrades to today's behaviour.
+    const metadata: Record<string, string> = {};
+    if (normalisedHandle) metadata.handle = normalisedHandle;
+    const trimmedName = fullName.trim();
+    if (trimmedName) metadata.full_name = trimmedName;
+
     setSubmitting(true);
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
-        // Read by the handle_new_user() trigger, which RE-VALIDATES it before
-        // use — this value is user-supplied and arrives unverified.
-        data: normalisedHandle ? { handle: normalisedHandle } : undefined,
+        data: Object.keys(metadata).length ? metadata : undefined,
       },
     });
     setSubmitting(false);
@@ -178,6 +186,21 @@ export default function SignupPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="signup-fullname" className="mb-1.5 block text-xs font-semibold text-slate-400">
+            Full name <span className="font-normal text-slate-400">(optional)</span>
+          </label>
+          <input
+            id="signup-fullname"
+            type="text" autoComplete="name" value={fullName} maxLength={60}
+            onChange={e => setFullName(e.target.value)}
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            placeholder="e.g. Tal Ben Dosa"
+          />
+          <p className="mt-1 text-[11px] text-slate-400">
+            Printed on the rank certificates you earn. Your nickname stays your public handle.
+          </p>
+        </div>
         <div>
           <div className="mb-1.5 flex items-baseline justify-between">
             <label htmlFor="signup-handle" className="text-xs font-semibold text-slate-400">
