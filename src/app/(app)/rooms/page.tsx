@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { RoomCard } from "@/components/rooms/RoomCard";
 import { ROOMS } from "@/data/rooms";
 import { getRoomProgress } from "@/lib/storage/progress";
+import { isRoomLocked, recommendNextRoom } from "@/lib/rooms/recommend";
 import { BookOpen } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -34,51 +35,19 @@ export default function RoomsPage() {
     } catch { /* storage blocked */ }
   }, []);
 
-  // A room unlocks only once every prerequisite room has been PASSED
-  // (completedAt set — a failed/retry-pending attempt does not count). Rooms
-  // with no prerequisites (the beginner on-ramp) are always open. This makes
-  // the authored prerequisite chains actually shape the learner's path — and
-  // makes the landing page's "prerequisites unlock in order" promise true.
-  function isLocked(roomId: string): boolean {
-    const room = ROOMS.find(r => r.id === roomId);
-    if (!room || room.prerequisites.length === 0) return false;
-    return !room.prerequisites.every(prereqId => !!progress[prereqId]?.completedAt);
-  }
+  // Prerequisite gating + "recommended next" now come from the SHARED
+  // src/lib/rooms/recommend.ts, so the rooms list and the Room-Complete screen
+  // can never disagree about what is locked or what to do next.
+  const isLocked = (roomId: string) => isRoomLocked(roomId, progress);
 
   const filtered = ROOMS.filter(r => filter === "All" || r.category === filter);
 
   const totalCompleted = ROOMS.filter(r => !!progress[r.id]?.completedAt).length;
   const totalXp        = Object.values(progress).reduce((sum, p) => sum + (p.xpEarned ?? 0), 0);
 
-  // The one room to point a learner at. Rank unlocked, not-yet-passed rooms by
-  // PREREQUISITE DEPTH (how deep in the chain they sit), not file order — so a
-  // shallow foundational room (e.g. analyst-mindset, gated only on soc-structure)
-  // surfaces before dozens of intermediate/advanced rooms that merely appear
-  // earlier in the array. Prefer a room the learner already started ("Continue")
-  // over a brand-new one ("Start here"); tie-break by difficulty then file order.
-  const depthMemo = new Map<string, number>();
-  function prereqDepth(roomId: string): number {
-    const room = ROOMS.find(r => r.id === roomId);
-    if (!room || room.prerequisites.length === 0) return 0;
-    if (depthMemo.has(roomId)) return depthMemo.get(roomId)!;
-    depthMemo.set(roomId, 0); // cycle guard
-    const d = 1 + Math.max(...room.prerequisites.map(prereqDepth));
-    depthMemo.set(roomId, d);
-    return d;
-  }
-  const DIFF_RANK: Record<string, number> = { beginner: 0, intermediate: 1, advanced: 2 };
-  const available = ROOMS.filter(r => !progress[r.id]?.completedAt && !isLocked(r.id));
-  const started   = available.filter(r => (progress[r.id]?.completedTaskIds?.length ?? 0) > 0);
-  const recommendedRoom = (started.length > 0 ? started : available)
-    .slice()
-    .sort((a, b) =>
-      (prereqDepth(a.id) - prereqDepth(b.id)) ||
-      ((DIFF_RANK[a.difficulty] ?? 1) - (DIFF_RANK[b.difficulty] ?? 1)) ||
-      (ROOMS.indexOf(a) - ROOMS.indexOf(b)),
-    )[0] ?? null;
-  const recommendedStarted = recommendedRoom
-    ? (progress[recommendedRoom.id]?.completedTaskIds?.length ?? 0) > 0
-    : false;
+  const rec = recommendNextRoom(progress);
+  const recommendedRoom = rec?.room ?? null;
+  const recommendedStarted = rec?.started ?? false;
 
   return (
     <div>

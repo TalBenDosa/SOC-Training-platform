@@ -14,7 +14,12 @@ const rooms = [
     estimatedMinutes: 45,
     xp: 185,
     icon: "🔑",
-    prerequisites: ["windows-event-logs"],
+    // identity-basics teaches authn-vs-authz, MFA, sessions/tokens — the ground
+    // this room assumes. It was authored later (batch 21) and never wired in as a
+    // prerequisite, so a learner could hit password-spray/Kerberos monitoring
+    // without the identity foundations. (identity-basics itself only needs
+    // intro-cybersecurity, so this adds no deep lock.)
+    prerequisites: ["windows-event-logs", "identity-basics"],
     tasks: [
       // ── Reading 1 ──────────────────────────────────────────────
       {

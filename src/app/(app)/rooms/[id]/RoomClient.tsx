@@ -11,6 +11,7 @@ import {
 import type { Room, RoomTask } from "@/data/rooms";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { addTotalXp, getRoomProgress, saveRoomProgress } from "@/lib/storage/progress";
+import { recommendNextRoom } from "@/lib/rooms/recommend";
 
 // A room must score at least this fraction of its gradeable XP to count as
 // passed. Below this, the student must retry the room from the start — a
@@ -241,12 +242,26 @@ export function RoomClient({ room }: RoomClientProps) {
             <p className="text-xl font-bold text-neon-green">{scorePct}%</p>
             <p className="text-[10px] text-slate-400 mt-0.5">Passed — {Math.round(ROOM_PASS_THRESHOLD * 100)}% required</p>
           </div>
-          <div className="flex flex-col gap-2">
-            <Button variant="primary" size="lg" className="w-full" onClick={() => router.push("/rooms")}>
-              <ArrowLeft className="h-4 w-4" />
-              Back to Rooms
-            </Button>
-          </div>
+          {(() => {
+            // Reuse the SAME recommender the rooms list uses, so the next step
+            // offered here matches what a learner would pick from the list —
+            // closing the "Room Complete → dead end" gap at peak momentum.
+            const nextRec = recommendNextRoom(getRoomProgress(), room.id);
+            return (
+              <div className="flex flex-col gap-2">
+                {nextRec && (
+                  <Button variant="primary" size="lg" className="w-full" onClick={() => router.push(`/rooms/${nextRec.room.id}`)}>
+                    {nextRec.started ? "Continue" : "Next"}: {nextRec.room.title}
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button variant={nextRec ? "outline" : "primary"} size="lg" className="w-full" onClick={() => router.push("/rooms")}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Rooms
+                </Button>
+              </div>
+            );
+          })()}
         </div>
       </div>
     );

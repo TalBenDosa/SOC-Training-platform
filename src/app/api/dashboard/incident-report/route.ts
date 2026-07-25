@@ -73,7 +73,7 @@ function analyseIndicators(summary: string, real: string[]) {
 
 // ── Heuristic fallback ────────────────────────────────────────────────────────
 
-function heuristicGrade(req: IncidentReportRequest): IncidentReportResponse {
+function heuristicGrade(req: IncidentReportRequest, note?: string): IncidentReportResponse {
   const { summary, attackTitle, realIndicators = [] } = req;
   const t = summary.trim().toLowerCase();
 
@@ -148,11 +148,14 @@ function heuristicGrade(req: IncidentReportRequest): IncidentReportResponse {
   if (!hasAction) gaps.push("Missing: state what action to take (isolate host, block IP, reset credentials, escalate).");
   if (!hasImpact) gaps.push("Missing: explain the business risk or potential impact.");
 
-  const feedback = passed
+  const base = passed
     ? `Report passed — score ${score}/100. You identified the attack and backed it with real evidence.`
     : hasFabrication
       ? `Report scored ${score}/100 — below the 60-point threshold. ${gaps[0]}`
       : `Report scored ${score}/100 — below 60. ${gaps[0] ?? "Add the specific attack technique, real indicators, and a response action."}`;
+  // The heuristic is keyword-based and gameable; when it's standing in for the
+  // real AI grader, say so, so the score isn't mistaken for full AI feedback.
+  const feedback = note ? `${base}\n\n${note}` : base;
 
   return { score, passed, feedback, strengths, gaps };
 }
@@ -238,7 +241,8 @@ export async function POST(req: Request) {
   // can't run up the AI bill. Guests still get a full (heuristic) grade.
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !(await getAuthedUser())) {
-    return NextResponse.json(heuristicGrade(body));
+    return NextResponse.json(heuristicGrade(body,
+      "Note: this is a basic automatic score. Full AI analyst feedback is available when signed in on a deployment with AI grading configured."));
   }
 
   try {
@@ -257,6 +261,7 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (err) {
     console.error("[incident-report]", err);
-    return NextResponse.json(heuristicGrade(body));
+    return NextResponse.json(heuristicGrade(body,
+      "Note: the AI grader was temporarily unavailable, so this is a basic automatic score."));
   }
 }

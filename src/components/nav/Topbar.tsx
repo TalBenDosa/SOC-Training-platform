@@ -38,16 +38,21 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
       : `${rank.label} — ${rank.blurb}\n\nTop rank reached.`
     : undefined;
 
+  // pl-16 on mobile leaves a safe zone for the fixed hamburger (Sidebar, drawer
+  // mode) so it never overlaps the title; lg screens have a persistent sidebar
+  // and no hamburger, so revert to px-6.
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-bg/80 px-6 py-3 backdrop-blur">
-      <div className="flex flex-1 items-center gap-4">
+    <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-bg/80 py-3 pl-16 pr-4 backdrop-blur lg:px-6">
+      <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2">
         {title && (
           <div>
             <h1 className="text-lg font-semibold text-white">{title}</h1>
             {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
           </div>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        {/* flex-wrap so the dashboard's action buttons wrap to a second row on
+            narrow screens instead of overflowing the viewport horizontally. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {actions}
           <span
             className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-1.5"
