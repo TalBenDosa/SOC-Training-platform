@@ -198,7 +198,10 @@ export function IncidentReportModal({
                 <p className="text-[10px] text-slate-400 leading-relaxed">
                   Describe: <span className="text-slate-300">what attack occurred</span> · <span className="text-slate-300">which <Term k="ioc">IOCs</Term> from the logs prove it (real IPs, users, hosts — quote them exactly)</span> · <span className="text-slate-300">what action to take</span> · <span className="text-slate-300">business impact</span>
                 </p>
-                <p className="mt-2 text-[10px] text-slate-400">
+                {/* Only true on lg+ where the drawer is 480px and the feed sits
+                    beside it. On mobile the drawer is full-width and covers the
+                    feed, so this promise would be false — hide it there. */}
+                <p className="mt-2 hidden text-[10px] text-slate-400 lg:block">
                   The feed stays live beside you — click any row to re-read its raw fields while you write.
                 </p>
               </div>

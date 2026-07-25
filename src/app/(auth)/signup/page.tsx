@@ -234,7 +234,18 @@ export default function SignupPage() {
           />
         </div>
         <div>
-          <label htmlFor="signup-confirm" className="mb-1.5 block text-xs font-semibold text-slate-400">Confirm password</label>
+          <div className="mb-1.5 flex items-baseline justify-between">
+            <label htmlFor="signup-confirm" className="text-xs font-semibold text-slate-400">Confirm password</label>
+            {/* Live match feedback — mirrors the nickname field, so a mismatch is
+                caught while typing instead of only on submit. */}
+            {confirm !== "" && (
+              password === confirm ? (
+                <span className="flex items-center gap-1 text-[11px] text-neon-green"><Check className="h-3 w-3" /> match</span>
+              ) : (
+                <span className="flex items-center gap-1 text-[11px] text-severity-high"><X className="h-3 w-3" /> no match yet</span>
+              )
+            )}
+          </div>
           <input
             id="signup-confirm"
             type="password" required autoComplete="new-password" value={confirm}

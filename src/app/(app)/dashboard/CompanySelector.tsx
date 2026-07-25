@@ -76,10 +76,14 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
         {/* Company grid */}
         <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3 max-h-[65vh] overflow-y-auto">
-          {COMPANY_PROFILES.map((c) => {
+          {COMPANY_PROFILES.map((c, idx) => {
             const isActive  = c.id === currentId;
             const isLocked  = unlockedIds ? !unlockedIds.includes(c.id) : false;
             const isCleared = clearedIds?.includes(c.id) ?? false;
+            // A company unlocks when its predecessor is cleared, so name it —
+            // a bare lock icon (unlike RoomCard's "Complete X first") left the
+            // learner guessing what to do next.
+            const prevCompany = idx > 0 ? COMPANY_PROFILES[idx - 1] : null;
 
             return (
               <button
@@ -114,8 +118,13 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
                 {/* Lock overlay */}
                 {isLocked && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-xl">
-                    <Lock className="h-8 w-8 text-slate-400" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl px-4 text-center">
+                    <Lock className="h-7 w-7 text-slate-400" />
+                    {prevCompany && (
+                      <p className="text-[10px] font-medium text-slate-300">
+                        Secure <span className="text-white">{prevCompany.name}</span> first
+                      </p>
+                    )}
                   </div>
                 )}
 
