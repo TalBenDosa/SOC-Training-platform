@@ -96,7 +96,11 @@ const logManagement: Room = {
   estimatedMinutes: 35,
   xp: 185,
   icon: "📂",
-  prerequisites: ["linux-log-analysis"],
+  // "No prior cybersecurity knowledge required" (see description) — so it must NOT
+  // sit behind linux-log-analysis (intermediate: SSH brute-force, auditd, cron
+  // persistence). That inversion forced a beginner to analyse Linux logs before
+  // the room that teaches what a log even is. Gate on the entry room only.
+  prerequisites: ["intro-cybersecurity"],
   tasks: [
     // ----- Reading 1: What is a log? ----------------------------------------
     {

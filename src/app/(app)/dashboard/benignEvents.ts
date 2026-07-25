@@ -614,7 +614,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_email_replyto_mismatch", ts: T(14), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_received", severity: "medium",
-    user_email: "j.chen@nexacorp.com", user_title: "Finance Manager",
+    user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
     src_ip: "45.142.212.100",
     description: "Email from 'NexaCorp HR <hr@nexacorp.com>' delivered — Reply-To points to external Gmail address",
     fp_explanation: "The From address looks internal but the Reply-To is an external Gmail. This is a classic BEC precursor — legitimate HR emails never route replies to personal accounts.",
@@ -1060,7 +1060,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mdo_phish_delivered", ts: T(71), source: "o365", vendor: "Microsoft Defender for Office 365",
     event_type: "email_received", severity: "high",
-    hostname: undefined, user_email: "j.chen@nexacorp.com", user_title: "Finance Manager",
+    hostname: undefined, user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
     src_ip: "89.44.13.218",
     mitre_technique: "T1566.001",
     description: "Phishing email with macro-enabled attachment delivered to inbox — not caught by automated filters",

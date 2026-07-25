@@ -57,14 +57,8 @@ export const fmtBytes = (n?: number) => {
 
 export const truncate = (s: string, n = 64) => s.length > n ? s.slice(0, n - 1) + "…" : s;
 
-export const xpForLevel = (lvl: number) => lvl * 1000;
-export const levelFromXp = (xp: number) => Math.min(99, Math.floor(xp / 1000) + 1);
-export const rankFromXp = (xp: number): string => {
-  if (xp <  1000) return "Recruit";
-  if (xp <  3000) return "Tier 1 Analyst";
-  if (xp <  7000) return "Tier 2 Analyst";
-  if (xp < 15000) return "Tier 3 Analyst";
-  if (xp < 30000) return "Threat Hunter";
-  if (xp < 60000) return "IR Lead";
-  return "SOC Architect";
-};
+// NOTE: the old xpForLevel / levelFromXp / rankFromXp lived here — a SECOND,
+// arbitrary xp/1000 rank system that disagreed with the calibrated ladder in
+// lib/progression/ranks.ts. They caused the Topbar and the "Rank Up!" toast to
+// show different ranks for the same XP, and were removed. Use rankForXp() from
+// lib/progression/ranks.ts as the single source of truth for rank/level.

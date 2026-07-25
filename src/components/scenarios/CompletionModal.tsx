@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { ShieldCheck, ShieldX, Trophy, RotateCcw, ArrowRight, Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { levelFromXp, xpForLevel } from "@/lib/utils";
+import { useDisplayName } from "@/lib/auth/useDisplayName";
 
 export interface GradeResult {
   score: number;
@@ -65,6 +65,10 @@ function ScoreBar({ score }: { score: number }) {
 
 export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onClose }: Props) {
   const [downloading, setDownloading] = useState(false);
+  // The certificate must carry the SIGNED-IN learner's name — it was hardcoded
+  // to a single real person's name, so every certificate anyone generated bore
+  // that name. Falls back to the email local part / "analyst" for guests.
+  const analystName = useDisplayName();
   const totalXp = result.xpEarned + result.timeBonusXp;
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
@@ -134,7 +138,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(28);
       pdf.setTextColor(255, 255, 255);
-      pdf.text("Tal Ben Dosa", W / 2, 88, { align: "center" });
+      pdf.text(analystName, W / 2, 88, { align: "center" });
 
       // Name underline
       pdf.setDrawColor(100, 116, 139);      // slate-500

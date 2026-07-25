@@ -9,8 +9,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-import { RANKS } from "@/lib/progression/ranks";
-import { levelFromXp, xpForLevel, rankFromXp } from "@/lib/utils";
+import { RANKS, rankForXp, nextRank, rankProgress } from "@/lib/progression/ranks";
 import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake } from "lucide-react";
 import Link from "next/link";
 import { ROOMS } from "@/data/rooms";
@@ -36,8 +35,6 @@ interface ScenarioRecord {
 // ─── Static data (non-persisted) ─────────────────────────────────────────────
 
 const BASE_USER = {
-  displayName: "Tal Ben Dosa",
-  handle: "tal.bendosa",
   streak: 0,
   badgesEarned: 1,
 };
@@ -214,8 +211,8 @@ function computeBadges(
     badges.push({ name: "Portfolio Defender", tier: "gold", desc: "Secured 3 or more companies" });
   if (sessions.some(s => s.detectRate >= 80))
     badges.push({ name: "Sharp Eye", tier: "silver", desc: "Finished a session catching 80%+ of the attacks presented" });
-  if (levelFromXp(totalXp) >= 5)
-    badges.push({ name: "Level 5 Analyst", tier: "gold", desc: "Reached level 5" });
+  if (rankForXp(totalXp).minXp >= 5000)
+    badges.push({ name: "Made Analyst", tier: "gold", desc: "Reached the Analyst rank (Tier 1)" });
   return badges;
 }
 
@@ -227,38 +224,52 @@ const RANK_LADDER = RANKS.map(r => ({ name: `${r.label} (${r.tier})`, xp: r.minX
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+// Uses the CANONICAL rank ladder (lib/progression/ranks.ts) — the same one the
+// Topbar, the EarnMoment toast and the Rank Progression ladder below all use, so
+// this header can never disagree with them. (It previously used a separate
+// xp/1000 "level" system from lib/utils.ts.)
 function XpLevel({ xp }: { xp: number }) {
-  const level      = levelFromXp(xp);
-  const thisLvlXp  = xpForLevel(level - 1);
-  const nextLvlXp  = xpForLevel(level);
-  const progress   = ((xp - thisLvlXp) / (nextLvlXp - thisLvlXp)) * 100;
-  const rank       = rankFromXp(xp);
+  const rank = rankForXp(xp);
+  const next = nextRank(xp);
+  const prog = rankProgress(xp);            // null at top rank
+  const rankName = rank.tier.startsWith("tier-")
+    ? `${rank.label} · ${rank.tier.replace("tier-", "Tier ")}`
+    : rank.label;
 
   return (
     <Card className="border-cyber-500/30 bg-gradient-to-br from-cyber-500/5 to-neon-purple/5">
       <div className="flex items-center gap-5">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-cyber-500/40 bg-cyber-500/10 font-mono text-2xl font-bold text-cyber-300">
-          {level}
+        <div className={cn("flex h-16 w-16 items-center justify-center rounded-full border-2 bg-cyber-500/10 text-3xl font-bold", rank.accent.ring, rank.accent.text)}>
+          {rank.glyph}
         </div>
         <div className="flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-cyber-300">Level {level} — {rank}</p>
+          <p className={cn("text-[10px] font-semibold uppercase tracking-widest", rank.accent.text)}>{rankName}</p>
           <div className="mt-2 flex items-center gap-3">
             <Star className="h-5 w-5 text-severity-medium" />
             <span className="font-mono text-3xl font-bold text-white">{xp.toLocaleString()} XP</span>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-            <span>{thisLvlXp.toLocaleString()} XP</span>
-            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyber-500 to-neon-green transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span>{nextLvlXp.toLocaleString()} XP</span>
-          </div>
-          <p className="mt-0.5 text-[10px] text-slate-400">
-            {nextLvlXp - xp} XP to Level {level + 1}
-          </p>
+          {prog && next ? (
+            <>
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                <span>{rank.minXp.toLocaleString()}</span>
+                <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg">
+                  <div
+                    className={cn("h-full rounded-full transition-all", rank.accent.bar)}
+                    style={{ width: `${prog.pct}%` }}
+                  />
+                </div>
+                <span>{next.minXp.toLocaleString()}</span>
+              </div>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                {(next.minXp - xp).toLocaleString()} XP to {next.label}
+                {next.tier.startsWith("tier-") ? ` · ${next.tier.replace("tier-", "Tier ")}` : ""}
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-neon-amber">
+              Top rank reached — Senior Analyst
+            </p>
+          )}
         </div>
       </div>
     </Card>
