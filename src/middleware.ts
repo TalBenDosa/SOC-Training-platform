@@ -4,6 +4,7 @@ import { checkRateLimit } from "@/lib/security/rateLimit";
 import { refreshSupabaseSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "@/lib/supabase/config";
+import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 
 /**
  * Edge middleware — two responsibilities, composed:
@@ -80,8 +81,8 @@ function isPublicApi(pathname: string): boolean {
  * separately in refreshSupabaseSession(), and every admin route calls
  * requireAdmin(), which fails closed when there is no auth backend.
  */
-async function hasValidSession(req: NextRequest): Promise<boolean> {
-  if (!isSupabaseConfigured) return true;
+async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null }> {
+  if (!isSupabaseConfigured) return { authed: true, orgId: null };
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
     cookies: {
       getAll() { return req.cookies.getAll(); },
@@ -89,7 +90,11 @@ async function hasValidSession(req: NextRequest): Promise<boolean> {
     },
   });
   const { data: { user } } = await supabase.auth.getUser();
-  return !!user;
+  if (!user) return { authed: false, orgId: null };
+  // Read the tenant from the (validated) session so expensive routes can be
+  // budgeted per-org. Absent pre-migration → no org limit, unchanged behaviour.
+  const { data: { session } } = await supabase.auth.getSession();
+  return { authed: true, orgId: decodeOrgClaim(session?.access_token).orgId };
 }
 
 export async function middleware(req: NextRequest) {
@@ -119,9 +124,21 @@ export async function middleware(req: NextRequest) {
     // its full answer key to anonymous callers. This flips the default — a new
     // route is closed unless its prefix is listed below.
     if (!isPublicApi(pathname)) {
-      const authed = await hasValidSession(req);
+      const { authed, orgId } = await getApiAuth(req);
       if (!authed) {
         return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+      }
+      // Per-ORG budget guard on expensive (paid-LLM) routes: a whole college's
+      // students share one pool, so one tenant can't drain another's spend even
+      // though each student is under the per-IP limit. 60/min per org.
+      if (expensive && orgId) {
+        const orgCheck = await checkRateLimit(`xorg:${orgId}`, 60, windowMs);
+        if (!orgCheck.ok) {
+          return NextResponse.json(
+            { error: "Your organisation is sending requests too quickly — please wait a moment." },
+            { status: 429, headers: { "Retry-After": String(orgCheck.retryAfter) } },
+          );
+        }
       }
     }
 

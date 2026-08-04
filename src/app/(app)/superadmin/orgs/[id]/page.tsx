@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft, Loader2, Users, Trophy, Activity, Target, DoorOpen, Trash2, UserPlus, X, AlertTriangle,
-  Link2, Copy, Check, Globe,
+  Link2, Copy, Check, Globe, Download,
 } from "lucide-react";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
 
@@ -268,10 +268,16 @@ export default function OrgDetailPage() {
               )}
             </Card>
 
-            {/* Danger */}
+            {/* Offboard / danger */}
             <Card className="border-severity-high/30">
-              <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-severity-high"><Trash2 className="h-4 w-4" /> Delete organization</h2>
-              <p className="mb-3 text-xs text-slate-400">Permanently removes the org and its memberships. Type <span className="font-mono text-white">{org.name}</span> to confirm.</p>
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-white">Offboarding</h2>
+              <p className="mb-3 text-xs text-slate-400">Export the college&apos;s data before removing it, then hand them the file.</p>
+              <a href={`/api/superadmin/orgs/${id}/export`} download
+                className="mb-5 inline-flex items-center gap-2 rounded-lg border border-border bg-bg px-3.5 py-2 text-xs font-bold text-slate-200 transition hover:text-white">
+                <Download className="h-4 w-4" /> Export data (JSON)
+              </a>
+              <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-severity-high"><Trash2 className="h-4 w-4" /> Delete organization</h3>
+              <p className="mb-3 text-xs text-slate-400">Deletes the org and its learner data; accounts are re-homed as unaffiliated. Type <span className="font-mono text-white">{org.name}</span> to confirm.</p>
               <div className="flex flex-wrap items-center gap-2">
                 <input className={`${field} max-w-xs`} value={confirmName} onChange={e => setConfirmName(e.target.value)} placeholder={org.name} aria-label="Confirm org name" />
                 <Button variant="outline" size="sm" disabled={confirmName !== org.name} onClick={deleteOrg}

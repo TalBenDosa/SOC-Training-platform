@@ -113,7 +113,14 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "The internal org cannot be deleted." }, { status: 400 });
   }
 
-  const { error } = await admin.from("organizations").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Atomic purge: deletes the college's learner data, re-homes its accounts to
+  // the internal org (so logins survive), then removes the org. Export first.
+  const { error } = await admin.rpc("purge_org", { p_org: id });
+  if (error) {
+    if (error.message.includes("cannot_purge_internal")) {
+      return NextResponse.json({ error: "The internal org cannot be deleted." }, { status: 400 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
