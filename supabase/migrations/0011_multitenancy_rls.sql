@@ -99,7 +99,26 @@ alter table public.profiles drop constraint if exists profiles_handle_key;
 create unique index if not exists profiles_org_handle_uidx
   on public.profiles (org_id, lower(handle));
 
--- ── 5. audit_log stays deny-all-client (0007) — service-role only. ──────────
+-- ── 5. Org tables — client reads scoped to own org; writes service-role only ─
+-- Without this, PostgREST would expose every organization/org_members row to any
+-- authenticated user (a cross-tenant leak of names, seats, rosters). Members may
+-- READ only their own org; all writes go through the service-role console.
+alter table public.organizations enable row level security;
+drop policy if exists "organizations read own" on public.organizations;
+create policy "organizations read own" on public.organizations
+  for select using (id = public.current_org());
+
+alter table public.org_members enable row level security;
+drop policy if exists "org_members read own org" on public.org_members;
+create policy "org_members read own org" on public.org_members
+  for select using (org_id = public.current_org());
+
+-- Invitations are handled entirely by SECURITY DEFINER functions (resolve /
+-- signup trigger) and the service-role console — no direct client access.
+alter table public.invitations enable row level security;
+revoke all on public.invitations from anon, authenticated;
+
+-- ── 6. audit_log stays deny-all-client (0007) — service-role only. ──────────
 -- org_id (added in 0010) is used only for per-tenant filtering in the
 -- super-admin console, which runs with the service role.
 

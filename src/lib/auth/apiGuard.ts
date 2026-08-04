@@ -31,6 +31,8 @@ export interface AuthedUser {
   role: string;
   /** Tenant context from the JWT (multi-tenancy). Null until the org hook is live. */
   orgId: string | null;
+  /** The org's name (from the JWT claim), for display. */
+  orgName: string | null;
   /** Org-scoped role: 'org_admin' | 'instructor' | 'student' | null. */
   orgRole: string | null;
   /** Platform super-admin (cross-org). From the JWT claim; false pre-migration. */
@@ -55,13 +57,14 @@ export async function getAuthedUser(): Promise<AuthedUser | null> {
   // The org context lives in the token claims (stamped by the access-token
   // hook), not in a column — reading it here is safe before the migration lands.
   const { data: { session } } = await supabase.auth.getSession();
-  const { orgId, orgRole, isPlatformAdmin } = decodeOrgClaim(session?.access_token);
+  const { orgId, orgName, orgRole, isPlatformAdmin } = decodeOrgClaim(session?.access_token);
 
   return {
     id: user.id,
     email: user.email ?? null,
     role: profile?.role ?? "analyst",
     orgId,
+    orgName,
     orgRole,
     isPlatformAdmin,
   };

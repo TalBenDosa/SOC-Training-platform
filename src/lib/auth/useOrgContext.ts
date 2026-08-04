@@ -13,7 +13,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "./AuthContext";
 import { decodeOrgClaim, type OrgClaim } from "./orgClaim";
 
-const EMPTY: OrgClaim = { orgId: null, orgRole: null, isPlatformAdmin: false, orgActive: null };
+const EMPTY: OrgClaim = { orgId: null, orgName: null, orgRole: null, isPlatformAdmin: false, orgActive: null };
 
 export function useOrgContext(): OrgClaim & { loading: boolean } {
   const { user } = useAuth();

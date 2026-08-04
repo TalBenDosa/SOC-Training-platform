@@ -82,6 +82,14 @@ export async function PATCH(req: Request, { params }: Ctx) {
       raw.map(d => String(d).trim().toLowerCase().replace(/^@/, "")).filter(d => /^[^@\s]+\.[^@\s]+$/.test(d)),
     )];
   }
+  if (body.branding !== undefined && body.branding && typeof body.branding === "object") {
+    const b = body.branding as Record<string, unknown>;
+    const branding: Record<string, string> = {};
+    // Accept a hex accent colour and an https logo URL only.
+    if (typeof b.color === "string" && /^#[0-9a-fA-F]{6}$/.test(b.color)) branding.color = b.color;
+    if (typeof b.logo_url === "string" && /^https:\/\/\S+$/.test(b.logo_url)) branding.logo_url = b.logo_url.slice(0, 500);
+    patch.branding = branding;
+  }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data: org, error } = await admin.from("organizations").update(patch).eq("id", id).select().single();

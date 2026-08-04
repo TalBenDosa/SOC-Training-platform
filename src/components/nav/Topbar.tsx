@@ -15,12 +15,14 @@
 // lib/progression/ranks.ts, and updates the moment XP is awarded.
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
+import { useBranding } from "@/lib/auth/useBranding";
 import { useRank } from "@/lib/progression/useRank";
 import { initialFor } from "@/lib/progression/ranks";
 
 export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: string; actions?: React.ReactNode }) {
   const { user } = useAuth();
   const { rank, next, progress, ready } = useRank();
+  const branding = useBranding();
 
   const displayName = useDisplayName();
   // Initial follows the displayed name, so the bubble and the label agree.
@@ -53,6 +55,17 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
         {/* flex-wrap so the dashboard's action buttons wrap to a second row on
             narrow screens instead of overflowing the viewport horizontally. */}
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {/* College badge — per-tenant branding. Hidden for the default/guest
+              identity; shows the college's name (and logo, if set). */}
+          {branding.name && (
+            <span className="hidden sm:flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5" title={branding.name}>
+              {branding.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logoUrl} alt="" className="h-4 w-4 rounded object-contain" />
+              )}
+              <span className="max-w-[160px] truncate text-xs font-semibold text-slate-200">{branding.name}</span>
+            </span>
+          )}
           {actions}
           <span
             className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-1.5"

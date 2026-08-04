@@ -48,6 +48,10 @@ export default function OrgDetailPage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // branding
+  const [brandColor, setBrandColor] = useState("#22d3ee");
+  const [brandLogo, setBrandLogo] = useState("");
+
   const [confirmName, setConfirmName] = useState("");
 
   async function load() {
@@ -58,6 +62,8 @@ export default function OrgDetailPage() {
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
     setSeatLimit(String(data.org.seat_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
     setDomains((data.org.allowed_domains ?? []).join(" "));
+    const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
+    setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
   }
 
   async function createInvite() {
@@ -203,6 +209,26 @@ export default function OrgDetailPage() {
                   <p className="mt-1 text-[11px] text-slate-400">Share with a class — anyone opening it can create an account inside this org (valid 14 days).</p>
                 </div>
               </div>
+            </Card>
+
+            {/* Branding */}
+            <Card>
+              <h2 className="mb-3 text-sm font-bold text-white">Branding</h2>
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className={label} htmlFor="b-color">Accent colour</label>
+                  <input id="b-color" type="color" className="h-10 w-16 cursor-pointer rounded-md border border-border bg-bg" value={brandColor} onChange={e => setBrandColor(e.target.value)} />
+                </div>
+                <div className="flex-1 min-w-[220px]">
+                  <label className={label} htmlFor="b-logo">Logo URL <span className="font-normal">(https)</span></label>
+                  <input id="b-logo" className={field} value={brandLogo} onChange={e => setBrandLogo(e.target.value)} placeholder="https://college.ac.il/logo.png" />
+                </div>
+                <Button variant="outline" size="sm" disabled={saving}
+                  onClick={() => patch({ branding: { color: brandColor, logo_url: brandLogo || undefined } }, "Branding updated.")}>
+                  Save branding
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">Shown as a badge in the students&apos; top bar and on their certificates.</p>
             </Card>
 
             {/* Members */}

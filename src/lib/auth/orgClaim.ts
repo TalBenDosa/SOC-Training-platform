@@ -15,6 +15,7 @@
  */
 export interface OrgClaim {
   orgId: string | null;
+  orgName: string | null;
   orgRole: string | null;
   isPlatformAdmin: boolean;
   /**
@@ -25,7 +26,7 @@ export interface OrgClaim {
   orgActive: boolean | null;
 }
 
-const EMPTY: OrgClaim = { orgId: null, orgRole: null, isPlatformAdmin: false, orgActive: null };
+const EMPTY: OrgClaim = { orgId: null, orgName: null, orgRole: null, isPlatformAdmin: false, orgActive: null };
 
 function base64UrlDecode(segment: string): string {
   const b64 = segment.replace(/-/g, "+").replace(/_/g, "/");
@@ -43,10 +44,11 @@ export function decodeOrgClaim(accessToken: string | null | undefined): OrgClaim
     if (!payload) return EMPTY;
     const json = JSON.parse(base64UrlDecode(payload)) as Record<string, unknown>;
     const orgId = typeof json.org_id === "string" && json.org_id ? json.org_id : null;
+    const orgName = typeof json.org_name === "string" && json.org_name ? json.org_name : null;
     const orgRole = typeof json.org_role === "string" && json.org_role ? json.org_role : null;
     const isPlatformAdmin = json.is_platform_admin === true;
     const orgActive = typeof json.org_active === "boolean" ? json.org_active : null;
-    return { orgId, orgRole, isPlatformAdmin, orgActive };
+    return { orgId, orgName, orgRole, isPlatformAdmin, orgActive };
   } catch {
     return EMPTY;
   }

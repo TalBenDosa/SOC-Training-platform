@@ -66,6 +66,8 @@ export interface CertData {
   xp: number;
   /** Pre-formatted date, e.g. "25 Jul 2026". */
   date: string;
+  /** Issuing college (multi-tenant). When set, printed in the footer. */
+  orgName?: string | null;
 }
 
 /** Read a next/font family list from a CSS variable, with a safe fallback. */
@@ -120,7 +122,7 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   ctx.scale(scale, scale);
   ctx.textBaseline = "middle";
 
-  const { meta, name, xp, date } = data;
+  const { meta, name, xp, date, orgName } = data;
   const accent = meta.accent;
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -320,13 +322,10 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   });
 
   // ── footer ───────────────────────────────────────────────────────────────
-  drawTracked(
-    [{ text: "SOC Analyst Training Platform · hack-the-soc.vercel.app", color: "#475569" }],
-    CX,
-    604,
-    `400 15px "${sansF}"`,
-    0.5,
-  );
+  const footerText = orgName
+    ? `Issued by ${orgName} · HACK THE SOC · hack-the-soc.vercel.app`
+    : "SOC Analyst Training Platform · hack-the-soc.vercel.app";
+  drawTracked([{ text: footerText, color: "#475569" }], CX, 604, `400 15px "${sansF}"`, 0.5);
 }
 
 /** Turn the current canvas into a PNG Blob. */

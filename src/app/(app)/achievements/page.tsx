@@ -16,6 +16,7 @@ import { RANKS, rankForXp, type Rank } from "@/lib/progression/ranks";
 import { certMetaForRank, drawCertificate } from "@/lib/certificate/renderCertificate";
 import { RankCertificateModal } from "@/components/certificate/RankCertificateModal";
 import { useFullName } from "@/lib/auth/useFullName";
+import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { getTotalXp } from "@/lib/storage/progress";
 import { format } from "date-fns";
 import { Lock, Award, Download, Sparkles } from "lucide-react";
@@ -29,7 +30,7 @@ function commas(n: number) {
 }
 
 /** A live mini-render of a rank's certificate, drawn into a downscaled canvas. */
-function CertThumb({ rank, name }: { rank: Rank; name: string }) {
+function CertThumb({ rank, name, orgName }: { rank: Rank; name: string; orgName: string | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -37,18 +38,19 @@ function CertThumb({ rank, name }: { rank: Rank; name: string }) {
     let cancelled = false;
     drawCertificate(
       canvas,
-      { meta: certMetaForRank(rank), name, xp: rank.minXp, date: format(new Date(), "d MMM yyyy") },
+      { meta: certMetaForRank(rank), name, xp: rank.minXp, date: format(new Date(), "d MMM yyyy"), orgName },
       1,
     ).catch(() => {});
     return () => { cancelled = true; void cancelled; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rank.id, name]);
+  }, [rank.id, name, orgName]);
   return <canvas ref={ref} className="block h-auto w-full" aria-hidden />;
 }
 
 export default function AchievementsPage() {
   usePageTitle("Achievements");
   const name = useFullName();
+  const { orgName } = useOrgContext();
   const [totalXp, setTotalXp] = useState(0);
   const [selected, setSelected] = useState<Rank | null>(null);
 
@@ -111,7 +113,7 @@ export default function AchievementsPage() {
                   aria-label={`View and download your ${meta.title} ${meta.tier} certificate`}
                 >
                   <div className="relative">
-                    <CertThumb rank={rank} name={name} />
+                    <CertThumb rank={rank} name={name} orgName={orgName} />
                     <div className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
                       <span className="flex items-center gap-2 rounded-lg bg-cyber-500/90 px-3.5 py-2 text-xs font-bold text-[#05070d]">
                         <Download className="h-4 w-4" /> View &amp; download

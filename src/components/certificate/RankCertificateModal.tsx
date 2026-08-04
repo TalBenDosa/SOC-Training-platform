@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { Download, Share2, Linkedin, Copy, Check, X, PartyPopper } from "lucide-react";
 import type { Rank } from "@/lib/progression/ranks";
 import { certMetaForRank, drawCertificate, canvasToPng, type CertMeta } from "@/lib/certificate/renderCertificate";
+import { useOrgContext } from "@/lib/auth/useOrgContext";
 
 interface Props {
   rank: Rank;
@@ -29,6 +30,7 @@ export function RankCertificateModal({ rank, xp, name, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
   const [ready, setReady] = useState(false);
+  const { orgName } = useOrgContext();
   const meta: CertMeta = certMetaForRank(rank);
   // The rank's own threshold is the milestone — not the learner's live total,
   // which may already be higher by the time they dismiss the modal.
@@ -44,14 +46,14 @@ export function RankCertificateModal({ rank, xp, name, onClose }: Props) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     setReady(false);
-    drawCertificate(canvas, { meta, name, xp: milestoneXp, date: format(new Date(), "d MMM yyyy") }).then(() => {
+    drawCertificate(canvas, { meta, name, xp: milestoneXp, date: format(new Date(), "d MMM yyyy"), orgName }).then(() => {
       if (!cancelled) setReady(true);
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rank.id, name]);
+  }, [rank.id, name, orgName]);
 
   // ESC closes, matching every other overlay on the platform.
   useEffect(() => {
