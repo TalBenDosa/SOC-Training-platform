@@ -6,16 +6,17 @@ import { cn } from "@/lib/utils";
 import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/rooms",     label: "Learning Rooms", icon: DoorOpen        },
-  { href: "/dashboard", label: "SOC Dashboard",  icon: LayoutDashboard },
-  { href: "/learn",     label: "Learning Path",  icon: BookOpen        },
-  { href: "/progress",  label: "Progress",       icon: TrendingUp      },
-  { href: "/scenarios", label: "Scenarios",      icon: Target          },
-  { href: "/quizzes",   label: "Quizzes",        icon: ClipboardList   },
+  { href: "/rooms",        label: "Learning Rooms", icon: DoorOpen        },
+  { href: "/dashboard",    label: "SOC Dashboard",  icon: LayoutDashboard },
+  { href: "/learn",        label: "Learning Path",  icon: BookOpen        },
+  { href: "/progress",     label: "Progress",       icon: TrendingUp      },
+  { href: "/scenarios",    label: "Scenarios",      icon: Target          },
+  { href: "/quizzes",      label: "Quizzes",        icon: ClipboardList   },
+  { href: "/achievements", label: "Achievements",   icon: Award           },
 ];
 
 // Content-authoring tools (log validator, scenario/quiz generator) — deliberately
