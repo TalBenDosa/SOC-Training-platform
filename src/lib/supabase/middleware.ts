@@ -24,6 +24,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "./config";
+import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 
 /**
  * Reachable without signing in: the landing page and the auth flow itself.
@@ -51,6 +52,9 @@ const PUBLIC_PREFIXES = [
 /** Admin-only. Content authoring — the panel the platform owner edits with. */
 const ADMIN_PREFIXES = ["/admin"];
 
+/** Platform super-admin only — the cross-org B2B provisioning console. */
+const SUPERADMIN_PREFIXES = ["/superadmin"];
+
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
@@ -58,6 +62,10 @@ function isPublicPath(pathname: string): boolean {
 
 function isAdminPath(pathname: string): boolean {
   return ADMIN_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
+}
+
+function isSuperadminPath(pathname: string): boolean {
+  return SUPERADMIN_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
 }
 
 export async function refreshSupabaseSession(req: NextRequest, res: NextResponse): Promise<NextResponse> {
@@ -114,6 +122,24 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
     if (profile?.role !== "admin") {
       return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
     }
+  }
+
+  // ── Tenancy gates (multi-tenant B2B). The org context is a signed JWT claim
+  // stamped by the access-token hook; both fields are absent pre-migration, so
+  // these gates are inert until the multi-tenancy rollout is live. ────────────
+  const { data: { session } } = await supabase.auth.getSession();
+  const claim = decodeOrgClaim(session?.access_token);
+
+  // The super-admin console is platform-admin only.
+  if (isSuperadminPath(pathname) && !claim.isPlatformAdmin) {
+    return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
+  }
+
+  // A college whose license expired or was suspended is locked to the notice
+  // page (only `false` locks — null = no claim = not enforced). The platform
+  // admin is exempt so they can still manage things.
+  if (claim.orgActive === false && !claim.isPlatformAdmin && pathname !== "/license") {
+    return NextResponse.redirect(new URL("/license", req.url));
   }
 
   return res;

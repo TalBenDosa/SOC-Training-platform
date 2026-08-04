@@ -17,9 +17,15 @@ export interface OrgClaim {
   orgId: string | null;
   orgRole: string | null;
   isPlatformAdmin: boolean;
+  /**
+   * Is the org's license currently valid? `null` when the claim is absent
+   * (pre-migration, or a user with no org) — callers treat null as "don't lock
+   * out", and only `false` triggers the license gate.
+   */
+  orgActive: boolean | null;
 }
 
-const EMPTY: OrgClaim = { orgId: null, orgRole: null, isPlatformAdmin: false };
+const EMPTY: OrgClaim = { orgId: null, orgRole: null, isPlatformAdmin: false, orgActive: null };
 
 function base64UrlDecode(segment: string): string {
   const b64 = segment.replace(/-/g, "+").replace(/_/g, "/");
@@ -39,7 +45,8 @@ export function decodeOrgClaim(accessToken: string | null | undefined): OrgClaim
     const orgId = typeof json.org_id === "string" && json.org_id ? json.org_id : null;
     const orgRole = typeof json.org_role === "string" && json.org_role ? json.org_role : null;
     const isPlatformAdmin = json.is_platform_admin === true;
-    return { orgId, orgRole, isPlatformAdmin };
+    const orgActive = typeof json.org_active === "boolean" ? json.org_active : null;
+    return { orgId, orgRole, isPlatformAdmin, orgActive };
   } catch {
     return EMPTY;
   }

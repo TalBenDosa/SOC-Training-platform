@@ -55,9 +55,11 @@ function clientIp(req: NextRequest): string {
  *  - /api/health      — liveness probe, returns no user or content data
  *  - /api/auth/*      — the sign-in flow itself, which by definition runs
  *                       before a session exists
+ *  - /api/cron/*      — scheduled jobs (Vercel Cron) that have no user session;
+ *                       authenticated by CRON_SECRET inside the route instead
  * Everything else is closed by default (see the gate in middleware()).
  */
-const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/"];
+const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/"];
 
 function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIXES.some(p => pathname === p || pathname.startsWith(p));

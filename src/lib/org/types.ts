@@ -1,0 +1,43 @@
+/** Shared org / tenancy types used by the super-admin console and its API. */
+
+export type OrgStatus = "trial" | "active" | "suspended" | "expired";
+export type OrgRole = "org_admin" | "instructor" | "student";
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  seat_limit: number;
+  starts_at: string | null;
+  expires_at: string | null;
+  status: OrgStatus;
+  created_at: string;
+}
+
+/** An org row enriched with the derived counters the console lists. */
+export interface OrgSummary extends Organization {
+  seats_used: number;
+  /** Convenience flag: is the license currently valid? */
+  active: boolean;
+}
+
+export interface OrgMember {
+  org_id: string;
+  user_id: string;
+  role: OrgRole;
+  status: "active" | "invited" | "removed";
+  joined_at: string;
+  /** Joined from profiles for display. */
+  email?: string | null;
+  handle?: string | null;
+  display_name?: string | null;
+}
+
+/** Aggregate usage for an org's cohort (super-admin dashboards). */
+export interface OrgUsage {
+  members: number;
+  total_xp: number;
+  sessions: number;
+  scenarios_completed: number;
+  rooms_completed: number;
+}
