@@ -56,6 +56,9 @@ const ADMIN_PREFIXES = ["/admin"];
 /** Platform super-admin only — the cross-org B2B provisioning console. */
 const SUPERADMIN_PREFIXES = ["/superadmin"];
 
+/** Org-admin only — a college's own roster/progress console. */
+const MANAGE_PREFIXES = ["/manage"];
+
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
@@ -67,6 +70,10 @@ function isAdminPath(pathname: string): boolean {
 
 function isSuperadminPath(pathname: string): boolean {
   return SUPERADMIN_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
+}
+
+function isManagePath(pathname: string): boolean {
+  return MANAGE_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
 }
 
 export async function refreshSupabaseSession(req: NextRequest, res: NextResponse): Promise<NextResponse> {
@@ -133,6 +140,11 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
 
   // The super-admin console is platform-admin only.
   if (isSuperadminPath(pathname) && !claim.isPlatformAdmin) {
+    return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
+  }
+
+  // The org-admin console is for org_admins (and the platform admin).
+  if (isManagePath(pathname) && !claim.isPlatformAdmin && claim.orgRole !== "org_admin") {
     return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
   }
 

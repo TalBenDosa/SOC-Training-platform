@@ -7,7 +7,7 @@ import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -30,7 +30,7 @@ const DEV_TOOLS_ITEM = { href: "/admin", label: "Content Tools", icon: Wrench };
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user, authEnabled, signOut } = useAuth();
-  const { isPlatformAdmin } = useOrgContext();
+  const { isPlatformAdmin, orgRole } = useOrgContext();
   return (
     <>
       <nav className="flex-1 px-3 py-2">
@@ -114,6 +114,18 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
           <span>{DEV_TOOLS_ITEM.label}</span>
         </Link>
+        {/* Org-admin console — a college managing its own class. Claim-gated in
+            the UI; enforced by middleware + the org-scoped API routes. */}
+        {orgRole === "org_admin" && !isPlatformAdmin && (
+          <Link
+            href="/manage"
+            onClick={onNavigate}
+            className="mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-cyber-300 hover:bg-white/5 hover:text-cyber-200 transition-colors"
+          >
+            <Building2 className="h-3.5 w-3.5 shrink-0" />
+            <span>Manage Class</span>
+          </Link>
+        )}
         {/* Platform super-admin — cross-org B2B console. Only ever shown to a
             platform admin (claim-gated); enforced for real by middleware + RLS. */}
         {isPlatformAdmin && (

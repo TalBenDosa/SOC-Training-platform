@@ -113,6 +113,26 @@ export async function requireSuperAdmin(action?: string): Promise<Gate> {
 }
 
 /**
+ * Gate an org-admin acting on THEIR OWN org (the /manage console). Returns the
+ * user whose `orgId` is the org they administer. A platform super-admin always
+ * passes (they administer the internal org context in their token). Fail-closed
+ * and audited.
+ */
+export async function requireOrgAdmin(action?: string): Promise<Gate> {
+  const user = await getAuthedUser();
+  if (!user) {
+    return { error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
+  }
+  const ok = user.isPlatformAdmin || (user.orgRole === "org_admin" && !!user.orgId);
+  if (!ok) {
+    if (action) await logAudit({ actorId: user.id, action: `${action}.denied`, metadata: { orgRole: user.orgRole } });
+    return { error: NextResponse.json({ error: "Organisation admin access required." }, { status: 403 }) };
+  }
+  if (action) await logAudit({ actorId: user.id, action, metadata: { orgId: user.orgId } });
+  return { user };
+}
+
+/**
  * Gate an org-scoped action: the caller must belong to `orgId` with one of
  * `roles` (e.g. ['org_admin'] for roster management in Phase 3). A platform
  * super-admin always passes. Fail-closed and audited.
