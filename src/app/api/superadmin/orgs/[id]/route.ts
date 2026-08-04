@@ -76,6 +76,12 @@ export async function PATCH(req: Request, { params }: Ctx) {
     }
     patch.status = s as OrgStatus;
   }
+  if (body.allowed_domains !== undefined) {
+    const raw = Array.isArray(body.allowed_domains) ? body.allowed_domains : [];
+    patch.allowed_domains = [...new Set(
+      raw.map(d => String(d).trim().toLowerCase().replace(/^@/, "")).filter(d => /^[^@\s]+\.[^@\s]+$/.test(d)),
+    )];
+  }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data: org, error } = await admin.from("organizations").update(patch).eq("id", id).select().single();

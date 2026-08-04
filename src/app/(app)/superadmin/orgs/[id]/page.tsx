@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft, Loader2, Users, Trophy, Activity, Target, DoorOpen, Trash2, UserPlus, X, AlertTriangle,
+  Link2, Copy, Check, Globe,
 } from "lucide-react";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
 
@@ -42,6 +43,11 @@ export default function OrgDetailPage() {
   const [role, setRole] = useState<OrgRole>("student");
   const [adding, setAdding] = useState(false);
 
+  // enrollment
+  const [domains, setDomains] = useState("");
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const [confirmName, setConfirmName] = useState("");
 
   async function load() {
@@ -51,6 +57,22 @@ export default function OrgDetailPage() {
     const data = await res.json();
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
     setSeatLimit(String(data.org.seat_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
+    setDomains((data.org.allowed_domains ?? []).join(" "));
+  }
+
+  async function createInvite() {
+    setError(null); setNotice(null); setInviteLink(null);
+    const res = await fetch(`/api/superadmin/orgs/${id}/invites`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: "student" }),
+    });
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create invite."); return; }
+    const data = await res.json();
+    setInviteLink(data.invites?.[0]?.link ?? null);
+  }
+
+  async function copyInvite() {
+    if (!inviteLink) return;
+    try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
   }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
@@ -147,6 +169,39 @@ export default function OrgDetailPage() {
                 {org.status !== "suspended"
                   ? <Button variant="outline" size="sm" onClick={() => patch({ status: "suspended" }, "Suspended.")}>Suspend</Button>
                   : <Button variant="outline" size="sm" onClick={() => patch({ status: "active" }, "Reactivated.")}>Reactivate</Button>}
+              </div>
+            </Card>
+
+            {/* Enrollment */}
+            <Card>
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white"><Globe className="h-4 w-4 text-cyber-300" /> Enrollment</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className={label} htmlFor="e-domains">Allowed email domains <span className="font-normal">(auto-join — space separated)</span></label>
+                  <div className="flex flex-wrap gap-2">
+                    <input id="e-domains" className={`${field} max-w-md`} value={domains} onChange={e => setDomains(e.target.value)} placeholder="sapir.ac.il students.college.edu" />
+                    <Button variant="outline" size="sm" disabled={saving}
+                      onClick={() => patch({ allowed_domains: domains.split(/[\s,]+/).filter(Boolean) }, "Domains updated.")}>
+                      Save domains
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">Anyone who signs up with one of these domains joins this org automatically (seat permitting).</p>
+                </div>
+                <div>
+                  <label className={label}>Class invite link</label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={createInvite}><Link2 className="mr-1.5 h-4 w-4" /> Generate link</Button>
+                    {inviteLink && (
+                      <>
+                        <input readOnly value={inviteLink} className={`${field} max-w-sm font-mono text-[11px]`} aria-label="Invite link" onFocus={e => e.currentTarget.select()} />
+                        <Button variant="outline" size="sm" onClick={copyInvite}>
+                          {copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">Share with a class — anyone opening it can create an account inside this org (valid 14 days).</p>
+                </div>
               </div>
             </Card>
 

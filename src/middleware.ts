@@ -57,9 +57,11 @@ function clientIp(req: NextRequest): string {
  *                       before a session exists
  *  - /api/cron/*      — scheduled jobs (Vercel Cron) that have no user session;
  *                       authenticated by CRON_SECRET inside the route instead
+ *  - /api/invitations/* — pre-signup invite lookup for the /join page; returns
+ *                       only an org name + validity, keyed by an opaque token
  * Everything else is closed by default (see the gate in middleware()).
  */
-const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/"];
+const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/", "/api/invitations/"];
 
 function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIXES.some(p => pathname === p || pathname.startsWith(p));

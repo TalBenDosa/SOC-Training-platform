@@ -11,7 +11,18 @@ export interface Organization {
   starts_at: string | null;
   expires_at: string | null;
   status: OrgStatus;
+  allowed_domains?: string[];
   created_at: string;
+}
+
+export interface Invite {
+  id: string;
+  email: string | null;
+  role: OrgRole;
+  token: string;
+  expires_at: string;
+  accepted_at?: string | null;
+  link: string;
 }
 
 /** An org row enriched with the derived counters the console lists. */

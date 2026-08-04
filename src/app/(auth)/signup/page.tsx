@@ -17,6 +17,11 @@ export default function SignupPage() {
   const [confirm, setConfirm] = useState("");
   const [handle, setHandle] = useState("");
   const [fullName, setFullName] = useState("");
+  // Enrollment: an invite token in the URL (?invite=…) drops the new account
+  // into the inviting org via the signup trigger. Read from the URL rather than
+  // useSearchParams to avoid a Suspense boundary on this client page.
+  const [inviteToken, setInviteToken] = useState("");
+  const [inviteOrg, setInviteOrg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -24,6 +29,18 @@ export default function SignupPage() {
   /** null = not checked yet (blank, or too short to be worth asking about). */
   const [handleFree, setHandleFree] = useState<boolean | null>(null);
   const [checkingHandle, setCheckingHandle] = useState(false);
+
+  // Pick up ?invite=<token> and resolve which org it's for, to reassure the
+  // signer they're joining the right course.
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("invite");
+    if (!token) return;
+    setInviteToken(token);
+    fetch(`/api/invitations/${encodeURIComponent(token)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d?.valid) setInviteOrg(d.orgName ?? null); })
+      .catch(() => {});
+  }, []);
 
   const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
   const normalisedHandle = handle.trim().toLowerCase();
@@ -89,6 +106,8 @@ export default function SignupPage() {
     if (normalisedHandle) metadata.handle = normalisedHandle;
     const trimmedName = fullName.trim();
     if (trimmedName) metadata.full_name = trimmedName;
+    // Carries the enrollment: the trigger re-validates the token and assigns the org.
+    if (inviteToken) metadata.invitation_token = inviteToken;
 
     setSubmitting(true);
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -184,6 +203,12 @@ export default function SignupPage() {
           <p className="text-xs text-slate-400">Free — your progress follows you across devices.</p>
         </div>
       </div>
+
+      {inviteOrg && (
+        <div className="mb-4 rounded-lg border border-cyber-500/30 bg-cyber-500/10 px-4 py-2.5 text-sm text-cyber-200">
+          Joining <span className="font-semibold text-white">{inviteOrg}</span> — your account will be added to their course.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
