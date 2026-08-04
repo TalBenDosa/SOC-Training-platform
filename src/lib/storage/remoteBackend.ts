@@ -39,8 +39,22 @@ export interface RemoteBackendHandle {
   hydrate: () => Promise<{ wasEmpty: boolean; rowsMissing: boolean }>;
 }
 
-export function createRemoteBackend(supabase: SupabaseClient, userId: string): RemoteBackendHandle {
+export function createRemoteBackend(
+  supabase: SupabaseClient,
+  userId: string,
+  /**
+   * The learner's org, read from the JWT claim by the caller. When set, it is
+   * stamped on every write so the row satisfies the NOT NULL org_id column and
+   * the per-org RLS `WITH CHECK (org_id = current_org())` (migrations 0010/0011).
+   * Null before the multi-tenancy hook is live — writes then omit org_id and the
+   * column's DEFAULT (bootstrap org) applies, so this is safe pre-migration.
+   */
+  orgId: string | null = null,
+): RemoteBackendHandle {
   const cache = new Map<string, string>();
+
+  // Spread into a row to add org_id only when we actually have one.
+  const org = orgId ? { org_id: orgId } : {};
 
   function log(action: string, err: unknown) {
     // Non-fatal by design (see file doc) — surfaced to the console so it's not silent.
@@ -65,6 +79,7 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
         const map = safeParse<RoomProgressMap>(value, {});
         const rows = Object.entries(map).map(([roomId, entry]) => ({
           user_id: userId,
+          ...org,
           room_id: roomId,
           completed_task_ids: entry.completedTaskIds,
           xp_earned: entry.xpEarned,
@@ -87,6 +102,7 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
         if (fresh.length === 0) return;
         supabase.from("dashboard_sessions").insert(fresh.map(s => ({
           user_id: userId,
+          ...org,
           played_at: s.date,
           xp_earned: s.xpEarned,
           detect_rate: s.detectRate,
@@ -106,6 +122,7 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
         if (fresh.length === 0) return;
         supabase.from("scenario_history").insert(fresh.map(s => ({
           user_id: userId,
+          ...org,
           slug: s.slug,
           title: s.title,
           score: s.score,
@@ -118,7 +135,7 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
       case LEARNER_KEYS.clearedCompanies: {
         const list = safeParse<string[]>(value, []);
         supabase.from("user_progress").upsert(
-          { user_id: userId, cleared_companies: list },
+          { user_id: userId, ...org, cleared_companies: list },
           { onConflict: "user_id" },
         ).then(({ error }) => { if (error) log("clearedCompanies", error); });
         return;
@@ -126,14 +143,14 @@ export function createRemoteBackend(supabase: SupabaseClient, userId: string): R
       case LEARNER_KEYS.streakFreezes: {
         const list = safeParse<string[]>(value, []);
         supabase.from("user_progress").upsert(
-          { user_id: userId, streak_freezes: list },
+          { user_id: userId, ...org, streak_freezes: list },
           { onConflict: "user_id" },
         ).then(({ error }) => { if (error) log("streakFreezes", error); });
         return;
       }
       case LEARNER_KEYS.lastSession: {
         supabase.from("user_progress").upsert(
-          { user_id: userId, last_session: value },
+          { user_id: userId, ...org, last_session: value },
           { onConflict: "user_id" },
         ).then(({ error }) => { if (error) log("lastSession", error); });
         return;

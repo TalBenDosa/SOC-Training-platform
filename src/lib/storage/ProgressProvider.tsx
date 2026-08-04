@@ -16,6 +16,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { setStorageBackend, localStorageBackend } from "./backend";
 import { createRemoteBackend } from "./remoteBackend";
 import { LEARNER_KEYS } from "./keys";
+import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 
 /**
  * Reload at most ONCE per (tab, identity) — the sessionStorage marker survives
@@ -61,7 +62,13 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       const localSnapshot: Record<string, string | null> = {};
       for (const key of Object.values(LEARNER_KEYS)) localSnapshot[key] = localStorageBackend.get(key);
 
-      const { backend: remote, hydrate } = createRemoteBackend(supabase, currentId);
+      // Read the tenant context from the session's JWT (stamped by the
+      // access-token hook). Null until multi-tenancy is live — writes then omit
+      // org_id and behave exactly as before.
+      const { data: { session } } = await supabase.auth.getSession();
+      const { orgId } = decodeOrgClaim(session?.access_token);
+
+      const { backend: remote, hydrate } = createRemoteBackend(supabase, currentId, orgId);
       const { wasEmpty, rowsMissing } = await hydrate();
 
       if (rowsMissing) {
