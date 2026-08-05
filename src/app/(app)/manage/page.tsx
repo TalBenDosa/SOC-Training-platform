@@ -38,6 +38,17 @@ export default function ManagePage() {
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
     const data = await res.json();
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
+    // Surface the standing class invite link (created with the org) so it's
+    // ready to share without pressing "Generate".
+    const invRes = await fetch("/api/org/invites");
+    if (invRes.ok) {
+      const { invites } = await invRes.json();
+      const primary = (invites ?? []).find(
+        (i: { email: string | null; role: string; accepted_at: string | null; expires_at: string; link: string }) =>
+          !i.email && i.role === "student" && !i.accepted_at && new Date(i.expires_at) > new Date(),
+      );
+      if (primary) setInviteLink(primary.link);
+    }
   }
   useEffect(() => { load(); }, []);
 

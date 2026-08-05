@@ -11,7 +11,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, ShieldCheck, Link2, Copy, Check, CheckCircle2 } from "lucide-react";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 const STATUS_STYLE: Record<OrgStatus, string> = {
@@ -113,6 +113,11 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [adminEmail, setAdminEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // After creation we show the standing class invite link so it can be handed
+  // to the college immediately.
+  const [createdLink, setCreatedLink] = useState<string | null>(null);
+  const [createdName, setCreatedName] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const autoSlug = (v: string) => v.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
@@ -130,7 +135,15 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
     });
     setSubmitting(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create."); return; }
-    onCreated();
+    const data = await res.json();
+    setCreatedName(name);
+    setCreatedLink(data.inviteLink ?? null);
+    // don't close yet — surface the invite link first (onCreated on "Done").
+  }
+
+  async function copyLink() {
+    if (!createdLink) return;
+    try { await navigator.clipboard.writeText(createdLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* blocked */ }
   }
 
   const field = "h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30";
@@ -140,6 +153,32 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
       <Card className="w-full max-w-md" >
         <div onClick={e => e.stopPropagation()}>
+          {createdLink ? (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-neon-green" />
+                <h2 className="text-lg font-bold text-white">{createdName} is ready</h2>
+              </div>
+              <p className="mb-3 text-sm text-slate-400">
+                Share this class invite link with the college — anyone who opens it creates an account inside their environment.
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-cyber-500/30 bg-cyber-500/10">
+                  <Link2 className="h-4 w-4 text-cyber-300" />
+                </span>
+                <input readOnly value={createdLink} onFocus={e => e.currentTarget.select()}
+                  className="h-10 flex-1 rounded-md border border-border bg-bg px-3 font-mono text-[11px] text-white focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30" aria-label="Class invite link" />
+                <Button type="button" variant="outline" size="sm" onClick={copyLink}>
+                  {copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">The link is also always available on the organization page. The regular signup form still works for everyone else.</p>
+              <div className="mt-5 flex justify-end">
+                <Button type="button" variant="primary" size="sm" onClick={onCreated}>Done</Button>
+              </div>
+            </div>
+          ) : (
+          <>
           <h2 className="mb-4 text-lg font-bold text-white">New organization</h2>
           <form onSubmit={submit} className="space-y-3">
             <div>
@@ -174,6 +213,8 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
               </Button>
             </div>
           </form>
+          </>
+          )}
         </div>
       </Card>
     </div>

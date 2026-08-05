@@ -94,5 +94,16 @@ export async function POST(req: Request) {
     });
   }
 
-  return NextResponse.json({ org }, { status: 201 });
+  // Every new environment gets a STANDING class invite link out of the box, so
+  // the college admin can distribute it to students immediately. It's a generic
+  // student invite (no fixed recipient); its lifetime tracks the licence window
+  // (or a year if the licence has no expiry).
+  const classToken = crypto.randomUUID();
+  const classExpiry = expiresAt ?? new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
+  await admin.from("invitations").insert({
+    org_id: org.id, email: null, role: "student", token: classToken, expires_at: classExpiry,
+  });
+  const inviteLink = `${new URL(req.url).origin}/join?token=${classToken}`;
+
+  return NextResponse.json({ org, inviteLink }, { status: 201 });
 }

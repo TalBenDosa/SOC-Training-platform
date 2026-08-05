@@ -64,6 +64,16 @@ export default function OrgDetailPage() {
     setDomains((data.org.allowed_domains ?? []).join(" "));
     const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
     setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
+    // Surface the standing class invite link (auto-created at org creation).
+    const invRes = await fetch(`/api/superadmin/orgs/${id}/invites`);
+    if (invRes.ok) {
+      const { invites } = await invRes.json();
+      const primary = (invites ?? []).find(
+        (i: { email: string | null; role: string; accepted_at: string | null; expires_at: string; link: string }) =>
+          !i.email && i.role === "student" && !i.accepted_at && new Date(i.expires_at) > new Date(),
+      );
+      if (primary) setInviteLink(primary.link);
+    }
   }
 
   async function createInvite() {
