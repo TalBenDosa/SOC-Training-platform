@@ -51,7 +51,9 @@ export async function POST(req: Request, { params }: Ctx) {
   // Normalise the recipient list (dedupe, basic email shape). Empty → one
   // generic, shareable link with no fixed recipient.
   const rawEmails = Array.isArray(body.emails) ? (body.emails as unknown[]).map(e => String(e).trim().toLowerCase()) : [];
-  const emails = [...new Set(rawEmails.filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))];
+  // Cap the recipient list to bound the bulk insert + outbound-email fan-out.
+  const MAX_INVITES = 200;
+  const emails = [...new Set(rawEmails.filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))].slice(0, MAX_INVITES);
 
   const rows = (emails.length > 0 ? emails.map(email => ({ email })) : [{ email: null }]).map(r => ({
     org_id: orgId, role, email: r.email, token: crypto.randomUUID(), expires_at: expiresAt,

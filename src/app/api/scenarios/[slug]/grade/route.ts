@@ -15,16 +15,21 @@ export async function POST(
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
   }
 
-  const body = await req.json() as {
-    answers: Record<string, string | string[]>;
-    timeTaken: number;
-    iocTagged: number;
+  let body: {
+    answers?: Record<string, string | string[]>;
+    timeTaken?: number;
+    iocTagged?: number;
     verdict?: string | null;
     verdictReason?: string;
     analystNotes?: string;
     findings?: string;
     indicators?: { type: string; value: string }[];
   };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
+  }
 
   const {
     answers = {}, timeTaken = 0, iocTagged = 0,
@@ -32,9 +37,20 @@ export async function POST(
     indicators = [],
   } = body;
 
-  // Grade each question
+  // Grade each question.
+  //
+  // ANTI-HARVEST: the sibling `GET /api/scenarios/[slug]` deliberately strips
+  // answers/explanations so the learner must reason the incident out. Grading
+  // must not hand that back for free — a student could otherwise POST an empty
+  // body and read the entire answer key + debrief without solving anything.
+  // Rule: you only see a question's correct answer + explanation once you have
+  // actually committed an answer to THAT question. Unanswered → withheld.
+  const isAnswered = (v: string | string[] | undefined) =>
+    Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "";
+
   const perQuestion = bundle.questions.map(q => {
     const submitted = answers[q.id];
+    const answered = isAnswered(submitted);
     let correct = false;
 
     if (q.kind === "multi") {
@@ -49,12 +65,17 @@ export async function POST(
       id: q.id,
       correct,
       yourAnswer: submitted ?? (q.kind === "multi" ? [] : ""),
-      correctAnswer: q.answer,
-      explanation: q.explanation,
+      // Revealed only for a question the learner actually attempted.
+      correctAnswer: answered ? q.answer : null,
+      explanation: answered ? q.explanation : null,
       prompt: q.prompt,
       xp: q.xp,
     };
   });
+
+  // A genuine attempt = every question answered AND a non-empty written report.
+  // Only then is the full debrief (narrative / objectives / kill-chain) released.
+  const attemptedAll = bundle.questions.length > 0 && bundle.questions.every(q => isAnswered(answers[q.id]));
 
   const correctCount = perQuestion.filter(q => q.correct).length;
   // A scenario shipped with no questions used to divide by zero, making `score`
@@ -166,16 +187,23 @@ Write exactly 3 sentences of actionable, encouraging feedback. One sentence on t
     }
   }
 
+  // The full debrief is the reward for a real attempt — released only when every
+  // question was answered and a non-empty report was written. A blank/garbage
+  // submission (answer-harvesting) gets score + per-question `correct` flags but
+  // no narrative/objectives/kill-chain.
+  const releaseDebrief = attemptedAll && words > 0;
+
   return NextResponse.json({
     score, xpEarned, timeBonusXp, perQuestion, aiFeedback, passed,
     quizScore,
-    // The debrief. Withheld from the page payload so it is not readable in
-    // view-source during the investigation; delivered here once the report is in.
-    debrief: {
+    debriefWithheld: !releaseDebrief,
+    // Withheld from the page payload so it is not readable in view-source during
+    // the investigation; delivered here once a genuine attempt is in.
+    debrief: releaseDebrief ? {
       narrative: bundle.narrative,
       learningObjectives: bundle.learning_objectives ?? [],
       killchain: bundle.killchain ?? [],
-    },
+    } : null,
     report: {
       score: reportScore,
       rubric: reportRubric,

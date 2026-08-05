@@ -42,7 +42,11 @@ export async function POST(req: Request) {
   // Org-admins hand out student/instructor links only.
   const role = ["student", "instructor"].includes(String(body.role)) ? String(body.role) : "student";
   const rawEmails = Array.isArray(body.emails) ? (body.emails as unknown[]).map(e => String(e).trim().toLowerCase()) : [];
-  const emails = [...new Set(rawEmails.filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))];
+  // Cap the recipient list: an oversized array would balloon into one giant
+  // insert + that many outbound emails (provider cost + sender-reputation risk).
+  // 200 comfortably covers any real class roster.
+  const MAX_INVITES = 200;
+  const emails = [...new Set(rawEmails.filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))].slice(0, MAX_INVITES);
   const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
 
   const rows = (emails.length > 0 ? emails.map(email => ({ email })) : [{ email: null }]).map(r => ({

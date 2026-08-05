@@ -29,11 +29,11 @@ import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 const EXPENSIVE = [
   "/api/scenarios/generate",
   "/api/quizzes/generate",
-  "/api/lessons/generate",
-  "/api/lessons/generate-stream",
-  "/api/lessons/import-pptx",
-  "/api/lessons/validate",
-  "/api/lessons/export-pptx",
+  // Whole /api/lessons/ subtree is paid: /generate*, /import-pptx, /validate,
+  // /export-pptx AND the dynamic /api/lessons/[slug] generator. The [slug] route
+  // was the only student-reachable paid path escaping both the 10/min limit and
+  // the per-org LLM budget — the prefix closes that gap.
+  "/api/lessons/",
   "/api/dashboard/incident-report",
   "/api/admin/",
 ];

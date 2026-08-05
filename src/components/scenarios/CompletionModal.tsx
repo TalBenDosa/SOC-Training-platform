@@ -12,8 +12,10 @@ export interface GradeResult {
     id: string;
     correct: boolean;
     yourAnswer: string | string[];
-    correctAnswer: string | string[];
-    explanation: string;
+    // null when the learner did not attempt this question (anti-harvest — the
+    // grade endpoint withholds the key for unanswered questions).
+    correctAnswer: string | string[] | null;
+    explanation: string | null;
     prompt: string;
     xp: number;
   }[];
@@ -25,11 +27,12 @@ export interface GradeResult {
    * objectives describe the intrusion in order and name its techniques, which is
    * the work the analyst is doing. Delivered here once the report is submitted.
    */
+  debriefWithheld?: boolean;
   debrief?: {
     narrative: string;
     learningObjectives: string[];
     killchain: { ts: string; phase: string; action: string }[];
-  };
+  } | null;
   report?: {
     score: number;
     rubric: { verdict: number; depth: number; evidence: number; reasoning: number };
@@ -280,14 +283,14 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
                         <span className="font-mono text-[10px] text-slate-400 mr-1.5">Q{i + 1}.</span>
                         {q.prompt}
                       </p>
-                      {!q.correct && (
+                      {!q.correct && q.correctAnswer != null && (
                         <p className="mt-1 text-[10px] text-slate-400">
                           Correct: <span className="text-neon-green font-mono">
                             {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(", ") : q.correctAnswer}
                           </span>
                         </p>
                       )}
-                      <p className="mt-1 text-[10px] text-slate-400">{q.explanation}</p>
+                      {q.explanation && <p className="mt-1 text-[10px] text-slate-400">{q.explanation}</p>}
                       {q.correct && (
                         <p className="mt-0.5 text-[10px] text-neon-green/70">+{q.xp} XP</p>
                       )}
