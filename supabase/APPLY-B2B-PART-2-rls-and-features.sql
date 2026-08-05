@@ -1,13 +1,9 @@
 -- ═══════════════════════════════════════════════════════════════════════
 -- HACK THE SOC :: APPLY B2B — PART 2 (RLS cut-over + Phases 1-5)
--- Run ONLY AFTER PART 1 is applied, the access-token hook is enabled, and
--- a fresh login shows: select auth.jwt() ->> 'org_id';  → a uuid.
--- Concatenates migrations 0011 → 0015 in order.
+-- Run after PART 1 + hook enabled + fresh-login shows org_id claim.
 -- ═══════════════════════════════════════════════════════════════════════
 
--- ─────────────────────────────────────────────────────────────────────
--- 0011_multitenancy_rls.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ── 0011_multitenancy_rls.sql ──
 -- HACK THE SOC :: 0011 — Multi-tenancy RLS cut-over
 -- ===========================================================================
 -- Phase 0, part 2 of 2. This REPLACES the per-user RLS policies with
@@ -138,9 +134,7 @@ revoke all on public.invitations from anon, authenticated;
 -- Attempt to read another org's row by id → expect 0 rows (see tenant_isolation_test.sql).
 
 
--- ─────────────────────────────────────────────────────────────────────
--- 0012_multitenancy_phase1.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ── 0012_multitenancy_phase1.sql ──
 -- HACK THE SOC :: 0012 — Multi-tenancy Phase 1 (provisioning + license support)
 -- ===========================================================================
 -- Server-side support for the super-admin console: the access-token hook now
@@ -160,6 +154,7 @@ create or replace function public.custom_access_token_hook(event jsonb)
   returns jsonb
   language plpgsql
   stable
+  security definer set search_path = public
 as $$
 declare
   v_claims jsonb := event->'claims';
@@ -280,9 +275,7 @@ revoke execute on function public.find_user_id_by_email(text) from anon, authent
 -- select public.expire_due_orgs();                            -- count of orgs just expired
 
 
--- ─────────────────────────────────────────────────────────────────────
--- 0013_enrollment.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ── 0013_enrollment.sql ──
 -- HACK THE SOC :: 0013 — Phase 2 enrollment (self-service onboarding)
 -- ===========================================================================
 -- Lets students join their college's environment on their own: via an
@@ -424,9 +417,7 @@ create trigger on_auth_user_created
 -- Sign up with metadata { invitation_token: '<token>' } → the new profile lands in that org.
 
 
--- ─────────────────────────────────────────────────────────────────────
--- 0014_branding.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ── 0014_branding.sql ──
 -- HACK THE SOC :: 0014 — Phase 4 per-tenant branding
 -- ===========================================================================
 -- Adds the org NAME to the access-token claims so the app can show "<College>"
@@ -439,6 +430,7 @@ create or replace function public.custom_access_token_hook(event jsonb)
   returns jsonb
   language plpgsql
   stable
+  security definer set search_path = public
 as $$
 declare
   v_claims jsonb := event->'claims';
@@ -483,9 +475,7 @@ revoke execute on function public.custom_access_token_hook from authenticated, a
 -- After a fresh login: select auth.jwt() ->> 'org_name';
 
 
--- ─────────────────────────────────────────────────────────────────────
--- 0015_hardening.sql
--- ─────────────────────────────────────────────────────────────────────
+-- ── 0015_hardening.sql ──
 -- HACK THE SOC :: 0015 — Phase 5 hardening
 -- ===========================================================================
 -- 1. Drop the speculative 0001 tables the app never used (they carry RLS and

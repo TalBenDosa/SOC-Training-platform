@@ -1,10 +1,15 @@
--- HACK THE SOC :: 0014 — Phase 4 per-tenant branding
+-- HACK THE SOC :: HOTFIX — make the access-token hook SECURITY DEFINER
 -- ===========================================================================
--- Adds the org NAME to the access-token claims so the app can show "<College>"
--- in the top bar and print it on rank certificates without an extra fetch. The
--- richer branding (accent colour, logo URL) lives in organizations.branding
--- (already present since 0010) and is fetched on demand — too large for a JWT.
--- Additive. Run after 0010–0013. Claude cannot run it.
+-- The hook was created SECURITY INVOKER, so it ran as `supabase_auth_admin`,
+-- which is subject to RLS on `profiles` (owner-only SELECT) and could not read
+-- the caller's is_platform_admin / org membership → it returned empty claims.
+--
+-- Recreating it as SECURITY DEFINER makes it run as the owner (bypassing RLS on
+-- the tables it reads), which is the correct pattern for an auth hook that reads
+-- your own tables. It still only ever returns claims for the user in the event.
+--
+-- Paste-and-run in the Supabase SQL editor (project "Hack The SOC Real"), then
+-- sign out and back in. This matches the final (0014) hook body.
 
 create or replace function public.custom_access_token_hook(event jsonb)
   returns jsonb
@@ -51,5 +56,4 @@ $$;
 grant execute on function public.custom_access_token_hook to supabase_auth_admin;
 revoke execute on function public.custom_access_token_hook from authenticated, anon, public;
 
--- ── Verify ──────────────────────────────────────────────────────────────────
--- After a fresh login: select auth.jwt() ->> 'org_name';
+-- Verify (run as a signed-in user AFTER re-login): select auth.jwt() ->> 'is_platform_admin';

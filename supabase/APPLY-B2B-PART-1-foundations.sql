@@ -1,10 +1,6 @@
 -- ═══════════════════════════════════════════════════════════════════════
 -- HACK THE SOC :: APPLY B2B — PART 1 (Foundations)
--- Paste-and-run in the Supabase SQL editor. This is migration 0010:
--- additive only (org tables, org_id + backfill, the access-token hook
--- function, org-assigning trigger). It does NOT change RLS, so the app
--- keeps working. After running: enable the hook in the dashboard, verify
--- the JWT carries org_id, THEN run PART 2.
+-- Additive; run first. Then enable the hook + verify, then run PART 2.
 -- ═══════════════════════════════════════════════════════════════════════
 
 -- HACK THE SOC :: 0010 — Multi-tenancy foundations (ADDITIVE, non-breaking)
@@ -149,6 +145,7 @@ create or replace function public.custom_access_token_hook(event jsonb)
   returns jsonb
   language plpgsql
   stable
+  security definer set search_path = public
 as $$
 declare
   v_claims jsonb := event->'claims';
