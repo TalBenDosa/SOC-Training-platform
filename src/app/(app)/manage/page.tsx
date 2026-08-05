@@ -10,7 +10,8 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
-  Users, Trophy, Activity, Target, DoorOpen, UserPlus, X, Link2, Copy, Check, AlertTriangle, Loader2, Upload, Mail,
+  Users, Trophy, Activity, Target, DoorOpen, UserPlus, Link2, Copy, Check, AlertTriangle, Loader2, Upload, Mail,
+  Power, PowerOff, Trash2,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 
@@ -67,7 +68,17 @@ export default function ManagePage() {
     setEmail(""); setNotice(`Added ${email}.`); await load();
   }
 
+  async function setActive(userId: string, active: boolean) {
+    setError(null);
+    const res = await fetch("/api/org/members", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId, active }),
+    });
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to update status."); return; }
+    await load();
+  }
+
   async function removeMember(userId: string) {
+    if (!confirm("Permanently remove this student from your class? Their class data is detached. This can't be undone.")) return;
     const res = await fetch("/api/org/members", {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }),
     });
@@ -117,7 +128,10 @@ export default function ManagePage() {
 
   const field = "h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30";
   const active = members.filter(m => m.status === "active");
-  const roster = [...members].sort((a, b) => (b.xp ?? 0) - (a.xp ?? 0));
+  // Active first, then by XP.
+  const roster = [...members].sort((a, b) =>
+    (a.status === "active" ? 0 : 1) - (b.status === "active" ? 0 : 1) || (b.xp ?? 0) - (a.xp ?? 0),
+  );
 
   return (
     <div>
@@ -189,22 +203,35 @@ export default function ManagePage() {
                 <p className="text-sm text-slate-400">No students yet. Share your class link to get started.</p>
               ) : (
                 <div className="divide-y divide-border/60">
-                  {roster.map((m, i) => (
-                    <div key={m.user_id} className="flex items-center justify-between gap-3 py-2.5">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-5 shrink-0 text-center font-mono text-[11px] text-slate-500">{i + 1}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-white">{m.display_name || m.handle || m.user_id.slice(0, 8)}</p>
-                          <p className="truncate font-mono text-[11px] text-slate-400">{m.handle ? `@${m.handle}` : ""} · {m.role}</p>
+                  {roster.map((m, i) => {
+                    const isActive = m.status === "active";
+                    return (
+                      <div key={m.user_id} className={`flex items-center justify-between gap-3 py-2.5 ${isActive ? "" : "opacity-60"}`}>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-5 shrink-0 text-center font-mono text-[11px] text-slate-500">{isActive ? i + 1 : "—"}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-white">{m.display_name || m.handle || m.user_id.slice(0, 8)}</p>
+                            <p className="truncate font-mono text-[11px] text-slate-400">{m.handle ? `@${m.handle}` : ""} · {m.role}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                            isActive ? "border-neon-green/30 bg-neon-green/10 text-neon-green" : "border-slate-600 bg-slate-800/60 text-slate-400"
+                          }`}>{isActive ? "Active" : "Inactive"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-cyber-300">{(m.xp ?? 0).toLocaleString()} XP</span>
+                          {isActive ? (
+                            <button onClick={() => setActive(m.user_id, false)} aria-label={`Deactivate ${m.handle ?? "student"}`} title="Deactivate"
+                              className="rounded p-1.5 text-slate-400 transition hover:bg-neon-amber/10 hover:text-neon-amber"><PowerOff className="h-4 w-4" /></button>
+                          ) : (
+                            <button onClick={() => setActive(m.user_id, true)} aria-label={`Activate ${m.handle ?? "student"}`} title="Activate"
+                              className="rounded p-1.5 text-slate-400 transition hover:bg-neon-green/10 hover:text-neon-green"><Power className="h-4 w-4" /></button>
+                          )}
+                          <button onClick={() => removeMember(m.user_id)} aria-label={`Remove ${m.handle ?? "student"}`} title="Delete"
+                            className="rounded p-1.5 text-slate-400 transition hover:bg-severity-high/10 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs font-bold text-cyber-300">{(m.xp ?? 0).toLocaleString()} XP</span>
-                        <button onClick={() => removeMember(m.user_id)} aria-label={`Remove ${m.handle ?? "student"}`}
-                          className="rounded p-1.5 text-slate-400 transition hover:bg-severity-high/10 hover:text-severity-high"><X className="h-4 w-4" /></button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </Card>

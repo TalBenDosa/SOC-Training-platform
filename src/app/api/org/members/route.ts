@@ -83,6 +83,39 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true });
 }
 
+// ── PATCH — activate / deactivate a member (without deleting) ───────────────
+// Deactivating keeps the row (and the student's history) but drops their active
+// membership, so their next token carries no org → they lose access until
+// reactivated. Reactivating re-checks the seat cap.
+export async function PATCH(req: Request) {
+  const c = await callerOrg();
+  if ("error" in c) return c.error;
+  const { orgId, admin, userId: adminId } = c;
+
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const target = String(body.user_id ?? "").trim();
+  const active = body.active === true;
+  if (!target) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
+  if (target === adminId) return NextResponse.json({ error: "You can't change your own status." }, { status: 400 });
+
+  if (active) {
+    // Reactivating consumes a seat — enforce the cap.
+    const { data: org } = await admin.from("organizations").select("seat_limit").eq("id", orgId).maybeSingle();
+    const { count } = await admin.from("org_members").select("user_id", { count: "exact", head: true }).eq("org_id", orgId).eq("status", "active");
+    const limit = org?.seat_limit ?? 0;
+    if (limit > 0 && (count ?? 0) >= limit) {
+      return NextResponse.json({ error: "Your organisation has reached its seat limit — free a seat first." }, { status: 409 });
+    }
+  }
+
+  const { error } = await admin.from("org_members")
+    .update({ status: active ? "active" : "removed" })
+    .eq("org_id", orgId).eq("user_id", target);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true, status: active ? "active" : "removed" });
+}
+
 // ── DELETE — remove a member from the admin's org ───────────────────────────
 export async function DELETE(req: Request) {
   const c = await callerOrg();
