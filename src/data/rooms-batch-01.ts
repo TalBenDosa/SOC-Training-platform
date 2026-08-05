@@ -783,9 +783,8 @@ const killChainEvent: TelemetryEvent = {
     flags: "0x400000",
     start: "2024-05-22T02:11:44.003Z",
     elapsed: 30,
-    repeatcount: 1,
+    repeatcount: 121,
     app_category: "general-internet",
-    threat_name: "Suspicious-TLS-Beacon-Pattern",
     threat_id: "30001",
     threat_category: "network-traffic-anomaly",
     severity: "critical",
@@ -793,13 +792,9 @@ const killChainEvent: TelemetryEvent = {
     tls_version: "TLSv1.3",
     tls_cipher: "TLS_AES_256_GCM_SHA384",
     ja3_hash: "51c64c77e60f3980eea90869b68c58a8",
-    beacon_interval_seconds: 30,
-    beacon_jitter_percent: 10,
-    total_beacons_last_hour: 121,
     domain: "updates.microsoft-cdn-services.net",
     domain_age_days: 14,
     dns_category: "newly_registered_domain",
-    url_filtering_category: "malware",
     serial: "009401002233",
     vsys: "vsys1",
     logtype: "THREAT",
@@ -1049,12 +1044,12 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       id: "ckc-la1",
       heading: "Kill Chain in Action: Identifying C2 Communication",
       context:
-        "You are a threat hunter at TargetCorp. Your SIEM has flagged a critical-severity network event from your Palo Alto Networks next-generation firewall (NGFW). The firewall detected suspicious outbound traffic from a finance department workstation. Review the log carefully — pay particular attention to the destination IP geolocation and the beacon_interval_seconds / total_beacons_last_hour fields.",
+        "You are a threat hunter at TargetCorp. Your SIEM has flagged a critical-severity network event from your Palo Alto Networks next-generation firewall (NGFW). The firewall detected suspicious outbound traffic from a finance department workstation. Review the log carefully — pay particular attention to the repeatcount (how many near-identical sessions were aggregated), the destination IP geolocation, and the destination domain and its age.",
       event: killChainEvent,
       questions: [
         {
           question:
-            "The firewall log shows 'beacon_interval_seconds: 30' and 'total_beacons_last_hour: 121' — the workstation connects to the same external IP roughly every 30 seconds, all day. Which Kill Chain stage does this pattern represent?",
+            "The firewall log shows 'repeatcount: 121' for this session signature — the firewall aggregated 121 near-identical short outbound sessions (elapsed: 30s each) to the same external IP over the hour, at a steady cadence. Which Kill Chain stage does this regular, repeating pattern represent?",
           options: [
             "Stage 3 — Delivery. This is a phishing email attachment being downloaded.",
             "Stage 5 — Installation. The workstation is creating a scheduled task on disk.",
@@ -1063,7 +1058,7 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
           ],
           answer: 2,
           explanation:
-            "A 'beacon' is a periodic check-in a compromised host makes to its Command and Control (C2) server, waiting for further instructions. No legitimate user-driven application connects to the same external IP every 30 seconds around the clock — that regularity is the signature of automated malware, not human browsing. 121 beacons in one hour at a fixed 30-second interval is textbook Stage 6 (Command and Control) behaviour, not Delivery (getting the payload in), Installation (persistence on disk), or Actions on Objectives (the final goal itself).",
+            "A 'beacon' is a periodic check-in a compromised host makes to its Command and Control (C2) server, waiting for further instructions. The firewall collapsed 121 near-identical outbound sessions (repeatcount: 121) to the same external IP into one record — each short-lived and recurring at a steady cadence. No legitimate user-driven application connects to one external IP over and over like clockwork all day; that machine-speed regularity is the signature of automated malware, not human browsing. It is textbook Stage 6 (Command and Control), not Delivery (getting the payload in), Installation (persistence on disk), or Actions on Objectives (the final goal itself).",
           xp: 25,
         },
         {
@@ -1077,7 +1072,7 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
           ],
           answer: 1,
           explanation:
-            "The domain 'updates.microsoft-cdn-services.net' is designed to look like a legitimate Microsoft CDN (Content Delivery Network) domain — a technique called 'typosquatting' or 'domain impersonation'. The attacker hopes that security tools scanning network traffic will see 'microsoft' in the domain name and assume it is legitimate. However, the 14-day registration age (legitimate Microsoft infrastructure is years old), the Russian geolocation of the IP, and the firewall's 'malware' URL category all expose the deception. Real Microsoft CDN servers do not use third-party .net domains like this.",
+            "The domain 'updates.microsoft-cdn-services.net' is designed to look like a legitimate Microsoft CDN (Content Delivery Network) domain — a technique called 'typosquatting' or 'domain impersonation'. The attacker hopes that security tools scanning network traffic will see 'microsoft' in the domain name and assume it is legitimate. However, the 14-day registration age (legitimate Microsoft infrastructure is years old) and the Russian geolocation of the IP expose the deception. Real Microsoft CDN servers do not use third-party .net domains like this.",
           xp: 20,
         },
       ],

@@ -222,7 +222,7 @@ A good case ticket contains:
       type: "log_analysis" as const,
       id: "inv-method-la1",
       heading: "Investigating Lateral Movement — Suspicious Service Account Logon",
-      context: `You are a Tier 2 SOC analyst and the SIEM has escalated an alert about a service account authentication. Service accounts are a high-value target for attackers because they often have elevated privileges. Your job is to examine the Windows Security Event below and determine whether this logon is legitimate or suspicious. Pay attention to the source of the logon, the authentication package used, and the context note.`,
+      context: `You are a Tier 2 SOC analyst and the SIEM has escalated an alert about a service account authentication. Service accounts are a high-value target for attackers because they often have elevated privileges. Business context from your asset inventory: svc-backup is a scheduled backup service account that should only ever authenticate from the backup server SRV-BACKUP-01. Your job is to examine the Windows Security Event below and determine whether this logon is legitimate or suspicious. Pay attention to the source of the logon and the authentication package used.`,
       event: {
         id: "inv-la1-evt-001",
         ts: "2025-06-24T03:17:42.000Z",
@@ -243,9 +243,7 @@ A good case ticket contains:
           "winlog.event_data.WorkstationName": "WS-DEV-09",
           "winlog.event_data.AuthenticationPackageName": "NTLM",
           "winlog.event_data.ElevatedToken": "%%1842",
-          "rule.description": "Service account authenticating interactively from developer workstation",
-          "data.context":
-            "svc-backup is a service account that should only authenticate from SRV-BACKUP-01, not from a developer workstation",
+          "rule.description": "Service account authenticating from a non-approved workstation",
         },
       } satisfies TelemetryEvent,
       questions: [

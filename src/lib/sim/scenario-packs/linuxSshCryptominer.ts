@@ -98,11 +98,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.op": "PAM:authentication",
         "data.audit.grantors": "pam_unix",
         "data.audit.res": "success",
-        "agent.name": host.name,
-        "agent.ip": host.privateIp,
-        location: "/var/log/auth.log",
-        full_log:
-          "Apr 14 21:40:00 nix-bkp-01 sshd[1712]: Accepted publickey for d.okonkwo from 82.166.44.9 port 58114 ssh2: ED25519 SHA256:9pQr2Kk4mZ7nWc1TbUeAx3sVdHyLg0Ff6JqRoNiPtEw",
       },
     },
 
@@ -140,10 +135,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.op": "PAM:authentication",
         "data.audit.grantors": "?",
         "data.audit.res": "failed",
-        "agent.name": host.name,
-        location: "/var/log/auth.log",
-        full_log:
-          "Apr 14 22:11:07 nix-bkp-01 sshd[1803]: Invalid user jenkins from 89.248.165.32 port 44118\nApr 14 22:11:07 nix-bkp-01 sshd[1803]: Failed password for invalid user jenkins from 89.248.165.32 port 44118 ssh2",
       },
     },
 
@@ -181,10 +172,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.op": "PAM:authentication",
         "data.audit.grantors": "?",
         "data.audit.res": "failed",
-        "agent.name": host.name,
-        location: "/var/log/auth.log",
-        full_log:
-          "Apr 14 22:32:44 nix-bkp-01 sshd[1841]: Failed password for svc-backup from 45.148.10.87 port 39562 ssh2\nApr 14 22:32:44 nix-bkp-01 sshd[1841]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=45.148.10.87  user=svc-backup",
       },
     },
 
@@ -223,12 +210,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.op": "PAM:authentication",
         "data.audit.grantors": "pam_unix",
         "data.audit.res": "success",
-        "agent.name": host.name,
-        location: "/var/log/auth.log",
-        full_log:
-          "Apr 14 22:38:11 nix-bkp-01 sshd[1876]: Accepted password for svc-backup from 193.32.162.140 port 41772 ssh2\nApr 14 22:38:11 nix-bkp-01 sshd[1876]: pam_unix(sshd:session): session opened for user svc-backup(uid=1004) by (uid=0)\ntype=CRED_ACQ msg=audit(" +
-          A(58) +
-          '.204:88190): pid=1876 uid=0 auid=1004 ses=41 msg=\'op=PAM:setcred grantors=pam_unix acct="svc-backup" exe="/usr/sbin/sshd" hostname=193.32.162.140 addr=193.32.162.140 terminal=ssh res=success\'',
       },
     },
 
@@ -277,14 +258,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.cwd": "/home/svc-backup",
         "data.audit.key": "exec-tracking",
         "data.audit.execve.a0": "id",
-        "agent.name": host.name,
-        location: "/var/log/audit/audit.log",
-        full_log:
-          "type=SYSCALL msg=audit(" +
-          A(60) +
-          '.417:88203): arch=c000003e syscall=59 success=yes exit=0 ppid=1877 pid=1901 auid=1004 uid=1004 gid=1004 euid=1004 suid=1004 fsuid=1004 egid=1004 sgid=1004 fsgid=1004 tty=pts0 ses=41 comm="id" exe="/usr/bin/id" key="exec-tracking"\ntype=EXECVE msg=audit(' +
-          A(60) +
-          ".417:88203): argc=1 a0=\"id\"",
       },
     },
 
@@ -322,12 +295,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.terminal": "pts/0",
         "data.audit.exe": "/usr/bin/sudo",
         "data.audit.res": "failed",
-        "agent.name": host.name,
-        location: "/var/log/audit/audit.log",
-        full_log:
-          "type=USER_CMD msg=audit(" +
-          A(61) +
-          ".882:88207): pid=1908 uid=1004 auid=1004 ses=41 msg='cwd=\"/home/svc-backup\" cmd=7375646F202D6C terminal=pts/0 res=failed'\nApr 14 22:41:22 nix-bkp-01 sudo[1908]: svc-backup : user NOT in sudoers ; TTY=pts/0 ; PWD=/home/svc-backup ; USER=root ; COMMAND=list",
       },
     },
 
@@ -434,14 +401,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.file.ouid": "1004",
         "data.audit.file.ogid": "1004",
         "data.audit.file.nametype": "NORMAL",
-        "agent.name": host.name,
-        location: "/var/log/audit/audit.log",
-        full_log:
-          "type=SYSCALL msg=audit(" +
-          A(66) +
-          '.331:88238): arch=c000003e syscall=268 success=yes exit=0 ppid=1877 pid=1941 auid=1004 uid=1004 gid=1004 euid=1004 suid=1004 fsuid=1004 egid=1004 sgid=1004 fsgid=1004 tty=pts0 ses=41 comm="chmod" exe="/usr/bin/chmod" key="perm-mod"\ntype=PATH msg=audit(' +
-          A(66) +
-          `.331:88238): item=0 name="${minerPath}" inode=1573429 dev=08:01 mode=0100755 ouid=1004 ogid=1004 rdev=00:00 nametype=NORMAL`,
       },
     },
 
@@ -496,21 +455,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.audit.file.ouid": "1004",
         "data.audit.file.ogid": "102",
         "data.audit.file.nametype": "CREATE",
-        "agent.name": host.name,
-        location: "/var/log/audit/audit.log",
-        full_log:
-          "type=SYSCALL msg=audit(" +
-          A(68) +
-          '.019:88251): arch=c000003e syscall=257 success=yes exit=4 ppid=1877 pid=1958 auid=1004 uid=1004 gid=1004 euid=1004 suid=1004 fsuid=1004 egid=102 sgid=102 fsgid=102 tty=pts0 ses=41 comm="crontab" exe="/usr/bin/crontab" key="cron-mod"\ntype=EXECVE msg=audit(' +
-          A(68) +
-          '.019:88251): argc=2 a0="crontab" a1="-"\ntype=PATH msg=audit(' +
-          A(68) +
-          '.019:88251): item=0 name="/var/spool/cron/crontabs/svc-backup" inode=1442817 dev=08:01 mode=0100600 ouid=1004 ogid=102 rdev=00:00 nametype=CREATE\nApr 14 22:48:01 nix-bkp-01 crontab[1958]: (svc-backup) REPLACE (svc-backup)',
-        // The `cron.file` / `cron.content` fields that were here are not auditd
-        // fields — auditd emits SYSCALL/PATH/USER_CMD records, and this event's
-        // full_log already shows the `crontab -` invocation and the created
-        // spool path. The scheduled command line is fully visible in
-        // lsc_10_miner_exec. Nothing is lost by dropping the fabricated pair.
       },
     },
 
@@ -659,33 +603,30 @@ export function buildLinuxSshCryptominerScenario(
       id: "lsc_13_cpu_alert",
       ts: T(95 * MIN),
       source: "siem",
-      vendor: "Wazuh",
+      vendor: "Zabbix",
       event_type: "edr_alert",
       hostname: host.name,
       severity: "high",
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
       description:
-        "The sustained load-average rule fired on nix-bkp-01. The captured `top` output on this 8-vCPU host shows kworker at 690% CPU and restic at 96%.",
-      rule: { id: "100742", name: "High sustained load average", category: "resource_anomaly" },
+        "A Zabbix trigger fired on nix-bkp-01 for a sustained high load average. The captured top output on this 8-vCPU host shows kworker at 690% CPU and restic at 96%.",
       raw: {
-        "rule.id": "100742",
-        "rule.level": "7",
-        "rule.description": "High sustained load average",
-        "rule.groups": ["ossec", "command_monitoring", "performance"],
-        "decoder.name": "wazuh-command",
-        "agent.name": host.name,
-        "agent.ip": host.privateIp,
-        location: "command_loadavg",
-        full_log:
-          "23:15:03 up 214 days,  4:11,  2 users,  load average: 15.94, 15.71, 14.88\n" +
-          "  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND\n" +
-          " 1974 svc-bac+  20   0 4682312 2.412g   3204 S 690.0  30.9  145:22.71 kworker\n" +
-          " 2103 backup    20   0  892440 214332   8812 S  96.0   2.6    9:41.03 restic",
+        "zabbix.trigger.name": "High sustained load average on {HOST.NAME}",
+        "zabbix.trigger.severity": "High",
+        "zabbix.host.name": host.name,
+        "zabbix.host.ip": host.privateIp,
+        "zabbix.item.key": "system.cpu.load[all,avg1]",
+        "zabbix.item.lastvalue": "15.94",
         "data.load_1m": "15.94",
         "data.load_5m": "15.71",
         "data.load_15m": "14.88",
         "data.cpu_count": "8",
+        "data.top_output":
+          "23:15:03 up 214 days,  4:11,  2 users,  load average: 15.94, 15.71, 14.88\n" +
+          "  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND\n" +
+          " 1974 svc-bac+  20   0 4682312 2.412g   3204 S 690.0  30.9  145:22.71 kworker\n" +
+          " 2103 backup    20   0  892440 214332   8812 S  96.0   2.6    9:41.03 restic",
       },
     },
   ];
