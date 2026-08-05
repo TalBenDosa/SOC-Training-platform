@@ -17,3 +17,4 @@ next-env.d.ts
 # scratch analysis scripts
 __*.mjs
 __*.json
+email-preview.html

@@ -10,7 +10,7 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
-  Users, Trophy, Activity, Target, DoorOpen, UserPlus, X, Link2, Copy, Check, AlertTriangle, Loader2,
+  Users, Trophy, Activity, Target, DoorOpen, UserPlus, X, Link2, Copy, Check, AlertTriangle, Loader2, Upload, Mail,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 
@@ -30,6 +30,11 @@ export default function ManagePage() {
   const [adding, setAdding] = useState(false);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // bulk invite (CSV / pasted list)
+  const [bulkText, setBulkText] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
 
   async function load() {
     setError(null);
@@ -78,6 +83,33 @@ export default function ManagePage() {
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create invite."); return; }
     setInviteLink((await res.json()).invites?.[0]?.link ?? null);
   }
+
+  // Pull every email-looking token out of a CSV / pasted list (any column).
+  function extractEmails(text: string): string[] {
+    const found = text.toLowerCase().match(/[^\s,;<>"']+@[^\s,;<>"']+\.[^\s,;<>"']+/g) ?? [];
+    return [...new Set(found)];
+  }
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setBulkText(prev => (prev ? prev + "\n" : "") + text);
+    e.target.value = "";
+  }
+  async function sendBulk() {
+    const emails = extractEmails(bulkText);
+    setError(null); setBulkResult(null);
+    if (emails.length === 0) { setError("No valid email addresses found in the list."); return; }
+    setBulkBusy(true);
+    const res = await fetch("/api/org/invites", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails, role: "student" }),
+    });
+    setBulkBusy(false);
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to send invitations."); return; }
+    const { invites } = await res.json();
+    setBulkResult(`Created ${invites?.length ?? 0} invitation${invites?.length === 1 ? "" : "s"}. Emails sent where email is configured.`);
+    setBulkText("");
+  }
   async function copyInvite() {
     if (!inviteLink) return;
     try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* blocked */ }
@@ -124,6 +156,31 @@ export default function ManagePage() {
                 </div>
                 <Button type="submit" variant="primary" size="sm" disabled={adding}><UserPlus className="mr-1.5 h-4 w-4" />{adding ? "Adding…" : "Add"}</Button>
               </form>
+            </Card>
+
+            <Card>
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-white"><Upload className="h-4 w-4 text-cyber-300" /> Bulk invite (CSV or list)</h2>
+              <p className="mb-3 text-xs text-slate-400">Upload a CSV or paste a list of student emails — each gets a personal invite emailed to them (where email is configured).</p>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg px-3.5 py-2 text-xs font-bold text-slate-200 transition hover:text-white">
+                  <Upload className="h-4 w-4" /> Choose CSV
+                  <input type="file" accept=".csv,text/csv,text/plain" className="hidden" onChange={onFile} />
+                </label>
+                <span className="text-[11px] text-slate-400">or paste below</span>
+              </div>
+              <textarea
+                value={bulkText} onChange={e => setBulkText(e.target.value)} rows={4}
+                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+                placeholder={"dana@college.ac.il\nomri@college.ac.il\n…"}
+                aria-label="Student emails"
+              />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">{extractEmails(bulkText).length} valid email(s) detected</span>
+                <Button variant="primary" size="sm" disabled={bulkBusy || extractEmails(bulkText).length === 0} onClick={sendBulk}>
+                  <Mail className="mr-1.5 h-4 w-4" /> {bulkBusy ? "Sending…" : "Send invitations"}
+                </Button>
+              </div>
+              {bulkResult && <p className="mt-2 flex items-center gap-1.5 text-[11px] text-neon-green"><Check className="h-3.5 w-3.5" /> {bulkResult}</p>}
             </Card>
 
             <Card>
