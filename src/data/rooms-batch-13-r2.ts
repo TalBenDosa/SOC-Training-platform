@@ -566,7 +566,7 @@ const firewallMasterclass = {
         `\n` +
         ` FortiGate:    data.type="traffic"  data.subtype="forward"  data.logid="0000000013"\n` +
         ` Palo Alto:    pan.app="ssl"  pan.rule="outbound-https"  pan.action="allow"\n` +
-        ` Check Point:  cp.blade="Firewall"  inzone="Internal"  outzone="External"\n` +
+        ` Check Point:  layer_name="Network"  inzone="Internal"  outzone="External"\n` +
         ` Cisco ASA:    %ASA-6-302013: Built inbound TCP connection\n` +
         `════════════════════════════════════════════════════════════════`,
     },

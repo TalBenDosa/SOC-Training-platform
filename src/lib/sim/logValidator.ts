@@ -115,18 +115,26 @@ const VENDOR_SCHEMAS = {
   // ── EDR — Microsoft Defender for Endpoint ────────────────────────────────
 
   mde: {
+    // Real Advanced Hunting fields are unprefixed KQL table columns
+    // (DeviceName, ActionType, FileName, ReportId, Category, DetectionSource,
+    // Status, Classification, Severity …). Some older content still carries a
+    // legacy "mde." namespace — tolerated but flagged for cleanup.
     label: "Microsoft Defender for Endpoint",
-    correctPrefixes: ["mde."],
+    correctPrefixes: ["mde.", "DeviceName", "ActionType", "ReportId", "DetectionSource", "Category"],
     legacyPrefixes: [],
     requiredAny: [
+      "DeviceName",
+      "ActionType",
+      "ReportId",
+      "Category",
+      "DetectionSource",
+      "Status",
+      "Classification",
+      "Severity",
       "mde.AlertTitle",
       "mde.DetectionSource",
       "mde.DeviceName",
       "mde.ReportId",
-      "mde.alert_category",
-      "mde.detectionSource",
-      "mde.alertId",
-      "mde.machine_risk_score",
     ],
   },
 
@@ -232,16 +240,30 @@ const VENDOR_SCHEMAS = {
   // ── Firewall — Check Point ────────────────────────────────────────────────
 
   checkpoint: {
+    // Real Check Point SmartLog fields are unprefixed (no "checkpoint." or "cp."
+    // namespace — see checkpoint-log-fields reference). "layer_name" is the
+    // most reliable anchor field present on every Check Point event.
     label: "Check Point NGFW",
-    correctPrefixes: ["checkpoint.", "cp."],
-    legacyPrefixes: [],
+    correctPrefixes: ["layer_name", "rule_name", "inzone", "outzone", "ProductName"],
+    legacyPrefixes: [
+      {
+        prefix: "cp.",
+        replaceWith:
+          "unprefixed real Check Point fields (e.g. layer_name, rule_name, inzone, outzone, svc, service_id, ProductName)",
+      },
+      {
+        prefix: "checkpoint.",
+        replaceWith:
+          "unprefixed real Check Point fields (e.g. layer_name, rule_name, inzone, outzone, svc, service_id, ProductName)",
+      },
+    ],
     requiredAny: [
-      "checkpoint.rule",
-      "checkpoint.blade",
-      "checkpoint.action",
-      "checkpoint.policy",
-      "cp.blade",
-      "cp.action",
+      "layer_name",
+      "rule_name",
+      "inzone",
+      "outzone",
+      "ProductName",
+      "src_machine_name",
     ],
   },
 

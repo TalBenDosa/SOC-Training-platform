@@ -155,7 +155,7 @@ function extractAction(event: LiveEvent): ActionInfo | null {
     (raw["firewall.action"]     as string | undefined) ??
     (raw["pan.action"]          as string | undefined) ??
     (raw["fortinet.action"]     as string | undefined) ??
-    (raw["cp.action"]           as string | undefined) ??
+    (raw["action"]              as string | undefined) ??
     (raw["event.action"]        as string | undefined) ??
     ""
   );

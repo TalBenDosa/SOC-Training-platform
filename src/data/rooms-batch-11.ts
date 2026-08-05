@@ -429,13 +429,13 @@ const rooms = [
         id: "priv-la2",
         heading: "sqlservr.exe Spawns PowerShell — Post-Kerberoasting Escalation",
         context:
-          "Six hours after a Kerberoasting alert fired for the service account `svc-mssql` (RC4 ticket request, EncryptionType 0x17), your EDR generates a new critical alert on the SQL Server host itself. Review the process creation event below and answer the questions.",
+          "Six hours after a Kerberoasting alert fired for the service account `svc-mssql` (RC4 ticket request, EncryptionType 0x17), your SIEM fires a new critical correlation alert on the SQL Server host itself, combining EDR process telemetry with SQL Server audit logs from the same time window. Review the process creation event below and answer the questions.",
         event: {
           id: "priv-xpcmd-evt-001",
           ts: "2024-11-14T08:31:52.000Z",
-          source: "edr",
-          vendor: "Microsoft Defender for Endpoint",
-          event_type: "process_create",
+          source: "siem",
+          vendor: "Microsoft Sentinel",
+          event_type: "edr_alert",
           severity: "critical",
           hostname: "SRV-DB01.corp.contoso.com",
           mitre_technique: "T1059.001",
@@ -451,7 +451,9 @@ const rooms = [
             integrity: "high",
           },
           raw: {
-            "mde.event_type": "ProcessCreated",
+            // ── Sentinel correlation rule: EDR process telemetry ──
+            "AlertName": "EDR-SQL Correlation: xp_cmdshell Process Spawn",
+            "alert.rule.id": "SQL-XPCMDSHELL-EDR-CORR-001",
             "process.name": "powershell.exe",
             "process.command_line": "powershell.exe -nop -w hidden -enc SQBFAFgA...",
             "process.parent.name": "sqlservr.exe",
@@ -459,6 +461,7 @@ const rooms = [
             "process.integrity_level": "High",
             "user.name": "CORP\\svc-mssql",
             "host.name": "SRV-DB01.corp.contoso.com",
+            // ── Correlated evidence: SQL Server Audit (same 60s window) ──
             "sql.originating_login": "svc-mssql",
             "sql.stored_procedure": "xp_cmdshell",
             "sql.query_text": "EXEC xp_cmdshell 'powershell -nop -w hidden -enc SQBFAFgA...'",
@@ -468,7 +471,7 @@ const rooms = [
         questions: [
           {
             question:
-              "The ParentProcessName is 'sqlservr.exe' and the NewProcessName is 'powershell.exe'. Why is this parent-child relationship, on its own, enough to escalate this alert to critical — even before reading the sql.stored_procedure field?",
+              "The process.parent.name is 'sqlservr.exe' and the process.name is 'powershell.exe'. Why is this parent-child relationship, on its own, enough to escalate this alert to critical — even before reading the sql.stored_procedure field?",
             options: [
               "It isn't unusual — DBAs commonly launch PowerShell scripts directly from the SQL Server process during routine maintenance",
               "sqlservr.exe (the SQL Server database engine process) has no legitimate reason to spawn a shell interpreter like PowerShell — real database administration happens through management tools or scheduled SQL Agent jobs, not through the database engine process itself launching cmd.exe or powershell.exe. This parent-child pattern is functionally identical to the 'Office app spawns shell' red flag you learned earlier, just with a database process instead of Word or Excel",
