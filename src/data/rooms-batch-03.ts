@@ -117,7 +117,7 @@ const activeDirectory: Room = {
       ],
       answer: 1,
       explanation:
-        "Kerberoasting works by requesting service tickets encrypted with RC4 (EncryptionType 0x17) because RC4 hashes are much faster to crack offline than AES. Modern Windows environments default to AES (0x12 = AES-128, 0x18 = AES-256). Seeing RC4 ticket requests for service accounts — especially in large numbers — is a strong Kerberoasting indicator.",
+        "Kerberoasting works by requesting service tickets encrypted with RC4 (EncryptionType 0x17) because RC4 hashes are much faster to crack offline than AES. Modern Windows environments default to AES (0x11 = AES-128, 0x12 = AES-256). Seeing RC4 ticket requests for service accounts — especially in large numbers — is a strong Kerberoasting indicator.",
       xp: 30,
     } satisfies QuestionTask,
 

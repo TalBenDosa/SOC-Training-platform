@@ -869,6 +869,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           verdict,
           verdictReason,
           analystNotes: notes,
+          findings,
           indicators: manualIocs,
         }),
       });

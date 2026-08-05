@@ -92,7 +92,12 @@ export async function POST(
   const words = reportText.split(/\s+/).filter(Boolean).length;
 
   const expectedVerdict = bundle.attack_kind === "false_positive" ? "benign" : "malicious";
-  const verdictCorrect = verdict === expectedVerdict;
+  // The client sends the analyst's call as "tp"/"fp" (true/false positive);
+  // normalise to the malicious/benign scheme the rubric compares against. Without
+  // this, "tp" !== "malicious" made the 25-pt correct-verdict tier unreachable and
+  // verdictCorrect permanently false — every right call scored as if wrong.
+  const normalizedVerdict = verdict === "tp" ? "malicious" : verdict === "fp" ? "benign" : verdict;
+  const verdictCorrect = normalizedVerdict === expectedVerdict;
 
   // Did they name the things that matter? Credit each scenario IOC they cite,
   // whether via the indicator list or in prose.

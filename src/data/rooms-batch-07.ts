@@ -316,7 +316,7 @@ After compromising one machine, attackers move to others. A common tool is **PsE
           user: "CORP\\svc-backup",
         },
         raw: {
-          "crowdstrike.AlertType": "ProcessRollup2",
+          "crowdstrike.event_simpleName": "ProcessRollup2",
           "crowdstrike.SeverityName": "Critical",
           "crowdstrike.Technique": "T1003.001",
           "crowdstrike.TechniqueName": "LSASS Memory",

@@ -58,7 +58,7 @@ Output ONLY valid JSON matching this exact schema (no markdown code fence, no pr
       "pageNumber": 1,
       "title": "string — page title",
       "body": "string — 200-300 words of markdown content",
-      "codeExample": "string or null — a real log line, command, or YAML snippet",
+      "codeExample": "string or null — a real log line, command, YAML snippet, OR a Mermaid diagram (see below)",
       "keyPoints": ["string", "string", "string"]
     }
   ],
@@ -76,6 +76,10 @@ Output ONLY valid JSON matching this exact schema (no markdown code fence, no pr
     }
   ]
 }
+
+DIAGRAMS: When a page describes something structural or sequential — a protocol exchange (Kerberos, TLS, TCP handshake), a kill chain, a process tree, a trust relationship, an authentication flow, or an attack path — prefer setting "codeExample" to Mermaid diagram source instead of a log line. Prose explains these badly; a diagram is far clearer. The platform renders Mermaid automatically. The source MUST start on its first line with one of: flowchart, sequenceDiagram, stateDiagram-v2, timeline, or flowchart TD/LR. Example:
+"codeExample": "sequenceDiagram\\n  participant Client\\n  participant KDC\\n  Client->>KDC: AS-REQ (encrypted timestamp)\\n  KDC-->>Client: AS-REP (TGT + session key)\\n  Client->>KDC: TGS-REQ (present TGT)\\n  KDC-->>Client: TGS-REP (service ticket)"
+Use a real log line or command for codeExample when the page is about reading telemetry; use a Mermaid diagram when the page is about how a process or relationship works. Aim for at least 2-3 diagrams across the 10 pages where the topic is structural.
 
 Generate exactly 10 pages and exactly 4 quiz questions. The quiz tests the content covered in the pages.`;
 

@@ -916,7 +916,7 @@ const webAttacksRoom: Room = {
   estimatedMinutes: 55,
   xp: 330,
   icon: "🐚",
-  prerequisites: ["networking-protocols"],
+  prerequisites: ["networking-protocols", "web-application-security"],
   tasks: [
     {
       type: "reading",
