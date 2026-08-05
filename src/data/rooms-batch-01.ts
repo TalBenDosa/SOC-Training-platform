@@ -156,7 +156,7 @@ Colonial Pipeline operates the largest fuel pipeline in the United States, carry
 **The Scale of the Problem**
 - IBM's 2023 Cost of a Data Breach Report found the average data breach costs **$4.45 million**.
 - The healthcare industry has the highest breach costs of any sector.
-- It takes organisations an average of **204 days** just to *detect* a breach, and another 73 days to contain it — nearly a full year of an attacker being inside before anything is done.
+- It takes organisations an average of **204 days** just to *detect* a breach, and another 73 days to contain it — that is roughly nine months of an attacker being inside before it is fully dealt with.
 - The global shortage of cybersecurity professionals was estimated at **3.5 million unfilled jobs** in 2023.
 
 **Career Paths in Cybersecurity**
@@ -1229,11 +1229,13 @@ const mitreAttackRoom = {
 The key word is "Common Knowledge" — the entire database is **free and publicly available** at attack.mitre.org. This is revolutionary: before ATT&CK, knowledge about attacker techniques was scattered across private threat intelligence reports, academic papers, and individual analysts' experience. ATT&CK standardised the language and made it accessible to the entire security community.
 
 **How big is it?**
-As of 2024, ATT&CK for Enterprise (the version covering Windows, macOS, Linux, and cloud environments) contains:
-- **14 Tactics** (the high-level attacker goals)
-- **202 Techniques** (specific methods to achieve each goal)
-- **435 Sub-techniques** (more specific variations of techniques)
-- **Profiles for 137+ threat actor groups** (documented real-world adversary behaviour)
+ATT&CK for Enterprise (the version covering Windows, macOS, Linux, and cloud environments) is large and grows with each release (MITRE revises it roughly twice a year), but the orders of magnitude are what matter:
+- **14 Tactics** (the high-level attacker goals — this number is stable)
+- **~200 Techniques** (specific methods to achieve each goal)
+- **~450 Sub-techniques** (more specific variations of techniques)
+- **140+ documented threat-actor groups** (real-world adversary behaviour)
+
+Don't memorise the exact counts — they change every release. Check attack.mitre.org for the current version's numbers.
 
 **Why is ATT&CK better than just the Kill Chain?**
 The Cyber Kill Chain (from Room 3) gives you 7 broad phases. ATT&CK gives you granular detail. If the Kill Chain says "Stage 6: Command and Control," ATT&CK has an entire category of C2 techniques with dozens of entries: Web Protocols (T1071.001), DNS (T1071.004), Application Layer Protocol (T1071), and more — each with detection guidance, mitigation advice, and real attacker examples.

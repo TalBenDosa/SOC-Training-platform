@@ -1025,14 +1025,28 @@ export default function DashboardPage() {
 
       {/* ── Incident Report Modal ───────────────────────────────────── */}
       {showReportModal && (() => {
-        // Ground truth = what was actually injected this session (all stories),
-        // not what the student happened to classify.
-        const storyMitre = Array.from(new Set(injectedStories.flatMap(s => s.mitre)));
+        // Ground truth = every GENUINE attack the student actually saw this
+        // session — the injected story PLUS any other real attack event that
+        // surfaced in the feed. Grading only off the picked story used to punish
+        // correct analysis: a student who spotted a different (but equally real)
+        // attack chain in the noise, and quoted its true IOCs, had those IOCs
+        // scored as "fabricated" because they weren't in the one picked story.
+        // FP decoys (it_verify_result / fp_explanation / expected_verdict:"fp")
+        // are excluded so they never become gradeable "attacks".
+        const feedAttackEvents = live.events.filter(e =>
+          !!e.mitre_technique &&
+          (e.severity === "high" || e.severity === "critical") &&
+          !e.it_verify_result && !e.fp_explanation && e.expected_verdict !== "fp"
+        );
+        const groundTruthEvents = [...injectedStories.flatMap(s => s.events), ...feedAttackEvents];
+        const storyMitre = Array.from(new Set([
+          ...injectedStories.flatMap(s => s.mitre),
+          ...feedAttackEvents.map(e => e.mitre_technique).filter((m): m is string => !!m),
+        ]));
         const storyTitle = injectedStories.map(s => s.title).join(" + ") || null;
-        // Ground-truth indicators pulled from the ACTUAL injected attack events —
-        // the grader uses these to verify the student cited real evidence and to
-        // catch fabricated data (e.g. a hostname that never appears in the logs).
-        const realIndicators = extractIndicators(injectedStories.flatMap(s => s.events));
+        // Indicators the grader uses to verify the student cited real evidence
+        // and to catch genuinely fabricated data (a hostname that never appears).
+        const realIndicators = extractIndicators(groundTruthEvents);
         return (
           <IncidentReportModal
             companyName={selectedCompany.name}

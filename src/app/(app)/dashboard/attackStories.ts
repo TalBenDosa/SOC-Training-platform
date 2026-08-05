@@ -343,10 +343,30 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
 
 const SERVICE_ACCOUNT = /^(svc-|ci-|admin@|noreply|system@)/i;
 
+/** Deep string-replace across every value of a raw object (recurses arrays/objects). */
+function deepReplace(value: unknown, pairs: [string, string][]): unknown {
+  if (typeof value === "string") {
+    let out = value;
+    for (const [from, to] of pairs) if (from && out.includes(from)) out = out.split(from).join(to);
+    return out;
+  }
+  if (Array.isArray(value)) return value.map(v => deepReplace(v, pairs));
+  if (value && typeof value === "object") {
+    const o: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) o[k] = deepReplace(v, pairs);
+    return o;
+  }
+  return value;
+}
+
 /**
  * ~50% of sessions swap the story's primary victim with another employee from
  * the company's benign pool, so the same story never reads identically twice.
- * Raw fields are left untouched (same tolerance as the feed's user rotation).
+ * The swap rewrites the victim's identity EVERYWHERE it appears — user_email,
+ * description, AND the raw log fields (email, dotted and undotted username, and
+ * DOMAIN\\user forms). Skipping raw was a real bug: the feed banner would show
+ * the new name while the raw log (which the student is told to quote exactly)
+ * still carried the original, so an exact quote was scored as fabricated evidence.
  */
 export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[]): AttackStory {
   if (Math.random() < 0.5) return s;
@@ -372,16 +392,28 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[]):
   if (users.length === 0) return s;
 
   const replacement = users[Math.floor(Math.random() * users.length)];
-  const origName = victim.split("@")[0];
-  const newName  = replacement.split("@")[0];
-  const nameRe   = new RegExp(origName.replace(/\./g, "\\."), "g");
+  const origName = victim.split("@")[0];              // e.g. "j.smith"
+  const newName  = replacement.split("@")[0];         // e.g. "r.cohen"
+  // Every form the victim's identity takes across banner + raw log. Longest
+  // first so the full email is replaced before its bare username substring.
+  const basePairs: [string, string][] = [
+    [victim, replacement],
+    [origName, newName],
+    [origName.replace(/\./g, ""), newName.replace(/\./g, "")], // "jsmith" -> "rcohen"
+  ];
+  const pairs = basePairs
+    .filter(([f, t]) => f && t && f !== t)
+    .sort((a, b) => b[0].length - a[0].length);
+
+  const subStr = (str: string) => { let o = str; for (const [f, t] of pairs) if (str.includes(f)) o = o.split(f).join(t); return o; };
 
   return {
     ...s,
-    events: s.events.map(e =>
-      e.user_email === victim
-        ? { ...e, user_email: replacement, description: e.description?.replace(nameRe, newName) ?? e.description }
-        : e
-    ),
+    events: s.events.map(e => ({
+      ...e,
+      user_email: e.user_email === victim ? replacement : e.user_email,
+      description: e.description ? subStr(e.description) : e.description,
+      raw: e.raw ? (deepReplace(e.raw, pairs) as typeof e.raw) : e.raw,
+    })),
   };
 }

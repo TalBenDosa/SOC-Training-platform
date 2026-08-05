@@ -617,7 +617,7 @@ These questions form the foundation of network-based threat investigation.`,
         ],
         answer: 2,
         explanation:
-          "This is a textbook RDP brute-force attack. 847 failures in 2 minutes from a single external IP (45.33.32.156 is a Shodan/scanner IP, notably) indicates automated password guessing. The single auth_success after all those failures means the attack succeeded — the attacker now has valid credentials and remote desktop access to the server. This requires immediate incident response: isolate the server, reset credentials, and investigate what the attacker accessed.",
+          "This is a textbook RDP brute-force attack. 847 failures in 2 minutes from a single external IP indicates automated password guessing — no human types passwords that fast. The single auth_success after all those failures means the attack succeeded — the attacker now has valid credentials and remote desktop access to the server. This requires immediate incident response: isolate the server, reset credentials, and investigate what the attacker accessed.",
         xp: 20,
       },
       {

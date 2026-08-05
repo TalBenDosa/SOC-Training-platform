@@ -64,7 +64,7 @@ function vendorAlertId(vendor: string, scenarioId: string, n: number): string {
   return `${tag}-${h}`;
 }
 
-function titleForTechnique(t: string, _e: TelemetryEvent): string {
+function titleForTechnique(t: string, e: TelemetryEvent): string {
   switch (t) {
     case "T1566.001": return "Spearphishing attachment with macro delivered";
     case "T1059.001": return "Encoded PowerShell spawned by Office process";
@@ -81,7 +81,9 @@ function titleForTechnique(t: string, _e: TelemetryEvent): string {
     case "T1569.002": return "Remote service execution via PsExec";
     case "T1490":     return "Volume shadow copies deleted — ransomware pre-stage";
     case "T1486":     return "Files encrypted with ransomware extension";
-    case "T1098.001": return "Rogue OAuth app registered with broad permissions";
+    case "T1098.001": return e.source === "cloudtrail"
+      ? "AdministratorAccess policy attached to backdoor IAM user"
+      : "Rogue OAuth app registered with broad permissions";
     case "T1564.008": return "Hidden inbox rule created to conceal attacker mail";
     case "T1528":     return "OAuth consent granted to an attacker-controlled application";
     case "T1114.002": return "Email collection via Microsoft Graph API";
@@ -91,7 +93,6 @@ function titleForTechnique(t: string, _e: TelemetryEvent): string {
     case "T1580":     return "Cloud infrastructure discovery — S3, EC2, Secrets Manager enumeration";
     case "T1578.002": return "Attacker launched GPU instances for cryptomining (RunInstances)";
     case "T1136.003": return "Backdoor IAM user created for persistent cloud access";
-    case "T1098.001": return "AdministratorAccess policy attached to backdoor IAM user";
     case "T1496":     return "Resource hijacking — GPU instances running Monero cryptominer";
     case "T1052.001": return "Sensitive files copied to USB removable device";
     case "T1567":     return "Exfiltration to personal cloud storage";
@@ -122,7 +123,6 @@ function titleForTechnique(t: string, _e: TelemetryEvent): string {
     case "T1610":     return "Malicious kubectl exec into production container";
     case "T1611":     return "Container escape to host — breakout onto the EC2 node OS";
     case "T1552.005": return "EC2 Instance Metadata Service (IMDS) queried for IAM credentials";
-    case "T1528":     return "OAuth consent grant phishing — malicious app gains mailbox access";
     case "T1137.005": return "Inbox rule created by OAuth app to forward email externally";
     case "T1078.002": return "Domain service account used post-credential crack";
     case "T1550.003": return "Golden Ticket used for lateral movement — Pass the Ticket";
@@ -149,7 +149,9 @@ function descForTechnique(t: string, e: TelemetryEvent): string {
     case "T1569.002": return `PSEXESVC.exe service created on remote host under NT AUTHORITY\\SYSTEM.`;
     case "T1490":     return `vssadmin delete shadows /all /quiet — prevents file recovery.`;
     case "T1486":     return `Files encrypted with .locked extension — ransomware payload active.`;
-    case "T1098.001": return `OAuth app registered with Mail.ReadWrite + Files.ReadWrite.All${user}.`;
+    case "T1098.001": return e.source === "cloudtrail"
+      ? `AdministratorAccess managed policy attached to backdoor IAM user — full AWS account takeover.`
+      : `OAuth app registered with Mail.ReadWrite + Files.ReadWrite.All${user}.`;
     case "T1564.008": return `Inbox rule created that files or deletes mail before the owner sees it${user}.`;
     case "T1114.002": return `Graph API MailItemsAccessed via third-party OAuth app${user}.`;
     case "T1530":     return `Bulk file download from SharePoint/S3${user}.`;
@@ -158,7 +160,6 @@ function descForTechnique(t: string, e: TelemetryEvent): string {
     case "T1580":     return `Rapid cloud recon: ListBuckets, DescribeInstances, ListSecrets, DescribeVpcs — all within 90 seconds from same attacker IP.`;
     case "T1578.002": return `RunInstances: GPU instances (p3.8xlarge) launched in ${e.raw["cloud.region"] ?? "us-east-1"} — XMRig miner installed via UserData script.`;
     case "T1136.003": return `Backdoor IAM user created — attacker persistence before original stolen credentials could be revoked.`;
-    case "T1098.001": return `AdministratorAccess managed policy attached to backdoor IAM user — full AWS account takeover.`;
     case "T1496":     return `Cryptomining: DNS queries to pool.minexmr.com from 14 EC2 GPU instances — $342.72/hr burn rate.`;
     case "T1052.001": return `Files copied to USB removable device${host}.`;
     case "T1567":     return `Outbound upload to personal cloud storage — DLP triggered${host}.`;

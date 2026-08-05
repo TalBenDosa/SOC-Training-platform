@@ -201,7 +201,7 @@ function calculateRuleLevel(event: TelemetryEvent): number {
     if (["T1055"].includes(mitre))                    return 9;  // Process injection
     if (["T1566.001"].includes(mitre))                return 8;  // Phishing
     if (["T1204.002"].includes(mitre))                return 8;  // User execution of malicious file
-    if (["T1110.003", "T1110"].includes(mitre))       return 8;  // Spray
+    if (["T1110.003", "T1110.001", "T1110.004", "T1110"].includes(mitre)) return 8;  // Brute force / spray / stuffing
     if (["T1547.001"].includes(mitre))                return 8;  // Persistence
     if (["T1027", "T1218.011", "T1218.010"].includes(mitre)) return 8;  // Obfuscation/LOLBin
     if (["T1098.005", "T1098.001", "T1114.002", "T1114.001", "T1114.003", "T1530"].includes(mitre)) return 8; // Cloud / mailbox collection / forwarding

@@ -2867,7 +2867,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
   {
     id: "nx_a2", ts: "2026-05-10T09:21:00Z", source: "ad", event_type: "auth_success",
     severity: "medium", vendor: "Microsoft Entra ID", user_email: "c.thornton@nexacorp.com", src_ip: "91.108.4.22",
-    description: "c.thornton signed in from Amsterdam 19 minutes after a sign-in from London",
+    description: "c.thornton signed in successfully from Amsterdam, Netherlands (91.108.4.22)",
     mitre_technique: "T1078",
     raw: {
       "data.office365.Operation": "UserLoggedIn",
@@ -3114,7 +3114,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
   {
     id: "mc_b3", ts: "2026-05-10T11:30:00Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "high", vendor: "Microsoft Entra ID", user_email: "n.smits@medcorehealth.org", src_ip: "192.168.10.45",
-    description: "n.smits's account queried the full Azure AD directory, pulling all 3,800 staff records — unusual for a nurse account",
+    description: "n.smits's account queried the full Azure AD directory, returning all 3,800 staff records in a single call",
     mitre_technique: "T1087.002",
     raw: { "azure.activitylogs.operationName": "Microsoft.Graph/users/read", "azure.resource.id": "/v1.0/users", "azure.record_count": "3800", "azure.activitylogs.resultType": "Succeeded", "action_result": "allowed" },
   },
@@ -3560,7 +3560,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     id: "gl_a3", ts: "2026-05-10T09:45:00Z", source: "ad", event_type: "auth_success",
     severity: "high", vendor: "Windows Security", user_email: "k.schmidt@globallogis.de", src_ip: "10.50.2.88",
     hostname: "SRV-GL-WMS01",
-    description: "k.schmidt logged in to the warehouse management server SRV-GL-WMS01 — unusual, this account has no normal business need for WMS access",
+    description: "k.schmidt authenticated to the warehouse management server SRV-GL-WMS01 from an internal workstation",
     mitre_technique: "T1550.002",
     raw: { "winlog.event_id": "4624", "winlog.event_data.LogonType": "3", "winlog.event_data.AuthenticationPackageName": "NTLM", "winlog.computer_name": "SRV-GL-WMS01", "action_result": "allowed" },
   },
