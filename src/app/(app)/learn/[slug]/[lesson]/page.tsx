@@ -223,6 +223,24 @@ function LessonPageView({ page }: { page: LessonPage }) {
             </div>
           )
       )}
+      {/* Optional still image (curated lessons only). Same-origin/data/https
+          per CSP; object-contain + max-w so it never breaks the layout. */}
+      {page.image?.src && (
+        <figure className="overflow-hidden rounded-lg border border-border bg-bg">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={page.image.src}
+            alt={page.image.alt ?? ""}
+            loading="lazy"
+            className="mx-auto max-h-[420px] w-full object-contain"
+          />
+          {page.image.caption && (
+            <figcaption className="border-t border-border px-3 py-2 text-center text-[11px] text-slate-400">
+              {page.image.caption}
+            </figcaption>
+          )}
+        </figure>
+      )}
       {page.keyPoints.length > 0 && (
         <div className="rounded border border-cyber-500/20 bg-cyber-500/5 p-4">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-cyber-300">Key Takeaways</p>

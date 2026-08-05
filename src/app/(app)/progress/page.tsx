@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { RANKS, rankForXp, nextRank, rankProgress } from "@/lib/progression/ranks";
-import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake } from "lucide-react";
+import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText } from "lucide-react";
 import Link from "next/link";
 import { ROOMS } from "@/data/rooms";
 import type { RoomTask } from "@/data/rooms";
@@ -30,6 +30,15 @@ interface ScenarioRecord {
   xpEarned: number;
   timeTaken: number;   // seconds
   date: string;
+  report?: {
+    verdict?: string | null;
+    verdictReason?: string;
+    notes?: string;
+    findings?: string;
+    reportScore?: number;
+    rubric?: { verdict: number; depth: number; evidence: number; reasoning: number };
+    passed?: boolean;
+  };
 }
 
 // ─── Static data (non-persisted) ─────────────────────────────────────────────
@@ -316,6 +325,7 @@ export default function ProgressPage() {
   const [totalXp,          setTotalXp]          = useState(0);
   const [streakFreezeDates, setStreakFreezeDates] = useState<string[]>([]);
   const [scenarioHistory,  setScenarioHistory]  = useState<ScenarioRecord[]>([]);
+  const [openReport,       setOpenReport]       = useState<number | null>(null);
   const [dashSessions,     setDashSessions]     = useState<DashboardSession[]>([]);
   const [roomDates,        setRoomDates]        = useState<string[]>([]);
   const [roomTelemetry,    setRoomTelemetry]    = useState<RoomTaskTelemetry[]>([]);
@@ -664,14 +674,68 @@ export default function ProgressPage() {
                   {scenarioHistory.map((s, i) => {
                     const mins = Math.floor(s.timeTaken / 60);
                     const secs = s.timeTaken % 60;
+                    const hasReport = !!s.report && (
+                      !!s.report.verdict || !!s.report.notes?.trim() || !!s.report.findings?.trim() || !!s.report.verdictReason?.trim()
+                    );
+                    const isOpen = openReport === i;
                     return (
-                      <tr key={i} className="border-t border-border/60 hover:bg-bg-hover">
-                        <td className="px-5 py-2.5 text-slate-200">{s.title ?? s.slug}</td>
-                        <td className="py-2.5 text-slate-400">{new Date(s.date).toLocaleDateString("en-GB")}</td>
-                        <td className="py-2.5"><span className={cn("font-mono font-bold", s.score >= 80 ? "text-neon-green" : s.score >= 60 ? "text-severity-medium" : "text-severity-critical")}>{s.score}%</span></td>
-                        <td className="py-2.5 font-mono text-slate-400">{mins}:{String(secs).padStart(2,"0")}</td>
-                        <td className="py-2.5 pr-5 font-mono font-bold text-cyber-300">+{s.xpEarned}</td>
-                      </tr>
+                      <Fragment key={i}>
+                        <tr
+                          className={cn("border-t border-border/60 hover:bg-bg-hover", hasReport && "cursor-pointer")}
+                          onClick={() => hasReport && setOpenReport(isOpen ? null : i)}
+                        >
+                          <td className="px-5 py-2.5 text-slate-200">
+                            <span className="flex items-center gap-1.5">
+                              {hasReport
+                                ? (isOpen ? <ChevronDown className="h-3.5 w-3.5 text-cyber-300" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />)
+                                : <span className="w-3.5" />}
+                              {s.title ?? s.slug}
+                            </span>
+                          </td>
+                          <td className="py-2.5 text-slate-400">{new Date(s.date).toLocaleDateString("en-GB")}</td>
+                          <td className="py-2.5"><span className={cn("font-mono font-bold", s.score >= 80 ? "text-neon-green" : s.score >= 60 ? "text-severity-medium" : "text-severity-critical")}>{s.score}%</span></td>
+                          <td className="py-2.5 font-mono text-slate-400">{mins}:{String(secs).padStart(2,"0")}</td>
+                          <td className="py-2.5 pr-5 font-mono font-bold text-cyber-300">+{s.xpEarned}</td>
+                        </tr>
+                        {isOpen && s.report && (
+                          <tr className="border-t border-border/40 bg-bg">
+                            <td colSpan={5} className="px-5 py-4">
+                              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-cyber-300">
+                                <FileText className="h-3.5 w-3.5" /> Your Investigation Report
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                                {s.report.verdict && (
+                                  <span className={cn("rounded border px-2 py-0.5 font-bold uppercase",
+                                    s.report.verdict === "tp" ? "border-severity-critical/40 bg-severity-critical/10 text-severity-critical"
+                                                              : "border-neon-green/40 bg-neon-green/10 text-neon-green")}>
+                                    Verdict: {s.report.verdict === "tp" ? "Malicious" : s.report.verdict === "fp" ? "Benign" : s.report.verdict}
+                                  </span>
+                                )}
+                                {typeof s.report.reportScore === "number" && (
+                                  <span className="rounded border border-border bg-bg-elevated px-2 py-0.5 text-slate-300">Report {s.report.reportScore}/100</span>
+                                )}
+                                {s.report.rubric && (
+                                  <span className="text-slate-400">
+                                    verdict {s.report.rubric.verdict} · depth {s.report.rubric.depth} · evidence {s.report.rubric.evidence} · reasoning {s.report.rubric.reasoning}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                {[
+                                  { h: "Verdict reasoning", v: s.report.verdictReason },
+                                  { h: "Analyst notes", v: s.report.notes },
+                                  { h: "Key findings", v: s.report.findings },
+                                ].map(({ h, v }) => (
+                                  <div key={h} className="rounded border border-border bg-bg-elevated p-3">
+                                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</p>
+                                    <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-slate-300">{v?.trim() || <span className="text-slate-500 italic">— left blank —</span>}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

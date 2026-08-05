@@ -891,6 +891,17 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           xpEarned: result.xpEarned + (result.timeBonusXp ?? 0),
           timeTaken: elapsed,
           date: new Date().toISOString(),
+          // Keep the actual written deliverable, not just the score, so it can be
+          // reviewed later (and surfaced to instructors in the org console).
+          report: {
+            verdict,
+            verdictReason,
+            notes,
+            findings,
+            reportScore: result.report?.score,
+            rubric: result.report?.rubric,
+            passed: result.passed,
+          },
         });
         // Cumulative XP total — also via the facade.
         addTotalXp(result.xpEarned + (result.timeBonusXp ?? 0));

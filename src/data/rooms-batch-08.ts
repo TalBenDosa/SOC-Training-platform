@@ -768,11 +768,13 @@ After the incident: what happened? Why did it succeed? What can we do differentl
 
 **NIST SP 800-61 (4-Phase Model)**
 
-NIST's framework (now in Revision 3, updated April 2025) uses 4 broader phases:
+NIST's classic 4-phase model (SP 800-61 Rev 2) uses 4 broader phases:
 1. **Preparation**
 2. **Detection & Analysis** (combines PICERL's Identification)
 3. **Containment, Eradication & Recovery** (combines three PICERL phases)
 4. **Post-Incident Activity** (Lessons Learned)
+
+Note: Revision 3 (April 2025) reorganised incident response around the six functions of the Cybersecurity Framework 2.0 — Govern, Identify, Protect, Detect, Respond, Recover — rather than these fixed phases. The 4-phase model is still the clearest way to learn the mechanics and maps cleanly onto Rev 3's Detect/Respond/Recover, so it is how this room teaches it.
 
 Both frameworks describe the same process — PICERL is more granular for operational use, NIST is better for policy and compliance frameworks. In practice, most SOC teams use PICERL operationally.
 

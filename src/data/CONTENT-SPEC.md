@@ -5,10 +5,18 @@ audit found the opposite in shipped content.
 
 ## The gap this content closes
 
-The platform has 66 rooms and 23 scenarios, and **42 of the 82 ATT&CK techniques
-a student is asked to handle in the scenarios are never taught in any room**.
-Students practise Kerberoasting, AS-REP roasting, Golden Ticket and DCSync with
-no room that teaches Kerberos. That is the gap to close: teach what is practised.
+> **Status (updated 2026-08-05):** the original gap below is now largely closed.
+> `scripts/coverage-report.mjs` reports **89 of 106 practised techniques taught
+> (84%)** across ~79–85 rooms and ~30 scenarios — Kerberos, the three practice
+> rooms, and the bridge rooms were added specifically to close it. Run that
+> script for the current number and the remaining ~17 gaps before assuming any
+> technique is untaught. The historical framing is kept for context.
+
+**Historical (the audit that produced this spec):** the platform had 66 rooms and
+23 scenarios, and **42 of the 82 ATT&CK techniques a student is asked to handle in
+the scenarios were never taught in any room**. Students practised Kerberoasting,
+AS-REP roasting, Golden Ticket and DCSync with no room that taught Kerberos. That
+was the gap to close: teach what is practised.
 
 Room categories with no quiz at all: Foundations, Endpoint Security, Identity,
 Log Analysis, SIEM, Incident Response, Forensics, Data Security.

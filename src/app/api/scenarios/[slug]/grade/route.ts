@@ -112,13 +112,28 @@ export async function POST(
     ? iocsCited / scenarioIocValues.length
     : 0;
 
+  // Fabrication check — penalise inventing indicators that appear NOWHERE in the
+  // scenario's telemetry or IOC list. Citing an IP/hash/email that doesn't exist
+  // is an integrity failure worse than citing none, and a real SOC report that
+  // fabricates evidence is unusable. Mirrors the dashboard incident-report grader.
+  const realValues = new Set(scenarioIocValues);
+  const eventsBlob = JSON.stringify(bundle.events ?? []).toLowerCase();
+  const claimed = new Set<string>();
+  for (const m of reportText.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g))  claimed.add(m[0].toLowerCase()); // IPv4
+  for (const m of reportText.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase()); // email
+  for (const m of reportText.matchAll(/\b[0-9a-f]{32,64}\b/gi))         claimed.add(m[0].toLowerCase()); // hash
+  const isRealValue = (v: string) => realValues.has(v) || eventsBlob.includes(v);
+  const fabricated = [...claimed].filter(v => v.length >= 4 && !isRealValue(v));
+
   const reportRubric = {
     // Did they commit to a call at all, and was it right?
     verdict:  verdict ? (verdictCorrect ? 25 : 5) : 0,
     // Substance. Below ~40 words there is no analysis to assess.
     depth:    words >= 150 ? 25 : words >= 80 ? 18 : words >= 40 ? 10 : words > 0 ? 4 : 0,
-    // Evidence: naming the indicators the incident actually turned on.
-    evidence: Math.round(iocCoverage * 30),
+    // Evidence: naming the indicators the incident actually turned on — but a
+    // fabricated indicator caps this near zero regardless of how many real ones
+    // were cited.
+    evidence: fabricated.length > 0 ? (iocsCited > 0 ? 5 : 0) : Math.round(iocCoverage * 30),
     // Reasoning, not just assertion — did they justify the verdict?
     reasoning: verdictReason.trim().split(/\s+/).filter(Boolean).length >= 25 ? 20
              : verdictReason.trim().split(/\s+/).filter(Boolean).length >= 10 ? 12 : 0,
@@ -139,14 +154,17 @@ export async function POST(
   const passed = score >= 70;
 
   // AI feedback (Claude) — falls back to static text if no API key
+  const fabricationNote = fabricated.length > 0
+    ? ` ⚠ Your report cited ${fabricated.length} indicator${fabricated.length > 1 ? "s" : ""} that appear nowhere in this incident's telemetry — never invent evidence; cite only what the logs actually show.`
+    : "";
   const reportNote =
     reportScore >= 75 ? "Your written report was thorough — verdict, evidence and reasoning all present."
     : reportScore >= 45 ? "Your report covered the basics; cite more of the incident's indicators and justify the verdict in more depth."
     : "Your written report was thin. In a real SOC the report IS the deliverable: state a verdict, cite the indicators it rests on, and explain your reasoning.";
 
-  let aiFeedback = passed
+  let aiFeedback = (passed
     ? `Good investigation on "${bundle.title}". You identified ${correctCount}/${bundle.questions.length} attack stages and scored ${reportScore}/100 on the report. ${reportNote}`
-    : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}, report ${reportScore}). ${reportNote}`;
+    : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}, report ${reportScore}). ${reportNote}`) + fabricationNote;
 
   // The paid LLM feedback is gated behind a signed-in user so anonymous callers
   // can't run up the AI bill. Guests still get full static feedback above.
@@ -216,6 +234,7 @@ Write exactly 3 sentences of actionable, encouraging feedback. One sentence on t
       iocsCited,
       iocsTotal: scenarioIocValues.length,
       verdictCorrect,
+      fabricated: fabricated.length,
     },
   });
 }

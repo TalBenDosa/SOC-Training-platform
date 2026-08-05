@@ -40,6 +40,7 @@ export interface GradeResult {
     iocsCited: number;
     iocsTotal: number;
     verdictCorrect: boolean;
+    fabricated?: number;
   };
 }
 

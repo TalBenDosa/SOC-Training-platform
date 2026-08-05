@@ -16,6 +16,7 @@ import { roomsBatch23 } from "./rooms-batch-23";
 import { roomsBatch24 } from "./rooms-batch-24";
 import { roomsBatch25 } from "./rooms-batch-25";
 import { roomsBatch26 } from "./rooms-batch-26";
+import { roomsBatch27 } from "./rooms-batch-27";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -196,4 +197,5 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch24), // credential-attacks-practice, lateral-movement-practice, web-attacks-practice
   ...cast(roomsBatch25), // web-application-security (theory prereq for web-attacks-practice)
   ...cast(roomsBatch26), // playbook-execution-and-escalation
+  ...cast(roomsBatch27), // remote-email-collection, device-registration-persistence
 ];

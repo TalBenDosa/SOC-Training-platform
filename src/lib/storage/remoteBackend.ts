@@ -129,6 +129,7 @@ export function createRemoteBackend(
           xp_earned: s.xpEarned,
           time_taken: s.timeTaken,
           completed_at: s.date,
+          report: s.report ?? null, // requires migration 0017 (jsonb column)
         }))).then(({ error }) => { if (error) log("scenarioHistory", error); });
         return;
       }
@@ -224,6 +225,7 @@ export function createRemoteBackend(
       xpEarned: row.xp_earned,
       timeTaken: row.time_taken,
       date: row.completed_at,
+      report: row.report ?? undefined, // null / absent (pre-migration) → undefined
     }));
     cache.set(LEARNER_KEYS.scenarioHistory, JSON.stringify(scenarios));
 

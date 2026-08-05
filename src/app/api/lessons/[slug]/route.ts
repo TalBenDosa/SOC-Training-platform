@@ -20,6 +20,13 @@ export interface LessonPage {
   title: string;
   body: string;
   codeExample?: string;
+  // Optional still image for concepts Mermaid can't express — a real console
+  // screenshot (Splunk/Sentinel/EDR UI), a network topology, etc. `src` should
+  // be a same-origin path under /public (e.g. /lessons/img/foo.webp) or a data:
+  // URI; the CSP already permits self/data/https img-src (next.config.mjs).
+  // AI-generated lessons never populate this (they can't produce accurate
+  // imagery) — it is for hand-authored/curated lessons only.
+  image?: { src: string; alt: string; caption?: string };
   keyPoints: string[];
 }
 

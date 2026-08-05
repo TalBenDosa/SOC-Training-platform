@@ -26,6 +26,18 @@ export interface ScenarioRecord {
   xpEarned: number;
   timeTaken: number;
   date: string;
+  // The analyst's written deliverable, kept so a learner can review past reports
+  // and (in the B2B org-admin console) an instructor can see actual work — not
+  // just a score. Optional: older records and guests without it still render.
+  report?: {
+    verdict?: string | null;
+    verdictReason?: string;
+    notes?: string;
+    findings?: string;
+    reportScore?: number;
+    rubric?: { verdict: number; depth: number; evidence: number; reasoning: number };
+    passed?: boolean;
+  };
 }
 
 // ─── XP ──────────────────────────────────────────────────────────────────────
