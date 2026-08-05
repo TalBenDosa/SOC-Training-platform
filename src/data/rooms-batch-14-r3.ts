@@ -28,7 +28,7 @@ const supplyChainEvent: TelemetryEvent = {
     url: "http://185.220.101.47/stage2.ps1",
   },
   raw: {
-    "crowdstrike.event_simplename": "ProcessRollup2",
+    "crowdstrike.event_simpleName": "ProcessRollup2",
     "crowdstrike.detection.tactic": "Initial Access",
     "crowdstrike.detection.tactic_id": "TA0001",
     "crowdstrike.detection.technique_id": "T1195.001",

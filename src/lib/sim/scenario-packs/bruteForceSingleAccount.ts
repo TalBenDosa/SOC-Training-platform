@@ -378,7 +378,7 @@ export function buildBruteForceSingleAccountScenario(
         hash: { sha256: netExeHash },
       },
       raw: {
-        "crowdstrike.event_simplename": "ProcessRollup2",
+        "crowdstrike.event_simpleName": "ProcessRollup2",
         "crowdstrike.detection.tactic": "Lateral Movement",
         "crowdstrike.detection.tactic_id": "TA0008",
         "crowdstrike.detection.technique": "Remote Services: SMB/Windows Admin Shares",

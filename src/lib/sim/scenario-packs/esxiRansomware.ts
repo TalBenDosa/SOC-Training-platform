@@ -474,7 +474,7 @@ export function buildEsxiRansomwareScenario(
       description:
         "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27, all of them guests on PROD-CLUSTER-A; the record for SQL-PROD-02 is shown, host status offline.",
       raw: {
-        "crowdstrike.event_simplename": "SensorHeartbeatMissing",
+        "crowdstrike.event_simpleName": "SensorHeartbeatMissing",
         "crowdstrike.host.hostname": "SQL-PROD-02",
         "crowdstrike.host.aid": "b41d9c77e2a54f0e8c1a6d3f9b207e55",
         "crowdstrike.host.platform_name": "Windows",

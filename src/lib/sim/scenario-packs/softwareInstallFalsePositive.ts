@@ -177,7 +177,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         hash: { sha256: setupHash },
       },
       raw: {
-        "crowdstrike.event_simplename": "ProcessRollup2",
+        "crowdstrike.event_simpleName": "ProcessRollup2",
         "crowdstrike.sensor.id": "7a1c53e9b0d24f68a35c1e70bd94f2a6",
         "crowdstrike.customer_id": "2b8f4d61c07e49a3b52f81d6a9c30e74",
         "event.action": "process_created",
@@ -225,7 +225,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
         size: 18_874_368,
       },
       raw: {
-        "crowdstrike.event_simplename": "NewExecutableWritten",
+        "crowdstrike.event_simpleName": "NewExecutableWritten",
         "crowdstrike.sensor.id": "7a1c53e9b0d24f68a35c1e70bd94f2a6",
         "event.action": "file_created",
         "file.name": "mlnk-collector.exe",
@@ -377,7 +377,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
       description:
         "Falcon raised a HIGH behavioural detection on WS-ENG-4471 — unsigned write to Program Files, LocalSystem service, network session within seventy seconds. Disposition: Detection, No Action.",
       raw: {
-        "crowdstrike.event_simplename": "DetectionSummaryEvent",
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
         "crowdstrike.detection.id": "ldt:7a1c53e9b0d24f68a35c1e70bd94f2a6:5510884213",
         "crowdstrike.detection.description":
           "An unsigned executable was written to a protected program directory, registered an auto-start service running as LocalSystem, and initiated an outbound network session within seventy seconds of first execution.",

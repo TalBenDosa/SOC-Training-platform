@@ -168,7 +168,7 @@ const VENDOR_SCHEMAS = {
       "azure.sign_in_event_types",
       "azure.operation.name",
       "azure.tenant.id",
-      "azure.app_display_name",
+      "azure.appDisplayName",
       "azure.resource.type",
       "azure.activity.operationName",
       "azure.activityLogs.operationName",
@@ -184,17 +184,17 @@ const VENDOR_SCHEMAS = {
     legacyPrefixes: [
       {
         prefix: "aws.eventSource",
-        replaceWith: "aws.cloudtrail.event_source",
+        replaceWith: "aws.cloudtrail.eventSource",
       },
       {
         prefix: "aws.eventName",
-        replaceWith: "aws.cloudtrail.event_name",
+        replaceWith: "aws.cloudtrail.eventName",
       },
     ],
     requiredAny: [
-      "aws.cloudtrail.event_name",
-      "aws.cloudtrail.event_source",
-      "aws.cloudtrail.user_identity.type",
+      "aws.cloudtrail.eventName",
+      "aws.cloudtrail.eventSource",
+      "aws.cloudtrail.userIdentity.type",
       "aws.guardduty.finding_type",
     ],
   },

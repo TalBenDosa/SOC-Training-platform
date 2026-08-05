@@ -15,25 +15,25 @@ const exposedKeyS3ExfilEvent: TelemetryEvent = {
   mitre_technique: "T1530",
   mitre_tactic: "Collection",
   raw: {
-    "aws.cloudtrail.event_name": "GetObject",
-    "aws.cloudtrail.event_source": "s3.amazonaws.com",
-    "aws.cloudtrail.aws_region": "us-east-1",
-    "aws.cloudtrail.user_identity.type": "IAMUser",
-    "aws.cloudtrail.user_identity.arn": "arn:aws:iam::482915007733:user/svc-deploy",
-    "aws.cloudtrail.user_identity.account_id": "482915007733",
-    "aws.cloudtrail.user_identity.access_key_id": "AKIAIOSFODNN7EXAMPLE",
-    "aws.cloudtrail.user_identity.user_name": "svc-deploy",
-    "aws.cloudtrail.source_ip_address": "185.220.101.47",
-    "aws.cloudtrail.user_agent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
-    "aws.cloudtrail.request_parameters.bucketName": "nexacorp-customer-records",
-    "aws.cloudtrail.request_parameters.key": "exports/customers_full_2026Q2.csv",
-    "aws.cloudtrail.response_elements": null,
-    "aws.cloudtrail.error_code": "",
-    "aws.cloudtrail.error_message": "",
+    "aws.cloudtrail.eventName": "GetObject",
+    "aws.cloudtrail.eventSource": "s3.amazonaws.com",
+    "aws.cloudtrail.awsRegion": "us-east-1",
+    "aws.cloudtrail.userIdentity.type": "IAMUser",
+    "aws.cloudtrail.userIdentity.arn": "arn:aws:iam::482915007733:user/svc-deploy",
+    "aws.cloudtrail.userIdentity.accountId": "482915007733",
+    "aws.cloudtrail.userIdentity.accessKeyId": "AKIAIOSFODNN7EXAMPLE",
+    "aws.cloudtrail.userIdentity.userName": "svc-deploy",
+    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
+    "aws.cloudtrail.requestParameters.bucketName": "nexacorp-customer-records",
+    "aws.cloudtrail.requestParameters.key": "exports/customers_full_2026Q2.csv",
+    "aws.cloudtrail.responseElements": null,
+    "aws.cloudtrail.errorCode": "",
+    "aws.cloudtrail.errorMessage": "",
     "aws.cloudtrail.request_id": "8F2A1B3C4D5E6F70",
-    "aws.cloudtrail.event_type": "AwsApiCall",
-    "aws.cloudtrail.management_event": false,
-    "aws.cloudtrail.read_only": true,
+    "aws.cloudtrail.eventType": "AwsApiCall",
+    "aws.cloudtrail.managementEvent": false,
+    "aws.cloudtrail.readOnly": true,
     "cloud.account.id": "482915007733",
     "cloud.region": "us-east-1",
     "action_result": "allowed",
@@ -55,27 +55,27 @@ const imdsPrivEscEvent: TelemetryEvent = {
   mitre_technique: "T1078.004",
   mitre_tactic: "Privilege Escalation",
   raw: {
-    "aws.cloudtrail.event_name": "CreatePolicyVersion",
-    "aws.cloudtrail.event_source": "iam.amazonaws.com",
-    "aws.cloudtrail.aws_region": "us-east-1",
-    "aws.cloudtrail.user_identity.type": "AssumedRole",
-    "aws.cloudtrail.user_identity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
-    "aws.cloudtrail.user_identity.account_id": "482915007733",
+    "aws.cloudtrail.eventName": "CreatePolicyVersion",
+    "aws.cloudtrail.eventSource": "iam.amazonaws.com",
+    "aws.cloudtrail.awsRegion": "us-east-1",
+    "aws.cloudtrail.userIdentity.type": "AssumedRole",
+    "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
+    "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.user_identity.session_context.session_issuer.type": "Role",
     "aws.cloudtrail.user_identity.session_context.session_issuer.arn": "arn:aws:iam::482915007733:role/ec2-webapp-role",
-    "aws.cloudtrail.source_ip_address": "185.220.101.47",
-    "aws.cloudtrail.user_agent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
-    "aws.cloudtrail.request_parameters.policyArn": "arn:aws:iam::482915007733:policy/ec2-webapp-policy",
+    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
+    "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::482915007733:policy/ec2-webapp-policy",
     "aws.cloudtrail.request_parameters.setAsDefault": true,
     "aws.cloudtrail.request_parameters.policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}",
-    "aws.cloudtrail.response_elements.policyVersion.versionId": "v7",
-    "aws.cloudtrail.response_elements.policyVersion.isDefaultVersion": true,
-    "aws.cloudtrail.error_code": "",
-    "aws.cloudtrail.error_message": "",
+    "aws.cloudtrail.responseElements.policyVersion.versionId": "v7",
+    "aws.cloudtrail.responseElements.policyVersion.isDefaultVersion": true,
+    "aws.cloudtrail.errorCode": "",
+    "aws.cloudtrail.errorMessage": "",
     "aws.cloudtrail.request_id": "3C9D8E7F6A5B4C31",
-    "aws.cloudtrail.event_type": "AwsApiCall",
-    "aws.cloudtrail.management_event": true,
-    "aws.cloudtrail.read_only": false,
+    "aws.cloudtrail.eventType": "AwsApiCall",
+    "aws.cloudtrail.managementEvent": true,
+    "aws.cloudtrail.readOnly": false,
     "cloud.account.id": "482915007733",
     "cloud.region": "us-east-1",
     "action_result": "allowed",
@@ -95,22 +95,22 @@ const getCallerIdentityEvent: TelemetryEvent = {
   hostname: "ip-10-20-4-15.ec2.internal",
   description: "STS GetCallerIdentity call made from an internal EC2 instance shortly after a scheduled deployment pipeline run",
   raw: {
-    "aws.cloudtrail.event_name": "GetCallerIdentity",
-    "aws.cloudtrail.event_source": "sts.amazonaws.com",
-    "aws.cloudtrail.aws_region": "us-east-1",
-    "aws.cloudtrail.user_identity.type": "AssumedRole",
-    "aws.cloudtrail.user_identity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
-    "aws.cloudtrail.user_identity.account_id": "482915007733",
-    "aws.cloudtrail.source_ip_address": "10.20.4.15",
-    "aws.cloudtrail.user_agent": "aws-sdk-go/1.44.0 (go1.20.3; linux; amd64) exec-env/AWS_ECS_FARGATE",
+    "aws.cloudtrail.eventName": "GetCallerIdentity",
+    "aws.cloudtrail.eventSource": "sts.amazonaws.com",
+    "aws.cloudtrail.awsRegion": "us-east-1",
+    "aws.cloudtrail.userIdentity.type": "AssumedRole",
+    "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
+    "aws.cloudtrail.userIdentity.accountId": "482915007733",
+    "aws.cloudtrail.sourceIPAddress": "10.20.4.15",
+    "aws.cloudtrail.userAgent": "aws-sdk-go/1.44.0 (go1.20.3; linux; amd64) exec-env/AWS_ECS_FARGATE",
     "aws.cloudtrail.request_parameters": {},
-    "aws.cloudtrail.response_elements": null,
-    "aws.cloudtrail.error_code": "",
-    "aws.cloudtrail.error_message": "",
+    "aws.cloudtrail.responseElements": null,
+    "aws.cloudtrail.errorCode": "",
+    "aws.cloudtrail.errorMessage": "",
     "aws.cloudtrail.request_id": "1A2B3C4D5E6F7081",
-    "aws.cloudtrail.event_type": "AwsApiCall",
-    "aws.cloudtrail.management_event": true,
-    "aws.cloudtrail.read_only": true,
+    "aws.cloudtrail.eventType": "AwsApiCall",
+    "aws.cloudtrail.managementEvent": true,
+    "aws.cloudtrail.readOnly": true,
     "cloud.account.id": "482915007733",
     "cloud.region": "us-east-1",
     "action_result": "allowed",
@@ -132,22 +132,22 @@ const cloudTrailDisabledEvent: TelemetryEvent = {
   mitre_technique: "T1562.008",
   mitre_tactic: "Defense Evasion",
   raw: {
-    "aws.cloudtrail.event_name": "StopLogging",
-    "aws.cloudtrail.event_source": "cloudtrail.amazonaws.com",
-    "aws.cloudtrail.aws_region": "ap-southeast-1",
-    "aws.cloudtrail.user_identity.type": "AssumedRole",
-    "aws.cloudtrail.user_identity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
-    "aws.cloudtrail.user_identity.account_id": "482915007733",
-    "aws.cloudtrail.source_ip_address": "185.220.101.47",
-    "aws.cloudtrail.user_agent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
+    "aws.cloudtrail.eventName": "StopLogging",
+    "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com",
+    "aws.cloudtrail.awsRegion": "ap-southeast-1",
+    "aws.cloudtrail.userIdentity.type": "AssumedRole",
+    "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
+    "aws.cloudtrail.userIdentity.accountId": "482915007733",
+    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
     "aws.cloudtrail.request_parameters.name": "nexacorp-primary-trail",
-    "aws.cloudtrail.response_elements": null,
-    "aws.cloudtrail.error_code": "",
-    "aws.cloudtrail.error_message": "",
+    "aws.cloudtrail.responseElements": null,
+    "aws.cloudtrail.errorCode": "",
+    "aws.cloudtrail.errorMessage": "",
     "aws.cloudtrail.request_id": "7E6D5C4B3A291807",
-    "aws.cloudtrail.event_type": "AwsApiCall",
-    "aws.cloudtrail.management_event": true,
-    "aws.cloudtrail.read_only": false,
+    "aws.cloudtrail.eventType": "AwsApiCall",
+    "aws.cloudtrail.managementEvent": true,
+    "aws.cloudtrail.readOnly": false,
     "cloud.account.id": "482915007733",
     "cloud.region": "ap-southeast-1",
     "action_result": "allowed",
@@ -218,11 +218,11 @@ const awsSecurityRoom = {
         `Nearly every action taken in an AWS account — whether performed by a human through the web console, a script using the AWS CLI (Command Line Interface), or an application using the AWS SDK — generates an **API call**, and CloudTrail logs it as an **event**. This includes: logging in, creating a user, changing a permission, launching a server, downloading a file from S3, deleting a database, and thousands of other actions.\n\n` +
         `Each CloudTrail event captures the same core questions a detective would ask:\n\n` +
         `- **Who** did it — the identity (IAM user, role, or root account) via aws.cloudtrail.user_identity fields\n` +
-        `- **What** they did — the specific API action, via aws.cloudtrail.event_name (e.g. GetObject, CreateUser, RunInstances)\n` +
-        `- **Where** they did it from — aws.cloudtrail.source_ip_address\n` +
+        `- **What** they did — the specific API action, via aws.cloudtrail.eventName (e.g. GetObject, CreateUser, RunInstances)\n` +
+        `- **Where** they did it from — aws.cloudtrail.sourceIPAddress\n` +
         `- **When** it happened — the event timestamp\n` +
-        `- **What service** was targeted — aws.cloudtrail.event_source (e.g. s3.amazonaws.com, iam.amazonaws.com)\n` +
-        `- **Did it succeed** — aws.cloudtrail.error_code (empty means success; a populated error code like AccessDenied means the action was rejected)\n\n` +
+        `- **What service** was targeted — aws.cloudtrail.eventSource (e.g. s3.amazonaws.com, iam.amazonaws.com)\n` +
+        `- **Did it succeed** — aws.cloudtrail.errorCode (empty means success; a populated error code like AccessDenied means the action was rejected)\n\n` +
         `**Management Events vs Data Events**\n\n` +
         `CloudTrail splits activity into two categories. **Management events** are control-plane actions — creating resources, changing permissions, starting or stopping services (e.g. CreateUser, StopLogging, RunInstances). These are logged by default. **Data events** are high-volume operations on the data itself, most commonly reading or writing individual objects inside an S3 bucket (e.g. GetObject, PutObject) or invoking a Lambda function. Data events are NOT logged by default because of their volume and cost — an organization must explicitly turn on S3 data event logging. This is a critical fact for a SOC analyst: if your organization has not enabled S3 data events, you may have zero visibility into who downloaded which file from a bucket, even though you can see that the bucket itself was created or its permissions were changed.\n\n` +
         `**Why Attackers Try to Kill CloudTrail**\n\n` +
@@ -434,7 +434,7 @@ const awsSecurityRoom = {
       questions: [
         {
           question:
-            "The event shows aws.cloudtrail.user_identity.type as 'IAMUser' with access_key_id 'AKIAIOSFODNN7EXAMPLE', calling GetObject from source IP 185.220.101.47 (a known Tor exit node in the Netherlands). Why is the identity TYPE itself an important clue here?",
+            "The event shows aws.cloudtrail.userIdentity.type as 'IAMUser' with access_key_id 'AKIAIOSFODNN7EXAMPLE', calling GetObject from source IP 185.220.101.47 (a known Tor exit node in the Netherlands). Why is the identity TYPE itself an important clue here?",
           options: [
             "IAMUser identities always indicate malicious activity, unlike AssumedRole identities which are always safe",
             "Because svc-deploy is an IAM user (not a role), it authenticates with a long-lived access key rather than short-lived temporary credentials — meaning this leaked key will keep working indefinitely until someone manually revokes it",
@@ -599,30 +599,30 @@ const awsSecurityRoom = {
       content:
         `Once CloudTrail events are forwarded into a SIEM, they typically appear as structured fields prefixed with something like aws.cloudtrail.* — the exact same fields you have been reviewing throughout this room. Knowing which fields to pull first, and in what order, turns a wall of JSON into a fast, repeatable investigation workflow.\n\n` +
         `**Step 1 — Establish the WHO**\n\n` +
-        `Start with aws.cloudtrail.user_identity.type and aws.cloudtrail.user_identity.arn. Is this an IAMUser (long-term credentials — check when the access key was created and whether it has ever been exposed) or an AssumedRole (temporary credentials — check which role, and whether the session name looks like an EC2 instance ID, a Lambda name, or something unexpected)? The identity tells you what kind of credential compromise you might be dealing with.\n\n` +
+        `Start with aws.cloudtrail.userIdentity.type and aws.cloudtrail.userIdentity.arn. Is this an IAMUser (long-term credentials — check when the access key was created and whether it has ever been exposed) or an AssumedRole (temporary credentials — check which role, and whether the session name looks like an EC2 instance ID, a Lambda name, or something unexpected)? The identity tells you what kind of credential compromise you might be dealing with.\n\n` +
         `**Step 2 — Establish the WHERE**\n\n` +
-        `Check aws.cloudtrail.source_ip_address. Is it an internal AWS IP (typically in the private ranges used by EC2/ECS/Lambda within your VPC), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence — Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags. Also check aws.cloudtrail.user_agent: legitimate automation tools have consistent, expected user agents (aws-cli/x.x.x, aws-sdk-go, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
+        `Check aws.cloudtrail.sourceIPAddress. Is it an internal AWS IP (typically in the private ranges used by EC2/ECS/Lambda within your VPC), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence — Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags. Also check aws.cloudtrail.userAgent: legitimate automation tools have consistent, expected user agents (aws-cli/x.x.x, aws-sdk-go, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
         `**Step 3 — Establish the WHAT and the OUTCOME**\n\n` +
-        `Read aws.cloudtrail.event_name and aws.cloudtrail.event_source together — this tells you the exact action and which service it targeted. Then always check aws.cloudtrail.error_code: an empty value means the call succeeded; a populated value (AccessDenied, UnauthorizedOperation, NoSuchEntity) means it was rejected. A flood of AccessDenied errors from one identity is a strong signal of an attacker probing for working permissions — even though none of those individual calls "succeeded," the pattern itself is the alert.\n\n` +
+        `Read aws.cloudtrail.eventName and aws.cloudtrail.eventSource together — this tells you the exact action and which service it targeted. Then always check aws.cloudtrail.errorCode: an empty value means the call succeeded; a populated value (AccessDenied, UnauthorizedOperation, NoSuchEntity) means it was rejected. A flood of AccessDenied errors from one identity is a strong signal of an attacker probing for working permissions — even though none of those individual calls "succeeded," the pattern itself is the alert.\n\n` +
         `**Step 4 — Pivot and Correlate**\n\n` +
-        `Once you have one suspicious event, pivot in your SIEM on the same aws.cloudtrail.source_ip_address and the same user_identity.arn across a wider time window (hours to days). Attackers rarely perform just one action — look for the full sequence: initial access (how the credential was obtained), reconnaissance (calls like ListBuckets, DescribeInstances, GetCallerIdentity used to map out the account), privilege escalation (IAM policy changes), and the actual objective (data access, resource creation, or logging tampering). Also check aws.cloudtrail.aws_region — attackers sometimes deliberately operate in a region your organization doesn't normally use, hoping it receives less monitoring attention.\n\n` +
+        `Once you have one suspicious event, pivot in your SIEM on the same aws.cloudtrail.sourceIPAddress and the same user_identity.arn across a wider time window (hours to days). Attackers rarely perform just one action — look for the full sequence: initial access (how the credential was obtained), reconnaissance (calls like ListBuckets, DescribeInstances, GetCallerIdentity used to map out the account), privilege escalation (IAM policy changes), and the actual objective (data access, resource creation, or logging tampering). Also check aws.cloudtrail.awsRegion — attackers sometimes deliberately operate in a region your organization doesn't normally use, hoping it receives less monitoring attention.\n\n` +
         `**Step 5 — Weigh Severity by Action Type, Not Just Identity**\n\n` +
-        `As you saw in the GetCallerIdentity false-positive exercise, the same identity can generate both benign and critical events. Always weigh: is this a read-only/management_event or a state-changing action (aws.cloudtrail.read_only: true vs false)? Does it touch IAM, logging configuration, or security groups (high blast radius) versus routine describe/list calls (low blast radius)? A fast mental checklist — WHO, WHERE, WHAT, OUTCOME, PATTERN — is enough to triage the overwhelming majority of CloudTrail-based alerts within the first few minutes.`,
+        `As you saw in the GetCallerIdentity false-positive exercise, the same identity can generate both benign and critical events. Always weigh: is this a read-only/management_event or a state-changing action (aws.cloudtrail.readOnly: true vs false)? Does it touch IAM, logging configuration, or security groups (high blast radius) versus routine describe/list calls (low blast radius)? A fast mental checklist — WHO, WHERE, WHAT, OUTCOME, PATTERN — is enough to triage the overwhelming majority of CloudTrail-based alerts within the first few minutes.`,
       codeExample:
         "CLOUDTRAIL TRIAGE CHECKLIST\n" +
         "=======================================================\n" +
-        "1. WHO    aws.cloudtrail.user_identity.type / .arn\n" +
+        "1. WHO    aws.cloudtrail.userIdentity.type / .arn\n" +
         "          -> IAMUser (long-term key) or AssumedRole\n" +
         "             (temporary, auto-expiring)?\n" +
         "\n" +
-        "2. WHERE  aws.cloudtrail.source_ip_address / user_agent\n" +
+        "2. WHERE  aws.cloudtrail.sourceIPAddress / user_agent\n" +
         "          -> internal AWS range, known office IP, or\n" +
         "             unfamiliar/malicious external IP?\n" +
         "\n" +
-        "3. WHAT   aws.cloudtrail.event_name + event_source\n" +
+        "3. WHAT   aws.cloudtrail.eventName + event_source\n" +
         "          -> exact action + which service\n" +
         "\n" +
-        "4. OUTCOME aws.cloudtrail.error_code\n" +
+        "4. OUTCOME aws.cloudtrail.errorCode\n" +
         "          -> empty = succeeded, populated = denied/failed\n" +
         "          -> a FLOOD of AccessDenied = attacker probing\n" +
         "\n" +
