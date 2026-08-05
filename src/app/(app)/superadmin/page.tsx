@@ -117,6 +117,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
   // to the college immediately.
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [createdName, setCreatedName] = useState("");
+  const [emailed, setEmailed] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const autoSlug = (v: string) => v.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -138,6 +139,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
     const data = await res.json();
     setCreatedName(name);
     setCreatedLink(data.inviteLink ?? null);
+    setEmailed(!!data.emailed);
     // don't close yet — surface the invite link first (onCreated on "Done").
   }
 
@@ -172,6 +174,11 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
                   {copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
+              {emailed && (
+                <p className="mt-2 flex items-center gap-1.5 text-[11px] text-neon-green">
+                  <Check className="h-3.5 w-3.5" /> We emailed these links to {adminEmail}.
+                </p>
+              )}
               <p className="mt-2 text-[11px] text-slate-400">The link is also always available on the organization page. The regular signup form still works for everyone else.</p>
               <div className="mt-5 flex justify-end">
                 <Button type="button" variant="primary" size="sm" onClick={onCreated}>Done</Button>

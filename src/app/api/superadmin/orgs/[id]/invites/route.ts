@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/sendEmail";
+import { studentInviteEmail } from "@/lib/email/templates";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -59,5 +61,19 @@ export async function POST(req: Request, { params }: Ctx) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
-  return NextResponse.json({ invites }, { status: 201 });
+
+  // Best-effort: email each named recipient their personal link (generic links
+  // have no recipient). No-op when email isn't configured; never blocks.
+  const { data: org } = await admin.from("organizations").select("name").eq("id", orgId).maybeSingle();
+  const orgName = org?.name ?? "your course";
+  let emailed = 0;
+  await Promise.allSettled(
+    invites.filter(i => i.email).map(async i => {
+      const mail = studentInviteEmail({ orgName, joinLink: i.link });
+      const r = await sendEmail({ to: i.email, subject: mail.subject, html: mail.html, text: mail.text });
+      if (r.ok) emailed++;
+    }),
+  );
+
+  return NextResponse.json({ invites, emailed }, { status: 201 });
 }

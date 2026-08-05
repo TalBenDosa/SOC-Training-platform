@@ -48,6 +48,7 @@
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | קונסולת מנהל-על, audit, branding, purge, resolve — כולן service-role |
 | `CRON_SECRET` | ✅ (ל-Phase 1) | מאבטח את `/api/cron/expire-orgs`. Vercel שולח אוטומטית `Authorization: Bearer <CRON_SECRET>` בהרצות ה-cron |
 | `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | מומלץ | rate-limit עמיד חוצה-instances, כולל **rate-limit פר-org**. בלעדיו — מונה בזיכרון שמתאפס |
+| `RESEND_API_KEY` + `EMAIL_FROM` | אופציונלי | שליחת מייל אוטומטית עם קישורי ההזמנה (למנהל המכללה בעת פתיחת סביבה, ולסטודנטים ב-roster). בלעדיו — המיילים מדולגים והקישורים עדיין מוצגים בקונסולה. `EMAIL_FROM` = שולח מאומת בדומיין שלך |
 
 אחרי הגדרת env — **Redeploy** ב-Vercel כדי שייכנסו לתוקף.
 
@@ -103,7 +104,9 @@ node scripts/test-tenant-isolation.mjs      # דורש env של Staging → 6/6 
 4. **בדיקת ה-cron ידנית:** `curl -H "Authorization: Bearer $CRON_SECRET" https://<site>/api/cron/expire-orgs` → `{"expired": N}`.
 
 ### Phase 2 — הרשמה עצמית של סטודנטים
-- **קישור כיתה:** בכרטיס Enrollment → **Generate link** → שתף. הסטודנט פותח `/join?token=…` → "Accept" → signup עם הטוקן → נכנס לארגון הנכון אוטומטית.
+- **קישור כיתה אוטומטי:** בעת פתיחת ארגון נוצר קישור כיתה מיד, מוצג במסך ההצלחה עם כפתור העתקה, ומופיע תמיד בעמוד הארגון וב-`/manage`. אם הוזן מייל org-admin ו-`RESEND_API_KEY` מוגדר — הקישורים **נשלחים אליו במייל אוטומטית**.
+- **קישור כיתה (ידני/רענון):** בכרטיס Enrollment → **Generate link** → שתף. הסטודנט פותח `/join?token=…` → "Accept" → signup עם הטוקן → נכנס לארגון הנכון אוטומטית.
+- **מייל לסטודנטים (roster):** יצירת הזמנות עם רשימת מיילים שולחת לכל אחד את הקישור האישי שלו (best-effort; מדולג ללא `RESEND_API_KEY`).
 - **לפי דומיין:** בכרטיס Enrollment → **Allowed email domains** (למשל `sapir.ac.il`) → כל מי שנרשם עם דומיין כזה משויך אוטומטית (עד מכסת המושבים).
 - **סדר עדיפות בטריגר:** invitation_token → דומיין → ארגון ברירת מחדל. מכסה מלאה עם token → ההרשמה נכשלת; מכסה מלאה עם דומיין → נופל ל-internal.
 

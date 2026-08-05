@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/sendEmail";
+import { studentInviteEmail } from "@/lib/email/templates";
 
 /** Org-admin invite links, always for the caller's own org (from the JWT). */
 
@@ -48,5 +50,17 @@ export async function POST(req: Request) {
   }));
   const { data, error } = await c.admin.from("invitations").insert(rows).select("id, email, role, token, expires_at");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ invites: (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) })) }, { status: 201 });
+  const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
+
+  // Best-effort email to each named recipient (generic links have no recipient).
+  const { data: org } = await c.admin.from("organizations").select("name").eq("id", c.orgId).maybeSingle();
+  const orgName = org?.name ?? "your course";
+  await Promise.allSettled(
+    invites.filter(i => i.email).map(i => {
+      const mail = studentInviteEmail({ orgName, joinLink: i.link });
+      return sendEmail({ to: i.email, subject: mail.subject, html: mail.html, text: mail.text });
+    }),
+  );
+
+  return NextResponse.json({ invites }, { status: 201 });
 }

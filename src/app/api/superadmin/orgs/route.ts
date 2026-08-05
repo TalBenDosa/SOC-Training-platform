@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/sendEmail";
+import { orgWelcomeEmail } from "@/lib/email/templates";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 /**
@@ -83,15 +85,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Optionally invite a first org-admin (email). The accept flow is Phase 2;
-  // here we just record the invitation so it's ready.
+  const origin = new URL(req.url).origin;
+
+  // Optionally invite a first org-admin (email) — capture the link so we can
+  // email it to them.
   const adminEmail = String(body.admin_email ?? "").trim();
+  let adminLink: string | null = null;
   if (adminEmail) {
     const token = crypto.randomUUID();
     const inviteExpiry = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
     await admin.from("invitations").insert({
       org_id: org.id, email: adminEmail, role: "org_admin", token, expires_at: inviteExpiry,
     });
+    adminLink = `${origin}/join?token=${token}`;
   }
 
   // Every new environment gets a STANDING class invite link out of the box, so
@@ -103,7 +109,16 @@ export async function POST(req: Request) {
   await admin.from("invitations").insert({
     org_id: org.id, email: null, role: "student", token: classToken, expires_at: classExpiry,
   });
-  const inviteLink = `${new URL(req.url).origin}/join?token=${classToken}`;
+  const inviteLink = `${origin}/join?token=${classToken}`;
 
-  return NextResponse.json({ org, inviteLink }, { status: 201 });
+  // Best-effort notification to the college admin with both links. Never blocks
+  // or fails org creation — degrades to a no-op when email isn't configured.
+  let emailed = false;
+  if (adminEmail) {
+    const mail = orgWelcomeEmail({ orgName: name, classLink: inviteLink, adminLink });
+    const r = await sendEmail({ to: adminEmail, subject: mail.subject, html: mail.html, text: mail.text });
+    emailed = r.ok;
+  }
+
+  return NextResponse.json({ org, inviteLink, emailed }, { status: 201 });
 }
