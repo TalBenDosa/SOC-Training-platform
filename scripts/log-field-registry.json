@@ -177,7 +177,12 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "akamai.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "aruba-clearpass": {
       "label": "Aruba ClearPass",
@@ -296,7 +301,10 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aruba.",
+        "clearpass."
+      ]
     },
     "aws-cloudtrail": {
       "label": "AWS CloudTrail",
@@ -459,7 +467,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aws.cloudtrail.",
+        "aws.guardduty."
+      ]
     },
     "aws-iam": {
       "label": "AWS IAM",
@@ -669,7 +680,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aws.cloudtrail.",
+        "aws.iam."
+      ]
     },
     "aws-rds-audit": {
       "label": "AWS RDS Audit",
@@ -789,7 +803,11 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aws.rds.",
+        "db.",
+        "rds."
+      ]
     },
     "aws-waf": {
       "label": "AWS WAF",
@@ -904,7 +922,12 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aws.waf.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "azure-ad": {
       "label": "Microsoft Entra ID (Azure AD)",
@@ -1403,7 +1426,12 @@
         "source.ip",
         "source.port"
       ],
-      "prefixes": []
+      "prefixes": [
+        "azure.",
+        "azure.auditlogs.",
+        "azure.signinlogs.",
+        "data.office365."
+      ]
     },
     "azure-app-gateway-waf": {
       "label": "Azure Application Gateway WAF",
@@ -1523,7 +1551,13 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "appgw.",
+        "azure.appgw.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "azure-monitor": {
       "label": "Azure Monitor / Azure Activity Log",
@@ -1683,7 +1717,11 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "azure.",
+        "azure.activitylogs.",
+        "azure.monitor."
+      ]
     },
     "azure-sql-audit": {
       "label": "Azure SQL Auditing",
@@ -1801,7 +1839,11 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "azure.sql.",
+        "db.",
+        "sqlaudit."
+      ]
     },
     "beyondtrust": {
       "label": "BeyondTrust PAM",
@@ -1937,7 +1979,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "beyondtrust.",
+        "bt."
+      ]
     },
     "bitdefender-gravityzone": {
       "label": "Bitdefender GravityZone",
@@ -2099,7 +2144,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "bitdefender.",
+        "gz."
+      ]
     },
     "carbon-black": {
       "label": "VMware Carbon Black",
@@ -2314,7 +2362,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "carbonblack.",
+        "cb."
+      ]
     },
     "check-point-ngfw": {
       "label": "Check Point NGFW",
@@ -2589,7 +2640,10 @@
         "vpn.tunnel.type",
         "vpn.user"
       ],
-      "prefixes": []
+      "prefixes": [
+        "anyconnect.",
+        "cisco.anyconnect."
+      ]
     },
     "cisco-firepower": {
       "label": "Cisco Firepower",
@@ -2730,7 +2784,10 @@
         "vpn.tunnel.type",
         "vpn.user"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cisco.ftd.",
+        "ftd."
+      ]
     },
     "cisco-ise": {
       "label": "Cisco ISE",
@@ -2849,7 +2906,10 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cise.",
+        "ise."
+      ]
     },
     "cloudflare-waf": {
       "label": "Cloudflare WAF",
@@ -2963,7 +3023,13 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cf.",
+        "cloudflare.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "corelight-zeek": {
       "label": "Corelight (Zeek)",
@@ -3064,7 +3130,10 @@
         "url.query",
         "url.scheme"
       ],
-      "prefixes": []
+      "prefixes": [
+        "corelight.",
+        "zeek."
+      ]
     },
     "crowdstrike-falcon": {
       "label": "CrowdStrike Falcon",
@@ -3302,7 +3371,10 @@
         "user.type"
       ],
       "prefixes": [
-        "crowdstrike."
+        "crowdstrike.",
+        "file.",
+        "pe.",
+        "process."
       ]
     },
     "cyberark": {
@@ -3440,7 +3512,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cyberark.",
+        "pas."
+      ]
     },
     "digital-guardian": {
       "label": "Digital Guardian",
@@ -3571,7 +3646,10 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "dg.",
+        "digitalguardian."
+      ]
     },
     "elastic-siem": {
       "label": "Elastic SIEM",
@@ -3723,7 +3801,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "elastic."
+      ]
     },
     "exabeam": {
       "label": "Exabeam",
@@ -3874,7 +3954,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "exabeam."
+      ]
     },
     "f5-advanced-waf": {
       "label": "F5 Advanced WAF",
@@ -3990,7 +4072,13 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "asm.",
+        "f5.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "forcepoint-dlp": {
       "label": "Forcepoint DLP",
@@ -4121,7 +4209,10 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "forcepoint.",
+        "fp.dlp."
+      ]
     },
     "forescout": {
       "label": "Forescout",
@@ -4239,7 +4330,10 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "counteract.",
+        "forescout."
+      ]
     },
     "fortigate": {
       "label": "Fortinet FortiGate",
@@ -4538,7 +4632,9 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "fortinac."
+      ]
     },
     "gcp-audit-logs": {
       "label": "GCP Cloud Audit Logs",
@@ -4696,7 +4792,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "gcp.",
+        "gcp.audit."
+      ]
     },
     "github-audit-log": {
       "label": "GitHub Audit Log",
@@ -4900,7 +4999,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.github.",
+        "github."
+      ]
     },
     "google-workspace": {
       "label": "Google Workspace Audit",
@@ -5105,7 +5207,11 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.gsuite.",
+        "google.",
+        "gws."
+      ]
     },
     "hashicorp-vault": {
       "label": "HashiCorp Vault",
@@ -5241,7 +5347,9 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "vault."
+      ]
     },
     "ibm-guardium": {
       "label": "IBM Guardium",
@@ -5353,7 +5461,10 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "guardium."
+      ]
     },
     "imperva-dam": {
       "label": "Imperva DAM",
@@ -5465,7 +5576,11 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "dam.",
+        "db.",
+        "imperva."
+      ]
     },
     "imperva-waf": {
       "label": "Imperva WAF",
@@ -5580,7 +5695,12 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "http.request.",
+        "http.response.",
+        "imperva.",
+        "waf."
+      ]
     },
     "kubernetes-audit": {
       "label": "Kubernetes Audit",
@@ -5735,7 +5855,12 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "k8s.",
+        "k8s.audit.",
+        "kubernetes.",
+        "kubernetes.audit."
+      ]
     },
     "microsoft-365": {
       "label": "Microsoft 365 Unified Audit Log",
@@ -6237,7 +6362,12 @@
         "source.ip",
         "source.port"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.office365.",
+        "email.",
+        "email.headers.",
+        "exchange."
+      ]
     },
     "microsoft-active-directory": {
       "label": "Microsoft Active Directory / Windows Security",
@@ -6414,7 +6544,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "winlog.",
+        "winlog.event_data."
+      ]
     },
     "microsoft-defender-endpoint": {
       "label": "Microsoft Defender for Endpoint",
@@ -6644,7 +6777,13 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.ms365.",
+        "mde.",
+        "windefend.",
+        "winlog.",
+        "winlog.event_data."
+      ]
     },
     "microsoft-defender-office365": {
       "label": "Microsoft Defender for Office 365",
@@ -7169,7 +7308,12 @@
         "threat.technique.name",
         "threat.url"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.office365.",
+        "email.",
+        "email.headers.",
+        "o365."
+      ]
     },
     "microsoft-graph-security": {
       "label": "Microsoft Graph Security API",
@@ -7220,7 +7364,8 @@
       ],
       "prefixes": [
         "_source.data.ms-graph.",
-        "data.ms-graph."
+        "data.ms-graph.",
+        "ms-graph."
       ]
     },
     "microsoft-purview-dlp": {
@@ -7970,7 +8115,11 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.office365.",
+        "dlp.",
+        "purview."
+      ]
     },
     "microsoft-sentinel": {
       "label": "Microsoft Sentinel",
@@ -8136,7 +8285,12 @@
         "user.type"
       ],
       "prefixes": [
-        "ExtendedProperties."
+        "ExtendedProperties.",
+        "azure.",
+        "incident.",
+        "sentinel.",
+        "ticket.",
+        "ueba."
       ]
     },
     "microsoft-sql-audit": {
@@ -8251,7 +8405,11 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "mssql.",
+        "sqlaudit."
+      ]
     },
     "mysql-enterprise-audit": {
       "label": "MySQL Enterprise Audit",
@@ -8364,7 +8522,10 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "mysql."
+      ]
     },
     "okta": {
       "label": "Okta Identity Cloud",
@@ -8501,7 +8662,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.okta.",
+        "okta."
+      ]
     },
     "oracle-audit-vault": {
       "label": "Oracle Audit Vault",
@@ -8614,7 +8778,11 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "oav.",
+        "oracle."
+      ]
     },
     "palo-alto-ngfw": {
       "label": "Palo Alto Networks NGFW",
@@ -8760,7 +8928,10 @@
         "vpn.tunnel.type",
         "vpn.user"
       ],
-      "prefixes": []
+      "prefixes": [
+        "gp.",
+        "pan."
+      ]
     },
     "portnox": {
       "label": "Portnox",
@@ -8878,7 +9049,9 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "portnox."
+      ]
     },
     "postgresql-pgaudit": {
       "label": "PostgreSQL pgAudit",
@@ -8991,7 +9164,11 @@
         "threat.technique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "pgaudit.",
+        "postgres."
+      ]
     },
     "prisma-cloud-waf": {
       "label": "Palo Alto Prisma Cloud WAF",
@@ -9116,7 +9293,12 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "http.request.",
+        "http.response.",
+        "prisma.",
+        "waf."
+      ]
     },
     "pulse-policy-secure": {
       "label": "Pulse Policy Secure",
@@ -9235,7 +9417,9 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "pulse."
+      ]
     },
     "sailpoint": {
       "label": "SailPoint IdentityIQ",
@@ -9371,7 +9555,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "iiq.",
+        "sailpoint."
+      ]
     },
     "securonix": {
       "label": "Securonix",
@@ -9522,7 +9709,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "securonix."
+      ]
     },
     "sentinelone": {
       "label": "SentinelOne",
@@ -9736,7 +9925,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "s1.",
+        "sentinelone."
+      ]
     },
     "sophos-intercept-x": {
       "label": "Sophos Intercept X",
@@ -9955,7 +10147,9 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "sophos."
+      ]
     },
     "splunk-uba": {
       "label": "Splunk UBA",
@@ -10107,7 +10301,10 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "splunk.uba.",
+        "uba."
+      ]
     },
     "symantec-dlp": {
       "label": "Symantec DLP",
@@ -10244,7 +10441,10 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "dlp.",
+        "symantec."
+      ]
     },
     "sysmon": {
       "label": "Microsoft Sysmon",
@@ -10378,7 +10578,11 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "sysmon.",
+        "winlog.",
+        "winlog.event_data."
+      ]
     },
     "trellix-dlp": {
       "label": "Trellix DLP",
@@ -10510,7 +10714,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "trellix."
+      ]
     },
     "trend-micro-apex-one": {
       "label": "Trend Micro Apex One",
@@ -10670,7 +10876,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "apex.",
+        "trendmicro."
+      ]
     },
     "varonis": {
       "label": "Varonis",
@@ -10893,7 +11102,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "varonis."
+      ]
     },
     "zscaler-internet-access": {
       "label": "Zscaler Internet Access",
@@ -11026,7 +11237,12 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "http.request.",
+        "http.response.",
+        "url.",
+        "zscaler."
+      ]
     }
   }
 }
