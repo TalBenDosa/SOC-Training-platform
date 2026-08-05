@@ -85,7 +85,7 @@ const crowdstrikeFalcon: Room = {
   estimatedMinutes: 50,
   xp: 365,
   icon: "🦅",
-  prerequisites: ["endpoint-security-fundamentals"],
+  prerequisites: ["endpoint-security-fundamentals", "security-products-behaviour"],
   tasks: [
     // ── Reading 1: Architecture & Falcon Sensor ──────────────────────────────
     {
@@ -442,7 +442,7 @@ const sentinelOne: Room = {
   estimatedMinutes: 50,
   xp: 365,
   icon: "🔮",
-  prerequisites: ["endpoint-security-fundamentals"],
+  prerequisites: ["endpoint-security-fundamentals", "security-products-behaviour"],
   tasks: [
     // ── Reading 1: Architecture & Storyline ───────────────────────────────────
     {
@@ -801,7 +801,7 @@ const malwareAnalysisFundamentals: Room = {
   estimatedMinutes: 55,
   xp: 365,
   icon: "🦠",
-  prerequisites: ["endpoint-security-fundamentals"],
+  prerequisites: ["endpoint-security-fundamentals", "malware-types"],
   tasks: [
     // ── Reading 1: What Is Malware Analysis ───────────────────────────────────
     {
@@ -1169,7 +1169,7 @@ const iocAnalysis: Room = {
   estimatedMinutes: 50,
   xp: 365,
   icon: "🔎",
-  prerequisites: ["malware-analysis-fundamentals"],
+  prerequisites: ["malware-analysis-fundamentals", "encoding-encryption-hashing"],
   tasks: [
     // ── Reading 1: IOC Types & the Pyramid of Pain ────────────────────────────
     {

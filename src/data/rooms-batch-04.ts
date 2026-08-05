@@ -415,7 +415,7 @@ const siemFundamentals: Room = {
   estimatedMinutes: 50,
   xp: 145,
   icon: "🔭",
-  prerequisites: ["log-management"],
+  prerequisites: ["log-management", "log-entry-anatomy"],
   tasks: [
     // ----- Reading 1: What is a SIEM? ---------------------------------------
     {
@@ -707,7 +707,7 @@ const wazuhFundamentals: Room = {
   estimatedMinutes: 55,
   xp: 155,
   icon: "🔐",
-  prerequisites: ["siem-fundamentals"],
+  prerequisites: ["siem-fundamentals", "security-products-behaviour"],
   tasks: [
     // ----- Reading 1: Wazuh architecture ------------------------------------
     {
@@ -1060,7 +1060,7 @@ const sentinelFundamentals: Room = {
   estimatedMinutes: 55,
   xp: 200,
   icon: "☁️",
-  prerequisites: ["siem-fundamentals"],
+  prerequisites: ["siem-fundamentals", "security-products-behaviour"],
   tasks: [
     // ----- Reading 1: Sentinel architecture and connectors ------------------
     {

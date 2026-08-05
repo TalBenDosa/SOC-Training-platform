@@ -1024,7 +1024,7 @@ const defenderXdr: Room = {
   estimatedMinutes: 55,
   xp: 290,
   icon: "🛡️",
-  prerequisites: ["endpoint-security-fundamentals", "microsoft-365-security"],
+  prerequisites: ["endpoint-security-fundamentals", "microsoft-365-security", "security-products-behaviour"],
   tasks: [
 
     // ── Reading 1: MDE Overview & Onboarding ──────────────────────────────────

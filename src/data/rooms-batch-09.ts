@@ -24,7 +24,7 @@ const investigationMethodology = {
   estimatedMinutes: 55,
   xp: 280,
   icon: "🔬",
-  prerequisites: ["alert-triage", "windows-event-logs"],
+  prerequisites: ["alert-triage", "windows-event-logs", "timestamps-and-timelines"],
   tasks: [
     // ── Reading 1: Investigation Mindset & Lifecycle ──────────────────────
     {
@@ -638,7 +638,7 @@ const digitalForensicsBasics = {
   estimatedMinutes: 50,
   xp: 280,
   icon: "🔏",
-  prerequisites: ["windows-event-logs", "linux-log-analysis"],
+  prerequisites: ["windows-event-logs", "linux-log-analysis", "timestamps-and-timelines"],
   tasks: [
     // ── Reading 1: Forensics Introduction & Order of Volatility ──────────
     {

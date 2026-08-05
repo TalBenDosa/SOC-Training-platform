@@ -414,7 +414,7 @@ const windowsEventLogs: Room = {
   estimatedMinutes: 50,
   xp: 195,
   icon: "📋",
-  prerequisites: ["windows-fundamentals"],
+  prerequisites: ["windows-fundamentals", "log-entry-anatomy"],
   tasks: [
     // -------------------------------------------------------------------------
     // Reading 1 — What Are Windows Event Logs
@@ -820,7 +820,7 @@ const linuxLogAnalysis: Room = {
   estimatedMinutes: 45,
   xp: 200,
   icon: "🔍",
-  prerequisites: ["linux-fundamentals"],
+  prerequisites: ["linux-fundamentals", "log-entry-anatomy"],
   tasks: [
     // -------------------------------------------------------------------------
     // Reading 1 — The Linux Logging Ecosystem

@@ -83,6 +83,15 @@ C1 drop view · H1 RLS+revoke · M3 roster gate · M1/M2 seat lock + reactivatio
 
 ---
 
+## 3a. Correction after running 0016 on production (2026-08-05)
+
+`0016` was executed live on `wrxhxtdllbctsawvewue` ("Success. No rows returned") and verified. Running the verify queries against **real production** surfaced a correction to the audit:
+
+- **C1 and H1 were NOT live in production.** The 0001 speculative schema (`leaderboard` view, `learning_paths`/`modules`/`lessons`/`scenarios`/`badges`) was **never applied to this production database** — `to_regclass` returned NULL for all of them. They existed only in the local full-migration replay (`test-backend-e2e.mjs` applies 0001), which is what surfaced them. So the "live anon cross-tenant leak" framing applied to the *replayed* schema, not to prod. 0016's `to_regclass` guards and `drop view if exists` correctly no-op'd them — no harm, and the repo is now hardened for any environment that *does* have 0001.
+- **The genuinely production-relevant fixes are M3, M1, M2, H2, L1, L2 — and those are confirmed live:** the `org_members` read policy now carries the `org_admin`/`instructor`-or-self gate; all six functions were recreated (seat lock, reactivation check, purge audit-log handling, pinned search_path); and `supabase_auth_admin` now has `SELECT` on `organizations`.
+
+Lesson for future audits: replaying all migrations locally can surface objects that were never applied to the live DB. Confirm findings against the real target before assigning production severity.
+
 ## 4. Remaining for Tal
 
 1. **Run `0016`** in the Supabase SQL editor (project `wrxhxtdllbctsawvewue`). **C1 is a live anonymous cross-tenant leak — run this first.**

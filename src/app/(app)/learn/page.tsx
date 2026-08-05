@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
-import { Search, Clock, FileText, ChevronLeft, ChevronRight, CheckCircle2, X } from "lucide-react";
+import { LESSON_PATHS } from "@/lib/lessons/paths";
+import { Search, Clock, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 
@@ -77,17 +79,26 @@ function topicImageQuery(lesson: Lesson, sectionHeading?: string): string {
   return "cybersecurity analyst SOC professional";
 }
 
+// Was a live fetch to https://source.unsplash.com — the Unsplash Source API was
+// officially retired in 2022, so this could vanish silently, and the generic
+// stock photos it returned taught nothing. Replaced with a self-contained,
+// theme-keyed gradient banner: zero external requests, never breaks, and the
+// hue is derived from the topic string so related sections read as a set.
 function SectionImage({ query }: { query: string }) {
-  const url = `https://source.unsplash.com/800x280/?${encodeURIComponent(query)}`;
+  let h = 0;
+  for (let i = 0; i < query.length; i++) h = (h * 31 + query.charCodeAt(i)) & 0xffff;
+  const hue = h % 360;
   return (
-    <div className="rounded-xl overflow-hidden border border-[#1e2d4a] mb-2">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt={query}
-        className="w-full object-cover"
-        style={{ maxHeight: 200 }}
-        onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+    <div
+      className="relative rounded-xl overflow-hidden border border-[#1e2d4a] mb-2 h-16"
+      style={{
+        background: `linear-gradient(120deg, hsl(${hue} 55% 14%), hsl(${(hue + 40) % 360} 60% 9%))`,
+      }}
+      aria-hidden="true"
+    >
+      <div
+        className="absolute inset-0 opacity-40"
+        style={{ background: `repeating-linear-gradient(90deg, transparent 0 22px, hsl(${hue} 60% 20% / .25) 22px 23px)` }}
       />
     </div>
   );
@@ -100,6 +111,27 @@ function SectionImage({ query }: { query: string }) {
 //   H3 = ## fallback      (small cyan, no border)
 //   P  = paragraph        (slate-300, 14px, leading-relaxed)
 
+// A GitHub-style pipe table: a header row, a `|---|---|` separator, then rows.
+// Previously unsupported, so SLA matrices and field-comparison tables were
+// written as ASCII inside code blocks; now they render as real tables.
+function parseMarkdownTable(block: string): { headers: string[]; rows: string[][] } | null {
+  const lines = block.split("\n").map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2 || !lines[0].includes("|")) return null;
+  if (!/^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(lines[1])) return null;
+  const cells = (l: string) => l.replace(/^\||\|$/g, "").split("|").map(c => c.trim());
+  const headers = cells(lines[0]);
+  const rows = lines.slice(2).map(cells);
+  return { headers, rows };
+}
+
+function renderInline(text: string, keyBase: string | number) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
+    part.startsWith("**") && part.endsWith("**")
+      ? <strong key={`${keyBase}-${j}`} className="text-white font-semibold">{part.slice(2, -2)}</strong>
+      : <span key={`${keyBase}-${j}`}>{part}</span>
+  );
+}
+
 function renderContent(text: string) {
   const blocks = text.split(/\n\n+/);
   return (
@@ -107,6 +139,33 @@ function renderContent(text: string) {
       {blocks.map((block, i) => {
         const trimmed = block.trim();
         if (!trimmed) return null;
+
+        // Markdown table → real <table>
+        const table = parseMarkdownTable(trimmed);
+        if (table) {
+          return (
+            <div key={i} className="overflow-x-auto rounded-lg border border-[#1e2d4a]">
+              <table className="w-full text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-[#1e2d4a] bg-[#0f1830]">
+                    {table.headers.map((h, hi) => (
+                      <th key={hi} className="px-3 py-2 font-semibold text-cyan-200 whitespace-nowrap">{renderInline(h, `h${hi}`)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.rows.map((row, ri) => (
+                    <tr key={ri} className="border-b border-[#1e2d4a]/50 last:border-0">
+                      {row.map((c, ci) => (
+                        <td key={ci} className="px-3 py-2 text-slate-300 align-top">{renderInline(c, `r${ri}c${ci}`)}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
 
         // H2 — ### Sub-heading: clearly subordinate to section title
         if (trimmed.startsWith("### ")) {
@@ -388,6 +447,62 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
 }
 
 
+// ─── Career Paths (structured tracks) ─────────────────────────────────────────
+// The 5 LESSON_PATHS were fully built but nothing linked to them — the sidebar
+// "Learning Path" landed on the flat library instead. This surfaces the ordered
+// tracks first (they link to /learn/[slug], which says "work through in order"),
+// and the flat list below is relabelled as a reference library.
+
+const PATH_ACCENT: Record<string, string> = {
+  beginner:     "from-sky-500/15    to-transparent border-sky-500/30",
+  intermediate: "from-yellow-500/15 to-transparent border-yellow-500/30",
+  advanced:     "from-orange-500/15 to-transparent border-orange-500/30",
+  expert:       "from-red-500/15    to-transparent border-red-500/30",
+};
+
+function CareerPaths() {
+  return (
+    <section className="mb-10">
+      <div className="mb-4 flex items-center gap-2">
+        <Layers className="h-4 w-4 text-cyan-400" />
+        <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">Career Paths</h2>
+        <span className="text-[11px] text-slate-500">— guided, ordered tracks from your first day to specialist</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {LESSON_PATHS.map(path => {
+          const lessons = path.modules.reduce((n, m) => n + m.lessons.length, 0);
+          const minutes = path.modules.reduce((s, m) => s + m.lessons.reduce((a, l) => a + l.min, 0), 0);
+          const diffCls = DIFF_COLORS[path.difficulty] ?? DIFF_COLORS.intermediate;
+          const accent  = PATH_ACCENT[path.difficulty] ?? PATH_ACCENT.intermediate;
+          return (
+            <Link
+              key={path.slug}
+              href={`/learn/${path.slug}`}
+              className={`group flex flex-col gap-3 rounded-2xl border bg-gradient-to-br p-5 transition-all duration-200 hover:brightness-110 ${accent}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-base font-bold text-white group-hover:text-cyan-100">{path.title}</h3>
+                <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap shrink-0 mt-0.5 ${diffCls}`}>
+                  {capitalize(path.difficulty)}
+                </span>
+              </div>
+              <p className="text-[13px] text-slate-300 leading-relaxed line-clamp-2">{path.blurb}</p>
+              <div className="mt-auto flex items-center justify-between border-t border-white/5 pt-3 text-[12px] text-slate-400">
+                <span className="flex items-center gap-3">
+                  <span>{path.modules.length} modules</span>
+                  <span>{lessons} lessons</span>
+                  <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{Math.round(minutes / 60)}h</span>
+                </span>
+                <ArrowRight className="h-4 w-4 text-cyan-400 transition-transform group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function LearnPage() {
@@ -435,6 +550,16 @@ export default function LearnPage() {
       <Topbar title="Learning Path" subtitle="Explore cybersecurity knowledge through interactive lessons" />
 
       <div className="container mx-auto max-w-[1400px] px-6 py-8">
+
+        {/* ── Career paths (structured, ordered tracks) ── */}
+        <CareerPaths />
+
+        {/* ── Lesson library (flat reference collection) ── */}
+        <div className="mb-4 flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-cyan-400" />
+          <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">Lesson Library</h2>
+          <span className="text-[11px] text-slate-500">— browse any topic on its own; not ordered</span>
+        </div>
 
         {/* ── Search + filter ─────────────────────────── */}
         <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center">
