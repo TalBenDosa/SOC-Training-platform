@@ -181,6 +181,8 @@ Colonial Pipeline operates the largest fuel pipeline in the United States, carry
 - Those same studies find it takes organisations around **200 days** just to *detect* a breach, and roughly another **70 days** to contain it — that is close to nine months of an attacker being inside before it is fully dealt with.
 - The global shortage of cybersecurity professionals has been estimated in the millions of unfilled jobs (ISC2 has put it around **3.5–4 million** in recent years).
 
+*Where these numbers come from:* no single report is the last word — a good analyst cross-checks several. The most-cited annual sources are the **IBM Cost of a Data Breach Report** (breach cost and detection/containment times), the **Verizon Data Breach Investigations Report (DBIR)** (how breaches actually happen — the mix of phishing, stolen credentials, and misconfiguration), and **Mandiant M-Trends** (dwell time and attacker behaviour). When you quote a statistic in a report, name the source and the year.
+
 **Career Paths in Cybersecurity**
 Cybersecurity is a broad field. Here are the main tracks:
 
