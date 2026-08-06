@@ -145,6 +145,19 @@ const tlsRoom = {
         "---\n" +
         "New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, how many round trips does a typical TLS 1.3 handshake require in the common case, compared to TLS 1.2?",
+        options: [
+          "Two round trips, the same as TLS 1.2",
+          "A single round trip (1-RTT)",
+          "Three round trips, one more than TLS 1.2",
+          "Zero round trips — TLS 1.3 requires no handshake at all",
+        ],
+        answer: 1,
+        explanation:
+          "TLS 1.3 collapses the handshake into a single round trip (1-RTT) in the common case: the ClientHello includes a guessed key share directly, letting the server reply with ServerHello, its certificate, and Finished all at once.",
+      },
     },
 
     // ── Reading 2: SNI + cert chain validation ───────────────────────────────
@@ -187,6 +200,19 @@ const tlsRoom = {
         "[ ] Chain terminates in a trusted root CA\n" +
         "[ ] Not revoked (CRL / OCSP, inconsistently checked)\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what makes a self-signed certificate that is ALSO very recently issued a stronger combined signal than either fact alone?",
+        options: [
+          "Legitimate infrastructure certificates are typically provisioned once and left in place for a long time, so pairing 'self-signed' with 'issued yesterday' departs from that norm",
+          "Self-signed certificates are illegal to issue, so recency proves fraud",
+          "A recently issued certificate always means the TLS version is outdated",
+          "Self-signed certificates automatically expire within 24 hours",
+        ],
+        answer: 0,
+        explanation:
+          "The reading explains that legitimate infrastructure, even self-signed internal tools, is typically provisioned once and left in place for a long time — not regenerated every session or every day. A self-signed cert that's also brand new is a much stronger combined signal than either fact alone.",
+      },
     },
 
     // ── Reading 3: JA3/JA3S/JARM ─────────────────────────────────────────────
@@ -231,6 +257,19 @@ const tlsRoom = {
         "       of responses -- works even on infrastructure your\n" +
         "       network hasn't talked to yet\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what is the key difference between JA3 and JARM?",
+        options: [
+          "JA3 is active and JARM is passive",
+          "JA3 is a passive fingerprint built from observed ClientHello traffic, while JARM is an active technique that sends crafted probes to a target server, letting defenders fingerprint infrastructure they haven't seen real traffic from yet",
+          "They are identical techniques with different names",
+          "JARM only works on UDP traffic",
+        ],
+        answer: 1,
+        explanation:
+          "JA3 is passive — computable only from traffic you've actually observed. JARM is active — the scanning tool sends ten crafted ClientHello probes to a target server and fingerprints the pattern of responses, which works even against infrastructure your network hasn't contacted yet.",
+      },
     },
 
     // ── Reading 4: detecting C2 in TLS without decryption ────────────────────
@@ -314,6 +353,19 @@ const tlsRoom = {
         "itself a useful signal an app is deliberately resisting\n" +
         "inspection.\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why does certificate pinning defeat TLS interception even on a managed device where the internal CA is trusted?",
+        options: [
+          "Pinned applications ignore the device's trust store entirely and refuse any certificate that isn't the exact one they hard-coded, including the interception proxy's substitute certificate",
+          "Pinning only applies to UDP-based protocols, which interception cannot process",
+          "Pinning forces the connection to downgrade to TLS 1.0, which interception proxies cannot decrypt",
+          "Pinned certificates are always self-signed, which interception proxies automatically block",
+        ],
+        answer: 0,
+        explanation:
+          "Certificate pinning hard-codes the exact certificate or public key an application expects and refuses anything else — even a certificate that would otherwise validate fine against the device's trust store. This is exactly what makes it defeat interception by design.",
+      },
     },
 
     // ── Reading 6: TLS version/cipher downgrade as a fingerprint ─────────────

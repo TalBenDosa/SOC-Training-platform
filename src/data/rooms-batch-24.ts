@@ -164,6 +164,18 @@ const credentialAttacksRoom: Room = {
         "2. How many attempts landed against EACH one?\n" +
         "3. Did this touch an auth endpoint, or a process/file instead?\n" +
         "=======================================================",
+      checkpoint: {
+        question: "Why does credential dumping (T1003) never appear in a 4625 failed-logon burst?",
+        options: [
+          "It always succeeds on the first try, so no failures are ever logged",
+          "It reads credential material directly from process memory or a disk-based store, so it never touches an authentication endpoint at all",
+          "It only targets accounts that have MFA disabled",
+          "Windows suppresses 4625 logging specifically for dumping attempts",
+        ],
+        answer: 1,
+        explanation:
+          "Credential dumping is a different category entirely -- it reads credentials directly out of memory (classically lsass.exe) or a disk-based store, so there is no logon attempt at all to generate a 4625, successful or failed.",
+      },
     },
     {
       type: "reading",
@@ -529,6 +541,19 @@ const lateralMovementRoom: Room = {
         "  FIL->>APP: ADMIN$ write + IPC$/svcctl service install\n" +
         "  Note over APP: Each hop's logs are independently incomplete -- only reconstructing all three together shows the chain",
       diagramCaption: "A two-hop lateral movement chain across three hosts",
+      checkpoint: {
+        question:
+          "Per Reading 1, why can host B's logs never tell you, on their own, whether a network logon came from a legitimate admin tool or an attacker with stolen credentials?",
+        options: [
+          "Because host B never logs failed logons, only successful ones",
+          "Because a network logon (LogonType 3, NTLM) looks structurally identical whether it originated from an approved jump host or an attacker using stolen but genuine credentials -- settling which one requires evidence from outside that single record",
+          "Because host B only stores logs for 24 hours before purging them",
+          "Because NTLM authentication does not generate any log at all",
+        ],
+        answer: 1,
+        explanation:
+          "The mechanism is the same either way -- Reading 1's point is that host B's own 4624 record can't distinguish source legitimacy on its own; that answer has to come from the source host's own history, a change ticket, or what happens immediately afterward.",
+      },
     },
     {
       type: "reading",
@@ -973,6 +998,19 @@ const webAttacksRoom: Room = {
         "  W -.->|httpRequest.clientIp = true attacker IP| N1[Recorded only at the WAF]\n" +
         "  S -.->|c-ip = the load balancer's own address| N2[Same value for every request, regardless of source]",
       diagramCaption: "Where the true client IP survives — and where it doesn't",
+      checkpoint: {
+        question:
+          "Per Reading 2, why does a web server's own access log typically show the load balancer's IP instead of the real client's IP?",
+        options: [
+          "Because the load balancer opens its own connection to the web server, using its own address, unless the environment is specifically configured to forward and log the original client's address via X-Forwarded-For",
+          "Because web servers never log client IP addresses at all",
+          "Because the WAF strips the client IP before forwarding the request",
+          "Because IIS randomly substitutes a placeholder IP for privacy reasons",
+        ],
+        answer: 0,
+        explanation:
+          "The load balancer re-establishes its own connection to the web server, so unless X-Forwarded-For is specifically configured and captured, the web server's log shows the load balancer's own address for every request, regardless of the real source.",
+      },
     },
     {
       type: "question",

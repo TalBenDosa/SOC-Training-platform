@@ -19,6 +19,12 @@ interface ReadingTask {
   heading: string;
   content: string;
   codeExample?: string;
+  checkpoint?: {
+    question: string;
+    options: string[];
+    answer: number;
+    explanation?: string;
+  };
 }
 
 interface QuestionTask {
@@ -156,6 +162,14 @@ Logs come in many different formats depending on the vendor and application. The
 - **LEEF (Log Event Extended Format)** — similar to CEF, created by IBM QRadar. Used by many network appliances.
 
 The key challenge is that every vendor uses a slightly different format. A firewall from Palo Alto logs in a different structure than a firewall from Fortinet. A Windows login event looks nothing like a Linux SSH login. This is why **log normalisation** exists — we will cover that next.`,
+      checkpoint: {
+        question:
+          "According to the reading, what standard created by ArcSight/Micro Focus is a common log format used by security appliances?",
+        options: ["CEF (Common Event Format)", "ECS (Elastic Common Schema)", "Plain-text Syslog", "JSON"],
+        answer: 0,
+        explanation:
+          "CEF (Common Event Format) is the ArcSight/Micro Focus standard widely used by security appliances. LEEF is IBM QRadar's similar format, and ECS is a normalisation schema rather than a source log format.",
+      },
     } satisfies ReadingTask,
 
     // ----- Reading 2: Log collection and normalisation ----------------------
@@ -291,6 +305,14 @@ The key capabilities that a SIEM adds beyond simple log storage are:
 - **MITRE ATT&CK mapping** — classify detections against the industry-standard attack framework
 
 In summary: a log aggregator is a **storage and search engine**. A SIEM is a **detection and investigation platform** built on top of log storage.`,
+      checkpoint: {
+        question:
+          "According to the reading, which Windows Event ID is generated when the Security audit log is cleared?",
+        options: ["Event ID 1102", "Event ID 4624", "Event ID 104", "Event ID 4720"],
+        answer: 0,
+        explanation:
+          "Event ID 1102 — 'The audit log was cleared' — fires in the Security channel and records which account cleared it. Event ID 104 is the equivalent for the System log, not Security.",
+      },
     } satisfies ReadingTask,
 
     // ----- Log Analysis: audit log cleared ----------------------------------
@@ -467,6 +489,14 @@ const siemFundamentals: Room = {
 Raw log → **Ingestion layer** (agents, syslog, APIs) → **Parsing** (decode the format, extract fields) → **Indexing** (write to searchable storage) → **Correlation engine** (apply detection rules in real time) → **Alert** (notify SOC) → **Investigation** (analyst reviews in SIEM UI)
 
 The entire pipeline from a log being generated on an endpoint to an alert appearing in the SOC analyst's queue typically takes 30 seconds to 5 minutes, depending on the SIEM and configuration.`,
+      checkpoint: {
+        question:
+          "According to the reading, which of the six core SIEM functions is described as 'the most powerful feature' — applying detection rules that look for patterns across multiple events?",
+        options: ["Dashboarding", "Correlation", "Reporting", "Log aggregation"],
+        answer: 1,
+        explanation:
+          "Correlation is called out as the most powerful SIEM function — it's what turns a single, meaningless failed login into a Password Spray alert by spotting the pattern across many events.",
+      },
     } satisfies ReadingTask,
 
     // ----- Reading 2: Correlation rules and detection types ----------------
@@ -580,6 +610,19 @@ SIEM rules must be continuously **tuned** based on your specific environment:
 5. **Review and retire stale rules** — rules written years ago for systems that no longer exist still generate alerts. Remove them.
 
 Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a dedicated team or process for continuous rule review.`,
+      checkpoint: {
+        question:
+          "According to the reading, what is a False Negative (FN)?",
+        options: [
+          "An alert fired but there was no real security incident",
+          "An alert fired and correctly identified a real security incident",
+          "No alert fired even though a real attack was happening",
+          "An alert fired twice for the same underlying event",
+        ],
+        answer: 2,
+        explanation:
+          "A False Negative means a real attack occurred but the SIEM never alerted on it — the most dangerous outcome, because the organisation is being attacked and doesn't know it. A False Positive is the opposite: an alert fires but nothing bad actually happened.",
+      },
     } satisfies ReadingTask,
 
     // ----- Log Analysis: password spray SIEM alert -------------------------
@@ -773,6 +816,13 @@ A web-based visualisation interface built on OpenSearch Dashboards (forked from 
 Endpoint event → **Agent collects it** → ships over TCP 1514 → **Manager receives it** → decoder parses the raw log → rule engine evaluates it → if rule matches, **alert generated** → alert forwarded to **Indexer** → stored and indexed → visible in **Dashboard**
 
 This full pipeline typically completes in under 5 seconds from event generation to alert appearing in the dashboard.`,
+      checkpoint: {
+        question: "According to the reading, which TCP port does the Wazuh Agent use to communicate with the Wazuh Manager?",
+        options: ["TCP 1514", "TCP 55000", "TCP 514", "TCP 443"],
+        answer: 0,
+        explanation:
+          "Agents communicate with the Manager over TCP port 1514 (encrypted). TCP 55000 is the separate API port the dashboard uses to talk to the Manager.",
+      },
     } satisfies ReadingTask,
 
     // ----- Reading 2: Decoders and rules ------------------------------------
@@ -847,6 +897,13 @@ For example:
 - Parent rule 5700: "sshd authentication event detected" (fires on any SSH-related log)
 - Child rule 5710: "Failed login for non-existent user" (only fires if parent matched AND user does not exist)
 - Child rule 5711: "Multiple failed logins — brute force" (only fires if parent matched AND count > threshold)`,
+      checkpoint: {
+        question: "According to the reading, at which Wazuh rule severity level does the dashboard begin generating visible alerts by default?",
+        options: ["Level 1", "Level 4", "Level 7", "Level 12"],
+        answer: 2,
+        explanation:
+          "By default, Wazuh generates visible alerts only for level 7 and above. Levels 0-6 are logged but do not appear as alerts in the dashboard, which keeps low-value informational events from creating noise.",
+      },
     } satisfies ReadingTask,
 
     // ----- Question 1 -------------------------------------------------------
@@ -934,6 +991,13 @@ The Wazuh Dashboard includes several built-in sections:
 - **MITRE ATT&CK** — visualises your alert coverage across the ATT&CK framework matrix
 - **Regulatory Compliance** — pre-built dashboards for PCI-DSS, HIPAA, GDPR, NIST 800-53, CIS
 - **Agents** — list of all monitored endpoints with connectivity status, OS, last alert time`,
+      checkpoint: {
+        question: "According to the reading, which file does Wazuh's File Integrity Monitoring (FIM) watch by default that would alert on a new Linux user account being added?",
+        options: ["/etc/passwd", "/var/log/syslog", "/proc/version", "/tmp/.cache"],
+        answer: 0,
+        explanation:
+          "/etc/passwd is one of the critical files monitored by default FIM; adding a new user modifies it, and a FIM alert on /etc/passwd or /etc/sudoers should always be investigated as a possible post-exploitation action.",
+      },
     } satisfies ReadingTask,
 
     // ----- Log Analysis: new privileged user --------------------------------
@@ -1139,6 +1203,13 @@ Each data connector populates specific tables in the Log Analytics Workspace. Ke
 | **SecurityIncident** | Sentinel incidents (grouped alerts) |
 
 Knowing which table to query is the first step in any Sentinel investigation. A Windows failed login? Query SecurityEvent. A suspicious Azure AD login? Query SignInLogs.`,
+      checkpoint: {
+        question: "According to the reading, which Sentinel table would you query to investigate a suspicious Azure AD sign-in?",
+        options: ["SignInLogs", "SecurityEvent", "Syslog", "Heartbeat"],
+        answer: 0,
+        explanation:
+          "SignInLogs holds Azure Active Directory / Entra ID sign-in events. SecurityEvent is for Windows Security Event Log data (like 4624/4625), which is a different source entirely.",
+      },
     } satisfies ReadingTask,
 
     // ----- Reading 2: KQL basics -------------------------------------------
@@ -1231,6 +1302,13 @@ This query finds all source IPs that generated more than 20 failed Windows login
 - The pipe \`|\` must always be on the same line as or at the start of the next operator
 - String literals use double quotes: \`"value"\`
 - Run queries in the Sentinel Logs blade or in the Log Analytics Workspace directly`,
+      checkpoint: {
+        question: "According to the reading, which KQL function means '1 hour ago from now' when filtering on TimeGenerated?",
+        options: ["ago(1h)", "timerange(1h)", "past(1h)", "since(1h)"],
+        answer: 0,
+        explanation:
+          "ago(1h) is the KQL function for a relative time offset; the same pattern works for ago(24h), ago(7d), ago(30m), and so on.",
+      },
     } satisfies ReadingTask,
 
     // ----- Question 1 -------------------------------------------------------
@@ -1330,6 +1408,18 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
 - Network traffic analysis
 - Threat Intelligence overview
 - MITRE ATT&CK coverage map`,
+      checkpoint: {
+        question: "According to the reading, what is the correct hierarchy of concepts in Microsoft Sentinel?",
+        options: [
+          "Incident → Alert → Log event",
+          "Log event → Alert → Incident",
+          "Alert → Log event → Incident",
+          "Log event → Incident → Alert",
+        ],
+        answer: 1,
+        explanation:
+          "The hierarchy flows from raw data up: a log event is a single row, an analytics rule matching events generates an alert, and related alerts are grouped together into a single incident for investigation.",
+      },
     } satisfies ReadingTask,
 
     // ----- Log Analysis: Sentinel SecurityEvent 4625 -----------------------

@@ -141,6 +141,19 @@ const vulnerabilityManagementRoom = {
         "  CVE-2021-44228  CWE-502  CVSS 10.0 (unauth RCE, network)\n" +
         "  CVE-2019-XXXXX  CWE-502  CVSS  4.3 (needs local auth first)\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what does a CWE (Common Weakness Enumeration) actually describe?",
+        options: [
+          "A unique identifier for one specific, publicly disclosed vulnerability",
+          "A category describing the general TYPE of coding mistake, shared across many unrelated CVEs, carrying no severity of its own",
+          "A numeric 0.0-10.0 severity score",
+          "A list of vulnerabilities confirmed to be actively exploited in the wild",
+        ],
+        answer: 1,
+        explanation:
+          "A CWE is a category, not an instance — thousands of different CVEs across thousands of products can share the same CWE, and a CWE category itself carries no severity of its own; severity is what CVSS measures, per specific CVE.",
+      },
     },
 
     // ── Reading 2: CVSS structure and bands ──────────────────────────────
@@ -237,6 +250,19 @@ const vulnerabilityManagementRoom = {
         "  - EPSS 94% (99th percentile), functional exploit exists\n" +
         "  -> patch THIS WEEK, despite the lower base score\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what question does EPSS (Exploit Prediction Scoring System) answer?",
+        options: [
+          "How severe is this vulnerability if it is exploited?",
+          "How likely is this specific CVE to be exploited in the wild in the next 30 days?",
+          "Has this CVE already been confirmed as exploited?",
+          "What type of coding mistake caused this vulnerability?",
+        ],
+        answer: 1,
+        explanation:
+          "EPSS is a daily-updated, machine-learning-driven probability (0-100%) that a specific CVE will be exploited in the wild in the next 30 days — a likelihood measure, distinct from CVSS's static severity and KEV's confirmed-exploitation flag.",
+      },
     },
 
     // ── Question 2 (applied — worked prioritization) ─────────────────────
@@ -398,6 +424,19 @@ const vulnerabilityManagementRoom = {
         "Escalate when SLA slips           Deploy to production\n" +
         "Track KEV due dates               Confirm fix via rescan\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what distinguishes a genuine 'accepted risk' remediation path from simply letting a finding sit in the backlog?",
+        options: [
+          "Accepted risk requires no documentation at all, just informal agreement",
+          "A real risk acceptance has a named risk owner, a written justification, and an expiration/review date — 'we'll get to it eventually' is not risk acceptance",
+          "Accepted risk can only be declared by the SOC analyst who found the finding",
+          "Accepted risk means the vulnerability has already been patched",
+        ],
+        answer: 1,
+        explanation:
+          "A real risk acceptance has an owner's name on it, an expiration/review date, and a written justification. 'We'll get to it eventually' is not risk acceptance — it's an unmanaged finding sitting in the backlog.",
+      },
     },
 
     // ── Analyst Choice: confirmed false positive ──────────────────────────
@@ -577,6 +616,19 @@ const memoryDiskForensicsRoom = {
         "- Document command + timestamp + tool version BEFORE\n" +
         "  you run it, not reconstructed afterward\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what should be captured FIRST during live acquisition, before a full memory dump?",
+        options: [
+          "A full disk image",
+          "Active network connections and the process list — fast, low-footprint queries",
+          "A complete registry export",
+          "An antivirus full system scan",
+        ],
+        answer: 1,
+        explanation:
+          "Capture the most volatile, least-footprint information first — active network connections and the process list — before kicking off a full memory dump, which is the highest-impact step and takes several minutes.",
+      },
     },
 
     // ── Reading 2: What memory yields that disk cannot ─────────────────────
@@ -659,6 +711,19 @@ const memoryDiskForensicsRoom = {
         "  - Explicit note: NO hardware write blocker was possible\n" +
         "    -- the OS was writing to its own disk throughout\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, when should you compute the SHA256 hash of a freshly completed memory dump or disk image?",
+        options: [
+          "At the end of the investigation, once all analysis is complete",
+          "Immediately after the file finishes writing — before copying it, opening it in a tool, or even renaming it",
+          "Only if the case ends up going to court",
+          "Hashing is unnecessary for live acquisitions since the system was already running",
+        ],
+        answer: 1,
+        explanation:
+          "Hash the moment the file finishes writing, before any other action — that hash is your baseline, proving whether the file has been altered since that exact moment.",
+      },
     },
 
     // ── Question 2 (applied) ──────────────────────────────────────────────
@@ -788,6 +853,19 @@ const memoryDiskForensicsRoom = {
         "            process-creation event -- command line,\n" +
         "            parent process, account, all captured\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what does clearing the Windows Security event log (wevtutil cl Security) still leave behind?",
+        options: [
+          "Nothing at all — a cleared log is a completely clean erasure",
+          "A fresh Event ID 1102 recording who cleared the log and when, which pinpoints exactly where to focus the search in every other log source",
+          "An automatic full backup of the log restored moments later",
+          "A duplicate copy of the log hidden in the registry",
+        ],
+        answer: 1,
+        explanation:
+          "The act of clearing the log is itself logged: Windows writes a fresh Event ID 1102 as the new first entry, recording the account and timestamp — proof something was hidden, at a precise, known time.",
+      },
     },
 
     // ── Matching: anti-forensics technique -> residual evidence ────────────

@@ -119,6 +119,13 @@ const logEntryAnatomyRoom: Room = {
         "  L --> Q4[\"WHAT + OUTCOME -- sshd reported Failed password (a failed authentication)\"]\n" +
         "  L --> Q5[\"HOW CONFIDENT -- priority code 134 decodes to a low, informational-level severity\"]\n",
       diagramCaption: "Mapping the five-question frame onto a real log line",
+      checkpoint: {
+        question: "Which of the five questions does a log's severity or level field answer?",
+        options: ["WHEN", "WHO", "WHERE", "HOW CONFIDENT"],
+        answer: 3,
+        explanation:
+          "Severity/level is the HOW CONFIDENT question -- most logs carry some rating of how urgent the vendor thinks the entry is, which Reading 7 later explains deserves more suspicion than the other four fields.",
+      },
     },
     // ----- Reading 2: Plain syslog ------------------------------------------
     {
@@ -207,6 +214,18 @@ const logEntryAnatomyRoom: Room = {
         "    }\n" +
         "  }\n" +
         "}",
+      checkpoint: {
+        question: "In a field name like winlog.event_data.TargetUserName, what do the dots actually represent?",
+        options: [
+          "A decorative separator with no meaning",
+          "A path into nested objects, like folders inside folders",
+          "A list of alternate field names for the same value",
+          "A version number for the schema",
+        ],
+        answer: 1,
+        explanation:
+          "The dots are a path, not decoration -- winlog.event_data.TargetUserName means go into winlog, then into event_data, then read TargetUserName, exactly like folders inside folders on a hard drive.",
+      },
     },
     // ----- Matching ------------------------------------------------------------
     {
@@ -239,6 +258,18 @@ const logEntryAnatomyRoom: Room = {
         "#Fields: date time c-ip cs-username s-sitename cs-method cs-uri-stem sc-status\n" +
         "2026-06-24 14:32:11 203.0.113.55 - W3SVC1 GET /login.aspx 200\n\n" +
         "CEF:0|Fortinet|FortiGate|7.0|0000000013|Traffic Deny|5|src=10.10.4.55 dst=203.0.113.55 dpt=443 act=deny",
+      checkpoint: {
+        question: "Why is skipping the #Fields header line dangerous when reading a W3C/IIS log?",
+        options: [
+          "It isn't dangerous -- columns always follow the same fixed order across all IIS logs",
+          "Because a column's meaning depends entirely on that header line, and two IIS logs can have completely different column orders",
+          "Because the header line contains the actual severity rating for every row",
+          "Because W3C logs are encrypted without the header",
+        ],
+        answer: 1,
+        explanation:
+          "CSV/W3C is like a spreadsheet: the third value in a row means whatever the third column header says it means, and that order can differ between differently-configured IIS logs -- skip the header and you misread every row with total confidence and no idea you're wrong.",
+      },
     },
     // ----- Ordering ------------------------------------------------------------
     {
@@ -305,6 +336,18 @@ const logEntryAnatomyRoom: Room = {
         `**Two "criticals" that mean different things.** An antivirus product might mark every detection of a known ransomware family as critical, regardless of whether the file was quarantined instantly with zero impact or whether it actually executed. A firewall's intrusion-prevention engine might mark an entire signature family — say, generic SQL injection patterns — as critical by default, regardless of whether the destination is a public web form or an internal test server nobody uses. Both say "critical." Neither number tells you what actually happened at your organisation; both only tell you how the vendor classifies that category of finding in general.\n\n` +
         `**Severity is not the same thing as impact.** Impact depends on what was actually touched, whether it succeeded, whether compensating controls stopped it, and whether the target mattered. A "critical" alert against an internal test server that was already scheduled for a vulnerability scan may have essentially zero real impact. A "medium" alert on a domain controller that nobody expected any activity on at 3 a.m. might deserve far more of your attention than the label alone suggests.\n\n` +
         `**What this means for triage.** Never let severity alone decide how urgently you investigate something, and never assume two "high" alerts from two different products carry equal weight. Use severity as one input — a vendor's rough first guess — and always read the actual fields underneath it: the source, the destination, the outcome, and whatever context (a change ticket, an asset's role, a pattern across multiple events) tells you what this specific occurrence actually means.`,
+      checkpoint: {
+        question: "According to Reading 7, what does a vendor's 'critical' severity rating actually tell you?",
+        options: [
+          "How the vendor classifies that category of finding in general -- not the real-world impact of this specific occurrence",
+          "The exact financial cost this specific event will cause",
+          "Whether this specific event succeeded or was blocked",
+          "That every source, once rated critical, should be blocked automatically",
+        ],
+        answer: 0,
+        explanation:
+          "Severity is a rating the vendor assigned to a category of event, not an objective measurement of this occurrence's real impact -- two 'criticals' from two products, or against two very different targets, can mean very different things in practice.",
+      },
     },
     // ----- Analyst choice (false positive) -----------------------------------------
     {
@@ -481,6 +524,19 @@ const identityBasicsRoom: Room = {
         `**Authorization is deciding what you're allowed to do once you're in.** Having a valid ID card that gets you through the front door does not mean every door inside the building opens for you. Authorization is the separate check — often happening every single time you try to open a specific door — of whether your already-confirmed identity has permission for this specific action.\n\n` +
         `**Why the distinction matters to an analyst.** If someone logs in with a completely valid username and password, and that account then does something it should never be allowed to do — reads a file it has no business reading, calls an administrative function it was never granted access to — that is an authorization failure, not an authentication one. The login itself was completely legitimate; the credential was real. The identity behind it, whether the rightful owner or an attacker who stole the credential, simply had no business doing what they did next. Treating that as "check whether the password was guessed" investigates the wrong question entirely — the real question is why the permissions allowed it, or whether this identity's access was ever appropriate in the first place.\n\n` +
         `**A short example.** A help-desk technician's account authenticates successfully every single day — nothing wrong there at all. If that same account is later used to reset a company executive's password, and that technician's role was never supposed to include executive accounts, the login was fine; the authorization boundary is what failed, and that boundary is exactly what you would review, tighten, or investigate — not the login event itself.`,
+      checkpoint: {
+        question:
+          "A help-desk account logs in successfully with a fully valid password, then resets an executive's password even though its role was never meant to include that. What kind of failure is this?",
+        options: [
+          "An authentication failure -- the password check must have been bypassed",
+          "An authorization failure -- the identity was proven genuine, but it was allowed to do something it shouldn't have",
+          "Neither -- this is expected, routine behavior for any help-desk account",
+          "A credential theft, since the account must have been compromised",
+        ],
+        answer: 1,
+        explanation:
+          "The login itself was completely legitimate, so this isn't an authentication problem -- the failure is in what the already-proven identity was permitted to do, which is exactly what authorization governs.",
+      },
     },
     // ----- Reading 2: three factors -------------------------------------------
     {
@@ -525,6 +581,19 @@ const identityBasicsRoom: Room = {
         `**API keys** are long, typically static strings issued to an application or script rather than a human — they usually have no built-in expiration and, unlike a human's password, are rarely typed by a person who would notice if it stopped working, which means a stolen one can go unnoticed for a long time.\n\n` +
         `**Tokens** are short-lived proof of an already-completed authentication, generated by a system after you've successfully logged in, so you don't have to keep re-entering a password. Reading 4 is dedicated entirely to why tokens are, for an attacker, often the single most valuable credential of all.\n\n` +
         `**The common thread.** Every one of these is a credential in the exact same sense a password is: something the system will accept as sufficient proof of identity. An attacker's actual goal is rarely "learn the plaintext password" — it's "obtain something, in whatever form, the system will accept in its place." Keeping that broader definition in mind is what stops an analyst from dismissing a stolen hash, key, certificate, or token as somehow less serious than a stolen password.`,
+      checkpoint: {
+        question:
+          "Why can a stolen password hash alone sometimes be enough for an attacker to authenticate, without ever cracking it into a plaintext password?",
+        options: [
+          "Hashes can always be reversed back into the plaintext password with enough computing power",
+          "Some protocols, like NTLM, can be satisfied by presenting the hash directly, without the plaintext ever being supplied -- this is the pass-the-hash technique",
+          "Password hashes are stored in plaintext alongside the password, so both are exposed together",
+          "This is never actually possible in any real authentication protocol",
+        ],
+        answer: 1,
+        explanation:
+          "The reading names this directly: in protocols like NTLM, the hash itself can be presented to satisfy the check, so an attacker who steals a hash from memory doesn't need to crack it at all -- that's the pass-the-hash technique.",
+      },
     },
     // ----- Matching --------------------------------------------------------------------
     {
@@ -642,6 +711,19 @@ const identityBasicsRoom: Room = {
         "  E[\"Attacker steals the token after step C\"] --> D\n" +
         "  D --> F[\"Application grants access -- token alone is checked, MFA is never asked again\"]\n",
       diagramCaption: "Where MFA sits in the flow -- and where a replayed token skips it",
+      checkpoint: {
+        question:
+          "Why can a FIDO2/WebAuthn security key resist an adversary-in-the-middle (AitM) proxy attack in a way SMS codes and TOTP apps cannot?",
+        options: [
+          "It requires a longer PIN than other MFA methods",
+          "It cryptographically binds the authentication to the real website's domain, so it refuses to complete against a fraudulent look-alike site at all",
+          "It sends the code over a different network path than the password",
+          "It automatically blocks any login attempt from outside the corporate network",
+        ],
+        answer: 1,
+        explanation:
+          "FIDO2/WebAuthn ties the cryptographic challenge to the legitimate domain itself, so a proxy sitting in front of a fake login page cannot get a valid response relayed through it -- SMS and TOTP have no such binding and can still be phished in real time.",
+      },
     },
     // ----- Analyst choice (false positive) --------------------------------------------------
     {
@@ -699,6 +781,18 @@ const identityBasicsRoom: Room = {
         `**Event 4625 — failed logon.** Recorded every time a logon attempt is rejected — wrong password, disabled account, expired account, and so on. On its own, a single 4625 usually means nothing more than someone mistyped their password, which happens constantly and is rarely worth investigating in isolation.\n\n` +
         `**The pattern that matters far more than either event alone: a burst of failures immediately followed by one success.** Several 4625 events against the same account, from the same source, in a short window, followed immediately by a 4624 for that same account, is one of the most reliable shapes in authentication monitoring — it looks exactly like an attacker guessing passwords (brute-forcing one account, or trying a short list of likely passwords) who eventually guessed correctly. The single success sitting right after a run of failures is far more significant than either fact would be alone; a 4624 by itself just means someone logged in, and a handful of 4625s by themselves often mean nothing at all.\n\n` +
         `**What to check once you see this pattern.** Whether the account has any MFA on the authentication path it used — an NTLM network logon to a file server, for instance, very often has none at all, as Reading 6 covered — because a burst-then-success pattern against an MFA-protected account is a very different risk than the same pattern against one with no second factor standing between a guessed password and full access.`,
+      checkpoint: {
+        question: "In Windows 4624 logon events, what does LogonType 10 specifically indicate?",
+        options: [
+          "An interactive console logon, someone physically at the keyboard",
+          "A network logon with no interactive session, like connecting to a file share",
+          "RemoteInteractive -- a Remote Desktop Protocol (RDP) session",
+          "A batch job running under a service account",
+        ],
+        answer: 2,
+        explanation:
+          "LogonType 10 is RemoteInteractive, meaning RDP. LogonType 2 is an interactive console logon and LogonType 3 is a network logon such as a file-share connection -- reading them correctly changes how you interpret the same username appearing with different logon types.",
+      },
     },
     // ----- Log analysis ----------------------------------------------------------------------
     {

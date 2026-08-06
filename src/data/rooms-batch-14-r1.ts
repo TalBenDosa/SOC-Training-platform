@@ -205,6 +205,17 @@ const awsSecurityRoom = {
         "EC2       Elastic Compute Cloud       Virtual servers\n" +
         "VPC       Virtual Private Cloud       Private network\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading's on-premises-to-AWS mental model table, which AWS service is the equivalent of a Windows Security Event Log?",
+        options: [
+          "CloudTrail",
+          "GuardDuty",
+          "IAM",
+          "VPC Flow Logs",
+        ],
+        answer: 0,
+        explanation: "The reading's comparison table maps 'Windows Security Event Log' directly to 'CloudTrail' — the service that records every API call made in an AWS account.",
+      },
     },
 
     // ── Reading 2: CloudTrail — the audit log ───────────────────────────────
@@ -322,6 +333,17 @@ const awsSecurityRoom = {
         "iam:CreateAccessKey        Mint new long-term creds for\n" +
         "                           any user\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading, temporary credentials obtained by assuming an IAM role typically expire within what time frame?",
+        options: [
+          "1 to 12 hours",
+          "24 to 48 hours",
+          "90 days",
+          "They never expire",
+        ],
+        answer: 0,
+        explanation: "The reading states that an IAM role's temporary credentials automatically expire, typically within 1 to 12 hours — unlike an IAM user's long-term access keys, which do not expire on their own.",
+      },
     },
 
     // ── Reading 4: GuardDuty, VPC Flow Logs, S3 buckets, IMDS ───────────────
@@ -639,6 +661,17 @@ const awsSecurityRoom = {
         "                     AND '2026-06-11T12:00:00Z'\n" +
         "ORDER BY eventTime ASC;\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading's CloudTrail triage checklist, what does an empty aws.cloudtrail.errorCode field indicate?",
+        options: [
+          "The API call succeeded",
+          "The API call failed with AccessDenied",
+          "The event was never logged",
+          "The identity used temporary credentials",
+        ],
+        answer: 0,
+        explanation: "The reading states that an empty errorCode means the call succeeded, while a populated value like AccessDenied or NoSuchEntity means the call was rejected.",
+      },
     },
 
     // ── Flag: extract value from raw CloudTrail block ───────────────────────

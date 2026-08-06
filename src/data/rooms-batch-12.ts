@@ -44,6 +44,18 @@ const rooms = [
           `**Why "if it's not documented, it doesn't exist"**\n\n` +
           `A use case that lives only in one analyst's head is a liability. When that analyst leaves, the detection disappears with them. A Use Case Registry — a shared document or database tracking every detection your SOC runs — ensures continuity, auditability, and the ability to answer a simple but critical question: "Are we detecting this threat?"\n\n` +
           `Think of the registry as your museum's master alarm list. Any guard, any night, can open the binder and see exactly what each alarm does and what to do when it triggers.`,
+        checkpoint: {
+          question: "According to the reading, what are the six core components of a use case?",
+          options: [
+            "Hypothesis, Data Source, Detection Logic, Severity, Response Playbook, Exceptions/Suppressions",
+            "Title, Author, Date, Status, Owner, Version",
+            "Alert, Ticket, SLA, Escalation Path, Contact, Signature",
+            "IOC, TTP, Kill Chain Stage, MITRE ID, CVE, Patch Status",
+          ],
+          answer: 0,
+          explanation:
+            "The reading lists six core components: Hypothesis (what behavior you're trying to catch), Data Source, Detection Logic, Severity, Response Playbook, and Exceptions/Suppressions for known-good patterns.",
+        },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
@@ -78,6 +90,18 @@ const rooms = [
           `- **Purple team exercises**: Red team + Blue team working together — the red team performs each ATT&CK technique deliberately, and the blue team checks whether their rules caught it in near-real-time.\n` +
           `- **Replay testing**: Collect real attack logs from past incidents or public threat research datasets and replay them through your detection pipeline.\n\n` +
           `A use case that has never been tested against real attack data is just a hypothesis. Testing is what turns it into a reliable detection.`,
+        checkpoint: {
+          question: "According to the reading, what problem does Sigma solve for detection engineers?",
+          options: [
+            "It automatically tests rules against production traffic with no manual work",
+            "It provides a vendor-neutral YAML rule format that can be converted into the query language of different SIEMs, avoiding vendor lock-in",
+            "It replaces the need for the MITRE ATT&CK framework entirely",
+            "It only works with Splunk's SPL query language",
+          ],
+          answer: 1,
+          explanation:
+            "Sigma is a vendor-neutral rule format — a rule written once in Sigma's YAML syntax can be converted by tools like sigmac or pySigma into Splunk SPL, Sentinel KQL, or Elastic EQL, solving the vendor lock-in problem.",
+        },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {
@@ -313,6 +337,18 @@ const rooms = [
           `- **Lessons Learned**: What could be done better next time?\n\n` +
           `**Writing Good Analyst Notes**\n\n` +
           `The gold standard for analyst notes answers: **Who? What? When? Where? Why? How?** — the same questions a journalist would ask. Example of a bad note: "Investigated alert. Looks malicious." Example of a good note: "At 09:14 UTC, WS-FINANCE-042 (user: m.torres) executed an encoded PowerShell command spawned by cmd.exe from C:\\Windows\\Temp. The Base64 payload decoded to a download cradle fetching from 192.168.1.100/payload.ps1. Isolated the host at 09:31 UTC pending malware analysis."`,
+        checkpoint: {
+          question: "According to the reading, what saying summarises why SOC documentation matters?",
+          options: [
+            "\"If it's not documented, it didn't happen\"",
+            "\"Speed over accuracy, always\"",
+            "\"Only critical incidents need tickets\"",
+            "\"Documentation is optional if the attack was stopped\"",
+          ],
+          answer: 0,
+          explanation:
+            "The reading states this is a standard saying in the security world — without a written record, there's no audit trail, no knowledge transfer, and no way for the next analyst or shift to pick up where the investigation left off.",
+        },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
@@ -343,6 +379,18 @@ const rooms = [
           `1. **Executive Summary (1 page)**: Written in plain language. What happened? What was affected? What did we do? What is the current risk? What are we doing to prevent it from happening again?\n` +
           `2. **Technical Appendix**: Full details for security staff — timeline, IOCs, forensic findings, log evidence.\n\n` +
           `The cardinal rule: **never bury the key finding.** Put the most important information first. An executive who reads only the first paragraph should still understand the severity of the situation.`,
+        checkpoint: {
+          question: "According to the reading, what does MTTD (Mean Time to Detect) measure?",
+          options: [
+            "How long from when an alert is detected until the incident is fully contained",
+            "How long, on average, from when an attack begins until the SOC detects it",
+            "How many alerts the SIEM generates per day",
+            "The percentage of alerts that turn out to be false positives",
+          ],
+          answer: 1,
+          explanation:
+            "MTTD measures the time from when an attack actually begins until the SOC detects it. MTTR (Mean Time to Respond) is the separate metric covering detection through containment and resolution.",
+        },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {
@@ -584,6 +632,18 @@ const rooms = [
           `- DON'T SAY: "We observed lateral movement via PtH from WKSTN-042 to SRV-DC-01."\n` +
           `  DO SAY: "After gaining access to one employee's computer, the attacker attempted to spread to your main server. We stopped this before they reached it."\n\n` +
           `The key principle: **lead with impact and actions taken, not with technical mechanics**. The client needs to know: what happened to ME, what risk am I facing NOW, and what do I need to DO.`,
+        checkpoint: {
+          question: "According to the reading, what is the key principle when translating a technical finding into client-facing language?",
+          options: [
+            "Always include the MITRE ATT&CK technique ID so the client can verify it themselves",
+            "Lead with impact and actions taken, not with technical mechanics",
+            "Use exactly the same wording as the internal SIEM alert to stay accurate",
+            "Never mention that any action was taken, to avoid legal liability",
+          ],
+          answer: 1,
+          explanation:
+            "The reading's translation examples all follow the same pattern: tell the client what happened to them, what risk they face now, and what was done or needs to be done — not the technical mechanics like process injection technique IDs or IOC jitter values.",
+        },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
@@ -615,6 +675,18 @@ const rooms = [
           `4. **Actions Required by Client**: What the client must do now\n` +
           `5. **Current Risk Status**: Is the threat contained, or is there still active risk?\n` +
           `6. **Next Steps**: What happens next in the investigation/remediation`,
+        checkpoint: {
+          question: "According to the reading, what is the SLA requirement for notifying a client about a P1 (Critical) incident?",
+          options: [
+            "Included in the weekly report",
+            "Ticket update within 4 hours",
+            "Email notification within 1 hour",
+            "Phone call within 15 minutes of confirmation",
+          ],
+          answer: 3,
+          explanation:
+            "P1/Critical incidents require a phone call within 15 minutes because a phone call guarantees the message is received immediately and allows two-way conversation — email can sit unread for hours, which matters enormously for something like actively spreading ransomware.",
+        },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {
@@ -850,6 +922,13 @@ const rooms = [
           `- Engagement with external parties (law enforcement, regulatory bodies, external IR firms)\n` +
           `- Executive communication during major incidents\n\n` +
           `The tier structure isn't about hierarchy for its own sake — it's about **efficiency and expertise matching**. If every alert went straight to Tier 3, the most experienced analysts would spend all day closing false positives. The tier structure ensures each analyst is working on problems matched to their skill level.`,
+        checkpoint: {
+          question: "According to the reading, which SOC tier typically has the authority to approve isolating an endpoint from the network?",
+          options: ["Tier 1", "Tier 2", "Neither tier — only IT operations can isolate a host", "All tiers have equal isolation authority"],
+          answer: 1,
+          explanation:
+            "Tier 2 analysts have host isolation authority as part of their deeper investigation responsibilities; Tier 1 analysts typically work with predefined playbooks and do not have authority to take high-impact actions like isolating servers.",
+        },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
       {
@@ -887,6 +966,18 @@ const rooms = [
           `8. **Recommended next steps**: What do you think Tier 2 should do? (They may disagree, but showing your thinking demonstrates competence)\n\n` +
           `**Escalation Bridges for Major Incidents**\n\n` +
           `For P1 incidents affecting many systems, an **escalation bridge** (a conference call or video meeting with all stakeholders) may be established. All relevant parties join: the SOC Tier 2/3 lead, the client's security team, IT operations, and sometimes legal and executive stakeholders. The bridge allows real-time coordination during the chaos of a major incident. Think of it as a war room — everyone in the same (virtual) room, working the problem together.`,
+        checkpoint: {
+          question: "According to the reading, what is the correct action when you are uncertain about an alert but have not yet completed the investigation steps in your playbook?",
+          options: [
+            "Escalate immediately to avoid missing an SLA",
+            "Close it as a false positive without documentation",
+            "Complete your playbook's investigation steps first, rather than escalating out of uncertainty",
+            "Wait for the next shift to handle it",
+          ],
+          answer: 2,
+          explanation:
+            "The reading explicitly lists escalating purely because you're uncertain — before finishing your own playbook steps — as a 'when NOT to escalate' case. Over-escalation floods Tier 2 with noise and trains them to deprioritize your escalations.",
+        },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
       {

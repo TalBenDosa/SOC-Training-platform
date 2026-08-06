@@ -154,6 +154,18 @@ const remoteEmailCollectionRoom = {
         "  Note over R: Pulling every record on one SessionId\n" +
         "  Note over R: reconstructs the full sequence of actions\n",
       diagramCaption: "Reconstructing one session's actions via SessionId",
+      checkpoint: {
+        question: "What does a MailAccessType of 'Bind' indicate, as opposed to 'Sync'?",
+        options: [
+          "Bind means a whole folder's worth of items was pulled in one operation, like a mail client starting up",
+          "Bind means one specific item was accessed by its own individual request -- many Bind records in a short window can indicate a script iterating message by message",
+          "Bind and Sync are two names for the exact same operation",
+          "Bind means the item was permanently deleted after being read",
+        ],
+        answer: 1,
+        explanation:
+          "Sync is a whole-folder pull, the way a mail client behaves on startup. Bind is a per-item access -- a handful is unremarkable, but many dozens packed into a few minutes is the shape of automated iteration, not a person reading email one message at a time.",
+      },
     },
     // ── Question 1 (applied — MITRE technique ID) ───────────────────────────
     {
@@ -234,6 +246,18 @@ const remoteEmailCollectionRoom = {
         "**Read the shape of the access, not just its existence.** Reading 2 already covered Bind vs Sync — a burst of many Bind records against different messages in a short window looks like automated collection; a handful of Bind records spread naturally through a workday looks like a person. Apply that same shape-reading here, alongside the SessionId correlation, rather than treating any single MailItemsAccessed record as inherently meaningful.\n\n" +
         "**Recognize the legitimate patterns before you escalate.** Delegate and Admin LogonType values tied to a known relationship (an assistant, a compliance tool, a migration service account) are routine and should not trigger the same response as an Owner-type access from an unfamiliar location. Reading 5 builds this out fully, but the short version: context — ticket references, known device fingerprints, expected working hours — is what turns 'mailbox was accessed' into either 'nothing to see here' or 'this needs containment,' and skipping that context in either direction is a mistake.\n\n" +
         "**Why this reading exists before the log analysis exercise.** The task that follows gives you a single MailItemsAccessed record plus the surrounding session facts in the narrative — exactly the way a real investigation actually presents itself. You won't be handed a verdict field; you'll be handed the same pieces described here, and asked to reason through them the way this reading just walked through.",
+      checkpoint: {
+        question: "Per Reading 4, why is a single MailItemsAccessed record almost never enough to act on by itself?",
+        options: [
+          "Because MailItemsAccessed records are frequently corrupted during ingestion",
+          "Because people read their own email constantly -- the investigative value comes from correlating the record against everything else in the same session and against what's normal for that account",
+          "Because MailItemsAccessed only logs failed access attempts, never successful ones",
+          "Because Microsoft deprecated this operation in favor of SessionId-only logging",
+        ],
+        answer: 1,
+        explanation:
+          "Reading a mailbox is the entire point of having one, so a single record is unremarkable on its own -- the finding comes from correlating it via SessionId against the sign-in origin, the access shape, and what's normal for that specific account.",
+      },
     },
     // ── Log Analysis: the REST-driven bulk mailbox access ───────────────────
     {
@@ -514,6 +538,18 @@ const deviceRegistrationPersistenceRoom = {
         "**Why an attacker bothers.** Getting into an account once is often the easy part — a phishing click, a stolen session cookie from an adversary-in-the-middle proxy, a password reused from another breach. The hard part, from the attacker's perspective, is staying in once the obvious signs of compromise get investigated. The single most predictable first remediation step any SOC takes is resetting the compromised account's password. Registering their own authentication method is a direct, deliberate answer to that exact step — because as Reading 3 covers in detail, a password reset by itself does not touch a separately-registered authentication method at all.\n\n" +
         "**Where this fits relative to other persistence techniques.** T1098 has several siblings worth knowing apart: T1098.001 covers adding illegitimate credentials to a cloud account, T1098.002 covers abusing Exchange delegation to add a mailbox permission, T1098.003 covers adding an owner to an application, and T1098.004 covers adding an SSH key. T1098.005 is specifically about the identity provider's own authentication factors and device objects — which is exactly why it matters so much for anyone investigating an account takeover in a modern, MFA-protected environment: the MFA that was supposed to stop the attacker becomes, once they've registered their own factor, exactly what lets them come back.\n\n" +
         "**This connects directly to real scenario telemetry on this platform.** In the AiTM Token Theft scenario, event aitm_12_mfa_register fires this precise technique nineteen minutes after a stolen session is replayed — a second Microsoft Authenticator method appears on the victim's account, registered by a session that itself never had to solve a fresh MFA challenge, because the replayed session already carried a prior MFA claim. This room teaches you to read that exact class of event.",
+      checkpoint: {
+        question: "Per Reading 1, why does registering a new authentication method specifically defeat a password reset as remediation?",
+        options: [
+          "Because password resets are always delayed by 24 hours in Entra ID",
+          "Because the registered method is a separate object on the account that a password reset does not touch at all -- like a burglar's own key added to a smart lock, changing the front lock's code doesn't remove their key",
+          "Because Entra ID does not support password resets on compromised accounts",
+          "Because MFA methods automatically expire after any password change, which delays remediation",
+        ],
+        answer: 1,
+        explanation:
+          "The analogy in Reading 1 is exact: registering a new authentication method is like a burglar programming their own key into the smart lock -- changing the lock's primary code (the password reset) does nothing to a key that was separately added to the approved list.",
+      },
     },
     // ── Reading 2: how registration happens, the fields that prove it ──────
     {
@@ -582,6 +618,19 @@ const deviceRegistrationPersistenceRoom = {
         "  C --> G[Explicit removal of rogue method]\n" +
         "  G --> H[Persistence path actually closed]\n",
       diagramCaption: "Why the rogue method must be removed as its own step",
+      checkpoint: {
+        question:
+          "Beyond abusing SSPR directly, what is the second mechanism Reading 3 describes by which an unremoved rogue authentication method benefits an attacker?",
+        options: [
+          "It automatically grants the attacker a directory administrator role after 30 days",
+          "If the attacker later re-obtains the account's password through some other means, they walk straight into a fully-satisfied MFA challenge using the method they already registered -- they don't need to defeat MFA a second time",
+          "It disables MFA enforcement for every other account in the tenant",
+          "It prevents the legitimate user from ever logging in again, forcing a permanent account rebuild",
+        ],
+        answer: 1,
+        explanation:
+          "Even without triggering SSPR, an attacker who re-obtains the password later (via phishing or a leaked credential) still has their registered method sitting there as a standing advantage -- they've already cleared the MFA hurdle from the first compromise.",
+      },
     },
     // ── Matching: Entra fields to meaning ───────────────────────────────────
     {

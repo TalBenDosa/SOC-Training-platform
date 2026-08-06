@@ -141,6 +141,17 @@ const analystMindsetRoom = {
         "                               fast on a surface similarity?\"\n\n" +
         "\"The user says it was\"  -->  \"Can I verify that independently, or\n" +
         "\"them.\"                       am I just trusting a claim?\"",
+      checkpoint: {
+        question: "According to the reading's detective analogy, what does a good detective do after forming a working theory?",
+        options: [
+          "Deliberately looks for evidence that would prove the theory wrong, not just evidence that confirms it",
+          "Immediately announces a suspect to their team",
+          "Ignores any evidence that contradicts the theory",
+          "Waits for another detective to independently confirm the theory before doing anything else",
+        ],
+        answer: 0,
+        explanation: "The reading states that a good detective forms a working theory, then deliberately looks for evidence that would prove that theory WRONG — if the theory survives that stress test, it graduates from 'guess' to 'conclusion.'",
+      },
     },
 
     // ── Reading 2: Forming a hypothesis + the "so what?" chain ────────────
@@ -210,6 +221,17 @@ const analystMindsetRoom = {
         "  all look abnormal together -- that convergence of multiple abnormal\n" +
         "  answers is what should raise your suspicion, not any single field\n" +
         "  alone.",
+      checkpoint: {
+        question: "According to the reading, when applying the WHY question from the six-question framework, what should an analyst do first?",
+        options: [
+          "Generate the innocent/benign explanation before generating the attack explanation",
+          "Immediately search threat intelligence feeds for a matching indicator",
+          "Ask the SOC manager for their opinion",
+          "Escalate to Tier 2 for a second opinion",
+        ],
+        answer: 0,
+        explanation: "The reading states that you should 'force yourself to generate the innocent explanation FIRST, before you generate the attack explanation' — this habit is described as the best anti-bias practice you can build.",
+      },
     },
 
     // ── Reading 4: Baselining "normal" ────────────────────────────────────
@@ -256,6 +278,17 @@ const analystMindsetRoom = {
         "**Availability Bias** — You judge how likely something is by how easily an example comes to mind. If your team just dealt with a ransomware incident last week, you will over-weight ransomware as an explanation for an unrelated alert this week, simply because it is fresh in memory. The fix: consciously generate a full list of possible explanations rather than going with the first (most memorable) one.\n\n" +
         "**Authority Bias** — If a senior analyst, a manager, or even the ticket's previous handler already labeled something 'benign,' you are less likely to question it, even if you notice something odd. The fix: treat previous verdicts as a helpful data point, not a substitute for your own look at the evidence — especially if new information has appeared since that verdict was made.\n\n" +
         "None of these biases make you a bad analyst — they make you human. The goal is not to eliminate them (you cannot) but to recognize the moment they are steering you, and to build habits — like actively searching for disconfirming evidence — that counteract them.",
+      checkpoint: {
+        question: "According to the reading, what is the recommended fix for confirmation bias?",
+        options: [
+          "Deliberately look for the piece of evidence that would prove your hypothesis wrong, not just more confirming evidence",
+          "Trust your first instinct, since it is usually correct",
+          "Escalate every alert automatically to avoid bias entirely",
+          "Rely on the SIEM's default severity label instead of manual judgment",
+        ],
+        answer: 0,
+        explanation: "The reading's fix for confirmation bias is to deliberately look for the piece of evidence that would PROVE you wrong, not just more evidence that confirms you're right.",
+      },
     },
 
     // ── Reading 6: Fact vs assumption, and when to stop digging ──────────

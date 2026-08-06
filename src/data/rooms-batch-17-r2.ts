@@ -126,6 +126,19 @@ const dnsDeepDiveRoom = {
         "                       or malicious answer persists in\n" +
         "                       caches longer once it gets in\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, which resolver actually performs the iterative lookups against root, TLD, and authoritative nameservers?",
+        options: [
+          "The client's stub resolver",
+          "The recursive resolver",
+          "The authoritative nameserver itself",
+          "The TLD server",
+        ],
+        answer: 1,
+        explanation:
+          "The stub resolver on the client only asks its configured recursive resolver to do the work; the recursive resolver is the one that walks the hierarchy step by step — root, then TLD, then authoritative — performing the actual iterative lookups on the client's behalf.",
+      },
     },
 
     // ── Reading 2: record types + DoH/DoT blind spots ────────────────────────
@@ -211,6 +224,19 @@ const dnsDeepDiveRoom = {
         "    (almost every query is a NEW, never-repeated label)\n" +
         "[ ] All of the above concentrated against one parent domain\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what does a near-1:1 ratio of unique subdomains to total queries under one parent domain most strongly indicate?",
+        options: [
+          "A legitimate CDN reusing a small set of cached hostnames",
+          "DNS tunneling — each query behaves like a distinct chunk of encoded payload data rather than a repeated, cacheable hostname",
+          "A DNS resolver misconfiguration causing duplicate lookups",
+          "A load balancer distributing traffic evenly across backend servers",
+        ],
+        answer: 1,
+        explanation:
+          "The reading identifies this near-1.0 ratio as one of the strongest tunneling-specific signals: because each query encodes a distinct chunk of payload, almost none are ever repeated. Legitimate applications reuse a small, stable set of hostnames instead.",
+      },
     },
 
     // ── Reading 4: DGA vs legitimate CDN randomness ──────────────────────────
@@ -251,6 +277,19 @@ const dnsDeepDiveRoom = {
         "                      trying each until one resolved once,\n" +
         "                      resolves              reused/cached\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what is the single strongest differentiator between DGA malware domains and legitimate CDN/cloud randomness?",
+        options: [
+          "Subdomain entropy alone",
+          "NXDOMAIN rate — DGA domains fail to resolve the overwhelming majority of the time, while legitimate CDN randomness resolves successfully almost every time",
+          "The length of the domain name",
+          "Whether the query uses UDP or TCP",
+        ],
+        answer: 1,
+        explanation:
+          "The reading states NXDOMAIN rate is the single strongest differentiator: a DGA-infected host querying its full candidate list sees the overwhelming majority fail, while legitimate CDN/cloud subdomains are real, provisioned resources that resolve successfully essentially every time.",
+      },
     },
 
     // ── Reading 5: fast-flux and sinkholes ────────────────────────────────────
@@ -340,6 +379,14 @@ const dnsDeepDiveRoom = {
         "\"Is this pattern happening network-wide,\n" +
         " and what's the aggregate statistical shape?\" -> Zeek dns.log\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, which log source can tell you exactly which process on a host issued a specific DNS query?",
+        options: ["Zeek dns.log", "Sysmon Event ID 22", "The corporate DHCP log", "NetFlow/IPFIX flow records"],
+        answer: 1,
+        explanation:
+          "Sysmon Event ID 22 hooks DNS resolution at the process level on the endpoint itself, capturing fields like Image and ProcessId. Zeek and other network-based DNS logs see which host sent a query but have no visibility into which process on that host generated it.",
+      },
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────

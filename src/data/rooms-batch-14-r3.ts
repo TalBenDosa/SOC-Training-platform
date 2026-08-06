@@ -282,6 +282,17 @@ const edgeCaseRoom = {
         "  - PowerShell download-and-execute chained immediately after\n" +
         "  - Package 'internal-logging-utils' matches an INTERNAL-ONLY name\n" +
         "    but was resolved from the PUBLIC npm registry\n",
+      checkpoint: {
+        question: "According to the reading, why can a dependency-confusion attack succeed even when an organization already has a legitimate internal package with the same name?",
+        options: [
+          "Many build tools default to checking the public registry first, or fail over to it, letting a higher-versioned public malicious package win dependency resolution",
+          "Internal package servers are always slower than the public registry, so builds time out",
+          "npm and pip cannot connect to private registries at all",
+          "The malicious package must always have a lower version number to be selected",
+        ],
+        answer: 0,
+        explanation: "The reading explains that build tools often default to or fail over to the public registry, so a public package with a higher version number can silently win dependency resolution over the real internal package.",
+      },
     },
 
     // ── Reading 2: Insider threat — low-and-slow, under DLP thresholds ──────
@@ -345,6 +356,17 @@ const edgeCaseRoom = {
         "  Normal pattern:   2-3 endpoints touched per session, business hours\n" +
         "  Compromised session: 40 endpoints touched in 6 minutes, 2 AM\n" +
         "  --> Same 'trusted' account. Behavior is the only anomaly.",
+      checkpoint: {
+        question: "According to the reading, what is the detection tell that most reliably surfaces a Magecart-style skimmer, since it never appears in the victim's own server-side logs?",
+        options: [
+          "Subresource Integrity (SRI) hash mismatches and unexpected outbound domains captured in Content-Security-Policy violation reports",
+          "A spike in HTTP 500 errors on the checkout page",
+          "An increase in WAF-blocked SQL injection attempts",
+          "A drop in page load time for the checkout page",
+        ],
+        answer: 0,
+        explanation: "The reading states that for Magecart, the tell is monitoring SRI hash mismatches and unexpected outbound domains, best surfaced through Content-Security-Policy violation reports — since the skimmer runs client-side and never touches the victim's server logs.",
+      },
     },
 
     // ── Reading 4: Shadow IT + OAuth consent-grant phishing ─────────────────
@@ -424,6 +446,17 @@ const edgeCaseRoom = {
         "    user_exists     -> ~812ms avg (password hash lookup + email send)\n" +
         "    user_not_exists -> ~94ms avg  (early return, no lookup)\n" +
         "  Variance itself leaks which of the 212 emails are valid accounts.",
+      checkpoint: {
+        question: "According to the reading, what is the name given to the regsvr32 technique that loads a remote script via scrobj.dll?",
+        options: [
+          "Squiblydoo",
+          "Living-off-the-Land",
+          "Dependency confusion",
+          "Business logic abuse",
+        ],
+        answer: 0,
+        explanation: "The reading names this specific regsvr32/scrobj.dll remote-scriptlet technique 'Squiblydoo' (T1218.010), distinguishing it from a legitimate local DLL registration that makes no outbound connection.",
+      },
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────

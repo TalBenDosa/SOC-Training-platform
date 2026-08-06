@@ -101,6 +101,17 @@ const nacMasterclass = {
         "   Contractor, compliant          --> VLAN 20 (Limited Access)\n" +
         "   Unknown device                 --> VLAN 30 (Guest / Internet Only)\n" +
         "   Authentication failure         --> Port blocked entirely",
+      checkpoint: {
+        question: "According to the reading, what are the three principles NAC enforces, in order, before granting network access?",
+        options: [
+          "Authenticate, assess, authorize",
+          "Authorize, authenticate, assess",
+          "Assess, authenticate, authorize",
+          "Encrypt, authenticate, log",
+        ],
+        answer: 0,
+        explanation: "The reading lists the three NAC principles in order: first authenticate (prove identity), second assess (verify device health), and third authorize (grant minimum necessary access based on identity and health).",
+      },
     },
     // ── Reading 2 ──────────────────────────────────────────────────────────────
     {
@@ -198,6 +209,17 @@ const nacMasterclass = {
         "  PEAP        Not needed    Required      Required   Strong*\n" +
         "  EAP-FAST    Not needed    Optional      PAC        Moderate\n\n" +
         "  * PEAP is vulnerable if clients do not validate the server certificate.",
+      checkpoint: {
+        question: "According to the reading, why is EAP-TLS considered the 'gold standard' EAP method?",
+        options: [
+          "It uses mutual certificate authentication with no password required, making it resistant to password spray, phishing, and credential theft",
+          "It is the fastest authentication method, completing in under one second",
+          "It requires no PKI infrastructure, making it easy to deploy",
+          "It is the only EAP method supported by Cisco ISE",
+        ],
+        answer: 0,
+        explanation: "The reading states that EAP-TLS uses mutual authentication via client and server certificates with no username or password needed, making it resistant to password spray, phishing, and credential theft — though it requires a PKI to issue certificates.",
+      },
     },
     // ── Reading 4 ──────────────────────────────────────────────────────────────
     {
@@ -313,6 +335,17 @@ const nacMasterclass = {
         "  BitLocker encryption         Enabled              NonCompliant\n" +
         "  Corp EDR agent               Running              NonCompliant\n" +
         "  Unauthorized VPN software    Absent               Warning only",
+      checkpoint: {
+        question: "According to the reading, what is the difference between a 'persistent agent' and a 'temporal agent' in NAC posture assessment?",
+        options: [
+          "The persistent agent is installed permanently on managed corporate devices and reports continuously; the temporal agent is a dissolvable executable used for unmanaged/guest devices that deletes itself after the check",
+          "The persistent agent runs only once per year, while the temporal agent runs on every connection",
+          "The temporal agent is used for corporate devices while the persistent agent is used for guests",
+          "There is no functional difference; the terms are used interchangeably",
+        ],
+        answer: 0,
+        explanation: "The reading explains that the persistent agent runs continuously on managed corporate devices for real-time posture monitoring, while the temporal (dissolvable/web) agent is a small executable downloaded for unmanaged or guest devices that runs the check once and then deletes itself.",
+      },
     },
     // ── Reading 6 ──────────────────────────────────────────────────────────────
     {
@@ -414,6 +447,17 @@ const nacMasterclass = {
         "  HTTP User-Agent captured -->  OS version identified\n" +
         "  CDP/LLDP data from switch -> Device model identified\n" +
         "  Profile matched          --> AuthZ policy conditions updated",
+      checkpoint: {
+        question: "According to the reading, which Cisco ISE node role handles live RADIUS authentication requests and posture assessment queries?",
+        options: [
+          "Policy Service Node (PSN)",
+          "Policy Administration Node (PAN)",
+          "Monitoring and Troubleshooting Node (MnT)",
+          "Guest Portal Node (GPN)",
+        ],
+        answer: 0,
+        explanation: "The reading describes the Policy Service Node (PSN) as 'the workhorse' that handles all live RADIUS authentication requests and runs posture assessment queries, while the PAN hosts the configuration interface and the MnT collects logs and reports.",
+      },
     },
     // ── Reading 8 ──────────────────────────────────────────────────────────────
     {
@@ -520,6 +564,17 @@ const nacMasterclass = {
         "  On-premises NAC (ISE/ClearPass): Wired networks, campus, IoT\n" +
         "  Cloud NAC (Entra CA + Intune):   SaaS apps, remote workers\n" +
         "  SASE:                             All-location, all-app unified",
+      checkpoint: {
+        question: "According to the reading, which four technologies does SASE (Secure Access Service Edge) converge into a unified cloud-delivered service?",
+        options: [
+          "NAC, CASB, SWG, and SD-WAN",
+          "EDR, SIEM, SOAR, and UEBA",
+          "Firewall, IDS, IPS, and WAF",
+          "RADIUS, LDAP, Kerberos, and SAML",
+        ],
+        answer: 0,
+        explanation: "The reading states that SASE converges NAC, CASB (Cloud Access Security Broker), SWG (Secure Web Gateway), and SD-WAN into a unified cloud-delivered security service.",
+      },
     },
     // ── Reading 10 ─────────────────────────────────────────────────────────────
     {

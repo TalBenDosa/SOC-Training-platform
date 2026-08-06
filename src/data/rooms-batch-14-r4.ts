@@ -188,6 +188,17 @@ const dlpRoom = {
         "item. It flags based on CONTENT. Determining intent (forgot it was in there vs.\n" +
         "smuggling it deliberately) is a human decision made AFTER the flag — exactly like\n" +
         "a SOC analyst's job after a DLP alert fires.",
+      checkpoint: {
+        question: "According to the reading, what question does DLP itself answer, as opposed to what UEBA/behavior tools answer?",
+        options: [
+          "'What is in this data and where is it going?'",
+          "'Is this user acting suspiciously?'",
+          "'Has this user's account been compromised?'",
+          "'What malware signature matches this file?'",
+        ],
+        answer: 0,
+        explanation: "The reading states DLP is a content-inspection control that answers 'what is in this data and where is it going?' — not 'is this user acting suspiciously?', which is the behavior question UEBA and insider-threat platforms answer.",
+      },
     },
     // ── Reading 2 ──────────────────────────────────────────────────────────
     {
@@ -256,6 +267,17 @@ const dlpRoom = {
         "  Secrets match  -> rotate the credential immediately, regardless of intent\n" +
         "  Source code    -> competitive/IP risk, may need legal + engineering leadership\n" +
         "  PII (general)  -> most common, usually lower urgency unless volume is large",
+      checkpoint: {
+        question: "According to the reading, what characteristic helps DLP classifiers detect leaked AWS access keys as a 'Secrets' match?",
+        options: [
+          "AWS access keys begin with a distinctive prefix like AKIA",
+          "They always appear in files larger than 10MB",
+          "They are detected only via document fingerprinting, never regex",
+          "They must be sent to a personal Gmail address to be flagged",
+        ],
+        answer: 0,
+        explanation: "The reading states that regex patterns matched to well-known key formats — such as AWS access keys beginning with AKIA, or private key files containing a -----BEGIN PRIVATE KEY----- header — are used to detect leaked secrets.",
+      },
     },
     // ── Reading 4 ──────────────────────────────────────────────────────────
     {
@@ -343,6 +365,17 @@ const dlpRoom = {
         "  \"Allowed - Alert Only\"  -> data DID leave. Investigate CONSEQUENCE, escalate faster.\n" +
         "  \"Allowed - Overridden\"  -> user saw the warning and chose to proceed anyway.\n" +
         "                             Check JustificationText immediately.",
+      checkpoint: {
+        question: "According to the reading, what must a user typically do before a 'Warn / Justify' DLP action allows their transfer to proceed?",
+        options: [
+          "Type a business justification, which is captured in the JustificationText field",
+          "Wait 24 hours for manager approval",
+          "Contact the SOC team directly by phone",
+          "Nothing — Warn/Justify silently logs the event without any user interaction",
+        ],
+        answer: 0,
+        explanation: "The reading explains that Warn/Justify pauses the action with a policy tip, and the user must often type a business justification to override it — this text is captured in the JustificationText field for investigators.",
+      },
     },
     // ── Reading 6 (investigation + insider overlap) ──────────────────────────
     {

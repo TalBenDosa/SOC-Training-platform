@@ -202,6 +202,14 @@ const azureSecurityRoom = {
         "  /resourceGroups/nexacorp-prod-rg\n" +
         "  /providers/Microsoft.KeyVault/vaults/nexacorp-prod-kv\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "What is the basic unit of billing and access management in Azure — the closest equivalent to an AWS account or a GCP project?",
+        options: ["Resource Group", "Subscription", "Management Group", "Resource ID"],
+        answer: 1,
+        explanation:
+          "A subscription is the basic unit of billing and access management in Azure, equivalent to an AWS account or GCP project. Resource groups are logical containers inside a subscription, and management groups sit above subscriptions to organize many of them together.",
+      },
     },
 
     // ── Reading 2: Azure Activity Log vs CloudTrail/Cloud Audit Logs ────────
@@ -287,6 +295,14 @@ const azureSecurityRoom = {
         "compromised        the identity holds  rotated (like an\n" +
         "                                       AWS access key)\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, which non-human Azure identity type authenticates using a client secret or certificate that can be leaked and reused from anywhere, unlike a managed identity?",
+        options: ["Managed Identity", "Service Principal", "Security Principal", "Role Assignment"],
+        answer: 1,
+        explanation:
+          "A service principal typically authenticates with a client secret or certificate — a leakable, portable credential, just like an AWS IAM access key. A managed identity has no such extractable secret; Azure issues it short-lived tokens automatically.",
+      },
     },
 
     // ── Reading 4: NSGs, NSG Flow Logs, Storage exposure, SAS tokens ────────
@@ -333,6 +349,14 @@ const azureSecurityRoom = {
         "Blob         YES (if exact URL known)          NO\n" +
         "Container    YES                               YES (worst)\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "Which Azure Storage container public access level allows anonymous users to both read individual blobs AND list every blob in the container?",
+        options: ["Private", "Blob", "Container", "Shared Access Signature"],
+        answer: 2,
+        explanation:
+          "The 'Container' public access level is the most dangerous setting — it allows anonymous read AND lists all blobs in the container, unlike 'Blob' (read only, requires knowing the exact URL) or 'Private' (no anonymous access at all).",
+      },
     },
 
     // ── Reading 5: VM run-command abuse & resource enumeration ─────────────
@@ -376,6 +400,19 @@ const azureSecurityRoom = {
         "          ResourceId, ActivityStatusValue, Caller\n" +
         "| order by TimeGenerated asc\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why is Azure's VM Run Command feature such a powerful attack tool once an attacker holds Contributor-level RBAC access?",
+        options: [
+          "It requires the attacker to already know the VM's SSH/RDP login credentials",
+          "It executes code on the VM through the Azure control plane (Resource Manager API), completely bypassing NSGs, network firewalls, and the need for login credentials",
+          "It only works on VMs that have no NSG attached",
+          "It is limited to read-only diagnostic commands and cannot execute arbitrary scripts",
+        ],
+        answer: 1,
+        explanation:
+          "Run Command executes through the Azure Resource Manager API using the Azure VM Agent, not over the network — so it bypasses NSGs, firewalls, and the need to know any login credentials entirely. Anyone with Contributor or Virtual Machine Contributor rights can use it.",
+      },
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────
@@ -710,6 +747,19 @@ const azureSecurityRoom = {
         "treated as deliberate exfiltration staging, not routine\n" +
         "configuration drift.\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what is the only way to fully invalidate an account-key-based SAS token before its stated expiry?",
+        options: [
+          "Delete the specific blob it grants access to",
+          "Wait for Microsoft Defender for Storage to automatically revoke it",
+          "Regenerate the storage account's access keys that the token was signed with — which also breaks every other SAS token and app using those same keys",
+          "Change the container's public access level back to Private",
+        ],
+        answer: 2,
+        explanation:
+          "Account-key-based SAS tokens are cryptographically signed strings that Azure cannot individually revoke. The only way to invalidate one before its expiry is regenerating the underlying storage account access keys — but that breaks every other SAS token and application relying on those same keys, forcing a tradeoff between closing the exposure and causing an outage.",
+      },
     },
   ],
 };

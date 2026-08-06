@@ -215,6 +215,13 @@ const webApplicationSecurityRoom: Room = {
         '  A -.->|"generated page"| S\n' +
         '  S -.->|"status code plus response body"| B',
       diagramCaption: "The three-tier path every web request takes, and the return journey",
+      checkpoint: {
+        question: "In the three-tier path, which component actually executes the query and has no idea where it originally came from?",
+        options: ["The web server", "The application", "The database", "The browser"],
+        answer: 2,
+        explanation:
+          "The web server hands off to the application, which builds a query from the request parameters and hands it to the database -- the database just executes whatever query it's given and has no visibility into the original client request at all.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -258,6 +265,18 @@ const webApplicationSecurityRoom: Room = {
         "was not a glitch -- it was sent deliberately, by\n" +
         "something that was not the page.\n" +
         "=======================================================",
+      checkpoint: {
+        question: "Per Reading 2, why does JavaScript form validation have zero value as a security control?",
+        options: [
+          "Because most browsers disable JavaScript by default",
+          "Because it runs on the attacker's own machine, so anyone can simply not run it and send the request some other way",
+          "Because JavaScript cannot check the format of user input at all",
+          "Because servers ignore any request that includes JavaScript-validated fields",
+        ],
+        answer: 1,
+        explanation:
+          "JavaScript validation is genuinely useful for catching honest mistakes, but it runs entirely on the client's own machine -- an attacker can simply not run it, or send the request directly with any tool that speaks HTTP, bypassing it completely.",
+      },
     },
 
     // ------------------------------------------------------------------

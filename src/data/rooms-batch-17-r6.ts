@@ -141,6 +141,19 @@ const tunnelingRoom = {
         "invisible at the flow layer -- process-creation telemetry\n" +
         "(the actual command line) is what reveals -L vs -R vs -D.\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what does SSH's -D (dynamic forwarding) flag actually create?",
+        options: [
+          "A single fixed port-forward, identical to -L but in the opposite direction",
+          "A full SOCKS proxy on the local machine, letting any application reach any destination reachable from the remote side, on any port",
+          "A read-only file transfer channel with no ability to forward TCP connections",
+          "An encrypted DNS tunnel specifically for name resolution",
+        ],
+        answer: 1,
+        explanation:
+          "-D turns the local machine into a SOCKS proxy rather than forwarding one specific port. Any application configured to use that proxy can reach any destination reachable from the remote side, on any port, all through the single SSH tunnel — the most flexible mode for pivoting.",
+      },
     },
 
     // ── Reading 2: SOCKS proxies and reverse shells ───────────────────────────
@@ -188,6 +201,19 @@ const tunnelingRoom = {
         "  successor -- true origin gets harder to trace at any\n" +
         "  single observation point as the chain grows\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why are reverse shells overwhelmingly more common and successful than bind shells?",
+        options: [
+          "Reverse shells only work over UDP, which is rarely filtered",
+          "A bind shell requires an inbound connection to reach the victim, which most firewalls block; a reverse shell only requires an outbound connection, which is permitted far more liberally in most environments",
+          "Bind shells are illegal to implement in most penetration testing frameworks",
+          "Reverse shells do not require any network connection at all",
+        ],
+        answer: 1,
+        explanation:
+          "Bind shells require an inbound connection to reach the victim, which most reasonably configured firewalls block outright. Reverse shells only need an outbound connection, which environments permit far more liberally — the same asymmetry that makes SSH remote forwarding effective.",
+      },
     },
 
     // ── Reading 3: ICMP/DNS tunneling mechanics ────────────────────────────────
@@ -282,6 +308,19 @@ const tunnelingRoom = {
         "One or two matching connections: coincidence.\n" +
         "Dozens, sustained over hours: high-confidence beacon.\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why doesn't jitter make a beacon's timing indistinguishable from genuine human activity?",
+        options: [
+          "Jitter only randomizes within a fixed, bounded band around the base interval — every gap still falls within that band, unlike genuinely unstructured human timing",
+          "Jitter is only applied to the first connection, never to subsequent ones",
+          "Jitter changes the destination IP on every connection, which is unrelated to timing",
+          "Jitter makes every connection interval exactly identical",
+        ],
+        answer: 0,
+        explanation:
+          "Jitter randomizes the sleep time only within a bounded band (e.g. 48-72 seconds for a 60-second interval with 20% jitter). Every gap still falls inside that band indefinitely, which genuinely unstructured human browsing never does.",
+      },
     },
 
     // ── Reading 5: LOLBin tunneling tools ────────────────────────────────────
@@ -368,6 +407,19 @@ const tunnelingRoom = {
         "   -- it_verify_result: confirmed -> likely FP\n" +
         "   -- it_verify_result: unverified/none found -> escalate\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading's six-step investigation playbook, what does an it_verify_result of 'confirmed' indicate?",
+        options: [
+          "The finding should always be escalated regardless of context",
+          "A legitimate, documented business explanation exists for the activity, making it very likely a false positive",
+          "The tool involved has been definitively proven malicious",
+          "The host must be immediately isolated from the network",
+        ],
+        answer: 1,
+        explanation:
+          "it_verify_result 'confirmed' means a documented, verifiable business explanation exists (a change ticket, an approved tool deployment, account-owner confirmation) — making the finding very likely a false positive, as the final step of the playbook describes.",
+      },
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────

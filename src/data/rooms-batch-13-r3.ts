@@ -110,6 +110,17 @@ const avVsEdrMasterclass = {
         "2024  AI-native detection engines standard in all EDR\n\n" +
         "KEY LESSON: Every generation of endpoint security was created\n" +
         "to defeat a technique that defeated the previous generation.",
+      checkpoint: {
+        question: "According to the reading, who coined the term 'EDR' (Endpoint Detection and Response), and in what year?",
+        options: [
+          "Anton Chuvakin at Gartner, in 2013",
+          "Bernd Fix, author of the first antivirus program, in 1987",
+          "Mandiant researchers, in 2010 after discovering Stuxnet",
+          "CrowdStrike's founders, when the company launched in 2011",
+        ],
+        answer: 0,
+        explanation: "The reading states that in 2013, Anton Chuvakin at Gartner coined the term 'EDR' to describe the new category of tools needed to find attackers already hiding inside networks.",
+      },
     },
 
     // ── Reading 2 ────────────────────────────────────────────────────────────
@@ -200,6 +211,17 @@ const avVsEdrMasterclass = {
         "Legitimate packers (UPX) are widely used by benign software.\n" +
         "Context matters: entropy + suspicious APIs + no valid signature\n" +
         "= very high confidence of malicious packing.",
+      checkpoint: {
+        question: "According to the reading's heuristic thresholds, what entropy value makes a file section 'almost certainly an encrypted payload'?",
+        options: [
+          "Entropy > 4.0",
+          "Entropy > 6.0",
+          "Entropy > 7.9",
+          "Entropy > 8.5",
+        ],
+        answer: 2,
+        explanation: "The typical AV threshold table in the reading lists entropy > 7.9 as 'almost certainly encrypted payload' — entropy is capped at 8.0, so this is near the maximum possible randomness.",
+      },
     },
 
     // ── Reading 4 ────────────────────────────────────────────────────────────
@@ -306,6 +328,17 @@ const avVsEdrMasterclass = {
         "  Severity: CRITICAL\n" +
         "  Technique: T1055.002 Process Injection (Portable Executable Injection)\n" +
         "  Recommended action: Network Contain WS-EXEC-022",
+      checkpoint: {
+        question: "According to the reading, what is the key distinction between EPP (Endpoint Protection Platform) and EDR?",
+        options: [
+          "EPP is the prevention layer that tries to stop threats before execution; EDR is the detection and response layer that assumes some threats get through",
+          "EPP only runs in the cloud, while EDR only runs locally on the endpoint",
+          "EPP monitors network traffic only, while EDR monitors only the file system",
+          "The two terms are interchangeable and describe the same technology",
+        ],
+        answer: 0,
+        explanation: "The reading explains that EPP (antivirus, host firewall, application control) tries to stop threats before they execute, while EDR assumes some threats will get through and focuses on detecting and responding to them once active.",
+      },
     },
 
     // ── Reading 6 ────────────────────────────────────────────────────────────
@@ -425,6 +458,17 @@ const avVsEdrMasterclass = {
         "  IOC: hash 7f3e1c9b... is in the bad-hash database -> block\n" +
         "  IOA: ANY process writing to lsass.exe with 0x1FFFFF -> alert\n" +
         "       (even if the injector is a new, unknown tool)",
+      checkpoint: {
+        question: "According to the reading, what does an IOA (Indicator of Attack) detect, as opposed to an IOC (Indicator of Compromise)?",
+        options: [
+          "A behavioral pattern indicating an attack in progress, regardless of whether the specific tool or file is known",
+          "A specific, known-bad file hash or malicious domain",
+          "Only network-layer indicators such as source IP addresses",
+          "Indicators that a human analyst must manually confirm before an alert fires",
+        ],
+        answer: 0,
+        explanation: "The reading defines an IOA as a behavioral pattern — such as a process injecting into lsass.exe with full access — that indicates an attack regardless of the tool's identity, unlike IOC matching, which is signature-based and blind to unknown threats.",
+      },
     },
 
     // ── Reading 8 ────────────────────────────────────────────────────────────
@@ -533,6 +577,17 @@ const avVsEdrMasterclass = {
         "  Rule ID: D4F940AB-401B-4EFC-AADC-AD5F3C50688A\n" +
         "  Mode: Block (not audit)\n" +
         "  -> WINWORD.EXE attempt to spawn powershell.exe BLOCKED",
+      checkpoint: {
+        question: "According to the reading, what does Microsoft Defender's Tamper Protection feature do?",
+        options: [
+          "Locks down Defender's own configuration so malware cannot disable it via registry, PowerShell, or WMI",
+          "Blocks Office applications from creating child processes",
+          "Encrypts telemetry sent to the Microsoft cloud",
+          "Automatically rolls back ransomware-encrypted files using shadow copies",
+        ],
+        answer: 0,
+        explanation: "The reading states that Tamper Protection locks down Defender's own configuration so attempts to disable it via the registry, PowerShell, or WMI are blocked, requiring changes to go through the Intune/MDE management portal instead.",
+      },
     },
 
     // ── Reading 10 ───────────────────────────────────────────────────────────

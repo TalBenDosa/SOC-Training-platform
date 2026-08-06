@@ -151,6 +151,19 @@ const kerberosRoom: Room = {
         "  S-->>C: AP-REP (service decrypts TGS with its own key, grants access)\n" +
         "  Note over S: The service never asks the KDC to confirm the ticket — it trusts its own decryption",
       diagramCaption: "The Kerberos AS/TGS exchange",
+      checkpoint: {
+        question:
+          "According to the reading, what does the AS (Authentication Service) exchange give the client?",
+        options: [
+          "A service ticket usable against one specific service",
+          "A Ticket Granting Ticket (TGT) — proof to the KDC that the client already authenticated once",
+          "A plaintext copy of the user's password for later reuse",
+          "Direct access to the target service's own memory",
+        ],
+        answer: 1,
+        explanation:
+          "Phase one, the AS exchange, gets the client a TGT — proof to the KDC itself that the client already authenticated once. Phase two, the TGS exchange, uses that TGT to get a service ticket for one specific service.",
+      },
     },
     {
       type: "reading",
@@ -222,6 +235,14 @@ const kerberosRoom: Room = {
         "AES256 key     <- derived with far more per-guess computation\n" +
         "                  -- the same password takes vastly longer to crack\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, which Kerberos encryption type value indicates RC4-HMAC, the weaker legacy cipher favored by Kerberoasting tools?",
+        options: ["0x12", "0x11", "0x17", "0x1"],
+        answer: 2,
+        explanation:
+          "0x17 is RC4-HMAC — an older, much weaker cipher whose key is derived far more directly from the account's NTLM hash, making it dramatically faster to crack offline than 0x12 (AES256).",
+      },
     },
     {
       type: "reading",
@@ -297,6 +318,19 @@ const kerberosRoom: Room = {
         "to already hold                                  merely have preauth\n" +
         "valid credentials?                               disabled\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what is the fastest way to distinguish Kerberoasting from AS-REP roasting in DC logs?",
+        options: [
+          "The encryption type recorded — Kerberoasting always uses AES and AS-REP roasting always uses RC4",
+          "The Event ID and precondition: a 4769 from an account that already holds a TGT is Kerberoasting; a 4768 with PreAuthType 0 requiring no prior credentials is AS-REP roasting",
+          "The source IP address, since only Kerberoasting logs a source IP at all",
+          "The time of day the ticket was requested",
+        ],
+        answer: 1,
+        explanation:
+          "RC4 encryption alone never determines which attack you're looking at — it's a downgrade signal common to both. The determining factor is the Event ID and precondition: 4769 for Kerberoasting (attacker already holds a TGT) versus 4768 with PreAuthType 0 for AS-REP roasting (no credentials needed at all).",
+      },
     },
     {
       type: "log_analysis",
@@ -643,6 +677,14 @@ const privescRoom: Room = {
         "auto-elevate) to reach High -- 'admin user' and\n" +
         "'elevated process' are two separate facts to verify.\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what integrity level does an administrator's own ordinary applications run at by default, even though the user is a member of the Administrators group?",
+        options: ["System", "High", "Medium", "Low"],
+        answer: 2,
+        explanation:
+          "Medium integrity is the default for an administrator's own processes when UAC is active — being a member of the Administrators group does not, by itself, run everything at full privilege. It has to be explicitly elevated to reach High.",
+      },
     },
     {
       type: "reading",
@@ -718,6 +760,19 @@ const privescRoom: Room = {
         "\n" +
         "TELL: no consent.exe anywhere in the process tree\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what precondition must already be true for the fodhelper UAC bypass to work at all?",
+        options: [
+          "The account must already be a member of the local Administrators group in Admin Approval Mode",
+          "The account must hold SeImpersonatePrivilege",
+          "The target machine must have UAC completely disabled",
+          "The attacker must already have dumped LSASS memory",
+        ],
+        answer: 0,
+        explanation:
+          "The technique escalates a process from Medium to High integrity for an account that is already a local administrator — it does not turn a standard, non-administrator user into an administrator. A genuinely standard user gains nothing from the same registry hijack.",
+      },
     },
     {
       type: "log_analysis",
@@ -855,6 +910,19 @@ const privescRoom: Room = {
         "  [ ] SeImpersonatePrivilege + a Potato-style coercion tool\n" +
         "None of the above present? Escalate -- the jump is unexplained.\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, for an unquoted ImagePath of C:\\Program Files\\Meridian App\\service.exe, which path does Windows attempt to execute FIRST?",
+        options: [
+          "C:\\Program Files\\Meridian App\\service.exe (the intended path)",
+          "C:\\Program.exe",
+          "C:\\Program Files\\Meridian.exe",
+          "C:\\service.exe",
+        ],
+        answer: 1,
+        explanation:
+          "Windows resolves an unquoted path by trying each space-delimited segment in order until one exists: first C:\\Program.exe, then C:\\Program Files\\Meridian.exe, and only then the real, intended path.",
+      },
     },
     {
       type: "question",
@@ -1058,6 +1126,19 @@ const persistenceRoom: Room = {
         "shell:startup (per-user) / All Users Startup folder\n" +
         "  -- GUI-visible equivalent, same per-user/admin distinction\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why does an entry under HKLM's Run key imply more about an attacker's access than one under HKCU's Run key?",
+        options: [
+          "HKLM entries only run once and then delete themselves",
+          "Writing to HKLM requires administrator rights, since it's a machine-wide protected location, while HKCU is always writable by the logged-on user regardless of privilege",
+          "HKCU entries can only be created by SYSTEM-level processes",
+          "There is no difference — both require identical privilege to write to",
+        ],
+        answer: 1,
+        explanation:
+          "Writing to HKLM requires administrator rights since it's a machine-wide, protected location, unlike the always-user-writable HKCU. An HKLM Run key entry implies the attacker already had, or gained, administrative access to plant it.",
+      },
     },
     {
       type: "reading",
@@ -1195,6 +1276,19 @@ const persistenceRoom: Room = {
         "\n" +
         "Sysmon Event IDs 19 / 20 / 21 -- Filter / Consumer / Binding\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why are WMI permanent event subscriptions considered one of the stealthiest persistence mechanisms?",
+        options: [
+          "They require SYSTEM privilege just to create, which makes them rare",
+          "They live in the WMI repository itself — not the file system, registry Run keys, or Task Scheduler — so standard 'autoruns' tooling checking only the well-known locations won't find them at all",
+          "They can only be detected by physically inspecting the hard drive",
+          "They automatically delete all Sysmon logs related to their creation",
+        ],
+        answer: 1,
+        explanation:
+          "The subscription lives in the WMI repository, not any of the usual locations — Run keys, Startup, Task Scheduler, or Services. Standard 'autoruns' tooling that only checks those well-known locations won't find it at all.",
+      },
     },
     {
       type: "question",
@@ -1326,6 +1420,19 @@ const persistenceRoom: Room = {
         "Doing step 4 before step 2/3 leaves the attacker's way\n" +
         "back in fully intact.\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what is the correct order of operations once persistence is confirmed?",
+        options: [
+          "Reset credentials immediately, then investigate whether persistence exists",
+          "Isolate/contain first, then hunt comprehensively for every persistence mechanism, and only then reset credentials and rebuild",
+          "Rebuild the host immediately without any investigation",
+          "Persistence doesn't change the order at all — always reset credentials first regardless",
+        ],
+        answer: 1,
+        explanation:
+          "Contain first, then hunt comprehensively across every mechanism before assuming you've found everything. Only once every confirmed mechanism is removed does resetting credentials and rebuilding actually close the door.",
+      },
     },
     {
       type: "question",

@@ -260,6 +260,18 @@ const playbookExecutionRoom: Room = {
         "IF THE STEP 3 SCOPE CONDITION DOES NOT HOLD, STOP AT STEP 3.\n" +
         "DO NOT PROCEED TO STEP 4. ESCALATE TO THE IR LEAD.\n" +
         "=================================================================",
+      checkpoint: {
+        question: "Per Reading 1, what is the one thing a playbook cannot know when it's written?",
+        options: [
+          "Which specific analyst will be handling the ticket",
+          "Whether the situation actually in front of the analyst matches the assumption the playbook was written against",
+          "The exact time zone the incident will occur in",
+          "How many steps the procedure should contain",
+        ],
+        answer: 1,
+        explanation:
+          "A playbook is written against an assumed situation before any specific incident occurs -- IR-014 assumes a single compromised account. It cannot know whether the incident actually in front of the analyst still matches that assumption; only the analyst, by checking, can determine that.",
+      },
     },
     // -----------------------------------------------------------------------
     {
@@ -576,6 +588,18 @@ const playbookExecutionRoom: Room = {
         "REQUESTED: IR lead decision on tenant-wide scope and\n" +
         "  containment. Ticket INC-40912 remains OPEN.\n" +
         "=================================================================",
+      checkpoint: {
+        question: "Per Reading 3, why is stopping at Step 3 and escalating not actually a deviation from IR-014?",
+        options: [
+          "Because IR-014's own final line explicitly instructs the analyst to stop at Step 3 and escalate when the scope condition fails -- following that line is compliance, not an exception",
+          "Because the IR lead has the authority to override the playbook at any time",
+          "Because playbooks are only suggestions and analysts are free to skip any step",
+          "Because Step 3 is technically optional and was never required to begin with",
+        ],
+        answer: 0,
+        explanation:
+          "IR-014 states its own branch for this exact situation: if the scope condition fails, stop and escalate. Taking that branch is executing the procedure as written, not going off-script -- which is why the ticket needs to document it clearly rather than being filed as an exception.",
+      },
     },
     // -----------------------------------------------------------------------
     {

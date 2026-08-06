@@ -154,6 +154,17 @@ const soarRoom = {
         "  Neither tool replaces the other. The SIEM decides WHAT is worth\n" +
         "  looking at. SOAR decides HOW FAST and HOW CONSISTENTLY you react\n" +
         "  to it.",
+      checkpoint: {
+        question: "According to the reading, what does the acronym SOAR stand for, and what three related functions does it perform?",
+        options: [
+          "Security Orchestration, Automation and Response — it orchestrates, automates, and responds",
+          "Security Operations and Response — it detects, correlates, and alerts",
+          "Security Orchestration and Reporting — it collects, stores, and archives",
+          "Security Operations, Automation and Recovery — it scans, patches, and reports",
+        ],
+        answer: 0,
+        explanation: "The reading defines SOAR as Security Orchestration, Automation and Response, doing three related things: orchestrating (coordinating tools), automating (executing repeatable steps), and responding (taking action via a playbook).",
+      },
     },
 
     // ── Reading 2: Playbooks, workflows, and enrichment automation ─────────
@@ -221,6 +232,17 @@ const soarRoom = {
         "    domain controller\n" +
         "    (hard to reverse quickly / high blast radius if the call is\n" +
         "    wrong -- automation drafts the recommendation, a human decides)",
+      checkpoint: {
+        question: "According to the reading, which automated containment action forces re-authentication by invalidating any session an attacker may have already stolen?",
+        options: [
+          "Revoke active sessions / tokens",
+          "Isolate a host",
+          "Disable a user account",
+          "Block an IP address",
+        ],
+        answer: 0,
+        explanation: "The reading lists 'Revoke active sessions / tokens' as the containment action that forces a re-authentication, invalidating any session an attacker may have already stolen — distinct from disabling the account or isolating the host.",
+      },
     },
 
     // ── Reading 4: Case management, tier-1 auto-triage, measuring value, over-automation risk ──

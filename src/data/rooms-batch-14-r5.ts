@@ -200,6 +200,17 @@ const gcpRoom = {
         "                   |\n" +
         "                   +-- Resources (VMs, buckets, etc.)\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading's terminology cheat sheet, what is the closest AWS equivalent to a GCP 'project'?",
+        options: [
+          "AWS Account",
+          "AWS Organizations (root)",
+          "IAM Role",
+          "EC2 instance",
+        ],
+        answer: 0,
+        explanation: "The reading's cheat sheet maps a GCP 'Project' to an 'AWS Account' — it is the boundary a SOC analyst usually investigates within, holding resources, billing, and permissions.",
+      },
     },
 
     // ── Reading 2: Cloud IAM & service accounts ─────────────────────────────
@@ -294,6 +305,17 @@ const gcpRoom = {
         "  \"gcp.audit.log_type\": \"ADMIN_ACTIVITY\"\n" +
         "}\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading, which type of Cloud Audit Log is NOT enabled by default for most GCP services (except BigQuery)?",
+        options: [
+          "Data Access logs",
+          "Admin Activity logs",
+          "System Event logs",
+          "Policy Denied logs",
+        ],
+        answer: 0,
+        explanation: "The reading states that Data Access logs (recording who read/wrote actual data) are NOT enabled by default for most services because of their volume — this is the same visibility gap as AWS S3 data events being off by default.",
+      },
     },
 
     // ── Reading 4: Common GCP attacks ───────────────────────────────────────
@@ -616,6 +638,17 @@ const gcpRoom = {
         "             AND '2026-05-19T12:00:00Z'\n" +
         "ORDER BY ts ASC;\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading's triage checklist, what does a gcp.audit.status.code value of 7 typically indicate?",
+        options: [
+          "PERMISSION_DENIED",
+          "The call succeeded",
+          "NOT_FOUND",
+          "The call is still pending",
+        ],
+        answer: 0,
+        explanation: "The reading states that status.code 0 means success, while a non-zero value like 7 commonly means PERMISSION_DENIED (5 commonly means NOT_FOUND) — a flood of status.code 7 calls signals an attacker probing for working permissions.",
+      },
     },
 
     // ── Flag: extract value from raw Cloud Audit Log block ──────────────────

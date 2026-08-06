@@ -143,6 +143,18 @@ const edrDetectionInvestigationRoom = {
         "**Why this is fundamentally different from a firewall log or a single Windows event.** A firewall only sees packets crossing a boundary — it has no idea which process on either end generated them. A single Windows Security event captures one action in isolation, with no causal thread connecting it to what happened a minute before or after. The EDR agent, because it sits on the endpoint itself, is the one source that sees the entire chain as one continuous story: what launched what, with what arguments, and what happened immediately around it.\n\n" +
         "**The habit this creates.** An experienced analyst treats every EDR detection as an entry point into a much richer dataset, never as a self-contained verdict. The vendor's console — the Falcon UI, the Microsoft Defender Security Center, whichever platform is in front of you — is where the actual investigation happens: expanding the process tree, pulling the full command line, checking the file's hash, and reading what else that same process (and that same host) did in the minutes around the flagged action. A detection that arrives with a severity label and a technique name is the beginning of the work, not the end of it.\n\n" +
         "**What this room does.** Every reading, question, and task from here follows one real detection from the moment it lands in the console to the moment a host gets contained — teaching the exact fields you'd actually read and the exact reasoning you'd actually apply at each step, in the order a real investigation runs.",
+      checkpoint: {
+        question: "Per Reading 1, what does an EDR agent see that a firewall log or a single Windows event cannot?",
+        options: [
+          "Nothing more -- all three log sources capture identical information",
+          "The full causal chain of a process: its parent, its exact command-line arguments, and every file, registry, or network action tied specifically to that process as one continuous story",
+          "Only the destination IP address of outbound connections",
+          "Only whether a file was signed, with no visibility into process behavior at all",
+        ],
+        answer: 1,
+        explanation:
+          "A firewall only sees packets crossing a boundary with no idea which process generated them, and a single Windows event captures one isolated action with no causal thread -- the EDR agent, sitting on the endpoint itself, is the one source that sees the entire chain as one continuous story.",
+      },
     },
     // ── Reading 2: field anatomy across CrowdStrike + MDE ───────────────────
     {
@@ -167,6 +179,19 @@ const edrDetectionInvestigationRoom = {
         "SHA256HashData                               mde.SHA256\n" +
         "HostName                                     mde.DeviceName\n" +
         "IncidentId                                   mde.IncidentId",
+      checkpoint: {
+        question:
+          "What is the difference between what SeverityName and PatternDispositionDescription each tell you about a CrowdStrike detection?",
+        options: [
+          "They are two names for the same field and always carry identical information",
+          "SeverityName is the tool's automatic rating of how seriously it scored the matched pattern; PatternDispositionDescription tells you whether the tool actually intervened (e.g. blocked it) or merely observed it",
+          "SeverityName only applies to network detections, while PatternDispositionDescription only applies to file detections",
+          "PatternDispositionDescription is always 'Critical' whenever SeverityName is 'Critical'",
+        ],
+        answer: 1,
+        explanation:
+          "Severity tells you how seriously the tool rated the pattern; PatternDispositionDescription tells you whether the potentially malicious action already ran to completion or was stopped -- two genuinely separate questions that both matter for triage.",
+      },
     },
     // ── Question 1 — severity is not the verdict (conceptual) ───────────────
     {
@@ -268,6 +293,18 @@ const edrDetectionInvestigationRoom = {
         "Read top to bottom: each link alone might look explainable.\n" +
         "Read as one chain, the WINWORD -> powershell link is the anomaly\n" +
         "that essentially never occurs in ordinary business use.",
+      checkpoint: {
+        question: "Per Reading 4, what determines whether a LOLBin like rundll32.exe or regsvr32.exe is worth escalating?",
+        options: [
+          "The binary's file name alone -- these tools are always malicious regardless of context",
+          "The combination of parent process, command-line arguments, and destination -- the file name alone tells you almost nothing, since these are legitimate, signed Windows utilities that can also be abused",
+          "Whether the binary is larger than 1MB in file size",
+          "Whether the binary was launched before or after business hours",
+        ],
+        answer: 1,
+        explanation:
+          "LOLBins are legitimate signed Windows utilities that can be abused for other purposes -- what actually matters is the full combination of parent process, command-line arguments, and destination, not the binary's name in isolation.",
+      },
     },
     // ── Question 2 — parent-child anomaly ────────────────────────────────────
     {

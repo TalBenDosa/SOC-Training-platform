@@ -124,6 +124,14 @@ const emailRoom = {
         "From: header (step 5) -> header sender\n" +
         "                        what the recipient's inbox displays\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, at which step in the SMTP conversation does the sending server declare the envelope sender that SPF actually checks?",
+        options: ["EHLO/HELO", "MAIL FROM", "RCPT TO", "DATA"],
+        answer: 1,
+        explanation:
+          "MAIL FROM (step 3) declares the envelope sender, also called the Return-Path once recorded — this is the exact address SPF checks, and it's independent of the From: header set later during the DATA step.",
+      },
     },
 
     // ── Reading 2: envelope vs header From ────────────────────────────────────
@@ -211,6 +219,19 @@ const emailRoom = {
         "                        origin's real infrastructure\n" +
         "                        would normally produce\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, in what order should you read a message's stack of Received headers to reconstruct its true path?",
+        options: [
+          "Top to bottom",
+          "Bottom to top — the header physically at the bottom was added first, closest to the true origin",
+          "Alphabetically by hostname",
+          "It doesn't matter, since all hops are added simultaneously",
+        ],
+        answer: 1,
+        explanation:
+          "Each mail server prepends its own Received header to the top of the message as it passes through, so the header physically at the bottom was added first (closest to the true origin) and each one above it was added later, by a server closer to you.",
+      },
     },
 
     // ── Reading 4: SPF mechanics ────────────────────────────────────────────
@@ -255,6 +276,19 @@ const emailRoom = {
         "PROVE:       Whether the header From matches this domain\n" +
         "             Whether the message content is legitimate\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what happens when an SPF record evaluation exceeds the 10-DNS-lookup limit?",
+        options: [
+          "The lookup automatically succeeds as a Pass",
+          "SPF returns a PermError, treated by most receivers as equivalent to a fail — regardless of whether the actual sending IP was legitimately authorized",
+          "The domain's MX records are automatically disabled",
+          "The message is silently delivered without any SPF result recorded at all",
+        ],
+        answer: 1,
+        explanation:
+          "Exceeding the 10-lookup cap causes a PermError, which most receivers treat as equivalent to a fail — even if the sending IP was actually legitimately authorized. This is a common, self-inflicted problem from accumulating too many third-party 'include:' mechanisms.",
+      },
     },
 
     // ── Reading 5: DKIM mechanics ───────────────────────────────────────────
@@ -350,6 +384,19 @@ const emailRoom = {
         "  -- records what authentication looked like BEFORE the\n" +
         "     forwarding intermediary's own modifications\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what does DMARC require to evaluate as passing?",
+        options: [
+          "Both SPF and DKIM must pass and align with the header From domain",
+          "Either SPF passes and aligns with the header From domain, OR DKIM passes and aligns with it — only one of the two is required",
+          "Only DKIM matters; SPF is never considered by DMARC",
+          "The message must be digitally signed by a public certificate authority",
+        ],
+        answer: 1,
+        explanation:
+          "DMARC evaluates as passing if EITHER SPF passes and aligns with the header From domain, OR DKIM passes and aligns with it — it does not require both. This is exactly the mechanism behind the 'DMARC passes on a phish' scenario.",
+      },
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────

@@ -68,6 +68,18 @@ MDO adds behaviour-based, sandboxed inspection on top of EOP:
 The EAC is the web portal where administrators manage Exchange Online. A SOC analyst uses the **Message Trace** feature here to track the delivery status of any individual email — where it came from, what happened to it, whether it was blocked, quarantined, or delivered.
 
 **Key takeaway for analysts**: Email filtering is not perfect. Attackers constantly evolve their techniques to bypass filters. Your job as a SOC analyst is to recognise the indicators that a message slipped through, or that something suspicious happened after delivery (like a user clicking a link or forwarding rules being created).`,
+      checkpoint: {
+        question: "According to the reading, what does EOP's Spam Confidence Level (SCL) score of 5 or above typically trigger?",
+        options: [
+          "The message is routed to the Junk folder",
+          "The message is permanently deleted",
+          "The message bypasses all further filtering",
+          "The sender's domain is automatically blocklisted",
+        ],
+        answer: 0,
+        explanation:
+          "SCL ranges from -1 (explicitly whitelisted) to 9 (high-confidence spam); a score of 5 or above usually routes the message to the Junk folder rather than the inbox.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 2: SPF, DKIM, DMARC ──────────────────────────────────────────
@@ -142,6 +154,18 @@ Breaking this down:
 **Key insight for analysts**: An email with \`dmarc=fail action=none\` was delivered to the inbox despite failing authentication. This is a critical finding — especially if the "From:" domain appears to be a trusted organisation like your CEO's company.
 
 **Microsoft's 2025 enforcement update**: In May 2025, Microsoft began rejecting bulk email from senders who lack proper DMARC, SPF, and DKIM alignment when sending to consumer Microsoft addresses (Outlook.com, Hotmail). Enterprise tenants can enforce stricter policies in their own anti-phishing policies.`,
+      checkpoint: {
+        question: "According to the reading, what does the DMARC policy setting 'p=reject' instruct receiving servers to do with failing emails?",
+        options: [
+          "Monitor only and take no action",
+          "Send them to the spam/junk folder",
+          "Block and discard them entirely",
+          "Forward them to the domain owner for review",
+        ],
+        answer: 2,
+        explanation:
+          "p=reject is the most protective DMARC policy — it blocks and discards failing emails entirely. p=none only monitors, and p=quarantine sends failures to junk instead of dropping them.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 3: BEC Detection & Monitoring ─────────────────────────────────
@@ -400,6 +424,18 @@ Microsoft Purview (formerly Compliance Center) can generate alerts when bulk dow
 **Tenant-Level External Sharing Controls**
 
 Administrators can control external sharing at the SharePoint Admin Center (admin.microsoft.com → SharePoint → Policies → Sharing). SOC analysts should know whether their organisation allows "Anyone" links — if so, any created "Anyone" link is an unmonitorable exfiltration channel once the URL is shared externally.`,
+      checkpoint: {
+        question: "According to the reading, which SharePoint external sharing level requires no authentication and leaves no audit trail of who viewed the file?",
+        options: [
+          "Specific people links (external)",
+          "Anyone links (Anonymous links)",
+          "Existing external guests",
+          "Only people in your organisation",
+        ],
+        answer: 1,
+        explanation:
+          "'Anyone' (anonymous) links are the most dangerous setting — anyone with the URL can open the file with no sign-in required and no record of who accessed it, unlike 'specific people' links which require authentication and are logged.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 2: Microsoft Teams Security ───────────────────────────────────
@@ -455,6 +491,13 @@ Microsoft Defender for Cloud Apps (formerly Cloud App Security) can monitor Team
 **DLP in Teams**
 
 Microsoft Purview DLP policies can inspect Teams messages and files shared in Teams for sensitive data types (credit card numbers, Social Security Numbers, custom regex patterns). When a policy matches, Teams will show a warning to the user or block the message entirely. SOC analysts see these as \`DlpRuleMatch\` events in the audit log, with the Teams workload.`,
+      checkpoint: {
+        question: "According to the reading, what audit event operation appears when an external guest is added to a Team?",
+        options: ["GuestAdded", "MemberAdded", "TeamCreated", "AppInstalled"],
+        answer: 0,
+        explanation:
+          "GuestAdded is logged specifically when an external guest is added to a Team; MemberAdded covers general member additions and TeamCreated covers new team creation.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 3: DLP and Insider Threat ─────────────────────────────────────
@@ -730,6 +773,18 @@ This **telemetry stream** flows to a central cloud platform where it is analysed
 Instead of having separate tools for each domain that analysts must correlate manually, XDR correlates telemetry across all these sources automatically. An attack that starts with a phishing email → compromised credentials → lateral movement via PowerShell → data exfiltration to cloud storage can be visualised as a single correlated incident timeline in XDR, rather than scattered alerts across five different tools.
 
 **Microsoft Defender XDR** is Microsoft's XDR platform, combining: Defender for Endpoint, Defender for Office 365, Defender for Identity, and Defender for Cloud Apps.`,
+      checkpoint: {
+        question: "According to the reading, what is the key limitation of traditional signature-based antivirus?",
+        options: [
+          "It cannot scan network traffic at all",
+          "It is blind to new malware it has never seen before, and easily evaded by slightly modified (polymorphic) malware",
+          "It only works on Windows and not on Linux or macOS",
+          "It requires a live internet connection to function at all",
+        ],
+        answer: 1,
+        explanation:
+          "Signature-based AV compares files against a database of known malware fingerprints, so it misses zero-day malware and can be evaded simply by changing the malware slightly so the signature no longer matches.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 2: EDR Deep Dive ───────────────────────────────────────────────
@@ -791,6 +846,18 @@ EDR detects threats *after* they start. **Endpoint hardening** reduces the attac
 - **Least privilege**: Users run as standard users, not local administrators. Malware running as the user has limited rights.
 - **BitLocker**: Full-disk encryption so stolen laptops don't expose data.
 - **Patch management**: Keep the OS and applications updated to close known vulnerabilities.`,
+      checkpoint: {
+        question: "According to the reading, what does 'Network Isolation (Host Isolation)' do when an analyst triggers it from the EDR console?",
+        options: [
+          "It permanently deletes the endpoint's data",
+          "It cuts the endpoint off from the network except for the EDR management channel",
+          "It only blocks outbound email from the endpoint",
+          "It uninstalls the EDR agent from the endpoint",
+        ],
+        answer: 1,
+        explanation:
+          "Host Isolation cuts the machine off from talking to anything else on the network — even internal servers — while keeping the EDR management channel alive, so analysts can still investigate and remediate remotely.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 3: Reading EDR Alerts ─────────────────────────────────────────
@@ -1102,6 +1169,18 @@ MDE Live Response provides a remote interactive shell to an isolated endpoint. F
 - Collect memory dumps
 
 This eliminates the need for physical access to investigate a compromised device.`,
+      checkpoint: {
+        question: "According to the reading, which Defender XDR component is responsible for detecting Kerberoasting and DCSync attacks against Active Directory?",
+        options: [
+          "Defender for Identity (MDI)",
+          "Defender for Endpoint (MDE)",
+          "Defender for Office 365 (MDO)",
+          "Defender for Cloud Apps (MDCA)",
+        ],
+        answer: 0,
+        explanation:
+          "Defender for Identity (MDI) monitors Active Directory Domain Controllers and Entra ID, and specifically detects Kerberoasting, DCSync, lateral movement, and Pass-the-Hash. MDE covers endpoint telemetry instead.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 2: Alert Investigation ────────────────────────────────────────
@@ -1191,6 +1270,13 @@ MDI monitors your on-premises Active Directory domain controllers and Azure Entr
 | Pass-the-Hash / Pass-the-Ticket | T1550 — Credential reuse without the plaintext password |
 | Reconnaissance using LDAP queries | T1087 — Account enumeration via LDAP |
 | Suspicious additions to sensitive groups | T1098 — Adding a backdoor account to Domain Admins |`,
+      checkpoint: {
+        question: "According to the reading, when investigating a device's Timeline after the first alert, how far before the alert time should an analyst typically look for reconnaissance activity?",
+        options: ["30–60 minutes earlier", "Exactly 5 minutes earlier", "One full week earlier", "There is no value in looking before the alert time"],
+        answer: 0,
+        explanation:
+          "The reading recommends filtering the timeline to 30-60 minutes before the first alert, since attackers often perform reconnaissance before their loudest, most detectable action.",
+      },
     } satisfies ReadingTask,
 
     // ── Reading 3: Advanced Hunting KQL ───────────────────────────────────────

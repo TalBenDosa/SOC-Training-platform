@@ -133,6 +133,14 @@ const encodingRoom: Room = {
         "    C2 --> C3[No function reverses this -- dead end]\n" +
         "  end",
       diagramCaption: "Three operations -- only two of them come back",
+      checkpoint: {
+        question:
+          "Which of the three operations (encoding, encryption, hashing) is not reversible at all, by anyone, under any circumstance -- not even with a key?",
+        options: ["Encoding", "Encryption", "Hashing", "All three are reversible with the right tool"],
+        answer: 2,
+        explanation:
+          "Hashing is the dead end by design: encoding is reversible by anyone with the public rule, encryption is reversible only with the right key, but hashing throws information away on purpose and has no reverse function at all.",
+      },
     },
     {
       type: "reading",
@@ -166,6 +174,14 @@ const encodingRoom: Room = {
         "=======================================================\n" +
         "No key. No password. No cracking. Decode it and you see everything --\n" +
         "the rule just never got the chance to look at the decoded version.",
+      checkpoint: {
+        question:
+          "What specific text encoding does PowerShell's -EncodedCommand flag expect the Base64 blob to represent?",
+        options: ["ASCII", "UTF-8", "UTF-16LE (Unicode)", "Latin-1"],
+        answer: 2,
+        explanation:
+          "The reading states -EncodedCommand specifically expects UTF-16LE text, Base64-encoded -- which is why decoding one by hand shows what looks like a null byte after every readable character.",
+      },
     },
     {
       type: "flag",
@@ -218,6 +234,13 @@ const encodingRoom: Room = {
         `You'll hear that MD5 and SHA-1 (older, shorter hash algorithms) are "broken," while SHA-256 is not. This doesn't mean anyone learned to reverse them — the one-way property still holds for both. It means researchers found ways to deliberately construct two *different* inputs that produce the *same* hash (called a collision) far faster than blind guessing should allow, which undermines the "this hash uniquely identifies this exact data" guarantee an analyst relies on. SHA-256 has no practical collision attack known today, which is exactly why it's the default recommendation for anything security-relevant, and why still seeing MD5 or SHA-1 relied upon for integrity in 2026 is itself worth a second look.\n\n` +
         `**Fixed length is a feature, not a limitation**\n\n` +
         `Because every SHA-256 output is exactly 64 hex characters regardless of the input's size, a database of a hundred million known file hashes takes a small, predictable, indexable amount of storage — nowhere near the cost of storing a hundred million actual files. That property alone is what makes hash-based threat intelligence, malware repositories, and forensic file catalogs operationally possible at scale. The next reading builds directly on this: the properties that make hashing frustrating to reverse are the exact same properties that make it useful.`,
+      checkpoint: {
+        question: "How many hex characters does a SHA-256 hash always have, regardless of the size of the input?",
+        options: ["16", "32", "64", "It varies with input size"],
+        answer: 2,
+        explanation:
+          "SHA-256 always produces exactly 256 bits, rendered as 64 hexadecimal characters, whether the input was one byte or an entire disk image -- that fixed length is what the reading calls a feature, not a limitation.",
+      },
     },
     {
       type: "reading",
@@ -277,6 +300,19 @@ const encodingRoom: Room = {
         "  S->>S: Recompute hash(entered password + stored salt)\n" +
         "  S-->>U: New hash matches stored hash -> access granted",
       diagramCaption: "Password storage with salting -- the plaintext never touches the database",
+      checkpoint: {
+        question:
+          "What does a salt actually solve in password storage, per Reading 5?",
+        options: [
+          "It makes the hash algorithm itself reversible",
+          "It ensures two users with the identical password get two different stored hashes, defeating rainbow tables",
+          "It encrypts the password instead of hashing it",
+          "It speeds up the login process by skipping re-hashing",
+        ],
+        answer: 1,
+        explanation:
+          "A salt is a random, unique-per-user value combined with the password before hashing, so identical passwords produce different stored hashes and pre-computed rainbow tables become useless -- it doesn't make hashing reversible or replace it with encryption.",
+      },
     },
     {
       type: "ordering",
@@ -398,6 +434,19 @@ const encodingRoom: Room = {
         "  C->>Srv: Application data, encrypted with the fast symmetric key (AES)\n" +
         "  Srv-->>C: Application data, encrypted with the same symmetric key",
       diagramCaption: "Why TLS uses both: asymmetric to agree a key, symmetric for the actual data",
+      checkpoint: {
+        question:
+          "Why does TLS start with asymmetric encryption and then switch to symmetric encryption for the actual data?",
+        options: [
+          "Asymmetric encryption is used only because it is faster for bulk data",
+          "Asymmetric encryption solves key distribution between strangers, then the connection switches to fast symmetric encryption for the bulk traffic that follows",
+          "Symmetric encryption is used first to establish trust, then asymmetric encryption takes over for speed",
+          "TLS uses only asymmetric encryption throughout the entire connection",
+        ],
+        answer: 1,
+        explanation:
+          "Asymmetric encryption (RSA/ECC) is computationally expensive but solves the problem of agreeing a secret with a stranger; once a shared symmetric key is established, the connection switches to fast AES for all the actual data that follows.",
+      },
     },
     {
       type: "reading",
@@ -526,6 +575,13 @@ const timelineRoom: Room = {
         "  EPOCH -.->|\"seconds since 1970-01-01 UTC\"| N2[\"No timezone field at all -- UTC by convention\"]\n" +
         "  SYSLOG -.->|\"year is not in the line\"| N3[\"Ambiguous without outside context\"]",
       diagramCaption: "One moment, three formats you'll meet in the same investigation",
+      checkpoint: {
+        question: "How many digits does a current-era Unix epoch timestamp expressed in seconds typically have?",
+        options: ["8", "10", "13", "17-18"],
+        answer: 1,
+        explanation:
+          "A current epoch-in-seconds value has 10 digits, while the same instant in milliseconds has 13 digits (three extra for sub-second precision); 17-18 digits is the range for Windows FILETIME, a completely different format counting from 1601.",
+      },
     },
     {
       type: "reading",
@@ -593,6 +649,18 @@ const timelineRoom: Room = {
         "  end\n" +
         "  BEFORE -.->|\"check NTP sync status, correct for skew\"| AFTER",
       diagramCaption: "Same three events -- wrong order until clock skew is accounted for",
+      checkpoint: {
+        question: "What is the standard fix for clock drift between devices, described in Reading 3?",
+        options: [
+          "NTP (Network Time Protocol), which keeps devices synced to a trusted time server",
+          "Manually resetting every device's clock once a week",
+          "Always trusting the Domain Controller's clock over any other source",
+          "Converting every timestamp to Windows FILETIME",
+        ],
+        answer: 0,
+        explanation:
+          "NTP is the standard fix: devices periodically check in with a trusted time server and adjust their own clock to match, keeping drift down to a fraction of a second under normal conditions.",
+      },
     },
     {
       type: "reading",
@@ -689,6 +757,13 @@ const timelineRoom: Room = {
         `**Logs with no year.** As Reading 1 covered, classic syslog format doesn't include a year. Working from an old archive or export, it's tempting to just assume "this year" — which silently produces a wrong date on anything older, and can shift an entire timeline by exactly 365 days without any obvious error message. Always corroborate the year from something external to the log line itself: file metadata, ingestion timestamps, or a neighboring log entry that does carry a full date.\n\n` +
         `**The same event logged twice by two different systems.** A single logon might legitimately appear once in a Domain Controller's Security log and once in a VPN concentrator's own log, because both systems genuinely observed and independently recorded the same real-world action. Failing to recognize this can inflate a timeline into "two separate login events," when it's actually one event seen from two vantage points — worth cross-referencing (hostname, user, source IP, and a matching normalized time) before assuming duplication means something happened twice.\n\n` +
         `**Timestomping and log clearing — an attacker deliberately breaking the sequence.** Some attackers actively work to defeat exactly the kind of timeline you're learning to build. Timestomping is modifying a file's own recorded timestamps (creation, modification, access times) to make it look older or blend in with surrounding legitimate files. Clearing the Windows Security event log entirely — which itself generates a very specific and well-known event, ID 1102 — is a blunter version of the same goal: erase the evidence a timeline would otherwise be built from. Neither of these is a reason to give up on the timeline; a 1102 entry, or a suspicious gap in otherwise continuous logging, is itself a meaningful data point and often one of the strongest indicators in the whole investigation that something was deliberately hidden.`,
+      checkpoint: {
+        question: "Which specific Windows event ID is generated when the Security event log is cleared entirely?",
+        options: ["4624", "1102", "4768", "4104"],
+        answer: 1,
+        explanation:
+          "Clearing the Windows Security event log generates event ID 1102 -- a well-known, specific artifact that is itself a meaningful data point often indicating something was deliberately hidden.",
+      },
     },
     {
       type: "matching",

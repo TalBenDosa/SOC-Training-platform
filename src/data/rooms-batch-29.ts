@@ -209,6 +209,15 @@ const investigateAlertRoom: Room = {
         "                      root cause, corrective actions. Escalate if\n" +
         "                      severity or breach notification requires it.\n" +
         "=================================================================",
+      checkpoint: {
+        question: "Per Reading 1, roughly what proportion of investigations that go anywhere past the first alert involve identity in some form?",
+        options: [
+          "About one in ten", "Roughly half", "Roughly nine out of ten", "Essentially none -- identity is rarely a factor"
+        ],
+        answer: 2,
+        explanation:
+          "Industry incident data puts identity -- a compromised credential, an abused session, a privileged account used somewhere it shouldn't be -- in roughly nine out of every ten investigations, which is exactly why Step 2 in this room is built entirely around pivoting on identity.",
+      },
     },
     // -----------------------------------------------------------------------
     {
@@ -232,6 +241,18 @@ const investigateAlertRoom: Room = {
         '  F --> G["Step 6: Document"]\n' +
         '  G --> H["Step 7: Report and hand off"]',
       diagramCaption: "Scope is a loop, not a box — this is why Steps 2 and 3 feed each other",
+      checkpoint: {
+        question: "Per Reading 2, what is the key difference between querying by the named person versus querying by an observable artifact (IP, workstation, hash)?",
+        options: [
+          "There is no meaningful difference -- both return the same results",
+          "Querying by person can only ever confirm what you already suspected about that one person; querying by artifact asks who else, across the whole environment, shares that same property -- only the second can surface an account nobody has flagged yet",
+          "Querying by artifact is always slower and should be avoided under time pressure",
+          "Querying by person is required by the workflow before an artifact-based query is allowed",
+        ],
+        answer: 1,
+        explanation:
+          "Querying by person asks how bad is it for them; querying by artifact asks how big is it. Only the artifact-based pivot can surface an account or host nobody has flagged yet, which is exactly why Step 2 emphasizes pivoting on the artifact rather than the originally-named person.",
+      },
     },
     // -----------------------------------------------------------------------
     {
@@ -457,6 +478,19 @@ const investigateAlertRoom: Room = {
         `**Step 5, first half: map to MITRE ATT&CK.** Once you have a timeline, classify each distinct behaviour by tactic and technique. This case, reconstructed, maps cleanly: T1059.001 (Command and Scripting Interpreter: PowerShell) for the Execution stage, T1021.002 (Remote Services: SMB/Windows Admin Shares) for the Lateral Movement stage, and T1560.001 (Archive Collected Data via Utility) for the Collection stage. This is not a labelling exercise for its own sake — a technique name is a shared, precise vocabulary that lets you communicate exactly what happened to another analyst, a threat intel team, or a report reader without re-explaining the mechanics from scratch every time, and it lets you check this specific intrusion against what's typically known to follow those techniques (what usually comes after T1560.001 staging, for instance, is exfiltration).\n\n` +
         `**Step 5, second half: root cause, using "5 Whys."** ATT&CK mapping tells you what happened. Root cause asks why it was possible at all, and the discipline for getting past a shallow answer is to keep asking why, typically five times, until you land on something you could actually fix. "A user opened a malicious document" is where most analysts stop, and it is almost never the root cause — it describes the trigger, not the failure. Why did opening it lead to code execution? Because the macro was allowed to run. Why was it allowed to run? Because macro execution from internet-sourced documents wasn't blocked by policy on this workstation. Why not? Because that control exists for other business units but was never extended to Finance. Why not? Because the control rollout tracked departments requesting it, not risk exposure. That is a root cause you can actually act on — a policy gap with a specific, nameable owner — and it is nothing like "a user clicked something they shouldn't have," which blames the trigger and leaves the actual control gap sitting there for the next person to click into.\n\n` +
         `**Why this order — timeline, then classification, then root cause — and not some other order.** You cannot meaningfully classify a behaviour you haven't placed in its correct sequence relative to everything else (was this lateral movement enabling the collection, or unrelated background activity?), and you cannot ask a useful "why" about root cause until you know precisely what happened and in what order. Each half of Step 5 depends on the timeline Step 4 just built.`,
+      checkpoint: {
+        question:
+          "In the '5 Whys' worked example in Reading 4, why is 'a user opened a malicious document' rejected as the root cause?",
+        options: [
+          "Because it isn't true -- the user never actually opened the document",
+          "Because it describes the trigger, not the failure -- the actual root cause is the specific control gap (e.g. macro execution from internet-sourced documents wasn't blocked by policy on that workstation) that let opening it lead to code execution",
+          "Because root cause must always name a specific software vendor's product",
+          "Because 5 Whys requires exactly five separate root causes to be listed",
+        ],
+        answer: 1,
+        explanation:
+          "Most analysts stop at the trigger ('a user clicked something'), but the reading is explicit that this is almost never the root cause -- you keep asking why until you land on an actual, fixable control gap, like a policy rollout that never reached a specific department.",
+      },
     },
     // -----------------------------------------------------------------------
     {
@@ -679,6 +713,18 @@ const writingIncidentReportRoom: Room = {
         '  B --> D["Read alone: accurate, honest, actionable"]\n' +
         '  C --> E["Read alongside B: fully reproducible reasoning"]',
       diagramCaption: "One document, two audiences, no drift between them",
+      checkpoint: {
+        question: "Per Reading 1, why is one report with an executive summary at the top usually preferred over two entirely separate documents?",
+        options: [
+          "Separate documents are harder to store on a shared drive",
+          "Splitting into separate documents invites drift -- the executive version can quietly diverge from the technical version over revisions, which nobody notices until they're compared line by line later",
+          "Executives are legally required to read the full technical report",
+          "Two documents take longer to write than one",
+        ],
+        answer: 1,
+        explanation:
+          "The risk named in Reading 1 is drift between two separately-maintained versions of the same incident. One document with an executive summary on top and technical detail below lets each audience stop where they need to, with no risk of the two versions disagreeing.",
+      },
     },
     // -----------------------------------------------------------------------
     {
@@ -880,6 +926,18 @@ const writingIncidentReportRoom: Room = {
         "=================================================================\n" +
         "EVERY CLAIM SHOULD ANSWER: who / what / when / where / why / how\n" +
         "=================================================================",
+      checkpoint: {
+        question: "Per Reading 4, what six questions should every factual claim in a report be able to answer?",
+        options: [
+          "Severity, priority, confidence, impact, likelihood, and cost",
+          "Who, what, when, where, why, and how -- and a sentence missing several of these is one a reviewer will have to come back and ask about",
+          "Detection method, scope, timeline, root cause, recommendations, and owner",
+          "Vendor, product, version, hostname, IP, and hash",
+        ],
+        answer: 1,
+        explanation:
+          "The checklist is who/what/when/where/why/how -- applied to every factual claim in the report, not just the summary, so a reviewer never has to come back and ask a basic question the report should already have answered.",
+      },
     },
     // -----------------------------------------------------------------------
     {
@@ -907,6 +965,18 @@ const writingIncidentReportRoom: Room = {
         `**What a written root cause needs to contain.** Not what the attacker did, but what allowed it to succeed: which specific control was missing, misconfigured, or not enforced, and — where relevant — why that gap existed (a process failure, a rollout that never reached this system, a monitoring blind spot). For the Solstice case: not "an attacker created a scheduled task," but "the svc-report service account held local administrative rights on AP-SRV14 that were broader than its function required, and no change-detection alerting existed for scheduled task creation under service accounts on servers in this tier — a gap that let a persistence mechanism run undetected for eleven days." That sentence names an actual, fixable thing: the account's excess privilege, and the missing detection coverage.\n\n` +
         `**Recommendations have to trace back to that specific root cause, one for one.** A recommendations section padded with generic best-practice advice ("improve security awareness training," "patch systems regularly") that isn't tied to what actually failed here reads as filler, and worse, it lets the actual gap go unaddressed while looking like the report did its job. Against the root cause above, the correct recommendations are specific: review and reduce svc-report's privilege level to only what its function requires; deploy detection logic for scheduled task creation events involving service accounts on Tier 1 servers; audit other service accounts on this server tier for the same excess-privilege pattern. Each one is concrete, assignable to an owner, and verifiable — someone can check, later, whether it was actually done.\n\n` +
         `**Why this section is often the most consequential part of the whole report, even though it's usually the shortest.** The Executive Summary gets read the most, but Root Cause and Recommendations are what determines whether this exact incident happens again. A report that nails the timeline and IOCs but writes a vague root cause has done excellent forensic work and still left the organisation exactly as exposed as before the incident started.`,
+      checkpoint: {
+        question: "Why does Reading 5 single out 'human error' as a failure mode for a root cause statement, alongside vague restatements of the attack?",
+        options: [
+          "Because human error is never actually a factor in real intrusions",
+          "Because it sounds like an explanation but names no specific, correctable gap, and tends to unfairly concentrate blame on an individual for a failure that was actually organisational",
+          "Because 'human error' is a term reserved exclusively for safety incidents, not security incidents",
+          "Because naming human error always triggers a legal disclosure requirement",
+        ],
+        answer: 1,
+        explanation:
+          "'Human error' sounds like a cause but isn't actionable -- it names no specific fixable gap, and it shifts blame onto an individual for something a missing organizational control should have stopped regardless of which person triggered it.",
+      },
     },
     // -----------------------------------------------------------------------
     {

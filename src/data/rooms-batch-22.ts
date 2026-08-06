@@ -218,6 +218,18 @@ const malwareTypesRoom: Room = {
         "                                    FAST -- you may still be able to\n" +
         "                                    stop stage 2 from ever landing\n" +
         "=======================================================",
+      checkpoint: {
+        question: "What is the defining trait that separates a dropper from a loader?",
+        options: [
+          "A dropper always requires administrator rights; a loader never does",
+          "A dropper's payload is already embedded inside the file at execution; a loader fetches its real payload from the network after launching",
+          "A loader can only be delivered via USB; a dropper only via email",
+          "There is no real difference -- both terms describe identical behavior",
+        ],
+        answer: 1,
+        explanation:
+          "A dropper carries its full payload inside itself with no network step needed, while a loader is a small fetch mechanism that reaches out over the network shortly after launch -- that network step is exactly what gives defenders a blockable indicator a dropper never offers.",
+      },
     },
     {
       type: "question",
@@ -339,6 +351,18 @@ const malwareTypesRoom: Room = {
         `"Dwell time" is how long an attacker's tooling stays actively present and operating inside an environment before being found. An infostealer often has one of the shortest dwell times of anything covered in this room — it isn't trying to stay hidden long-term, because it doesn't need to; its entire objective can be complete within seconds of executing. That short window is exactly the trap: it's tempting to treat a fast, self-contained event as less serious than something that lingers, but the damage from an infostealer is typically already done by the time it's detected — the credentials have already left the building. Speed of detection buys you almost nothing about limiting what was taken; it only changes how quickly you can respond to the fact that it's already gone.\n\n` +
         `**Why the correct response is revocation, not cleanup**\n\n` +
         `Because the theft, not an ongoing presence, is the actual event, cleaning the malware off the endpoint — deleting the file, running a scan, confirming the process is gone — does nothing about the credentials and sessions that already left. The response an infostealer actually demands is credential and session revocation: reset every password that could plausibly have been stored in the affected browser profiles, and revoke active sessions and access tokens tied to those accounts so a stolen cookie can't be used to walk in without ever needing the password at all. Only after that containment step is complete does standard endpoint cleanup become the secondary task, not the primary one.`,
+      checkpoint: {
+        question: "Per Reading 4, why is deleting the infostealer file and running a scan not sufficient response on its own?",
+        options: [
+          "Because infostealers always reinstall themselves automatically after deletion",
+          "Because the theft already happened -- credentials and cookies already left the building -- so the correct primary response is revoking sessions and resetting passwords, with endpoint cleanup as a secondary task",
+          "Because antivirus scans can never detect infostealers",
+          "Because infostealers require a full disk reimage before any other action is possible",
+        ],
+        answer: 1,
+        explanation:
+          "An infostealer's objective is often complete within seconds, so by the time it's detected the credentials are already gone -- cleaning the endpoint does nothing about that, which is why revocation and password resets come first.",
+      },
     },
     {
       type: "analyst_choice",
@@ -424,6 +448,18 @@ const malwareTypesRoom: Room = {
         "Recovery options         Pay, negotiate, restore   Offline backup only --\n" +
         "                         from clean backup          assume total loss\n" +
         "=======================================================",
+      checkpoint: {
+        question: "What is the fundamental difference between a wiper and ransomware, given they often follow the same pre-encryption sequence?",
+        options: [
+          "A wiper never drops a ransom note, while ransomware always does",
+          "A wiper has no working decryption key and no intention of ever restoring data, even if the victim pays -- ransomware has a real key sold for payment",
+          "A wiper only targets government systems; ransomware only targets businesses",
+          "A wiper always uses a different pre-encryption sequence than ransomware",
+        ],
+        answer: 1,
+        explanation:
+          "The sequence can look identical, but intent is the difference: ransomware has a genuine, sellable decryption key, while a wiper has none at all -- sometimes it even drops a fake ransom note purely to mislead investigators.",
+      },
     },
     {
       type: "matching",
@@ -457,6 +493,18 @@ const malwareTypesRoom: Room = {
         `A Potentially Unwanted Program (PUP) — commonly bundled toolbars, ad injectors, and "optimizer" utilities — sits in a genuinely different category from everything else in this room: it's often unwanted and mildly invasive rather than malicious in intent. Security products flag PUPs with heuristic detections that can look every bit as alarming in a console as a trojan alert, but the correct analyst instinct is judgement, not automatic escalation: check how it arrived (bundled with software the user or organization deliberately and knowingly installed, versus a drive-by install from an untrusted site) and whether it's doing anything beyond its stated, if annoying, function. A PUP that arrived through an approved, catalog-listed software deployment is a very different finding from the same detection name showing up on a machine with no such explanation.\n\n` +
         `**Why one sample gets three different names**\n\n` +
         `Antivirus vendors each build their own detection engines, naming conventions, and family-classification logic independently — so it's completely normal for the exact same malware sample to be labeled "Trojan.GenericKD.12345" by one vendor, "Backdoor:Win32/Something.A" by a second, and "Malware.Heuristic.9001" by a third, even when scanned at the exact same moment. A vendor's family label is a hint about behavior and lineage worth taking seriously — but it is not ground truth, and it should never be the only thing an analyst relies on to understand what a sample actually does. Confirm behavior from telemetry (what did it actually connect to, read, or modify) rather than trusting a name alone to tell the whole story.`,
+      checkpoint: {
+        question: "Why can a rootkit hide its own files and processes from an EDR agent even during a routine scan?",
+        options: [
+          "It doesn't hide anything -- EDR agents always detect rootkits by default",
+          "It embeds itself at a privileged layer beneath the operating system, so it can intercept and falsify the answers security tools receive when they ask what's running",
+          "Rootkits only run on air-gapped machines with no EDR installed at all",
+          "Rootkits disguise themselves using file names that look like legitimate Windows processes",
+        ],
+        answer: 1,
+        explanation:
+          "A rootkit operates from underneath the layer the EDR agent trusts to report the truth -- it isn't hiding within the system the agent sees, it's controlling what the agent is told, which is why a clean scan doesn't rule it out.",
+      },
     },
     {
       type: "question",
@@ -590,6 +638,18 @@ const assetContextRoom: Room = {
         "  C --> C1[Check for lockout, contact user, monitor for a follow-up success]\n" +
         "  D --> D1[Escalate immediately -- identity infrastructure for the whole domain]",
       diagramCaption: "Same alert text, three different assets, three different responses",
+      checkpoint: {
+        question: "Per Reading 1, what determines the correct response to an alert -- the alert text alone, or the asset behind it?",
+        options: [
+          "The alert text alone -- identical alerts should always get identical responses",
+          "The asset behind it -- the same detection rule firing on a lab VM, a workstation, and a domain controller warrants three different responses",
+          "Only the product's assigned severity field matters, regardless of the asset",
+          "Only the time of day the alert fired matters",
+        ],
+        answer: 1,
+        explanation:
+          "The alert text and even the technical severity can be identical across three assets, yet the correct response differs completely because what's 'behind the door' -- the asset itself -- is what actually determines the risk.",
+      },
     },
     {
       type: "reading",
@@ -652,6 +712,18 @@ const assetContextRoom: Room = {
         "  JH[Jump host / bastion compromised] --> JH1[Direct path into every segmented network it bridges]\n" +
         "  CI[CI/CD pipeline compromised] --> CI1[Every system that trusts its build output]",
       diagramCaption: "Blast radius: what a compromise of THIS asset hands the attacker next",
+      checkpoint: {
+        question: "According to Reading 3, why does a domain controller have such a large blast radius?",
+        options: [
+          "Because it stores the most sensitive customer data of any system in the company",
+          "Because it controls the KDC (Kerberos Key Distribution Center), which issues every authentication ticket, so a compromise can let an attacker impersonate any user across every system trusting that domain",
+          "Because it is always internet-facing, unlike other servers",
+          "Because it has the highest CVSS-scored vulnerabilities of any asset type",
+        ],
+        answer: 1,
+        explanation:
+          "A domain controller's blast radius comes from what it controls, not necessarily what it stores -- full control of the KDC means an attacker can potentially impersonate any user, including domain admins, across every trusting system.",
+      },
     },
     {
       type: "question",
@@ -758,6 +830,18 @@ const assetContextRoom: Room = {
         `A MEDIUM-severity alert — say, an unusual configuration change — on the production payment-processing system, discovered during the first hour of a major product launch with elevated transaction volume and executive attention, may deserve to outrank a HIGH-severity alert on an isolated lab box that nobody depends on this week. Nothing about the technical severity scores has to be wrong for this to be true; the product correctly measured what it could measure. What it couldn't measure is that one of these systems is, for this specific week, load-bearing for the entire business, and the other genuinely isn't.\n\n` +
         `**Severity comes from the product; priority comes from the analyst**\n\n` +
         `This is the sentence worth remembering above almost everything else in this room: severity is a technical, product-calculated property of the finding itself, while priority is the analyst's own judgment about response order, built by folding business context on top of that technical severity. A good analyst doesn't override severity labels carelessly or ignore them — they use severity as one important input, then adjust the actual order they work things in based on what the product cannot know: what's launching this week, whose account this is, what would actually hurt the business most if it went wrong right now. Treating the product's severity field as the final word on priority is exactly the gap this whole room exists to close.`,
+      checkpoint: {
+        question: "Per Reading 5, what is the difference between severity and priority?",
+        options: [
+          "They are the same thing, just different names for the same score",
+          "Severity is a technical, product-calculated property of the finding itself; priority is the analyst's own judgment about response order, built by adding business context on top of severity",
+          "Priority is always calculated automatically by the SIEM, while severity requires manual analyst review",
+          "Severity only applies to malware alerts; priority only applies to authentication alerts",
+        ],
+        answer: 1,
+        explanation:
+          "A product can only measure what it can technically observe; it cannot know what's launching this week or whose account this is. Priority is the analyst folding that business context on top of the product's severity label.",
+      },
     },
     {
       type: "analyst_choice",
@@ -783,6 +867,18 @@ const assetContextRoom: Room = {
         `When an analyst pulls up an unfamiliar hostname and finds nothing in the CMDB, the tempting shortcut is to treat the lack of a record as a reason to deprioritize: "if it's not in the inventory, it's probably not important, or probably not even real — skip it and move to something documented." That reasoning is exactly backwards. An unrecognized asset isn't automatically unimportant; it's an open question, and open questions in a SOC are findings, not something to wave past. An asset with no record could be a forgotten but perfectly legitimate test box — or it could be a rogue device someone plugged in without authorization, an unmanaged piece of shadow IT nobody signed off on, or exactly the kind of infrastructure an attacker would stand up for persistence, chosen specifically because it wouldn't show up anywhere an analyst would normally check.\n\n` +
         `**What to actually do with an unrecognized hostname**\n\n` +
         `Chase it rather than skip it: check DNS and DHCP lease records for when it first appeared and what requested that address, check the cloud console or virtualization platform if it's a VM, ask the network or infrastructure team directly rather than assuming the CMDB's silence is an answer, and treat "we genuinely don't know what this is" as a real, escalatable finding in its own right rather than a dead end. A stale or incomplete CMDB is a known, common limitation of real environments — the correct response to that limitation is more scrutiny of the unknown, not less.`,
+      checkpoint: {
+        question: "When an analyst finds a hostname with no CMDB record, what does Reading 6 say the correct instinct is?",
+        options: [
+          "Deprioritize it -- if it's not in the inventory, it's probably not important",
+          "Treat it as an open question and chase it (DNS/DHCP records, cloud console, ask the infrastructure team) rather than skip it -- an unrecognized asset could be shadow IT or attacker infrastructure chosen precisely because it wouldn't show up in a normal check",
+          "Automatically escalate it as a confirmed incident with no further investigation needed",
+          "Ignore it, since CMDBs are always accurate in a well-run organization",
+        ],
+        answer: 1,
+        explanation:
+          "A missing CMDB record is a known, common limitation, not evidence of unimportance -- the correct response is more scrutiny of the unknown, since an unrecognized host could be exactly the kind of infrastructure an attacker would choose for that reason.",
+      },
     },
     {
       type: "reading",

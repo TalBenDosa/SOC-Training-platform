@@ -20,6 +20,12 @@ interface ReadingTask {
   heading: string;
   content: string;
   codeExample?: string;
+  checkpoint?: {
+    question: string;
+    options: string[];
+    answer: number;
+    explanation?: string;
+  };
 }
 
 interface QuestionTask {
@@ -135,6 +141,18 @@ CrowdStrike Falcon runs in two complementary modes simultaneously:
 - **Falcon Insight (EDR — Endpoint Detection and Response):** Monitors everything that happens on the endpoint and sends it to the cloud for analysis. Generates *detections* — alerts that tell a SOC analyst "something suspicious happened here, investigate." This catches things that slipped past prevention (novel malware, attacker using built-in Windows tools, etc.).
 
 Both modules run from the same sensor. You don't need two products.`,
+      checkpoint: {
+        question: "According to the reading, what does Falcon Prevent (the NGAV module) do, as distinct from Falcon Insight?",
+        options: [
+          "It blocks threats before they execute, using ML models to score files before they run",
+          "It only generates alerts for a SOC analyst to review after the fact",
+          "It provides the remote shell used for forensic investigation",
+          "It stores telemetry in CrowdStrike's Threat Graph for later hunting",
+        ],
+        answer: 0,
+        explanation:
+          "Falcon Prevent is the prevention (NGAV) module — it scores files before execution and blocks them if the score crosses a threshold. Falcon Insight (EDR) is the detection module that generates alerts for analysts to investigate after something happens.",
+      },
     },
 
     // ── Reading 2: Detections, Console & Key Features ────────────────────────
@@ -187,6 +205,18 @@ Here you manage the inventory of all endpoints with the Falcon Sensor installed.
 **Falcon Discover**
 
 Beyond protecting managed endpoints, **Falcon Discover** scans your network for devices that do *not* have the Falcon Sensor installed — rogue laptops, network printers, IoT cameras, BYOD phones. Finding unmanaged devices is critical because attackers love to pivot through systems that security can't see.`,
+      checkpoint: {
+        question: "According to the reading, what is CrowdStrike OverWatch?",
+        options: [
+          "A module that scans for devices without the Falcon Sensor installed",
+          "CrowdStrike's 24/7 elite threat hunting team that proactively hunts through Falcon telemetry for activity automated detections might miss",
+          "The dashboard that shows sensor health and last check-in time for each host",
+          "The remote shell tool used to run commands on an isolated endpoint",
+        ],
+        answer: 1,
+        explanation:
+          "OverWatch is CrowdStrike's managed, 24/7 human threat-hunting team that proactively looks for attacker activity across customer telemetry and sends 'managed detections' when they find something automated rules missed. Falcon Discover is the module for finding unmanaged devices.",
+      },
     },
 
     // ── Reading 3: RTR & Real-World Scenarios ─────────────────────────────────
@@ -551,6 +581,13 @@ The most distinctive feature of SentinelOne is **Storyline**. Every security pro
 SentinelOne's Storyline engine automatically links all related events into a single, connected narrative — the **attack story**. Every event in an attack chain gets tagged with the same **StorylineID** (a unique identifier like 0x1A2B3C4D). When you open a threat in the SentinelOne console, you don't see 47 alerts — you see *one story* with a complete timeline: what triggered first, what spawned next, what files were created, what network connections were made, from beginning to end.
 
 Think of it as the difference between receiving 47 separate puzzle pieces in different boxes versus receiving a completed puzzle with all the pieces already assembled and labelled.`,
+      checkpoint: {
+        question: "According to the reading, what identifier links every event of a single attack chain into one connected narrative in SentinelOne's Storyline?",
+        options: ["StorylineID", "ProcessGUID", "IncidentNumber", "SHA256 hash"],
+        answer: 0,
+        explanation:
+          "Every event belonging to the same attack chain is tagged with the same StorylineID, letting the console show one connected story instead of dozens of separate, disconnected alerts.",
+      },
     },
 
     // ── Reading 2: Management Console & Response ──────────────────────────────
@@ -600,6 +637,13 @@ When a threat is confirmed, SentinelOne offers several response options:
 - **Kill Process:** Immediately terminates the malicious process in memory. This stops active damage but does not remove the file from disk.
 - **Isolate Network:** Cuts the endpoint off from the network entirely (while keeping the agent connected to the SentinelOne cloud). The infected machine can't communicate with other systems — preventing spread — but analysts can still investigate it remotely.
 - **Rollback (the unique SentinelOne feature):** SentinelOne continuously takes shadow-copy-style snapshots of file changes on the endpoint. If ransomware encrypts files, the Rollback feature can *undo* those changes — restoring encrypted files to their pre-attack state. This can be the difference between a minor security incident and a catastrophic data loss event.`,
+      checkpoint: {
+        question: "According to the reading, which SentinelOne response action is unique in that it can actually undo file encryption caused by ransomware?",
+        options: ["Kill Process", "Quarantine Threat", "Isolate Network", "Rollback"],
+        answer: 3,
+        explanation:
+          "Rollback uses continuously-taken shadow-copy-style snapshots to restore encrypted files to their pre-attack state — the other three actions (Kill, Quarantine, Isolate) stop further damage but don't reverse damage already done.",
+      },
     },
 
     // ── Reading 3: XDR & Key Scenarios ───────────────────────────────────────
@@ -910,6 +954,18 @@ Before analysing malware, it helps to know the major categories:
 3. **Hybrid Analysis:** Combine both. Start with static analysis to understand the file's structure, then run it dynamically to see its actual behaviour. Use the outputs of each to inform the other.
 
 Most professional SOC analysts use online sandboxes for quick dynamic analysis — they upload the suspicious file to a website that runs it in an isolated virtual machine and reports all the observed behaviour. No setup required.`,
+      checkpoint: {
+        question: "According to the reading, what is the key difference between static and dynamic malware analysis?",
+        options: [
+          "Static analysis examines the file without running it; dynamic analysis runs the file in a controlled environment and observes its behaviour",
+          "Static analysis is only for ransomware; dynamic analysis is only for spyware",
+          "Static analysis requires an internet connection; dynamic analysis does not",
+          "There is no real difference — both terms describe the same process",
+        ],
+        answer: 0,
+        explanation:
+          "Static analysis studies the file's structure, strings, and metadata without executing it, which is safe but limited. Dynamic analysis actually runs the malware in an isolated environment to observe its real behaviour, which is more revealing but requires careful containment.",
+      },
     },
 
     // ── Reading 2: Static Analysis Tools ─────────────────────────────────────
@@ -962,6 +1018,13 @@ Most Windows malware is in **PE (Portable Executable)** format — the standard 
 **YARA** is a tool that lets security researchers write pattern-matching rules to identify malware based on specific byte sequences, strings, or structural features. A YARA rule might say: "If a file contains the string 'MiniDump' AND imports the function 'RtlCopyMemory' AND the file size is under 100KB, flag it as a potential credential dumper."
 
 YARA rules are widely shared in the security community. **VirusTotal** runs YARA rules against uploaded files. Tools like **YARA-X** (the newer version) allow scanning your entire file system for matching files.`,
+      checkpoint: {
+        question: "According to the reading, which hash algorithm is described as the 'preferred standard' for malware analysis today?",
+        options: ["MD5", "SHA-1", "SHA-256", "CRC32"],
+        answer: 2,
+        explanation:
+          "SHA-256 is the preferred standard because it is computationally infeasible to forge, unlike MD5 and SHA-1, which are both deprecated for security purposes due to known collision weaknesses.",
+      },
     },
 
     // ── Reading 3: Dynamic Analysis & Sandboxes ───────────────────────────────
@@ -1289,6 +1352,13 @@ At the **very top** (hardest to change, maximum pain):
 **IOC Lifecycle**
 
 IOCs have a shelf-life. A domain used for a phishing campaign last month may be abandoned today and reassigned to a legitimate website. An IP address used by a threat actor last week might now belong to an innocent cloud customer. Always note the **first seen / last seen** dates on any IOC, and treat stale IOCs (older than 3-6 months) with appropriate scepticism.`,
+      checkpoint: {
+        question: "According to the Pyramid of Pain described in the reading, which IOC type sits at the very top — causing the attacker the most pain to change?",
+        options: ["Hash values", "IP addresses", "Domain names", "TTPs (Tactics, Techniques, and Procedures)"],
+        answer: 3,
+        explanation:
+          "TTPs sit at the top of the Pyramid of Pain — detecting the attacker's actual playbook (e.g., PowerShell downloading a payload and injecting into svchost.exe) forces them to retrain and retool entirely. Hash values sit at the bottom because a single changed byte defeats them.",
+      },
     },
 
     // ── Reading 2: VirusTotal & OSINT Tools ───────────────────────────────────
@@ -1350,6 +1420,13 @@ Essential for phishing investigations:
 - **SPF/DKIM/DMARC check:** Is the sending domain properly configured to prevent spoofing?
 - **Blacklist check:** Is this email server IP on any spam/abuse blacklists?
 - **WHOIS lookup:** Who registered this domain, and when? A domain registered yesterday sending invoices is suspicious.`,
+      checkpoint: {
+        question: "According to the reading, which VirusTotal feature shows a historical record of all domain names that have pointed to a given IP address over time?",
+        options: ["Community score", "Passive DNS", "Detection ratio", "Last analysis date"],
+        answer: 1,
+        explanation:
+          "Passive DNS shows the historical record of domains that have resolved to an IP — incredibly useful for finding related attacker infrastructure. Detection ratio and community score reflect reputation, not historical DNS resolution.",
+      },
     },
 
     // ── Reading 3: IOC Pivoting & MISP ────────────────────────────────────────

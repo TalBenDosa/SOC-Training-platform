@@ -142,6 +142,19 @@ const tcpipDeepDiveRoom = {
         "        -> FIN_WAIT_2 / LAST_ACK\n" +
         "        -> TIME_WAIT -> CLOSED\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, why does a TCP connection hold in the TIME_WAIT state after closing?",
+        options: [
+          "To allow the operating system to log the connection for compliance purposes",
+          "So that any stray, delayed duplicate packets from the old connection are recognized and discarded rather than confused with a new connection reusing the same port pair",
+          "Because the SYN flag requires a mandatory cooldown period before it can be reused",
+          "To wait for the destination host to send a final SYN-ACK",
+        ],
+        answer: 1,
+        explanation:
+          "TIME_WAIT exists purely so any late-arriving duplicate packets from the just-closed connection are recognized as stale rather than misinterpreted by a brand-new connection reusing the same port pair. It commonly lasts around 2 minutes.",
+      },
     },
 
     // ── Reading 2: RST vs FIN semantics ─────────────────────────────────────
@@ -192,6 +205,19 @@ const tcpipDeepDiveRoom = {
         "RST abort:  [RST] or [RST,ACK], single packet, no\n" +
         "            negotiation, remaining queued data is lost\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what does the Zeek conn_state value 'REJ' indicate?",
+        options: [
+          "The connection was established, then the originator sent an RST",
+          "A connection attempt was rejected — the SYN was answered with RST,ACK, meaning the port is closed",
+          "The connection completed a normal handshake and graceful teardown",
+          "No SYN was ever observed by the sensor",
+        ],
+        answer: 1,
+        explanation:
+          "REJ specifically means the SYN was answered with RST,ACK — the port is closed. This differs from S0 (no reply at all, i.e. filtered/dropped) and from RSTO/RSTR (RST after the connection was already established).",
+      },
     },
 
     // ── Reading 3: scan signatures ───────────────────────────────────────────
@@ -276,6 +302,19 @@ const tcpipDeepDiveRoom = {
         "TCP options + order  OS TCP stack fingerprint (p0f-style)\n" +
         "DF flag behavior     OS-specific path-MTU-discovery habit\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, an observed initial TTL of about 118-125 on an inbound packet most likely indicates the sending host's OS started at which initial TTL value?",
+        options: [
+          "64 (Linux/BSD/macOS default)",
+          "128 (Windows default)",
+          "255 (Cisco IOS/Solaris default)",
+          "32 (a legacy embedded-device default)",
+        ],
+        answer: 1,
+        explanation:
+          "TTL 118-125 sits just below 128, the standard Windows initial TTL, after 3-10 hops of decrementing. 64 is the Linux/BSD/macOS default, and 255 is common on Cisco IOS/Solaris.",
+      },
     },
 
     // ── Reading 5: flow records vs full packets ──────────────────────────────
@@ -365,6 +404,19 @@ const tcpipDeepDiveRoom = {
         "                  (nearly identical every time)\n" +
         "                  conn_state=SF, repeats every ~60s\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "According to the reading, what byte-count shape is typical of C2 beaconing or a legitimate check-in/heartbeat, as opposed to a normal browsing session or a data-exfiltration upload?",
+        options: [
+          "Small request, much larger response, one-time connection",
+          "Large orig_bytes with tiny resp_bytes over a long single connection",
+          "Small, remarkably consistent byte counts in both directions, repeating at regular intervals against the same destination",
+          "Zero bytes in both directions with conn_state S0",
+        ],
+        answer: 2,
+        explanation:
+          "The reading describes beacon/heartbeat-shaped traffic as small, consistent byte counts repeating at regular intervals against the same destination — distinct from browsing (small request/large response) and from exfiltration-shaped uploads (large orig_bytes, tiny resp_bytes).",
+      },
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────

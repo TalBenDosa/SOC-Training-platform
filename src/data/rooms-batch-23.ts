@@ -180,6 +180,19 @@ Prevent vs. detect: a product sitting inline in the path of the traffic or the p
         "  SIEM -. receives forwarded logs .-> NDR\n" +
         "  SOAR[[SOAR]] -. acts on alerts from .-> SIEM",
       diagramCaption: "The placement map: detection surface is a consequence of where a product sits",
+      checkpoint: {
+        question:
+          "In the LockBit example from Reading 1, CrowdStrike's EDR sensor scored wu_update.exe 91/100 -- well above its block threshold -- yet took no action. Why?",
+        options: [
+          "The sensor was not actually capable of blocking anything on that host",
+          "The server's prevention policy was set to Detection Only, so the sensor identified the threat but was configured not to act on it",
+          "A score of 91/100 was too low to trigger a response",
+          "The detection was later found to be a false positive",
+        ],
+        answer: 1,
+        explanation:
+          "The sensor could have blocked it -- it was inline and well above the block threshold -- but the policy governing that specific server was set to Detection Only, so it logged the threat and did nothing. Placement determines what a product COULD do; policy determines what it actually does.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -351,6 +364,18 @@ Because it sits inline, an NGFW's detection is always potentially preventive: it
         "  P -->|Yes -- NGFW block rule,\\nEDR Full Prevention policy| B[BLOCK / DROP / KILL\\nAttack stopped before completion]\n" +
         "  P -->|No -- Detection Only policy,\\nor an out-of-band IDS| L[LOG ONLY\\nAlert fires, attack proceeds unimpeded]",
       diagramCaption: "Same detection, two different outcomes: policy decides, not confidence",
+      checkpoint: {
+        question: "Without TLS inspection enabled, what can an NGFW see about an HTTPS session?",
+        options: [
+          "Nothing at all -- the session is completely invisible to it",
+          "Connection metadata -- destination, byte counts, and App-ID's best-effort classification -- but not the actual encrypted content",
+          "The full decrypted payload, since NGFWs always decrypt TLS by default",
+          "Only the destination IP, with no application classification at all",
+        ],
+        answer: 1,
+        explanation:
+          "An NGFW without TLS inspection sees that a connection happened, its destination, its byte counts, and App-ID's pattern-based guess at the application -- but never the actual bytes inside the encrypted session, unless TLS inspection is specifically configured.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -539,6 +564,19 @@ Its blind spots are specific and worth knowing by name. Many organizations route
         "genuinely new, small vendor that hasn't finished configuring\n" +
         "outbound mail authentication -- not proof of spoofing by\n" +
         "itself, but exactly the combination worth a closer look.",
+      checkpoint: {
+        question:
+          "Per Reading 6, why can a compromised mailbox sending phishing to colleagues internally sometimes bypass the email security gateway entirely?",
+        options: [
+          "Email gateways can never detect phishing content, internal or external",
+          "Many organizations route internal-to-internal mail directly through their mail platform without passing it back through the gateway at all",
+          "Internal senders are always cryptographically verified, so no inspection is needed",
+          "The gateway only inspects attachments, never message content",
+        ],
+        answer: 1,
+        explanation:
+          "The gateway's blind spot here is structural, not a detection failure: internal-to-internal mail commonly never routes back through it at all, so a compromised mailbox phishing colleagues can travel a path the gateway was never positioned to inspect.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -588,6 +626,18 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
         "says nothing about what the user did inside any application\n" +
         "after signing in. That's a separate log, from a separate\n" +
         "product, at a separate layer.",
+      checkpoint: {
+        question: "What is the characteristic false positive for Identity Protection/CASB tools, per Reading 7?",
+        options: [
+          "A legitimate internal service whose polling interval looks like a beacon",
+          "An 'impossible travel' false alarm caused by an employee connecting through a corporate VPN exit node in a different country",
+          "A DLP policy blocking an approved payroll export",
+          "A WAF blocking a legitimate customer support form submission",
+        ],
+        answer: 1,
+        explanation:
+          "Reading 7 names this directly: a VPN exit node in a different country can make a sign-in look geographically impossible compared to the user's last known location, even though no actual travel happened -- this is the identity-layer tool's characteristic false positive, distinct from NDR's beacon-lookalike or DLP's/WAF's content-based false positives.",
+      },
     },
 
     // ------------------------------------------------------------------
