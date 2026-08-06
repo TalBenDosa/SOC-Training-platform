@@ -1047,6 +1047,24 @@ export default function DashboardPage() {
         // Indicators the grader uses to verify the student cited real evidence
         // and to catch genuinely fabricated data (a hostname that never appears).
         const realIndicators = extractIndicators(groundTruthEvents);
+        // Decoys the student saw this session — benign events carrying a written
+        // fp_explanation that, until now, was authored but never surfaced anywhere
+        // in the UI. Shown only AFTER a passing report (see the modal) as a
+        // "why these were false positives" debrief. Deduped by explanation text
+        // (the same decoy type recurs in the feed) and capped so the modal stays
+        // readable.
+        const decoysSeen = (() => {
+          const seen = new Set<string>();
+          const out: { label: string; source: string; fp_explanation: string }[] = [];
+          for (const e of live.events) {
+            if (!e.fp_explanation || seen.has(e.fp_explanation)) continue;
+            seen.add(e.fp_explanation);
+            const label = (e.description?.split(/[.—]/)[0]?.trim().slice(0, 90))
+              || e.event_type || e.source;
+            out.push({ label, source: e.source, fp_explanation: e.fp_explanation });
+          }
+          return out.slice(0, 6);
+        })();
         return (
           <IncidentReportModal
             companyName={selectedCompany.name}
@@ -1054,6 +1072,7 @@ export default function DashboardPage() {
             realIndicators={realIndicators}
             attackTitle={storyTitle}
             attackMitreTechniques={storyMitre}
+            decoys={decoysSeen}
             onClose={() => setShowReportModal(false)}
             onPassed={() => {
               setReportPassed(true);

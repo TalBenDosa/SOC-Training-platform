@@ -45,6 +45,12 @@ interface Props {
   attackTitle: string | null;
   /** MITRE technique IDs the real attack used — sent to grader as ground truth */
   attackMitreTechniques?: string[];
+  /**
+   * Benign "decoy" events the student saw this session, each with the written
+   * explanation of why it is a false positive. Revealed only in the passed
+   * state as a teaching debrief (never before/on failure — see render).
+   */
+  decoys?: { label: string; source: string; fp_explanation: string }[];
   onClose: () => void;
   onPassed: () => void;
 }
@@ -55,6 +61,7 @@ export function IncidentReportModal({
   realIndicators,
   attackTitle,
   attackMitreTechniques,
+  decoys = [],
   onClose,
   onPassed,
 }: Props) {
@@ -363,6 +370,39 @@ export function IncidentReportModal({
                   </div>
                 )}
               </div>
+
+              {/* Decoy debrief — only after a PASS. Recognising false positives is
+                  half of SOC work; these benign events looked suspicious this
+                  session, and this is the context that clears each one. Withheld
+                  on a failed report so it can't be used to deduce the real attack
+                  by elimination before a resubmit. */}
+              {passed && decoys.length > 0 && (
+                <div className="rounded border border-cyber-500/25 bg-cyber-500/5 px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-cyber-300 shrink-0" />
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-cyber-300">
+                      False Positives You Saw — Why They Were Benign
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Not every alarming log is an attack. These events looked suspicious but were
+                    legitimate — clearing them correctly is as important as catching the real intrusion.
+                  </p>
+                  <div className="space-y-1.5 pt-0.5">
+                    {decoys.map((d, i) => (
+                      <div key={i} className="rounded border border-border/30 bg-[#060b12] px-2.5 py-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="inline-flex items-center rounded border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-slate-300">
+                            {d.source.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-[10px] font-medium text-slate-200">{d.label}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed">{d.fp_explanation}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Action buttons */}
               <div className="space-y-2">
