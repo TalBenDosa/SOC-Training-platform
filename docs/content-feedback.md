@@ -63,6 +63,14 @@ Commits: `18caaef` → `086e07e` → `0bbd332` → `8b0c6f4`.
 - Migration **`0018_org_leaderboard.sql`**: a `SECURITY DEFINER` function `public.org_leaderboard()` returning safe columns only, hard-filtered to the caller's own org via `current_org()`. Deliberately **not** the view that caused the C1 cross-tenant leak (dropped in 0016).
 - `src/app/api/leaderboard/route.ts` runs it as the caller (user-context client); a cohort card on `/progress` appears only for enrolled classes (hidden for solo learners).
 - **Applied to production 2026-08-06** via the Supabase SQL editor. Verified: function present, `prosecdef = true`, granted to `authenticated` only (`anon`/`public` absent). **The leaderboard is live, not pending.**
+- **Confirmed live end-to-end:** viewed on the deployed app as a `Student` in the "Internal / Default" org — the card renders with both cohort members ranked (rank 1 highlighted as "you"), "Ranked by XP within your organisation."
+
+### XP-source alignment (follow-up, found during the leaderboard prod check)
+Verifying the leaderboard surfaced a mismatch: the `/progress` header showed **0 XP** while the leaderboard showed **85** for the same user. Root cause was a **hydrate race**, not two data sources — `remoteBackend.hydrate()` loads the server-authoritative `profiles.xp` into the local `soc_total_xp` cache but writes it directly (the `xp` column is client-revoked since migration 0008) and fired no event, so the header — which read `getTotalXp()` once on mount, before the async hydrate landed — stayed on the fresh-device `0`, while the leaderboard reads the server directly.
+- `progress.ts`: new `broadcastXpChanged()` re-announces the current total without changing it.
+- `ProgressProvider`: calls it right after `hydrate()` + `setStorageBackend`, so the synced server total reaches listeners.
+- `/progress`: the header now listens for `XP_CHANGED_EVENT` and re-reads (the Topbar rank badge already listened, so it aligns too).
+- **Verified live:** after the deploy landed, the header updated from `0` to **85 XP**, matching the leaderboard — same server-authoritative `profiles.xp` everywhere.
 
 ---
 
@@ -76,4 +84,4 @@ Commits: `18caaef` → `086e07e` → `0bbd332` → `8b0c6f4`.
 
 - Every commit passed `tsc --noEmit`, `node scripts/validate-log-fields.mjs`, and `next build` (135 pages). The final build took ~116 s (OneDrive filesystem), but clean.
 - `batch-04` and `batch-07` keep **local** copies of the task interfaces; `checkpoint?` was added to those local `ReadingTask` definitions so the new field typechecks there too.
-- Two flows were not driven live in a browser — the incident-report **passed** state and a fully-populated multi-student leaderboard — because both sit behind auth + (for the leaderboard) a real multi-seat cohort. The leaderboard **function** is verified directly in the DB, and the UI degrades quietly when no cohort exists.
+- The class leaderboard **and** the XP-alignment fix were both driven live in the deployed app (screenshots): the leaderboard card renders for a student in a 2-member cohort, and the header XP converged from `0` to the server total `85`. The only flow not exercised live is the incident-report **passed** state (needs a full graded submission); its render path is verified statically.
