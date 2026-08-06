@@ -73,6 +73,17 @@ Intelligence is not a one-time lookup. It is a continuous cycle:
 - **Feedback**: Consumers of intelligence tell producers whether it was useful — this improves future collection
 
 Think of it like a restaurant kitchen: ingredients (raw data) → prep cook (processing) → head chef (analysis) → waiter (dissemination) → customer feedback → chef adjusts the menu.`,
+      checkpoint: {
+        question: "According to the reading, which of the four CTI types is aimed at security engineers and detection teams, describing attacker TTPs step by step and mapping to MITRE ATT&CK?",
+        options: [
+          "Strategic Intelligence",
+          "Operational Intelligence",
+          "Tactical Intelligence",
+          "Technical Intelligence",
+        ],
+        answer: 2,
+        explanation: "Tactical Intelligence covers attacker TTPs (Tactics, Techniques, and Procedures) step by step, mapped directly to MITRE ATT&CK — exactly what security engineers need to write SIEM rules and EDR detections.",
+      },
     },
 
     // ── Reading 2: Threat Actors, APT Naming & CTI Platforms ────────────────
@@ -144,6 +155,17 @@ The same threat actor often has different names from different security companie
 - **TAXII** (Trusted Automated eXchange of Indicator Information): The protocol used to transfer STIX data between organisations — like HTTP is for web browsing, TAXII is for threat intel
 
 Together, STIX/TAXII enable automated, machine-readable threat intelligence sharing between platforms, so an IOC discovered by one organisation can be automatically imported into another organisation's SIEM within minutes.`,
+      checkpoint: {
+        question: "According to the reading, which nationality does CrowdStrike's 'BEAR' naming convention refer to (as in Fancy Bear or Cozy Bear)?",
+        options: [
+          "China",
+          "Russia",
+          "Iran",
+          "North Korea",
+        ],
+        answer: 1,
+        explanation: "CrowdStrike names Russian APT groups with 'BEAR' — Fancy Bear (APT28) and Cozy Bear (APT29) are both Russian threat actors.",
+      },
     },
 
     // ── Reading 3: CTI in SOC Operations ────────────────────────────────────
@@ -418,6 +440,17 @@ OSINT investigations typically target one or more of these categories:
 - **Social Media OSINT**: Public posts, accounts, connections, communities on Twitter/X, LinkedIn, GitHub, Reddit
 
 For SOC analysts, infrastructure OSINT is the most frequently used category — you are mostly investigating IPs, domains, and attacker server infrastructure.`,
+      checkpoint: {
+        question: "According to the reading, which OSINT category is the most frequently used by SOC analysts?",
+        options: [
+          "People OSINT",
+          "Infrastructure OSINT",
+          "Social Media OSINT",
+          "Geolocation OSINT",
+        ],
+        answer: 1,
+        explanation: "Infrastructure OSINT — IPs, domains, and attacker server infrastructure — is the category SOC analysts use most, since most alerts revolve around unfamiliar IPs and domains.",
+      },
     },
 
     // ── Reading 2: Key OSINT Tools ───────────────────────────────────────────
@@ -487,6 +520,17 @@ In Maltego, you start with one IOC (say, a malicious domain), run automated "tra
 **OSINT Framework (osintframework.com)**
 
 A curated, constantly updated directory of OSINT tools organised by category. When you need to find a specific tool (say, "how do I look up someone's username across platforms?"), osintframework.com is your starting point.`,
+      checkpoint: {
+        question: "According to the reading, which tool lets an analyst safely inspect a suspicious URL's page content and network activity in a sandboxed browser, without visiting it directly?",
+        options: [
+          "Shodan",
+          "WHOIS",
+          "URLScan.io",
+          "DNSDumpster",
+        ],
+        answer: 2,
+        explanation: "URLScan.io submits a URL to a sandboxed browser and captures screenshots, network requests, and DOM content — letting analysts see what a phishing page does without any risk to their own system.",
+      },
     },
 
     // ── Reading 3: Passive vs Active OSINT & OPSEC ───────────────────────────
@@ -791,6 +835,17 @@ A typical Incident Response team includes:
 - **System Owners**: Business teams responsible for affected systems who can confirm what "normal" looks like
 
 The **RACI matrix** (Responsible, Accountable, Consulted, Informed) defines who does what for every task in the IR playbook, so there is no confusion during a high-stress incident.`,
+      checkpoint: {
+        question: "According to the reading, what does the 'C' stand for in the SANS PICERL framework?",
+        options: [
+          "Communication",
+          "Containment",
+          "Correlation",
+          "Coordination",
+        ],
+        answer: 1,
+        explanation: "PICERL stands for Preparation, Identification, Containment, Eradication, Recovery, Lessons Learned. Containment is the 'stop the bleeding' phase — isolating infected systems before doing anything else.",
+      },
     },
 
     // ── Reading 2: Identification & Containment ──────────────────────────────
@@ -865,6 +920,17 @@ While technical teams are containing the incident, the communications lead must 
 - **Legal team**: Was personal data accessed? Are there regulatory notification obligations?
 - **Affected business units**: What systems are down and for how long
 - In some cases: **regulators**, **cyber insurance carrier**, **law enforcement**`,
+      checkpoint: {
+        question: "According to the reading, what is the critical rule about evidence preservation when responding to a compromised system?",
+        options: [
+          "Power off the machine immediately to stop the attack",
+          "Capture memory (RAM) before anything else, since powering off destroys volatile evidence",
+          "Wait for legal approval before touching the machine at all",
+          "Reimage the system immediately to restore service",
+        ],
+        answer: 1,
+        explanation: "Turning off the machine first destroys volatile RAM — running processes, open connections, and decryption keys. The correct order is: capture memory, then network state, then processes, and only then consider isolating or powering down.",
+      },
     },
 
     // ── Reading 3: Eradication, Recovery & Lessons Learned ───────────────────
@@ -1150,6 +1216,17 @@ Not all True Positives are equally urgent. Priority is determined by three facto
 **Priority = Severity × Asset Criticality × User Risk**
 
 A "medium" severity alert on a domain controller with a service account is higher priority than a "high" severity alert on a decommissioned test server. Context is everything.`,
+      checkpoint: {
+        question: "According to the reading, what is a 'Benign True Positive' (BTP)?",
+        options: [
+          "An alert that fired incorrectly due to a broken detection rule",
+          "An alert that fired correctly on real activity that is legitimate and authorised, like an IT admin's approved port scan",
+          "An alert where there isn't enough evidence to make a determination",
+          "An alert that is always escalated straight to Tier-2",
+        ],
+        answer: 1,
+        explanation: "A Benign True Positive means the rule worked correctly and the event really happened as described — but the activity itself was authorised and legitimate, like an IT admin's approved inventory scan.",
+      },
     },
 
     // ── Reading 2: The 5-Step Triage Methodology ─────────────────────────────
@@ -1221,6 +1298,17 @@ After steps 1-4, you should have enough information to make a determination:
 **Escalate as Indeterminate**: You need more data (additional logs, forensics, threat hunting). Document what you have and what additional investigation is needed.
 
 Never make a determination without documenting your reasoning. If you close an alert and it later turns out to be an attack, you need to be able to show your logic.`,
+      checkpoint: {
+        question: "According to the 5-step triage methodology in the reading, which step involves checking whether a source IP appears in threat intel feeds and what an affected user's role is?",
+        options: [
+          "Step 1 — Understand what the rule triggered on",
+          "Step 2 — Examine the evidence (raw log)",
+          "Step 3 — Enrich with context",
+          "Step 5 — Make a decision",
+        ],
+        answer: 2,
+        explanation: "Step 3 (Enrich with Context) is where an analyst adds threat intel lookups, geolocation, host role, and user role to the raw log fields gathered in Step 2.",
+      },
     },
 
     // ── Reading 3: False Positive Patterns, Escalation, and Documentation ────

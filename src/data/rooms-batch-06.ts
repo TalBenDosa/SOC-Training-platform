@@ -8,7 +8,7 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
-import type { Room, ReadingTask, QuestionTask, LogAnalysisTask, FlagTask } from "@/data/rooms";
+import type { Room, ReadingTask, QuestionTask, LogAnalysisTask, FlagTask, AnalystChoiceTask } from "@/data/rooms";
 
 // ---------------------------------------------------------------------------
 // Room 1 — Exchange Online Security
@@ -1439,6 +1439,64 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       explanation: "The query filters for `powershell.exe` processes where the command line **contains `-Enc`** (short for `-EncodedCommand`). The `-EncodedCommand` flag accepts a Base64-encoded string as the command to execute. Attackers use this to **obfuscate their malicious PowerShell** — the raw command line shows only `powershell.exe -Enc JABjAG...` rather than the actual code. Security tools that only look for obvious strings like `Invoke-Mimikatz` or `DownloadString` are bypassed. This is one of the most valuable and productive hunting queries for detecting post-exploitation PowerShell activity.",
       xp: 35,
     } satisfies QuestionTask,
+
+    // ── Analyst Choice: risky sign-in + new OAuth app consent ────────────────
+    {
+      type: "analyst_choice",
+      id: "def-xdr-ac1",
+      heading: "Verdict: High-Risk Sign-In Followed by a New OAuth App Consent",
+      scenario:
+        "Defender XDR groups three signals into one incident at 04:47 AM: (1) Entra ID Identity Protection flags a High-risk sign-in for the CFO's account (m.reyes@corp.com) that nonetheless succeeded, including MFA, from an IP address never associated with this account before; (2) two minutes later the same account grants OAuth consent to a newly-registered third-party application requesting Mail.Read and Mail.ReadWrite permissions; (3) Defender for Cloud Apps flags the application as an unverified publisher, first seen today across the whole tenant. Review the Identity Protection sign-in record below and render your verdict.",
+      event: {
+        id: "def-xdr-ac1-evt-001",
+        ts: "2026-02-11T04:47:03Z",
+        source: "o365",
+        vendor: "Microsoft Entra ID Identity Protection",
+        event_type: "auth_success",
+        severity: "high",
+        user_email: "m.reyes@corp.com",
+        description:
+          "High-risk sign-in succeeded for m.reyes@corp.com from a previously unseen IP address; the MFA push notification was approved 4 seconds after being sent",
+        mitre_technique: "T1078.004",
+        mitre_tactic: "Initial Access",
+        authentication: {
+          method: "OAuth2",
+          mfa_type: "push",
+          result: "Success",
+        },
+        raw: {
+          "data.office365.Operation": "UserLoggedIn",
+          "data.office365.UserId": "m.reyes@corp.com",
+          "data.office365.ActorIpAddress": "91.214.124.60",
+          "data.office365.ResultStatus": "Succeeded",
+          "data.office365.Workload": "AzureActiveDirectory",
+          "data.office365.AzureActiveDirectoryEventType": 1,
+          "GeoLocation.country_name": "Romania",
+          "GeoLocation.city_name": "Cluj-Napoca",
+          "data.office365.ExtendedProperties": [
+            { Name: "RiskLevel", Value: "High" },
+            { Name: "RiskDetail", Value: "unfamiliarFeatures" },
+            { Name: "UserAuthenticationMethod", Value: "16457" },
+            { Name: "MfaResponseLatencySeconds", Value: "4" },
+            { Name: "RequestType", Value: "OAuth2:Authorize" },
+          ],
+          "data.office365.DeviceProperties": [
+            { Name: "OS", Value: "Windows 10" },
+            { Name: "IsCompliant", Value: "false" },
+            { Name: "TrustType", Value: "Unknown" },
+          ],
+          "rule.description": "Azure AD Identity Protection: High risk sign-in succeeded",
+          "rule.level": "12",
+          "rule.groups": ["identity", "azuread", "identity-protection"],
+        },
+      } satisfies TelemetryEvent,
+      correct_verdict: "true_positive",
+      explanation:
+        "Individually, a High RiskLevel from Identity Protection is a probabilistic signal, not proof of compromise — legitimate travel or a new device can also trigger it. What removes the ambiguity is the combination: the sign-in comes from an IP and country this account has never used, the device is unmanaged and non-compliant (IsCompliant: false, TrustType: Unknown), the MFA push was approved just 4 seconds after being sent — far faster than a user actually reading an unfamiliar-location prompt, and consistent with MFA fatigue or an attacker simply tapping 'Approve' on a stolen device pairing — and, most decisively, that same account granted OAuth consent to a brand-new, unverified application requesting Mail.Read and Mail.ReadWrite within two minutes. This sequence is the well-documented 'illicit consent grant' attack: once the attacker has a valid OAuth token for the mailbox, it keeps working even after a password reset, because tokens are independent of the user's password. Correct response: revoke the application's consent and any refresh tokens, force a password reset and MFA re-registration for m.reyes, and review the mailbox for forwarding rules or additional OAuth grants.",
+      fp_trap:
+        "Treating 'RiskLevel: High' as automatically meaning 'attack' would generate constant false alarms, since unfamiliarFeatures fires on routine events like a new laptop or a business trip. The trap runs the other way here, too: it would be easy to see 'MFA satisfied' and assume the sign-in must be legitimate, since MFA is supposed to stop account takeover. But MFA only proves the account holder's device approved a prompt — it says nothing about whether that approval was a considered decision or a fatigued/rushed tap, which is exactly what the 4-second latency indicates. It is the full chain — unfamiliar location, non-compliant device, suspiciously fast MFA approval, and an unverified app requesting mailbox read/write two minutes later — that turns an ambiguous risk score into a confirmed compromise.",
+      xp: 30,
+    } satisfies AnalystChoiceTask,
 
   ],
 };

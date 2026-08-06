@@ -87,6 +87,17 @@ While IP addresses are logical (they can be reassigned), a **MAC address** (Medi
 MAC addresses are used for Layer 2 (local network) communication. When your laptop sends data to your home router, it uses the router's MAC address. Routers use IP addresses to get data across the internet, then MAC addresses for the final "last hop" delivery.
 
 Attackers sometimes **spoof** (fake) their MAC address to bypass access controls — a technique called MAC spoofing, relevant to NAC (Network Access Control) systems.`,
+        checkpoint: {
+          question: "According to the reading, which private IP range is reserved for large enterprise networks (Class A private)?",
+          options: [
+            "10.0.0.0 – 10.255.255.255",
+            "172.16.0.0 – 172.31.255.255",
+            "192.168.0.0 – 192.168.255.255",
+            "169.254.0.0 – 169.254.255.255",
+          ],
+          answer: 0,
+          explanation: "The 10.0.0.0 – 10.255.255.255 range is the Class A private range, typically used by large enterprise networks.",
+        },
       },
       {
         type: "reading" as const,
@@ -157,6 +168,17 @@ Attackers love to hide malicious traffic by using unexpected ports. For example:
 - An attacker using RDP (port 3389) from the internet to an internal machine is a huge red flag
 
 When you see a connection log, always check: is this port expected for this type of traffic? Is this the right protocol for this port? Mismatches are suspicious.`,
+        checkpoint: {
+          question: "According to the reading, what are the three steps of the TCP three-way handshake, in order?",
+          options: [
+            "ACK, SYN, SYN-ACK",
+            "SYN, SYN-ACK, ACK",
+            "SYN-ACK, SYN, ACK",
+            "SYN, ACK, SYN-ACK",
+          ],
+          answer: 1,
+          explanation: "The handshake is SYN (client requests to connect), SYN-ACK (server acknowledges and agrees), then ACK (client confirms) — only then does data start flowing.",
+        },
         diagramCaption: "TCP three-way handshake — and what a SYN flood breaks",
         diagram: `sequenceDiagram
     participant C as Client
@@ -455,6 +477,17 @@ Beyond just the IP address, DHCP tells your device:
 **DHCP attack — Rogue DHCP Server:** An attacker connects a device to your network and runs a DHCP server faster than yours. When your laptop asks for network configuration, the attacker's server answers first and provides a fake gateway IP — their laptop. Now all your network traffic flows through the attacker's device before going anywhere. This is called a **man-in-the-middle attack via DHCP poisoning**.
 
 Detection: DHCP servers should only appear on specific authorized devices. If your monitoring shows DHCP responses coming from an unexpected IP or MAC address, that's a critical alert.`,
+        checkpoint: {
+          question: "According to the reading, what does a DNS 'MX' record specify?",
+          options: [
+            "An alias from one domain to another",
+            "The mail server(s) that handle email for a domain",
+            "The reverse lookup from an IP address to a domain name",
+            "The IPv6 address of a domain",
+          ],
+          answer: 1,
+          explanation: "An MX (Mail eXchange) record tells other mail servers which server handles email for a given domain.",
+        },
       },
       {
         type: "reading" as const,
@@ -528,6 +561,17 @@ ICMP has no ports — it's at Layer 3, directly on top of IP. It's often allowed
 - **ICMP tunneling:** Data can be encoded inside ICMP echo packets to create a covert communication channel that bypasses firewalls
 - **Ping flood:** Overwhelming a target with ICMP requests (old-school DDoS)
 - **ICMP redirect attacks:** Forged ICMP redirect messages can be used to manipulate routing tables`,
+        checkpoint: {
+          question: "According to the reading, which port does RDP (Remote Desktop Protocol) use?",
+          options: [
+            "Port 22",
+            "Port 445",
+            "Port 3389",
+            "Port 8080",
+          ],
+          answer: 2,
+          explanation: "RDP runs on port 3389 and is one of the top entry points for ransomware operators when exposed to the internet.",
+        },
       },
       {
         type: "reading" as const,
@@ -812,6 +856,17 @@ Rules are evaluated **top to bottom** and the first matching rule wins. A typica
 4. DENY all from any to any (default deny everything else)
 
 The order matters. Rule 3 comes before Rule 4 explicitly denies SSH — without Rule 3, SSH would also be caught by Rule 4, but being explicit is better practice.`,
+        checkpoint: {
+          question: "According to the reading, what is the key limitation of a Generation 1 packet-filtering firewall?",
+          options: [
+            "It cannot process TCP traffic at all",
+            "It is stateless — it cannot tell whether a packet belongs to an already-established connection",
+            "It requires an NGFW license to operate",
+            "It can only be deployed in the cloud",
+          ],
+          answer: 1,
+          explanation: "Packet-filtering firewalls examine each packet in isolation with no memory of prior packets, so a crafted packet with the 'right' flags can slip through as if it were part of a legitimate session.",
+        },
       },
       {
         type: "reading" as const,
@@ -895,6 +950,17 @@ A regular network firewall operates at Layers 3-4 (IP/port). A **WAF** (Web Appl
 - WAF: "Is this HTTP request safe? Does it contain SQL injection? XSS? Suspicious patterns?"
 
 WAFs sit in front of web applications — either inline (blocking mode) or out-of-band (detection mode). Cloud WAFs like AWS WAF, Cloudflare WAF, and Azure Application Gateway WAF are common in modern architectures.`,
+        checkpoint: {
+          question: "According to the reading, what is the key difference between an IDS and an IPS?",
+          options: [
+            "An IDS blocks traffic while an IPS only alerts",
+            "An IDS passively detects and alerts; an IPS sits inline and actively blocks malicious traffic",
+            "IDS and IPS are two names for the exact same technology",
+            "An IDS only works on encrypted HTTPS traffic",
+          ],
+          answer: 1,
+          explanation: "IDS is the 'note-taking guard' — it monitors and alerts but takes no action. IPS sits inline in the traffic path and can actively block malicious traffic in real time.",
+        },
       },
       {
         type: "reading" as const,
@@ -1196,6 +1262,17 @@ Before Windows Vista, most users ran as full administrators all the time — ins
 Even if you're logged in as an administrator, your normal processes run with standard user privileges. When something needs admin rights, UAC prompts you to confirm (or requests credentials if you're a standard user).
 
 **UAC Bypass attacks:** A significant portion of malware research focuses on bypassing UAC without triggering the prompt. Common techniques include DLL hijacking, using trusted Windows processes to spawn elevated processes, and various COM object (Component Object Model) abuses. When you see a process gaining elevated privileges without a UAC prompt in your logs, that's a UAC bypass — a serious finding.`,
+        checkpoint: {
+          question: "According to the reading, which Windows process manages authentication and is the primary target of credential-dumping tools like Mimikatz?",
+          options: [
+            "explorer.exe",
+            "svchost.exe",
+            "lsass.exe",
+            "winlogon.exe",
+          ],
+          answer: 2,
+          explanation: "lsass.exe (Local Security Authority Subsystem Service) manages authentication and stores credential data in memory, making it the primary target for tools like Mimikatz.",
+        },
       },
       {
         type: "reading" as const,
@@ -1282,6 +1359,17 @@ Each service has:
 - Running from %TEMP%, %APPDATA%, or other non-standard locations
 - No description (legitimate services almost always have descriptions)
 - Recently created (creation timestamp is important)`,
+        checkpoint: {
+          question: "According to the reading, which Registry hive can a standard user write to WITHOUT administrator rights to establish persistence?",
+          options: [
+            "HKEY_LOCAL_MACHINE (HKLM)",
+            "HKEY_CURRENT_USER (HKCU)",
+            "HKEY_CLASSES_ROOT (HKCR)",
+            "HKEY_CURRENT_CONFIG (HKCC)",
+          ],
+          answer: 1,
+          explanation: "HKCU applies only to the currently logged-in user and requires no admin rights to modify — which is exactly why user-privilege malware favors it for persistence.",
+        },
       },
       {
         type: "reading" as const,

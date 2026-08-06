@@ -154,6 +154,17 @@ const protocolsMasterclass = {
         "fc00::/7            Unique local (like RFC1918)\n" +
         "2001:db8::/32       Documentation examples only\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading, how many usable host addresses does a /24 subnet provide?",
+        options: [
+          "256",
+          "254",
+          "65,534",
+          "126",
+        ],
+        answer: 1,
+        explanation: "A /24 subnet has 256 total addresses, but 254 are usable — the first address is reserved as the network address and the last as the broadcast address.",
+      },
     },
     // ── Reading 3 ─────────────────────────────────────────────────────────────
     {
@@ -278,6 +289,17 @@ const protocolsMasterclass = {
         "                 session hijack,   DNS amplification,\n" +
         "                 RST injection     DNS tunneling\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading, how large is a minimal UDP header, compared to TCP's minimum 20 bytes?",
+        options: [
+          "4 bytes",
+          "8 bytes",
+          "16 bytes",
+          "20 bytes — identical to TCP",
+        ],
+        answer: 1,
+        explanation: "The UDP header is only 8 bytes (source port, destination port, length, checksum) — its extreme minimalism is why UDP can process traffic much faster than TCP.",
+      },
     },
     // ── Reading 5 ─────────────────────────────────────────────────────────────
     {
@@ -420,6 +442,17 @@ const protocolsMasterclass = {
         "Many 403s from single IP         Unauthorized access attempts\n" +
         "POST to /cmd.php                 Webshell interaction\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading, which HTTP status code means the client is authenticated but not permitted to access the resource?",
+        options: [
+          "401 Unauthorized",
+          "403 Forbidden",
+          "404 Not Found",
+          "429 Too Many Requests",
+        ],
+        answer: 1,
+        explanation: "403 Forbidden means the server recognised the request but the client does not have permission — different from 401 (authentication required at all).",
+      },
     },
     // ── Reading 7 ─────────────────────────────────────────────────────────────
     {
@@ -554,6 +587,17 @@ const protocolsMasterclass = {
         "11    0     TTL Exceeded          Traceroute mapping\n" +
         "5     1     Host Redirect         Route poisoning attack\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading, what does an ARP Poisoning attack involve?",
+        options: [
+          "Flooding a target with millions of SYN packets to exhaust resources",
+          "Sending unsolicited ARP replies claiming the attacker's MAC address is the default gateway, so victim traffic routes through the attacker",
+          "Encoding stolen data as subdomain labels in DNS queries",
+          "Exploiting a buffer overflow in SMBv1",
+        ],
+        answer: 1,
+        explanation: "ARP Poisoning sends gratuitous ARP replies claiming the gateway's IP maps to the attacker's MAC address. Victims update their ARP cache and send traffic to the attacker, creating a man-in-the-middle position.",
+      },
     },
     // ── Reading 9 ─────────────────────────────────────────────────────────────
     {
@@ -670,6 +714,17 @@ const protocolsMasterclass = {
         "  14:03:00 POST /update  443 200 256B  <- check-in\n" +
         "  [exactly 60 seconds between each connection]\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading, which port is the default listener port for Metasploit's Meterpreter shells — traffic to it is almost always malicious?",
+        options: [
+          "Port 445",
+          "Port 3389",
+          "Port 4444",
+          "Port 8080",
+        ],
+        answer: 2,
+        explanation: "Port 4444 is Metasploit's default Meterpreter listener port. Legitimate business traffic essentially never uses it, so any connection to or from it is a strong indicator of compromise.",
+      },
     },
     // ── Question 1 ────────────────────────────────────────────────────────────
     {

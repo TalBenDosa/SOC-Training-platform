@@ -61,6 +61,17 @@ Every reactive investigation should follow a disciplined six-phase lifecycle. Sk
 **Think Like an Attacker**
 
 When you analyze evidence, constantly ask yourself: *if I were the attacker, why would I have done this?* Attackers have goals (steal data, move laterally, establish persistence), and their actions follow a logical sequence. When you understand attacker goals, you can predict what evidence to look for next. If you see a reconnaissance scan, look for what port they found open. If you see a successful login from an unusual IP, look for what they did once they got in.`,
+      checkpoint: {
+        question: "According to the reading, which phase of the six-phase investigation lifecycle involves forming a verdict of true positive, false positive, or inconclusive?",
+        options: [
+          "Phase 2 — Scope",
+          "Phase 3 — Collect",
+          "Phase 5 — Conclude",
+          "Phase 6 — Document",
+        ],
+        answer: 2,
+        explanation: "Phase 5 (Conclude) is where the analyst forms a verdict — true positive, false positive, or inconclusive — after analyzing the evidence gathered in earlier phases.",
+      },
     },
 
     // ── Reading 2: Timeline Analysis & Pivot Points ───────────────────────
@@ -106,6 +117,17 @@ The four most powerful pivot points are:
 5. Mark events with their source (EDR, SIEM, firewall, AD) so you know the evidence chain.
 
 Tools that help: Microsoft Sentinel's Investigation Graph (automatically draws entity relationships), MDE (Microsoft Defender for Endpoint) Timeline tab (per-device chronological view), and even a shared spreadsheet or Google Sheet works perfectly for smaller investigations.`,
+      checkpoint: {
+        question: "According to the reading, which time zone should an analyst normalize all timestamps to before building an investigation timeline?",
+        options: [
+          "The endpoint's local system time",
+          "UTC",
+          "The SIEM server's local timezone",
+          "Whichever timezone the analyst is currently in",
+        ],
+        answer: 1,
+        explanation: "The reading's rule is: always work in UTC. Mixing local timezones (Eastern Time endpoint, Pacific Time mail server) causes events to appear in the wrong order.",
+      },
     },
 
     // ── Reading 3: SIEM Workflow & Case Management ────────────────────────
@@ -368,6 +390,17 @@ The Hunting Maturity Model (HMM) defines four levels of sophistication:
 **Level 3 — Innovative (analytics-driven).** The team develops its own statistical models and machine learning to detect anomalies unique to their environment. They generate new hunting procedures that may not exist anywhere else in the industry.
 
 Most organisations should aim for Level 2. Level 3 requires dedicated data science resources. Level 0 is a significant risk posture. **Getting from Level 1 to Level 2 — from IOC-hunting to TTP-hunting — is the most important leap a SOC team can make.**`,
+      checkpoint: {
+        question: "According to the Hunting Maturity Model in the reading, which level hunts for attacker TECHNIQUES (e.g., any process accessing LSASS memory) rather than known-bad indicators like IPs or hashes?",
+        options: [
+          "Level 0 — Initial (fully reactive)",
+          "Level 1 — Minimal (IOC-based)",
+          "Level 2 — Procedural (TTP-based)",
+          "Level 3 — Innovative (analytics-driven)",
+        ],
+        answer: 2,
+        explanation: "Level 2 (Procedural) hunts for attacker behaviours mapped to MITRE ATT&CK techniques rather than specific IOCs — this works even when attackers rotate their tools, since the underlying technique stays the same.",
+      },
     },
 
     // ── Reading 2: Hypothesis-Driven Hunting ──────────────────────────────
@@ -414,6 +447,17 @@ Notice that each hypothesis is **specific, testable, and falsifiable** — you c
 7. **Convert** confirmed detections into new SIEM rules so the next occurrence is caught automatically.
 
 This last step is crucial: threat hunting improves your detection capability over time. Every confirmed hunt finding should produce a new detection rule.`,
+      checkpoint: {
+        question: "According to the reading, what is the crucial last step of the Hunt Cycle after a finding is confirmed?",
+        options: [
+          "Delete the query so it cannot be reused",
+          "Convert the confirmed finding into a new SIEM rule so the next occurrence is caught automatically",
+          "Escalate directly to law enforcement",
+          "Wait 90 days before taking any further action",
+        ],
+        answer: 1,
+        explanation: "The Hunt Cycle's final step converts a confirmed hunt finding into a new detection rule — this is how threat hunting improves the SOC's automated detection capability over time.",
+      },
     },
 
     // ── Reading 3: Hunting Specific TTPs & Tools ──────────────────────────
@@ -679,6 +723,17 @@ Chain of custody is the documented history of evidence: who collected it, when, 
 - If the incident does lead to legal action, proper chain of custody means the evidence is admissible
 
 A chain of custody document records: evidence item (e.g., "RAM dump from HOST-FINANCE-01"), date/time collected, analyst name, collection method, hash values (MD5/SHA256 of the collected image), and any subsequent access (who accessed it and why).`,
+      checkpoint: {
+        question: "According to the Order of Volatility in the reading, which evidence source should be collected first among these, since it disappears the instant the machine is powered off?",
+        options: [
+          "Disk (storage)",
+          "RAM / main memory",
+          "Log files on disk",
+          "Backup media",
+        ],
+        answer: 1,
+        explanation: "RAM is lost immediately when the machine is powered off and may contain running processes, encryption keys, and fileless malware — making it the most valuable and time-sensitive source after CPU registers/cache (which are essentially uncollectable).",
+      },
     },
 
     // ── Reading 2: Memory Forensics ───────────────────────────────────────
@@ -729,6 +784,17 @@ How to spot a fake svchost.exe in memory analysis:
 - Parent process should be services.exe (PID often 804). If the parent is explorer.exe, cmd.exe, or PID 1 (System), it is suspicious.
 - Path should be C:\\Windows\\System32\\svchost.exe. If it is running from AppData, Temp, or a user directory, it is malicious.
 - Legitimate svchost.exe always has a "-k" argument (e.g., svchost.exe -k netsvcs). No argument = suspicious.`,
+      checkpoint: {
+        question: "According to the reading, which Volatility 3 plugin identifies memory regions that look like injected code (a sign of process injection)?",
+        options: [
+          "windows.pslist",
+          "windows.netscan",
+          "windows.malfind",
+          "windows.dlllist",
+        ],
+        answer: 2,
+        explanation: "windows.malfind identifies memory regions marked as executable but not backed by a file on disk — a classic sign of process injection or reflective DLL loading.",
+      },
     },
 
     // ── Reading 3: Disk & Timeline Forensics ──────────────────────────────
@@ -981,6 +1047,17 @@ Every email contains **headers** — metadata fields that document the email's o
 **X-Mailer** — the mail client software used to send the email. Many marketing tools, phishing kits, and legitimate clients populate this field differently.
 
 **Tools for header analysis:** MXToolbox Header Analyzer (mxtoolbox.com/EmailHeaders.aspx) and Google Admin Toolbox Messageheader (toolbox.googleapps.com/apps/messageheader/) both parse raw headers into a readable format. Paste the full raw headers in, and they highlight delays, path anomalies, and authentication failures.`,
+      checkpoint: {
+        question: "According to the reading, in which order should an analyst read an email's 'Received' headers to trace its path from origin to inbox?",
+        options: [
+          "Top to bottom",
+          "Bottom to top",
+          "Alphabetically by server name",
+          "It does not matter — they are all identical",
+        ],
+        answer: 1,
+        explanation: "Received headers are read bottom-to-top: the bottom-most header is where the email originated, and each header above it represents a later hop in the relay chain.",
+      },
     },
 
     // ── Reading 2: SPF, DKIM, and DMARC ──────────────────────────────────
@@ -1046,6 +1123,17 @@ If a phishing email claims to be from ceo@corp.com:
 3. DMARC sees both checks failed and applies the policy. If corp.com has p=reject: **email blocked**.
 
 If corp.com has no DMARC policy, the email still reaches the inbox even with SPF fail and no DKIM. This is why publishing a DMARC record (even starting with p=none to observe before enforcing) is a fundamental email security control.`,
+      checkpoint: {
+        question: "According to the reading, which DMARC policy value tells receiving mail servers to block failing email entirely and not deliver it?",
+        options: [
+          "p=none",
+          "p=quarantine",
+          "p=reject",
+          "p=monitor",
+        ],
+        answer: 2,
+        explanation: "p=reject blocks failing email entirely. p=none only monitors and reports without acting, and p=quarantine moves failing email to spam/junk rather than blocking it outright.",
+      },
     },
 
     // ── Reading 3: Email Attack Types & Analysis Workflow ────────────────

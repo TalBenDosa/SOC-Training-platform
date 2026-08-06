@@ -250,6 +250,71 @@ But EDR's blind spot is not about behaviour — it's about coverage. An EDR agen
     },
 
     // ------------------------------------------------------------------
+    // Reading 2b — vCenter/ESXi as its own log source, and T1489
+    // ------------------------------------------------------------------
+    {
+      type: "reading",
+      id: "secprod-r2b",
+      heading: "If EDR Can't See the Hypervisor, What Can? vCenter and ESXi Logs",
+      content: `Reading 2 and secprod-q1 established the gap: no EDR agent has ever run on an ESXi hypervisor, so a ransomware encryptor executing there produces zero endpoint detections. That gap is real and permanent — but it does not mean the SOC is blind. It means the SOC has to look somewhere else: at the hypervisor's own management and audit logs, which are a completely different log source from anything discussed so far.
+
+ESXi is VMware's hypervisor — the thin layer of software that runs directly on physical server hardware and hosts multiple virtual machines (VMs) on top of it, each unaware the others exist. Think of an apartment building: EDR watches what happens inside each individual apartment (each VM's guest operating system), but it has no view of the building's shared utility room, elevator machinery or front door — that shared infrastructure is the hypervisor layer, and vCenter is the building's management office. vCenter is VMware's centralized management server: a separate system that administrators log into to manage many ESXi hosts and their VMs at once — create/delete VMs, assign permissions, start/stop hosts — rather than logging into each hypervisor individually.
+
+Because neither one is a Windows or Linux endpoint, neither produces Sysmon or EDR telemetry. Instead, each has its own native audit trail, and a SOC that ingests these into the SIEM gets visibility no endpoint agent could ever provide:
+
+- **vpxd / vCenter events** (ingested as fields like vsphere.event.* in many SIEMs) — a centralized log of every action taken through vCenter: VM power operations, permission changes, host connections. A key event type here is PermissionAddedEvent, logged whenever someone grants a role to a user or group on an object (a VM, a folder, a whole datacenter). vCenter's permission model is RBAC — Role-Based Access Control, the same idea as in Windows or a cloud console: a small, defined set of roles (like "Virtual Machine Power User" or "Administrator") each bundling a fixed set of privileges, assigned to specific users on specific objects. A PermissionAddedEvent granting the Administrator role at the datacenter level, issued by an account that has never touched vCenter before, is exactly the kind of privilege-escalation signal that has no endpoint equivalent — there is no "process" and no "host" for an EDR agent to watch.
+- **ESXi host audit logs** (fields like esx.audit.* in many SIEMs, backed on the host itself by files such as /var/log/hostd.log, /var/log/vobd.log and /var/log/auth.log) — the hypervisor's own record of what happened on that specific host: authentication attempts, configuration changes, and — critically — SSH access. ESXi ships with SSH disabled by default specifically because interactive shell access to a hypervisor is powerful and rarely needed for routine operations; VMware's own hardening guidance treats an enabled SSH daemon as a condition to actively monitor, not a normal running state. When SSH is turned on, ESXi logs it as an auditable event (represented as esx.audit.ssh.enabled in SIEM-normalized data) — and because it defaults off, any occurrence of this event is worth an analyst's attention on its own, before anything else in the log even looks suspicious.
+
+This is also where the room's second running theme lands precisely: the "prevent vs. detect" framing from Reading 1 applies here too, but with a twist. vCenter and ESXi logs are almost always detect-only from the SOC's perspective — the SIEM receives them after the fact, the same as an IDS reading a copy of traffic — even though the actions they describe (powering off a VM, granting a permission) happened inline, directly, on infrastructure with no intermediary to block them. There is usually no equivalent of a WAF or an IPS sitting in front of vCenter's management plane. That absence is exactly why unusual vCenter/ESXi activity — permission grants, SSH being enabled, VMs being individually powered off outside a maintenance window — deserves faster escalation than a comparable finding on an endpoint that has EDR standing guard.
+
+One more MITRE ATT&CK distinction belongs here, because ESXi ransomware operators consistently perform it as a separate step before the encryption itself. The technique commonly discussed for this room's ransomware scenario, T1486 — Data Encrypted for Impact, covers the encryptor actually scrambling the datastore's files. But before an operator runs that encryptor, a running VM normally holds its virtual disk files open, which can prevent them from being encrypted cleanly. So the standard playbook is to first force every VM off — a separate technique, T1489 — Service Stop, which covers an attacker deliberately stopping a service or process to disable a defense or enable a further impact. On ESXi this is usually done with the host's own built-in command-line tool, vim-cmd, run over the SSH access enabled in the step above: an attacker lists every running VM and powers each one off in sequence, then runs the encryptor against the now-unlocked datastore. Recognizing T1489 as its own, earlier step matters operationally — a wave of vim-cmd vmsvc/power.off calls or a burst of VM power-off events in vCenter is a detectable warning several minutes before T1486's encryption impact lands, and it is the kind of signal that only vCenter/ESXi logs — not EDR — will ever surface.
+
+**Compensating control, not a fix.** None of this makes the hypervisor blind spot from Reading 2 go away — it means the SOC compensates for a coverage gap at one layer (endpoint agents) by adding visibility from a completely different layer (hypervisor and management-plane audit logs). The lesson generalizes: whenever you learn that a product cannot see a particular layer, the next question is always "what native logging does that layer produce on its own, and is the SOC ingesting it?"`,
+      codeExample:
+        "ESXi HOST -- SSH ENABLED (esx.audit.ssh.enabled)\n" +
+        "===========================================================\n" +
+        "Timestamp:      2026-05-02T01:47:12Z\n" +
+        "Host:           esxi-host-07.meridian.local\n" +
+        "Event:          esx.audit.ssh.enabled\n" +
+        "TriggeredBy:    root (local ESXi account, not a named admin)\n" +
+        "Message:        SSH access has been enabled for the host\n" +
+        "===========================================================\n\n" +
+        "ESXi HOST -- ATTACKER SHELL SESSION (vim-cmd, over the SSH above)\n" +
+        "===========================================================\n" +
+        "$ vim-cmd vmsvc/getallvms\n" +
+        "Vmid  Name              File                          Guest OS\n" +
+        "12    FS-CORP-01        [datastore1] FS-CORP-01/...   windows2019srv_64\n" +
+        "18    APP-SRV-04        [datastore1] APP-SRV-04/...   windows2019srv_64\n" +
+        "23    DB-SRV-02         [datastore1] DB-SRV-02/...    windows2019srv_64\n" +
+        "$ vim-cmd vmsvc/power.off 12        <- MITRE T1489: Service Stop\n" +
+        "$ vim-cmd vmsvc/power.off 18        <- MITRE T1489: Service Stop\n" +
+        "$ vim-cmd vmsvc/power.off 23        <- MITRE T1489: Service Stop\n" +
+        "===========================================================\n\n" +
+        "VCENTER -- PermissionAddedEvent (vsphere.event.*)\n" +
+        "===========================================================\n" +
+        "Timestamp:       2026-05-02T01:12:04Z\n" +
+        "EventType:       PermissionAddedEvent\n" +
+        "Target Object:   Datacenter: Meridian-Primary\n" +
+        "Role Assigned:   Administrator\n" +
+        "Assigned To:     sysmgr_svc\n" +
+        "Assigned By:     sysmgr_svc\n" +
+        "===========================================================",
+      checkpoint: {
+        question:
+          "Why does an analyst treat an esx.audit.ssh.enabled event as inherently worth investigating, even before checking who triggered it or what happened next?",
+        options: [
+          "Because SSH is always malicious on any server, hypervisor or not",
+          "Because ESXi ships with SSH disabled by default, so any occurrence of the service being turned on is a deviation from the normal running state, not routine activity",
+          "Because vCenter automatically blocks SSH connections, so a logged enablement means the block failed",
+          "Because SSH events are only logged when EDR detects a related process on a guest VM",
+        ],
+        answer: 1,
+        explanation:
+          "SSH is off by default on ESXi precisely because interactive shell access to a hypervisor is powerful and not needed for routine management (which normally goes through vCenter). Because the default state is 'off,' any logged transition to 'on' is itself a deviation worth attention — this is a baseline argument, not a claim that SSH is universally malicious. EDR and vCenter blocking are unrelated: ESXi has no EDR agent (that is the whole premise of this reading), and vCenter does not act as an inline gatekeeper for the ESXi SSH service.",
+      },
+    },
+
+    // ------------------------------------------------------------------
     // Reading 3 — NGFW
     // ------------------------------------------------------------------
     {

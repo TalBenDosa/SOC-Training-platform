@@ -98,6 +98,17 @@ The professional workflow for creating a new detection rule:
 6. **Deploy** — Enable the rule in the SIEM.
 7. **Monitor** — Watch the first alerts. Are they real threats or noise?
 8. **Tune** — Adjust the threshold, add exceptions for known-good sources.`,
+      checkpoint: {
+        question: "According to the reading, which detection logic type looks for a specific event A followed by event B within a time window (e.g., failed logins followed by a success)?",
+        options: [
+          "Threshold Detection",
+          "Sequence Detection",
+          "Correlation Detection",
+          "Anomaly Detection",
+        ],
+        answer: 1,
+        explanation: "Sequence (chained) detection watches for one event followed by another within a time window — like failed logins followed by a successful one, suggesting credential stuffing.",
+      },
     },
 
     // ── Reading 2: Sigma Rules ─────────────────────────────────────────────
@@ -192,6 +203,17 @@ Once you have a Sigma rule, tools like \`sigma-cli\` can convert it:
 \`sigma convert -t sentinel sigma_rule.yml\` → Microsoft Sentinel KQL query
 
 This means you can download hundreds of community Sigma rules and deploy them to your SIEM in minutes, instead of rewriting them from scratch.`,
+      checkpoint: {
+        question: "According to the reading, what file format is a Sigma rule written in?",
+        options: [
+          "JSON",
+          "YAML",
+          "XML",
+          "CSV",
+        ],
+        answer: 1,
+        explanation: "Sigma rules are written once in YAML format, then converters translate them into vendor-specific query languages like Splunk SPL or Microsoft Sentinel KQL.",
+      },
     },
 
     // ── Reading 3: Tuning Methodology ─────────────────────────────────────
@@ -540,6 +562,17 @@ IBM QRadar's equivalent to CEF. Same idea — structured format over Syslog — 
 
 **JSON over HTTPS**
 Modern cloud services (Azure, AWS, Okta, Office 365) deliver logs via REST APIs in JSON format. Instead of Syslog, your SIEM polls an API endpoint or receives a webhook, and the log arrives as a JSON object. This is increasingly the dominant format for cloud-native security logs.`,
+      checkpoint: {
+        question: "According to the reading, which log format is IBM QRadar's equivalent of CEF, using tabs as field separators?",
+        options: [
+          "Syslog (RFC 5424)",
+          "LEEF — Log Event Extended Format",
+          "JSON over HTTPS",
+          "NXLog format",
+        ],
+        answer: 1,
+        explanation: "LEEF (Log Event Extended Format) is IBM QRadar's structured logging format — conceptually similar to CEF but with tab-separated fields and different field naming.",
+      },
     },
 
     // ── Reading 2: Collection Agents & Pipelines ───────────────────────────
@@ -621,6 +654,17 @@ End-to-end, a log's journey looks like this:
 6. **Enrichment** adds context: GeoIP lookup on the source IP, asset inventory lookup for the hostname
 7. **SIEM indexes** the structured, enriched log event for searching and rule evaluation
 8. **Detection rules** run against the indexed data and generate alerts`,
+      checkpoint: {
+        question: "According to the reading, which log collection agent is specifically designed to ship Windows Event Logs to Elasticsearch/OpenSearch?",
+        options: [
+          "Filebeat",
+          "Winlogbeat",
+          "Fluentd",
+          "Wazuh Agent",
+        ],
+        answer: 1,
+        explanation: "Winlogbeat reads directly from Windows Event Log channels (Security, System, PowerShell, Sysmon) and forwards them to Elasticsearch/OpenSearch. Filebeat is the more general-purpose file-tailing agent.",
+      },
     },
 
     // ── Reading 3: Parsing, Normalization & Integration ────────────────────
@@ -921,6 +965,17 @@ Your primary SOC workspace for M365. Key sections:
 **Email & Collaboration** — email flow, quarantine management, attack simulation training.
 
 **Threat Intelligence** — threat actor profiles, campaign information, vulnerability data.`,
+      checkpoint: {
+        question: "According to the reading, what does Microsoft Secure Score measure?",
+        options: [
+          "The number of active alerts in the Defender portal",
+          "The organization's security posture, based on points awarded for implemented best-practice configurations",
+          "The total number of licensed M365 users",
+          "The amount of storage used across SharePoint and OneDrive",
+        ],
+        answer: 1,
+        explanation: "Secure Score evaluates your M365 configuration against best practices and awards points for each recommendation implemented (like enabling MFA for admins) — a numeric measure of security posture.",
+      },
     },
 
     // ── Reading 2: Defender for Office 365 & Email Security ───────────────
@@ -1002,6 +1057,17 @@ Emails that MDO determines are malicious or suspicious are placed in **quarantin
 - Track who released what from quarantine (audit trail)
 
 The quarantine is accessible at security.microsoft.com → Email & Collaboration → Review → Quarantine.`,
+      checkpoint: {
+        question: "According to the reading, which MDO feature detonates email attachments in an isolated cloud sandbox to catch zero-day malware by observing its behavior?",
+        options: [
+          "Safe Links",
+          "Safe Attachments",
+          "Spoof intelligence",
+          "Email Quarantine",
+        ],
+        answer: 1,
+        explanation: "Safe Attachments routes attachments to a cloud sandbox, executes them, and observes behavior — unlike traditional signature-based antivirus, it can catch brand-new malware it has never seen before.",
+      },
     },
 
     // ── Reading 3: M365 Audit Logs & SOC Monitoring ────────────────────────
@@ -1337,6 +1403,17 @@ Users can authenticate to Entra ID using multiple methods, ranging from least se
 **Passwordless Phone Sign-In** — Open the Authenticator app, tap your account, use fingerprint or PIN. No password ever entered = nothing to phish.
 
 For SOC analysts, the authentication method matters when investigating an incident. A sign-in protected by FIDO2 is almost certainly legitimate (attacker would need the physical key). A sign-in with just a password is much easier to fake.`,
+      checkpoint: {
+        question: "According to the reading, which authentication method is described as fully phishing-resistant because it requires physical possession of a hardware key?",
+        options: [
+          "Password + SMS OTP",
+          "Microsoft Authenticator App push notification",
+          "FIDO2 Security Keys",
+          "Password only",
+        ],
+        answer: 2,
+        explanation: "FIDO2 Security Keys (like a YubiKey) require physical possession of the hardware key and are fully phishing-resistant — an attacker cannot remotely steal or replay them, unlike SMS codes or push notifications.",
+      },
     },
 
     // ── Reading 2: Conditional Access & Sign-in Logs ───────────────────────
@@ -1433,6 +1510,17 @@ The sign-in logs at Entra admin center → Monitoring → Sign-in logs are one o
 **Risk fields (from Identity Protection):**
 - \`RiskLevelAggregated\` — None / Low / Medium / High
 - \`RiskState\` — atRisk / remediated / dismissed / confirmedSafe / confirmedCompromised`,
+      checkpoint: {
+        question: "According to the reading, which Entra ID sign-in error code indicates that MFA was required by Conditional Access but was not performed?",
+        options: [
+          "50126",
+          "50076",
+          "50053",
+          "50057",
+        ],
+        answer: 1,
+        explanation: "Error code 50076 means MFA was required but not performed — the sign-in was blocked pending the additional factor. 50126 is an invalid password, and 50053 is an account lockout.",
+      },
     },
 
     // ── Reading 3: Identity Protection, Attacks & Monitoring ──────────────

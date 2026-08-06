@@ -67,7 +67,19 @@ interface QueryFillTask {
   xp: number;
 }
 
-type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | QueryFillTask;
+interface AnalystChoiceTask {
+  type: "analyst_choice";
+  id: string;
+  heading: string;
+  scenario: string;
+  event: TelemetryEvent;
+  correct_verdict: "true_positive" | "false_positive" | "escalate" | "informational";
+  explanation: string;
+  fp_trap?: string;
+  xp: number;
+}
+
+type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | QueryFillTask | AnalystChoiceTask;
 
 interface Room {
   id: string;
@@ -1461,6 +1473,52 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         "4625 is the Windows Security Event ID for a failed logon. ago(1h) scopes TimeGenerated to the last hour — KQL's relative-time shorthand (1h, 30m, 7d). SecurityEvent's account column is named Account (some schema versions expose TargetAccount) — project narrows the output to just what a triage analyst needs to see per row.",
       xp: 30,
     } satisfies QueryFillTask,
+
+    // ----- Analyst Choice: password-spray-shaped alert from a vuln scanner --
+    {
+      type: "analyst_choice",
+      id: "sentinel-ac1",
+      heading: "Verdict: Mass Failed Logons Across Many Accounts From One Source",
+      scenario:
+        "At 03:00 AM, a Sentinel scheduled analytics rule fires: 260 failed Windows logons (Event ID 4625) across 14 distinct user accounts, all originating from a single source IP (10.30.8.14), within a 10-minute window. This is exactly the query pattern taught earlier in this room for detecting password spray. IT change management confirms 10.30.8.14 is the internal Qualys vulnerability scanner (scanner-qualys01), running its monthly authenticated credential-validation scan against the Windows subnet 10.30.8.0/24, per the standing compliance-scanning schedule (change record CHG0052210). What is your verdict?",
+      event: {
+        id: "sentinel-ac1-evt-001",
+        ts: "2025-08-03T03:00:00Z",
+        source: "siem",
+        vendor: "Microsoft Sentinel",
+        event_type: "auth_failure",
+        severity: "high",
+        description:
+          "Scheduled analytics rule 'Multiple failed logons across many accounts from a single source' fired: 260 Event ID 4625 failures across 14 distinct accounts from one source IP within a 10-minute window",
+        mitre_technique: "T1110.003",
+        mitre_tactic: "Credential Access",
+        it_verify_result: "confirmed",
+        it_verify_message:
+          "CHG0052210: 10.30.8.14 (scanner-qualys01) is the internal Qualys vulnerability scanner performing its scheduled monthly authenticated credential-validation scan against 10.30.8.0/24.",
+        raw: {
+          // Real Sentinel SecurityAlert shape: top-level AlertName/AlertSeverity,
+          // with the scheduled rule's aggregate output under ExtendedProperties.*
+          // (rule-author-defined keys — the documented Sentinel convention).
+          AlertName: "Multiple failed logons across many accounts from a single source",
+          AlertSeverity: "High",
+          "alert.description": "260 failed logons (Event ID 4625) across 14 distinct accounts from source 10.30.8.14 within a 10-minute window",
+          "event.code": "4625",
+          "source.ip": "10.30.8.14",
+          "ExtendedProperties.FailureCount": "260",
+          "ExtendedProperties.DistinctAccountCount": "14",
+          "ExtendedProperties.TimeWindowMinutes": "10",
+          "ExtendedProperties.SubStatusDistribution": "0xC000006A:242, 0xC0000064:18",
+          "ExtendedProperties.LogonTypeDistribution": "3:260",
+          "ExtendedProperties.AffectedComputerCount": "14",
+        },
+      } satisfies TelemetryEvent,
+      correct_verdict: "false_positive",
+      explanation:
+        "The raw numbers here — 260 failures, 14 distinct accounts, one source IP, all network logons (LogonType 3) — are exactly the statistical shape this room's KQL reading taught you to build a password-spray detection around (summarize FailureCount, DistinctAccounts by IpAddress). But 10.30.8.14 is an internal, allocated address belonging to the organisation's own vulnerability scanner, not an unrecognised external host, and IT verification directly confirms a scheduled, approved authenticated scan covering this exact time window. Authenticated vulnerability scanners deliberately attempt logons with lists of credentials to test password-policy compliance, producing a near-identical statistical fingerprint to a real password spray. With source ownership and change-ticket confirmation both checked, this is expected internal scanning activity, not an attack.",
+      fp_trap:
+        "This alert is a textbook case of a detection rule correctly matching its pattern while still being a false positive, because the rule only measures shape (many accounts, one source, many failures) and cannot see intent. Declaring 'true positive' the moment the numbers match the taught query — without checking whether the source IP belongs to a known internal scanner and whether a change record explains it — is exactly the alert-fatigue trap that erodes trust in a detection program. If 10.30.8.14 had instead been an external or unrecognised IP with no matching change ticket, the correct verdict would be true_positive or escalate.",
+      xp: 30,
+    } satisfies AnalystChoiceTask,
   ],
 };
 

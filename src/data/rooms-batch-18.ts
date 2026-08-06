@@ -129,6 +129,7 @@ const kerberosRoom: Room = {
       id: "krb-r1",
       heading: "The Kerberos Exchange: AS-REQ, AS-REP, TGS-REQ, TGS-REP",
       content:
+        `**Why a second Kerberos room, if you already covered this in active-directory?** The active-directory room introduced Kerberos at foundation level — enough to recognize a TGT and a TGS, and to know that Event IDs 4768 and 4769 mean "ticket issued." That was necessary, but it stops well short of what an analyst needs to actually investigate an attack. This room assumes that foundation and goes to the depth the platform's own scenarios require: exactly which field in a 4769 tells you the ticket's encryption downgraded, why any authenticated domain user can request a service ticket for any Service Principal Name (the fact Kerberoasting depends on), how AS-REP roasting differs from Kerberoasting even though both "roast" a ticket offline, and how Golden and Silver tickets are forged without a real request ever reaching a Domain Controller. If the terms TGT, TGS, and 4768/4769 already feel completely comfortable, skim Readings 1 and 2 rather than skipping them outright — the rest of this room builds directly on the exact wording used here, not just the general idea.\n\n` +
         `Kerberos is the default authentication protocol in Windows domains, and almost every credential-theft technique you will investigate is an attack on one specific step of a four-message exchange. Getting that exchange exactly right is worth more than any amount of memorized Event IDs, because the Event IDs only make sense once you know which message they represent.\n\n` +
         `**The two-phase design**\n\n` +
         `A client never sends its password over the network. Instead it proves identity to a Key Distribution Center (KDC) — a role every Domain Controller (DC) performs — and receives tickets it can present later. The exchange happens in two phases. Phase one, the Authentication Service (AS) exchange, gets the client a Ticket Granting Ticket (TGT): proof to the KDC itself that the client already authenticated once. Phase two, the Ticket Granting Service (TGS) exchange, uses that TGT to get a service ticket (a TGS) for one specific service, without the client ever re-entering a password.\n\n` +
@@ -1068,6 +1069,9 @@ const persistenceRoom: Room = {
         `schtasks.exe /create lets an attacker register a task with a trigger (/sc — onstart, daily, onlogon, and others), a target binary (/tr), and critically, a "run as" principal (/ru) specifying which account's privileges the task executes with. Registering a task to run /ru SYSTEM is a privileged operation: Task Scheduler checks the calling process's own token before allowing it to register a task under a different, more privileged principal, which means the process running schtasks.exe must already hold an elevated token to succeed — this is not a privilege escalation technique on its own, it's a persistence technique that requires escalation to have already happened. Task creation is logged as Event ID 4698 on the host (Task Scheduler's own operational log also records related events, including 106 for task registration and 140/141 for updates and deletions), and Sysmon's process-creation telemetry for schtasks.exe itself shows the full command line — including the /ru value — directly.\n\n` +
         `**Linux cron**\n\n` +
         `The equivalent on Linux is a crontab entry — either a user's personal crontab (crontab -e, running with that user's own privileges) or an entry dropped into /etc/cron.d/ or /etc/crontab, which commonly run as root and are writable only by a privileged account, mirroring the same "the level of access required to plant it tells you what the attacker already had" logic as HKCU versus HKLM. This activity surfaces as a linux_cron event type in host-based Linux auditing, alongside the shell history or auditd record of whichever command actually edited the crontab.\n\n` +
+        `**The setgid crontab bit — a subtler user-level persistence path**\n\n` +
+        `System-level cron (/etc/cron.d and /etc/crontab) is easy to reason about: only root can write those files, so a job appearing there means the attacker already had root. But the crontab -e path an ordinary user takes to edit their own personal crontab is worth understanding mechanically, because it depends on a Linux permission feature that trips people up: the setgid bit. The /usr/bin/crontab binary on many Linux distributions is installed with its setgid (set-group-ID) bit set, meaning that whoever runs it temporarily executes with the file's owning group — not the caller's own group — for the duration of that one command. That's normal and by design: it's how an unprivileged user is allowed to write into the protected cron spool directory (commonly owned by a dedicated group such as crontab, GID 102 in some distributions) at all, without needing to be root. The moment crontab runs, the process's effective group ID (egid) temporarily switches — for example, from the calling user's ordinary group 1004 to the crontab-owning group 102 — write the new job into the spool, then exits and drops that borrowed group membership.\n\n` +
+        `This is a completely legitimate mechanism, which is exactly why it matters to an analyst: it means a low-privileged, unprivileged local account — one with no sudo rights, no root shell, nothing "special" about it at all — can still install its own persistent, recurring cron job using nothing but a binary and a permission bit already present on every default install. No exploit is required and no privilege escalation event fires, because none actually occurred; the user is only using the access setgid was designed to grant. This is precisely why it's a favored technique after gaining any local foothold at all, however low-privileged: the attacker doesn't need to escalate first, they only need to reach crontab -e as whatever user they already are. Detection has to shift accordingly — not "did this account escalate privileges," which it did not, but "did this account, which has never run crontab before, suddenly create or modify a personal cron job," visible in auditd as an execve of /usr/bin/crontab followed by a write to that user's spool file under /var/spool/cron/crontabs/ (paths vary slightly by distribution), together with the transient egid switch itself if process-level group auditing is enabled.\n\n` +
         `**Why this trigger flexibility matters operationally**\n\n` +
         `A logon-triggered Run key only fires when a user logs on — useful, but conditional. An onstart-triggered scheduled task fires at every single boot, regardless of whether any particular user ever logs in at all, which is exactly why it's a favored mechanism for persistence on servers and infrastructure hosts that may reboot (for patching, for example) far more often than any human logs onto them interactively.`,
       codeExample:
@@ -1086,7 +1090,34 @@ const persistenceRoom: Room = {
         "\n" +
         "Linux equivalent: crontab -e (user-level) or\n" +
         "/etc/cron.d/* , /etc/crontab (root-level, root-writable only)\n" +
+        "=======================================================\n\n" +
+        "SETGID CRONTAB MECHANISM (crontab -e path)\n" +
+        "=======================================================\n" +
+        "/usr/bin/crontab has the setgid bit set on many distros\n" +
+        "  -> caller's egid temporarily becomes the crontab group\n" +
+        "     (e.g. egid 1004 -> 102) for the duration of the command\n" +
+        "  -> allows an UNPRIVILEGED user to write into the\n" +
+        "     protected cron spool directory -- no root/sudo needed\n" +
+        "  -> no privilege-escalation event fires -- none occurred,\n" +
+        "     this is the setgid mechanism working as designed\n" +
+        "\n" +
+        "Watch for: execve of /usr/bin/crontab (in auditd) by an\n" +
+        "account that has never used it before, followed by a write\n" +
+        "to /var/spool/cron/crontabs/<user>\n" +
         "=======================================================",
+      checkpoint: {
+        question:
+          "A local account with no sudo rights runs crontab -e and successfully installs a recurring job. No privilege-escalation event appears anywhere in the logs. Why not?",
+        options: [
+          "This must be a logging failure — installing a cron job always requires root, so an escalation event should have fired",
+          "The setgid bit on /usr/bin/crontab lets any user temporarily borrow the crontab group's write access to the spool directory for that one command — the user never actually escalated privileges, so there is nothing for an escalation detection to catch",
+          "Cron jobs installed via crontab -e always run with the privileges of the user who last edited /etc/crontab, so no escalation was needed",
+          "Escalation events only fire for Windows Task Scheduler, not for any Linux persistence mechanism",
+        ],
+        answer: 1,
+        explanation:
+          "This is the setgid mechanism from the reading: crontab is installed with setgid set, so running it temporarily grants the caller the file's group (able to write the spool) without ever elevating the user's own account privileges. Because no escalation actually happens — the user is only using access the setgid bit was designed to grant everyone — no escalation event fires. This is exactly why detection has to focus on unusual crontab usage by an account, not on a nonexistent escalation signal.",
+      },
     },
     {
       type: "question",

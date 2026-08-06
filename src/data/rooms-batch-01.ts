@@ -92,6 +92,17 @@ Today, the numbers are staggering:
 **What does a cybersecurity professional do?** Just like a security guard patrols a building, a cybersecurity analyst monitors digital systems for signs of intruders. They review logs (records of activity), investigate suspicious events, and respond when an attack is detected. The entry-level role into this world is the **SOC (Security Operations Center) Analyst** — the role you are training for right now.
 
 **Key takeaway:** Cybersecurity is not magic — it is a structured discipline built on understanding how attackers think and how defenders respond. You do not need to be a hacker or a software engineer to start. You need curiosity, attention to detail, and the ability to analyse information. This course will build those skills from the ground up.`,
+      checkpoint: {
+        question: "According to the reading, which incident in 1988 is considered the birth of the modern cybersecurity industry?",
+        options: [
+          "The SolarWinds supply chain attack",
+          "The Morris Worm, which infected about 6,000 machines",
+          "The Colonial Pipeline ransomware attack",
+          "The Anonymous hacktivist campaign",
+        ],
+        answer: 1,
+        explanation: "The Morris Worm appeared in 1988 and infected roughly 10% of the internet at the time — a shock that gave birth to the modern cybersecurity industry.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -134,6 +145,17 @@ Now let's look at **who attacks these systems**.
 - **DDoS (Distributed Denial of Service)** — Flooding a server with millions of fake requests until it crashes, like thousands of prank callers jamming a phone line so real customers cannot get through.
 - **Man-in-the-Middle (MitM)** — An attacker secretly positions themselves between two communicating parties and intercepts or alters the messages. Like a dishonest postal worker reading and resealing your letters.
 - **Social Engineering** — Manipulating people (not systems) into revealing information or taking actions. A classic example: calling someone and pretending to be from IT support to get their password.`,
+      checkpoint: {
+        question: "According to the reading, which type of threat actor is the group 'Anonymous' an example of?",
+        options: [
+          "Script Kiddie",
+          "Nation-State Actor",
+          "Hacktivist",
+          "Insider Threat",
+        ],
+        answer: 2,
+        explanation: "Anonymous is described as a hacktivist group — attackers motivated by political or social causes, not financial gain or espionage.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -464,6 +486,17 @@ The SOC does not operate in isolation. It works closely with:
 - Law Enforcement (for serious criminal attacks)
 
 Think of the SOC as the **nervous system** of an organisation's security — constantly receiving signals, processing information, and triggering responses.`,
+      checkpoint: {
+        question: "According to the reading, which type of SOC model has no physical location, with analysts connecting remotely to centralised security tools over the internet?",
+        options: [
+          "In-House SOC",
+          "MSSP (Managed Security Service Provider)",
+          "Virtual SOC (vSOC)",
+          "Hybrid SOC",
+        ],
+        answer: 2,
+        explanation: "A Virtual SOC (vSOC) has no physical location — analysts work remotely and connect to centralised security tools over the internet, a model that became common during the COVID-19 pandemic.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -524,6 +557,17 @@ Because threats do not take weekends off, SOCs operate 24x7. Analysts work rotat
 - Any changes in the threat landscape
 
 This handoff process is critical. Poor handoffs have allowed attackers to operate undetected during the gap between shifts. Good SOCs use structured handoff templates to ensure nothing is missed.`,
+      checkpoint: {
+        question: "According to the reading, roughly how many alerts might a Tier-1 analyst handle in a single shift?",
+        options: [
+          "2–5 alerts",
+          "20–50 alerts",
+          "200–500 alerts",
+          "Over 1,000 alerts",
+        ],
+        answer: 1,
+        explanation: "The reading states a T1 analyst might handle 20–50 alerts per shift, most of which turn out to be false positives.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -848,6 +892,17 @@ The Kill Chain model is powerful but not perfect. It was designed primarily for 
 - The model is **linear** — real attacks often involve multiple kill chains or iterations
 
 Despite these limitations, the Cyber Kill Chain remains one of the most influential frameworks in cybersecurity and is used in threat intelligence, incident response, and detection engineering worldwide. It laid the groundwork for more modern frameworks like MITRE ATT&CK, which we will cover in Room 4.`,
+      checkpoint: {
+        question: "According to the reading, which organisation developed the Cyber Kill Chain framework, and when was it published?",
+        options: [
+          "MITRE, in 2013",
+          "Lockheed Martin, in a 2011 white paper",
+          "NIST, in 2015",
+          "The NSA, in 2009",
+        ],
+        answer: 1,
+        explanation: "The Cyber Kill Chain was developed by Lockheed Martin and published in a 2011 white paper titled 'Intelligence-Driven Computer Network Defense.'",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -933,6 +988,17 @@ The final stage is when the attacker does what they came to do. Goals vary by at
 **SolarWinds example:** APT29 used SUNBURST to conduct espionage — accessing internal emails, documents, and communications of US government agencies. They were inside some networks for over a year before being discovered.
 
 *Defensive actions:* Data loss prevention (DLP) systems; monitoring for large data transfers; user behaviour analytics (UEBA) to detect anomalous access patterns.`,
+      checkpoint: {
+        question: "According to the reading, what was the name of the backdoor APT29 hid inside the SolarWinds Orion software update?",
+        options: [
+          "NotPetya",
+          "SUNBURST",
+          "Emotet",
+          "Cobalt Strike",
+        ],
+        answer: 1,
+        explanation: "SUNBURST was the backdoor APT29 engineered to look like a legitimate part of the Orion software, including a 14-day dormancy period to evade sandboxes.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -1252,6 +1318,17 @@ Every technique in ATT&CK has a unique ID:
 - Sub-techniques: **T1566.001** (Phishing: Spearphishing Attachment), **T1110.003** (Brute Force: Password Spraying)
 
 When you see "T1566.001" in a log, an alert, or a threat intelligence report, you know exactly which attack technique is being referenced. This standardised language is one of ATT&CK's greatest contributions — security teams across the world now speak the same vocabulary.`,
+      checkpoint: {
+        question: "According to the reading, what does the 'CK' in ATT&CK stand for?",
+        options: [
+          "Cyber Kinetics",
+          "Common Knowledge",
+          "Critical Kill-chain",
+          "Cryptographic Key",
+        ],
+        answer: 1,
+        explanation: "ATT&CK stands for Adversarial Tactics, Techniques, and Common Knowledge — and the entire database is free and publicly available at attack.mitre.org.",
+      },
     },
 
     // ------------------------------------------------------------------
@@ -1321,6 +1398,17 @@ Every ATT&CK technique entry at attack.mitre.org contains:
 - **Detections:** How to detect this technique (log sources, SIEM rules, behavioural indicators)
 - **Mitigations:** How to prevent or minimise the technique's effectiveness
 - **Threat Group associations:** Which real-world attacker groups have been observed using this technique`,
+      checkpoint: {
+        question: "According to the reading, which ATT&CK tactic covers an attacker stealing account credentials — for example via brute force or OS credential dumping tools like Mimikatz?",
+        options: [
+          "Discovery (TA0007)",
+          "Credential Access (TA0006)",
+          "Collection (TA0009)",
+          "Persistence (TA0003)",
+        ],
+        answer: 1,
+        explanation: "Credential Access (TA0006) covers techniques like T1110 Brute Force and T1003 OS Credential Dumping, where the attacker steals usernames and passwords.",
+      },
     },
 
     // ------------------------------------------------------------------

@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { RANKS, rankForXp, nextRank, rankProgress } from "@/lib/progression/ranks";
-import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText } from "lucide-react";
+import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText, Users } from "lucide-react";
 import Link from "next/link";
 import { ROOMS } from "@/data/rooms";
 import type { RoomTask } from "@/data/rooms";
@@ -320,6 +320,66 @@ function StatsStrip({ user }: { user: UserData }) {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Class leaderboard — org-scoped, opt-in-by-enrolment. Fetches /api/leaderboard,
+ * which runs the security-scoped org_leaderboard() RPC as the caller (see
+ * migration 0018). Renders nothing for solo users or anyone without a real
+ * cohort (available:false), so it only appears for enrolled college students —
+ * no empty leaderboard clutter for individual learners.
+ */
+type LeaderRow = { rank: number; displayName: string; xp: number; level: number; isMe: boolean };
+function LeaderboardCard() {
+  const [rows, setRows]     = useState<LeaderRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/leaderboard")
+      .then(r => (r.ok ? r.json() : { rows: [], available: false }))
+      .then(d => { if (alive) { setRows(d.available ? d.rows : []); setLoaded(true); } })
+      .catch(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
+  }, []);
+
+  if (!loaded || rows.length === 0) return null; // hidden for solo users / no cohort
+
+  return (
+    <Card padded={false}>
+      <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+        <Users className="h-4 w-4 text-cyber-300" />
+        <h3 className="text-sm font-semibold text-white">Class Leaderboard</h3>
+        <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-400">Your cohort</span>
+      </div>
+      <ul>
+        {rows.map(r => (
+          <li
+            key={`${r.rank}-${r.displayName}`}
+            className={cn(
+              "flex items-center gap-3 border-b border-border/60 px-5 py-2.5 last:border-b-0",
+              r.isMe && "bg-cyber-500/5 border-l-2 border-l-cyber-500",
+            )}
+          >
+            <span className={cn(
+              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold",
+              r.rank === 1 ? "bg-severity-medium/20 text-severity-medium" :
+              r.rank === 2 ? "bg-slate-400/20 text-slate-200" :
+              r.rank === 3 ? "bg-amber-700/25 text-amber-500" :
+                             "border border-border bg-bg text-slate-400",
+            )}>
+              {r.rank}
+            </span>
+            <span className={cn("flex-1 min-w-0 truncate text-xs font-semibold", r.isMe ? "text-cyber-300" : "text-slate-200")}>
+              {r.displayName}{r.isMe && <span className="ml-1 text-[10px] text-cyber-500">(you)</span>}
+            </span>
+            <span className="shrink-0 text-[10px] text-slate-400">Lv {r.level}</span>
+            <span className="shrink-0 font-mono text-xs font-bold text-cyber-300">{r.xp.toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="px-5 py-2 text-[10px] text-slate-400">Ranked by XP within your organisation.</p>
+    </Card>
+  );
+}
 
 export default function ProgressPage() {
   const [totalXp,          setTotalXp]          = useState(0);
@@ -819,6 +879,9 @@ export default function ProgressPage() {
                 )}
               </ul>
             </Card>
+
+            {/* Class leaderboard — appears only for enrolled cohorts (B2B) */}
+            <LeaderboardCard />
 
           </div>
         </div>

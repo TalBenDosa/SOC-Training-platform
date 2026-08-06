@@ -137,12 +137,25 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
 }
 
 // ─── Interactive Log Event Card ─────────────────────────────────────────────────
+// A large raw event shown all at once is a wall the eye glazes over. Reveal the
+// fields in batches so the student reads incrementally — investigating pivot by
+// pivot rather than skimming — while every already-revealed field stays fully
+// IOC-taggable. Only kicks in past this many fields; smaller events show whole.
+const RAW_REVEAL_INITIAL = 8;
+const RAW_REVEAL_STEP    = 8;
+
 function InteractiveLogEventCard({
   event, iocs, onTag, onUntag,
 }: { event: TelemetryEvent; iocs: IocEntry[]; onTag: (entry: IocEntry) => void; onUntag: (value: string) => void; }) {
   const [expanded, setExpanded] = useState(true);
   const [popover, setPopover] = useState<PopoverState | null>(null);
+  const [visibleCount, setVisibleCount] = useState(RAW_REVEAL_INITIAL);
   const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.edr;
+
+  const rawEntries = Object.entries(event.raw);
+  const progressive = rawEntries.length > RAW_REVEAL_INITIAL + 2; // don't bother for a couple extra
+  const shownEntries = progressive ? rawEntries.slice(0, visibleCount) : rawEntries;
+  const hiddenCount = rawEntries.length - shownEntries.length;
 
   const taggedValues = new Set(iocs.map(i => i.value));
 
@@ -183,11 +196,13 @@ function InteractiveLogEventCard({
           >
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
             Raw Fields
-            <span className="ml-auto text-[10px] text-slate-400">{Object.keys(event.raw).length} fields</span>
+            <span className="ml-auto text-[10px] text-slate-400">
+              {progressive ? `${shownEntries.length} of ${rawEntries.length}` : rawEntries.length} fields
+            </span>
           </button>
           {expanded && (
             <div className="px-4 pb-4 pt-1 font-mono text-[11px] space-y-0.5 max-h-80 overflow-y-auto">
-              {Object.entries(event.raw).map(([k, v]) => {
+              {shownEntries.map(([k, v]) => {
                 const strVal = String(v);
                 const isTagged = taggedValues.has(strVal);
                 const taggedIoc = isTagged ? iocs.find(i => i.value === strVal) : undefined;
@@ -214,6 +229,23 @@ function InteractiveLogEventCard({
                   </div>
                 );
               })}
+              {progressive && hiddenCount > 0 && (
+                <button
+                  onClick={() => setVisibleCount(c => c + RAW_REVEAL_STEP)}
+                  className="mt-2 flex items-center gap-1.5 rounded border border-cyber-500/30 bg-cyber-500/5 px-2.5 py-1.5 text-[11px] text-cyber-300 hover:bg-cyber-500/10 transition-colors"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  Reveal {Math.min(RAW_REVEAL_STEP, hiddenCount)} more field{hiddenCount === 1 ? "" : "s"} ({hiddenCount} hidden)
+                </button>
+              )}
+              {progressive && hiddenCount === 0 && rawEntries.length > RAW_REVEAL_INITIAL && (
+                <button
+                  onClick={() => setVisibleCount(RAW_REVEAL_INITIAL)}
+                  className="mt-2 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Collapse fields
+                </button>
+              )}
             </div>
           )}
         </div>

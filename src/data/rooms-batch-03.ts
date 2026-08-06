@@ -13,6 +13,7 @@ import type {
   QuestionTask,
   LogAnalysisTask,
   FlagTask,
+  AnalystChoiceTask,
 } from "@/data/rooms";
 
 // ---------------------------------------------------------------------------
@@ -397,6 +398,60 @@ const activeDirectory: Room = {
       hint: "Look at the 'winlog.event_data.IpAddress' field in the raw log — this is the true network source of the NTLM authentication, which does not match the claimed WorkstationName's real device.",
       xp: 35,
     } satisfies FlagTask,
+
+    // -------------------------------------------------------------------------
+    // Analyst Choice — Off-hours privileged RDP logon to a Domain Controller
+    // -------------------------------------------------------------------------
+    {
+      type: "analyst_choice",
+      id: "ad-ac1",
+      heading: "Verdict: Off-Hours Privileged RDP Logon to the Domain Controller",
+      scenario:
+        "Your SIEM raises a medium-severity alert at 03:12 AM: the account 'svc-patchmgmt' established an interactive RDP session (LogonType 10) directly onto DC01, the primary Domain Controller. Any interactive logon to a Domain Controller outside business hours is configured to alert automatically, since DCs should almost never receive direct interactive sessions. IT change management confirms svc-patchmgmt is used exclusively for scheduled monthly patch validation, and change ticket CHG0041932 authorises exactly this activity for tonight's 02:00-04:00 maintenance window. What is your verdict?",
+      event: {
+        id: "ad-ac1-evt-001",
+        ts: "2024-11-09T03:12:00.000Z",
+        source: "ad",
+        vendor: "Windows Security",
+        event_type: "auth_success",
+        severity: "medium",
+        hostname: "DC01.corp.contoso.com",
+        description:
+          "Privileged account svc-patchmgmt established an interactive RDP session directly onto the Domain Controller outside business hours",
+        mitre_technique: "T1021.001",
+        mitre_tactic: "Lateral Movement",
+        authentication: {
+          method: "NTLM",
+          result: "Success",
+          logon_type: 10,
+        },
+        it_verify_result: "confirmed",
+        it_verify_message:
+          "Change ticket CHG0041932 authorises svc-patchmgmt to RDP into DC01 during the 02:00-04:00 monthly patch-validation window; approved by IT Ops on 2024-11-04.",
+        raw: {
+          "event.code": "4624",
+          "winlog.channel": "Security",
+          "winlog.computer_name": "DC01.corp.contoso.com",
+          "winlog.event_data.TargetUserName": "svc-patchmgmt",
+          "winlog.event_data.TargetDomainName": "CORP",
+          "winlog.event_data.LogonType": "10",
+          "winlog.event_data.AuthenticationPackageName": "Negotiate",
+          "winlog.event_data.WorkstationName": "JMP-PATCHMGT01",
+          "winlog.event_data.IpAddress": "10.10.50.12",
+          "winlog.event_data.IpPort": "52011",
+          "winlog.event_data.LogonProcessName": "User32",
+          "winlog.event_id": 4624,
+          "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+          "@timestamp": "2024-11-09T03:12:00.000Z",
+        },
+      } satisfies TelemetryEvent,
+      correct_verdict: "false_positive",
+      explanation:
+        "Every element of this alert matches what the earlier readings taught you to flag: LogonType 10 (RDP, interactive) landing directly on a Domain Controller, at 03:12 AM, using a privileged-sounding account. Under normal circumstances that combination is a strong lateral-movement or credential-abuse indicator, since admins are expected to manage DCs from dedicated jump hosts and change-controlled sessions, not ad-hoc RDP at 3 AM. Two pieces of context resolve it here: the WorkstationName (JMP-PATCHMGT01) is the organisation's known, dedicated patch-management jump host — not an unrecognised or newly-seen device — and it_verify_result is 'confirmed', tying this specific session to an approved change ticket covering tonight's exact maintenance window. With both corroborating facts present, this is benign, expected administrative activity, not an attack.",
+      fp_trap:
+        "It is tempting to escalate immediately purely on pattern-matching: privileged account + Domain Controller + interactive logon type + off-hours timestamp is exactly the shape of the AD attack patterns this room teaches. But context always outranks pattern alone. If either corroborating fact had been missing — an unrecognised source workstation, or no matching change ticket — the correct verdict would flip immediately to escalate, because a privileged interactive session on a DC with no explanation is one of the highest-risk things a SOC analyst can see. Always check the WorkstationName against known admin infrastructure and the account's IT verification status before closing an alert like this.",
+      xp: 30,
+    } satisfies AnalystChoiceTask,
   ],
 };
 

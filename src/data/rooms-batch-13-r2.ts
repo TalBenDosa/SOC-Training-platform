@@ -154,6 +154,17 @@ const firewallMasterclass = {
         `  Result: Rule 40 MATCHES (src host 10.0.1.25, dest port 25)\n` +
         `  ---> PERMITTED  (no way to verify the source IP is genuine)\n` +
         `════════════════════════════════════════════════════════════════`,
+      checkpoint: {
+        question: "According to the reading, how are ACL rules evaluated, and what happens to a packet that matches no explicit rule?",
+        options: [
+          "Bottom-to-top; unmatched traffic is implicitly permitted",
+          "Top-to-bottom with first-match semantics; unmatched traffic hits an implicit deny-all at the end",
+          "All rules are evaluated simultaneously and the strictest one wins",
+          "Alphabetically by source IP; unmatched traffic triggers only a log entry, not a block",
+        ],
+        answer: 1,
+        explanation: "ACL rules use first-match, top-to-bottom evaluation, and every ACL ends with an implicit deny-all — any packet matching no explicit rule is dropped.",
+      },
     },
 
     // ── Reading 3 ─────────────────────────────────────────────────────────────
@@ -273,6 +284,17 @@ const firewallMasterclass = {
         `    - Application identified = Skype\n` +
         `  Policy action: DENY (Skype blocked per corporate policy)\n` +
         `════════════════════════════════════════════════════════════════`,
+      checkpoint: {
+        question: "According to the reading, what is DPI's biggest limitation, which drove the development of SSL/TLS inspection?",
+        options: [
+          "DPI cannot process TCP traffic, only UDP",
+          "DPI cannot read the payload of TLS-encrypted (HTTPS) traffic without first decrypting it",
+          "DPI can only inspect traffic on port 80",
+          "DPI requires a dedicated proxy server and cannot run inline",
+        ],
+        answer: 1,
+        explanation: "Once traffic is encrypted with TLS, DPI cannot read the payload without decrypting it first. Since most internet traffic is now HTTPS, this pushed the industry toward SSL/TLS inspection to keep visibility.",
+      },
     },
 
     // ── Reading 5 ─────────────────────────────────────────────────────────────
@@ -380,6 +402,17 @@ const firewallMasterclass = {
         `    --> Fix: Move deny rules to top, or use threat intel as address objects\n` +
         `       in the destination of Rule 4 with negation.\n` +
         `════════════════════════════════════════════════════════════════`,
+      checkpoint: {
+        question: "According to the reading, what is a 'shadow rule' in a firewall rule base?",
+        options: [
+          "A rule with logging disabled so its traffic is invisible",
+          "A rule that can never be triggered because an earlier, broader rule always matches the traffic first",
+          "A rule that only applies to encrypted traffic",
+          "A backup rule that activates automatically if the primary firewall fails",
+        ],
+        answer: 1,
+        explanation: "A shadow rule sits below a broader rule that already matches the same traffic, so it is evaluated but never actually triggered — a common and dangerous misconfiguration, especially when deny rules are shadowed by broad allow rules above them.",
+      },
     },
 
     // ── Reading 7 ─────────────────────────────────────────────────────────────
@@ -517,6 +550,17 @@ const firewallMasterclass = {
         ` - Health & Medicine (medical portals)\n` +
         ` - Certificate-pinned applications (whitelist by CN or fingerprint)\n` +
         `════════════════════════════════════════════════════════════════`,
+      checkpoint: {
+        question: "According to the reading, what technique lets an application (like WhatsApp or a banking app) detect and refuse the firewall's substitute certificate, bypassing SSL inspection?",
+        options: [
+          "App-ID",
+          "Certificate pinning",
+          "DPI protocol anomaly detection",
+          "Dual-firewall DMZ",
+        ],
+        answer: 1,
+        explanation: "Certificate pinning embeds a specific certificate fingerprint in the application, so it refuses to connect if it receives any other certificate — including the firewall's SSL-inspection substitute — forcing administrators to create bypass rules.",
+      },
     },
 
     // ── Reading 9 ─────────────────────────────────────────────────────────────
@@ -627,6 +671,17 @@ const firewallMasterclass = {
         `           unsigned) is beaconing to Tor exit node via allowed HTTPS rule.\n` +
         `           MITRE: T1071.001 (Web Protocols C2) + T1036.005 (Masquerading)\n` +
         `════════════════════════════════════════════════════════════════`,
+      checkpoint: {
+        question: "According to the reading, in a FortiGate log, what does 'data.action = accept' mean?",
+        options: [
+          "The traffic was blocked by policy",
+          "The traffic was silently discarded with no response",
+          "The traffic was permitted through the firewall",
+          "The traffic was redirected to a cloud sandbox",
+        ],
+        answer: 2,
+        explanation: "'accept' means the firewall permitted the traffic through — as opposed to 'deny' (blocked with a response) or 'drop' (silently discarded).",
+      },
     },
 
     // ── Question 1 ────────────────────────────────────────────────────────────
