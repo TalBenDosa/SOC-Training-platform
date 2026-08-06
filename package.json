@@ -21,6 +21,7 @@
     "validate:content": "tsx scripts/validate-content.mjs",
     "validate:diagrams": "tsx scripts/validate-diagrams.mjs",
     "audit:scenarios": "tsx scripts/audit-scenarios.mjs",
+    "test:e2e": "node scripts/test-backend-e2e.mjs",
     "test:tenancy": "node scripts/test-multitenancy-local.mjs"
   },
   "dependencies": {

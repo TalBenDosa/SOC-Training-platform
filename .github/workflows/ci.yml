@@ -32,6 +32,20 @@ jobs:
       - name: Typecheck
         run: npm run type-check
 
+      # Business-correctness gate. Runs the REAL migrations (0001-latest) against
+      # an in-memory Postgres (PGlite — no Docker/Supabase needed) and proves, at
+      # the database, the things lint/types/build cannot: RLS actually isolates
+      # tenants, seat caps and license expiry are enforced, XP recompute and the
+      # enrollment trigger behave correctly. Previously these 90 checks (65 + 25)
+      # only ran when a human remembered to run them by hand — which is exactly
+      # how the C1 cross-tenant leak shipped and was only caught by a manual
+      # audit pass, not by CI.
+      - name: Backend E2E (schema, RLS, functions, triggers, XP, licensing)
+        run: npm run test:e2e
+
+      - name: Multi-tenancy isolation (two-college RLS proof)
+        run: npm run test:tenancy
+
       # Content gate. Every `raw: {...}` block claims "this is what <vendor>
       # actually emits" — expert review found invented fields (crowdstrike.Confidence,
       # s1.extensionAdded, RequestorName on 4769) that graded answers depended on.

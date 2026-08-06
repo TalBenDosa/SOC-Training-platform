@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { SCENARIOS } from "@/lib/sim/scenarios";
 import { getRoomProgress } from "@/lib/storage/progress";
+import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import Link from "next/link";
 import {
   Sparkles, Zap, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
@@ -96,12 +97,15 @@ export default function ScenariosPage() {
   useEffect(() => {
     try {
       setHidden(JSON.parse(localStorage.getItem("admin_hidden_scenarios") ?? "[]"));
-      setPublished(JSON.parse(localStorage.getItem("published_scenarios") ?? "[]"));
       // Which rooms has the learner actually completed? Drives the soft
       // readiness hint below (via the same facade the Rooms page uses).
       const rp = getRoomProgress() as Record<string, { completedAt?: string }>;
       setDoneRooms(new Set(Object.entries(rp).filter(([, v]) => v?.completedAt).map(([id]) => id)));
     } catch { /* storage blocked */ }
+    // Admin-published scenarios now live in the durable content_scenarios
+    // table (migration 0019), not per-browser localStorage — this is what
+    // makes them actually visible to real students for the first time.
+    fetchPublishedScenarios<PublishedScenario>().then(setPublished);
   }, []);
 
   const prepGaps = (slug: string) =>

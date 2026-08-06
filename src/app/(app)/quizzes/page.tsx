@@ -5,6 +5,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { ALL_QUIZZES as QUIZZES } from "@/lib/quizzes/data";
 import type { Quiz } from "@/lib/quizzes/data";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
+import { fetchPublishedQuizzes } from "@/lib/content/publicContent";
 import { cn } from "@/lib/utils";
 import { EyeOff } from "lucide-react";
 
@@ -93,8 +94,10 @@ export default function QuizzesPage() {
   useEffect(() => {
     try {
       setHidden(JSON.parse(localStorage.getItem("admin_hidden_quizzes") ?? "[]"));
-      setGenerated(JSON.parse(localStorage.getItem("generated_quizzes") ?? "[]"));
     } catch { /* storage blocked */ }
+    // Admin-published quizzes now live in the durable content_quizzes table
+    // (migration 0019), not per-browser localStorage.
+    fetchPublishedQuizzes<GeneratedQuiz>().then(setGenerated);
   }, []);
 
   const visible    = QUIZZES.filter(q => !hidden.includes(q.slug));

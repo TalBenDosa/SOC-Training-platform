@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
+import { fetchPublishedLessons } from "@/lib/content/publicContent";
 import { LESSON_PATHS } from "@/lib/lessons/paths";
 import { Search, Clock, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
@@ -512,24 +513,30 @@ export default function LearnPage() {
   const [openLesson, setOpenLesson] = useState<Lesson | null>(null);
   const [mounted,    setMounted]    = useState(false);
 
-  function loadLessons() {
+  // Admin-published lessons now live in the durable content_lessons table
+  // (migration 0019), not per-browser localStorage — this is what makes them
+  // actually visible to real students for the first time. deleted_lesson_ids
+  // (hiding a BUILT-IN lesson) stays local for now — a lower-stakes,
+  // reversible moderation toggle, not authored content that can be lost.
+  async function loadLessons() {
+    let deletedSet = new Set<string>();
     try {
-      const saved: Lesson[]   = JSON.parse(localStorage.getItem("generated_lessons")  ?? "[]");
       const deleted: string[] = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
-      const deletedSet = new Set(deleted);
-      const savedIds   = new Set(saved.map(l => l.id));
-      const builtins   = (BUILTIN_LESSONS as unknown as Lesson[])
-        .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id));
-      setLessons([...saved, ...builtins]);
-    } catch {
-      setLessons(BUILTIN_LESSONS as unknown as Lesson[]);
-    }
+      deletedSet = new Set(deleted);
+    } catch { /* storage blocked */ }
+
+    const saved = await fetchPublishedLessons<Lesson>();
+    const savedIds = new Set(saved.map(l => l.id));
+    const builtins = (BUILTIN_LESSONS as unknown as Lesson[])
+      .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id));
+    setLessons([...saved, ...builtins]);
   }
 
   useEffect(() => {
     setMounted(true);
     loadLessons();
-    // Sync when admin modifies localStorage (same tab or different tab)
+    // Re-sync deleted_lesson_ids across tabs on the same device (the
+    // durable-content half no longer needs this — a fresh mount re-fetches it).
     const onStorage = () => loadLessons();
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);

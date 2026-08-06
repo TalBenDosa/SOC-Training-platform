@@ -369,20 +369,28 @@ function ScenariosTab() {
   const [genPreview, setGenPreview] = useState<ScenarioRow|null>(null);
   const [genEvents, setGenEvents] = useState<TelemetryEvent[]>([]); // full events from API
 
+  // Admin-published scenarios now live in the durable content_scenarios table
+  // (migration 0019) instead of per-browser localStorage — status comes
+  // straight off the DB row, which is why it's no longer read from statusMap
+  // here (statusMap still applies to BUILT-IN scenarios below, unchanged).
   useEffect(() => {
     try {
       setHidden(JSON.parse(localStorage.getItem("admin_hidden_scenarios")??"[]"));
       setStatusMap(JSON.parse(localStorage.getItem("admin_scenario_status")??"{}"));
-      const pub = JSON.parse(localStorage.getItem("published_scenarios")??"[]");
-      setGenerated(pub.map((s: { id: string; title: string; narrative?: string; attack_kind: string; difficulty: string; threat_actor: string; published_at: string; events?: TelemetryEvent[] }) => ({
-        slug: s.id, title: s.title, summary: s.narrative ?? "",
+    } catch {}
+    (async () => {
+      const res = await fetch("/api/admin/content/scenarios");
+      if (!res.ok) return;
+      const { items } = await res.json() as { items: { id: string; status: ItemStatus; content: { title: string; narrative?: string; attack_kind: string; difficulty: string; threat_actor: string; events?: TelemetryEvent[] } }[] };
+      setGenerated(items.map(({ id, status, content: s }) => ({
+        slug: id, title: s.title, summary: s.narrative ?? "",
         category: ATTACK_KIND_LABEL[s.attack_kind]??s.attack_kind,
         difficulty: s.difficulty, logCount: (s.events?.length ?? 0),
-        status: (statusMap[s.id] ?? "published") as ItemStatus, isGenerated: true,
+        status, isGenerated: true,
         threat_actor: s.threat_actor, attack_kind: s.attack_kind,
         events: s.events ?? [],
       })));
-    } catch {}
+    })();
   }, []);
 
   const builtIn: ScenarioRow[] = SCENARIOS.map(s => ({
@@ -404,6 +412,16 @@ function ScenariosTab() {
   });
 
   function setStatus(slug: string, status: ItemStatus) {
+    // Generated scenarios are DB-backed now — status lives on the row itself,
+    // PATCHed via the admin content API. Built-ins have no DB row, so they keep
+    // the original localStorage override (unchanged, out of scope for 0019).
+    if (generated.some(s => s.slug === slug)) {
+      setGenerated(prev => prev.map(s => s.slug === slug ? { ...s, status } : s));
+      fetch(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+      }).catch(() => {});
+      return;
+    }
     const next = { ...statusMap, [slug]: status };
     setStatusMap(next);
     localStorage.setItem("admin_scenario_status", JSON.stringify(next));
@@ -416,8 +434,7 @@ function ScenariosTab() {
 
   function deleteGenerated(slug: string) {
     const next = generated.filter(s => s.slug !== slug); setGenerated(next);
-    const pub = JSON.parse(localStorage.getItem("published_scenarios")??"[]").filter((s: { id: string }) => s.id !== slug);
-    localStorage.setItem("published_scenarios", JSON.stringify(pub));
+    fetch(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, { method: "DELETE" }).catch(() => {});
   }
 
   async function generateScenario() {
@@ -443,8 +460,10 @@ function ScenariosTab() {
   function publishScenario() {
     if (!genPreview) return;
     const entry = { ...genPreview, id: genPreview.slug, events: genEvents, published_at: new Date().toISOString() };
-    const existing = JSON.parse(localStorage.getItem("published_scenarios")??"[]");
-    localStorage.setItem("published_scenarios", JSON.stringify([entry, ...existing]));
+    fetch("/api/admin/content/scenarios", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: entry.id, status: "published", content: entry }),
+    }).catch(() => {});
     setGenerated(prev => [{ ...genPreview, events: genEvents }, ...prev]);
     setGenPublished(true);
     setTimeout(() => { setShowGen(false); setGenPreview(null); setGenEvents([]); setGenPublished(false); }, 1500);
@@ -907,12 +926,24 @@ function QuizzesTab() {
   const [preview, setPreview]   = useState<GeneratedQuiz|null>(null);
   const [pubIds, setPubIds]     = useState<Set<string>>(new Set());
 
+  // Admin-published quizzes now live in the durable content_quizzes table
+  // (migration 0019) instead of per-browser localStorage. Server-side status
+  // is merged into the SAME statusMap built-ins already use — the rest of this
+  // component's filtering/rendering needs no other change.
   useEffect(() => {
+    let localStatus: Record<string, ItemStatus> = {};
     try {
       setHidden(JSON.parse(localStorage.getItem("admin_hidden_quizzes")??"[]"));
-      setStatusMap(JSON.parse(localStorage.getItem("admin_quiz_status")??"{}"));
-      setGenQuizzes(JSON.parse(localStorage.getItem("generated_quizzes")??"[]"));
+      localStatus = JSON.parse(localStorage.getItem("admin_quiz_status")??"{}");
+      setStatusMap(localStatus);
     } catch {}
+    (async () => {
+      const res = await fetch("/api/admin/content/quizzes");
+      if (!res.ok) return;
+      const { items } = await res.json() as { items: { id: string; status: ItemStatus; content: GeneratedQuiz }[] };
+      setGenQuizzes(items.map(({ content }) => content));
+      setStatusMap(prev => ({ ...prev, ...Object.fromEntries(items.map(i => [i.id, i.status])) }));
+    })();
   }, []);
 
   const builtIn: AnyQuiz[] = QUIZZES.filter(q=>!hidden.includes(q.slug));
@@ -928,7 +959,14 @@ function QuizzesTab() {
   });
 
   function setStatus(id: string, s: ItemStatus) {
-    const next={...statusMap,[id]:s}; setStatusMap(next);
+    setStatusMap(prev => ({ ...prev, [id]: s }));
+    if (genQuizzes.some(q => q.id === id)) {
+      fetch(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: s }),
+      }).catch(() => {});
+      return;
+    }
+    const next = { ...statusMap, [id]: s };
     localStorage.setItem("admin_quiz_status",JSON.stringify(next));
   }
 
@@ -939,7 +977,7 @@ function QuizzesTab() {
 
   function deleteGenerated(id: string) {
     const next=genQuizzes.filter(q=>q.id!==id); setGenQuizzes(next);
-    localStorage.setItem("generated_quizzes",JSON.stringify(next));
+    fetch(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
   }
 
   function randomizeTopic() {
@@ -960,8 +998,11 @@ function QuizzesTab() {
   }
 
   function publish(q: GeneratedQuiz) {
-    const next=[q,...genQuizzes]; setGenQuizzes(next);
-    localStorage.setItem("generated_quizzes",JSON.stringify(next));
+    setGenQuizzes(prev => [q, ...prev]);
+    fetch("/api/admin/content/quizzes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: q.id, status: "published", content: q }),
+    }).catch(() => {});
     setPubIds(p=>new Set([...p,q.id]));
     setPreview(null); setShowGen(false);
   }
@@ -1160,8 +1201,15 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
 
   function saveAll() {
     if (isGen) {
-      const next = genQuizzes.map(gq => gq.id===(quiz as GeneratedQuiz).id ? {...gq,title,description:desc,questions} : gq);
-      setGenQuizzes(next); localStorage.setItem("generated_quizzes",JSON.stringify(next));
+      const genId = (quiz as GeneratedQuiz).id;
+      const next = genQuizzes.map(gq => gq.id===genId ? {...gq,title,description:desc,questions} : gq);
+      setGenQuizzes(next);
+      const updated = next.find(gq => gq.id === genId);
+      if (updated) {
+        fetch(`/api/admin/content/quizzes/${encodeURIComponent(genId)}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: updated }),
+        }).catch(() => {});
+      }
     } else {
       const edits = JSON.parse(localStorage.getItem("admin_quiz_edits")??"{}");
       edits[(quiz as Quiz).slug] = { title, description: desc, questions };
@@ -1352,36 +1400,56 @@ function LessonsTab() {
   // Editor modal
   const [editLesson, setEditLesson] = useState<SyllabusLesson|null>(null);
 
+  // Admin-published lessons now live in the durable content_lessons table
+  // (migration 0019) instead of per-browser localStorage. deleted_lesson_ids
+  // (hiding a BUILT-IN lesson) stays local — a lower-stakes, reversible
+  // moderation toggle, not authored content that can be lost.
   useEffect(() => {
-    try {
-      const saved: SyllabusLesson[] = JSON.parse(localStorage.getItem("generated_lessons")  ?? "[]");
-      const deleted: string[]       = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
-      const deletedSet = new Set(deleted);
-      const savedIds   = new Set(saved.map(l => l.id));
-      const builtins   = (BUILTIN_LESSONS as unknown as SyllabusLesson[])
+    (async () => {
+      let deletedSet = new Set<string>();
+      try {
+        const deleted: string[] = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
+        deletedSet = new Set(deleted);
+      } catch {}
+      const res = await fetch("/api/admin/content/lessons");
+      const saved: SyllabusLesson[] = res.ok
+        ? ((await res.json() as { items: { content: SyllabusLesson }[] }).items.map(i => i.content))
+        : [];
+      const savedIds = new Set(saved.map(l => l.id));
+      const builtins = (BUILTIN_LESSONS as unknown as SyllabusLesson[])
         .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id));
       setLessons([...saved, ...builtins]);
-    } catch {
-      setLessons(BUILTIN_LESSONS as unknown as SyllabusLesson[]);
-    }
+    })();
   }, []);
 
-  function persist(next: SyllabusLesson[]) {
-    const builtinIds = new Set(BUILTIN_LESSONS.map(l => l.id));
-    // Save only user-generated lessons (never persist builtins)
-    const userLessons = next.filter(l => !builtinIds.has(l.id as typeof BUILTIN_LESSONS[number]["id"]));
-    localStorage.setItem("generated_lessons", JSON.stringify(userLessons));
+  const builtinIds = new Set(BUILTIN_LESSONS.map(l => l.id as string));
+
+  /**
+   * `next` is always the FULL desired list (unchanged calling convention from
+   * before 0019) so every existing call site keeps working; `changed` is the
+   * one lesson this particular call actually created/edited, upserted to the
+   * durable store. Editing a BUILT-IN lesson still isn't durably saved — that
+   * matches the pre-0019 behaviour (it filtered builtins out of what it wrote)
+   * exactly, not a new limitation introduced here.
+   */
+  function persist(next: SyllabusLesson[], changed?: SyllabusLesson) {
     setLessons(next);
+    if (!changed || builtinIds.has(changed.id)) return;
+    fetch("/api/admin/content/lessons", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: changed.id, status: "published", content: changed }),
+    }).catch(() => {});
   }
 
   function deleteLesson(id: string) {
-    const builtinIds = new Set(BUILTIN_LESSONS.map(l => l.id));
     // If deleting a builtin, record its ID so learn page can hide it too
-    if (builtinIds.has(id as typeof BUILTIN_LESSONS[number]["id"])) {
+    if (builtinIds.has(id)) {
       const deleted: string[] = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
       if (!deleted.includes(id)) {
         localStorage.setItem("deleted_lesson_ids", JSON.stringify([...deleted, id]));
       }
+    } else {
+      fetch(`/api/admin/content/lessons/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
     }
     persist(lessons.filter(l => l.id !== id));
   }
@@ -1483,7 +1551,7 @@ function LessonsTab() {
 
       if (!finalLesson) throw new Error("Generation failed — please try again");
       const next = [finalLesson, ...lessons];
-      persist(next);
+      persist(next, finalLesson);
       setShowGen(false);
       setGenTopic("");
       setGenCtx("");
@@ -1600,7 +1668,7 @@ function LessonsTab() {
 
         // Persist immediately so the grid updates
         runningLessons = [lesson, ...runningLessons];
-        persist(runningLessons);
+        persist(runningLessons, lesson);
 
         // Mark validating
         queue[i] = { ...queue[i], status: "validating", lesson };
@@ -1659,7 +1727,7 @@ function LessonsTab() {
       const updated = existing
         ? lessons.map(l => l.id === item.lesson?.id ? lesson : l)
         : [lesson, ...lessons];
-      persist(updated);
+      persist(updated, lesson);
 
       queue[idx] = { ...queue[idx], status: "validating", lesson };
       setBulkQueue([...queue]);
@@ -2219,7 +2287,7 @@ function LessonsTab() {
           onClose={() => setEditLesson(null)}
           onSave={(updated) => {
             const next = lessons.map(l => l.id === updated.id ? updated : l);
-            persist(next);
+            persist(next, updated);
             setEditLesson(null);
           }}
         />

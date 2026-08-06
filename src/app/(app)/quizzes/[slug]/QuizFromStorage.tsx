@@ -3,22 +3,22 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QuizClient } from "./QuizClient";
 import type { Quiz } from "@/lib/quizzes/data";
+import { fetchPublishedQuizzes } from "@/lib/content/publicContent";
 
 export function QuizFromStorage({ slug }: { slug: string }) {
   const [quiz, setQuiz]     = useState<Quiz | null | undefined>(undefined); // undefined = loading
   const [error, setError]   = useState(false);
 
   useEffect(() => {
-    try {
-      const stored: (Quiz & { id?: string })[] = JSON.parse(
-        localStorage.getItem("generated_quizzes") ?? "[]"
-      );
-      // match by id OR slug (both are stored in generated quiz objects)
-      const found = stored.find(q => q.id === slug || q.slug === slug) ?? null;
-      setQuiz(found);
-    } catch {
-      setError(true);
-    }
+    // Admin-published quizzes now live in the durable content_quizzes table
+    // (migration 0019), not per-browser localStorage.
+    fetchPublishedQuizzes<Quiz & { id?: string }>()
+      .then(stored => {
+        // match by id OR slug (both are stored in generated quiz objects)
+        const found = stored.find(q => q.id === slug || q.slug === slug) ?? null;
+        setQuiz(found);
+      })
+      .catch(() => setError(true));
   }, [slug]);
 
   if (error || quiz === null) {
