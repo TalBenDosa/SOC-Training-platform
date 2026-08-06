@@ -27,29 +27,29 @@ const edrInjectEvent: TelemetryEvent = {
   raw: {
     "event.module": "crowdstrike",
     "event.dataset": "crowdstrike.falcon",
-    "crowdstrike.event.EventType": "DetectionSummaryEvent",
-    "crowdstrike.event.DetectId": "ldt:c3b1f2a4e5d6:9988776655",
-    "crowdstrike.event.DetectDescription":
+    "crowdstrike.EventType": "DetectionSummaryEvent",
+    "crowdstrike.DetectId": "ldt:c3b1f2a4e5d6:9988776655",
+    "crowdstrike.DetectDescription":
       "A process opened a handle to another running process with elevated access rights",
-    "crowdstrike.event.Tactic": "Defense Evasion",
-    "crowdstrike.event.TacticId": "TA0005",
-    "crowdstrike.event.Technique": "Process Injection",
-    "crowdstrike.event.TechniqueId": "T1055",
-    "crowdstrike.event.Severity": "4",
-    "crowdstrike.event.SeverityName": "Critical",
-    "crowdstrike.event.FileName": "powershell.exe",
-    "crowdstrike.event.CommandLine":
+    "crowdstrike.Tactic": "Defense Evasion",
+    "crowdstrike.TacticId": "TA0005",
+    "crowdstrike.Technique": "Process Injection",
+    "crowdstrike.TechniqueId": "T1055",
+    "crowdstrike.Severity": "4",
+    "crowdstrike.SeverityName": "Critical",
+    "crowdstrike.FileName": "powershell.exe",
+    "crowdstrike.CommandLine":
       "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0A...",
-    "crowdstrike.event.ParentImageFileName": "WINWORD.EXE",
-    "crowdstrike.event.ParentCommandLine":
+    "crowdstrike.ParentImageFileName": "WINWORD.EXE",
+    "crowdstrike.ParentCommandLine":
       "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE /n contract_2024.docm",
-    "crowdstrike.event.TargetProcessId": "3128",
-    "crowdstrike.event.GrantedAccess": "0x1FFFFF",
-    "crowdstrike.event.IOCType": "hash_sha256",
-    "crowdstrike.event.IOCValue":
+    "crowdstrike.TargetProcessId": "3128",
+    "crowdstrike.GrantedAccess": "0x1FFFFF",
+    "crowdstrike.IOCType": "hash_sha256",
+    "crowdstrike.IOCValue":
       "7f3e1c9b8a2d4f6e0c5b3a1d9f7e5c2b4a6d8f0e3c1b5a7d9f2e4c6b8a0d3e5f",
-    "crowdstrike.event.NetworkContainmentState": "Not Contained",
-    "crowdstrike.event.MachineDomain": "MEDCORE",
+    "crowdstrike.NetworkContainmentState": "Not Contained",
+    "crowdstrike.MachineDomain": "MEDCORE",
   },
 };
 
@@ -382,7 +382,7 @@ const avVsEdrMasterclass = {
         "The most important conceptual distinction in CrowdStrike is IOC versus IOA:\n\n" +
         "IOC (Indicator of Compromise): Something known-bad — a specific file hash, a known malicious IP address, or a known malicious domain. IOC matching is essentially the same as signature detection. Fast and accurate for known threats, blind to new ones.\n\n" +
         "IOA (Indicator of Attack): A behavioral pattern that indicates an attack is in progress, regardless of whether the specific tools or files are known. An IOA says 'a process is injecting into lsass.exe with full access' — it does not care what the injecting process is called or whether its hash is in any database. IOAs detect the behavior of the attack, not the identity of the malware.\n\n" +
-        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.event.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.event.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.event.DetectDescription is the human-readable description of what was detected. crowdstrike.event.Severity is the numeric severity (1=Low, 2=Medium, 3=High, 4=Critical). crowdstrike.event.Tactic and crowdstrike.event.Technique map to MITRE ATT&CK. crowdstrike.event.FileName is the process that triggered the detection. crowdstrike.event.CommandLine is the full command line of that process. crowdstrike.event.ParentImageFileName is the parent process. crowdstrike.event.GrantedAccess is the Windows access rights mask used when opening another process's handle.",
+        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.DetectDescription is the human-readable description of what was detected. crowdstrike.Severity is the numeric severity (1=Low, 2=Medium, 3=High, 4=Critical). crowdstrike.Tactic and crowdstrike.Technique map to MITRE ATT&CK. crowdstrike.FileName is the process that triggered the detection. crowdstrike.CommandLine is the full command line of that process. crowdstrike.ParentImageFileName is the parent process. crowdstrike.GrantedAccess is the Windows access rights mask used when opening another process's handle.",
       codeExample:
         "CROWDSTRIKE FALCON DETECTION EVENT — SIEM LOG FIELDS\n" +
         "======================================================\n\n" +
@@ -390,31 +390,31 @@ const avVsEdrMasterclass = {
         '  "event.module": "crowdstrike",\n' +
         '  "event.dataset": "crowdstrike.falcon",\n\n' +
         "  // Detection metadata\n" +
-        '  "crowdstrike.event.EventType": "DetectionSummaryEvent",\n' +
-        '  "crowdstrike.event.DetectId": "ldt:c3b1f2a4e5d6:9988776655",\n' +
-        '  "crowdstrike.event.DetectDescription": "Process injection: powershell.exe injected shellcode into explorer.exe",\n\n' +
+        '  "crowdstrike.EventType": "DetectionSummaryEvent",\n' +
+        '  "crowdstrike.DetectId": "ldt:c3b1f2a4e5d6:9988776655",\n' +
+        '  "crowdstrike.DetectDescription": "Process injection: powershell.exe injected shellcode into explorer.exe",\n\n' +
         "  // MITRE ATT&CK mapping\n" +
-        '  "crowdstrike.event.Tactic": "Defense Evasion",\n' +
-        '  "crowdstrike.event.TacticId": "TA0005",\n' +
-        '  "crowdstrike.event.Technique": "Process Injection: Portable Executable Injection",\n' +
-        '  "crowdstrike.event.TechniqueId": "T1055.002",\n\n' +
+        '  "crowdstrike.Tactic": "Defense Evasion",\n' +
+        '  "crowdstrike.TacticId": "TA0005",\n' +
+        '  "crowdstrike.Technique": "Process Injection: Portable Executable Injection",\n' +
+        '  "crowdstrike.TechniqueId": "T1055.002",\n\n' +
         "  // Severity\n" +
-        '  "crowdstrike.event.Severity": "4",\n' +
-        '  "crowdstrike.event.SeverityName": "Critical",\n\n' +
+        '  "crowdstrike.Severity": "4",\n' +
+        '  "crowdstrike.SeverityName": "Critical",\n\n' +
         "  // Process info\n" +
-        '  "crowdstrike.event.FileName": "powershell.exe",\n' +
-        '  "crowdstrike.event.CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgA...",\n' +
-        '  "crowdstrike.event.ParentImageFileName": "WINWORD.EXE",\n' +
-        '  "crowdstrike.event.ParentCommandLine": "WINWORD.EXE /n contract_2024.docm",\n\n' +
+        '  "crowdstrike.FileName": "powershell.exe",\n' +
+        '  "crowdstrike.CommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgA...",\n' +
+        '  "crowdstrike.ParentImageFileName": "WINWORD.EXE",\n' +
+        '  "crowdstrike.ParentCommandLine": "WINWORD.EXE /n contract_2024.docm",\n\n' +
         "  // Injection target\n" +
-        '  "crowdstrike.event.TargetProcessId": "3128",\n' +
-        '  "crowdstrike.event.GrantedAccess": "0x1FFFFF",  // PROCESS_ALL_ACCESS\n\n' +
+        '  "crowdstrike.TargetProcessId": "3128",\n' +
+        '  "crowdstrike.GrantedAccess": "0x1FFFFF",  // PROCESS_ALL_ACCESS\n\n' +
         "  // IOC\n" +
-        '  "crowdstrike.event.IOCType": "hash_sha256",\n' +
-        '  "crowdstrike.event.IOCValue": "7f3e1c9b8a2d4f6e0c5b3a1d9f7e5c2b...",\n\n' +
+        '  "crowdstrike.IOCType": "hash_sha256",\n' +
+        '  "crowdstrike.IOCValue": "7f3e1c9b8a2d4f6e0c5b3a1d9f7e5c2b...",\n\n' +
         "  // Host context\n" +
-        '  "crowdstrike.event.NetworkContainmentState": "Not Contained",\n' +
-        '  "crowdstrike.event.MachineDomain": "MEDCORE"\n' +
+        '  "crowdstrike.NetworkContainmentState": "Not Contained",\n' +
+        '  "crowdstrike.MachineDomain": "MEDCORE"\n' +
         "}\n\n" +
         "SEVERITY SCALE:\n" +
         "  1 = Low       (informational, review when time permits)\n" +
@@ -645,7 +645,7 @@ const avVsEdrMasterclass = {
       id: "edr-la1",
       heading: "CrowdStrike Alert: PowerShell Injecting into Explorer.exe",
       context:
-        "You are a Tier-1 SOC analyst at MedCore Health. A Critical CrowdStrike Falcon alert fires on WS-EXEC-022, belonging to a hospital executive. The alert severity is 4 (Critical). Looking at the crowdstrike.event.ParentCommandLine field, you can see the user had a Word document open: contract_2024.docm. The .docm extension means it is a macro-enabled Word document. PowerShell was then spawned and injected shellcode into explorer.exe. This is a macro-based malware execution chain.",
+        "You are a Tier-1 SOC analyst at MedCore Health. A Critical CrowdStrike Falcon alert fires on WS-EXEC-022, belonging to a hospital executive. The alert severity is 4 (Critical). Looking at the crowdstrike.ParentCommandLine field, you can see the user had a Word document open: contract_2024.docm. The .docm extension means it is a macro-enabled Word document. PowerShell was then spawned and injected shellcode into explorer.exe. This is a macro-based malware execution chain.",
       event: edrInjectEvent,
       questions: [
         {
@@ -664,7 +664,7 @@ const avVsEdrMasterclass = {
         },
         {
           question:
-            "The crowdstrike.event.GrantedAccess value is 0x1FFFFF and the TargetProcessId is 3128. What has the malware done to explorer.exe?",
+            "The crowdstrike.GrantedAccess value is 0x1FFFFF and the TargetProcessId is 3128. What has the malware done to explorer.exe?",
           options: [
             "The malware added explorer.exe to the Windows Defender exclusion list",
             "The malware opened explorer.exe with PROCESS_ALL_ACCESS permissions, allowing it to inject shellcode into the explorer process — using explorer.exe as a host to hide malicious code",
@@ -700,7 +700,7 @@ const avVsEdrMasterclass = {
       prompt:
         "Look at the CrowdStrike log event. Find the unique DetectId that CrowdStrike assigned to this detection. It follows the format ldt:hexstring:number.",
       answer: "ldt:c3b1f2a4e5d6:9988776655",
-      hint: "Look in the raw field for crowdstrike.event.DetectId.",
+      hint: "Look in the raw field for crowdstrike.DetectId.",
       xp: 30,
     },
   ],

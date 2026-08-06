@@ -551,6 +551,31 @@ export default function LearnPage() {
 
       <div className="container mx-auto max-w-[1400px] px-6 py-8">
 
+        {/* ── Source-of-truth signpost ──────────────────────────────────
+            This page (Career Paths + Lesson Library) is reference/exploration
+            material with no mastery gate. The graded, sequenced curriculum —
+            the one that scores you, enforces prerequisites, and tracks real
+            competence — is Learning Rooms. Say so plainly so a beginner who
+            lands here first doesn't mistake the reading library for the course. */}
+        <Link
+          href="/rooms"
+          className="group mb-8 flex items-center gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-4 py-3 transition-colors hover:border-cyan-500/50 hover:bg-cyan-500/10"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-300">
+            <Layers className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-cyan-100">
+              This is a reference &amp; exploration library — read freely, in any order.
+            </p>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              The graded curriculum that scores you, unlocks by prerequisite, and tracks your progress to analyst is{" "}
+              <span className="font-semibold text-cyan-200">Learning Rooms</span>. Start there for the real path.
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-cyan-400 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+
         {/* ── Career paths (structured, ordered tracks) ── */}
         <CareerPaths />
 

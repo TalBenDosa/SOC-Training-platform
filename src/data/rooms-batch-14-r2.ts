@@ -53,14 +53,14 @@ const powershellDownloadEvent: TelemetryEvent = {
   raw: {
     "event.module": "crowdstrike",
     "event.dataset": "crowdstrike.falcon",
-    "crowdstrike.event.EventType": "ProcessRollup2",
-    "crowdstrike.event.FileName": "powershell.exe",
-    "crowdstrike.event.CommandLine":
+    "crowdstrike.EventType": "ProcessRollup2",
+    "crowdstrike.FileName": "powershell.exe",
+    "crowdstrike.CommandLine":
       "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Invoke-WebRequest -Uri https://raw.githubusercontent.com/nexacorp-it/deploy-scripts/main/patch-agent.ps1 -OutFile C:\\Temp\\patch-agent.ps1; C:\\Temp\\patch-agent.ps1\"",
-    "crowdstrike.event.ParentImageFileName": "cmd.exe",
-    "crowdstrike.event.ParentProcessId": "6210",
-    "crowdstrike.event.UserName": "CORP\\d.okafor",
-    "crowdstrike.event.HostName": "WS-IT-0912",
+    "crowdstrike.ParentImageFileName": "cmd.exe",
+    "crowdstrike.ParentProcessId": "6210",
+    "crowdstrike.UserName": "CORP\\d.okafor",
+    "crowdstrike.HostName": "WS-IT-0912",
     "data.context":
       "d.okafor is a Tier 2 IT support technician. The GitHub repo 'nexacorp-it/deploy-scripts' is the company's own internal automation repository, referenced in three change-tickets this month.",
   },
@@ -83,16 +83,16 @@ const analystChoiceEvent: TelemetryEvent = {
   raw: {
     "event.module": "crowdstrike",
     "event.dataset": "crowdstrike.falcon",
-    "crowdstrike.event.EventType": "ProcessRollup2",
-    "crowdstrike.event.FileName": "powershell.exe",
-    "crowdstrike.event.CommandLine":
+    "crowdstrike.EventType": "ProcessRollup2",
+    "crowdstrike.FileName": "powershell.exe",
+    "crowdstrike.CommandLine":
       "powershell.exe -enc VwByAGkAdABlAC0ASABvAHMAdAAgACIAQgBhAGMAawB1AHAAIABjAG8AbQBwAGwAZQB0AGUAIgA=",
-    "crowdstrike.event.ParentImageFileName": "BackupAgentService.exe",
-    "crowdstrike.event.ParentProcessId": "1204",
-    "crowdstrike.event.ParentImagePath": "C:\\Program Files\\Veeam\\Backup\\BackupAgentService.exe",
-    "crowdstrike.event.UserName": "CORP\\SYSTEM",
-    "crowdstrike.event.HostName": "WS-HR-1188",
-    "crowdstrike.event.FileSigned": "true",
+    "crowdstrike.ParentImageFileName": "BackupAgentService.exe",
+    "crowdstrike.ParentProcessId": "1204",
+    "crowdstrike.ParentImagePath": "C:\\Program Files\\Veeam\\Backup\\BackupAgentService.exe",
+    "crowdstrike.UserName": "CORP\\SYSTEM",
+    "crowdstrike.HostName": "WS-HR-1188",
+    "crowdstrike.FileSigned": "true",
     "data.decoded_command": "Write-Host \"Backup complete\"",
     "data.context":
       "The parent process is the signed Veeam backup agent service, running as SYSTEM, and this workstation is scheduled for a nightly 22:45 backup job per the IT change calendar.",

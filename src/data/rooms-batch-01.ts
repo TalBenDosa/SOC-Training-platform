@@ -154,10 +154,10 @@ Colonial Pipeline operates the largest fuel pipeline in the United States, carry
 **Key lesson from both:** Modern attacks often exploit the weakest link — a trusted software update, a reused password, a single employee clicking the wrong email. Cybersecurity is not purely a technology problem; it is a human problem.
 
 **The Scale of the Problem**
-- IBM's 2023 Cost of a Data Breach Report found the average data breach costs **$4.45 million**.
-- The healthcare industry has the highest breach costs of any sector.
-- It takes organisations an average of **204 days** just to *detect* a breach, and another 73 days to contain it — that is roughly nine months of an attacker being inside before it is fully dealt with.
-- The global shortage of cybersecurity professionals was estimated at **3.5 million unfilled jobs** in 2023.
+- Industry breach-cost studies in recent years (e.g. IBM's Cost of a Data Breach reports) have put the average data breach at roughly **$4.4–4.9 million**.
+- The healthcare industry has consistently had the highest breach costs of any sector.
+- Those same studies find it takes organisations around **200 days** just to *detect* a breach, and roughly another **70 days** to contain it — that is close to nine months of an attacker being inside before it is fully dealt with.
+- The global shortage of cybersecurity professionals has been estimated in the millions of unfilled jobs (ISC2 has put it around **3.5–4 million** in recent years).
 
 **Career Paths in Cybersecurity**
 Cybersecurity is a broad field. Here are the main tracks:
@@ -334,7 +334,7 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
       type: "question" as const,
       id: "intro-cyber-q4",
       question:
-        "The global shortage of cybersecurity professionals was estimated at 3.5 million unfilled jobs in 2023. Which entry-level role is considered the most common starting point for a cybersecurity career?",
+        "The global shortage of cybersecurity professionals has been estimated in recent years at several million unfilled jobs. Which entry-level role is considered the most common starting point for a cybersecurity career?",
       options: [
         "Penetration Tester — ethical hackers who attack systems to find weaknesses",
         "SOC Analyst — monitors alerts and investigates suspicious events in a Security Operations Center",
@@ -452,7 +452,7 @@ Not every organisation builds their own SOC from scratch. There are several mode
 
 **Key SOC metrics**
 Every SOC is measured on performance. Two critical metrics are:
-- **MTTD (Mean Time to Detect)** — The average time between when an attack begins and when the SOC discovers it. According to IBM, the global average was 204 days in 2023. A good SOC aims for hours or days, not months.
+- **MTTD (Mean Time to Detect)** — The average time between when an attack begins and when the SOC discovers it. Industry studies in recent years have put the global average at around 200 days. A good SOC aims for hours or days, not months.
 - **MTTR (Mean Time to Respond)** — The average time from detection to containment. Faster is always better — every minute an attacker is inside costs money and damages trust.
 
 **The SOC and the rest of the organisation**
@@ -602,16 +602,16 @@ That entire sequence — from first email to automated response — might happen
       type: "question" as const,
       id: "soc-struct-q2",
       question:
-        "MTTD stands for Mean Time to Detect. According to IBM's 2023 Cost of a Data Breach Report, what was the global average MTTD?",
+        "MTTD stands for Mean Time to Detect. Industry breach studies in recent years have put the global average MTTD at roughly how long?",
       options: [
         "4 hours — most breaches are detected within a working day",
         "14 days — about two weeks from intrusion to detection",
-        "204 days — nearly seven months from intrusion to detection",
+        "~200 days — around seven months from intrusion to detection",
         "365 days — attackers typically remain undetected for a full year",
       ],
       answer: 2,
       explanation:
-        "The global average MTTD was 204 days in 2023 — meaning attackers were inside organisations for nearly seven months before being discovered. This is a shocking figure that highlights the importance of proactive threat hunting (a T3 function) and tuning SIEM detection rules. A high MTTD means attackers have more time to steal data, move laterally, and cause damage before anyone notices.",
+        "The global average MTTD has hovered around 200 days in recent years — meaning attackers were inside organisations for roughly seven months before being discovered. This is a shocking figure that highlights the importance of proactive threat hunting (a T3 function) and tuning SIEM detection rules. A high MTTD means attackers have more time to steal data, move laterally, and cause damage before anyone notices.",
       xp: 20,
     },
 

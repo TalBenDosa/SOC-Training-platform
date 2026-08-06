@@ -58,6 +58,28 @@ export interface ReadingTask {
   diagram?: string;
   /** Caption shown on the diagram's header bar. Defaults to "Diagram". */
   diagramCaption?: string;
+  /**
+   * Optional inline comprehension check shown after the content — a quick,
+   * UNGRADED retrieval prompt that turns passive reading into active recall.
+   * The student must answer it correctly before the reading can be completed,
+   * but it never affects the room's pass score (reading stays non-gradeable —
+   * see taskMaxXp). It is a forcing function to actually read, not a hint: it
+   * asks about a fact stated in the content just above it. Wrong answers simply
+   * prompt a retry with the explanation.
+   */
+  checkpoint?: {
+    question: string;
+    options: string[];
+    answer: number;        // 0-based index
+    explanation?: string;
+  };
+  /**
+   * Symbolic "engagement" XP awarded on completing the reading, to give a
+   * feedback loop in the otherwise 0-XP reading third of each room. It is added
+   * ONLY to the global/rank XP total — never to the room's graded score — so the
+   * 65% mastery gate stays based purely on gradeable tasks. Defaults to 5.
+   */
+  xp?: number;
 }
 
 export interface QuestionTask {

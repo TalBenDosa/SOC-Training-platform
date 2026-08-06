@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
 import {
   ArrowLeft, BookOpen, CheckCircle2, Circle, ChevronRight, ChevronLeft,
-  Trophy, Zap, FileText, HelpCircle, Search, Flag, RotateCcw, Terminal,
+  Trophy, Zap, FileText, HelpCircle, Search, Flag, RotateCcw, Terminal, Shield,
 } from "lucide-react";
 import type { Room, RoomTask } from "@/data/rooms";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
@@ -18,6 +18,11 @@ import { recommendNextRoom } from "@/lib/rooms/recommend";
 // completed-but-failed room does not appear as "done" on /rooms or unlock
 // anything that depends on its prerequisites.
 export const ROOM_PASS_THRESHOLD = 0.65;
+
+// Rooms whose completion screen offers a direct "practise this live in the
+// Dashboard" CTA — the investigation/report capsule rooms, which teach exactly
+// the skill the live SOC Dashboard exercises.
+const DASHBOARD_CTA_ROOMS = new Set(["investigate-alert-workflow", "incident-report-writing"]);
 
 // ─── localStorage helpers ───────────────────────────────────────────────────────
 type RoomProgressEntry = {
@@ -163,8 +168,18 @@ export function RoomClient({ room }: RoomClientProps) {
 
   function handleTaskComplete(xpEarned: number, taskTelemetry?: TaskTelemetryEntry) {
     const task     = room.tasks[currentTaskIndex];
+    const firstTime = !completedTaskIds.has(task.id);
     const newIds   = new Set(completedTaskIds);
     newIds.add(task.id);
+
+    // Reading tasks report 0 to the room score (they stay non-gradeable, so the
+    // 65% mastery gate is unaffected). But give a symbolic engagement XP to the
+    // GLOBAL/rank total on first completion, so the reading third of a room isn't
+    // a dead 0-XP stretch. Guarded by firstTime so a re-read never re-awards.
+    if (task.type === "reading" && firstTime) {
+      const readXp = task.xp ?? 5;
+      if (readXp > 0) addXpToTotal(readXp);
+    }
 
     // Delta accounting: a task can be re-attempted (review-missed flow), so only
     // credit the IMPROVEMENT over this task's previous best to soc_total_xp —
@@ -242,6 +257,25 @@ export function RoomClient({ room }: RoomClientProps) {
             <p className="text-xl font-bold text-neon-green">{scorePct}%</p>
             <p className="text-[10px] text-slate-400 mt-0.5">Passed — {Math.round(ROOM_PASS_THRESHOLD * 100)}% required</p>
           </div>
+          {/* Transfer moment: the investigation/report capsule rooms teach exactly
+              what the live Dashboard demands (triage a real feed, write the incident
+              report with no hints). At peak momentum — the instant they pass — point
+              them straight at the practice, closing the loop the product already built. */}
+          {DASHBOARD_CTA_ROOMS.has(room.id) && (
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="group w-full rounded-lg border border-cyber-500/40 bg-cyber-500/10 px-4 py-3 text-left transition-colors hover:border-cyber-500/60 hover:bg-cyber-500/15"
+            >
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-cyber-300 shrink-0" />
+                <span className="text-[13px] font-bold text-cyber-200">Now practise this live</span>
+                <ChevronRight className="h-4 w-4 text-cyber-400 ml-auto transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                Take it into the SOC Dashboard — triage a live feed and write a real incident report under the clock.
+              </p>
+            </button>
+          )}
           {(() => {
             // Reuse the SAME recommender the rooms list uses, so the next step
             // offered here matches what a learner would pick from the list —

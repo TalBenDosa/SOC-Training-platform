@@ -308,7 +308,56 @@ function RichContent({ content }: { content: string }) {
 }
 
 // ─── Reading Task ───────────────────────────────────────────────────────────────
+/** Default symbolic engagement XP for a reading task (see ReadingTask.xp). */
+const READING_XP_DEFAULT = 5;
+
+/**
+ * Reading player with a light "actually read it" gate and an optional inline
+ * comprehension checkpoint. The gate opens as soon as the student scrolls the
+ * content's end into view OR a short dwell time passes (whichever first) — it
+ * is a nudge, not a wall. If the task carries a `checkpoint`, answering it
+ * correctly is required to complete (ungraded — pure active recall). Reading
+ * still reports 0 to the room score; the engagement XP is awarded separately by
+ * RoomClient so it never touches the pass gate.
+ */
 function ReadingPlayer({ task, onComplete, isCompleted }: { task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+  const endRef = useRef<HTMLDivElement | null>(null);
+  const [reachedEnd, setReachedEnd] = useState(false);
+  const [dwellDone,  setDwellDone]  = useState(false);
+  // Checkpoint state
+  const [cpChoice, setCpChoice]   = useState<number | null>(null);
+  const [cpCorrect, setCpCorrect] = useState(false);
+
+  const xpReward = task.xp ?? READING_XP_DEFAULT;
+
+  // Dwell fallback: scaled loosely by content length, clamped 5–18s, so a long
+  // wall of text can't be dismissed in one blind click but a short note doesn't
+  // stall the reader. Skipped entirely once already completed.
+  useEffect(() => {
+    if (isCompleted) { setReachedEnd(true); setDwellDone(true); return; }
+    const words = task.content.split(/\s+/).length;
+    const ms = Math.min(18000, Math.max(5000, Math.round((words / 3.5) * 1000)));
+    const t = setTimeout(() => setDwellDone(true), ms);
+    return () => clearTimeout(t);
+  }, [task.id, task.content, isCompleted]);
+
+  // Scroll gate: fire as soon as the end-of-content sentinel is seen.
+  useEffect(() => {
+    if (isCompleted) return;
+    const el = endRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") { setReachedEnd(true); return; }
+    const obs = new IntersectionObserver(
+      entries => { if (entries.some(e => e.isIntersecting)) setReachedEnd(true); },
+      { rootMargin: "0px 0px -20% 0px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [task.id, isCompleted]);
+
+  const cp = task.checkpoint;
+  const gateOpen  = reachedEnd || dwellDone;
+  const canFinish = gateOpen && (!cp || cpCorrect);
+
   return (
     <div className="space-y-7">
       <h2 className="text-3xl font-bold text-white leading-tight">{task.heading}</h2>
@@ -324,11 +373,61 @@ function ReadingPlayer({ task, onComplete, isCompleted }: { task: ReadingTask; o
           </pre>
         </div>
       )}
+
+      {/* End-of-content sentinel for the scroll gate */}
+      <div ref={endRef} aria-hidden className="h-px w-full" />
+
+      {/* Inline comprehension checkpoint (ungraded active recall) */}
+      {cp && !isCompleted && (
+        <div className="rounded-lg border border-cyber-500/25 bg-cyber-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-cyber-300 shrink-0" />
+            <p className="text-sm font-semibold text-white">Quick check</p>
+            <span className="text-[10px] text-slate-400">— confirms you read it, not graded</span>
+          </div>
+          <p className="text-sm text-slate-200">{cp.question}</p>
+          <div className="space-y-2">
+            {cp.options.map((opt, i) => {
+              const chosen = cpChoice === i;
+              const isRight = i === cp.answer;
+              const show = cpChoice !== null;
+              return (
+                <button
+                  key={i}
+                  disabled={cpCorrect}
+                  onClick={() => { setCpChoice(i); if (i === cp.answer) setCpCorrect(true); }}
+                  className={cn(
+                    "w-full text-left rounded border px-3 py-2 text-sm transition",
+                    !show && "border-border/60 bg-[#080d14] text-slate-300 hover:border-cyber-500/50",
+                    show && isRight && "border-neon-green/50 bg-neon-green/10 text-neon-green",
+                    show && chosen && !isRight && "border-severity-critical/50 bg-severity-critical/10 text-severity-critical",
+                    show && !chosen && !isRight && "border-border/40 bg-[#080d14] text-slate-500",
+                  )}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+          {cpChoice !== null && !cpCorrect && (
+            <p className="text-[11px] text-neon-amber">Not quite — re-read the section above and try again.</p>
+          )}
+          {cpCorrect && cp.explanation && (
+            <p className="text-[11px] text-slate-300 leading-relaxed">{cp.explanation}</p>
+          )}
+        </div>
+      )}
+
       {!isCompleted && (
-        <Button onClick={() => onComplete(0)} variant="primary" size="md">
-          <CheckCircle2 className="h-4 w-4" />
-          Mark as Read
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button onClick={() => onComplete(0)} variant="primary" size="md" disabled={!canFinish}>
+            <CheckCircle2 className="h-4 w-4" />
+            Mark as Read
+          </Button>
+          {!gateOpen && <span className="text-[11px] text-slate-500">Keep reading…</span>}
+          {gateOpen && cp && !cpCorrect && <span className="text-[11px] text-slate-500">Answer the quick check to continue</span>}
+          {canFinish && <span className="text-[11px] text-neon-green font-medium">+{xpReward} XP</span>}
+        </div>
       )}
       {isCompleted && (
         <div className="flex items-center gap-4">
