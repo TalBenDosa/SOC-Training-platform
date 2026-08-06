@@ -12,6 +12,22 @@ export interface Organization {
   expires_at: string | null;
   status: OrgStatus;
   allowed_domains?: string[];
+  /** Per-org accent colour + logo shown to that college's students. */
+  branding?: { color?: string; logo_url?: string };
+  /**
+   * Commercial record (migration 0020) — what the college bought, for how much,
+   * under which PO. A record only: it does not gate access (seat_limit /
+   * expires_at do that) and holds no payment state.
+   */
+  contract?: {
+    plan?: string;
+    seats_purchased?: number;
+    price?: number;
+    currency?: string;
+    po_number?: string;
+    signed_at?: string;
+    notes?: string;
+  };
   created_at: string;
 }
 

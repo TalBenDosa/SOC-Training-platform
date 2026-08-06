@@ -52,6 +52,15 @@ export default function OrgDetailPage() {
   const [brandColor, setBrandColor] = useState("#22d3ee");
   const [brandLogo, setBrandLogo] = useState("");
 
+  // contract (commercial record — see migration 0020)
+  const [cPlan, setCPlan] = useState("");
+  const [cSeats, setCSeats] = useState("");
+  const [cPrice, setCPrice] = useState("");
+  const [cCurrency, setCCurrency] = useState("ILS");
+  const [cPo, setCPo] = useState("");
+  const [cSigned, setCSigned] = useState("");
+  const [cNotes, setCNotes] = useState("");
+
   const [confirmName, setConfirmName] = useState("");
 
   async function load() {
@@ -64,6 +73,17 @@ export default function OrgDetailPage() {
     setDomains((data.org.allowed_domains ?? []).join(" "));
     const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
     setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
+    const ct = (data.org.contract ?? {}) as {
+      plan?: string; seats_purchased?: number; price?: number; currency?: string;
+      po_number?: string; signed_at?: string; notes?: string;
+    };
+    setCPlan(ct.plan ?? "");
+    setCSeats(ct.seats_purchased === undefined ? "" : String(ct.seats_purchased));
+    setCPrice(ct.price === undefined ? "" : String(ct.price));
+    setCCurrency(ct.currency ?? "ILS");
+    setCPo(ct.po_number ?? "");
+    setCSigned(toDateInput(ct.signed_at ?? null));
+    setCNotes(ct.notes ?? "");
     // Surface the standing class invite link (auto-created at org creation).
     const invRes = await fetch(`/api/superadmin/orgs/${id}/invites`);
     if (invRes.ok) {
@@ -239,6 +259,58 @@ export default function OrgDetailPage() {
                 </Button>
               </div>
               <p className="mt-2 text-[11px] text-slate-400">Shown as a badge in the students&apos; top bar and on their certificates.</p>
+            </Card>
+
+            {/* Contract — what this college actually bought. A record, not a
+                billing engine: it doesn't charge anyone or gate access (the
+                licence fields above do that), it just stops the commercial
+                terms living only in someone's memory. */}
+            <Card>
+              <h2 className="mb-1 text-sm font-bold text-white">Contract</h2>
+              <p className="mb-3 text-[11px] text-slate-400">
+                What was sold, for how much, under which PO. Does not affect access — seats and expiry are set in Licence above.
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className={label} htmlFor="c-plan">Plan</label>
+                  <input id="c-plan" className={field} value={cPlan} onChange={e => setCPlan(e.target.value)} placeholder="Pilot / Annual" />
+                </div>
+                <div>
+                  <label className={label} htmlFor="c-seats">Seats purchased</label>
+                  <input id="c-seats" type="number" min={0} className={field} value={cSeats} onChange={e => setCSeats(e.target.value)} placeholder="30" />
+                </div>
+                <div>
+                  <label className={label} htmlFor="c-price">Price</label>
+                  <div className="flex gap-1.5">
+                    <input id="c-price" type="number" min={0} step="0.01" className={field} value={cPrice} onChange={e => setCPrice(e.target.value)} placeholder="12000" />
+                    <input aria-label="Currency" className={`${field} w-20`} value={cCurrency} onChange={e => setCCurrency(e.target.value)} placeholder="ILS" />
+                  </div>
+                </div>
+                <div>
+                  <label className={label} htmlFor="c-po">PO / invoice no.</label>
+                  <input id="c-po" className={field} value={cPo} onChange={e => setCPo(e.target.value)} placeholder="PO-2026-014" />
+                </div>
+                <div>
+                  <label className={label} htmlFor="c-signed">Signed on</label>
+                  <input id="c-signed" type="date" className={field} value={cSigned} onChange={e => setCSigned(e.target.value)} />
+                </div>
+              </div>
+              <div className="mt-3">
+                <label className={label} htmlFor="c-notes">Notes</label>
+                <textarea id="c-notes" rows={2} value={cNotes} onChange={e => setCNotes(e.target.value)}
+                  className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+                  placeholder="Renewal contact, agreed terms, anything the next conversation needs." />
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <Button variant="outline" size="sm" disabled={saving}
+                  onClick={() => patch({ contract: {
+                    plan: cPlan, seats_purchased: cSeats, price: cPrice, currency: cCurrency,
+                    po_number: cPo, signed_at: cSigned, notes: cNotes,
+                  } }, "Contract saved.")}>
+                  Save contract
+                </Button>
+                <span className="text-[11px] text-slate-500">Visible to this college — keep internal-only notes elsewhere.</span>
+              </div>
             </Card>
 
             {/* Members */}

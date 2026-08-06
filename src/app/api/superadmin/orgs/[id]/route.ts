@@ -90,6 +90,36 @@ export async function PATCH(req: Request, { params }: Ctx) {
     if (typeof b.logo_url === "string" && /^https:\/\/\S+$/.test(b.logo_url)) branding.logo_url = b.logo_url.slice(0, 500);
     patch.branding = branding;
   }
+  // Commercial record (migration 0020). Whitelisted + length-capped rather than
+  // stored as free-form client JSON: the org can read its own row under the
+  // existing RLS policy, so this must never become an arbitrary blob store.
+  if (body.contract !== undefined && body.contract && typeof body.contract === "object") {
+    const c = body.contract as Record<string, unknown>;
+    const contract: Record<string, string | number> = {};
+    const str = (v: unknown, max: number) => typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined;
+
+    const plan = str(c.plan, 80);                 if (plan) contract.plan = plan;
+    const po = str(c.po_number, 80);              if (po) contract.po_number = po;
+    const currency = str(c.currency, 8);          if (currency) contract.currency = currency.toUpperCase();
+    const notes = str(c.notes, 2000);             if (notes) contract.notes = notes;
+
+    if (c.seats_purchased !== undefined && c.seats_purchased !== "" && c.seats_purchased !== null) {
+      const n = Number(c.seats_purchased);
+      if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "Seats purchased must be 0 or more." }, { status: 400 });
+      contract.seats_purchased = Math.floor(n);
+    }
+    if (c.price !== undefined && c.price !== "" && c.price !== null) {
+      const p = Number(c.price);
+      if (!Number.isFinite(p) || p < 0) return NextResponse.json({ error: "Price must be 0 or more." }, { status: 400 });
+      contract.price = p;
+    }
+    if (c.signed_at !== undefined && c.signed_at !== null && c.signed_at !== "") {
+      const d = new Date(String(c.signed_at));
+      if (Number.isNaN(d.getTime())) return NextResponse.json({ error: "Invalid signed date." }, { status: 400 });
+      contract.signed_at = d.toISOString();
+    }
+    patch.contract = contract;
+  }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data: org, error } = await admin.from("organizations").update(patch).eq("id", id).select().single();
