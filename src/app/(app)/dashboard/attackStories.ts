@@ -27,6 +27,19 @@ import {
   buildBrowserExtensionMalwareScenario, buildTechSupportScamScenario,
   buildCrackedSoftwareScenario, buildMaliciousMacroScenario,
 } from "@/lib/sim/scenarios";
+// Expert scenario-packs — hand-authored, vendor-accurate kill-chains that until
+// now only lived in the static /scenarios exercise and never surfaced in the
+// LIVE dashboard feed. Wiring them here roughly doubles the attack variety a
+// student can meet live. Each is company-restricted (below) to the estates whose
+// telemetry actually carries it — ESXi/vCenter at on-prem datacenters, Linux
+// auditd where there are Linux servers, AiTM/AD attacks at the M365/AD shops.
+import { buildEsxiRansomwareScenario }        from "@/lib/sim/scenario-packs/esxiRansomware";
+import { buildRogueAdminAccountScenario }     from "@/lib/sim/scenario-packs/rogueAdminAccount";
+import { buildImpossibleTravelBasicScenario } from "@/lib/sim/scenario-packs/impossibleTravelBasic";
+import { buildWebShellRceScenario }           from "@/lib/sim/scenario-packs/webShellRce";
+import { buildLinuxSshCryptominerScenario }   from "@/lib/sim/scenario-packs/linuxSshCryptominer";
+import { buildAitmTokenTheftScenario }        from "@/lib/sim/scenario-packs/aitmTokenTheft";
+import { buildBruteForceSingleAccountScenario } from "@/lib/sim/scenario-packs/bruteForceSingleAccount";
 import { COMPANY_PROFILES, COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -81,6 +94,15 @@ const _browserExtension = buildBrowserExtensionMalwareScenario();
 const _techSupportScam  = buildTechSupportScamScenario();
 const _crackedSoftware  = buildCrackedSoftwareScenario();
 const _maliciousMacro   = buildMaliciousMacroScenario();
+
+// Expert scenario-packs (see import note above)
+const _esxiRansomware   = buildEsxiRansomwareScenario();
+const _rogueAdmin       = buildRogueAdminAccountScenario();
+const _impossibleTravelBasic = buildImpossibleTravelBasicScenario();
+const _webShellRce      = buildWebShellRceScenario();
+const _linuxCryptominer = buildLinuxSshCryptominerScenario();
+const _aitmTokenTheft   = buildAitmTokenTheftScenario();
+const _bruteForceSingle = buildBruteForceSingleAccountScenario();
 
 /** Scenario info still needed by the Start-Training modal on the dashboard page */
 export const SCENARIO_INFO = {
@@ -140,6 +162,27 @@ const GENERIC_STORIES: AttackStory[] = [
   story("kerberoasting",     _kerberoasting,   "advanced"),
   story("dns-tunneling",     _dnsTunneling,    "advanced"),
   story("lolbins",           _lolbins,         "advanced"),
+
+  // ── Expert scenario-packs, now live in the dashboard feed ──────────────────
+  // Company-restricted to the estates whose telemetry actually carries the
+  // attack (these packs use windows_security / linux_audit / waf / db_monitor /
+  // email_gateway sources that the source-fit heuristic can't map, so an
+  // explicit allowlist is required — same mechanism as k8s-pod-escape).
+
+  // Single-account brute force, visible entirely in Windows auth logs — one
+  // user, one source, no lateral movement: a genuine foundation-tier attack
+  // that finally gives the Easy tier an identity scenario (was malware-only).
+  story("bruteforce-single", _bruteForceSingle,      "foundation", ["nexacorp", "medcore", "globallogis"]),
+
+  // core — contained identity/AD attacks that need correlating a few events
+  story("impossible-travel-basic", _impossibleTravelBasic, "core", ["nexacorp", "medcore", "globallogis", "rocketstack", "quantumbank"]),
+  story("rogue-admin",       _rogueAdmin,            "core", ["nexacorp", "medcore", "globallogis"]),
+
+  // advanced — full kill chains on infrastructure the on-prem/cloud estates run
+  story("esxi-ransomware",   _esxiRansomware,        "advanced", ["medcore", "globallogis", "nexacorp"]),
+  story("webshell-rce",      _webShellRce,           "advanced", ["rocketstack", "quantumbank", "nexacorp"]),
+  story("linux-cryptominer", _linuxCryptominer,      "advanced", ["globallogis", "rocketstack"]),
+  story("aitm-token-theft",  _aitmTokenTheft,        "advanced", ["nexacorp", "medcore", "globallogis"]),
 ];
 
 // ── Company-specific chains ────────────────────────────────────────────────────
@@ -233,6 +276,19 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   k8s_audit: ["cloudtrail"],
   dlp:       ["o365", "gws", "edr"],
   email:     ["o365", "gws"],
+  // Scenario-pack source types → the company channel that ingests them. These
+  // stories are company-allowlisted, so this only quiets the dev sanity-warning;
+  // it does not affect selection.
+  windows_security: ["ad", "sysmon", "edr"],   // DC/Windows Security events via the AD channel
+  linux_audit:      ["edr", "sysmon"],          // auditd shipped by the endpoint agent
+  email_gateway:    ["o365", "gws"],
+  waf:              ["firewall", "cloudtrail"],  // WAF is an edge/firewall-class device
+  db_monitor:       ["edr", "cloudtrail"],       // database activity monitoring
+  cloud_azure:      ["o365", "cloudtrail"],
+  // SIEM/SOAR correlation + automation meta-events are produced by the platform
+  // itself, so they are "available" wherever the SIEM is (i.e. everywhere).
+  siem: ["edr", "ad", "o365", "okta", "cloudtrail", "firewall", "vpn", "dns", "proxy", "gws", "sysmon"],
+  soar: ["edr", "ad", "o365", "okta", "cloudtrail", "firewall", "vpn", "dns", "proxy", "gws", "sysmon"],
 };
 
 function companySources(companyId: string): string[] {

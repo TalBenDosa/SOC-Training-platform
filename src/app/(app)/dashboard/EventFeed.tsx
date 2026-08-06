@@ -30,6 +30,15 @@ const SOURCE_COLORS: Record<string, string> = {
   vpn:        "bg-slate-400/20 text-slate-300 border-slate-400/30",
   cloudtrail: "bg-severity-medium/20 text-severity-medium border-severity-medium/30",
   proxy:      "bg-slate-400/20 text-slate-300 border-slate-400/30",
+  // Scenario-pack source channels
+  windows_security: "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
+  linux_audit:      "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
+  email_gateway:    "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
+  waf:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
+  db_monitor:       "bg-neon-green/20 text-neon-green border-neon-green/30",
+  iam:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
+  siem:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
+  soar:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -44,6 +53,14 @@ const SOURCE_LABEL: Record<string, string> = {
   vpn:        "VPN",
   cloudtrail: "Cloud",   // overridden per-event below: AWS vs Azure
   proxy:      "Proxy",
+  windows_security: "Windows Security",
+  linux_audit:      "Linux auditd",
+  email_gateway:    "Email Gateway",
+  waf:              "WAF",
+  db_monitor:       "Database (DAM)",
+  iam:              "IAM",
+  siem:             "SIEM",
+  soar:             "SOAR",
 };
 
 /** Derive the cloudtrail badge label from vendor field (AWS vs Azure vs generic). */
