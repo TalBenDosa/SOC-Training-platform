@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { setStorageBackend, localStorageBackend } from "./backend";
 import { createRemoteBackend } from "./remoteBackend";
+import { broadcastXpChanged } from "./progress";
 import { LEARNER_KEYS } from "./keys";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 
@@ -89,6 +90,12 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       }
 
       setStorageBackend(remote);
+      // hydrate() populated the XP cache from the server's authoritative
+      // profiles.xp, but did so directly (no event). Announce it now so the
+      // /progress header and rank badge converge on the same total the class
+      // leaderboard shows, instead of the stale mount-time value (0 on a fresh
+      // device). Harmless on the reload path below — the reload re-reads anyway.
+      broadcastXpChanged();
       // Reload only when the backend actually changed under mounted components:
       // a sign-in/out transition, or a one-time guest-progress import. NEVER on
       // plain `wasEmpty` (that's true on every load for any new account and

@@ -16,7 +16,7 @@ import { ROOMS } from "@/data/rooms";
 import type { RoomTask } from "@/data/rooms";
 import {
   getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions,
-  getClearedCompanies,
+  getClearedCompanies, XP_CHANGED_EVENT,
   getStreakFreezeDates as facadeGetStreakFreezes,
   saveStreakFreezeDates as facadeSaveStreakFreezes,
 } from "@/lib/storage/progress";
@@ -395,6 +395,17 @@ export default function ProgressPage() {
     { day: "Mon", xp: 0 }, { day: "Tue", xp: 0 }, { day: "Wed", xp: 0 },
     { day: "Thu", xp: 0 }, { day: "Fri", xp: 0 }, { day: "Sat", xp: 0 }, { day: "Sun", xp: 0 },
   ]);
+
+  // Keep the header total in sync after the async remote hydrate lands (and on
+  // any later XP change). Without this, the header read XP once on mount —
+  // before ProgressProvider finished pulling the server-authoritative
+  // profiles.xp — and stayed on the stale value while the class leaderboard
+  // (which reads the server directly) showed the real total.
+  useEffect(() => {
+    const onXp = () => setTotalXp(getTotalXp());
+    window.addEventListener(XP_CHANGED_EVENT, onXp);
+    return () => window.removeEventListener(XP_CHANGED_EVENT, onXp);
+  }, []);
 
   useEffect(() => {
     // Read total XP (via the storage facade — Phase-1 seam)

@@ -64,6 +64,19 @@ export function setTotalXp(xp: number): void {
   backend.set(LEARNER_KEYS.totalXp, String(next));
   announceXp(next);
 }
+/**
+ * Re-broadcast the current total without changing it. Needed because a remote
+ * hydrate() writes the XP cache DIRECTLY (it can't go through setTotalXp — the
+ * xp column is server-authoritative and client-revoked, so it only mirrors the
+ * server value locally). Nothing was notified, so anything that read XP once on
+ * mount — the /progress header, the rank badge — stayed on the pre-hydrate value
+ * (typically 0 on a fresh device) while the leaderboard showed the real server
+ * total. Calling this right after hydrate makes those displays converge on the
+ * same server-authoritative number the leaderboard uses.
+ */
+export function broadcastXpChanged(): void {
+  announceXp(getTotalXp());
+}
 /** Add (or subtract, floored at 0) XP to the running total. Returns the new total. */
 export function addTotalXp(delta: number): number {
   const next = Math.max(0, getTotalXp() + delta);
