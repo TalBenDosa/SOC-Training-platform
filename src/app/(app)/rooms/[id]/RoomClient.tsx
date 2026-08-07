@@ -12,6 +12,7 @@ import type { Room, RoomTask } from "@/data/rooms";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { addTotalXp, getRoomProgress, saveRoomProgress } from "@/lib/storage/progress";
 import { recommendNextRoom } from "@/lib/rooms/recommend";
+import { ReportIssue } from "@/components/feedback/ReportIssue";
 
 // A room must score at least this fraction of its gradeable XP to count as
 // passed. Below this, the student must retry the room from the start — a
@@ -479,6 +480,22 @@ export function RoomClient({ room }: RoomClientProps) {
             isCompleted={completedTaskIds.has(currentTask.id)}
             prevLogEvent={prevLogEvent}
           />
+
+          {/* Quiet escape hatch for "this question is wrong". Placed at the end
+              of the task, where a student who just disagreed with the marking
+              actually is — and carrying enough context (room, task, type) that
+              a report is actionable without a reply. */}
+          <div className="mt-8 flex justify-end border-t border-border/40 pt-3">
+            <ReportIssue
+              targetKind="room_task"
+              targetId={`${room.id}:${currentTask.id}`}
+              context={{
+                room: room.title,
+                task_index: currentTaskIndex + 1,
+                task_type: currentTask.type,
+              }}
+            />
+          </div>
         </div>
       </main>
     </div>
