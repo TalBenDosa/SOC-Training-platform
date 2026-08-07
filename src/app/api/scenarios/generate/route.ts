@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { requireAdmin } from "@/lib/auth/apiGuard";
+import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import {
   buildPhishingToExfil,
   buildBecScenario,
@@ -376,8 +377,13 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const { attackType = "random" } = body as { attackType?: string };
 
-  // Fallback: use pre-built scenario if no API key
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Fallback: use pre-built scenario if no API key, or if we're over the spend
+  // ceiling (migration 0024). This route streams up to 8000 output tokens, so a
+  // bulk-generation loop here is the single most expensive thing in the product
+  // — it's exactly the case the cap exists for. Degrades to a real pre-built
+  // scenario rather than an error.
+  const overBudget = !(await checkAiBudget(gate.user.orgId)).allowed;
+  if (!process.env.ANTHROPIC_API_KEY || overBudget) {
     try {
       return Response.json(buildLocalScenario(attackType));
     } catch (err) {
@@ -474,6 +480,13 @@ STRICT RULES:
 
         // Collect the full text as it streams
         const message = await anthropicStream.finalMessage();
+        await recordAiUsage({
+          route: "/api/scenarios/generate",
+          userId: gate.user.id,
+          orgId: gate.user.orgId,
+          model: message.model,
+          usage: message.usage,
+        });
         const text = message.content[0]?.type === "text" ? message.content[0].text : "";
 
         const jsonMatch = text.match(/\{[\s\S]*\}/);

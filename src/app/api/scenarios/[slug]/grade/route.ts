@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildScenarioBySlug } from "@/lib/sim/scenarios";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 
 export const runtime = "nodejs";
 
@@ -169,7 +170,12 @@ export async function POST(
   // The paid LLM feedback is gated behind a signed-in user so anonymous callers
   // can't run up the AI bill. Guests still get full static feedback above.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (apiKey && (await getAuthedUser())) {
+  const gradeUser = await getAuthedUser();
+  // Spend ceiling (migration 0024): over budget, skip the model entirely. The
+  // student still gets the full rubric-based feedback computed above — the same
+  // experience as a deployment with no API key.
+  const gradeBudget = apiKey && gradeUser ? await checkAiBudget(gradeUser.orgId) : { allowed: false };
+  if (apiKey && gradeUser && gradeBudget.allowed) {
     try {
       const { default: Anthropic } = await import("@anthropic-ai/sdk");
       const client = new Anthropic({ apiKey });
@@ -205,6 +211,14 @@ Write exactly 3 sentences of actionable, encouraging feedback. One sentence on t
         .map(c => (c.type === "text" ? c.text : ""))
         .join("")
         .trim();
+
+      await recordAiUsage({
+        route: "/api/scenarios/[slug]/grade",
+        userId: gradeUser.id,
+        orgId: gradeUser.orgId,
+        model: msg.model,
+        usage: msg.usage,
+      });
     } catch {
       // keep static fallback
     }

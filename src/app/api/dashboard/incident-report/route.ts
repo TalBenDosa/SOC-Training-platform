@@ -18,6 +18,7 @@
 
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 
 export const runtime = "nodejs";
 
@@ -240,9 +241,16 @@ export async function POST(req: Request) {
   // The paid LLM path is gated behind a signed-in user so anonymous callers
   // can't run up the AI bill. Guests still get a full (heuristic) grade.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || !(await getAuthedUser())) {
+  const reportUser = apiKey ? await getAuthedUser() : null;
+  if (!apiKey || !reportUser) {
     return NextResponse.json(heuristicGrade(body,
       "Note: this is a basic automatic score. Full AI analyst feedback is available when signed in on a deployment with AI grading configured."));
+  }
+  // Spend ceiling (migration 0024). Over budget → the same heuristic grade a
+  // guest gets: still a real score, just not model-written.
+  if (!(await checkAiBudget(reportUser.orgId)).allowed) {
+    return NextResponse.json(heuristicGrade(body,
+      "Note: this is a basic automatic score. Detailed AI feedback is briefly unavailable."));
   }
 
   try {
@@ -258,6 +266,13 @@ export async function POST(req: Request) {
 
     const raw = msg.content.map(c => (c.type === "text" ? c.text : "")).join("").trim();
     const result = JSON.parse(raw) as IncidentReportResponse;
+    await recordAiUsage({
+      route: "/api/dashboard/incident-report",
+      userId: reportUser.id,
+      orgId: reportUser.orgId,
+      model: msg.model,
+      usage: msg.usage,
+    });
     return NextResponse.json(result);
   } catch (err) {
     console.error("[incident-report]", err);

@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { requireAdmin } from "@/lib/auth/apiGuard";
+import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 
 // ─── Extended type for generated quizzes ─────────────────────────────────────
@@ -175,7 +176,9 @@ export async function POST(req: Request) {
 
   const clampedCount = Math.max(3, Math.min(12, count));
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Over the spend ceiling (migration 0024) → the local template quiz, same as
+  // a deployment with no API key. Real content, just not model-written.
+  if (!process.env.ANTHROPIC_API_KEY || !(await checkAiBudget(gate.user.orgId)).allowed) {
     return Response.json(buildLocalQuiz(title, topic, difficulty, clampedCount));
   }
 
@@ -217,6 +220,14 @@ Rules:
       model: "claude-haiku-4-5-20251001",
       max_tokens: 5000,
       messages: [{ role: "user", content: prompt }],
+    });
+
+    await recordAiUsage({
+      route: "/api/quizzes/generate",
+      userId: gate.user.id,
+      orgId: gate.user.orgId,
+      model: response.model,
+      usage: response.usage,
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";

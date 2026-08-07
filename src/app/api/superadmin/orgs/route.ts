@@ -46,7 +46,20 @@ export async function GET() {
     seats_used: seatByOrg.get(o.id) ?? 0,
     active: isActive(o.status, o.expires_at),
   }));
-  return NextResponse.json({ orgs: summaries });
+  // Platform-wide LLM spend (migration 0024). Surfaced here because this is the
+  // only console that sees across tenants — before this, real dollar spend was
+  // invisible until the provider's bill arrived.
+  const { data: spend30d } = await admin.rpc("ai_spend_usd", { p_org: null, p_days: 30 });
+  const { data: spend7d }  = await admin.rpc("ai_spend_usd", { p_org: null, p_days: 7 });
+
+  return NextResponse.json({
+    orgs: summaries,
+    ai_spend: {
+      usd_30d: Number(spend30d ?? 0),
+      usd_7d: Number(spend7d ?? 0),
+      cap_30d: Number(process.env.AI_MONTHLY_CAP_USD ?? 100),
+    },
+  });
 }
 
 // ── POST /api/superadmin/orgs — create an org ───────────────────────────────

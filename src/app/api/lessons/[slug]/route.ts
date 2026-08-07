@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { findLesson } from "@/lib/lessons/paths";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 
 export const runtime = "nodejs";
 
@@ -198,7 +199,10 @@ export async function GET(
   // can't run up the AI bill by enumerating lesson slugs. Guests get the stub.
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const authed = apiKey ? await getAuthedUser() : null;
-  if (!apiKey || !authed) {
+  // Spend ceiling (migration 0024) — over budget, serve the stub rather than
+  // generating. Treated exactly like "no AI backend" so the cache isn't poisoned.
+  const overBudget = authed ? !(await checkAiBudget(authed.orgId)).allowed : false;
+  if (!apiKey || !authed || overBudget) {
     const stub = buildStub(found.lesson.title, found.lesson.topic);
     stub.lessonSlug = lessonSlug;
     // Only persist the stub when there is genuinely no AI backend; if AI exists
@@ -247,6 +251,13 @@ export async function GET(
     };
 
     cache.set(cacheKey, result);
+    await recordAiUsage({
+      route: "/api/lessons/[slug]",
+      userId: authed.id,
+      orgId: authed.orgId,
+      model: msg.model,
+      usage: msg.usage,
+    });
     return NextResponse.json(result);
   } catch (err) {
     console.error("[lessons API]", err);

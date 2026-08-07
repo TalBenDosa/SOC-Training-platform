@@ -11,7 +11,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, ShieldCheck, Link2, Copy, Check, CheckCircle2 } from "lucide-react";
+import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, ShieldCheck, Link2, Copy, Check, CheckCircle2, DollarSign } from "lucide-react";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 const STATUS_STYLE: Record<OrgStatus, string> = {
@@ -21,6 +21,12 @@ const STATUS_STYLE: Record<OrgStatus, string> = {
   expired: "border-severity-high/30 bg-severity-high/10 text-severity-high",
 };
 
+interface AiSpend { usd_30d: number; usd_7d: number; cap_30d: number }
+
+function fmtUsd(n: number): string {
+  return `$${n.toFixed(2)}`;
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
@@ -29,6 +35,7 @@ function fmtDate(iso: string | null): string {
 export default function SuperAdminPage() {
   usePageTitle("Super Admin");
   const [orgs, setOrgs] = useState<OrgSummary[] | null>(null);
+  const [spend, setSpend] = useState<AiSpend | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -36,7 +43,9 @@ export default function SuperAdminPage() {
     setError(null);
     const res = await fetch("/api/superadmin/orgs");
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); setOrgs([]); return; }
-    setOrgs((await res.json()).orgs);
+    const body = await res.json();
+    setOrgs(body.orgs);
+    setSpend(body.ai_spend ?? null);
   }
   useEffect(() => { load(); }, []);
 
@@ -57,6 +66,41 @@ export default function SuperAdminPage() {
           <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
             <AlertTriangle className="h-4 w-4" /> {error}
           </div>
+        )}
+
+        {spend && (
+          <Card>
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
+                  <DollarSign className="h-4.5 w-4.5 text-cyber-300" />
+                </span>
+                <div>
+                  <p className="text-sm font-bold text-white">AI spend</p>
+                  <p className="text-[11px] text-slate-400">All tenants · estimated from token usage</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6 tabular-nums">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400">Last 7 days</p>
+                  <p className="text-lg font-bold text-white">{fmtUsd(spend.usd_7d)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400">Last 30 days</p>
+                  <p className={`text-lg font-bold ${spend.usd_30d >= spend.cap_30d ? "text-severity-high" : spend.usd_30d >= spend.cap_30d * 0.8 ? "text-neon-amber" : "text-white"}`}>
+                    {fmtUsd(spend.usd_30d)}
+                    <span className="ml-1 text-[11px] font-normal text-slate-400">/ {fmtUsd(spend.cap_30d)} cap</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            {spend.usd_30d >= spend.cap_30d && (
+              <p className="mt-3 flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-[12px] text-severity-high">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Monthly cap reached — AI generation is serving deterministic fallbacks. Raise <code className="font-mono">AI_MONTHLY_CAP_USD</code> to resume.
+              </p>
+            )}
+          </Card>
         )}
 
         {orgs === null ? (
