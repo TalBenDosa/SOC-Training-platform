@@ -9,6 +9,16 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  // Explicit gate, matching the sibling GET route's fix (see its doc comment):
+  // the edge middleware's default-deny already blocks anonymous callers when
+  // Supabase is configured, but a route should not depend solely on that for
+  // access it can trivially assert itself — and in local/no-Supabase mode the
+  // middleware check is bypassed entirely, so this is the only gate left.
+  const gradeUser = await getAuthedUser();
+  if (!gradeUser) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
   const { slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
   const bundle = buildScenarioBySlug(slug);
@@ -42,16 +52,27 @@ export async function POST(
   //
   // ANTI-HARVEST: the sibling `GET /api/scenarios/[slug]` deliberately strips
   // answers/explanations so the learner must reason the incident out. Grading
-  // must not hand that back for free — a student could otherwise POST an empty
-  // body and read the entire answer key + debrief without solving anything.
+  // must not hand that back for free — a student could otherwise POST a single
+  // non-empty character for every question and read the entire answer key +
+  // debrief without ever having looked at the scenario's real options.
   // Rule: you only see a question's correct answer + explanation once you have
-  // actually committed an answer to THAT question. Unanswered → withheld.
-  const isAnswered = (v: string | string[] | undefined) =>
-    Array.isArray(v) ? v.length > 0 : typeof v === "string" && v.trim() !== "";
+  // actually committed a STRUCTURALLY VALID answer to THAT question — one of
+  // its real option values (single) or a non-empty subset of them (multi).
+  // This doesn't stop someone willing to read the options and pick blindly
+  // (same bound the Rooms two-try model accepts elsewhere on this platform),
+  // but it does stop a naive bot from bulk-scraping every scenario's answer
+  // key + narrative with a single generic `{}`-shaped POST per question id.
+  const isAnswered = (q: (typeof bundle.questions)[number], v: string | string[] | undefined) => {
+    const validValues = new Set((q.options ?? []).map(o => o.value));
+    if (q.kind === "multi") {
+      return Array.isArray(v) && v.length > 0 && v.every(x => validValues.has(x));
+    }
+    return typeof v === "string" && validValues.has(v);
+  };
 
   const perQuestion = bundle.questions.map(q => {
     const submitted = answers[q.id];
-    const answered = isAnswered(submitted);
+    const answered = isAnswered(q, submitted);
     let correct = false;
 
     if (q.kind === "multi") {
@@ -76,7 +97,7 @@ export async function POST(
 
   // A genuine attempt = every question answered AND a non-empty written report.
   // Only then is the full debrief (narrative / objectives / kill-chain) released.
-  const attemptedAll = bundle.questions.length > 0 && bundle.questions.every(q => isAnswered(answers[q.id]));
+  const attemptedAll = bundle.questions.length > 0 && bundle.questions.every(q => isAnswered(q, answers[q.id]));
 
   const correctCount = perQuestion.filter(q => q.correct).length;
   // A scenario shipped with no questions used to divide by zero, making `score`
@@ -167,10 +188,9 @@ export async function POST(
     ? `Good investigation on "${bundle.title}". You identified ${correctCount}/${bundle.questions.length} attack stages and scored ${reportScore}/100 on the report. ${reportNote}`
     : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}, report ${reportScore}). ${reportNote}`) + fabricationNote;
 
-  // The paid LLM feedback is gated behind a signed-in user so anonymous callers
-  // can't run up the AI bill. Guests still get full static feedback above.
+  // The paid LLM feedback additionally requires org budget headroom — `gradeUser`
+  // itself is guaranteed non-null here, since the whole route is now gated above.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const gradeUser = await getAuthedUser();
   // Spend ceiling (migration 0024): over budget, skip the model entirely. The
   // student still gets the full rubric-based feedback computed above — the same
   // experience as a deployment with no API key.

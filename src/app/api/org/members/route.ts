@@ -109,10 +109,19 @@ export async function PATCH(req: Request) {
     }
   }
 
-  const { error } = await admin.from("org_members")
+  // Both .eq()s already scope this to the caller's own org, so a `target` from
+  // another org matches nothing and updates 0 rows — but confirm that
+  // explicitly (rather than reporting {ok:true} regardless) so a rogue caller
+  // probing with a stranger's user_id gets an honest 404, not a misleading
+  // success that implies the mutation happened.
+  const { data: updated, error } = await admin.from("org_members")
     .update({ status: active ? "active" : "removed" })
-    .eq("org_id", orgId).eq("user_id", target);
+    .eq("org_id", orgId).eq("user_id", target)
+    .select("user_id");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!updated || updated.length === 0) {
+    return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
+  }
   return NextResponse.json({ ok: true, status: active ? "active" : "removed" });
 }
 
@@ -128,8 +137,21 @@ export async function DELETE(req: Request) {
   if (!target) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
   if (target === adminId) return NextResponse.json({ error: "You can't remove yourself." }, { status: 400 });
 
-  const { error } = await admin.from("org_members").delete().eq("org_id", orgId).eq("user_id", target);
+  // .select() here isn't cosmetic: it's how we learn whether the delete matched
+  // a real row. Both .eq()s already scope the delete to (caller's org, target),
+  // so a `target` who is NOT actually a member of this org matches nothing and
+  // `deleted` comes back empty — but the profiles.org_id reset below must NOT
+  // run in that case. Without this check, a rogue org-admin could pass ANY
+  // user_id (its own org membership check trivially fails and no-ops) and still
+  // reach the unconditional profile update, silently kicking an arbitrary
+  // stranger out of an org they actually belong to — a cross-tenant IDOR.
+  const { data: deleted, error } = await admin.from("org_members")
+    .delete().eq("org_id", orgId).eq("user_id", target)
+    .select("user_id");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!deleted || deleted.length === 0) {
+    return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
+  }
   await admin.from("profiles").update({ org_id: "d0d0d0d0-0000-4000-8000-000000000000" }).eq("id", target);
   return NextResponse.json({ ok: true });
 }
