@@ -7,9 +7,17 @@
  * storage reads never block). `set()` updates the cache immediately
  * (optimistic) and persists to Supabase in the background.
  *
+ * Failed writes are NO LONGER silent (they used to be logged and dropped, so a
+ * flaky connection could lose a finished room with no warning). Every write now
+ * goes through `run()`, which holds the failed thunk and reports it via
+ * syncState.ts. Idempotent upserts replay automatically on reconnect; append-only
+ * inserts wait for an explicit user retry, because replaying one that actually
+ * committed would duplicate a row — and a duplicate scenario_history row
+ * double-counts XP through the recompute trigger.
+ *
  * KNOWN SIMPLIFICATIONS (fine for an MVP, worth hardening later):
- *  - Background writes are fire-and-forget — a failed write is logged, not
- *    retried or queued. A flaky connection can silently drop a write.
+ *  - Pending writes live in memory only: a hard reload while offline still loses
+ *    them. Persisting the queue to localStorage would close that.
  *  - No cross-tab sync — two open tabs each hold their own cache; last write
  *    wins. A `postgres_changes` subscription would fix this later.
  *  - `room_progress`/`dashboard_sessions`/`scenario_history` upsert the ENTIRE
@@ -21,6 +29,7 @@ import type { StorageBackend } from "./backend";
 import { LEARNER_KEYS } from "./keys";
 import type { RoomProgressMap, ScenarioRecord } from "./progress";
 import type { DashboardSessionRecord } from "@/app/(app)/dashboard/useLiveEvents";
+import { setSyncState, SYNC_RETRY_EVENT } from "./syncState";
 
 function safeParse<T>(raw: string | undefined | null, fallback: T): T {
   if (!raw) return fallback;
@@ -61,6 +70,61 @@ export function createRemoteBackend(
     console.error(`[remoteBackend] ${action} failed:`, err);
   }
 
+  // ── Failed-write tracking + retry ───────────────────────────────────────────
+  // Each pending entry holds the EXACT thunk that failed, so a retry re-sends
+  // the same rows rather than recomputing them from a cache that has since moved
+  // on (the append-only cases diff against the cache, so recomputing would send
+  // nothing). See syncState.ts for why only idempotent writes auto-retry.
+  type Pending = { action: string; idempotent: boolean; run: () => PromiseLike<{ error: unknown }> };
+  const pending = new Map<number, Pending>();
+  let seq = 0;
+
+  function publish() {
+    const all = [...pending.values()];
+    setSyncState({
+      retrying:   all.filter(p => p.idempotent).length,
+      needsRetry: all.filter(p => !p.idempotent).length,
+    });
+  }
+
+  /**
+   * Execute a write, tracking failure. `idempotent` marks writes that are safe
+   * to replay blindly (upserts keyed on the primary key); append-only inserts
+   * are not, and are held for an explicit retry instead.
+   */
+  function run(action: string, idempotent: boolean, thunk: () => PromiseLike<{ error: unknown }>) {
+    const id = ++seq;
+    thunk().then(({ error }) => {
+      if (error) {
+        log(action, error);
+        pending.set(id, { action, idempotent, run: thunk });
+        publish();
+      }
+    }, err => {
+      // Network-level rejection (offline, DNS, CORS) — same handling.
+      log(action, err);
+      pending.set(id, { action, idempotent, run: thunk });
+      publish();
+    });
+  }
+
+  /** Re-send held writes. `includeNonIdempotent` only when the user asked. */
+  function flush(includeNonIdempotent: boolean) {
+    for (const [id, p] of [...pending.entries()]) {
+      if (!p.idempotent && !includeNonIdempotent) continue;
+      pending.delete(id);
+      run(p.action, p.idempotent, p.run);
+    }
+    publish();
+  }
+
+  if (typeof window !== "undefined") {
+    // A real reconnect is strong evidence the earlier attempt never reached the
+    // server, so replaying the idempotent writes then is safe.
+    window.addEventListener("online", () => flush(false));
+    window.addEventListener(SYNC_RETRY_EVENT, () => flush(true));
+  }
+
   // ── Per-key persistence ─────────────────────────────────────────────────────
   function persist(key: string, value: string) {
     switch (key) {
@@ -88,9 +152,8 @@ export function createRemoteBackend(
           completed_at: entry.completedAt ?? null,
         }));
         if (rows.length === 0) return;
-        supabase.from("room_progress").upsert(rows, { onConflict: "user_id,room_id" }).then(({ error }) => {
-          if (error) log("roomProgress", error);
-        });
+        // Upsert keyed on (user_id, room_id) — safe to replay.
+        run("roomProgress", true, () => supabase.from("room_progress").upsert(rows, { onConflict: "user_id,room_id" }));
         return;
       }
       case LEARNER_KEYS.dashboardSessions: {
@@ -100,7 +163,7 @@ export function createRemoteBackend(
         // just the newly-appended tail rather than re-inserting everything.
         const fresh = list.slice(Math.max(0, prev.length));
         if (fresh.length === 0) return;
-        supabase.from("dashboard_sessions").insert(fresh.map(s => ({
+        const sessionRows = fresh.map(s => ({
           user_id: userId,
           ...org,
           played_at: s.date,
@@ -112,7 +175,10 @@ export function createRemoteBackend(
           attacks_presented_count: s.attacksPresentedCount,
           events_opened_count: s.eventsOpenedCount ?? 0,
           duration_ms: s.durationMs ?? 0,
-        }))).then(({ error }) => { if (error) log("dashboardSessions", error); });
+        }));
+        // Append-only insert — replaying one that actually committed would
+        // duplicate the session, so this waits for an explicit retry.
+        run("dashboardSessions", false, () => supabase.from("dashboard_sessions").insert(sessionRows));
         return;
       }
       case LEARNER_KEYS.scenarioHistory: {
@@ -120,7 +186,7 @@ export function createRemoteBackend(
         const prev = safeParse<ScenarioRecord[]>(cache.get(key), []);
         const fresh = list.slice(Math.max(0, prev.length));
         if (fresh.length === 0) return;
-        supabase.from("scenario_history").insert(fresh.map(s => ({
+        const historyRows = fresh.map(s => ({
           user_id: userId,
           ...org,
           slug: s.slug,
@@ -130,30 +196,33 @@ export function createRemoteBackend(
           time_taken: s.timeTaken,
           completed_at: s.date,
           report: s.report ?? null, // requires migration 0017 (jsonb column)
-        }))).then(({ error }) => { if (error) log("scenarioHistory", error); });
+        }));
+        // Append-only, and a duplicate row here double-counts XP through the
+        // recompute trigger — so never replayed without the user asking.
+        run("scenarioHistory", false, () => supabase.from("scenario_history").insert(historyRows));
         return;
       }
       case LEARNER_KEYS.clearedCompanies: {
         const list = safeParse<string[]>(value, []);
-        supabase.from("user_progress").upsert(
+        run("clearedCompanies", true, () => supabase.from("user_progress").upsert(
           { user_id: userId, ...org, cleared_companies: list },
           { onConflict: "user_id" },
-        ).then(({ error }) => { if (error) log("clearedCompanies", error); });
+        ));
         return;
       }
       case LEARNER_KEYS.streakFreezes: {
         const list = safeParse<string[]>(value, []);
-        supabase.from("user_progress").upsert(
+        run("streakFreezes", true, () => supabase.from("user_progress").upsert(
           { user_id: userId, ...org, streak_freezes: list },
           { onConflict: "user_id" },
-        ).then(({ error }) => { if (error) log("streakFreezes", error); });
+        ));
         return;
       }
       case LEARNER_KEYS.lastSession: {
-        supabase.from("user_progress").upsert(
+        run("lastSession", true, () => supabase.from("user_progress").upsert(
           { user_id: userId, ...org, last_session: value },
           { onConflict: "user_id" },
-        ).then(({ error }) => { if (error) log("lastSession", error); });
+        ));
         return;
       }
       default:

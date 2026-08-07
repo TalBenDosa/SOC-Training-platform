@@ -32,6 +32,12 @@ jobs:
       - name: Typecheck
         run: npm run type-check
 
+      # Unit tests (vitest). Covers logic that fails SILENTLY in production if it
+      # regresses — starting with the storage layer's failed-write retry, where
+      # the wrong behaviour is invisible until a student reports lost XP.
+      - name: Unit tests
+        run: npm test
+
       # Business-correctness gate. Runs the REAL migrations (0001-latest) against
       # an in-memory Postgres (PGlite — no Docker/Supabase needed) and proves, at
       # the database, the things lint/types/build cannot: RLS actually isolates

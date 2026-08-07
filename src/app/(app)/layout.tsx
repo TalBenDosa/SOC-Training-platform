@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/nav/Sidebar";
 import { MotionProvider } from "@/components/MotionProvider";
 import { EarnMoment } from "@/components/EarnMoment";
+import { SyncStatus } from "@/components/system/SyncStatus";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,6 +11,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main id="main-content" className="flex-1 min-w-0">{children}</main>
       </div>
       <EarnMoment />
+      {/* Silent unless a write actually failed — see syncState.ts */}
+      <SyncStatus />
     </MotionProvider>
   );
 }
