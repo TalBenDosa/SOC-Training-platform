@@ -1,4 +1,4 @@
-import { ROOMS, type Room } from "@/data/rooms";
+import { ROOMS_META, type RoomMeta } from "@/data/roomsMeta";
 
 /**
  * Shared "which room next?" logic — used by BOTH the rooms list (the Start
@@ -13,7 +13,7 @@ export type RoomProgressLike = Record<string, RoomProg>;
 
 /** A room is locked until every prerequisite room has been PASSED (completedAt set). */
 export function isRoomLocked(roomId: string, progress: RoomProgressLike): boolean {
-  const room = ROOMS.find(r => r.id === roomId);
+  const room = ROOMS_META.find(r => r.id === roomId);
   if (!room || room.prerequisites.length === 0) return false;
   return !room.prerequisites.every(p => !!progress[p]?.completedAt);
 }
@@ -29,10 +29,10 @@ const DIFF_RANK: Record<string, number> = { beginner: 0, intermediate: 1, advanc
 export function recommendNextRoom(
   progress: RoomProgressLike,
   excludeId?: string,
-): { room: Room; started: boolean } | null {
+): { room: RoomMeta; started: boolean } | null {
   const depthMemo = new Map<string, number>();
   function prereqDepth(roomId: string): number {
-    const room = ROOMS.find(r => r.id === roomId);
+    const room = ROOMS_META.find(r => r.id === roomId);
     if (!room || room.prerequisites.length === 0) return 0;
     if (depthMemo.has(roomId)) return depthMemo.get(roomId)!;
     depthMemo.set(roomId, 0); // cycle guard
@@ -41,7 +41,7 @@ export function recommendNextRoom(
     return d;
   }
 
-  const available = ROOMS.filter(
+  const available = ROOMS_META.filter(
     r => r.id !== excludeId && !progress[r.id]?.completedAt && !isRoomLocked(r.id, progress),
   );
   const started = available.filter(r => (progress[r.id]?.completedTaskIds?.length ?? 0) > 0);
@@ -50,7 +50,7 @@ export function recommendNextRoom(
     .sort((a, b) =>
       (prereqDepth(a.id) - prereqDepth(b.id)) ||
       ((DIFF_RANK[a.difficulty] ?? 1) - (DIFF_RANK[b.difficulty] ?? 1)) ||
-      (ROOMS.indexOf(a) - ROOMS.indexOf(b)),
+      (ROOMS_META.indexOf(a) - ROOMS_META.indexOf(b)),
     )[0] ?? null;
 
   if (!room) return null;

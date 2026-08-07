@@ -12,8 +12,7 @@ import { cn } from "@/lib/utils";
 import { RANKS, rankForXp, nextRank, rankProgress } from "@/lib/progression/ranks";
 import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText, Users } from "lucide-react";
 import Link from "next/link";
-import { ROOMS } from "@/data/rooms";
-import type { RoomTask } from "@/data/rooms";
+import { ROOMS_META } from "@/data/roomsMeta";
 import {
   getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions,
   getClearedCompanies, XP_CHANGED_EVENT,
@@ -119,24 +118,15 @@ function avg(arr: number[]): number {
   return arr.length === 0 ? 0 : Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
 }
 
-/** Max XP a single Room task can award (0 for reading tasks) — mirrors taskMaxXp in RoomClient.tsx */
-function roomTaskMaxXp(task: RoomTask): number {
-  switch (task.type) {
-    case "reading":      return 0;
-    case "log_analysis": return task.questions.reduce((s, q) => s + q.xp, 0);
-    default:              return task.xp;
-  }
-}
-
 /** % score across every completed Room log_analysis task — the real substitute for
  * the old per-event "Log Analysis" accuracy, which required a Dashboard verdict
  * UI that no longer exists. */
 function computeLogAnalysisSkill(perTaskXp: Record<string, number>): number {
   const rates: number[] = [];
-  for (const room of ROOMS) {
+  for (const room of ROOMS_META) {
     for (const task of room.tasks) {
       if (task.type !== "log_analysis") continue;
-      const max = roomTaskMaxXp(task);
+      const max = task.xp;
       const earned = perTaskXp[task.id];
       if (max <= 0 || earned === undefined) continue;
       rates.push(Math.round((earned / max) * 100));
@@ -150,11 +140,10 @@ function computeLogAnalysisSkill(perTaskXp: Record<string, number>): number {
  * per-event technique hit-rate. */
 function computeMitreKnowledgeSkill(perTaskXp: Record<string, number>): number {
   const rates: number[] = [];
-  for (const room of ROOMS) {
+  for (const room of ROOMS_META) {
     for (const task of room.tasks) {
-      const event = task.type === "log_analysis" || task.type === "analyst_choice" ? task.event : undefined;
-      if (!event?.mitre_technique) continue;
-      const max = roomTaskMaxXp(task);
+      if (!task.mitreTechnique) continue;
+      const max = task.xp;
       const earned = perTaskXp[task.id];
       if (max <= 0 || earned === undefined) continue;
       rates.push(Math.round((earned / max) * 100));

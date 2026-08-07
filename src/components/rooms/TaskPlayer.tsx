@@ -4,16 +4,39 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, BookOpen, Shield } from "lucide-react";
-import type { RoomTask, ReadingTask, QuestionTask, LogAnalysisTask, FlagTask, AnalystChoiceTask, MatchingTask, OrderingTask, QueryFillTask } from "@/data/rooms";
+import type { MatchingTask, OrderingTask } from "@/data/rooms";
+import type {
+  SanitizedRoomTask as RoomTask,
+  SanitizedReadingTask as ReadingTask,
+  SanitizedQuestionTask as QuestionTask,
+  SanitizedLogAnalysisTask as LogAnalysisTask,
+  SanitizedFlagTask as FlagTask,
+  SanitizedAnalystChoiceTask as AnalystChoiceTask,
+  SanitizedQueryFillTask as QueryFillTask,
+} from "@/lib/rooms/sanitize";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { MermaidDiagram } from "./MermaidDiagram";
 
 interface TaskPlayerProps {
+  roomId: string;
   task: RoomTask;
   onComplete: (xpEarned: number, telemetry?: TaskTelemetryEntry) => void;
   isCompleted: boolean;
   prevLogEvent?: TelemetryEvent;
+}
+
+/** POSTs a task submission to the server-side grader (src/lib/rooms/grading.ts)
+ *  and returns its verdict. No sub-player ever compares an answer locally
+ *  anymore — see src/data/rooms.ts's file doc for why. */
+async function submitTask(roomId: string, taskId: string, body: unknown): Promise<{ correct: boolean; xpEarned: number; reveal: Record<string, any> }> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/tasks/${encodeURIComponent(taskId)}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Grading request failed (${res.status})`);
+  return res.json();
 }
 
 // ─── IOC Types ──────────────────────────────────────────────────────────────────
@@ -352,13 +375,17 @@ const READING_XP_DEFAULT = 5;
  * still reports 0 to the room score; the engagement XP is awarded separately by
  * RoomClient so it never touches the pass gate.
  */
-function ReadingPlayer({ task, onComplete, isCompleted }: { task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
   const endRef = useRef<HTMLDivElement | null>(null);
   const [reachedEnd, setReachedEnd] = useState(false);
   const [dwellDone,  setDwellDone]  = useState(false);
-  // Checkpoint state
-  const [cpChoice, setCpChoice]   = useState<number | null>(null);
-  const [cpCorrect, setCpCorrect] = useState(false);
+  // Checkpoint state — the answer/explanation only exist once the server reveals
+  // them (any genuine attempt reveals, per grading.ts's "reading" case).
+  const [cpChoice, setCpChoice]     = useState<number | null>(null);
+  const [cpCorrect, setCpCorrect]   = useState(false);
+  const [cpAnswer, setCpAnswer]     = useState<number | null>(null);
+  const [cpExplanation, setCpExplanation] = useState<string | undefined>(undefined);
+  const [cpBusy, setCpBusy]         = useState(false);
 
   const xpReward = task.xp ?? READING_XP_DEFAULT;
 
@@ -421,13 +448,24 @@ function ReadingPlayer({ task, onComplete, isCompleted }: { task: ReadingTask; o
           <div className="space-y-2">
             {cp.options.map((opt, i) => {
               const chosen = cpChoice === i;
-              const isRight = i === cp.answer;
-              const show = cpChoice !== null;
+              const isRight = cpAnswer !== null && i === cpAnswer;
+              const show = cpChoice !== null && cpAnswer !== null;
               return (
                 <button
                   key={i}
-                  disabled={cpCorrect}
-                  onClick={() => { setCpChoice(i); if (i === cp.answer) setCpCorrect(true); }}
+                  disabled={cpCorrect || cpBusy}
+                  onClick={async () => {
+                    setCpChoice(i);
+                    setCpBusy(true);
+                    try {
+                      const result = await submitTask(roomId, task.id, { selectedIndex: i });
+                      setCpAnswer(typeof result.reveal.answer === "number" ? result.reveal.answer : null);
+                      setCpExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : undefined);
+                      if (result.correct) setCpCorrect(true);
+                    } finally {
+                      setCpBusy(false);
+                    }
+                  }}
                   className={cn(
                     "w-full text-left rounded border px-3 py-2 text-sm transition",
                     !show && "border-border/60 bg-[#080d14] text-slate-300 hover:border-cyber-500/50",
@@ -441,11 +479,11 @@ function ReadingPlayer({ task, onComplete, isCompleted }: { task: ReadingTask; o
               );
             })}
           </div>
-          {cpChoice !== null && !cpCorrect && (
+          {cpChoice !== null && !cpCorrect && !cpBusy && (
             <p className="text-[11px] text-neon-amber">Not quite — re-read the section above and try again.</p>
           )}
-          {cpCorrect && cp.explanation && (
-            <p className="text-[11px] text-slate-300 leading-relaxed">{cp.explanation}</p>
+          {cpCorrect && cpExplanation && (
+            <p className="text-[11px] text-slate-300 leading-relaxed">{cpExplanation}</p>
           )}
         </div>
       )}
@@ -478,7 +516,7 @@ function ReadingPlayer({ task, onComplete, isCompleted }: { task: ReadingTask; o
 }
 
 // ─── Question Task ──────────────────────────────────────────────────────────────
-function QuestionPlayer({ task, onComplete, isCompleted }: { task: QuestionTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: QuestionTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
   const [selected, setSelected]   = useState<number | null>(null);
   const [revealed, setReveal]     = useState(isCompleted);
   const [confirmed, setConfirmed] = useState(isCompleted);
@@ -486,6 +524,11 @@ function QuestionPlayer({ task, onComplete, isCompleted }: { task: QuestionTask;
   // option — the student gets a nudge and one more try for half credit. Two tries
   // only (options are few, so unlimited retries would be brute-forceable).
   const [wrongOnce, setWrongOnce] = useState(false);
+  const [busy, setBusy]           = useState(false);
+  const [correct, setCorrect]     = useState(false);
+  const [awardedXp, setAwardedXp] = useState(0);
+  const [answerIndex, setAnswerIndex] = useState<number | null>(null);
+  const [explanation, setExplanation] = useState("");
 
   if (isCompleted) {
     return (
@@ -503,16 +546,27 @@ function QuestionPlayer({ task, onComplete, isCompleted }: { task: QuestionTask;
     );
   }
 
-  const correct = selected === task.answer;
-  const awardedXp = wrongOnce ? Math.ceil(task.xp / 2) : task.xp;
-
-  function handleConfirm() {
-    if (selected === task.answer) {
-      setReveal(true); setConfirmed(true);          // correct → award (full or half)
-    } else if (!wrongOnce) {
-      setWrongOnce(true); setSelected(null);        // first miss → nudge + one more try, no reveal
-    } else {
-      setReveal(true); setConfirmed(true);          // second miss → reveal + 0 XP
+  async function handleConfirm() {
+    if (selected === null) return;
+    setBusy(true);
+    try {
+      const result = await submitTask(roomId, task.id, { selectedIndex: selected, attemptNumber: wrongOnce ? 2 : 1 });
+      if (result.correct) {
+        setCorrect(true);
+        setAwardedXp(result.xpEarned);
+        setAnswerIndex(typeof result.reveal.answer === "number" ? result.reveal.answer : selected);
+        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+        setReveal(true); setConfirmed(true);          // correct → award (full or half)
+      } else if (!wrongOnce) {
+        setWrongOnce(true); setSelected(null);        // first miss → nudge + one more try, no reveal
+      } else {
+        setAwardedXp(0);
+        setAnswerIndex(typeof result.reveal.answer === "number" ? result.reveal.answer : null);
+        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+        setReveal(true); setConfirmed(true);          // second miss → reveal + 0 XP
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -523,7 +577,7 @@ function QuestionPlayer({ task, onComplete, isCompleted }: { task: QuestionTask;
         {task.options.map((opt, idx) => (
           <OptionButton
             key={idx} label={opt} index={idx}
-            selected={selected === idx} revealed={revealed} correctIndex={task.answer}
+            selected={selected === idx} revealed={revealed} correctIndex={answerIndex ?? -1}
             onSelect={() => !revealed && setSelected(idx)}
           />
         ))}
@@ -535,7 +589,7 @@ function QuestionPlayer({ task, onComplete, isCompleted }: { task: QuestionTask;
         </div>
       )}
       {!confirmed && (
-        <Button variant="primary" size="md" disabled={selected === null} onClick={handleConfirm}>
+        <Button variant="primary" size="md" disabled={selected === null || busy} onClick={handleConfirm}>
           {wrongOnce ? "Try Again" : "Confirm Answer"}
         </Button>
       )}
@@ -544,7 +598,7 @@ function QuestionPlayer({ task, onComplete, isCompleted }: { task: QuestionTask;
           correct ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high",
         )}>
           <p className="font-semibold mb-1">{correct ? `Correct! +${awardedXp} XP` : "Incorrect"}</p>
-          <p className="text-slate-300">{task.explanation}</p>
+          <p className="text-slate-300">{explanation}</p>
         </div>
       )}
       {revealed && (
@@ -557,12 +611,13 @@ function QuestionPlayer({ task, onComplete, isCompleted }: { task: QuestionTask;
 }
 
 // ─── Log Analysis Task ──────────────────────────────────────────────────────────
-function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysisTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: LogAnalysisTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
   const [iocs, setIocs]           = useState<IocEntry[]>([]);
   const [answers, setAnswers]     = useState<(number | null)[]>(Array(task.questions.length).fill(null));
   const [revealed, setRevealed]   = useState<boolean[]>(Array(task.questions.length).fill(false));
   const [confirmed, setConfirmed] = useState<boolean[]>(Array(task.questions.length).fill(false));
   const [totalXp, setTotalXp]     = useState(0);
+  const [results, setResults]     = useState<Record<number, { correct: boolean; answer: number; explanation: string }>>({});
 
   const addIoc = useCallback((entry: IocEntry) => {
     setIocs(prev => prev.some(i => i.value === entry.value) ? prev : [...prev, entry]);
@@ -594,12 +649,21 @@ function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysi
 
   const allRevealed = revealed.every(Boolean);
 
-  function confirmAnswer(i: number) {
-    const isCorrect = answers[i] === task.questions[i].answer;
-    const xpGained  = isCorrect ? task.questions[i].xp : 0;
+  async function confirmAnswer(i: number) {
+    const selected = answers[i];
+    if (selected === null) return;
+    const result = await submitTask(roomId, task.id, { questionIndex: i, selectedIndex: selected });
+    setResults(prev => ({
+      ...prev,
+      [i]: {
+        correct: result.correct,
+        answer: typeof result.reveal.answer === "number" ? result.reveal.answer : selected,
+        explanation: typeof result.reveal.explanation === "string" ? result.reveal.explanation : "",
+      },
+    }));
     setRevealed(prev  => prev.map((v, idx) => idx === i ? true : v));
     setConfirmed(prev => prev.map((v, idx) => idx === i ? true : v));
-    setTotalXp(prev => prev + xpGained);
+    setTotalXp(prev => prev + result.xpEarned);
   }
 
   return (
@@ -618,7 +682,8 @@ function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysi
 
       <div className="space-y-8">
         {task.questions.map((q, i) => {
-          const isCorrect = answers[i] === q.answer;
+          const result = results[i];
+          const isCorrect = !!result?.correct;
           return (
             <div key={i} className="space-y-3">
               <p className="text-sm font-semibold text-white">
@@ -646,7 +711,7 @@ function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysi
                 {q.options.map((opt, idx) => (
                   <OptionButton
                     key={idx} label={opt} index={idx}
-                    selected={answers[i] === idx} revealed={revealed[i]} correctIndex={q.answer}
+                    selected={answers[i] === idx} revealed={revealed[i]} correctIndex={result?.answer ?? -1}
                     onSelect={() => !revealed[i] && setAnswers(prev => prev.map((v, j) => j === i ? idx : v))}
                   />
                 ))}
@@ -657,12 +722,12 @@ function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysi
                   Confirm
                 </Button>
               )}
-              {revealed[i] && (
+              {revealed[i] && result && (
                 <div className={cn("rounded-lg border p-3 text-sm",
                   isCorrect ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high",
                 )}>
                   <p className="font-semibold mb-1">{isCorrect ? `Correct! +${q.xp} XP` : "Incorrect"}</p>
-                  <p className="text-slate-300">{q.explanation}</p>
+                  <p className="text-slate-300">{result.explanation}</p>
                 </div>
               )}
             </div>
@@ -692,10 +757,11 @@ function LogAnalysisPlayer({ task, onComplete, isCompleted }: { task: LogAnalysi
 }
 
 // ─── Flag Task ──────────────────────────────────────────────────────────────────
-function FlagPlayer({ task, onComplete, isCompleted, prevLogEvent }: { task: FlagTask; onComplete: (xp: number) => void; isCompleted: boolean; prevLogEvent?: TelemetryEvent }) {
+function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: { roomId: string; task: FlagTask; onComplete: (xp: number) => void; isCompleted: boolean; prevLogEvent?: TelemetryEvent }) {
   const [input, setInput]       = useState("");
-  const [status, setStatus]     = useState<"idle" | "correct" | "wrong">("idle");
+  const [status, setStatus]     = useState<"idle" | "correct" | "wrong" | "checking">("idle");
   const [showHint, setShowHint] = useState(false);
+  const [awardedXp, setAwardedXp] = useState(task.xp);
 
   if (isCompleted) {
     return (
@@ -717,8 +783,11 @@ function FlagPlayer({ task, onComplete, isCompleted, prevLogEvent }: { task: Fla
     );
   }
 
-  function submit() {
-    if (input.trim().toLowerCase() === task.answer.trim().toLowerCase()) {
+  async function submit() {
+    setStatus("checking");
+    const result = await submitTask(roomId, task.id, { value: input });
+    if (result.correct) {
+      setAwardedXp(result.xpEarned);
       setStatus("correct");
     } else {
       setStatus("wrong");
@@ -768,7 +837,7 @@ function FlagPlayer({ task, onComplete, isCompleted, prevLogEvent }: { task: Fla
                 : "border-cyber-500/40 focus:ring-cyber-500/30 focus:border-cyber-500/60",
             )}
           />
-          <Button variant="primary" size="md" onClick={submit} disabled={!input.trim()}>Submit</Button>
+          <Button variant="primary" size="md" onClick={submit} disabled={!input.trim() || status === "checking"}>Submit</Button>
         </div>
       )}
 
@@ -780,9 +849,9 @@ function FlagPlayer({ task, onComplete, isCompleted, prevLogEvent }: { task: Fla
       {status === "correct" && (
         <>
           <div className="rounded-lg border border-neon-green/40 bg-neon-green/10 px-4 py-3 text-sm text-neon-green font-semibold">
-            Correct! +{task.xp} XP
+            Correct! +{awardedXp} XP
           </div>
-          <Button variant="primary" size="md" onClick={() => onComplete(task.xp)}>
+          <Button variant="primary" size="md" onClick={() => onComplete(awardedXp)}>
             Next <ChevronRight className="h-4 w-4" />
           </Button>
         </>
@@ -830,18 +899,44 @@ function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
 }
 
 // ─── Analyst Choice Task ─────────────────────────────────────────────────────────
-function AnalystChoicePlayer({ task, onComplete, isCompleted }: { task: AnalystChoiceTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: AnalystChoiceTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // One forgiving second chance at half credit; a wrong first verdict does not
   // reveal the correct one (only 4 verdicts, so unlimited retries would be trivial).
   const [wrongOnce, setWrongOnce] = useState(false);
-  const awardedXp = wrongOnce ? Math.ceil(task.xp / 2) : task.xp;
+  const [busy, setBusy] = useState(false);
+  const [awardedXp, setAwardedXp] = useState(0);
+  const [correctVerdict, setCorrectVerdict] = useState<string | null>(null);
+  const [explanation, setExplanation] = useState("");
+  const [fpTrap, setFpTrap] = useState<string | undefined>(undefined);
+  const [resultCorrect, setResultCorrect] = useState(false);
 
-  function handleSubmit() {
-    if (selected === task.correct_verdict) setRevealed(true);
-    else if (!wrongOnce) { setWrongOnce(true); setSelected(null); }
-    else setRevealed(true);
+  async function handleSubmit() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const result = await submitTask(roomId, task.id, { verdict: selected, attemptNumber: wrongOnce ? 2 : 1 });
+      if (result.correct) {
+        setAwardedXp(result.xpEarned);
+        setResultCorrect(true);
+        setCorrectVerdict(typeof result.reveal.correct_verdict === "string" ? result.reveal.correct_verdict : selected);
+        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+        setFpTrap(typeof result.reveal.fp_trap === "string" ? result.reveal.fp_trap : undefined);
+        setRevealed(true);
+      } else if (!wrongOnce) {
+        setWrongOnce(true); setSelected(null);
+      } else {
+        setAwardedXp(0);
+        setResultCorrect(false);
+        setCorrectVerdict(typeof result.reveal.correct_verdict === "string" ? result.reveal.correct_verdict : null);
+        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+        setFpTrap(typeof result.reveal.fp_trap === "string" ? result.reveal.fp_trap : undefined);
+        setRevealed(true);
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   const VERDICTS = [
@@ -851,7 +946,7 @@ function AnalystChoicePlayer({ task, onComplete, isCompleted }: { task: AnalystC
     { key: "informational",  label: "Informational",   desc: "Log and monitor — no action",     activeClass: "border-slate-500/70 bg-slate-500/15 text-slate-300"     },
   ] as const;
 
-  const isCorrect = selected === task.correct_verdict;
+  const isCorrect = resultCorrect;
 
   if (isCompleted) {
     return (
@@ -890,7 +985,7 @@ function AnalystChoicePlayer({ task, onComplete, isCompleted }: { task: AnalystC
               className={cn(
                 "rounded-lg border px-4 py-3 text-left transition-all",
                 revealed
-                  ? v.key === task.correct_verdict
+                  ? v.key === correctVerdict
                     ? "border-neon-green/60 bg-neon-green/10 text-neon-green cursor-default"
                     : selected === v.key && !isCorrect
                       ? "border-severity-high/50 bg-severity-high/10 text-severity-high cursor-default"
@@ -915,7 +1010,7 @@ function AnalystChoicePlayer({ task, onComplete, isCompleted }: { task: AnalystC
       )}
 
       {!revealed && (
-        <Button variant="primary" size="md" disabled={!selected} onClick={handleSubmit}>
+        <Button variant="primary" size="md" disabled={!selected || busy} onClick={handleSubmit}>
           {wrongOnce ? "Try Again" : "Submit Verdict"}
         </Button>
       )}
@@ -927,11 +1022,11 @@ function AnalystChoicePlayer({ task, onComplete, isCompleted }: { task: AnalystC
           <p className={cn("font-semibold", isCorrect ? "text-neon-green" : "text-severity-high")}>
             {isCorrect ? `Correct! +${awardedXp} XP` : "Incorrect — review the reasoning below"}
           </p>
-          <p className="text-slate-300">{task.explanation}</p>
-          {task.fp_trap && !isCorrect && (
+          <p className="text-slate-300">{explanation}</p>
+          {fpTrap && !isCorrect && (
             <div className="mt-2 border-l-2 border-neon-amber/40 pl-3">
               <p className="text-[11px] uppercase tracking-wider text-neon-amber font-semibold mb-0.5">Common trap</p>
-              <p className="text-xs text-neon-amber/80">{task.fp_trap}</p>
+              <p className="text-xs text-neon-amber/80">{fpTrap}</p>
             </div>
           )}
         </div>
@@ -1275,13 +1370,14 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
 // pre-written query does — closes the platform's one real KQL/SPL practice gap.
 const BLANK_TOKEN = /\{\{([a-zA-Z0-9_]+)\}\}/g;
 
-function normalizeAnswer(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, " ").replace(/^["']|["']$/g, "");
-}
-
-function QueryFillPlayer({ task, onComplete, isCompleted }: { task: QueryFillTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function QueryFillPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: QueryFillTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
   const [values, setValues]     = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(false);
+  const [busy, setBusy]         = useState(false);
+  const [blankResults, setBlankResults] = useState<Record<string, { correct: boolean; answers: string[] }>>({});
+  const [explanation, setExplanation] = useState("");
+  const [xpEarned, setXpEarned] = useState(0);
+  const [allCorrect, setAllCorrect] = useState(false);
 
   // Split the template into alternating text / {{blankId}} segments, keeping
   // the delimiters so we know exactly where each input goes.
@@ -1289,15 +1385,25 @@ function QueryFillPlayer({ task, onComplete, isCompleted }: { task: QueryFillTas
 
   const blankIds = task.blanks.map(b => b.id);
   const allFilled = blankIds.every(id => (values[id] ?? "").trim().length > 0);
-  const isBlankCorrect = (id: string) => {
-    const blank = task.blanks.find(b => b.id === id);
-    if (!blank) return false;
-    const given = normalizeAnswer(values[id] ?? "");
-    return blank.answers.some(a => normalizeAnswer(a) === given);
-  };
+  const isBlankCorrect = (id: string) => !!blankResults[id]?.correct;
   const correctCount = blankIds.filter(isBlankCorrect).length;
-  const allCorrect   = correctCount === blankIds.length;
-  const xpEarned      = allCorrect ? task.xp : Math.floor(task.xp * correctCount / Math.max(1, blankIds.length));
+
+  async function runQuery() {
+    setBusy(true);
+    try {
+      const result = await submitTask(roomId, task.id, { values });
+      const blanks = Array.isArray(result.reveal.blanks) ? result.reveal.blanks : [];
+      const byId: Record<string, { correct: boolean; answers: string[] }> = {};
+      for (const b of blanks) byId[b.id] = { correct: !!b.correct, answers: Array.isArray(b.answers) ? b.answers : [] };
+      setBlankResults(byId);
+      setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+      setXpEarned(result.xpEarned);
+      setAllCorrect(result.correct);
+      setRevealed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   if (isCompleted) {
     return (
@@ -1359,14 +1465,14 @@ function QueryFillPlayer({ task, onComplete, isCompleted }: { task: QueryFillTas
         <div className="space-y-1">
           {task.blanks.filter(b => !isBlankCorrect(b.id)).map(b => (
             <p key={b.id} className="text-xs text-severity-high">
-              <span className="font-mono">{b.placeholder ?? b.id}</span>: expected <span className="font-mono text-slate-300">{b.answers[0]}</span>
+              <span className="font-mono">{b.placeholder ?? b.id}</span>: expected <span className="font-mono text-slate-300">{blankResults[b.id]?.answers[0] ?? ""}</span>
             </p>
           ))}
         </div>
       )}
 
       {!revealed && (
-        <Button variant="primary" size="md" disabled={!allFilled} onClick={() => setRevealed(true)}>
+        <Button variant="primary" size="md" disabled={!allFilled || busy} onClick={runQuery}>
           Run Query
         </Button>
       )}
@@ -1376,9 +1482,9 @@ function QueryFillPlayer({ task, onComplete, isCompleted }: { task: QueryFillTas
           allCorrect ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
         )}>
           <p className={cn("font-semibold", allCorrect ? "text-neon-green" : "text-neon-amber")}>
-            {allCorrect ? `Correct! +${task.xp} XP` : `${correctCount}/${blankIds.length} blanks correct`}
+            {allCorrect ? `Correct! +${xpEarned} XP` : `${correctCount}/${blankIds.length} blanks correct`}
           </p>
-          <p className="text-slate-300">{task.explanation}</p>
+          <p className="text-slate-300">{explanation}</p>
         </div>
       )}
 
@@ -1392,7 +1498,7 @@ function QueryFillPlayer({ task, onComplete, isCompleted }: { task: QueryFillTas
 }
 
 // ─── Main TaskPlayer ────────────────────────────────────────────────────────────
-export function TaskPlayer({ task, onComplete, isCompleted, prevLogEvent }: TaskPlayerProps) {
+export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: TaskPlayerProps) {
   // Behavioral telemetry (Phase 1 — see ANALYST_TELEMETRY_PLAN.md): timing is
   // captured here at the dispatcher, via event delegation, so none of the 7
   // sub-players below need to know telemetry exists. isCompleted tasks (the
@@ -1405,14 +1511,14 @@ export function TaskPlayer({ task, onComplete, isCompleted, prevLogEvent }: Task
 
   const player = (() => {
     switch (task.type) {
-      case "reading":         return <ReadingPlayer      task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "question":        return <QuestionPlayer     task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "log_analysis":    return <LogAnalysisPlayer  task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "flag":            return <FlagPlayer         task={task} onComplete={handleComplete} isCompleted={isCompleted} prevLogEvent={prevLogEvent} />;
-      case "analyst_choice":  return <AnalystChoicePlayer task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "reading":         return <ReadingPlayer      roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "question":        return <QuestionPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "log_analysis":    return <LogAnalysisPlayer  roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "flag":            return <FlagPlayer         roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} prevLogEvent={prevLogEvent} />;
+      case "analyst_choice":  return <AnalystChoicePlayer roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       case "matching":        return <MatchingPlayer     task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       case "ordering":        return <OrderingPlayer     task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "query_fill":      return <QueryFillPlayer    task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "query_fill":      return <QueryFillPlayer    roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       default:                return null;
     }
   })();

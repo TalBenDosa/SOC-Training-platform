@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { RoomCard } from "@/components/rooms/RoomCard";
-import { ROOMS } from "@/data/rooms";
+import { ROOMS_META } from "@/data/roomsMeta";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { isRoomLocked, recommendNextRoom } from "@/lib/rooms/recommend";
 import { AssignedWork } from "@/components/assignments/AssignedWork";
@@ -41,9 +41,9 @@ export default function RoomsPage() {
   // can never disagree about what is locked or what to do next.
   const isLocked = (roomId: string) => isRoomLocked(roomId, progress);
 
-  const filtered = ROOMS.filter(r => filter === "All" || r.category === filter);
+  const filtered = ROOMS_META.filter(r => filter === "All" || r.category === filter);
 
-  const totalCompleted = ROOMS.filter(r => !!progress[r.id]?.completedAt).length;
+  const totalCompleted = ROOMS_META.filter(r => !!progress[r.id]?.completedAt).length;
   const totalXp        = Object.values(progress).reduce((sum, p) => sum + (p.xpEarned ?? 0), 0);
 
   const rec = recommendNextRoom(progress);
@@ -89,7 +89,7 @@ export default function RoomsPage() {
             <div className="hidden lg:flex flex-col items-end gap-1 shrink-0">
               <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Your Progress</p>
               <p className="text-2xl font-bold font-mono text-white">
-                {totalCompleted}/{ROOMS.length}
+                {totalCompleted}/{ROOMS_META.length}
               </p>
               <p className="text-[11px] text-slate-400">rooms complete</p>
               <p className="mt-1 text-sm font-semibold text-neon-amber font-mono">+{totalXp} XP</p>

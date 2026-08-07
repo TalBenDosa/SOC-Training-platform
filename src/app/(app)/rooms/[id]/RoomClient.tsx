@@ -8,7 +8,7 @@ import {
   ArrowLeft, BookOpen, CheckCircle2, Circle, ChevronRight, ChevronLeft,
   Trophy, Zap, FileText, HelpCircle, Search, Flag, RotateCcw, Terminal, Shield,
 } from "lucide-react";
-import type { Room, RoomTask } from "@/data/rooms";
+import type { SanitizedRoom as Room, SanitizedRoomTask as RoomTask } from "@/lib/rooms/sanitize";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { addTotalXp, getRoomProgress, saveRoomProgress } from "@/lib/storage/progress";
 import { recommendNextRoom } from "@/lib/rooms/recommend";
@@ -475,6 +475,7 @@ export function RoomClient({ room }: RoomClientProps) {
           {/* Task player */}
           <TaskPlayer
             key={currentTask.id}
+            roomId={room.id}
             task={currentTask}
             onComplete={handleTaskComplete}
             isCompleted={completedTaskIds.has(currentTask.id)}

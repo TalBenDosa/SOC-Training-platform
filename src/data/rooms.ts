@@ -4,8 +4,30 @@
  * 62 progressive rooms taking a student from zero technical knowledge
  * through to advanced SOC analyst skills. Each room contains readings,
  * multiple-choice questions, hands-on log analysis, and CTF flag tasks.
+ *
+ * SERVER-ONLY, BY CONVENTION. Every task's answer/answers/correct_verdict/
+ * correct_order field lives in here — this is the full content, including the
+ * answer key. A build leaked it once (pentest finding, Aug 2026): four
+ * "use client" components value-imported ROOMS directly and shipped every
+ * answer to the browser bundle.
+ *
+ * Client code that needs room data must use the sanitized `ROOMS_META` in
+ * src/data/roomsMeta.ts (list/progress/card/recommender views), or the sanitized
+ * per-room payload from src/lib/rooms/sanitize.ts (the room-detail page passes
+ * this to the player), or call the server-side grading API at
+ * /api/rooms/[id]/tasks/[taskId]/submit (src/lib/rooms/grading.ts). Neither path
+ * ever puts an answer field in a response before the student has genuinely
+ * attempted that task.
+ *
+ * We deliberately do NOT use the `server-only` npm package here: it throws
+ * unconditionally on import (not just in a browser), which breaks every
+ * tsx-run content script that legitimately needs the real ROOMS array
+ * (scripts/validate-content.mjs, scripts/generate-rooms-meta.mjs, the backend
+ * test harnesses). Enforcement instead lives in
+ * scripts/validate-content.mjs's "no client value-imports of @/data/rooms"
+ * check, which greps every "use client" file for a non-type-only import from
+ * this module and fails the content gate if it finds one.
  */
-
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { roomsBatch18 } from "./rooms-batch-18";
 import { roomsBatch19 } from "./rooms-batch-19";

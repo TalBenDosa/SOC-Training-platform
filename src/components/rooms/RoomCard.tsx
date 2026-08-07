@@ -2,11 +2,11 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { Lock, CheckCircle2, Clock, Zap, RotateCcw } from "lucide-react";
-import type { Room } from "@/data/rooms";
-import { ROOMS } from "@/data/rooms";
+import type { RoomMeta } from "@/data/roomsMeta";
+import { ROOMS_META } from "@/data/roomsMeta";
 
 interface RoomCardProps {
-  room: Room;
+  room: RoomMeta;
   progress: {
     completedTaskIds: string[];
     xpEarned: number;
@@ -16,7 +16,7 @@ interface RoomCardProps {
   onClick: () => void;
 }
 
-function difficultyBorder(d: Room["difficulty"]): string {
+function difficultyBorder(d: RoomMeta["difficulty"]): string {
   switch (d) {
     case "beginner":     return "border-neon-green/40";
     case "intermediate": return "border-severity-medium/40";
@@ -24,7 +24,7 @@ function difficultyBorder(d: Room["difficulty"]): string {
   }
 }
 
-function difficultyBadgeClass(d: Room["difficulty"]): string {
+function difficultyBadgeClass(d: RoomMeta["difficulty"]): string {
   switch (d) {
     case "beginner":
       return "border-neon-green/40 bg-neon-green/10 text-neon-green";
@@ -35,7 +35,7 @@ function difficultyBadgeClass(d: Room["difficulty"]): string {
   }
 }
 
-function iconBg(d: Room["difficulty"]): string {
+function iconBg(d: RoomMeta["difficulty"]): string {
   switch (d) {
     case "beginner":     return "bg-neon-green/10 border-neon-green/30";
     case "intermediate": return "bg-severity-medium/10 border-severity-medium/30";
@@ -80,7 +80,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
             Complete{" "}
             <span className="font-semibold text-slate-400">
               {room.prerequisites
-                .map((id: string) => ROOMS.find(r => r.id === id)?.title ?? id)
+                .map((id: string) => ROOMS_META.find(r => r.id === id)?.title ?? id)
                 .join(", ")}
             </span>{" "}
             first

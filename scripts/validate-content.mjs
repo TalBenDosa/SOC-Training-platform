@@ -15,6 +15,7 @@
 
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 
 const ROOT = process.cwd();
 const imp = f => import(pathToFileURL(path.join(ROOT, f)).href);
@@ -30,9 +31,71 @@ const quizMod = await imp("src/lib/quizzes/data.ts");
 // spot this gate exists to prevent.
 const QUIZZES = quizMod.ALL_QUIZZES ?? quizMod.QUIZZES ?? [];
 const { SCENARIOS } = await imp("src/lib/sim/scenarios.ts");
+const { ROOMS_META } = await imp("src/data/roomsMeta.ts");
 
 const findings = [];
 const add = (sev, where, msg) => findings.push({ sev, where, msg });
+
+// ── no client-side value-imports of @/data/rooms ─────────────────────────
+// src/data/rooms.ts carries the full answer key (see its file doc). It is NOT
+// wrapped in the npm `server-only` package — that package throws unconditionally
+// on import, which would break every tsx-run script here that legitimately
+// needs the real ROOMS array (this script, generate-rooms-meta.mjs, the backend
+// test harnesses). So the guard against a client bundle shipping the answer key
+// lives here instead: walk every "use client" file under src/ and fail if any
+// of them value-imports from "@/data/rooms" (a `import type { ... }` is fine —
+// it's erased at compile time and never reaches a bundle).
+{
+  const SRC = path.join(ROOT, "src");
+  /** @type {string[]} */
+  const clientFiles = [];
+  (function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walk(full); continue; }
+      if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+      const text = fs.readFileSync(full, "utf8");
+      if (/^\s*["']use client["'];?/.test(text)) clientFiles.push(full);
+    }
+  })(SRC);
+
+  const VALUE_IMPORT_FROM_ROOMS = /^\s*import\s+(?!type\s)[^;]*from\s+["']@\/data\/rooms["']/m;
+  for (const file of clientFiles) {
+    const text = fs.readFileSync(file, "utf8");
+    if (VALUE_IMPORT_FROM_ROOMS.test(text)) {
+      add("ERROR", path.relative(ROOT, file),
+        `"use client" file value-imports from "@/data/rooms" — the answer key would ship to the browser. Use "@/data/roomsMeta" (ROOMS_META) or src/lib/rooms/sanitize.ts instead; "import type" is fine.`);
+    }
+  }
+}
+
+// ── roomsMeta staleness ───────────────────────────────────────────────────
+// ROOMS_META (src/data/roomsMeta.ts) is a generated, answer-free derivative of
+// ROOMS that client components import instead of the real (server-only) ROOMS
+// — see that file's doc comment. A content edit that forgets to re-run
+// `npx tsx scripts/generate-rooms-meta.mjs` would otherwise drift silently:
+// the room list, progress skills and recommender would keep serving stale
+// titles/XP/task ids forever. Catch that here instead.
+{
+  const metaById = new Map(ROOMS_META.map(r => [r.id, r]));
+  if (ROOMS_META.length !== ROOMS.length) {
+    add("ERROR", "roomsMeta", `${ROOMS_META.length} rooms in roomsMeta.ts vs ${ROOMS.length} in ROOMS — regenerate with: npx tsx scripts/generate-rooms-meta.mjs`);
+  }
+  for (const room of ROOMS) {
+    const meta = metaById.get(room.id);
+    if (!meta) { add("ERROR", `roomsMeta/${room.id}`, "room missing from roomsMeta.ts — regenerate"); continue; }
+    if (meta.tasks.length !== room.tasks.length) {
+      add("ERROR", `roomsMeta/${room.id}`, `${meta.tasks.length} tasks in roomsMeta.ts vs ${room.tasks.length} in ROOMS — regenerate`);
+      continue;
+    }
+    for (let i = 0; i < room.tasks.length; i++) {
+      if (meta.tasks[i].id !== room.tasks[i].id) {
+        add("ERROR", `roomsMeta/${room.id}`, `task ${i} id mismatch ("${meta.tasks[i].id}" vs "${room.tasks[i].id}") — regenerate`);
+        break;
+      }
+    }
+  }
+}
 
 const DEPRECATED = ["T1076", "T1086", "T1064", "T1035", "T1117"];
 
