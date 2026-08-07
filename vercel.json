@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/expire-orgs",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/nudge-lapsed",
+      "schedule": "0 8 * * 1"
     }
   ]
 }

@@ -64,3 +64,42 @@ export function studentInviteEmail(args: { orgName: string; joinLink: string }):
   const text = `You've been invited to ${orgName} on HACK THE SOC.\n\nAccept your invitation and create your account:\n${joinLink}`;
   return { subject: `You're invited to ${orgName} on HACK THE SOC`, html, text };
 }
+
+/**
+ * Sent to a learner who started but has been idle for a while.
+ *
+ * Written to be short and non-guilting: skills decay, here's the one thing to
+ * pick up. It names the specific next room rather than saying "come back",
+ * because a concrete next action is the thing that actually converts — and it
+ * says how long it takes, so the ask feels small.
+ */
+export function lapsedNudgeEmail(args: {
+  name: string;
+  daysAway: number;
+  resumeLink: string;
+  nextRoomTitle?: string | null;
+  nextRoomMinutes?: number | null;
+}): { subject: string; html: string; text: string } {
+  const { name, daysAway, resumeLink, nextRoomTitle, nextRoomMinutes } = args;
+
+  const nextBlock = nextRoomTitle
+    ? `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">Your next room is <strong>${nextRoomTitle}</strong>${
+        nextRoomMinutes ? ` — about ${nextRoomMinutes} minutes` : ""
+      }.</p>`
+    : `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">Pick up wherever you left off — your progress is exactly where you left it.</p>`;
+
+  const html = shell(
+    `Still with us, ${name}?`,
+    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">It's been about ${daysAway} days. Detection skills fade fast when they're not used — a short session now is worth more than a long one later.</p>
+     ${nextBlock}
+     <p style="margin:0 0 4px;">${button(resumeLink, "Pick up where you left off")}</p>
+     ${linkBox(resumeLink)}
+     <p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">Not training right now? No problem — you can ignore this, and your progress stays saved.</p>`,
+  );
+
+  const text = `Still with us, ${name}?\n\nIt's been about ${daysAway} days. Detection skills fade fast when they're not used.\n\n${
+    nextRoomTitle ? `Your next room: ${nextRoomTitle}${nextRoomMinutes ? ` (~${nextRoomMinutes} min)` : ""}\n\n` : ""
+  }Pick up where you left off:\n${resumeLink}\n\nNot training right now? You can ignore this — your progress stays saved.`;
+
+  return { subject: `Your SOC training is waiting — ${daysAway} days idle`, html, text };
+}

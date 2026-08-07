@@ -7,7 +7,7 @@ import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -25,6 +25,43 @@ const NAV_ITEMS = [
 // something a student is meant to have, so it's a small de-emphasized footer
 // link rather than sitting next to Rooms/Dashboard/Progress with equal weight.
 const DEV_TOOLS_ITEM = { href: "/admin", label: "Content Tools", icon: Wrench };
+
+/**
+ * Link to the student-report inbox, with a count of untriaged reports.
+ *
+ * Renders nothing unless the caller is actually a platform admin — the fetch
+ * returns 403 for everyone else, so a student never sees this even momentarily.
+ */
+function ContentFeedbackLink({ onNavigate }: { onNavigate?: () => void }) {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/feedback?status=new")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d) setCount((d.items ?? []).length); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  if (count === null) return null; // not an admin, or not loaded yet
+
+  return (
+    <Link
+      href="/admin/feedback"
+      onClick={onNavigate}
+      className="mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+    >
+      <Flag className="h-3.5 w-3.5 shrink-0" />
+      <span className="flex-1">Content Reports</span>
+      {count > 0 && (
+        <span className="rounded-full bg-neon-amber/20 px-1.5 py-0.5 text-[10px] font-bold text-neon-amber">
+          {count}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 // Shared nav list — rendered in both the desktop rail and the mobile drawer.
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
@@ -114,6 +151,11 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
           <span>{DEV_TOOLS_ITEM.label}</span>
         </Link>
+        {/* Student-reported content problems. Sits next to the other content
+            tools because that's what it is — a work queue for the person who
+            maintains the material. The count is the point: an unread report is
+            a known defect nobody has looked at. */}
+        <ContentFeedbackLink onNavigate={onNavigate} />
         {/* Org-admin console — a college managing its own class. Claim-gated in
             the UI; enforced by middleware + the org-scoped API routes. */}
         {orgRole === "org_admin" && !isPlatformAdmin && (
