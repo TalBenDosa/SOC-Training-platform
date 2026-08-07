@@ -24,7 +24,10 @@ const bruteForceRawEvent: TelemetryEvent = {
   user_email: "svc-backup@nexacorp.com",
   src_ip: "185.220.101.47",
   description: "23 failed logon attempts against the svc-backup service account in six minutes, all from a single external IP",
-  mitre_technique: "T1110.003",
+  // Many passwords against ONE account = T1110.001 (Password Guessing).
+  // T1110.003 (Spraying) is the inverse shape — one password across many
+  // accounts — and would not produce 23 hits on a single TargetUserName.
+  mitre_technique: "T1110.001",
   mitre_tactic: "Credential Access",
   raw: {
     "event.code": "4625",
@@ -51,7 +54,8 @@ const bruteForceEnrichedEvent: TelemetryEvent = {
   user_email: "svc-backup@nexacorp.com",
   src_ip: "185.220.101.47",
   description: "Playbook 'Brute Force - Auto Containment' auto-enriched the alert: source IP has no legitimate business reason to authenticate, is TOR-associated, and the target is a privileged service account",
-  mitre_technique: "T1110.003",
+  // Same incident as bruteForceRawEvent above — keep the technique identical.
+  mitre_technique: "T1110.001",
   mitre_tactic: "Credential Access",
   raw: {
     "xsoar.playbook.name": "Brute Force - Auto Containment v3",

@@ -831,12 +831,21 @@ This chain tells an incredibly clear story: **a Word document was opened from Ou
 
 EDR platforms give analysts powerful remote response capabilities — all from a browser, without touching the physical machine:
 
-- **Network Isolation (Host Isolation)**: Cuts the endpoint off from the network (except for the EDR management channel). The machine cannot talk to anything — not even internal servers. Used immediately when a host is confirmed compromised to prevent lateral movement. One click in the console.
+- **Network Isolation (Host Isolation)**: Cuts the endpoint off from the network (except for the EDR management channel). The machine cannot talk to anything — not even internal servers. Used when a host is confirmed compromised, to prevent lateral movement. Technically it is one click in the console.
 - **Kill Process**: Immediately terminate a malicious process running on the endpoint.
 - **Delete File**: Remove a malicious file from the endpoint.
 - **Live Response / Remote Shell**: Open a remote command-line shell on the endpoint for in-depth forensic investigation. SOC analysts can run commands, collect files, and examine artefacts without physically touching the device.
 - **Run Containment Script**: Push a custom script to the endpoint (e.g. to disable a compromised service or quarantine a file).
 - **Collect Forensic Package**: Collect a bundle of artefacts (event logs, memory dump, prefetch files, registry hives) from the endpoint for offline analysis.
+
+**"One click" is the technical cost, not the real one.** This is the part that separates a console operator from an analyst, so be clear-eyed about it: isolation is an *outage you are choosing to cause*. Isolating a developer's laptop costs that person an afternoon. Isolating a domain controller, a database server, a payment gateway, or the PC running a hospital ward's medication system can be more damaging than the malware you are containing — and on a busy shift, under pressure, that is a genuinely easy mistake to make.
+
+So before you isolate, answer three questions:
+- **What does this asset do?** A hostname alone tells you nothing. Check the asset inventory or CMDB for its role, its business owner, and its criticality tier.
+- **Who has to know?** Most organisations require the system owner to be notified, and many require a change/emergency-change approval for production systems. Some run a standing pre-authorisation for endpoints but not for servers — learn where that line sits in *your* environment, before you need it.
+- **Is there a lighter option that still stops the bleeding?** Killing the malicious process, blocking one destination at the firewall, or disabling the compromised account will sometimes contain the incident without taking the whole host offline.
+
+None of this means "hesitate while an attacker encrypts your file server." When the evidence is strong and the spread is active, isolate and explain afterwards — a short outage beats a domain-wide compromise. The point is that isolation is a *decision with a cost on both sides*, and a good analyst can say out loud why they judged the cost of acting to be lower than the cost of waiting.
 
 **Endpoint Hardening — Reducing the Attack Surface**
 
@@ -974,7 +983,7 @@ Based on your analysis:
         "Reboot the laptop to clear the malware from memory"
       ],
       answer: 2,
-      explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.",
+      explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.\n\nNote what makes this an easy call: it is a **user's laptop**, and the spread is **confirmed and active**. Both halves matter. Change either one — a production database server instead of a laptop, or a single suspicious process instead of confirmed spreading — and the calculation shifts, because isolation is an outage you are deliberately causing. Reading 2 covers the questions to ask first when the asset is business-critical.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -1020,20 +1029,30 @@ Based on your analysis:
           cmdline: "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMAUAB...",
           hash: { sha256: "a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab" }
         },
+        // Field names follow the same Falcon schema as malware-analysis (batch-07)
+        // and edr-detection-investigation (batch-28): event_simpleName,
+        // SeverityName, ParentProcessName, SHA256HashData, DetectionId. An
+        // earlier version used AlertType / Severity / SHA256 / ContextProcessParentName,
+        // which meant a student meeting CrowdStrike in two different rooms saw two
+        // conflicting sets of "real" field names for the same product.
         raw: {
-          "crowdstrike.AlertType": "Process",
-          "crowdstrike.Severity": "High",
+          "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+          "crowdstrike.DetectionId": "ldt:8f3c1a92b7e44d05:44117",
+          "crowdstrike.SeverityName": "High",
+          "crowdstrike.Confidence": "95",
+          "crowdstrike.Tactic": "Execution",
           "crowdstrike.Technique": "T1059.001",
           "crowdstrike.TechniqueName": "PowerShell",
+          "crowdstrike.PatternDispositionDescription": "Detection, Process Killed",
           "crowdstrike.ContextProcessName": "powershell.exe",
           "crowdstrike.ContextProcessId": "4892",
-          "crowdstrike.ContextProcessParentName": "cmd.exe",
+          "crowdstrike.ParentProcessName": "cmd.exe",
           "crowdstrike.CommandLine": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc JABjAGwAaQBlAG4AdAAgAD0A...",
           "crowdstrike.UserName": "CORP\\j.smith",
           "crowdstrike.HostName": "LAPTOP-JSMITH",
           "crowdstrike.LocalIP": "10.0.1.55",
-          "crowdstrike.SHA256": "a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab",
-          "crowdstrike.Confidence": "95"
+          "crowdstrike.SHA256HashData": "a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab",
+          "crowdstrike.FalconHostLink": "https://falcon.crowdstrike.com/activity/detections/detail/8f3c1a92",
         },
       } satisfies TelemetryEvent,
       questions: [
@@ -1089,7 +1108,7 @@ const defenderXdr: Room = {
   difficulty: "intermediate",
   category: "Endpoint Security",
   estimatedMinutes: 55,
-  xp: 290,
+  xp: 320,
   icon: "🛡️",
   prerequisites: ["endpoint-security-fundamentals", "microsoft-365-security", "security-products-behaviour"],
   tasks: [

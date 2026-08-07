@@ -101,7 +101,7 @@ const crowdstrikeFalcon: Room = {
   difficulty: "intermediate",
   category: "Endpoint Security",
   estimatedMinutes: 50,
-  xp: 365,
+  xp: 395,
   icon: "🦅",
   prerequisites: ["endpoint-security-fundamentals", "security-products-behaviour"],
   tasks: [
@@ -665,7 +665,7 @@ SentinelOne Singularity's XDR capabilities connect:
 
 Introduced in 2024, **Purple AI** lets analysts ask security questions in plain English and receive structured answers backed by Deep Visibility telemetry. Instead of writing complex query syntax, an analyst can type "Show me all connections this endpoint made to unusual foreign IPs in the past week" and Purple AI translates this into the appropriate telemetry query, runs it, and summarises the results.
 
-Purple AI has reduced mean time to detect (MTTD) by up to 63% and mean time to remediate (MTTR) by 55% in SentinelOne's published case studies.
+SentinelOne markets Purple AI on substantial reductions in mean time to detect (MTTD) and mean time to remediate (MTTR). Treat vendor-published figures like these the way you would treat any marketing claim: they come from the vendor's own selected case studies, under conditions the vendor chose, and they are not independent benchmarks. Quote a specific percentage in a report or an interview only if you can name the source and the year it was measured — otherwise say "the vendor claims significant improvement" and move on. That instinct matters well beyond this one product.
 
 **Key Detection Scenario 1: Ransomware**
 

@@ -877,17 +877,28 @@ Once a log is decoded into structured fields, the rule engine evaluates every ac
 
 By default, Wazuh generates alerts only for level 7 and above. Levels 0-6 are logged but do not produce visible alerts in the dashboard.
 
-**Key Wazuh rule IDs to know:**
+**Rule ID ranges — learn these rather than memorising individual numbers.** Wazuh groups its built-in rules into blocks by log source, and the block is far more durable knowledge than any single ID:
 
-- **Rule 5501** — SSH authentication failure
-- **5503** — Multiple SSH authentication failures (brute force)
-- **5710** — sshd: Attempt to login using a non-existent user
-- **5902** — Existing user account info changed
-- **5903** — New user added to the system (level 12 — High)
-- **5104** — Process name changed — possible rootkit behaviour
+| Range | Covers |
+|---|---|
+| 5100-5299 | Linux system / kernel |
+| 5300-5999 | Authentication — sshd, PAM, sudo, user and group changes |
+| 18100-18999 | Windows event log |
+| 31100-31999 | Web server (Apache/Nginx/IIS) — includes web attack signatures |
+| 60000-61999 | Windows Sysmon and rootcheck |
+| 80000+ | Integrations and vendor-specific decoders |
+| 100000+ | Reserved for YOUR custom rules — never write below this |
+
+That last row is the one that actually bites people: custom rules must live at 100000 or above, because anything lower can be overwritten when you upgrade the ruleset.
+
+Some representative built-in rules you will meet often:
+
+- **5710** — sshd: attempt to log in using a non-existent user
+- **5503** — PAM: user login failed
+- **31151** — Web server attack: SQL injection attempt
 - **60104** — Rootkit detection by rootcheck
-- **31151** — Web server attack — SQL injection attempt
-- **81601** — Windows: Audit log cleared (Event ID 1102) — level 12
+
+**Always confirm the exact ID against your own instance before you build anything on it.** Rule IDs and their descriptions shift between ruleset versions, and every organisation runs a slightly different mix of built-in and custom rules. Two commands settle it in seconds: **/var/ossec/bin/wazuh-logtest** lets you paste a raw log line and see precisely which rule fires and at what level, and the rule files under **/var/ossec/ruleset/rules/** are plain XML you can grep. An analyst who knows how to *look up* the rule that fired is far more useful than one who memorised a list that was accurate for one version two years ago.
 
 **Rule inheritance (parent/child rules):**
 
@@ -1044,7 +1055,7 @@ The Wazuh Dashboard includes several built-in sections:
           ],
           answer: 1,
           explanation:
-            "Rule ID 5903 fired at level 12 (High severity). Rule 5903 is Wazuh's built-in rule for detecting when a new user account is created using the useradd command. Level 12 falls in the High range (12-14), indicating a serious security event. An unplanned account creation on a critical application server, at 02:44 AM, outside any approved change window, is highly suspicious regardless of the username chosen.",
+            "Read it straight off the alert: `rule.id` is 5903 and `rule.level` is 12, and the alert helpfully carries `rule.description` — 'New user added to the system' — so you never have to remember what a given ID means. That is the habit worth building. Rule IDs shift between ruleset versions, so an analyst who reads the description field (or runs `wazuh-logtest` to confirm which rule fires) will be right in any environment, while one who memorised a list will eventually be confidently wrong.\n\nThe level is what sets your urgency: 12 sits in Wazuh's High band (12-14), above the default alerting threshold of 7. Combine that with the context — an unplanned account creation on a critical application server at 02:44 AM, outside any approved change window — and this is worth waking someone for, whatever the account happens to be called.",
           xp: 25,
         },
         {
@@ -1134,7 +1145,7 @@ const sentinelFundamentals: Room = {
   difficulty: "intermediate",
   category: "SIEM",
   estimatedMinutes: 55,
-  xp: 200,
+  xp: 230,
   icon: "☁️",
   prerequisites: ["siem-fundamentals", "security-products-behaviour"],
   tasks: [

@@ -100,7 +100,7 @@ Think of it like a restaurant kitchen: ingredients (raw data) → prep cook (pro
 **Nation-State APTs (Advanced Persistent Threats)**
 The most sophisticated and well-resourced attackers. Backed by governments and intelligence agencies. They have large teams, custom malware development, and years-long patience. They target government agencies, critical infrastructure, defence contractors, pharmaceutical companies, and financial institutions. Their goals include espionage, sabotage, and intellectual property theft.
 
-The word "persistent" is key — they do not smash and grab. They enter quietly, live undetected for months (average attacker dwell time before detection is 197 days), and slowly achieve their objectives.
+The word "persistent" is key — they do not smash and grab. They enter quietly, stay undetected for as long as they can, and slowly achieve their objectives. Industry dwell-time figures (Mandiant M-Trends is the most-cited source) have fallen sharply over the last decade — from roughly 200 days in the mid-2010s to a global median measured in days-to-weeks in recent reports — mostly because EDR and ransomware's own noisiness force the issue. Do not read that as "the problem is solved": the median is dragged down by loud, fast ransomware, while a patient espionage actor with good operational security is exactly the case that still sits undetected for months.
 
 **Cybercriminal Groups**
 Financially motivated. Their business model is usually ransomware (encrypt your files, demand payment), BEC (Business Email Compromise — impersonate the CEO to trick finance into wiring money), or selling stolen credit card data. They are often organised like a real company, with HR, support, and software development teams. Groups like LockBit and BlackCat operate "Ransomware-as-a-Service" (RaaS) — they provide the malware and infrastructure, and affiliates do the attacking in exchange for a cut of the ransom.
@@ -184,11 +184,17 @@ The most direct use of CTI is importing technical IOCs (IPs, domains, hashes) in
 This is called an **IOC hit** or **threat intel match**. It collapses what would otherwise require forensic investigation into a near-instant alert — the work of identifying the malicious IP has already been done by analysts at CrowdStrike, CISA, or a partner organisation who shared the indicator.
 
 **Confidence and TLP Ratings**
-Not all IOCs are equal. Each indicator should carry a **confidence score** (high / medium / low) and a **TLP (Traffic Light Protocol)** classification:
-- **TLP:RED** — share only with named recipients, do not post publicly
-- **TLP:AMBER** — share within your organisation and with trusted partners
-- **TLP:GREEN** — share within the broader community
-- **TLP:WHITE/CLEAR** — unrestricted, can be published publicly
+Not all IOCs are equal. Each indicator should carry a **confidence score** (high / medium / low) and a **TLP (Traffic Light Protocol)** classification. TLP tells you exactly how far you are allowed to pass something on — and getting it wrong is how an organisation ends up publishing an indicator that tips off the very actor it was tracking. The current standard is **TLP 2.0** (FIRST.org), which has five levels:
+
+- **TLP:RED** — for named recipients only. Do not share outside the individuals you received it from, not even with the rest of your team.
+- **TLP:AMBER+STRICT** — share **within your organisation only**. This level exists specifically to say "not your clients, not your partners, not your sector peers" — the restriction that plain AMBER leaves ambiguous.
+- **TLP:AMBER** — share within your organisation *and* with clients or partners who need it to protect themselves.
+- **TLP:GREEN** — share within the broader community and with peer organisations, but not on a public channel.
+- **TLP:CLEAR** — unrestricted, can be published publicly.
+
+One historical note that matters, because you will still meet it in older feeds and documents: TLP 2.0 **retired TLP:WHITE and replaced it with TLP:CLEAR**, and added AMBER+STRICT at the same time. If you receive something marked TLP:WHITE, it is using the pre-2022 scheme — treat it as TLP:CLEAR, and be aware the sender's tooling may be out of date in other ways too.
+
+The distinction between AMBER and AMBER+STRICT is the one that trips people up in practice, and it is exactly the one that matters in an MSSP or a multi-client SOC: plain AMBER lets you warn your clients, AMBER+STRICT does not.
 
 A high-confidence IOC from a government source (e.g., CISA KEV) carries more weight than a low-confidence community-submitted indicator from OTX.
 
@@ -265,7 +271,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
         "The indicator applies only to amber-coloured network traffic in the SIEM",
       ],
       answer: 1,
-      explanation: "TLP:AMBER means share within your organisation and with trusted partners (clients, sector peers) who need it to protect themselves — but do NOT post it publicly. TLP:WHITE/CLEAR is fully public. TLP:RED is named-recipients only. TLP is widely used in threat intel sharing to prevent sensitive IOCs from being leaked to attackers who monitor public feeds.",
+      explanation: "TLP:AMBER means share within your organisation and with trusted partners (clients, sector peers) who need it to protect themselves — but do NOT post it publicly. Watch the neighbouring level: TLP:AMBER+STRICT means your organisation ONLY, with no onward sharing to clients or partners, which is the distinction that matters most in an MSSP. TLP:CLEAR is fully public (it replaced the retired TLP:WHITE in TLP 2.0). TLP:RED is named-recipients only. TLP exists to stop sensitive IOCs leaking to attackers who monitor public feeds.",
       xp: 30,
     },
 
@@ -296,7 +302,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
           "data.campaign": "APT29 SolarWinds",
           "data.actor": "Cozy Bear",
           "data.first_seen": "2024-12-13",
-          "data.tlp": "WHITE",
+          "data.tlp": "CLEAR",
           "data.description": "C2 server associated with SolarWinds SUNBURST supply chain compromise",
           "matched.srcip": "185.220.101.45",
           "matched.dstip": "10.0.1.55",
@@ -308,12 +314,12 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
           question: "The alert shows that CORP-DC01 (IP 10.0.1.55) has a connection TO 185.220.101.45. Given that CORP-DC01 is the company's domain controller, what is the most accurate assessment of this alert?",
           options: [
             "This is a False Positive — domain controllers regularly connect to external IPs for Windows updates",
-            "This is a low-priority alert because the TLP rating is WHITE, meaning it is public knowledge",
+            "This is a low-priority alert because the TLP rating is CLEAR, meaning the indicator is public knowledge",
             "This is a critical True Positive — a domain controller communicating with a known APT29 C2 server is a confirmed high-severity incident",
             "This needs more investigation because confidence is only 'high' and not 'certain'",
           ],
           answer: 2,
-          explanation: "A domain controller (the most sensitive server in an Active Directory environment) communicating with a known APT29 C2 server that is listed in the CISA KEV database with HIGH confidence is a critical incident. Domain controllers do NOT legitimately connect to external internet IPs. TLP:WHITE means it can be shared publicly — it does not reduce severity. 'High' confidence from a government source (CISA) is more than sufficient to treat this as a True Positive.",
+          explanation: "A domain controller (the most sensitive server in an Active Directory environment) communicating with a known APT29 C2 server that is listed in the CISA KEV database with HIGH confidence is a critical incident. Domain controllers do NOT legitimately connect to external internet IPs. TLP:CLEAR means the indicator itself can be shared publicly — that is a statement about handling the intelligence, not about the severity of the incident it just matched. Sharing restrictions and incident severity are unrelated axes. 'High' confidence from a government source (CISA) is more than sufficient to treat this as a True Positive.",
           xp: 50,
         },
         {
@@ -1430,12 +1436,12 @@ Good documentation protects you, helps your colleagues understand past alerts, a
       xp: 30,
     },
 
-    // ── Log Analysis: Password Spray vs. Legitimate Lockout ──────────────────
+    // ── Log Analysis: Brute-Force Password Guessing vs. Legitimate Lockout ────
     {
       type: "log_analysis" as const,
       id: "alert-triage-la1",
-      heading: "Triage Scenario — 347 Failed Logins: Password Spray or Legitimate Issue?",
-      context: "You are a Tier-1 SOC analyst. The SIEM has fired a 'Brute Force Authentication' alert. 347 failed logins for the 'administrator' account have occurred in a 5-minute window. The raw Windows Security Event log is below. This is your triage exercise — determine whether this is a password spray attack or a legitimate administrative issue.",
+      heading: "Triage Scenario — 347 Failed Logins Against a Single Account",
+      context: "You are a Tier-1 SOC analyst. The SIEM has fired a 'Brute Force Authentication' alert. 347 failed logins for the 'administrator' account have occurred in a 5-minute window. The raw Windows Security Event log is below. This is your triage exercise — determine whether this is a genuine attack or a legitimate administrative issue, and be precise about WHICH kind of credential attack it is.",
       event: {
         id: "evt-triage-001",
         ts: "2025-06-24T03:14:22Z",
@@ -1447,7 +1453,12 @@ Good documentation protects you, helps your colleagues understand past alerts, a
         dst_ip: "10.0.1.2",
         user_email: "administrator@corp.local",
         description: "347 failed authentication attempts in 5-minute window from single external IP",
-        mitre_technique: "T1110.003",
+        // T1110.001 (Password Guessing), NOT T1110.003 (Password Spraying).
+        // Spraying is ONE password against MANY accounts to stay under lockout
+        // thresholds; this is the opposite shape — many passwords against ONE
+        // account. The distinction is taught in auth-identity-monitoring and
+        // use-case-development, and this room must not contradict them.
+        mitre_technique: "T1110.001",
         vendor: "Windows Security",
         raw: {
           "event.code": "4625",
@@ -1466,7 +1477,7 @@ Good documentation protects you, helps your colleagues understand past alerts, a
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "Analyse the raw log fields. Which THREE specific indicators most strongly suggest this is a genuine password spray / brute force attack rather than a legitimate issue?",
+          question: "Analyse the raw log fields. Which THREE specific indicators most strongly suggest this is a genuine brute-force attack rather than a legitimate issue?",
           options: [
             "LogonType 3 (network logon) from IP 203.0.113.45 geolocating to Moscow Russia; 347 failures in 300 seconds from a SINGLE external source IP; the target account is 'administrator' — the highest-privilege account in Windows",
             "The Windows event code 4625 is logged — this code only appears during cyberattacks and never during legitimate logon failures",
@@ -1474,7 +1485,7 @@ Good documentation protects you, helps your colleagues understand past alerts, a
             "LogonType 3 is only used by administrators doing maintenance work, so this must be an IT team running tests",
           ],
           answer: 0,
-          explanation: "The three strongest True Positive indicators: (1) External IP from Russia — no legitimate admin logs into a domain controller from Russia via a network logon; (2) 347 failures in 300 seconds from ONE external IP — this is the textbook pattern of an automated brute force tool trying passwords as fast as possible; (3) The target is 'administrator' — the built-in Windows account with highest privileges. Attackers specifically target this account because compromising it gives full control. Note: Event 4625 is a normal Windows failed logon event that appears every time ANY logon fails — it is not attack-specific. SubStatus 0xC000006A means 'wrong password' (not lockout). LogonType 3 is a standard network logon type.",
+          explanation: "The three strongest True Positive indicators: (1) External IP from Russia — no legitimate admin logs into a domain controller from Russia via a network logon; (2) 347 failures in 300 seconds from ONE external IP — this is the textbook pattern of an automated brute force tool trying passwords as fast as possible; (3) The target is 'administrator' — the built-in Windows account with highest privileges. Attackers specifically target this account because compromising it gives full control. Note: Event 4625 is a normal Windows failed logon event that appears every time ANY logon fails — it is not attack-specific. SubStatus 0xC000006A means 'wrong password' (not lockout). LogonType 3 is a standard network logon type.\n\nName it precisely: this is password GUESSING (T1110.001) — many passwords against one account. It is NOT password spraying (T1110.003), which is the opposite shape: one password against many accounts, deliberately staying under the lockout threshold. The volume here (347 attempts on a single account in five minutes) is the exact loud pattern a sprayer works to avoid.",
           xp: 50,
         },
         {
@@ -1496,9 +1507,9 @@ Good documentation protects you, helps your colleagues understand past alerts, a
     {
       type: "flag" as const,
       id: "alert-triage-flag1",
-      prompt: `The brute force alert in the log analysis above involves repeated failed logins against a single account from a single source IP. The MITRE ATT&CK framework sub-technique for this specific type of attack (password spraying-style single-account brute force from one source) is visible in the event's mitre_technique field. Enter the exact MITRE ATT&CK sub-technique ID (format: T####.###).`,
-      answer: "T1110.003",
-      hint: "Look at the `mitre_technique` field in the raw log event above. T1110 is the parent technique (Brute Force). The .003 sub-technique is for targeting a specific type of password attack.",
+      prompt: `The alert above shows many different passwords tried against ONE account (administrator) from a single source IP. Under MITRE ATT&CK's Brute Force technique (T1110), this specific shape has its own sub-technique — and it is deliberately NOT the same one as an attack that tries one password against many accounts. Enter the exact sub-technique ID for what you are looking at (format: T####.###).`,
+      answer: "T1110.001",
+      hint: "T1110 is the parent (Brute Force). Its sub-techniques split by attack SHAPE: .001 is many passwords against one account; .003 is one password against many accounts (spraying); .004 is reusing leaked username+password pairs (credential stuffing). Which shape does this event show? The `mitre_technique` field in the raw event confirms it.",
       xp: 60,
     },
 

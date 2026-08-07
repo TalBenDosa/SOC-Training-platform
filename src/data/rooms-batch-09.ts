@@ -369,7 +369,7 @@ const threatHuntingFundamentals = {
 
 **Threat hunting is the act of watching the camera feeds before the alarm fires.**
 
-In the cybersecurity world, attackers are detected on average **200+ days** after their initial compromise. They establish a foothold, then patiently learn the environment — moving laterally, elevating privileges, identifying data — while blending in with legitimate activity. Automated detection rules catch obvious threats, but sophisticated attackers know how to operate beneath detection thresholds.
+A decade ago, industry reports put average attacker dwell time — the gap between initial compromise and detection — at **over 200 days**. That number has fallen a long way since (recent Mandiant M-Trends reporting puts the global median in the days-to-weeks range), but the shape of the problem has not changed: the median is pulled down by loud, fast ransomware that announces itself, while the patient intruder is precisely the one who does not. They establish a foothold, then quietly learn the environment — moving laterally, elevating privileges, identifying data — while blending in with legitimate activity. Automated detection rules catch obvious threats, but sophisticated attackers know how to operate beneath detection thresholds. Those are the ones still sitting inside networks for months, and they are who hunting exists for.
 
 **Reactive vs. Proactive**
 
@@ -515,16 +515,16 @@ The key insight: the platform does not matter as much as the hypothesis and the 
     {
       type: "question" as const,
       id: "threat-hunt-q1",
-      question: "According to industry research, how many days on average do attackers dwell in a victim environment before being detected?",
+      question: "Industry dwell-time figures have fallen a long way over the last decade — from roughly 200 days to a global median now measured in days-to-weeks. Why does that improvement NOT remove the case for proactive threat hunting?",
       options: [
-        "Less than 24 hours — modern SIEMs catch attackers almost immediately",
-        "About 7 days — one week is the typical detection window",
-        "200 or more days — attackers often go undetected for months",
-        "Exactly 30 days — the standard log retention period",
+        "Because dwell time only measures how long containment and recovery take once an incident has been declared, so it says nothing at all about how quickly the original intrusion was detected",
+        "Because the median is dragged down by loud, fast ransomware that effectively announces itself, while the patient low-and-slow intruder — exactly what hunting is built to find — is still the case that goes undetected for months",
+        "Because the reported improvement was measured only in cloud environments, while on-premises enterprise networks have actually seen their dwell times increase over the same period",
+        "Because proactive threat hunting is a mandatory compliance requirement under most regulatory frameworks, regardless of how quickly a SOC actually detects intrusions in practice",
       ],
-      answer: 2,
+      answer: 1,
       explanation:
-        "The industry average dwell time — the period between initial compromise and detection — has historically been 200+ days. This is the core argument for proactive threat hunting. Even if it has improved somewhat with better tooling, attackers who operate carefully and understand enterprise environments can persist for months inside a network before any automated alert fires. Threat hunting directly attacks this dwell time by proactively searching for activity that evades signatures.",
+        "A median is not a description of every case — it is the middle of a distribution, and this particular distribution has two very different populations in it. Ransomware detonates, encrypts, and demands payment; it is detected in hours or days because it makes itself impossible to miss, and it is common enough to pull the median down hard. An espionage actor with good operational security is the opposite: no encryption, no ransom note, valid credentials, living off the land — and months of dwell time. Threat hunting is aimed squarely at that second population, so a falling median is not evidence that hunting has stopped paying for itself. Note also that dwell time measures compromise-to-detection specifically; how long containment then takes is a separate metric.",
       xp: 30,
     },
 

@@ -28,9 +28,15 @@ const activeDirectory: Room = {
   difficulty: "intermediate",
   category: "Identity",
   estimatedMinutes: 50,
-  xp: 395,
+  xp: 425,
   icon: "🏢",
-  prerequisites: ["windows-fundamentals"],
+  // windows-event-logs is required, not optional: this room quotes Event IDs
+  // (4768/4769/4624/4625) from its first reading onward and assumes the student
+  // already knows what a Windows Event ID is, what the Security channel is, and
+  // that auditing has to be switched on to produce any of it. All of that is
+  // taught in windows-event-logs, which windows-fundamentals only touches in
+  // passing.
+  prerequisites: ["windows-fundamentals", "windows-event-logs"],
   tasks: [
     // -------------------------------------------------------------------------
     // Reading 1 — What is Active Directory?

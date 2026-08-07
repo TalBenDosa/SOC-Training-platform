@@ -1086,9 +1086,13 @@ Microsoft 365 records security-relevant user and admin activities in the **Unifi
 - Microsoft Purview / Compliance: DLP policy matches, sensitivity label changes
 - Admin activities: configuration changes, policy modifications
 
-**Where to find it:** Microsoft Purview compliance portal (compliance.microsoft.com) → Audit → Audit search. Or via the Microsoft Graph API for programmatic access.
+**Where to find it:** Microsoft Purview portal (purview.microsoft.com) → Audit → Audit search. Or via the Microsoft Graph API for programmatic access. You may still see the older compliance.microsoft.com address in documentation and older runbooks; it redirects.
 
-**Retention:** By default, audit logs are retained for 90 days (M365 E3/E5 plans can extend to 1 year or 10 years). This is critical for incident response — if an attacker was in your environment for 6 months and you only have 90 days of logs, you've lost evidence.
+**Retention:** Microsoft raised the defaults in late 2023 — audit records are now retained **180 days on E3/Business Premium-class licensing and 365 days on E5**, with add-on options extending to 10 years. Two things follow from this, and both matter more than memorising the numbers.
+
+First, **verify the retention in the tenant you are actually working in** rather than assuming. Licensing mix, add-ons, and per-user audit-retention policies all change the answer, and older tenants may still behave as they were configured under the previous 90-day default.
+
+Second, retention sets a hard floor on what any investigation can ever recover. If an intrusion began seven months ago and your audit retention is 180 days, the earliest activity — initial access, the first sign-in from the attacker, the original consent grant — is simply gone, and no amount of investigative skill brings it back. This is why "what is our audit retention?" is a question to answer *before* an incident, not during one.
 
 ---
 

@@ -128,7 +128,7 @@ const edrDetectionInvestigationRoom = {
   difficulty: "advanced" as const,
   category: "Endpoint Security",
   estimatedMinutes: 75,
-  xp: 460,
+  xp: 435,
   icon: "🔎",
   prerequisites: ["endpoint-security-fundamentals", "crowdstrike-falcon"],
   tasks: [

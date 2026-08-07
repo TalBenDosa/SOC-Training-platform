@@ -133,7 +133,7 @@ Now let's look at **who attacks these systems**.
 **Types of Threat Actors (people who attack)**
 
 - **Script Kiddies** — Beginners who use pre-written hacking tools created by others. They often do not fully understand what they are doing. Low skill, but can still cause damage.
-- **Cybercriminals** — Organised groups motivated by financial gain. They run ransomware operations, steal credit card data, and sell access to breached networks. The **LockBit** ransomware group is a well-known example.
+- **Cybercriminals** — Organised groups motivated by financial gain. They run ransomware operations, steal credit card data, and sell access to breached networks. The **LockBit** group is the most-documented example — and also a good lesson in how fast this landscape moves: law enforcement seized much of its infrastructure in 2024's Operation Cronos. Ransomware brands are disrupted, rebrand, and reappear constantly, so treat any specific group name in a course as an example of the *category*, not as current intelligence.
 - **Hacktivists** — Attackers motivated by political or social causes. The group **Anonymous** is a famous example — they have attacked government websites to protest policies.
 - **Nation-State Actors** — Government-sponsored hackers conducting espionage, sabotage, or influence operations. **APT29** (also called "Cozy Bear") is linked to Russian intelligence and was behind the SolarWinds attack.
 - **Insider Threats** — Employees (current or former) who intentionally or accidentally cause harm. An angry employee copying customer data before resigning, or a careless employee clicking a phishing link, are both insider threats.
@@ -390,46 +390,46 @@ const socStructureEvent: TelemetryEvent = {
   mitre_technique: "T1110",
   mitre_tactic: "Credential Access",
   src_ip: "185.220.101.47",
+  // ONE authentic 4625, and nothing else. An earlier version of this event also
+  // carried FailureCount / FailuresPerMinute / AlertThreshold / GeoLocation_ISP /
+  // PreviousFailures — none of which Windows writes. A single 4625 knows only
+  // about itself: it cannot count its own siblings, and it has never heard of
+  // Tor. Those facts come from the SIEM's correlation and enrichment, so they
+  // now live in the task context where the analyst genuinely reads them. This
+  // also stops the event contradicting soc-struct-r3 below, which teaches
+  // exactly that point ("No individual log shows anything alarming").
   raw: {
-    EventID: 4625,
-    SubjectUserSid: "S-1-0-0",
-    SubjectUserName: "-",
-    SubjectDomainName: "-",
-    TargetUserName: "jsmith",
-    TargetDomainName: "GLOBALBANK",
-    Status: "0xC000006D",
-    FailureReason: "Unknown user name or bad password",
-    SubStatus: "0xC000006A",
-    LogonType: 3,
-    LogonTypeName: "Network",
-    WorkstationName: "-",
-    TransmittedServices: "-",
-    LmPackageName: "-",
-    KeyLength: 0,
-    ProcessId: "0x0",
-    ProcessName: "-",
-    IpAddress: "185.220.101.47",
-    IpPort: 54312,
-    FailureCount: 47,
-    TimeWindow: "00:02:33",
-    FailuresPerMinute: 18,
-    AlertThreshold: 10,
-    AuthenticationPackageName: "NTLM",
-    KeywordFlags: "Audit Failure",
-    Computer: "DC01-CORP.globalbank.com",
-    TimeCreated: "2024-04-08T03:47:22.118Z",
-    RecordNumber: 1047382,
-    ActivityId: "{a3b4c5d6-e7f8-9012-3456-7890abcdef12}",
-    Channel: "Security",
-    Provider: "Microsoft-Windows-Security-Auditing",
-    GeoLocation_Country: "Netherlands",
-    GeoLocation_City: "Amsterdam",
-    GeoLocation_ISP: "Tor Exit Node",
-    PreviousFailures: [
-      "03:45:10 - 185.220.101.47",
-      "03:45:14 - 185.220.101.47",
-      "03:45:18 - 185.220.101.47",
-    ],
+    "winlog.event_id": "4625",
+    "winlog.channel": "Security",
+    "winlog.computer_name": "DC01-CORP.globalbank.com",
+    "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+    "winlog.record_id": "1047382",
+    "winlog.event_data.SubjectUserSid": "S-1-0-0",
+    "winlog.event_data.SubjectUserName": "-",
+    "winlog.event_data.SubjectDomainName": "-",
+    "winlog.event_data.TargetUserSid": "S-1-0-0",
+    "winlog.event_data.TargetUserName": "jsmith",
+    "winlog.event_data.TargetDomainName": "GLOBALBANK",
+    "winlog.event_data.Status": "0xC000006D",
+    "winlog.event_data.SubStatus": "0xC000006A",
+    "winlog.event_data.FailureReason": "%%2313",
+    "winlog.event_data.LogonType": "3",
+    "winlog.event_data.LogonProcessName": "NtLmSsp ",
+    "winlog.event_data.AuthenticationPackageName": "NTLM",
+    "winlog.event_data.WorkstationName": "-",
+    "winlog.event_data.TransmittedServices": "-",
+    "winlog.event_data.LmPackageName": "-",
+    "winlog.event_data.KeyLength": "0",
+    "winlog.event_data.ProcessId": "0x0",
+    "winlog.event_data.ProcessName": "-",
+    "winlog.event_data.IpAddress": "185.220.101.47",
+    "winlog.event_data.IpPort": "54312",
+    "event.code": "4625",
+    "event.action": "logon-failed",
+    "event.outcome": "failure",
+    "source.ip": "185.220.101.47",
+    "user.name": "jsmith",
+    "user.domain": "GLOBALBANK",
   },
 };
 
@@ -689,12 +689,12 @@ That entire sequence — from first email to automated response — might happen
       id: "soc-struct-la1",
       heading: "T1 Analyst Scenario: Reviewing an Authentication Alert",
       context:
-        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert. The log below is a Windows Security Event from the Domain Controller (DC01-CORP) — the central server that manages all user logins. Review the event fields carefully and answer the questions as if you are triaging this alert in real time.",
+        "You are a Tier-1 SOC analyst at GlobalBank. It is 3:47 AM and your SIEM has fired an alert.\n\n**What the SIEM console tells you:** the rule 'Repeated Authentication Failure — Single Account' correlated **47 of these failures in 2 minutes 33 seconds** (about 18 per minute), all against the same account from the same address, and fired because the rule's threshold is 10 per minute. Its threat-intelligence enrichment flags the source address **185.220.101.47 as a Tor exit node in Amsterdam**.\n\n**What the log itself tells you:** the single Windows Security event below — one of those 47 — from the Domain Controller (DC01-CORP), the central server that manages all user logins.\n\nNotice the split before you start: the raw event knows nothing about the other 46 failures and has never heard of Tor. Counting and enrichment are the SIEM's job. Triage this as if it were live.",
       event: socStructureEvent,
       questions: [
         {
           question:
-            "The FailureCount field shows 47 failed login attempts in 2 minutes 33 seconds (FailuresPerMinute: 18). What type of attack does this pattern strongly suggest?",
+            "The SIEM correlated 47 failures against this account in 2 minutes 33 seconds — roughly 18 per minute. What type of attack does that rate strongly suggest?",
           options: [
             "Phishing attack — the user clicked a malicious link in an email",
             "Ransomware attack — the attacker is encrypting files on the server",
@@ -703,12 +703,12 @@ That entire sequence — from first email to automated response — might happen
           ],
           answer: 2,
           explanation:
-            "18 failed login attempts per minute is a rate no human can achieve manually — this is automated. A brute-force attack uses software to rapidly try thousands of username/password combinations. At this rate, a tool is systematically trying different passwords for the 'jsmith' account. The AlertThreshold was 10 failures per minute — the SIEM fired the alert when the attacker's rate exceeded that threshold.",
+            "18 failed login attempts per minute is a rate no human can achieve manually — this is automated. A brute-force attack uses software to rapidly try thousands of username/password combinations. At this rate, a tool is systematically trying different passwords for the 'jsmith' account. The rule's threshold was 10 failures per minute, so the SIEM fired once the attacker's rate crossed it.\n\nNow notice where that number came from. Scroll the raw event: there is no failure count anywhere in it. A 4625 records one failed logon and nothing more — it cannot see the other 46. The '47 in 2:33' is something the SIEM built by counting matching events across a time window. This is the single most important thing to understand about a SIEM, and the next reading returns to it.",
           xp: 20,
         },
         {
           question:
-            "The IpAddress field shows '185.220.101.47' and the GeoLocation_ISP field shows 'Tor Exit Node'. What does this tell you, and how should it affect your triage decision?",
+            "The log's IpAddress field shows '185.220.101.47'. The SIEM's threat-intelligence enrichment identifies that address as a Tor exit node in Amsterdam. What does this tell you, and how should it affect your triage decision?",
           options: [
             "Tor is a legitimate corporate VPN — this is normal employee remote access",
             "Tor is an anonymisation network used to hide attacker identity — this is a significant indicator of malicious intent",
@@ -717,7 +717,7 @@ That entire sequence — from first email to automated response — might happen
           ],
           answer: 1,
           explanation:
-            "The Tor (The Onion Router) network is commonly used by attackers to anonymise their traffic and hide their true location. While Tor has legitimate uses (journalists, activists), seeing a Tor Exit Node as the source of 47 failed login attempts against a bank's domain controller at 3:47 AM is a very strong indicator of a malicious attack — not legitimate employee access. This finding would significantly raise the severity of your triage assessment.",
+            "The Tor (The Onion Router) network is commonly used by attackers to anonymise their traffic and hide their true location. While Tor has legitimate uses (journalists, activists), seeing a Tor exit node as the source of 47 failed login attempts against a bank's domain controller at 3:47 AM is a very strong indicator of a malicious attack — not legitimate employee access. This finding would significantly raise the severity of your triage assessment.\n\nAnd again, watch which system knew what. Windows wrote down an IP address; it has no idea what Tor is and never will. Turning '185.220.101.47' into 'Tor exit node, Amsterdam' is enrichment — the SIEM looking that address up against threat-intelligence and geolocation feeds. Two of the strongest signals in this alert, the count and the Tor attribution, are both things the log did not contain.",
           xp: 25,
         },
       ],

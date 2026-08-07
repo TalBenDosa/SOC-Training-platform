@@ -690,7 +690,7 @@ const writingIncidentReportRoom: Room = {
   difficulty: "intermediate",
   category: "Incident Response",
   estimatedMinutes: 50,
-  xp: 315,
+  xp: 310,
   icon: "📝",
   prerequisites: ["incident-response-methodology"],
   tasks: [
