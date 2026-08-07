@@ -40,6 +40,18 @@ import { buildWebShellRceScenario }           from "@/lib/sim/scenario-packs/web
 import { buildLinuxSshCryptominerScenario }   from "@/lib/sim/scenario-packs/linuxSshCryptominer";
 import { buildAitmTokenTheftScenario }        from "@/lib/sim/scenario-packs/aitmTokenTheft";
 import { buildBruteForceSingleAccountScenario } from "@/lib/sim/scenario-packs/bruteForceSingleAccount";
+// Foundation-tier additions. Before these, the easy tier held 7 stories, and
+// after company-fit filtering the two Okta-only estates (rocketstack,
+// quantumbank) saw just 4 — smaller than RECENT_N below, so the anti-repeat
+// filter emptied and easy-mode students met a repeat by their fifth session.
+// Three of the five are deliberately source-light (edr + firewall only) so they
+// fit every estate; the Okta and Google Workspace packs exist specifically to
+// give the two non-Microsoft companies an identity and an email scenario.
+import { buildOktaPasswordBurstScenario }        from "@/lib/sim/scenario-packs/oktaPasswordBurst";
+import { buildFakeBrowserUpdateScenario }        from "@/lib/sim/scenario-packs/fakeBrowserUpdate";
+import { buildTrojanizedInstallerKeyloggerScenario } from "@/lib/sim/scenario-packs/trojanizedInstallerKeylogger";
+import { buildGwsPhishingAttachmentScenario }    from "@/lib/sim/scenario-packs/gwsPhishingAttachment";
+import { buildBundledCryptominerScenario }       from "@/lib/sim/scenario-packs/bundledCryptominer";
 import { COMPANY_PROFILES, COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -103,6 +115,11 @@ const _webShellRce      = buildWebShellRceScenario();
 const _linuxCryptominer = buildLinuxSshCryptominerScenario();
 const _aitmTokenTheft   = buildAitmTokenTheftScenario();
 const _bruteForceSingle = buildBruteForceSingleAccountScenario();
+const _oktaPasswordBurst    = buildOktaPasswordBurstScenario();
+const _fakeBrowserUpdate    = buildFakeBrowserUpdateScenario();
+const _trojanizedKeylogger  = buildTrojanizedInstallerKeyloggerScenario();
+const _gwsPhishAttachment   = buildGwsPhishingAttachmentScenario();
+const _bundledCryptominer   = buildBundledCryptominerScenario();
 
 /** Scenario info still needed by the Start-Training modal on the dashboard page */
 export const SCENARIO_INFO = {
@@ -173,6 +190,21 @@ const GENERIC_STORIES: AttackStory[] = [
   // user, one source, no lateral movement: a genuine foundation-tier attack
   // that finally gives the Easy tier an identity scenario (was malware-only).
   story("bruteforce-single", _bruteForceSingle,      "foundation", ["nexacorp", "medcore", "globallogis"]),
+
+  // The same lesson for estates with no Active Directory — the whole attack
+  // lives in the Okta System Log. Deliberately ends in FAILURE at the second
+  // factor: the password is compromised even though nobody got in.
+  story("okta-password-burst", _oktaPasswordBurst,   "foundation", ["rocketstack", "quantumbank"]),
+
+  // Google Workspace email-borne foundation story. rocketstack is the only
+  // estate that ships gws telemetry, and until now it had no email scenario at
+  // the easy tier at all.
+  story("gws-phish-attachment", _gwsPhishAttachment, "foundation", ["rocketstack"]),
+
+  // Source-light on purpose (edr + firewall), so every company can draw them.
+  story("fake-browser-update", _fakeBrowserUpdate,   "foundation"),
+  story("trojanized-keylogger", _trojanizedKeylogger, "foundation"),
+  story("bundled-cryptominer", _bundledCryptominer,  "foundation"),
 
   // core — contained identity/AD attacks that need correlating a few events
   story("impossible-travel-basic", _impossibleTravelBasic, "core", ["nexacorp", "medcore", "globallogis", "rocketstack", "quantumbank"]),

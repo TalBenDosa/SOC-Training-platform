@@ -12,6 +12,11 @@ import { buildLinuxSshCryptominerScenario } from "./scenario-packs/linuxSshCrypt
 import { buildAitmTokenTheftScenario }      from "./scenario-packs/aitmTokenTheft";
 import { buildEsxiRansomwareScenario }      from "./scenario-packs/esxiRansomware";
 import { buildBruteForceSingleAccountScenario } from "./scenario-packs/bruteForceSingleAccount";
+import { buildOktaPasswordBurstScenario }    from "./scenario-packs/oktaPasswordBurst";
+import { buildFakeBrowserUpdateScenario }    from "./scenario-packs/fakeBrowserUpdate";
+import { buildTrojanizedInstallerKeyloggerScenario } from "./scenario-packs/trojanizedInstallerKeylogger";
+import { buildGwsPhishingAttachmentScenario } from "./scenario-packs/gwsPhishingAttachment";
+import { buildBundledCryptominerScenario }   from "./scenario-packs/bundledCryptominer";
 import { buildRogueAdminAccountScenario }   from "./scenario-packs/rogueAdminAccount";
 import { buildImpossibleTravelBasicScenario } from "./scenario-packs/impossibleTravelBasic";
 import { buildSoftwareInstallFalsePositiveScenario } from "./scenario-packs/softwareInstallFalsePositive";
@@ -3306,6 +3311,31 @@ export const SCENARIOS = [
     difficulty: "expert", attack_kind: "ransomware_hypervisor",
     threat_actor: "Akira affiliate (big-game ransomware)", build: withAlerts(buildEsxiRansomwareScenario),
     summary: "Ninety-six VMs go dark at once and the endpoint EDR sees nothing, because there is no agent on the hypervisor. Reason from the telemetry that stopped arriving." },
+  { slug: "okta-password-burst",
+    title: "Sign-In Failure Burst — Okta Tenant, One Account",
+    difficulty: "beginner", attack_kind: "credential_access",
+    threat_actor: "Opportunistic credential-attack operator", build: withAlerts(buildOktaPasswordBurstScenario),
+    summary: "The attacker never got in — and the password is still compromised. One field on one sign-in event separates 'blocked, no impact' from a credential you have to reset." },
+  { slug: "fake-browser-update",
+    title: "Fake Browser Update — Drive-by on a Trusted Site",
+    difficulty: "beginner", attack_kind: "drive_by_compromise",
+    threat_actor: "Commodity drive-by operator", build: withAlerts(buildFakeBrowserUpdateScenario),
+    summary: "The site that started this is real, categorised business-and-economy, and read by half the department. Nothing in the first four minutes looks like an attack if you are hunting bad domains." },
+  { slug: "trojanized-installer-keylogger",
+    title: "Free PDF Tool — Trojanized Installer with a Keylogger",
+    difficulty: "beginner", attack_kind: "input_capture",
+    threat_actor: "Commodity infostealer distributor", build: withAlerts(buildTrojanizedInstallerKeyloggerScenario),
+    summary: "The installer is signed and the PDF tool genuinely works. It also drops a second binary that reads what she types into her browser." },
+  { slug: "gws-phishing-attachment",
+    title: "Shared Invoice — Malicious Attachment via Google Workspace",
+    difficulty: "beginner", attack_kind: "phishing_attachment",
+    threat_actor: "Business email compromise operator", build: withAlerts(buildGwsPhishingAttachmentScenario),
+    summary: "SPF, DKIM and DMARC all passed, because the supplier's domain really did send it. The mailbox belongs to someone else now." },
+  { slug: "bundled-cryptominer",
+    title: "Slow Laptop — Coinminer Bundled with a Video Converter",
+    difficulty: "beginner", attack_kind: "resource_hijacking",
+    threat_actor: "Freeware bundler (cryptomining monetisation)", build: withAlerts(buildBundledCryptominerScenario),
+    summary: "Nothing was stolen, no account was touched, and it is still a real incident. Grading severity by 'what did they take' files this as low and leaves it mining for weeks." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────

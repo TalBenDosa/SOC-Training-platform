@@ -1,0 +1,629 @@
+/**
+ * Scenario pack: "Free PDF Tool — Trojanized Installer with a Keylogger"
+ *
+ * BEGINNER tier. One user, one laptop, no lateral movement. A user who needs to
+ * merge two PDFs before a meeting installs a free converter she found by
+ * searching. The installer works — the PDF tool really does merge PDFs — and it
+ * also drops a keystroke logger and gives it a Run key.
+ *
+ * The teaching point is that the application working correctly is not evidence
+ * of anything. The user's own account is the one that installed it, from a
+ * signed installer with a valid (but recently issued, and unrelated) certificate.
+ * Every individual event here is something a normal software installation also
+ * does. What separates them is one process reading another process's keyboard
+ * input, and a Run key pointing at a binary in AppData.
+ *
+ * Covers T1056.001 (Input Capture: Keylogging) — a Collection technique the live
+ * feed exercises but that no room previously taught.
+ *
+ * NOTE: `difficulty: "beginner"` is declared on the SCENARIOS registry entry in
+ * scenarios.ts (ScenarioBundle itself carries no difficulty field).
+ */
+
+import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { makeSha256 } from "@/lib/sim/iocs";
+
+export function buildTrojanizedInstallerKeyloggerScenario(
+  scenarioId = "trojanized-installer-keylogger-2026",
+): ScenarioBundle {
+  const B = new Date("2026-06-25T10:05:00Z").getTime();
+  const T = (ms: number) => new Date(B + ms).toISOString();
+  const MIN = 60_000;
+
+  const host = { hostname: "LAP-2290", ip: "10.14.31.44" };
+  const victim = { email: "y.karni@nexacorp.com", name: "Yael Karni", sam: "y.karni" };
+
+  const downloadSite = "pdf-tools-free.io";
+  const c2 = "stat-collect-eu.com";
+
+  const installerHash = makeSha256("swiftpdf_setup_trojanized_installer_2026");
+  const keyloggerHash = makeSha256("winupd_helper_keylogger_binary_2026");
+  const realToolHash  = makeSha256("swiftpdf_merge_legitimate_component_2026");
+
+  const events: TelemetryEvent[] = [
+    // ---------------------------------------------------------------------
+    // 1. The download. Ordinary category, ordinary user, ordinary need.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_01_download",
+      ts: T(0),
+      source: "firewall",
+      vendor: "Palo Alto Networks PAN-OS",
+      event_type: "http_request",
+      hostname: host.hostname,
+      user_email: victim.email,
+      user_title: "Contracts Administrator",
+      src_ip: host.ip,
+      severity: "low",
+      description:
+        "LAP-2290 downloaded SwiftPDF_Setup.exe from pdf-tools-free.io at 10:05, allowed under the category shareware-and-freeware.",
+      file: { name: "SwiftPDF_Setup.exe", path: "/dl/SwiftPDF_Setup.exe", extension: "exe", size: 18_442_240, sha256: installerHash },
+      network: {
+        url: `https://${downloadSite}/dl/SwiftPDF_Setup.exe`,
+        domain: downloadSite,
+        method: "GET",
+        status: 200,
+        bytes_in: 18_442_240,
+      },
+      raw: {
+        "pan.type": "THREAT",
+        "pan.subtype": "file",
+        "pan.action": "alert",
+        "pan.rule": "CORP-WEB-OUTBOUND",
+        "pan.src": host.ip,
+        "pan.srcuser": `nexacorp\\${victim.sam}`,
+        "pan.dst": "172.67.201.18",
+        "pan.dport": "443",
+        "pan.app": "web-browsing",
+        "pan.category": "shareware-and-freeware",
+        "pan.url": `${downloadSite}/dl/SwiftPDF_Setup.exe`,
+        "pan.filename": "SwiftPDF_Setup.exe",
+        "pan.filetype": "pe",
+        "pan.file_hash": installerHash,
+        "pan.direction": "download",
+        "pan.session_id": "915440",
+        "source.ip": host.ip,
+        "url.domain": downloadSite,
+        "action_result": "alert",
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 2. Installation. Signed, elevated, and completely normal-looking.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_02_installer_run",
+      ts: T(2 * MIN + 30_000),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "process_create",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "low",
+      mitre_technique: "T1204.002",
+      mitre_tactic: "Execution",
+      description:
+        "SwiftPDF_Setup.exe ran from Downloads at 10:07:30, started by explorer.exe and elevated to high integrity.",
+      process: {
+        name: "SwiftPDF_Setup.exe",
+        pid: 7120,
+        path: "C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe",
+        parent_name: "explorer.exe",
+        parent_pid: 3204,
+        cmdline: '"C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe" /S',
+        user: `NEXACORP\\${victim.sam}`,
+        integrity: "high",
+        hash: { sha256: installerHash },
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "ProcessRollup2",
+        "crowdstrike.sensor.id": "c8a2f6104b7e4d19b2c3e5074afd6218",
+        "event.action": "process_created",
+        "process.name": "SwiftPDF_Setup.exe",
+        "process.pid": "7120",
+        "process.executable": "C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe",
+        "process.command_line": '"C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe" /S',
+        "process.hash.sha256": installerHash,
+        "process.signed": "true",
+        "process.code_signature.subject_name": "Nordvale Software Solutions OU",
+        "process.code_signature.status": "trusted",
+        "process.code_signature.valid_from": "2026-05-29T00:00:00Z",
+        "process.parent.name": "explorer.exe",
+        "process.parent.pid": "3204",
+        "user.name": `NEXACORP\\${victim.sam}`,
+        "host.name": host.hostname,
+        "host.ip": host.ip,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 3. The real product is installed. It works. This is not a decoy —
+    //    the tool genuinely merges PDFs.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_03_real_component",
+      ts: T(2 * MIN + 51_000),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "file_create",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "low",
+      description:
+        "The installer wrote C:\\Program Files\\SwiftPDF\\SwiftPDF.exe, the working PDF application.",
+      file: {
+        name: "SwiftPDF.exe",
+        path: "C:\\Program Files\\SwiftPDF\\SwiftPDF.exe",
+        extension: "exe",
+        size: 12_884_901,
+        sha256: realToolHash,
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "PeFileWritten",
+        "crowdstrike.sensor.id": "c8a2f6104b7e4d19b2c3e5074afd6218",
+        "event.action": "file_created",
+        "file.name": "SwiftPDF.exe",
+        "file.path": "C:\\Program Files\\SwiftPDF\\SwiftPDF.exe",
+        "file.hash.sha256": realToolHash,
+        "file.code_signature.subject_name": "Nordvale Software Solutions OU",
+        "file.code_signature.status": "trusted",
+        "process.name": "SwiftPDF_Setup.exe",
+        "process.pid": "7120",
+        "user.name": `NEXACORP\\${victim.sam}`,
+        "host.name": host.hostname,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 4. And a second binary, to a very different place, with a name that
+    //    borrows Windows' vocabulary.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_04_second_binary",
+      ts: T(2 * MIN + 54_000),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "file_create",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "medium",
+      description:
+        "Three seconds later the same installer wrote C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe, unsigned.",
+      file: {
+        name: "winupd_helper.exe",
+        path: "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe",
+        extension: "exe",
+        size: 402_944,
+        sha256: keyloggerHash,
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "PeFileWritten",
+        "crowdstrike.sensor.id": "c8a2f6104b7e4d19b2c3e5074afd6218",
+        "event.action": "file_created",
+        "file.name": "winupd_helper.exe",
+        "file.path": "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe",
+        "file.size": "402944",
+        "file.hash.sha256": keyloggerHash,
+        "file.code_signature.status": "unsigned",
+        "process.name": "SwiftPDF_Setup.exe",
+        "process.pid": "7120",
+        "user.name": `NEXACORP\\${victim.sam}`,
+        "host.name": host.hostname,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 5. Persistence — a Run key, in the user hive, no admin rights needed.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_05_run_key",
+      ts: T(2 * MIN + 56_000),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "registry_set",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "high",
+      mitre_technique: "T1547.001",
+      mitre_tactic: "Persistence",
+      description:
+        "A value named WindowsUpdateHelper was written to the user's Run key, pointing at the AppData binary.",
+      registry: {
+        path: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        key: "WindowsUpdateHelper",
+        value: "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe",
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "AsepValueUpdate",
+        "crowdstrike.detection.tactic": "Persistence",
+        "crowdstrike.detection.tactic_id": "TA0003",
+        "crowdstrike.detection.technique": "Boot or Logon Autostart Execution: Registry Run Keys",
+        "crowdstrike.detection.technique_id": "T1547.001",
+        "crowdstrike.detection.severity": "Medium",
+        "crowdstrike.sensor.id": "c8a2f6104b7e4d19b2c3e5074afd6218",
+        "event.action": "registry_value_set",
+        "registry.hive": "HKEY_CURRENT_USER",
+        "registry.path": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "registry.value": "WindowsUpdateHelper",
+        "registry.data.strings": "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe",
+        "process.name": "SwiftPDF_Setup.exe",
+        "process.pid": "7120",
+        "user.name": `NEXACORP\\${victim.sam}`,
+        "host.name": host.hostname,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 6. THE EVENT THAT MATTERS — the helper reads another process's input.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_06_keylog_hook",
+      ts: T(4 * MIN + 10_000),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "process_access",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "critical",
+      mitre_technique: "T1056.001",
+      mitre_tactic: "Collection",
+      description:
+        "winupd_helper.exe installed a low-level keyboard hook via SetWindowsHookExW and began reading input directed at chrome.exe.",
+      process: {
+        name: "winupd_helper.exe",
+        pid: 7688,
+        path: "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe",
+        parent_name: "explorer.exe",
+        parent_pid: 3204,
+        cmdline: "winupd_helper.exe -svc",
+        user: `NEXACORP\\${victim.sam}`,
+        integrity: "medium",
+        hash: { sha256: keyloggerHash },
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "SuspiciousWindowsHook",
+        "crowdstrike.detection.tactic": "Collection",
+        "crowdstrike.detection.tactic_id": "TA0009",
+        "crowdstrike.detection.technique": "Input Capture: Keylogging",
+        "crowdstrike.detection.technique_id": "T1056.001",
+        "crowdstrike.detection.severity": "Critical",
+        "crowdstrike.detection.pattern_disposition": "10",
+        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
+        "crowdstrike.sensor.id": "c8a2f6104b7e4d19b2c3e5074afd6218",
+        "crowdstrike.hook.type": "WH_KEYBOARD_LL",
+        "crowdstrike.hook.api": "SetWindowsHookExW",
+        "crowdstrike.hook.target_process": "chrome.exe",
+        "crowdstrike.hook.target_pid": "5012",
+        "event.action": "process_access",
+        "process.name": "winupd_helper.exe",
+        "process.pid": "7688",
+        "process.executable": "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe",
+        "process.command_line": "winupd_helper.exe -svc",
+        "process.hash.sha256": keyloggerHash,
+        "process.code_signature.status": "unsigned",
+        "process.parent.name": "explorer.exe",
+        "user.name": `NEXACORP\\${victim.sam}`,
+        "host.name": host.hostname,
+        "host.ip": host.ip,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 7. A local buffer file grows in the same folder.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_07_buffer_file",
+      ts: T(38 * MIN),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "file_modify",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "high",
+      mitre_technique: "T1074.001",
+      mitre_tactic: "Collection",
+      description:
+        "winupd_helper.exe repeatedly appended to C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\cache.dat, which reached 61 KB over 34 minutes.",
+      file: {
+        name: "cache.dat",
+        path: "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\cache.dat",
+        extension: "dat",
+        size: 62_464,
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "FileWritten",
+        "crowdstrike.sensor.id": "c8a2f6104b7e4d19b2c3e5074afd6218",
+        "event.action": "file_modified",
+        "file.name": "cache.dat",
+        "file.path": "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\cache.dat",
+        "file.size": "62464",
+        "process.name": "winupd_helper.exe",
+        "process.pid": "7688",
+        "user.name": `NEXACORP\\${victim.sam}`,
+        "host.name": host.hostname,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 8. The buffer leaves the building — small, regular POSTs.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_08_exfil",
+      ts: T(40 * MIN),
+      source: "firewall",
+      vendor: "Palo Alto Networks PAN-OS",
+      event_type: "http_request",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "critical",
+      mitre_technique: "T1041",
+      mitre_tactic: "Exfiltration",
+      description:
+        "From 10:45 the host began POSTing roughly 4 KB every ten minutes to stat-collect-eu.com/v1/report, allowed under the category unknown.",
+      network: {
+        url: `https://${c2}/v1/report`,
+        domain: c2,
+        method: "POST",
+        status: 200,
+        bytes_out: 4_216,
+        bytes_in: 118,
+      },
+      raw: {
+        "pan.type": "TRAFFIC",
+        "pan.subtype": "end",
+        "pan.action": "allow",
+        "pan.rule": "CORP-WEB-OUTBOUND",
+        "pan.src": host.ip,
+        "pan.srcuser": `nexacorp\\${victim.sam}`,
+        "pan.dst": "185.243.115.62",
+        "pan.dport": "443",
+        "pan.app": "web-browsing",
+        "pan.category": "unknown",
+        "pan.url": `${c2}/v1/report`,
+        "pan.http_method": "POST",
+        "pan.bytes_sent": "4216",
+        "pan.bytes_received": "118",
+        "pan.session_id": "916702",
+        "pan.repeat_count": "5",
+        "source.ip": host.ip,
+        "url.domain": c2,
+        "http.request.method": "POST",
+        "action_result": "allow",
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 9. The detection that opened the ticket.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_09_edr_alert",
+      ts: T(41 * MIN),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "edr_alert",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "critical",
+      description:
+        "Falcon raised a Critical detection on LAP-2290 for an unsigned AppData binary holding a keyboard hook, with the host's recent software-installation context attached.",
+      raw: {
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "crowdstrike.detection.name": "UnsignedUserlandKeyboardHook",
+        "crowdstrike.detection.description":
+          "An unsigned binary running from a user AppData directory installed a low-level keyboard hook and is writing to a local buffer file.",
+        "crowdstrike.detection.severity": "Critical",
+        "crowdstrike.detection.confidence": "85",
+        "crowdstrike.detection.tactic": "Collection",
+        "crowdstrike.detection.technique": "Input Capture: Keylogging",
+        "crowdstrike.detection.technique_id": "T1056.001",
+        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
+        "crowdstrike.detection.process_tree": "explorer.exe > winupd_helper.exe",
+        "crowdstrike.sensor.id": "c8a2f6104b7e4d19b2c3e5074afd6218",
+        "crowdstrike.network_containment_state": "Not Contained",
+        "event.action": "alert",
+        "event.outcome": "detected",
+        "host.name": host.hostname,
+        "host.ip": host.ip,
+        "user.name": `NEXACORP\\${victim.sam}`,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 10. The host's software and entitlement context, from the SIEM rather
+    //     than the EDR — what was installed today, what autoruns appeared, and
+    //     whether this user could have needed admin rights for any of it.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_tik_10_siem_context",
+      ts: T(43 * MIN),
+      source: "siem",
+      vendor: "Microsoft Sentinel",
+      event_type: "ueba_anomaly",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "high",
+      description:
+        "Sentinel enriched the detection with the host's change history for the day and the account's local-privilege state.",
+      raw: {
+        "AlertName": "EndpointSoftwareChange_UnsignedPersistence",
+        "alert.rule.id": "SEN-ENDPOINT-0139",
+        "alert.severity": "High",
+        "host.name": host.hostname,
+        "host.ip": host.ip,
+        "target.user.name": `NEXACORP\\${victim.sam}`,
+        "user.full_name": victim.name,
+        "user.department": "Legal",
+        "user.title": "Contracts Administrator",
+        "ExtendedProperties.Software Installed Today": [
+          "SwiftPDF 4.2 (Nordvale Software Solutions OU)",
+        ],
+        "ExtendedProperties.Autoruns Added Today": [
+          "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\WindowsUpdateHelper",
+        ],
+        "ExtendedProperties.Local Admin Rights": "false",
+        "event.action": "correlation-alert",
+        "event.outcome": "alerted",
+      },
+    },
+  ];
+
+  const iocs: IOC[] = [
+    {
+      type: "sha256",
+      value: keyloggerHash,
+      first_seen: T(2 * MIN + 54_000),
+      last_seen: T(41 * MIN),
+      reputation: "malicious",
+      tags: ["keylogger", "unsigned", "appdata"],
+    },
+    {
+      type: "sha256",
+      value: installerHash,
+      first_seen: T(0),
+      last_seen: T(2 * MIN + 56_000),
+      reputation: "malicious",
+      tags: ["trojanized-installer", "signed"],
+    },
+    {
+      type: "domain",
+      value: c2,
+      first_seen: T(40 * MIN),
+      last_seen: T(40 * MIN),
+      reputation: "malicious",
+      tags: ["c2", "outbound-post-target"],
+    },
+    {
+      type: "domain",
+      value: downloadSite,
+      first_seen: T(0),
+      last_seen: T(0),
+      reputation: "malicious",
+      tags: ["freeware-distribution", "trojanized"],
+    },
+    {
+      type: "host",
+      value: host.hostname,
+      first_seen: T(0),
+      last_seen: T(41 * MIN),
+      reputation: "unknown",
+      tags: ["user-endpoint", "affected"],
+    },
+  ];
+
+  const questions: ScenarioQuestion[] = [
+    {
+      id: "q1",
+      prompt:
+        "The installer was signed with a trusted certificate and the PDF tool it installed genuinely works. What does that tell you about whether this is malicious?",
+      hint: "Look at process.code_signature.valid_from in evt_tik_02, and at what else the same installer wrote.",
+      kind: "single",
+      options: [
+        { value: "nothing", label: "Nothing — a valid signature proves who built the file, not that the file is safe" },
+        { value: "benign", label: "It is strong evidence the software is benign; signed installers are vetted before a certificate is issued" },
+        { value: "stolen", label: "The certificate must have been stolen, since no legitimate publisher would sign malware" },
+        { value: "revoked", label: "The signature is invalid — status 'trusted' only means Windows could parse it" },
+      ],
+      answer: "nothing",
+      xp: 50,
+      explanation:
+        "Code signing answers one question — which entity signed this binary — and no others. Anyone who can pass a vendor's identity check can buy a certificate, and 'Nordvale Software Solutions OU' issued on 2026-05-29 is a real signer with a certificate that is under a month old. The working PDF tool is part of the same design: users who get what they came for do not uninstall anything. Option (c) is a common and expensive assumption — certificate theft happens, but freshly purchased certificates for purpose-built shell companies are far more common, and the two lead to completely different response actions. Option (d) contradicts the log, which records status 'trusted'.",
+    },
+    {
+      id: "q2",
+      prompt:
+        "Which single event moves this from 'unwanted software' to 'a security incident'?",
+      kind: "single",
+      options: [
+        { value: "hook", label: "evt_tik_06_keylog_hook — a low-level keyboard hook reading input directed at another process" },
+        { value: "runkey", label: "evt_tik_05_run_key — the Run key giving the binary persistence across reboots" },
+        { value: "appdata", label: "evt_tik_04_second_binary — an unsigned binary being written to AppData" },
+        { value: "download", label: "evt_tik_01_download — downloading software from a freeware site against policy" },
+      ],
+      answer: "hook",
+      xp: 60,
+      explanation:
+        "Adware and legitimate software both write to AppData and both add Run keys — those events (b) and (c) are suspicious context, not proof. A WH_KEYBOARD_LL hook targeting chrome.exe is different in kind: there is no benign reason for a bundled PDF utility to read the keystrokes a user types into her browser. That is capture of credentials and everything else she types. Option (d) is a policy violation, which is a different conversation from a security incident and should not be conflated with one.",
+    },
+    {
+      id: "q3",
+      prompt:
+        "The user has no local admin rights (Local Admin Rights: false). How did the malware achieve persistence anyway?",
+      kind: "single",
+      options: [
+        { value: "hkcu", label: "It used the HKCU Run key, which a standard user can write to for their own account" },
+        { value: "uac", label: "The installer bypassed UAC, which is why it ran at high integrity" },
+        { value: "service", label: "It installed a Windows service, which does not require administrative rights" },
+        { value: "task", label: "It created a scheduled task under SYSTEM, which any user can register" },
+      ],
+      answer: "hkcu",
+      xp: 50,
+      explanation:
+        "evt_tik_05 records the hive explicitly: HKEY_CURRENT_USER. Every user can write autoruns for their own profile without any elevation, and the entry runs whenever that user logs in — which is all a keylogger targeting one person needs. This is why 'the user isn't an admin' is a much weaker control than it sounds. Options (c) and (d) are simply false about Windows: services and SYSTEM-context scheduled tasks both require administrative rights. Option (b) misreads the evidence — the installer prompted and the user consented, which is ordinary elevation, and in any case the persistence that was actually used needed no elevation at all.",
+    },
+    {
+      id: "q4",
+      prompt:
+        "You are scoping the response. Which action list matches what the evidence supports?",
+      kind: "single",
+      options: [
+        { value: "full", label: "Isolate the host, remove the Run key and both binaries, and force a password reset for this user across every system" },
+        { value: "uninstall", label: "Uninstall SwiftPDF and close the ticket — the tool is unwanted software, not malware" },
+        { value: "block_only", label: "Block the C2 domain at the perimeter; the endpoint is unaffected once traffic stops" },
+        { value: "monitor", label: "Leave the host running and monitor cache.dat to see how much data is collected" },
+      ],
+      answer: "full",
+      xp: 60,
+      explanation:
+        "A keyboard hook ran for at least thirty-four minutes while the user worked, and evt_tik_08 shows the buffer leaving in 4 KB POSTs every ten minutes. You cannot know what she typed, so you have to assume every credential she entered in that window is compromised — hence the reset, and hence 'across every system', because people reuse passwords. Option (b) treats the PDF tool as the problem when the second binary is; uninstalling SwiftPDF may well leave winupd_helper.exe and its Run key exactly where they are. Option (c) stops exfiltration but leaves collection running and the stolen credentials still valid. Option (d) trades a user's live credentials for investigative curiosity, which is not a trade you get to make.",
+    },
+  ];
+
+  return {
+    scenario_id: scenarioId,
+    title: "Free PDF Tool — Trojanized Installer with a Keylogger",
+    threat_actor: "Commodity infostealer distributor (freeware bundling)",
+    attack_kind: "trojanized_installer_keylogger",
+    briefing:
+      "CrowdStrike Falcon raised a Critical detection on LAP-2290 at 10:46: an unsigned binary in AppData holding a low-level keyboard hook. The user installed a free PDF tool this morning. Establish what was installed, what it is doing, and what has left the machine.",
+    narrative: `At 10:05 Yael Karni downloaded SwiftPDF_Setup.exe from pdf-tools-free.io. She needed to merge two contracts before an 11:00 meeting, the corporate PDF licence does not cover merging, and the site was categorised shareware-and-freeware, so nothing blocked it.
+
+She ran it at 10:07:30. The installer is signed by "Nordvale Software Solutions OU" with a certificate Windows trusts, issued on 29 May 2026. It installed C:\\Program Files\\SwiftPDF\\SwiftPDF.exe, which is a genuine, working PDF application — she merged her contracts and made her meeting.
+
+Three seconds after writing the real product, the same installer wrote a second binary: C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe, 393 KB, unsigned. Two seconds after that it added a value called WindowsUpdateHelper to HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run pointing at it. She is not a local administrator, and none of that required her to be.
+
+At 10:09:10 winupd_helper.exe called SetWindowsHookExW to install a WH_KEYBOARD_LL hook against chrome.exe. Over the next thirty-four minutes it appended to cache.dat in its own folder until the file reached 61 KB. From 10:45 the host began POSTing about 4 KB every ten minutes to stat-collect-eu.com/v1/report — a domain the firewall categorises as unknown, and therefore allows.
+
+Falcon detected the hook and raised the alert at 10:46. It did not block anything: pattern_disposition_description is "Detection, No Action". The keylogger was still running when the ticket landed.`,
+    learning_objectives: [
+      "Explain what a valid code signature does and does not prove about a binary",
+      "Recognise Input Capture: Keylogging (T1056.001) from a low-level keyboard hook against another process",
+      "Identify HKCU Run-key persistence and explain why it needs no administrative rights",
+      "Separate a working application from the payload bundled alongside it in the same installer",
+      "Scope credential exposure from the duration a capture mechanism was active, not from what you can see was stolen",
+    ],
+    alerts: [],
+    events,
+    iocs,
+    killchain: [
+      { ts: T(0), phase: "Initial Access", action: `SwiftPDF_Setup.exe downloaded from ${downloadSite}` },
+      { ts: T(2 * MIN + 30_000), phase: "Execution", action: "User runs the signed installer, elevating to high integrity (T1204.002)" },
+      { ts: T(2 * MIN + 51_000), phase: "Execution", action: "The genuine PDF application is installed to Program Files" },
+      { ts: T(2 * MIN + 54_000), phase: "Execution", action: "An unsigned second binary is written to AppData\\Roaming\\WinUpd" },
+      { ts: T(2 * MIN + 56_000), phase: "Persistence", action: "HKCU Run key WindowsUpdateHelper added (T1547.001)" },
+      { ts: T(4 * MIN + 10_000), phase: "Collection", action: "WH_KEYBOARD_LL hook installed against chrome.exe (T1056.001)" },
+      { ts: T(38 * MIN), phase: "Collection", action: "cache.dat grows to 61 KB in the malware's own directory" },
+      { ts: T(40 * MIN), phase: "Exfiltration", action: `4 KB POSTs every ten minutes to ${c2} (T1041)` },
+      { ts: T(41 * MIN), phase: "Detection", action: "Falcon raises a Critical detection — detect only, nothing blocked" },
+    ],
+    questions,
+  };
+}
