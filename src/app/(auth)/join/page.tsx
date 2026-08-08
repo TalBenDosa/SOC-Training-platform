@@ -1,77 +1,73 @@
-"use client";
 /**
- * Accept an invitation. The org-admin (or super-admin) hands out a link like
- * /join?token=… ; this shows who's inviting and sends the invitee into signup
- * carrying the token, so the signup trigger drops them into the right org.
+ * Invitation entry point. An org-admin (or the super-admin) hands a student a
+ * link like /join?token=… — this resolves it and sends them STRAIGHT INTO
+ * REGISTRATION, carrying the token, so the signup trigger enrols them in the
+ * inviting institution (see supabase/migrations/0026_invitation_binding.sql).
+ *
+ * This used to be an interstitial card ("You're invited to X" → click "Accept
+ * & create account" → signup). The click bought nothing: the student already
+ * decided to join by opening the link, and the institution is shown far more
+ * prominently on the signup form itself now. It is a Server Component so the
+ * redirect happens before anything renders — no spinner, no flash of a card
+ * the student is about to be moved off.
+ *
+ * An invalid or expired token still stops here with a real explanation, rather
+ * than dumping them on a signup form that would silently enrol them nowhere.
  */
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Building2, Loader2, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
-interface Resolved {
-  valid: boolean;
-  orgName: string | null;
-  role: string;
-  email: string | null;
+export const metadata = { title: "Join" };
+
+interface PageProps {
+  searchParams: Promise<{ token?: string }>;
 }
 
-function JoinInner() {
-  usePageTitle("Join");
-  const token = useSearchParams().get("token") ?? "";
-  const [state, setState] = useState<Resolved | null | "loading">("loading");
-
-  useEffect(() => {
-    if (!token) { setState(null); return; }
-    fetch(`/api/invitations/${encodeURIComponent(token)}`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => setState(d ?? { valid: false, orgName: null, role: "student", email: null }))
-      .catch(() => setState({ valid: false, orgName: null, role: "student", email: null }));
-  }, [token]);
-
-  if (state === "loading") {
-    return <Card className="w-full max-w-md text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" /></Card>;
-  }
-
-  if (!state || !state.valid) {
-    return (
-      <Card className="w-full max-w-md text-center">
-        <AlertTriangle className="mx-auto h-8 w-8 text-neon-amber" />
-        <h1 className="mt-4 text-lg font-bold text-white">This invitation isn&apos;t valid</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          The link may have expired or already been used. Please ask your course administrator for a new one.
-        </p>
-        <Link href="/login" className="mt-6 inline-block"><Button variant="outline">Back to sign in</Button></Link>
-      </Card>
-    );
-  }
-
+function InvalidInvite({ reason }: { reason: string }) {
   return (
     <Card className="w-full max-w-md text-center">
-      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-cyber-500/30 bg-cyber-500/10">
-        <Building2 className="h-6 w-6 text-cyber-300" />
-      </span>
-      <h1 className="mt-4 text-lg font-bold text-white">You&apos;re invited to {state.orgName ?? "a course"}</h1>
-      <p className="mt-2 text-sm text-slate-400">
-        Join as <span className="font-semibold text-white">{state.role.replace("_", " ")}</span> and start training on HACK THE SOC.
-      </p>
-      <Link href={`/signup?invite=${encodeURIComponent(token)}`} className="mt-6 inline-block">
-        <Button variant="primary" size="lg">Accept &amp; create account</Button>
-      </Link>
+      <AlertTriangle className="mx-auto h-8 w-8 text-neon-amber" />
+      <h1 className="mt-4 text-lg font-bold text-white">This invitation isn&apos;t valid</h1>
+      <p className="mt-2 text-sm text-slate-400">{reason}</p>
       <p className="mt-4 text-xs text-slate-400">
-        Already have an account? <Link href="/login" className="text-cyber-300 hover:underline">Sign in</Link> and ask your admin to add you.
+        Ask your course administrator to send you a fresh invite link.
       </p>
+      <Link href="/login" className="mt-6 inline-block">
+        <Button variant="outline">Back to sign in</Button>
+      </Link>
     </Card>
   );
 }
 
-export default function JoinPage() {
-  return (
-    <Suspense fallback={<Card className="w-full max-w-md text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" /></Card>}>
-      <JoinInner />
-    </Suspense>
-  );
+export default async function JoinPage({ searchParams }: PageProps) {
+  const { token } = await searchParams;
+
+  if (!token) {
+    return <InvalidInvite reason="This link is missing its invitation code." />;
+  }
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) {
+    return <InvalidInvite reason="Accounts aren't configured on this deployment yet." />;
+  }
+
+  const { data, error } = await admin.rpc("resolve_invitation", { p_token: token });
+  if (error) {
+    return <InvalidInvite reason="We couldn't check this invitation just now. Please try again shortly." />;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return <InvalidInvite reason="We don't recognise this invitation code." />;
+  }
+  if (row.valid !== true) {
+    return <InvalidInvite reason="This invitation has expired or has already been used." />;
+  }
+
+  // Valid → straight to registration, carrying the token.
+  redirect(`/signup?invite=${encodeURIComponent(token)}`);
 }

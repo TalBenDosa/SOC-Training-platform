@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useRouter } from "next/navigation";
-import { UserPlus, Mail, CheckCircle2, AlertTriangle, Loader2, Check, X } from "lucide-react";
+import { UserPlus, Mail, CheckCircle2, AlertTriangle, Loader2, Check, X, Building2, Lock } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { cn } from "@/lib/utils";
 
 export default function SignupPage() {
   usePageTitle("Create account");
@@ -18,10 +19,19 @@ export default function SignupPage() {
   const [handle, setHandle] = useState("");
   const [fullName, setFullName] = useState("");
   // Enrollment: an invite token in the URL (?invite=…) drops the new account
-  // into the inviting org via the signup trigger. Read from the URL rather than
-  // useSearchParams to avoid a Suspense boundary on this client page.
+  // into the inviting institution via the signup trigger. Read from the URL
+  // rather than useSearchParams to avoid a Suspense boundary on this client page.
   const [inviteToken, setInviteToken] = useState("");
   const [inviteOrg, setInviteOrg] = useState<string | null>(null);
+  const [inviteRole, setInviteRole] = useState<string>("student");
+  /** The address the invite was issued TO, when it names one. A roster invite is
+   *  bound to it server-side (migration 0026), so the field is locked to match —
+   *  letting someone type a different address here would only produce a failed
+   *  signup after the fact. Null for a shareable class-wide link. */
+  const [inviteEmail, setInviteEmail] = useState<string | null>(null);
+  /** "checking" until the token resolves, so we never render a form that looks
+   *  like a normal signup while an invitation is still being validated. */
+  const [inviteState, setInviteState] = useState<"none" | "checking" | "valid" | "invalid">("none");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -30,16 +40,34 @@ export default function SignupPage() {
   const [handleFree, setHandleFree] = useState<boolean | null>(null);
   const [checkingHandle, setCheckingHandle] = useState(false);
 
-  // Pick up ?invite=<token> and resolve which org it's for, to reassure the
-  // signer they're joining the right course.
+  // Pick up ?invite=<token> and resolve which institution it belongs to.
+  //
+  // A failed resolve used to be swallowed (`if (d?.valid)` and an empty catch),
+  // which meant an expired or wrong token rendered an ordinary signup form: the
+  // student created an account believing they had joined their college, and
+  // silently landed in the default org instead. Nothing told them, and nothing
+  // told the admin why their student never appeared on the roster. An invitation
+  // that cannot be honoured is now a blocking state.
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("invite");
     if (!token) return;
     setInviteToken(token);
+    setInviteState("checking");
     fetch(`/api/invitations/${encodeURIComponent(token)}`)
       .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d?.valid) setInviteOrg(d.orgName ?? null); })
-      .catch(() => {});
+      .then(d => {
+        if (d?.valid) {
+          setInviteOrg(d.orgName ?? null);
+          setInviteRole(typeof d.role === "string" ? d.role : "student");
+          const invited = typeof d.email === "string" && d.email.trim() ? d.email.trim().toLowerCase() : null;
+          setInviteEmail(invited);
+          if (invited) setEmail(invited);
+          setInviteState("valid");
+        } else {
+          setInviteState("invalid");
+        }
+      })
+      .catch(() => setInviteState("invalid"));
   }, []);
 
   const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
@@ -121,7 +149,23 @@ export default function SignupPage() {
     setSubmitting(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      // The enrollment trigger raises named exceptions (migration 0026) that
+      // surface here as opaque database errors. Translate the ones a student
+      // can actually act on — anything else passes through unchanged.
+      const raw = signUpError.message ?? "";
+      if (raw.includes("invitation_email_mismatch")) {
+        setError(
+          inviteEmail
+            ? `This invitation was issued to ${inviteEmail}. Sign up with that address, or ask your course administrator for an invite for the address you want to use.`
+            : "This invitation was issued to a different email address. Ask your course administrator for a new invite link.",
+        );
+      } else if (raw.includes("invitation_invalid")) {
+        setError("This invitation has expired or has already been used. Ask your course administrator for a fresh link.");
+      } else if (raw.includes("seat_limit_reached")) {
+        setError(`${inviteOrg ?? "This course"} has no seats left. Ask your course administrator to free one up, then try again.`);
+      } else {
+        setError(raw);
+      }
       return;
     }
     // If email confirmation is disabled in the Supabase project, signUp already
@@ -176,6 +220,34 @@ export default function SignupPage() {
     );
   }
 
+  // A token was supplied but can't be honoured. Stop here rather than render a
+  // form that would quietly enrol them in the wrong place (see the resolve
+  // effect above). Signing up WITHOUT an invitation stays available below.
+  if (inviteState === "invalid") {
+    return (
+      <Card className="w-full max-w-md text-center">
+        <AlertTriangle className="mx-auto h-8 w-8 text-neon-amber" />
+        <h1 className="mt-4 text-lg font-bold text-white">This invitation isn&apos;t valid</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          The link has expired or has already been used, so we can&apos;t add you to the course it
+          belongs to. Ask your course administrator to send you a fresh invite link.
+        </p>
+        <Link href="/login" className="mt-6 inline-block">
+          <Button variant="outline">Back to sign in</Button>
+        </Link>
+      </Card>
+    );
+  }
+
+  if (inviteState === "checking") {
+    return (
+      <Card className="w-full max-w-md text-center">
+        <Loader2 className="mx-auto h-6 w-6 animate-spin text-slate-400" />
+        <p className="mt-4 text-sm text-slate-400">Checking your invitation…</p>
+      </Card>
+    );
+  }
+
   if (checkEmail) {
     return (
       <Card className="w-full max-w-md text-center">
@@ -199,14 +271,40 @@ export default function SignupPage() {
           <UserPlus className="h-5 w-5 text-cyber-300" />
         </span>
         <div>
-          <h1 className="text-lg font-bold text-white">Create your account</h1>
-          <p className="text-xs text-slate-400">Free — your progress follows you across devices.</p>
+          <h1 className="text-lg font-bold text-white">
+            {inviteState === "valid" ? "Complete your enrolment" : "Create your account"}
+          </h1>
+          <p className="text-xs text-slate-400">
+            {inviteState === "valid"
+              ? "One step left — set a password and you're in."
+              : "Your progress follows you across every device."}
+          </p>
         </div>
       </div>
 
-      {inviteOrg && (
-        <div className="mb-4 rounded-lg border border-cyber-500/30 bg-cyber-500/10 px-4 py-2.5 text-sm text-cyber-200">
-          Joining <span className="font-semibold text-white">{inviteOrg}</span> — your account will be added to their course.
+      {/* Institution card. The student arrived from their college's invite link,
+          so lead with WHOSE course this is — it's the one thing they need to
+          confirm before handing over a password. */}
+      {inviteState === "valid" && (
+        <div className="mb-5 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.07] p-4">
+          <div className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10">
+              <Building2 className="h-4 w-4 text-cyber-300" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyber-400">
+                You&apos;ve been invited by
+              </p>
+              <p className="mt-0.5 truncate text-base font-bold text-white">
+                {inviteOrg ?? "your course"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                Your account will be created inside their course as{" "}
+                <span className="font-semibold text-slate-200">{inviteRole.replace("_", " ")}</span>
+                {" "}— progress, assignments and the class leaderboard are all theirs.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -262,14 +360,36 @@ export default function SignupPage() {
           </p>
         </div>
         <div>
-          <label htmlFor="signup-email" className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
+          <label htmlFor="signup-email" className="mb-1.5 flex items-baseline justify-between text-xs font-semibold text-slate-400">
+            <span>Email</span>
+            {inviteEmail && (
+              <span className="flex items-center gap-1 font-normal text-[11px] text-cyber-300">
+                <Lock className="h-3 w-3" /> set by your invitation
+              </span>
+            )}
+          </label>
           <input
             id="signup-email"
             type="email" required autoComplete="email" value={email}
             onChange={e => setEmail(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            // A roster invite is bound to its recipient server-side, so an
+            // editable box here would just invite a signup that fails on submit.
+            readOnly={!!inviteEmail}
+            aria-readonly={!!inviteEmail}
+            className={cn(
+              "h-10 w-full rounded-md border px-3 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyber-500/30",
+              inviteEmail
+                ? "cursor-not-allowed border-cyber-500/25 bg-cyber-500/[0.06] text-slate-200"
+                : "border-border bg-bg text-white focus:border-cyber-500/50",
+            )}
             placeholder="you@company.com"
           />
+          {inviteEmail && (
+            <p className="mt-1 text-[11px] text-slate-400">
+              Your course administrator issued this invitation to this address. Need a different
+              one? Ask them to send a new invite.
+            </p>
+          )}
         </div>
         <div>
           <label htmlFor="signup-password" className="mb-1.5 block text-xs font-semibold text-slate-400">Password</label>
