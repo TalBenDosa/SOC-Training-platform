@@ -71,6 +71,54 @@ body {
   position: relative;
 }
 
+/* ─── Landing page ────────────────────────────────────────────────────────────
+ * Kept here rather than inline so the landing stays a Server Component (no JS
+ * shipped for its motion). One orchestrated reveal on load, nothing looping
+ * except the LIVE indicator — a console that boots, not a page that fidgets.
+ * All of it is neutralised by the reduced-motion block below. */
+/* The staggered entrance animates TRANSFORM ONLY — deliberately, and this is
+ * load-bearing. The first version faded in from `opacity: 0`, which meant any
+ * client that applies the animation but never advances it rendered the entire
+ * landing page permanently blank (caught in verification: all 13 elements stuck
+ * at opacity 0). That is not just a test artifact — a backgrounded tab, a
+ * crawler, a screenshot service or a print stylesheet can all land in exactly
+ * that state, and a blank landing page is the worst possible failure for the
+ * one route anonymous visitors can reach.
+ *
+ * Animating only `translateY` makes the worst case a 14px vertical offset on
+ * fully-legible content, instead of invisible content. Never gate visibility
+ * behind an animation completing. */
+@keyframes rise-in {
+  from { transform: translateY(14px); }
+  to   { transform: translateY(0); }
+}
+.rise-in {
+  animation: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* A single scan sweep across the console frame as it "comes online". */
+@keyframes console-sweep {
+  0%   { transform: translateY(-100%); opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translateY(400%); opacity: 0; }
+}
+.console-sweep::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 28%;
+  background: linear-gradient(to bottom, transparent, rgba(34,211,238,0.10), transparent);
+  animation: console-sweep 2.4s ease-out 0.5s 1 both;
+  pointer-events: none;
+}
+
+/* Hairline that fades out at both ends — used as a section rule. */
+.rule-fade {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(34,211,238,0.35), transparent);
+}
+
 /* ─── Accessibility: honor prefers-reduced-motion ─────────────────────────────
  * The app animates heavily (a live streaming feed, framer-motion transitions,
  * pulses). Users who ask their OS to reduce motion get near-instant, non-moving

@@ -19,5 +19,13 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "scripts"]
+  /**
+   * `promo` / `promo-remotion` are standalone side projects (marketing video
+   * and capture harnesses) that ship their own package.json + tsconfig and
+   * their own React/Remotion versions. The include glob above swept them into
+   * the app's type universe, where Remotion's components typecheck against the
+   * WRONG React types and fail — which broke `next build` for the whole app
+   * over code that isn't part of it. Excluded for the same reason `scripts` is.
+   */
+  "exclude": ["node_modules", "scripts", "promo", "promo-remotion"]
 }
