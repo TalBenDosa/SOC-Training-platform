@@ -590,10 +590,10 @@ const protocolsMasterclass = {
       checkpoint: {
         question: "According to the reading, what does an ARP Poisoning attack involve?",
         options: [
-          "Flooding a target with millions of SYN packets to exhaust resources",
+          "Flooding a target with millions of SYN packets so its connection queue fills up and it can no longer respond to legitimate connection requests",
           "Sending unsolicited ARP replies claiming the attacker's MAC address is the default gateway, so victim traffic routes through the attacker",
-          "Encoding stolen data as subdomain labels in DNS queries",
-          "Exploiting a buffer overflow in SMBv1",
+          "Encoding stolen data inside subdomain labels and sending them as DNS queries to an attacker-controlled authoritative nameserver to exfiltrate it",
+          "Sending a specially crafted packet that exploits a buffer overflow vulnerability in the SMBv1 protocol implementation to execute remote code",
         ],
         answer: 1,
         explanation: "ARP Poisoning sends gratuitous ARP replies claiming the gateway's IP maps to the attacker's MAC address. Victims update their ARP cache and send traffic to the attacker, creating a man-in-the-middle position.",
@@ -804,10 +804,10 @@ const protocolsMasterclass = {
           question:
             "The log shows the query was made by cmd.exe (winlog.event_data.Image = C:\\Windows\\System32\\cmd.exe). Why is cmd.exe making DNS queries suspicious?",
           options: [
-            "cmd.exe is a legitimate system process that makes DNS queries as part of normal Windows operation",
+            "cmd.exe regularly performs DNS lookups during normal Windows operation — for example resolving hostnames for mapped network drives — so seeing it as the querying process is not inherently unusual",
             "cmd.exe should never query DNS directly under normal operations — only browsers and dedicated apps do. This suggests a script or tool running in the command prompt is performing the exfiltration",
-            "The DNS query is suspicious because cmd.exe is located in System32, which is an attacker-controlled folder",
-            "The parent process explorer.exe is the real threat — cmd.exe is just passing through",
+            "The location of cmd.exe in System32 is what makes this suspicious — any process that launches from System32 should be treated as attacker-controlled infrastructure and blocked at the DNS resolver",
+            "The real point of investigation is the parent process explorer.exe — it is what actually generated the DNS traffic, while cmd.exe is just a pass-through process with no bearing on the query",
           ],
           answer: 1,
           explanation:
@@ -818,10 +818,10 @@ const protocolsMasterclass = {
           question:
             "What should be the analyst's NEXT step after identifying this alert as likely DNS tunneling?",
           options: [
-            "Close the alert as a false positive because NXDOMAIN means the domain does not exist and no data was transferred",
+            "Close the alert as a false positive — NXDOMAIN confirms the domain doesn't exist, so even though the query contained encoded data, no attacker infrastructure actually received it and no exfiltration occurred",
             "Immediately isolate the workstation WS-FINANCE-011 via EDR containment, query the SIEM for all DNS queries from this host in the past 30 days, and check other hosts for similar queries to evil-c2.net",
-            "Send an email to m.cohen asking if they were running any DNS tools",
-            "Mark as medium priority and investigate next week during scheduled review",
+            "Send an email to m.cohen asking whether they were intentionally running a DNS diagnostic tool, and wait for their reply before taking any containment or investigative action on the workstation",
+            "Mark the alert as medium priority and schedule the investigation for next week's routine review, since a single DNS tunneling alert on one workstation is unlikely to indicate an active, ongoing compromise",
           ],
           answer: 1,
           explanation:

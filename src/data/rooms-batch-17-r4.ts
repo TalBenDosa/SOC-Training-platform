@@ -134,10 +134,10 @@ const winProtoRoom = {
         question:
           "According to the reading, what does the IPC$ administrative share actually map to on disk?",
         options: [
-          "The entire C: drive root",
-          "The Windows installation directory (%SystemRoot%)",
+          "The root of the C: drive — that's what C$ (and every other per-drive-letter share) maps to, granting full drive access to anyone authenticating with local administrator rights",
+          "The Windows installation folder at %SystemRoot% — that's ADMIN$'s mapping, not IPC$'s, and it's used by tools that need to deploy files directly into C:\\Windows",
           "Nothing — IPC$ has no filesystem location at all; it exists purely to carry named pipes",
-          "The user's home directory",
+          "The logged-on user's personal home directory under C:\\Users — not a default administrative share at all, and not something IPC$, C$, or ADMIN$ ever expose",
         ],
         answer: 2,
         explanation:
@@ -289,10 +289,10 @@ const winProtoRoom = {
         question:
           "According to the reading, what is the critical protocol gap that makes NTLM relay possible?",
         options: [
-          "The Type 2 challenge is never actually random",
+          "The Type 2 challenge is derived from the target server's hostname and IP address in a way that cryptographically binds it to that specific server, similar to how TLS certificate validation binds a certificate to a domain name",
           "Nothing in the base protocol cryptographically ties the Type 2 challenge or the resulting Type 3 response to the specific server's identity, so an attacker in the middle can forward them between two connections",
-          "NTLM never uses a challenge value at all",
-          "The Type 3 Authenticate message always contains the plaintext password",
+          "NTLM relay is only possible when the client explicitly reuses the exact same Type 2 challenge value across multiple different authentication sessions, rather than the server generating a fresh challenge for every single connection attempt",
+          "The Type 3 Authenticate message includes the user's plaintext password encrypted only with a static, well-known key that any attacker who captures the message can trivially decrypt without needing the challenge at all",
         ],
         answer: 1,
         explanation:
@@ -399,10 +399,10 @@ const winProtoRoom = {
         question:
           "According to the reading, why do defenders lean more heavily on Sysmon process-creation telemetry than on service-installation events (Event ID 7045) to detect WMI-based lateral movement?",
         options: [
-          "WMI-based execution always triggers 7045 just like PsExec",
+          "WMI-based execution always triggers Event ID 7045 just like PsExec does, because both mechanisms ultimately register a temporary Windows service behind the scenes to actually launch the remote process, even though WMI's service is automatically deleted immediately afterward",
           "WMI-based execution (e.g. Impacket's wmiexec) launches the process via a Win32_Process Create call rather than registering a new service, so no 7045 service-installation artifact is left behind at all",
-          "Sysmon cannot log process creation events on Windows Server",
-          "WMI-based execution only works over UDP, which 7045 does not capture",
+          "Sysmon's process-creation event (Event ID 1) is only supported on Windows client editions like Windows 10 and 11, not on any Windows Server operating system, so Sysmon cannot log process creation events on Windows Server",
+          "WMI-based execution's DCOM/RPC calls are transmitted exclusively over UDP datagrams, which Windows service-installation auditing has no visibility into, so WMI-based execution only works over UDP, which 7045 does not capture",
         ],
         answer: 1,
         explanation:
@@ -417,10 +417,10 @@ const winProtoRoom = {
       question:
         "You observe a Windows workstation (not a server, not a designated file/print server) accessing another workstation's IPC$ share and opening \\PIPE\\svcctl. What is the single most important contextual fact needed to judge how suspicious this is?",
       options: [
-        "Whether the connection used TCP or UDP",
+        "Whether the connection used TCP port 445 directly versus a NetBIOS-over-TCP connection on port 139 — since only port 445 traffic is capable of carrying named-pipe RPC calls like svcctl, while port 139 connections are limited to legacy file-sharing operations only",
         "Whether this access pattern (workstation directly administering another workstation via svcctl) matches a known, approved IT administration workflow and account — versus an account/host pair with no legitimate reason to be remotely managing services on a peer workstation",
-        "The exact byte count of the SMB session",
-        "Whether the target workstation is running Windows 10 or Windows 11",
+        "The exact byte count of the SMB session — because the Service Control Manager RPC interface only accepts svcctl connections that transfer fewer than a fixed number of bytes, so any session exceeding that internal size threshold is automatically flagged as anomalous by Windows itself",
+        "Whether the target workstation is running Windows 10 or Windows 11 — because only Windows 11's redesigned Service Control Manager logs remote svcctl connections at all, meaning the same activity on a Windows 10 host would leave no named-pipe access record whatsoever",
       ],
       answer: 1,
       explanation:
@@ -435,10 +435,10 @@ const winProtoRoom = {
       question:
         "An analyst sees a 4624 logon (Kerberos, logon type 3) for account j.alvarez on SRV-DATA07, but j.alvarez's most recent 4768 (AS-REQ/TGT request) was logged 40 minutes earlier on a completely different host — a workstation j.alvarez has never used before, which itself shows signs of separate compromise. What does this pattern most strongly suggest?",
       options: [
-        "A normal Kerberos ticket renewal, which always occurs on a different host than the original request",
+        "A normal Kerberos ticket renewal — TGT and service ticket renewals are always processed by re-contacting the KDC from a DIFFERENT host than the one that made the original request, specifically to spread authentication load across the domain's available domain controllers",
         "Pass-the-Ticket — a valid Kerberos ticket has no binding to the machine that originally requested it, so a ticket obtained (likely stolen from LSASS memory) on one compromised host can be replayed to authenticate from an entirely different host",
-        "This is expected multi-factor authentication behavior and requires no further investigation",
-        "The Domain Controller has a clock synchronization error, causing the mismatched hostnames",
+        "This is expected multi-factor authentication behavior — when MFA is enforced for Kerberos, the DC intentionally logs the TGT origin on a separate MFA validation server rather than the user's actual workstation, which is why the hostnames differ and why this needs no further investigation",
+        "The Domain Controller has a clock synchronization error — Kerberos silently substitutes a placeholder hostname in the 4624 logon event whenever the DC and the requesting host's clocks drift more than five minutes apart, producing this kind of mismatch",
       ],
       answer: 1,
       explanation:
@@ -453,10 +453,10 @@ const winProtoRoom = {
       question:
         "An LDAP query with the filter (&(objectClass=user)(servicePrincipalName=*)) is observed being run from a standard user's workstation account. Why does this specific filter matter for an investigator's next steps, even though the query itself requires no special privileges?",
       options: [
-        "It doesn't matter at all — this filter is meaningless and never used for any purpose",
+        "It doesn't matter at all — LDAP search filters like this one require Schema Admins-level directory permissions to execute against Active Directory, so no standard domain user account, service account, or workstation identity could ever actually run this specific query in a real environment",
         "This filter returns exactly the list of accounts that have Service Principal Names set, which is precisely the candidate target list a Kerberoasting attack draws from — seeing this specific query run (especially at unusual volume or alongside other similar recon filters) is a strong precursor signal that a Kerberoasting attempt against one or more of the returned accounts may follow",
-        "This filter can only be executed by a Domain Admin account, so seeing it run at all proves privilege escalation already occurred",
-        "This filter modifies the returned accounts' passwords automatically",
+        "This filter only returns accounts already flagged as compromised by Microsoft Defender for Identity, so seeing it run confirms MDI has already independently detected and remediated any resulting Kerberoasting attempt automatically",
+        "This filter modifies the returned accounts' passwords automatically — running (&(objectClass=user)(servicePrincipalName=*)) against the directory doesn't just read data, it also resets every matched account's password to a new random value as an LDAP side effect of the search operation itself",
       ],
       answer: 1,
       explanation:
@@ -477,10 +477,10 @@ const winProtoRoom = {
           question:
             "The event shows ShareName '\\\\*\\IPC$' and RelativeTargetName 'svcctl', with SubjectUserName 'm.reyes' and IpAddress '10.40.6.90' (a different host than WKS-OPS31 itself). What does this combination of fields tell you was actually being accessed, and why does that matter?",
           options: [
-            "m.reyes opened a regular shared folder on WKS-OPS31 to retrieve a document",
+            "m.reyes opened a regular shared folder on WKS-OPS31 named IPC$ to browse and retrieve a document from a shared network drive — IPC$ behaves exactly like any other file share and simply happened to be the specific share name used for this file-retrieval operation",
             "A remote connection from 10.40.6.90, authenticated as m.reyes, connected to WKS-OPS31's IPC$ share specifically to reach the svcctl named pipe — the RPC interface used to remotely create, start, and stop Windows services, not to read or write any regular files",
-            "This event indicates a failed logon attempt with no further significance",
-            "svcctl is a printer-sharing named pipe unrelated to service management",
+            "This event indicates a failed logon attempt — AccessMask 0x120089 is the specific value Windows Security records whenever an authentication attempt to a share is rejected, and this event by itself carries no further operational significance beyond that failed attempt",
+            "svcctl is a printer-sharing named pipe unrelated to service management — it exposes the Windows Print Spooler's remote printer-queue management functions, not the Service Control Manager, and has nothing to do with creating or starting services remotely",
           ],
           answer: 1,
           explanation:
@@ -491,10 +491,10 @@ const winProtoRoom = {
           question:
             "The raw record also includes followup_event_code '7045' with followup_service_name 'PSEXESVC' and followup_service_image_path '%SystemRoot%\\\\PSEXESVC.exe', logged moments after the svcctl access. What does this follow-up event confirm?",
           options: [
-            "It confirms a completely unrelated service was installed by chance around the same time",
+            "It confirms a completely unrelated service was installed by chance around the same time — PSEXESVC is actually a common, generic Windows component name that many unrelated legitimate installers use, so its appearance here is coincidental and unconnected to the earlier svcctl pipe access",
             "It confirms that the svcctl named pipe access wasn't just a connection attempt — it resulted in a real, new service actually being created and registered on WKS-OPS31, with a service name and image path matching the well-documented, real default artifacts left behind by Sysinternals PsExec-style remote service execution",
-            "It confirms WKS-OPS31's operating system was fully reinstalled",
-            "It confirms the connection failed and no service was actually created",
+            "It confirms WKS-OPS31's operating system was fully reinstalled — Event ID 7045 is only ever generated during a fresh Windows installation or in-place upgrade process, when the base operating system registers its own core set of default services for the first time",
+            "It confirms the connection failed and no service was actually created — Event ID 7045 is logged as a record of failed service-installation attempts specifically, so this entry means the svcctl request was rejected before anything was registered",
           ],
           answer: 1,
           explanation:
@@ -505,10 +505,10 @@ const winProtoRoom = {
           question:
             "Given that m.reyes is a regular domain user with no IT administration group membership, and WKS-OPS31 is a standard workstation (not a designated administrative jump host), what is the appropriate next step?",
           options: [
-            "Take no action — svcctl access and service installation are routine, expected Windows behavior on every machine",
+            "Take no action — svcctl access and service installation are routine, expected Windows behavior on every machine, and Windows Defender automatically validates the legitimacy of every remotely installed service before allowing it to actually start running",
             "Verify whether this activity is tied to an approved change (an IT ticket, an authorized remote support session using m.reyes's account, or an approved software deployment tool) — if no legitimate explanation is found, treat this as evidence of lateral movement using m.reyes's credentials, investigate 10.40.6.90 as the likely source of compromise, and reset m.reyes's credentials",
-            "Immediately format WKS-OPS31 without any further investigation or evidence preservation",
-            "Disable IPC$ shares company-wide, since this share type has no legitimate purpose anywhere in the environment",
+            "Immediately format WKS-OPS31 without any further investigation or evidence preservation — since the compromise is already confirmed by the svcctl access alone, there is nothing additional a forensic investigation of the host or the source IP could reveal that would change the response",
+            "Disable IPC$ shares company-wide, since this share type has no legitimate purpose anywhere in the environment and blocking it entirely would have zero impact on any approved remote administration, backup, or software deployment tooling currently in use",
           ],
           answer: 1,
           explanation:
@@ -531,10 +531,10 @@ const winProtoRoom = {
           question:
             "TargetUserName is 'm.reyes' (the requesting account) and TicketEncryptionType on this sample is '0x17'. Per the breakdown stated above — 45 of 47 requests came back 0x17, only 2 came back 0x12 — and given that 0x17 is RC4-HMAC and 0x12 is AES-256, what does this suggest about how these tickets were requested?",
           options: [
-            "The account m.reyes is configured to only support RC4 encryption and has no choice in the matter",
+            "The account m.reyes is configured to only support RC4 encryption and has no choice in the matter — msDS-SupportedEncryptionTypes on this account is likely set to a value that excludes AES entirely, meaning every single TGS-REP for this account would always return RC4 regardless of what the requester actually asked for, exactly as we see here",
             "The overwhelming majority of these TGS requests specifically obtained RC4-HMAC (0x17) tickets rather than the stronger AES encryption also available in this domain — RC4 is dramatically faster to crack offline, and deliberately requesting or ending up with it across almost every request in a rapid, multi-SPN sweep is consistent with tooling built for offline password cracking rather than normal application behavior",
-            "0x17 indicates the ticket request failed and was automatically retried with a weaker cipher",
-            "AES-256 (0x12) tickets cannot be cracked under any circumstances, making this event low priority",
+            "0x17 indicates the ticket request failed and was automatically retried with a weaker cipher — Kerberos falls back from AES to RC4 whenever the KDC detects three or more consecutive requests for the same SPN within a short window, which explains the encryption type seen here",
+            "AES-256 (0x12) tickets cannot be cracked under any circumstances, making this event low priority — modern password-cracking hardware has no mathematically feasible way to ever recover a password from an AES-256-encrypted service ticket, unlike RC4 which can always be cracked instantly",
           ],
           answer: 1,
           explanation:
@@ -545,10 +545,10 @@ const winProtoRoom = {
           question:
             "47 requests against 44 distinct SPNs, as stated above, is nearly a 1:1 ratio of requests to distinct services targeted. Why is this ratio, on its own, a stronger signal than the single request shown in the raw event?",
           options: [
-            "It isn't stronger — a single TGS-REQ for one SPN is exactly as suspicious as 47 requests for 44 different SPNs",
+            "It isn't stronger — a single TGS-REQ for one SPN and 47 TGS-REQs for 44 different SPNs are statistically indistinguishable to the KDC's built-in rate-limiting engine, which treats every account identically regardless of how many distinct services are being requested within a given time window",
             "A regular application or user account requesting a service ticket for the ONE specific service it actually needs to use is completely normal Kerberos behavior; requesting tickets for 44 DIFFERENT services in two minutes from one account has no normal application explanation and matches exactly the pattern of systematically harvesting every roastable SPN found via an earlier LDAP recon query, rather than any single legitimate access need",
-            "The ratio proves the Domain Controller itself has been compromised",
-            "Requesting many SPNs at once is required for Windows to renew a user's TGT",
+            "The ratio proves the Domain Controller itself has been compromised — a DC that has not been directly compromised is structurally incapable of issuing more than a small, fixed number of service tickets to any single account within a two-minute window, by protocol design",
+            "Requesting many SPNs at once is required for Windows to renew a user's TGT — TGT renewal specifically requires the client to first request service tickets for every SPN it has ever accessed, as a mandatory prerequisite step before the KDC will grant the renewal",
           ],
           answer: 1,
           explanation:
@@ -559,10 +559,10 @@ const winProtoRoom = {
           question:
             "Given this is the SAME account (m.reyes) and likely the same compromised source (10.40.6.90) from the previous investigation, what should the analyst conclude and do?",
           options: [
-            "Treat this as an unrelated, isolated finding with no connection to the earlier PsExec-style service installation",
+            "Treat this as an unrelated, isolated finding with no connection to the earlier PsExec-style service installation — Kerberos ticket requests and SMB/RPC service installation are handled by completely separate authentication subsystems in Windows, so activity from the same account across both cannot indicate a single coordinated intrusion",
             "Correlate this with the earlier finding as part of a single, escalating incident — m.reyes's credentials are compromised and being used for both lateral movement (via svcctl/PsExec-style service execution) and credential harvesting (via this Kerberoasting sweep); reset m.reyes's password, revoke active sessions/tickets, identify and crack-test the targeted service accounts' password strength proactively, and continue the investigation of 10.40.6.90 as the likely point of original compromise",
-            "Reset only the sqlrpt_svc account's password, since it was the specific target in the sample event shown",
-            "Disable Kerberos authentication domain-wide and force all authentication to NTLM instead",
+            "Reset only the sqlrpt_svc account's password, since it was the specific target in the sample event shown — none of the other 43 targeted SPNs need any password rotation at all, because a Kerberoasting sweep can only ever successfully crack the single service account whose ticket happens to appear in the SIEM's sampled log record",
+            "Disable Kerberos authentication domain-wide and force all authentication to NTLM instead, since NTLM authentication requests are rate-limited by default across the entire domain in a way Kerberos TGS requests are not, eliminating any risk of a similar credential-harvesting sweep happening again",
           ],
           answer: 1,
           explanation:

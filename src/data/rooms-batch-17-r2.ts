@@ -228,14 +228,14 @@ const dnsDeepDiveRoom = {
         question:
           "According to the reading, what does a near-1:1 ratio of unique subdomains to total queries under one parent domain most strongly indicate?",
         options: [
-          "A legitimate CDN reusing a small set of cached hostnames",
+          "A legitimate CDN reusing a small, stable set of cached hostnames across many client requests, since CDNs are the primary reason for high-entropy subdomains appearing in normal traffic",
           "DNS tunneling — each query behaves like a distinct chunk of encoded payload data rather than a repeated, cacheable hostname",
-          "A DNS resolver misconfiguration causing duplicate lookups",
-          "A load balancer distributing traffic evenly across backend servers",
+          "A DNS resolver misconfiguration causing the same duplicate lookup to be logged multiple times under slightly different, randomly-generated subdomain labels each time",
+          "A load balancer distributing traffic evenly across a fixed pool of backend servers, generating a unique subdomain label for every single request it routes",
         ],
         answer: 1,
         explanation:
-          "The reading identifies this near-1.0 ratio as one of the strongest tunneling-specific signals: because each query encodes a distinct chunk of payload, almost none are ever repeated. Legitimate applications reuse a small, stable set of hostnames instead.",
+          "The reading identifies this near-1.0 ratio as one of the strongest tunneling-specific signals: because each query encodes a distinct chunk of payload, almost none are ever repeated. Legitimate applications reuse a small, stable set of hostnames instead — CDN caching, resolver misconfiguration, and load-balancer routing all produce the opposite pattern: the same, or a small pool of, hostnames requested repeatedly, not a near-1:1 unique-to-total ratio.",
       },
     },
 
@@ -281,14 +281,14 @@ const dnsDeepDiveRoom = {
         question:
           "According to the reading, what is the single strongest differentiator between DGA malware domains and legitimate CDN/cloud randomness?",
         options: [
-          "Subdomain entropy alone",
+          "Subdomain entropy alone — a sufficiently high Shannon entropy score on the queried label is, by itself, always definitive proof of DGA malware regardless of whether the domain ever actually resolves",
           "NXDOMAIN rate — DGA domains fail to resolve the overwhelming majority of the time, while legitimate CDN randomness resolves successfully almost every time",
-          "The length of the domain name",
-          "Whether the query uses UDP or TCP",
+          "The length of the domain name — DGA-generated domains are always longer than legitimate CDN subdomains, since the algorithm needs extra characters to guarantee uniqueness across its entire candidate list",
+          "Whether the query uses UDP or TCP — DGA malware always queries over TCP to guarantee delivery of its candidate domain list, while legitimate CDN resolution always stays on UDP for speed",
         ],
         answer: 1,
         explanation:
-          "The reading states NXDOMAIN rate is the single strongest differentiator: a DGA-infected host querying its full candidate list sees the overwhelming majority fail, while legitimate CDN/cloud subdomains are real, provisioned resources that resolve successfully essentially every time.",
+          "The reading states NXDOMAIN rate is the single strongest differentiator: a DGA-infected host querying its full candidate list sees the overwhelming majority fail, while legitimate CDN/cloud subdomains are real, provisioned resources that resolve successfully essentially every time. Entropy alone can occur legitimately (the reading explicitly warns against relying on it in isolation), domain length is not a reliable DGA signal, and transport protocol (UDP vs TCP) has nothing to do with distinguishing the two.",
       },
     },
 
@@ -396,14 +396,14 @@ const dnsDeepDiveRoom = {
       question:
         "A host issues 200 DNS TXT queries in three minutes, each to a different, never-repeated subdomain (average label length 41 characters, high measured entropy) under the same parent domain. Which single additional data point would most strengthen a tunneling determination versus a benign explanation?",
       options: [
-        "The parent domain's WHOIS registration date and country",
+        "The parent domain's WHOIS registration date and country of registration, since a domain registered many years ago in a well-established jurisdiction can never legitimately be used for tunneling",
         "Whether nearly all 200 subdomains are unique, never-repeated labels (a ratio near 1.0 of unique-to-total queries) rather than a small set of values being requested repeatedly",
-        "The TTL value returned in the DNS response",
-        "Whether the workstation's screen resolution matches company standard",
+        "The TTL value returned in the DNS response, since a short TTL on its own — independent of subdomain uniqueness, entropy, or record type — is the defining characteristic that separates tunneling traffic from ordinary DNS lookups",
+        "Whether the query was sent over TCP rather than UDP, since tunneling tools always switch to TCP transport specifically to carry the larger volume of encoded payload data instead of using standard UDP for DNS",
       ],
       answer: 1,
       explanation:
-        "A near-1:1 ratio of unique subdomains to total queries is one of the strongest tunneling-specific signals, because it reflects the core mechanic of the technique: each query IS a chunk of encoded payload data, so almost no query is ever repeated. High entropy and long labels alone can have other explanations (some legitimate cache-busting or CDN schemes also produce high-entropy strings); it's the combination with a near-total lack of repetition, high volume, and TXT-record concentration that makes the case strong.",
+        "A near-1:1 ratio of unique subdomains to total queries is one of the strongest tunneling-specific signals, because it reflects the core mechanic of the technique: each query IS a chunk of encoded payload data, so almost no query is ever repeated. High entropy and long labels alone can have other explanations (some legitimate cache-busting or CDN schemes also produce high-entropy strings); it's the combination with a near-total lack of repetition, high volume, and TXT-record concentration that makes the case strong. WHOIS age is a DGA signal, not a tunneling one; TTL and transport protocol (TCP vs UDP) are not the signals the reading identifies for tunneling detection at all.",
       xp: 25,
     },
 
@@ -414,14 +414,14 @@ const dnsDeepDiveRoom = {
       question:
         "One host generates a burst of 300 DNS queries to 300 different, freshly-changing second-level domains in five minutes, with a 96% NXDOMAIN rate. Another host resolves 40 different, high-entropy subdomains, all under d111abcd8ef9it.cloudfront.net, all of which resolve successfully. Which is more consistent with DGA malware, and why?",
       options: [
-        "The second host — high entropy is always the strongest DGA signal regardless of resolution outcome",
+        "The second host — high subdomain entropy is always the single strongest DGA signal on its own, regardless of whether the queries actually resolve successfully or fail, because randomness in the label is what malware analysts should weigh above every other available signal",
         "The first host — the overwhelming NXDOMAIN rate against constantly-changing second-level domains is the DGA fingerprint (the malware doesn't know in advance which of its algorithmically-generated candidates the attacker has actually registered); the second host's pattern — successful resolutions under a small, stable, well-known CDN parent domain — is the fingerprint of ordinary CDN/cloud traffic",
-        "Neither is suspicious, since both involve high query volume which is normal on any corporate network",
-        "The second host, because cloudfront.net is a well-known malware distribution platform",
+        "Neither host is suspicious at all, since both patterns involve a high volume of DNS queries in a short window, and high query volume by itself is completely normal, everyday behavior on any reasonably busy corporate network segment regardless of NXDOMAIN rate",
+        "The second host, because cloudfront.net itself is a well-known malware distribution platform commonly abused by threat actors specifically to host and serve C2 payloads directly from Amazon's infrastructure",
       ],
       answer: 1,
       explanation:
-        "NXDOMAIN rate is the single strongest DGA-vs-legitimate-randomness differentiator: DGA malware generates far more candidate domains than an attacker actually registers, so the vast majority fail to resolve. Legitimate CDN/cloud subdomains, even when high-entropy, resolve successfully essentially every time because they're real, currently-provisioned resources under a small set of well-known, long-established parent domains (cloudfront.net here). High entropy alone, without the NXDOMAIN and constantly-changing-parent-domain pattern, is not sufficient to call something DGA.",
+        "NXDOMAIN rate is the single strongest DGA-vs-legitimate-randomness differentiator: DGA malware generates far more candidate domains than an attacker actually registers, so the vast majority fail to resolve. Legitimate CDN/cloud subdomains, even when high-entropy, resolve successfully essentially every time because they're real, currently-provisioned resources under a small set of well-known, long-established parent domains (cloudfront.net here, which is legitimate AWS CDN infrastructure, not a malware distribution platform). High entropy alone, without the NXDOMAIN and constantly-changing-parent-domain pattern, is not sufficient to call something DGA — and query volume alone, without weighing the wildly different NXDOMAIN rates, ignores the exact differentiator the reading identifies as strongest.",
       xp: 25,
     },
 
@@ -432,14 +432,14 @@ const dnsDeepDiveRoom = {
       question:
         "Your Zeek dns.log shows an aggregate NXDOMAIN burst from workstation 10.40.7.61 across dozens of freshly-registered domains. You want to know exactly what process on that workstation is generating these queries. Which log source answers that question, and why can Zeek's dns.log not answer it on its own?",
       options: [
-        "Zeek's dns.log itself can answer this — the id.orig_h field already identifies the exact process",
+        "Zeek's dns.log itself can answer this — the id.orig_h field, once cross-referenced against the corporate DHCP lease table, already identifies the exact process that issued every query on that host",
         "Sysmon Event ID 22 on that specific host, because it hooks DNS resolution at the process level (fields like Image and ProcessId) — Zeek only observes network traffic and has no visibility into which process on the sending host issued any given query",
-        "The corporate DHCP server logs, because they record which process requested each IP lease",
-        "No log source can ever answer this question after the fact; only a live memory dump can",
+        "The corporate DHCP server logs, because they record which process on the endpoint requested each IP lease, and that same process identifier carries forward into every DNS query the host later makes",
+        "No log source can ever answer this question after the fact, since process attribution for a network event is only theoretically possible during a live, real-time memory dump of the endpoint's RAM at the exact moment the query was issued",
       ],
       answer: 1,
       explanation:
-        "Zeek (and any purely network-based DNS log) sees which host sent a query (id.orig_h) but has no visibility whatsoever into which process on that host generated it — that context simply doesn't exist on the wire. Sysmon Event 22 runs on the endpoint and hooks DNS resolution at the OS/process level specifically to capture that missing context (Image, ProcessId, ProcessGuid, User), which is exactly why endpoint DNS logging and network DNS logging are complementary, not redundant.",
+        "Zeek (and any purely network-based DNS log) sees which host sent a query (id.orig_h) but has no visibility whatsoever into which process on that host generated it — that context simply doesn't exist on the wire, and no DHCP cross-reference can recover it either, since DHCP leases are tied to a device/MAC, not a process. Sysmon Event 22 runs on the endpoint and hooks DNS resolution at the OS/process level specifically to capture that missing context (Image, ProcessId, ProcessGuid, User), which is exactly why endpoint DNS logging and network DNS logging are complementary, not redundant — and it answers this after the fact, with no memory dump required.",
       xp: 25,
     },
 
@@ -456,38 +456,38 @@ const dnsDeepDiveRoom = {
           question:
             "QueryName is 'a3f9e7c1b8d2f04e91a6c5b7d8e2f109c4.updates.solvix-cdn-relay.net' with QueryResults showing a TXT record answer. Combined with the 37.4-character average label length and the 211-of-214 unique-subdomain ratio stated above, what does this combination suggest?",
           options: [
-            "This is normal CDN cache-busting behavior — long random labels under a CDN-style domain name are completely routine",
+            "This is normal CDN cache-busting behavior — long, random-looking labels appended under a CDN-style parent domain name to defeat caching are a completely routine and well-documented pattern across large content delivery networks",
             "The near-1:1 ratio of unique subdomains to total queries, combined with a consistently long, high-entropy label and a preference for TXT responses, matches the statistical signature of DNS tunneling — each query behaving like a distinct chunk of encoded data rather than a repeated, cacheable hostname",
-            "QueryStatus 0 means the query failed, which rules out any data actually being transmitted",
-            "TXT records cannot be requested by a Windows DNS client, so this must be a logging error",
+            "QueryStatus 0 means the query failed to resolve at the DNS protocol level entirely, which by definition rules out any data actually being transmitted back in the TXT response payload, regardless of what QueryResults shows",
+            "TXT records cannot be requested by a Windows DNS client at all, so seeing 'type: 16 TXT' in QueryResults on a Windows host like this one must indicate the Sysmon log itself has been tampered with or corrupted",
           ],
           answer: 1,
           explanation:
-            "QueryStatus 0 actually means the query SUCCEEDED (0 is the success code), so data-carrying responses were returned. The near-total lack of repeated subdomains (211 unique out of 214 queries), the consistently long ~37-character labels, and the skew toward TXT (168 of 214) together match the DNS tunneling signature described in Reading 3 far more closely than any explanation involving a small set of stable, reused CDN hostnames.",
+            "QueryStatus 0 actually means the query SUCCEEDED (0 is the success code), so data-carrying responses were returned. The near-total lack of repeated subdomains (211 unique out of 214 queries), the consistently long ~37-character labels, and the skew toward TXT (168 of 214) together match the DNS tunneling signature described in Reading 3 far more closely than any explanation involving a small set of stable, reused CDN hostnames — and TXT queries from a Windows client are entirely ordinary at the protocol level, so there's no reason to suspect log tampering.",
           xp: 25,
         },
         {
           question:
             "The Image field shows 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' as the process issuing these queries, running as SOLVIX\\r.donahue. Why does this specific field matter to the investigation, beyond confirming which host made the queries?",
           options: [
-            "It doesn't matter — DNS investigations should stop at the network layer and never need process context",
+            "It doesn't matter at all — DNS investigations should stop firmly at the network layer, since process-level context on the endpoint never adds anything a network flow record or resolver log couldn't already tell you, making Sysmon 22 an unnecessary, redundant data source in every DNS investigation",
             "It tells the analyst exactly which process to pivot into next — PowerShell issuing hundreds of high-entropy DNS TXT queries directly (rather than, say, a browser or an approved backup agent) is a very different and more actionable finding, and this ProcessId can now be used to pull the rest of that process's Sysmon telemetry: its parent process, full command line, and any other activity",
-            "PowerShell can never make DNS queries directly, so this field must indicate the log was tampered with",
-            "It confirms r.donahue personally typed the malicious command interactively at the keyboard",
+            "PowerShell can never make DNS queries directly on a Windows host, since name resolution can only ever be triggered by the OS's own network stack, so this Image field must indicate the Sysmon log itself has been tampered with or forged",
+            "It confirms r.donahue personally typed the malicious command interactively at the keyboard, since Sysmon's Image and User fields together can only ever be populated when a human is physically present and actively typing at that session",
           ],
           answer: 1,
           explanation:
-            "This is exactly the advantage Sysmon Event 22 has over network-only DNS logs: it tells you WHICH process did this. PowerShell directly issuing this volume of high-entropy TXT queries — rather than a recognized, approved application — is a significant, actionable detail, and ProcessGuid/ProcessId let the analyst immediately pivot to that process's full ancestry and command line to determine how it was launched (a script, a scheduled task, an interactive session, or another process spawning it) before concluding intent.",
+            "This is exactly the advantage Sysmon Event 22 has over network-only DNS logs: it tells you WHICH process did this. PowerShell directly issuing this volume of high-entropy TXT queries — rather than a recognized, approved application — is a significant, actionable detail, and ProcessGuid/ProcessId let the analyst immediately pivot to that process's full ancestry and command line to determine how it was launched (a script, a scheduled task, an interactive session, or another process spawning it) before concluding intent. PowerShell can absolutely issue DNS queries directly (e.g. Resolve-DnsName, or a script performing raw lookups), and the Image/User fields populate regardless of whether a human was interactively typing or a script launched unattended.",
           xp: 25,
         },
         {
           question:
             "What is the correct next investigative step given everything observed so far?",
           options: [
-            "Close the finding since QueryStatus 0 indicates the DNS server behaved normally",
+            "Close the finding since QueryStatus 0 indicates the DNS server behaved completely normally and returned a valid, successful answer, meaning nothing about this traffic pattern warrants any further review beyond confirming that status code",
             "Pull the full Sysmon process tree for ProcessGuid {4a1c7e2b-9f30-6604-1a00-000000004b02} to find the PowerShell process's parent, command line, and launch mechanism; block/sinkhole solvix-cdn-relay.net at the resolver; and treat WKS-FIN07 as requiring isolation and full endpoint investigation given the volume and shape of this traffic",
-            "Rename the workstation to remove it from the corporate DNS zone",
-            "Add solvix-cdn-relay.net to the approved CDN allowlist since it resembles a legitimate CDN naming pattern",
+            "Rename the workstation to remove it from the corporate DNS zone, since a compromised device's DNS behavior is tied permanently to its hostname string and renaming it will sever any established malicious channel",
+            "Add solvix-cdn-relay.net to the approved CDN allowlist since it resembles a legitimate CDN naming pattern, and any domain sharing that naming convention with Solvix's approved vendors should be trusted without further verification",
           ],
           answer: 1,
           explanation:
@@ -510,24 +510,24 @@ const dnsDeepDiveRoom = {
           question:
             "The sample query is for 'kqxpzr4t.top' and rcode_name is 'NXDOMAIN'. Combined with the TLD spread and the 318-of-340 NXDOMAIN rate stated above, what pattern does this match most closely?",
           options: [
-            "A misconfigured internal application repeatedly retrying the same failed hostname due to a typo",
+            "A misconfigured internal application repeatedly retrying the exact same failed hostname due to a single typo in its configuration file, which the application then keeps retrying identically forever until an administrator fixes it",
             "The pattern matches DGA malware behavior: a high volume of distinct, freshly-changing second-level domains, spread across several low-reputation TLDs, with an overwhelming (93.5%) NXDOMAIN rate — consistent with malware working through an algorithmically-generated candidate list, most of which the attacker never actually registered",
-            "This is expected behavior for any host running a modern web browser with DNS prefetching enabled",
-            "The NXDOMAIN rate proves this is entirely benign, since a failed lookup means no data was ever transmitted",
+            "This is expected behavior for any host running a modern web browser with DNS prefetching enabled, since prefetching routinely resolves hundreds of freshly-changing, algorithmically-varied domains across many different TLDs every few minutes",
+            "The NXDOMAIN rate proves this is entirely benign, since a failed lookup by definition means no data of any kind was ever transmitted in either the query or the response at any point during the resolution attempt",
           ],
           answer: 1,
           explanation:
-            "A 93.5% NXDOMAIN rate against 340 distinct, changing second-level domains spread across several TLDs historically associated with cheap/abuse-heavy registration (.top, .xyz, .info, .cc, .biz) is the fingerprint described in Reading 4: DGA malware generates far more candidate domains than the attacker registers, so the vast majority fail. A repeated single-hostname typo would show one repeated domain, not 340 distinct ones; DNS prefetching resolves real page-linked hostnames, which would show a low NXDOMAIN rate, not 93.5%.",
+            "A 93.5% NXDOMAIN rate against 340 distinct, changing second-level domains spread across several TLDs historically associated with cheap/abuse-heavy registration (.top, .xyz, .info, .cc, .biz) is the fingerprint described in Reading 4: DGA malware generates far more candidate domains than the attacker registers, so the vast majority fail. A repeated single-hostname typo would show one repeated domain, not 340 distinct ones; DNS prefetching resolves real, page-linked hostnames the browser expects to actually need, which produces a low NXDOMAIN rate, not 93.5%.",
           xp: 25,
         },
         {
           question:
             "Why is the query volume and NXDOMAIN rate a stronger differentiator here than entropy alone would be?",
           options: [
-            "Entropy is never useful in any DNS investigation and should be ignored entirely",
+            "Entropy is never useful in any DNS investigation and should be ignored entirely in favor of relying purely on volume and NXDOMAIN rate, since randomness scoring of a hostname string carries no meaningful investigative signal whatsoever to a working SOC analyst under any circumstances",
             "Because 'kqxpzr4t.top' has only moderate entropy compared to a true random hex string, and DGA algorithms don't always produce maximally random-looking output — some produce pronounceable or dictionary-word-based domains specifically to evade naive entropy-based detection, which is exactly why NXDOMAIN rate, volume, and changing-parent-domain pattern remain reliable even when entropy alone would be a weaker or inconsistent signal",
-            "Entropy can only be computed on TXT record queries, and this event is an A record query",
-            "The domain's length exceeds the DNS protocol maximum, invalidating the query entirely",
+            "Entropy can only be meaningfully computed on TXT record queries because only TXT payloads carry enough characters for a valid statistical sample, and since this event is an A record query, no entropy score can be calculated for it at all — entropy analysis simply does not apply outside the TXT record type by design",
+            "The domain's length exceeds the DNS protocol maximum of 255 characters, invalidating the query entirely and meaning the resolver should never have processed it or logged a valid rcode_name for it in the first place, since DNS specifications hard-cap every label at 12 characters for security reasons",
           ],
           answer: 1,
           explanation:
@@ -538,14 +538,14 @@ const dnsDeepDiveRoom = {
           question:
             "What is the appropriate response given this confirmed pattern?",
           options: [
-            "No action needed, since 318 failed lookups mean the malware never successfully reached its C2 infrastructure and therefore caused no harm",
+            "No action needed, since 318 failed lookups clearly mean the malware never successfully reached any of its C2 infrastructure at all and therefore this specific incident caused no actual harm to the organization whatsoever",
             "Isolate WKS-OPS22 for endpoint investigation (this pattern strongly indicates active malware attempting C2 check-in), preserve the full list of queried domains for threat-intel correlation, and monitor whether any of the 22 domains that DID resolve successfully are now being contacted for follow-on traffic — those are the ones that matter most operationally",
-            "Add all 340 domains to the corporate DNS allowlist so future queries succeed and stop generating alerts",
-            "Disable DNS logging on this host since the volume is overwhelming the SIEM's ingestion",
+            "Add all 340 domains to the corporate DNS allowlist so future queries succeed and stop generating alerts, since a domain that has already been queried once poses no further risk regardless of whether it was ever actually reachable, and revisiting that decision later would only create unnecessary administrative overhead",
+            "Disable DNS logging on this host since the volume is overwhelming the SIEM's ingestion pipeline, and losing visibility into an actively-compromised device's traffic is an acceptable tradeoff for reducing log volume",
           ],
           answer: 1,
           explanation:
-            "A DGA burst with a small number of successful resolutions (340 - 318 = 22 successes) means the attacker likely does have live infrastructure behind at least one of those 22 registered domains — those are the highest-priority pivot points, since follow-on C2 traffic or payload delivery would go there next. The correct response is isolating the endpoint for full investigation, not dismissing the finding because most attempts failed (failure to resolve most candidates is the expected DGA pattern, not evidence of no harm) and certainly not allowlisting attacker-controlled domains.",
+            "A DGA burst with a small number of successful resolutions (340 - 318 = 22 successes) means the attacker likely does have live infrastructure behind at least one of those 22 registered domains — those are the highest-priority pivot points, since follow-on C2 traffic or payload delivery would go there next. The correct response is isolating the endpoint for full investigation, not dismissing the finding because most attempts failed (failure to resolve most candidates is the expected DGA pattern, not evidence of no harm), not allowlisting attacker-controlled domains, and not blinding yourself to an actively-compromised host by disabling its logging.",
           xp: 30,
         },
       ],

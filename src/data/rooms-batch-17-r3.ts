@@ -205,13 +205,13 @@ const tlsRoom = {
           "According to the reading, what makes a self-signed certificate that is ALSO very recently issued a stronger combined signal than either fact alone?",
         options: [
           "Legitimate infrastructure certificates are typically provisioned once and left in place for a long time, so pairing 'self-signed' with 'issued yesterday' departs from that norm",
-          "Self-signed certificates are illegal to issue, so recency proves fraud",
-          "A recently issued certificate always means the TLS version is outdated",
-          "Self-signed certificates automatically expire within 24 hours",
+          "Self-signed certificates are illegal to issue under most jurisdictions' computer security regulations, so recency alone proves fraudulent intent regardless of any other context surrounding the certificate",
+          "A recently issued certificate always means the TLS version being negotiated for that connection is necessarily outdated, since certificate issuance date and protocol version are directly tied together by the TLS specification",
+          "Self-signed certificates automatically expire within 24 hours of issuance by design, which is why any self-signed certificate observed still functioning after that window must actually be a forged or fraudulently backdated one",
         ],
         answer: 0,
         explanation:
-          "The reading explains that legitimate infrastructure, even self-signed internal tools, is typically provisioned once and left in place for a long time — not regenerated every session or every day. A self-signed cert that's also brand new is a much stronger combined signal than either fact alone.",
+          "The reading explains that legitimate infrastructure, even self-signed internal tools, is typically provisioned once and left in place for a long time — not regenerated every session or every day. A self-signed cert that's also brand new is a much stronger combined signal than either fact alone. Self-signed certificates are entirely legal, certificate issuance date has no bearing on negotiated TLS version, and validity periods are set explicitly by whoever generates the certificate — nothing forces a 24-hour expiry.",
       },
     },
 
@@ -261,14 +261,14 @@ const tlsRoom = {
         question:
           "According to the reading, what is the key difference between JA3 and JARM?",
         options: [
-          "JA3 is active and JARM is passive",
+          "JA3 is active and JARM is passive — JA3 requires the analyst to send crafted probe packets to a target server, while JARM can only ever be computed retroactively from traffic that was already captured passively on the wire",
           "JA3 is a passive fingerprint built from observed ClientHello traffic, while JARM is an active technique that sends crafted probes to a target server, letting defenders fingerprint infrastructure they haven't seen real traffic from yet",
-          "They are identical techniques with different names",
-          "JARM only works on UDP traffic",
+          "They are identical techniques with different names, both computed the exact same way from the exact same ClientHello data, and either term can be used interchangeably in any investigation without any loss of meaning",
+          "JARM only works on UDP traffic, because the ten crafted probe packets it sends rely specifically on UDP's connectionless nature and cannot be constructed or transmitted at all over a TCP-based TLS session",
         ],
         answer: 1,
         explanation:
-          "JA3 is passive — computable only from traffic you've actually observed. JARM is active — the scanning tool sends ten crafted ClientHello probes to a target server and fingerprints the pattern of responses, which works even against infrastructure your network hasn't contacted yet.",
+          "JA3 is passive — computable only from traffic you've actually observed. JARM is active — the scanning tool sends ten crafted ClientHello probes to a target server and fingerprints the pattern of responses, which works even against infrastructure your network hasn't contacted yet. That's the reverse of what option one claims, they are not the same technique, and JARM's probes run over standard TCP-based TLS just like any other HTTPS connection — there is nothing UDP-specific about it.",
       },
     },
 
@@ -358,13 +358,13 @@ const tlsRoom = {
           "According to the reading, why does certificate pinning defeat TLS interception even on a managed device where the internal CA is trusted?",
         options: [
           "Pinned applications ignore the device's trust store entirely and refuse any certificate that isn't the exact one they hard-coded, including the interception proxy's substitute certificate",
-          "Pinning only applies to UDP-based protocols, which interception cannot process",
-          "Pinning forces the connection to downgrade to TLS 1.0, which interception proxies cannot decrypt",
-          "Pinned certificates are always self-signed, which interception proxies automatically block",
+          "Pinning only applies to UDP-based protocols and connectionless transports, which interception appliances are architecturally incapable of terminating or inspecting the way they can standard TCP-based TLS sessions",
+          "Pinning forces the connection to silently downgrade to the older, weaker TLS 1.0 protocol version, which interception proxies are technically unable to decrypt even though they can decrypt TLS 1.2 and 1.3 without issue",
+          "Pinned certificates are always self-signed by definition, and interception proxies are hard-coded to automatically block any self-signed certificate they encounter regardless of whether it's actually the pinned one",
         ],
         answer: 0,
         explanation:
-          "Certificate pinning hard-codes the exact certificate or public key an application expects and refuses anything else — even a certificate that would otherwise validate fine against the device's trust store. This is exactly what makes it defeat interception by design.",
+          "Certificate pinning hard-codes the exact certificate or public key an application expects and refuses anything else — even a certificate that would otherwise validate fine against the device's trust store. This is exactly what makes it defeat interception by design. Pinning is not UDP-specific (TLS itself runs over TCP), it doesn't force a downgrade to TLS 1.0, and pinned certificates are frequently CA-issued, not always self-signed — interception proxies don't have a blanket rule against self-signed certificates either.",
       },
     },
 
@@ -411,14 +411,14 @@ const tlsRoom = {
       question:
         "Why does the SNI (Server Name Indication) field remain visible in cleartext even in a fully modern TLS 1.3 connection (assuming ECH is not in use)?",
       options: [
-        "TLS 1.3 does not support encryption of any handshake fields at all",
+        "TLS 1.3 does not support encryption of any handshake fields at all, meaning the certificate, key exchange parameters, and every other handshake message remain fully visible in cleartext exactly as they were under TLS 1.2",
         "The server must know which hostname the client is requesting BEFORE it can select and send the correct certificate for that hostname — and no encryption keys have been established yet at that point in the handshake, so this specific field is necessarily sent in the clear",
-        "SNI is encrypted, but browsers choose to display it in cleartext for debugging purposes",
-        "SNI only appears in TLS 1.2, not TLS 1.3",
+        "SNI is fully encrypted by the TLS 1.3 protocol itself, but browsers and monitoring tools simply choose, by convention, to display it in cleartext in their logs purely for developer debugging convenience",
+        "SNI only appears as a field in TLS 1.2's ClientHello structure, not TLS 1.3's, because TLS 1.3 redesigned the handshake specifically to remove the hostname-indication mechanism entirely from the protocol",
       ],
       answer: 1,
       explanation:
-        "The chicken-and-egg problem is structural: certificate selection depends on knowing the target hostname, but the certificate exchange is part of establishing the very encryption that would otherwise protect that hostname. SNI has to be sent in the ClientHello, before any shared secret exists, which is exactly why it remains the 'last cleartext field' and exactly why network security tools rely on it so heavily for HTTPS-based filtering and monitoring. Encrypted Client Hello (ECH) is a newer, not-yet-universal extension designed specifically to close this gap.",
+        "The chicken-and-egg problem is structural: certificate selection depends on knowing the target hostname, but the certificate exchange is part of establishing the very encryption that would otherwise protect that hostname. SNI has to be sent in the ClientHello, before any shared secret exists, which is exactly why it remains the 'last cleartext field' and exactly why network security tools rely on it so heavily for HTTPS-based filtering and monitoring. Encrypted Client Hello (ECH) is a newer, not-yet-universal extension designed specifically to close this gap. TLS 1.3 does encrypt the certificate and later handshake fields (as Reading 1 covers), and standard TLS 1.3 still carries the SNI extension in its ClientHello — nothing about the protocol removed it.",
       xp: 25,
     },
 
@@ -447,10 +447,10 @@ const tlsRoom = {
       question:
         "Your organization has full SSL/TLS interception deployed on all managed laptops. A specific application's outbound HTTPS connections consistently fail at the interception point with a certificate error, while working normally when tested from an unmanaged network with no interception. What does this most likely indicate?",
       options: [
-        "The interception appliance is broken and needs to be restarted",
+        "The interception appliance itself is broken and needs to be restarted immediately, since a certificate error at the interception point always indicates a hardware or software fault in the proxy rather than anything about the application's own behavior",
         "The application implements certificate pinning against its expected server certificate, and is correctly rejecting the interception proxy's substitute certificate — meaning this specific application's traffic content will not be visible to your SSL inspection regardless of how it's configured, and metadata-based analysis remains your only option for it",
-        "The application is not using HTTPS at all, and the failure is unrelated to TLS",
-        "This proves conclusively that the application is malware",
+        "The application is not using HTTPS at all, and the certificate error at the interception point is entirely unrelated to TLS, coincidentally happening at the exact same moment for some other unrelated networking reason",
+        "This proves conclusively, on its own and without any further investigation, that the application is malware, since only malicious software would ever have a legitimate reason to implement certificate pinning against its own server",
       ],
       answer: 1,
       explanation:
@@ -471,38 +471,38 @@ const tlsRoom = {
           question:
             "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.cert_chain_issuer and ssl.cert_chain_subject both 'CN=cdn-assets-static.net'. Combined with the 96-sessions-in-96-minutes timing pattern stated above, what does this combination suggest?",
           options: [
-            "This is routine CDN asset-loading traffic — CDN domains are always trustworthy regardless of certificate details",
+            "This is routine CDN asset-loading traffic — CDN domains are always trustworthy regardless of certificate details, and any TLS session presenting even a generic CDN-sounding server name should never be scrutinized further for certificate validity or session-timing patterns",
             "A self-signed certificate on a destination presenting itself with a generic CDN-style name, combined with 96 sessions repeating at a tightly consistent ~60-second interval (a standard deviation of only 5.1 seconds around that average), matches the beacon-timing and certificate-anomaly patterns described in this room's detection checklist far more closely than ordinary asset-loading traffic, which would not repeat at such a fixed interval",
-            "The stddev value proves this traffic is completely random and therefore benign",
-            "Self-signed certificates are always issued by Let's Encrypt, which is always safe",
+            "The stddev value proves this traffic is completely random and therefore benign, since a tight standard deviation around a fixed average interval is itself statistical proof that no automated or scripted process could possibly be involved, regardless of what the byte-count pattern separately shows",
+            "Self-signed certificates are always issued by Let's Encrypt, which is always safe by definition, meaning a self-signed certificate observed anywhere on the network can be immediately dismissed without any further verification of its actual issuer",
           ],
           answer: 1,
           explanation:
-            "A tight standard deviation (5.1 seconds) around a ~60-second average interval, sustained across 96 sessions, is exactly the jittered-but-clustered pattern described in Reading 4 — genuine human-driven asset loading does not repeat at a fixed interval like this. Combined with a self-signed certificate on a domain whose name is generic and CDN-suggestive but unverified by any trusted CA, this is a strong combined signal, not a single weak one.",
+            "A tight standard deviation (5.1 seconds) around a ~60-second average interval, sustained across 96 sessions, is exactly the jittered-but-clustered pattern described in Reading 4 — genuine human-driven asset loading does not repeat at a fixed interval like this. Combined with a self-signed certificate on a domain whose name is generic and CDN-suggestive but unverified by any trusted CA, this is a strong combined signal, not a single weak one. A tight standard deviation is the opposite of random — it's evidence of a scripted, regular process — and Let's Encrypt issues CA-signed certificates, never self-signed ones, so that pairing is a contradiction in terms.",
           xp: 25,
         },
         {
           question:
             "The byte-count standard deviation across sessions is 4.2, stated above — a very small variation in bytes sent, session after session. Why does this specific metric matter alongside the timing pattern?",
           options: [
-            "It doesn't add anything beyond what the timing interval already shows",
+            "It doesn't add anything meaningfully new beyond what the timing interval already shows, since byte-count consistency and session-timing consistency are really just two different ways of measuring the exact same underlying signal",
             "Near-identical byte counts session after session is the shape of a simple, repeated check-in request rather than ordinary browsing, which would show highly variable request/response sizes depending on what content is actually being loaded each time — this is the session-size-consistency signal from Reading 4, independent of and reinforcing the timing signal",
-            "A low byte-count standard deviation always indicates the connection failed to transmit any real data",
-            "This metric can only be computed after full TLS decryption, so it should be disregarded in a metadata-only investigation",
+            "A low byte-count standard deviation always indicates the connection failed to transmit any real data at all, since genuine data transfer inherently requires variable, unpredictable byte counts from one session to the next",
+            "This metric can only ever be computed after full TLS decryption of the session content itself, so it should be disregarded entirely as unusable in any metadata-only investigation like the one this room teaches, regardless of the traffic's source or destination",
           ],
           answer: 1,
           explanation:
-            "Byte-count consistency across many sessions to the same destination is a distinct signal from timing consistency, and both are fully derivable from connection metadata alone — no decryption required. A repeated, simple 'anything for me?' beacon check-in naturally produces near-identical sizes every time, unlike real content loading, which varies with what's actually being requested. Seeing both the timing AND the size pattern together substantially strengthens the case beyond either alone.",
+            "Byte-count consistency across many sessions to the same destination is a distinct signal from timing consistency, and both are fully derivable from connection metadata alone — no decryption required. A repeated, simple 'anything for me?' beacon check-in naturally produces near-identical sizes every time, unlike real content loading, which varies with what's actually being requested. Seeing both the timing AND the size pattern together substantially strengthens the case beyond either alone — orig_bytes and resp_bytes are ordinary connection metadata, visible right in this event's raw fields without any decryption.",
           xp: 25,
         },
         {
           question:
             "Given everything observed, what is the correct next step?",
           options: [
-            "Close the finding, since HTTPS traffic on port 443 to a domain with a CDN-style name is expected on any corporate network",
+            "Close the finding, since HTTPS traffic on port 443 to a domain with a CDN-style name is expected on any corporate network, and any certificate or timing anomalies observed alongside it can safely be treated as coincidental noise not worth a second look",
             "Escalate for endpoint investigation on WKS-MKT09 (pull EDR process telemetry to identify what process is generating these sessions), compute or pull the JA3/JA3S fingerprint for this traffic to check it against known toolkit signatures, and treat 146.70.87.201 / cdn-assets-static.net as a high-priority indicator pending further review, given the combined certificate, timing, and byte-consistency signals",
-            "Add cdn-assets-static.net to the corporate CDN allowlist so the alerts stop",
-            "Contact the marketing team member by email asking if they personally initiated 96 connections, and take no further action regardless of the answer",
+            "Add cdn-assets-static.net to the corporate CDN allowlist so the alerts stop, since a domain's naming convention alone is sufficient grounds to treat it as fully trusted regardless of its certificate or connection pattern, closing this and any future alert about it automatically",
+            "Contact the marketing team member by email asking if they personally initiated 96 connections in 96 minutes, and take no further technical action regardless of the answer, since a user's own self-report is always sufficient to close a technical finding",
           ],
           answer: 1,
           explanation:
@@ -525,38 +525,38 @@ const tlsRoom = {
           question:
             "ssl.not_valid_before and ssl.not_valid_after both show exactly one year apart, but cert_age_hours_at_connection is only 25.8 — meaning the certificate was issued roughly a day before this connection occurred, for a destination the build segment has never contacted before. Why does the certificate's AGE matter here more than its total validity PERIOD (one year)?",
           options: [
-            "A one-year validity period is unusually short and is, by itself, conclusive proof of malicious infrastructure",
+            "A one-year validity period is unusually short compared to industry norms and is, by itself and without any other supporting context, conclusive, standalone proof that this is malicious attacker-operated infrastructure, regardless of the certificate's actual age at the time of connection",
             "The one-year total validity period is unremarkable on its own (plenty of legitimate self-issued or internal certificates use similar periods) — what's notable is that the cert was issued only about a day before this very first-ever connection from this network segment, suggesting infrastructure that was stood up specifically and recently, shortly before being contacted, rather than long-standing, established infrastructure",
-            "Certificate age can never be determined from a TLS session; only from a DNS WHOIS lookup",
-            "The exact one-year gap between not_valid_before and not_valid_after proves the certificate was issued by a trusted public CA",
+            "Certificate age can never be determined from a TLS session's own fields at all, since not_valid_before and not_valid_after only describe the future expiration window, so an analyst would need a separate DNS WHOIS lookup to know how old the certificate actually is",
+            "The exact one-year gap between not_valid_before and not_valid_after proves the certificate was issued by a trusted public CA and independently validated, since self-signed certificates are technically incapable of specifying a full one-year validity window",
           ],
           answer: 1,
           explanation:
-            "As Reading 2 explains, short validity periods (like Let's Encrypt's 90 days) are now completely normal for legitimate infrastructure, so validity PERIOD alone isn't the signal. What matters here is AGE relative to first contact: this certificate is barely a day old at the moment SRV-BUILD04 — which has never talked to this destination before — connects to it. That timing is far more consistent with infrastructure recently stood up for a specific purpose than with an established, long-running legitimate service SRV-BUILD04 would have a documented reason to depend on.",
+            "As Reading 2 explains, short validity periods (like Let's Encrypt's 90 days) are now completely normal for legitimate infrastructure, so validity PERIOD alone isn't the signal. What matters here is AGE relative to first contact: this certificate is barely a day old at the moment SRV-BUILD04 — which has never talked to this destination before — connects to it. That timing is far more consistent with infrastructure recently stood up for a specific purpose than with an established, long-running legitimate service SRV-BUILD04 would have a documented reason to depend on. A one-year period is unremarkable, not proof of anything; cert_age_hours_at_connection is computed directly from the certificate's own not_valid_before field with no WHOIS needed; and this very certificate is both self-signed AND one year long, disproving the claim that self-signed certs can't carry that validity period.",
           xp: 25,
         },
         {
           question:
             "The record includes both a JA3 value and a JARM value. Given that this is the FIRST connection ever observed to this destination, why is JARM the more immediately actionable field to pivot on next?",
           options: [
-            "JARM and JA3 answer the exact same question and either one is equally useful here",
+            "JARM and JA3 answer the exact same investigative question in exactly the same way, both requiring previously-observed passive traffic before they can be computed, so either technique is equally useful and interchangeable here",
             "JARM is an active fingerprinting technique — an analyst can independently query 185.183.96.14 directly right now and compare the resulting JARM signature against known threat-intelligence-published JARM hashes for C2 frameworks, without needing to wait for or rely on any additional passive traffic to be observed from this one session",
-            "JA3 values expire after 24 hours and are no longer usable for lookups",
-            "JARM can only be computed by the destination server itself, never by a defender",
+            "JA3 values expire after 24 hours from when they were first captured and are no longer usable for threat-intelligence lookups after that window closes, unlike JARM signatures which never expire under any circumstances",
+            "JARM can only ever be computed by the destination server itself as part of its own configuration process, never independently by a defender probing that server from the outside, which is why it requires cooperation from the server's own administrator",
           ],
           answer: 1,
           explanation:
-            "This is exactly the distinction from Reading 3: JA3 is passive and reflects only what was captured in this one session's ClientHello (still useful, but limited to what you've already observed). JARM is active — an analyst can independently probe 185.183.96.14 right now, generate a fresh JARM signature for it, and compare that against published threat-intel JARM signatures for known C2 frameworks, entirely independent of whatever else does or doesn't get captured passively from SRV-BUILD04's traffic going forward.",
+            "This is exactly the distinction from Reading 3: JA3 is passive and reflects only what was captured in this one session's ClientHello (still useful, but limited to what you've already observed). JARM is active — an analyst can independently probe 185.183.96.14 right now, generate a fresh JARM signature for it, and compare that against published threat-intel JARM signatures for known C2 frameworks, entirely independent of whatever else does or doesn't get captured passively from SRV-BUILD04's traffic going forward. JA3 and JARM are not interchangeable, JA3 hashes don't expire on a clock, and JARM is specifically a defender-side active probing technique, not something the server computes about itself.",
           xp: 25,
         },
         {
           question:
             "What is the appropriate response, balancing the genuine risk signals against the fact that CI/CD systems do sometimes legitimately need to reach new third-party services (e.g. a newly adopted build dependency or artifact mirror)?",
           options: [
-            "Immediately treat this as a confirmed incident and wipe SRV-BUILD04 without further investigation",
-            "Dismiss it entirely — CI/CD systems routinely reach new destinations, so a first-time connection alone is never worth reviewing",
+            "Immediately treat this as a confirmed incident and wipe SRV-BUILD04 without any further investigation, since a first-ever connection to a new destination from a build server is, on its own, always sufficient grounds for a full wipe-and-rebuild",
+            "Dismiss it entirely — CI/CD systems routinely reach new destinations, so a first-time connection alone is never worth reviewing regardless of any accompanying certificate anomalies, destination rarity, or lack of documented change justification",
             "Actively fingerprint 185.183.96.14 with JARM and check it against threat intel, review SRV-BUILD04's build/pipeline configuration and recent change history to see whether any legitimate new dependency explains this destination, and if no documented business justification is found, treat it as a priority finding requiring endpoint investigation on SRV-BUILD04",
-            "Allowlist ci-artifact-sync.io immediately so the pipeline doesn't break",
+            "Allowlist ci-artifact-sync.io immediately so the pipeline doesn't break, since any destination a build server successfully connects to should always be trusted permanently without any further verification of its actual purpose or ownership",
           ],
           answer: 2,
           explanation:

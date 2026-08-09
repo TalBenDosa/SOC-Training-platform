@@ -1440,10 +1440,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       id: "def-xdr-q3",
       question: "You receive a Defender XDR incident containing 12 alerts across 4 devices and 3 user accounts. What is the main advantage of Defender XDR automatically grouping these into one incident rather than 12 separate alerts?",
       options: [
-        "Grouping reduces the number of alerts the analyst must respond to, so they can close 12 issues with one click",
+        "Grouping mainly lowers the SOC's reported alert count for metrics purposes — the 12 alerts still each need individual investigation and closure, so grouping by itself does not reduce the actual analyst workload",
         "Grouping correlates related events from multiple sources into a unified attack story, allowing analysts to understand the full scope and chain of the attack rather than investigating 12 isolated signals",
-        "Grouping ensures that only the most severe alert is investigated, discarding the lower-severity ones",
-        "Grouping is purely cosmetic and has no analytical benefit beyond visual organisation"
+        "Grouping automatically closes the 11 lower-severity alerts once the highest-severity alert in the incident is resolved, on the assumption that the same root cause explains all of them",
+        "Grouping is a purely visual convenience for the incident queue — it has no effect on detection logic, alert correlation, or how much context an analyst has when investigating each individual alert"
       ],
       answer: 1,
       explanation: "The core value of **XDR incident correlation** is **attack story reconstruction**. A single attacker's campaign might generate a phishing alert (Defender for Office 365), a suspicious logon alert (Defender for Identity), a PowerShell execution alert (MDE on Device 1), and a PsExec alert (MDE on Device 2). In isolation, each alert looks moderate. Correlated into one incident with an incident graph, they reveal a complete picture: phishing → credential compromise → lateral movement. This dramatically improves investigation efficiency and ensures analysts see the full scope, not just isolated symptoms.",
@@ -1495,10 +1495,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
         {
           question: "The command includes the `-s` flag: `psexec \\\\SRV-FILE01 -s cmd.exe`. What does the `-s` flag do in PsExec, and why is it significant from a security perspective?",
           options: [
-            "The -s flag silences output so the command runs invisibly without displaying results",
+            "The -s flag suppresses the console window so the command runs without visible output — it is a display option, unrelated to which account the remote process executes under",
             "The -s flag runs the remote process as the SYSTEM account — the highest-privilege account on a Windows system — escalating from the service account's privileges to SYSTEM on the target server",
-            "The -s flag specifies the source device from which the command originates",
-            "The -s flag enables secure mode, encrypting the PsExec traffic to avoid network detection"
+            "The -s flag identifies which remote host the command targets, acting as an alternative to typing \\\\computername — it affects targeting, not the privilege level the process runs with",
+            "The -s flag copies the target executable to the remote machine before running it, the same file-staging behaviour PsExec uses by default — it has no effect on account privileges"
           ],
           answer: 1,
           explanation: "The **PsExec -s flag** runs the remote process as the **NT AUTHORITY\\SYSTEM** account — the most privileged account on a Windows machine, with complete control over the OS. By running `psexec \\\\SRV-FILE01 -s cmd.exe`, the attacker launches a command prompt on SRV-FILE01 that runs as SYSTEM, regardless of what privileges the `svc-backup` account had. This is a privilege escalation + lateral movement combination: compromise a service account → use PsExec -s to get SYSTEM on the target. This technique is heavily used by ransomware operators and APT groups.",

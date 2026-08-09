@@ -145,14 +145,14 @@ const vulnerabilityManagementRoom = {
         question:
           "According to the reading, what does a CWE (Common Weakness Enumeration) actually describe?",
         options: [
-          "A unique identifier for one specific, publicly disclosed vulnerability",
+          "A unique identifier assigned to one specific, publicly disclosed vulnerability instance, issued by a CVE Numbering Authority when the flaw is first disclosed",
           "A category describing the general TYPE of coding mistake, shared across many unrelated CVEs, carrying no severity of its own",
-          "A numeric 0.0-10.0 severity score",
-          "A list of vulnerabilities confirmed to be actively exploited in the wild",
+          "A numeric score from 0.0 to 10.0, calculated from exploitability and impact metrics, describing how severe one specific vulnerability instance is",
+          "A curated list of vulnerabilities with confirmed evidence of active exploitation in the wild, maintained by a government cybersecurity agency",
         ],
         answer: 1,
         explanation:
-          "A CWE is a category, not an instance — thousands of different CVEs across thousands of products can share the same CWE, and a CWE category itself carries no severity of its own; severity is what CVSS measures, per specific CVE.",
+          "A CWE is a category, not an instance — thousands of different CVEs across thousands of products can share the same CWE, and a CWE category itself carries no severity of its own; severity is what CVSS measures, per specific CVE. Option 0 describes what a CVE is, option 2 describes what CVSS is, and option 3 describes the CISA KEV catalog — three genuinely different concepts that get confused with CWE constantly.",
       },
     },
 
@@ -202,10 +202,10 @@ const vulnerabilityManagementRoom = {
       question:
         "A scan report line reads: 'CVE-2024-21762, CWE-787 (Out-of-bounds Write), CVSS 9.8.' A junior analyst writes in the ticket: 'CWE-787 findings are always critical, so I'm closing every other CWE-787 result in the backlog as high priority too.' What is wrong with that reasoning?",
       options: [
-        "Nothing — CWE categories do carry a fixed, universal severity rating",
+        "Nothing — CWE categories do carry a fixed, universal severity rating, so if one CWE-787 finding scored 9.8 then every CWE-787 finding in the backlog should be treated as equally critical regardless of the specific CVE's reachability or impact",
         "CWE-787 is only a category describing the type of coding mistake (writing past a buffer's bounds); it carries no severity of its own — two different CVEs both classified as CWE-787 can have completely different CVSS scores depending on reachability, privileges required, and impact",
-        "CVE-2024-21762 is not a real identifier format, so the whole line should be disregarded",
-        "CVSS 9.8 means the vulnerability has already been patched, so no action is needed either way",
+        "CVE-2024-21762 is not a real identifier format, so the whole scan line should be disregarded — CVE numbers always follow a four-digit year followed by exactly four digits in the sequence number, never five",
+        "CVSS 9.8 means the vulnerability has already been patched, so no action is needed either way — CVSS scores are automatically recalculated to zero once a vendor ships a fix, which is how you can tell a patch exists just from the score",
       ],
       answer: 1,
       explanation:
@@ -272,10 +272,10 @@ const vulnerabilityManagementRoom = {
       question:
         "Your team has patch capacity for one emergency fix this week. Option 1: CVSS 8.1, internal build server reachable only from the CI/CD VLAN, no known exploit, not in KEV. Option 2: CVSS 5.4, internet-facing VPN gateway login page, listed in the CISA KEV catalog with a 14-day remediation deadline, EPSS 91%. Which do you patch first, and why?",
       options: [
-        "Option 1, because 8.1 is a higher CVSS score and CVSS is the industry-standard severity measure",
+        "Option 1, because 8.1 is a higher CVSS score than 5.4 and CVSS is the industry-standard severity measure that should always be the sole deciding factor when patch capacity is limited",
         "Option 2, because a confirmed active-exploitation listing (KEV) plus a very high exploitation probability (EPSS) on an internet-facing asset outweighs a higher base score on an internal, hard-to-reach system with no evidence of real-world exploitation",
-        "Neither — wait until next week's scan to see if either score changes",
-        "Option 1, because internal systems should always be patched before internet-facing ones",
+        "Neither — wait until next week's scan to see if either score changes, since acting on this week's numbers risks wasting patch capacity on a finding that might resolve itself",
+        "Option 1, because internal systems should always be patched before internet-facing ones, since internal assets sit closer to your most sensitive data and are inherently a bigger risk once compromised",
       ],
       answer: 1,
       explanation:
@@ -329,10 +329,10 @@ const vulnerabilityManagementRoom = {
           question:
             "The event's top-level severity is 'critical', but tenable.cvss3_base_score is only 6.1 (Medium). Which combination of fields explains that gap?",
           options: [
-            "It's a display bug — CVSS and severity should always match exactly",
+            "It's a display bug — CVSS and severity should always match exactly, and any scanner showing a severity level that doesn't equal the CVSS band (Critical only for 9.0-10.0) has a misconfigured display setting that should be reported to the vendor",
             "tenable.vpr_score is 9.3, and tenable.cisa_known_exploited is true with tenable.epss_score at 0.94 — VPR folds in real exploitation evidence and likelihood that the static CVSS base score does not, which is why Tenable's VPR-driven severity reads far higher than CVSS alone would suggest",
-            "The severity field always defaults to critical for any internet-facing asset regardless of the actual finding",
-            "tenable.exploit_code_maturity being 'Functional' automatically overrides CVSS to critical for every vendor",
+            "The severity field always defaults to critical for any internet-facing asset regardless of the actual finding, because Tenable treats internet exposure alone as sufficient grounds to override the calculated score to the highest band",
+            "tenable.exploit_code_maturity being 'Functional' automatically overrides CVSS to critical for every vendor, since any scanner that detects a functional exploit is required to hardcode the displayed severity to the maximum band regardless of other metrics",
           ],
           answer: 1,
           explanation:
@@ -343,10 +343,10 @@ const vulnerabilityManagementRoom = {
           question:
             "Comparing this finding (CVSS 6.1, VPR 9.3, internet-facing) against CVE-2025-40021 described in the context (CVSS 8.8, internal-only, isolated VLAN, not in KEV, no public exploit), which should be remediated first?",
           options: [
-            "CVE-2025-40021, because 8.8 is a higher CVSS score than 6.1",
+            "CVE-2025-40021, because 8.8 is a higher CVSS score than 6.1, and CVSS base score alone should always determine remediation order regardless of exploitation evidence or exposure",
             "This finding (CVE-2025-31337), because it combines a confirmed CISA KEV listing, a near-certain EPSS score, and internet exposure — exactly the pattern from the worked example in Reading 3 where the lower CVSS finding is the real emergency",
-            "Neither — both should wait for the next standard patch cycle since neither is critical by CVSS alone",
-            "CVE-2025-40021, because internal systems are always a bigger insider-threat risk than internet-facing ones",
+            "Neither — both should wait for the next standard patch cycle since neither one crosses the Critical CVSS band (9.0-10.0), and only Critical-rated findings ever justify working outside the normal cycle",
+            "CVE-2025-40021, because internal systems are always a bigger insider-threat risk than internet-facing ones, since a malicious insider already has network access that an external attacker would first have to obtain",
           ],
           answer: 1,
           explanation:
@@ -357,10 +357,10 @@ const vulnerabilityManagementRoom = {
           question:
             "tenable.scan_type on this finding is 'authenticated'. If this same host had only ever been scanned unauthenticated, what is the most accurate statement about what you might have missed?",
           options: [
-            "Nothing — authenticated and unauthenticated scans always return identical results for web application findings",
+            "Nothing — authenticated and unauthenticated scans always return identical results for web application findings, since a reflected XSS on a login page is externally visible either way and credentials never change what a web application scanner can detect",
             "An unauthenticated scan could still surface an externally-visible reflected XSS finding like this one since it's detectable from outside, but you would have far less confidence in banner-based findings on the same host and would miss any vulnerability only visible by inspecting installed packages and patch levels directly",
-            "Unauthenticated scans are always more accurate because they see the system the way a real attacker does",
-            "Authenticated and unauthenticated scans differ only in scan speed, never in what they can detect",
+            "Unauthenticated scans are always more accurate because they see the system the way a real attacker does, and authenticated scanning is prone to false positives since logged-in access changes how the application actually behaves",
+            "Authenticated and unauthenticated scans differ only in scan speed, never in what they can detect, so switching between the two methods is purely a matter of how quickly you need the report back",
           ],
           answer: 1,
           explanation:
@@ -428,10 +428,10 @@ const vulnerabilityManagementRoom = {
         question:
           "According to the reading, what distinguishes a genuine 'accepted risk' remediation path from simply letting a finding sit in the backlog?",
         options: [
-          "Accepted risk requires no documentation at all, just informal agreement",
+          "Accepted risk requires no documentation at all — a verbal, informal agreement between whoever is on shift and their teammate is sufficient to close the finding permanently",
           "A real risk acceptance has a named risk owner, a written justification, and an expiration/review date — 'we'll get to it eventually' is not risk acceptance",
-          "Accepted risk can only be declared by the SOC analyst who found the finding",
-          "Accepted risk means the vulnerability has already been patched",
+          "Accepted risk can only be declared by the SOC analyst who originally found the finding, since they understand the technical details best and no other approval is needed",
+          "Accepted risk means the vulnerability has already been patched, and the finding is only relabeled 'accepted' in the ticketing system as a formality after remediation completes",
         ],
         answer: 1,
         explanation:
@@ -481,10 +481,10 @@ const vulnerabilityManagementRoom = {
       question:
         "A CISA KEV-listed vulnerability on an internet-facing server has been sitting unpatched for three weeks, past its due date, and the SOC analyst who found it has no way to deploy the patch themselves. What is the correct action?",
       options: [
-        "Log into the server directly and apply the patch personally, since the SOC already understands the vulnerability best",
+        "Log into the server directly and apply the patch personally, since the SOC already understands the vulnerability best and waiting on a separate change-management process would only delay the fix further",
         "Escalate clearly and repeatedly to the team that owns patch deployment, citing the KEV due date and the ongoing exposure, and keep tracking it until it's actually remediated and verified — this is squarely the SOC's job even though applying the patch is not",
-        "Close the finding as accepted risk on the SOC's own authority, since three weeks is long enough to wait",
-        "Do nothing further — once a finding is reported once, responsibility passes entirely to IT and the SOC's job is done",
+        "Close the finding as accepted risk on the SOC's own authority, since three weeks is long enough to wait and continuing to track a stalled finding wastes time better spent on new alerts",
+        "Do nothing further — once a finding is reported once, responsibility passes entirely to IT and the SOC's job is done, regardless of whether the fix ever actually gets deployed or verified",
       ],
       answer: 1,
       explanation:
@@ -620,10 +620,10 @@ const memoryDiskForensicsRoom = {
         question:
           "According to the reading, what should be captured FIRST during live acquisition, before a full memory dump?",
         options: [
-          "A full disk image",
+          "A full disk image, since imaging the drive first preserves the largest volume of evidence before anything else changes",
           "Active network connections and the process list — fast, low-footprint queries",
-          "A complete registry export",
-          "An antivirus full system scan",
+          "A complete registry export, because registry hives change less often than memory and should be prioritized ahead of anything else",
+          "An antivirus full system scan, so any active malware is identified and flagged before other volatile evidence is touched",
         ],
         answer: 1,
         explanation:
@@ -673,10 +673,10 @@ const memoryDiskForensicsRoom = {
       question:
         "An incident responder images the disk of a suspected-compromised server but skips memory acquisition entirely, reasoning that 'the malware writes its files to disk, so disk imaging should find everything.' Six months later, the case stalls because the C2 domain and decryption key the malware used were never recovered. What went wrong?",
       options: [
-        "Nothing went wrong — disk imaging is always sufficient for any well-resourced investigation",
+        "Nothing went wrong — disk imaging is always sufficient for any well-resourced investigation, since every artifact a malware sample uses eventually gets written to disk in some recoverable form",
         "The malware very likely shipped its C2 configuration encrypted on disk specifically to defeat static analysis, and only decrypted it in memory at runtime — evidence that exists only in RAM for as long as the process runs and cannot be recovered from the encrypted file after the fact",
-        "The disk image must have been corrupted; a proper disk image always contains decrypted copies of any malware configuration",
-        "C2 domains are always stored in the Windows registry, not in memory, so imaging the registry hive would have solved this",
+        "The disk image must have been corrupted; a proper disk image always contains decrypted copies of any malware configuration, because forensic imaging tools automatically decrypt anything they encounter on the volume",
+        "C2 domains are always stored in the Windows registry, not in memory, so imaging the registry hive at the same time as the disk would have recovered the configuration without needing a memory capture at all",
       ],
       answer: 1,
       explanation:
@@ -733,10 +733,10 @@ const memoryDiskForensicsRoom = {
       question:
         "An analyst images the disk of a live, running production server during an active incident (it cannot be powered off) and records the SHA256 of the resulting image file. A colleague later challenges the finding, arguing 'you can't trust this image, the system was writing to its own disk the whole time you imaged it.' Which response is accurate?",
       options: [
-        "The colleague is wrong — a live system never writes to its own disk during active use",
+        "The colleague is wrong — a live system never writes to its own disk during active use, so a running production server is exactly as forensically static during imaging as one that has been powered down and connected to a hardware write blocker beforehand",
         "The colleague is raising a real, acknowledged limitation of live imaging: a hardware write blocker isn't possible on a running system, so the OS's own background writes happened throughout collection — this should already be documented in the chain of custody, and the hash proves the resulting IMAGE FILE hasn't been altered since it finished, not that the source disk was static during collection",
-        "The hash is meaningless in this scenario and should be discarded",
-        "This proves the analyst made a critical error and the entire investigation should be restarted with a fresh disk",
+        "The hash is meaningless in this scenario and should be discarded, since a SHA256 computed on an image taken from a running system can never be used to prove anything about the file's integrity going forward",
+        "This proves the analyst made a critical error and the entire investigation should be restarted with a fresh disk image, ideally after powering down the production server so a hardware write blocker can finally be used",
       ],
       answer: 1,
       explanation:
@@ -794,10 +794,10 @@ const memoryDiskForensicsRoom = {
           question:
             "mft.si_created reads 2019-03-11, while mft.fn_created reads 2026-04-19 — a difference of over seven years. Given what you learned about which attribute common timestomping tools actually modify, what does this gap most likely indicate?",
           options: [
-            "A normal file copy operation, which always ages the $STANDARD_INFORMATION timestamp by exactly this much",
+            "A normal file copy operation, which always ages the $STANDARD_INFORMATION timestamp to reflect the original source file's creation date while leaving $FILE_NAME pointing at the copy time",
             "The file's $STANDARD_INFORMATION timestamps were deliberately set to an old date using a timestomping tool, while the harder-to-forge $FILE_NAME attribute — which the tool didn't touch — still reflects the file's real creation time in 2026",
-            "The system clock on HOST-ACCT-19 must have been wrong in 2019, unrelated to this specific file",
-            "This is expected behavior any time a file is downloaded from the internet",
+            "The system clock on HOST-ACCT-19 must have been wrong back in 2019, unrelated to this specific file, and every file created around that period on this host would show the same seven-year gap",
+            "This is expected behavior any time a file is downloaded from the internet, since browsers routinely preserve the original web server's file creation date in $STANDARD_INFORMATION during a download",
           ],
           answer: 1,
           explanation:
@@ -808,10 +808,10 @@ const memoryDiskForensicsRoom = {
           question:
             "mft.usnjrnl_last_reason shows 'FILE_CREATE|DATA_EXTEND' with mft.usnjrnl_last_timestamp matching the $FILE_NAME time (2026-04-19), not the $STANDARD_INFORMATION time (2019). Why does this specific piece of corroborating evidence matter to the investigation?",
           options: [
-            "It doesn't add anything beyond what the $FILE_NAME timestamp already showed",
+            "It doesn't add anything beyond what the $FILE_NAME timestamp already showed, since $UsnJrnl and $FILE_NAME are both generated from the exact same underlying MFT record update and will therefore always agree with each other by design regardless of what actually happened to the file",
             "The $UsnJrnl is an independent, append-only log of what actually happened to the file, not just a static timestamp field — its FILE_CREATE entry landing on the same 2026 date as $FILE_NAME, rather than the fabricated 2019 date, is a second, structurally different source confirming the real creation time, which strengthens the finding beyond a single attribute comparison",
-            "It proves the file was created by a scheduled task rather than a user",
-            "FILE_CREATE|DATA_EXTEND is a reason code reserved exclusively for malware installers",
+            "It proves the file was created by a scheduled task rather than a user, since the FILE_CREATE reason code is only ever generated when Windows Task Scheduler creates a file programmatically",
+            "FILE_CREATE|DATA_EXTEND is a reason code reserved exclusively for malware installers, so seeing it here already confirms the file is malicious independent of any timestamp comparison",
           ],
           answer: 1,
           explanation:
@@ -857,10 +857,10 @@ const memoryDiskForensicsRoom = {
         question:
           "According to the reading, what does clearing the Windows Security event log (wevtutil cl Security) still leave behind?",
         options: [
-          "Nothing at all — a cleared log is a completely clean erasure",
+          "Nothing at all — a cleared log is a completely clean erasure that leaves absolutely no trace of the clearing action anywhere on the system",
           "A fresh Event ID 1102 recording who cleared the log and when, which pinpoints exactly where to focus the search in every other log source",
-          "An automatic full backup of the log restored moments later",
-          "A duplicate copy of the log hidden in the registry",
+          "An automatic full backup of the log restored moments later by the Windows Event Log service, which always re-populates a cleared log from its own internal backup",
+          "A duplicate copy of the cleared log hidden automatically in the registry, which any analyst can recover by exporting the relevant registry hive",
         ],
         answer: 1,
         explanation:
@@ -892,10 +892,10 @@ const memoryDiskForensicsRoom = {
       question:
         "An analyst opens the Security event log on a suspected-compromised host and finds it nearly empty, with a single Event ID 1102 as the newest entry. A colleague says 'the logs are gone, there's nothing more we can do here.' What is the correct next step?",
       options: [
-        "Agree — an Event 1102 with a cleared log means the investigation has hit a dead end",
+        "Agree — an Event 1102 with a cleared log means the investigation has hit a dead end, since the Windows Security log is the only source that ever records authentication and process activity on a host",
         "Note the exact timestamp on the 1102 event and pivot to every OTHER available log source around that same window — Sysmon (if logged to a separate channel), EDR telemetry, network/firewall logs, and NTFS artifacts like $UsnJrnl — since the log-clearing action itself pinpoints exactly when to focus the search elsewhere",
-        "Restore the Security log from the most recent Volume Shadow Copy, which always contains an unmodified backup",
-        "Conclude the finding must be a false positive, since a real attacker would never leave a 1102 event behind",
+        "Restore the Security log from the most recent Volume Shadow Copy, which always contains an unmodified backup of every Windows event log regardless of whether shadow copies have also been deleted on this host",
+        "Conclude the finding must be a false positive, since a real attacker sophisticated enough to compromise a host would never leave an obvious artifact like a 1102 event behind for an analyst to find",
       ],
       answer: 1,
       explanation:

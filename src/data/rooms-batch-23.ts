@@ -184,10 +184,10 @@ Prevent vs. detect: a product sitting inline in the path of the traffic or the p
         question:
           "In the LockBit example from Reading 1, CrowdStrike's EDR sensor scored wu_update.exe 91/100 -- well above its block threshold -- yet took no action. Why?",
         options: [
-          "The sensor was not actually capable of blocking anything on that host",
+          "The sensor was physically incapable of taking any blocking action on that host, regardless of what policy was configured",
           "The server's prevention policy was set to Detection Only, so the sensor identified the threat but was configured not to act on it",
-          "A score of 91/100 was too low to trigger a response",
-          "The detection was later found to be a false positive",
+          "A score of 91/100 fell just below this specific host's configured block threshold, so the sensor logged it without intervening",
+          "The detection was later confirmed by the vendor's own analysts to be a false positive, so no action was ever warranted",
         ],
         answer: 1,
         explanation:
@@ -367,10 +367,10 @@ Because it sits inline, an NGFW's detection is always potentially preventive: it
       checkpoint: {
         question: "Without TLS inspection enabled, what can an NGFW see about an HTTPS session?",
         options: [
-          "Nothing at all -- the session is completely invisible to it",
+          "Nothing at all -- an encrypted session produces no metadata or log entry of any kind on an NGFW without TLS inspection",
           "Connection metadata -- destination, byte counts, and App-ID's best-effort classification -- but not the actual encrypted content",
-          "The full decrypted payload, since NGFWs always decrypt TLS by default",
-          "Only the destination IP, with no application classification at all",
+          "The complete decrypted request and response payload, because every NGFW decrypts all TLS sessions by default out of the box",
+          "Only the raw destination IP address, since App-ID classification itself requires TLS inspection to be enabled first",
         ],
         answer: 1,
         explanation:
@@ -434,10 +434,10 @@ The characteristic false positive for both is identical, because it comes from t
       question:
         "A Suricata sensor fires an identical signature for the same exploit attempt on two different network segments. On Segment A the alert shows alert.action: 'blocked' and the connection never reached its target. On Segment B the alert shows alert.action: 'allowed' and the exploit succeeded. What is the most likely explanation?",
       options: [
-        "Segment A's sensor has a newer, more accurate signature set than Segment B's sensor",
+        "Segment A's sensor was updated with a newer signature revision hours before Segment B's, and that version difference alone explains the different outcome",
         "Segment A's sensor is deployed inline as an IPS, positioned directly in the traffic path so it could drop the malicious packet; Segment B's sensor is deployed out-of-band as an IDS, reading only a copy of the traffic, so it could alert but had no way to stop the original packet from being delivered",
-        "Segment B's exploit must have used a different, more sophisticated technique that Segment A's exploit did not",
-        "The 'blocked' vs 'allowed' difference is just cosmetic wording and has no bearing on whether the attack actually succeeded",
+        "The exploit against Segment B must have used a fundamentally different, more sophisticated payload than whatever was sent at Segment A",
+        "The 'blocked' versus 'allowed' wording is purely cosmetic logging terminology and has no bearing on whether the underlying attack actually succeeded",
       ],
       answer: 1,
       explanation:
@@ -492,9 +492,9 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
             "ruleGroupList shows the AWS Managed SQL Injection Rule Group with terminatingRule: null and nonTerminatingMatchingRules: [] — no match at all — and the final action is ALLOW. The Content-Length header reads 48213 bytes. What does this combination most likely indicate?",
           options: [
             "AWS WAF's managed rule groups only inspect a request body up to a configured size limit (commonly around 8KB); a body this large means a substantial portion of it — potentially including any injected payload — was never evaluated by the SQLi rule group at all, so 'no match' does not mean 'no attack'",
-            "terminatingRule: null always means the request was fully inspected end-to-end and found completely clean",
-            "Content-Length has no bearing on how a WAF managed rule group processes a request body",
-            "ALLOW combined with a null terminatingRule proves the request never actually reached any rule group for evaluation",
+            "terminatingRule: null is AWS WAF's explicit confirmation flag that the entire request body, regardless of size, was fully parsed end-to-end and found completely clean",
+            "Content-Length is a purely informational header that AWS WAF's managed rule groups never read or factor into how much of a body they inspect",
+            "ALLOW paired with a null terminatingRule proves this specific request never actually reached the SQLi rule group for evaluation in the first place",
           ],
           answer: 0,
           explanation:
@@ -505,10 +505,10 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
           question:
             "clientIp is 154.16.88.203 (a Romanian IP with no prior history against this endpoint) and the User-Agent is 'python-requests/2.31.0' — a generic HTTP scripting library, not a browser. Combined with the oversized body, what should an analyst do next?",
           options: [
-            "Nothing — since the WAF's default action was ALLOW and no rule matched, the request is presumptively safe by definition",
+            "Nothing — an ALLOW verdict from a managed rule group is, by AWS's own definition, conclusive proof the request was safe",
             "Pull the full request body from origin/access logging if available, inspect it for injection patterns beyond what the rule group's inspection limit covered, and review whether the SQLi rule group's oversize-handling setting should be tightened from its current permissive behavior",
-            "Immediately block all traffic from Romania at the WAF, since the country field alone is sufficient grounds for a block rule",
-            "Disable the AWS Managed SQL Injection Rule Group entirely, since this event shows it isn't working",
+            "Immediately create a WAF rule blocking all traffic originating from Romania, since the clientIp country field alone is sufficient grounds for a country-wide block",
+            "Disable the AWS Managed SQL Injection Rule Group entirely across the whole web ACL, since this one event shows the rule group isn't working at all",
           ],
           answer: 1,
           explanation:
@@ -519,10 +519,10 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
           question:
             "What is the broader lesson this event teaches about reading WAF verdicts?",
           options: [
-            "A BLOCK verdict means the rule group is working and an ALLOW verdict always means the request was genuinely evaluated and found clean — the two are mirror images of each other",
+            "A BLOCK verdict confirms the rule group is functioning, and by strict logical symmetry an ALLOW verdict must always mean the request was genuinely evaluated in full and found clean",
             "An ALLOW is only meaningful in combination with knowing what was actually evaluated — a rule group with an inspection size limit and a permissive oversize-handling setting can report 'no match' on a request it only ever partially examined, which is a common, low-visibility way managed rulesets get bypassed",
-            "WAFs should never be trusted for SQL injection protection under any configuration, and application-layer input validation should be the only defense relied upon",
-            "This only matters for POST requests; GET requests are never affected by body-size inspection limits",
+            "WAFs provide no genuine value for SQL injection protection under any configuration, so application-layer input validation should be the only defense an organization relies on",
+            "This inspection-limit issue only ever matters for POST requests carrying a body; GET requests are structurally immune to any body-size inspection limit",
           ],
           answer: 1,
           explanation:
@@ -629,10 +629,10 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
       checkpoint: {
         question: "What is the characteristic false positive for Identity Protection/CASB tools, per Reading 7?",
         options: [
-          "A legitimate internal service whose polling interval looks like a beacon",
+          "A newly deployed internal monitoring service whose regular polling interval statistically resembles a command-and-control beacon pattern",
           "An 'impossible travel' false alarm caused by an employee connecting through a corporate VPN exit node in a different country",
-          "A DLP policy blocking an approved payroll export",
-          "A WAF blocking a legitimate customer support form submission",
+          "A DLP policy blocking a payroll export to an approved third-party provider that matches a sensitive-data pattern",
+          "A WAF blocking a legitimate customer support form submission that happens to contain SQL-like text",
         ],
         answer: 1,
         explanation:
@@ -705,10 +705,10 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       question:
         "An incident responder confirms an attacker moved laterally through a segment of the network for three days, but the SIEM shows zero alerts for that segment during the entire window. A junior analyst concludes 'the SIEM proves nothing happened here before day three.' What's wrong with that conclusion?",
       options: [
-        "Nothing is wrong with it — a SIEM with no alerts for a time period is conclusive proof no attack activity occurred during that period",
+        "Nothing is wrong with it — by design, a SIEM with zero alerts for a given time period is mathematically conclusive proof that no attack activity occurred during that period",
         "The SIEM has no sensor of its own; an absence of alerts for a segment is at least as likely to mean that segment's logs were never being forwarded to the SIEM at all, as it is to mean nothing happened — the first step is checking whether that source was actually onboarded, not treating silence as proof of safety",
-        "SIEMs are incapable of correlating lateral movement under any circumstances, so this outcome was inevitable regardless of log forwarding",
-        "This can only be explained by the attacker using encryption, which always defeats a SIEM completely",
+        "SIEM platforms are structurally incapable of ever correlating lateral movement patterns, regardless of what logs are flowing into them, so this outcome was unavoidable",
+        "This silence can only be explained by the attacker's use of encryption, which by itself is always sufficient to defeat a SIEM's visibility completely",
       ],
       answer: 1,
       explanation:
@@ -725,10 +725,10 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       question:
         "CrowdStrike's EDR sensor on a file server identified wu_update.exe as LockBit 3.0 ransomware, scored the payload 91 out of 100 (well above the platform's block threshold), and logged a detection — but the ransomware ran to completion and encrypted the server anyway. Given that EDR is generally described as an inline, prevention-capable product, what explains this outcome?",
       options: [
-        "This means EDR products can never actually block ransomware in real time, regardless of configuration, and detection is the only capability they genuinely have",
+        "This means EDR products as a category are structurally incapable of ever blocking ransomware in real time, regardless of configuration, on any host",
         "The sensor's prevention policy for this server was set to Detection Only — being inline and technically capable of blocking is not the same as being configured to block; a product can sit in a position where prevention is possible and still be deliberately set to only observe",
-        "A score of 91/100 was not actually high enough to trigger any response, and a higher score would have been required for the sensor to act at all",
-        "The detection must have been a false positive, since a genuine LockBit detection would have been blocked automatically regardless of any policy setting",
+        "A score of 91/100 was simply below whatever this particular sensor's minimum action threshold happens to be, and only a perfect 100 would have triggered a block",
+        "The detection must have actually been a false positive, since Falcon would have blocked any genuine LockBit match automatically no matter what policy governed that host",
       ],
       answer: 1,
       explanation:

@@ -304,10 +304,10 @@ const encodingRoom: Room = {
         question:
           "What does a salt actually solve in password storage, per Reading 5?",
         options: [
-          "It makes the hash algorithm itself reversible",
+          "It makes the underlying hash algorithm itself mathematically reversible, so the original plaintext password can always be recovered directly from the stored salt and hash pair",
           "It ensures two users with the identical password get two different stored hashes, defeating rainbow tables",
-          "It encrypts the password instead of hashing it",
-          "It speeds up the login process by skipping re-hashing",
+          "It replaces hashing entirely with reversible encryption, storing the password in a form that can be decrypted back to plaintext whenever the server needs to verify a login",
+          "It speeds up the login process by allowing the server to skip re-hashing the password on every login attempt and instead compare the stored value directly against what the user typed",
         ],
         answer: 1,
         explanation:
@@ -345,9 +345,9 @@ const encodingRoom: Room = {
             "You submit this file's SHA256 (e1a4c7f9...d0e3a) to threat intelligence via the platform's Check Hash feature and get back 'No match found.' Given what Reading 3 taught about how a hash identifies data, what should you conclude?",
           options: [
             "'No match' is not proof of safety — it only means this exact byte sequence has never been catalogued as malicious before, which is exactly what you'd expect from a freshly compiled or slightly modified payload with no reputation history yet; further behavioral analysis is still warranted",
-            "'No match' definitively proves the file is benign, since malicious files are always known to threat intelligence databases before they're used in an attack",
-            "The hash lookup itself must have failed technically, since a hash of a genuinely new file should still return a match against something",
-            "This means the file was hashed with the wrong algorithm, since a properly hashed file always has prior threat intelligence coverage",
+            "'No match' definitively proves the file is completely benign and safe to execute, since every malicious file in existence is always catalogued by threat intelligence vendors well before it is ever used in a real-world attack",
+            "The hash lookup mechanism itself must have technically failed and returned an empty result, since any legitimately computed hash of a genuinely new file should always still return a match against something in the database",
+            "This can only mean the file was hashed with the wrong algorithm entirely, since a correctly hashed file should always have prior threat intelligence coverage regardless of how new or obscure the sample is",
           ],
           answer: 0,
           explanation:
@@ -359,9 +359,9 @@ const encodingRoom: Room = {
             "This file's SHA256 is a full 64 hex characters, the same length it would be whether the file were 4 KB or 400 MB. Why does this fixed-length property matter operationally for a SOC storing and searching millions of file hashes in a threat intel feed?",
           options: [
             "It makes storage and lookups cheap and predictable at scale — a database of a hundred million hashes takes a small, fixed, indexable amount of space, nowhere close to what storing a hundred million actual files would cost",
-            "It means larger files are always considered more suspicious than smaller ones, since their hash represents more compressed data",
-            "It has no operational relevance at all — hash length is purely a cosmetic detail of the algorithm's output format",
-            "It means the hash reveals the original file's exact size, since the digest length scales with the input",
+            "It means larger source files are always considered inherently more suspicious than smaller ones during triage, since a longer hash digest is assumed to represent more densely compressed underlying file data",
+            "It has no operational relevance to a SOC analyst at all — hash output length is purely a cosmetic detail of the algorithm's design, chosen arbitrarily and unrelated to anything an investigation would use",
+            "It means the hash reveals the original file's exact byte size, since the digest's fixed length is understood to scale proportionally with however large or small the input file actually is",
           ],
           answer: 0,
           explanation:
@@ -373,9 +373,9 @@ const encodingRoom: Room = {
             "A colleague says: 'I renamed this file from Q3_Invoice_Adjustment.exe to update.exe in the EDR console, and the SHA256 stayed exactly the same — so the hash must not actually factor in the filename at all.' Are they reasoning correctly, and what does this tell you about what a hash actually identifies?",
           options: [
             "They're reasoning correctly — a hash is computed purely from a file's byte content, never its filename, path, or other metadata; that's precisely why renaming a malicious file is a useless evasion technique against hash-based detection, and also why hash-based matching is powerful regardless of how many times a sample gets renamed across different victims",
-            "They're wrong — filenames are always included as part of what gets hashed, so a rename should have produced a completely different hash",
-            "The hash only stayed the same because EDR consoles cache old hash values and don't recompute them after a rename",
-            "This can only be explained by a hash collision, which is extremely unlikely to happen by coincidence on a rename",
+            "They're wrong to trust this match — filenames, full file paths, and other filesystem metadata are always folded into the hash calculation, so renaming a malicious file from one host to another should have produced a completely different SHA256 digest each time it ran",
+            "The hash only appears to stay the same because most EDR consoles cache the first-observed hash value for a given file and simply fail to recompute or refresh that value automatically after the file is renamed on disk",
+            "This can only be explained by an extremely rare hash collision, where two completely different files coincidentally produce the exact same SHA256 digest purely by chance during the renaming and rescanning process",
           ],
           answer: 0,
           explanation:
@@ -708,9 +708,9 @@ const timelineRoom: Room = {
             "ContextTimeStamp shows 1781218034.187. Before doing any timezone conversion at all, what does the fact that its whole-number part has 10 digits tell you about its unit?",
           options: [
             "It's Unix epoch time in seconds — a 10-digit whole-number part is the expected length for a current-era epoch-in-seconds value; a millisecond epoch value for the same instant would carry roughly 13 digits before the decimal point",
-            "It's Unix epoch time in milliseconds, since CrowdStrike always logs with sub-second precision regardless of digit count",
-            "It must be a Windows FILETIME value, since the presence of a decimal point is a FILETIME-specific feature",
-            "The digit count carries no information here — you would always need to consult CrowdStrike's own documentation before assuming anything",
+            "It's Unix epoch time expressed in milliseconds rather than seconds, since CrowdStrike's cloud platform always logs every timestamp with sub-second precision regardless of how many digits happen to appear before any decimal point",
+            "It must be a Windows FILETIME value instead of Unix epoch, since the presence of any decimal point at all in a raw timestamp field is understood to be a FILETIME-specific formatting feature",
+            "The digit count alone carries no reliable information about the unit here — you would always need to consult CrowdStrike's own field-level documentation before assuming anything about this particular timestamp",
           ],
           answer: 0,
           explanation:
@@ -722,9 +722,9 @@ const timelineRoom: Room = {
             "The SIEM console displays this alert's time as 18:47:14. A teammate insists it actually happened at 22:47:14, since that's the UTC-based ContextTimeStamp value in the raw record. Who is right, and what should you actually do before adding this event to a multi-source incident timeline?",
           options: [
             "Both numbers describe the exact same instant — 18:47:14 is simply the console's local (EDT, UTC-4) rendering of the same moment the raw record stores as 22:47:14 UTC; before building a timeline, every event from every source should be normalized to one shared timezone (UTC) rather than compared using whatever each console happens to display",
-            "The teammate is wrong, and the raw ContextTimeStamp field should be disregarded in favor of whatever the SIEM console renders",
-            "The console is malfunctioning and should be reported as a bug, since a properly built SIEM should only ever display UTC to any analyst",
-            "This is a four-hour clock skew between the EDR agent and the SIEM platform, and the agent's system clock needs to be resynced via NTP",
+            "The teammate is simply wrong here, and the raw ContextTimeStamp field recorded by the EDR agent should be disregarded entirely in favor of trusting whatever local time the SIEM console happens to render on screen for the analyst",
+            "The console itself must be malfunctioning and should be reported to the SIEM vendor as a bug, since a correctly and properly built SIEM platform should only ever display timestamps in UTC to any analyst, never in a local zone",
+            "This is a four-hour clock skew between the EDR agent's local system clock and the SIEM ingestion platform, and the agent's on-device clock urgently needs to be resynchronized against a trusted NTP time source before its timestamps can be trusted",
           ],
           answer: 0,
           explanation:
@@ -736,9 +736,9 @@ const timelineRoom: Room = {
             "A firewall log entry, expressed entirely in the same local zone (EDT, no conversion needed), shows an outbound connection from 10.40.2.18 at 19:02:00 that same day. Relative to the PowerShell launch in this event, did that outbound connection happen before or after?",
           options: [
             "After — the PowerShell launch normalizes to 18:47:14 EDT, and 19:02:00 EDT is roughly 15 minutes later, so the outbound connection follows the process launch and is worth investigating as a possible next step in the same sequence",
-            "Before — since 19:02 uses fewer leading digits when read as a raw string, it should be treated as occurring earlier",
-            "There's no way to compare the two, since they were produced by two completely different systems (EDR and firewall)",
-            "They're effectively simultaneous, since both times round to roughly 7 PM local",
+            "Before — since 19:02:00 uses fewer leading digits than 18:47:14 when compared as a raw numeric string, it should always be treated as the earlier of the two timestamps regardless of context",
+            "There's no way to meaningfully compare the two timestamps at all, since they were produced by two completely different systems (EDR telemetry and firewall session logs) that have nothing in common",
+            "They're effectively simultaneous events, since both times round to roughly 7 PM local time, and a fifteen-minute difference is well within the normal margin of error for any cross-system timeline",
           ],
           answer: 0,
           explanation:

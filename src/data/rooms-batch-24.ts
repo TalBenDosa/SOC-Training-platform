@@ -167,10 +167,10 @@ const credentialAttacksRoom: Room = {
       checkpoint: {
         question: "Why does credential dumping (T1003) never appear in a 4625 failed-logon burst?",
         options: [
-          "It always succeeds on the first try, so no failures are ever logged",
+          "Credential dumping requires the target account to have a registered SPN, so the resulting activity is logged as Event ID 4769 (Kerberos service ticket request), not 4625 -- a common mix-up with Kerberoasting",
           "It reads credential material directly from process memory or a disk-based store, so it never touches an authentication endpoint at all",
-          "It only targets accounts that have MFA disabled",
-          "Windows suppresses 4625 logging specifically for dumping attempts",
+          "It only works against accounts with Kerberos pre-authentication disabled, so any resulting activity would surface as a 4768 AS-REQ, not a 4625",
+          "Dumping tools authenticate using the harvested hash immediately afterward, and that Pass-the-Hash logon always succeeds, so the only event generated is a 4624, never a 4625",
         ],
         answer: 1,
         explanation:
@@ -266,10 +266,10 @@ const credentialAttacksRoom: Room = {
           question:
             "SubStatus stays 0xC000006A (wrong password) for all 47 attempts rather than ever switching to 0xC0000234. What does that specifically tell you, and why might it matter for how urgently this needs a response?",
           options: [
-            "It proves the account was never actually at risk, since the password was never guessed",
+            "It proves the account was never actually at risk, since Windows automatically disables the TargetUserName field once 30 consecutive failures accumulate, which is why no lockout code ever appears in this burst",
             "The account's lockout threshold has not yet been crossed despite 47 attempts — meaning either the account has an unusually high lockout threshold (or a policy exemption), or the threshold simply hasn't been reached yet and the attack is still live and could still succeed",
-            "0xC0000234 only appears for administrator accounts, so this confirms d.solano is a standard user",
-            "SubStatus has no relationship to the account lockout policy at all",
+            "0xC0000234 only appears for accounts protected by Credential Guard, so this confirms d.solano's account has virtualization-based security enabled rather than a standard lockout policy",
+            "SubStatus values only describe the authentication package used (NTLM vs Kerberos), not the account's lockout state, so 0xC000006A persisting for 47 attempts is expected regardless of any lockout policy",
           ],
           answer: 1,
           explanation:
@@ -279,10 +279,10 @@ const credentialAttacksRoom: Room = {
         {
           question: "What is the correct next step?",
           options: [
-            "No action needed — 4625 events are routine and this volume is within normal limits",
+            "No action needed — 47 failed attempts against a single account falls within Vantree's documented baseline for helpdesk-assisted password resets, so this is expected noise rather than a finding",
             "Block or rate-limit the source IP, check whether d.solano's account has an unnecessary lockout exemption, confirm no 4624 success followed this burst from the same source, and reach out to d.solano to confirm whether this was them locked out of a forgotten credential",
-            "Immediately disable NTLM domain-wide, since NtLmSsp appears in the LogonProcessName field",
-            "Escalate as a confirmed password spray and begin resetting every account in the domain",
+            "Immediately disable NTLM domain-wide, since NtLmSsp appearing in LogonProcessName means the credential material itself has already been compromised and cannot be trusted going forward",
+            "Escalate as a confirmed password spray and begin resetting every account in the domain, since any burst of 4625 failures against a single TargetUserName value indicates the account population as a whole is under attack",
           ],
           answer: 1,
           explanation:
@@ -317,10 +317,10 @@ const credentialAttacksRoom: Room = {
           question:
             "The maximum attempt count against any single account was 3 — one below the 4-attempt lockout policy. Why does that specific number matter, rather than being incidental?",
           options: [
-            "It's a coincidence and has no bearing on whether this is a spray",
+            "It's a coincidence and has no bearing on whether this is a spray — Windows caps how many 4625 events any single source IP can generate against a given account within a 20-minute window, which independently produces a ceiling of about 3",
             "Staying just under the lockout threshold on every single account is deliberate — it lets the attacker try a common password against the entire account population without ever triggering a lockout or a lockout-based alert, which is the entire point of spraying instead of brute forcing",
-            "It proves the source IP has already been blocked by the domain's account lockout policy",
-            "3 attempts is required by NTLM before a 4625 event is generated at all",
+            "It proves the source IP has already been blocked by the domain's account lockout policy, which is why every account topped out at exactly 3 attempts before further traffic from 185.220.101.47 was silently dropped",
+            "3 attempts is required by NTLM before a 4625 event is generated at all, so the first two failures against each account were simply never logged, and 3 is the earliest possible count that could ever appear",
           ],
           answer: 1,
           explanation:
@@ -330,10 +330,10 @@ const credentialAttacksRoom: Room = {
         {
           question: "What is the correct response, given this is a spray rather than a brute-force burst?",
           options: [
-            "Reset only k.mensah's password, since that's the account shown in this record",
+            "Reset only k.mensah's password, since that's the account shown in this record, and treat the other 141 accounts referenced in the SIEM correlation as a separate matter for whichever analyst happens to pick up that ticket next",
             "Block/rate-limit 185.220.101.47 at the perimeter, search specifically for any 4624 SUCCESS from that same source (a spray's entire goal is finding the one account with a weak or reused password), and treat any account with a matching success as compromised regardless of how few attempts it took",
-            "No action needed — none of the 142 accounts were locked out, so no harm occurred",
-            "Force an immediate domain-wide password reset for all 25,000 Vantree accounts as the only sufficient response",
+            "No action needed — none of the 142 accounts were locked out, which under Vantree's policy means the attempted logons were rejected before ever being evaluated, so nothing about this burst could have succeeded",
+            "Force an immediate domain-wide password reset for all 25,000 Vantree accounts as the only sufficient response, since a spray targeting 142 of them proves the attacker already holds valid credentials for the remaining accounts too",
           ],
           answer: 1,
           explanation:
@@ -348,10 +348,10 @@ const credentialAttacksRoom: Room = {
       question:
         "Two separate SIEM findings land on your queue on the same day. Finding A: 60 failed 4625 attempts against one account, sourced from one IP, over 90 minutes. Finding B: 8 failed 4625 attempts total, but spread across 6 different accounts (1-2 attempts each) from one IP over 5 minutes. Which is more likely a password spray, and why?",
       options: [
-        "Finding A, because it has the higher total attempt count",
+        "Finding A, because it has the higher total attempt count, and total attempt count across the finding is the field a SIEM correlation rule uses to distinguish a spray from a brute-force burst",
         "Finding B, because it distributes a small number of attempts across multiple distinct accounts from one source rather than concentrating them on one account — total volume is not the discriminator, account breadth is",
-        "Neither — sprays always involve at least 50 accounts to qualify",
-        "Both are equally likely to be either technique, since source IP is the only field that matters",
+        "Neither — sprays always involve at least 50 distinct accounts to qualify under the MITRE ATT&CK definition of T1110.003, so 6 accounts falls below the threshold for either technique",
+        "Both are equally likely to be either technique, since source IP is the only field that matters for this classification and both findings share the same originating IP",
       ],
       answer: 1,
       explanation:
@@ -545,10 +545,10 @@ const lateralMovementRoom: Room = {
         question:
           "Per Reading 1, why can host B's logs never tell you, on their own, whether a network logon came from a legitimate admin tool or an attacker with stolen credentials?",
         options: [
-          "Because host B never logs failed logons, only successful ones",
+          "Because host B never logs failed logons, only successful ones -- so a 4624 success record can never be distinguished from an attacker's use of stolen credentials, only from a failed attempt that was never captured in the first place",
           "Because a network logon (LogonType 3, NTLM) looks structurally identical whether it originated from an approved jump host or an attacker using stolen but genuine credentials -- settling which one requires evidence from outside that single record",
-          "Because host B only stores logs for 24 hours before purging them",
-          "Because NTLM authentication does not generate any log at all",
+          "Because host B only stores logs for 24 hours before purging them, meaning any evidence of source legitimacy would have already rolled off before an analyst could review the session that just occurred",
+          "Because NTLM authentication does not generate any log at all, unlike Kerberos, which is the only authentication package that ever produces a 4624 or 4625 event on the target host",
         ],
         answer: 1,
         explanation:
@@ -595,10 +595,10 @@ const lateralMovementRoom: Room = {
       question:
         "An analyst argues that because an account successfully installed a service via ADMIN$/svcctl on SRV-FIL02, that account must be a member of Domain Admins. What's wrong with that reasoning?",
       options: [
-        "Nothing — Domain Admin membership is the only way to write to ADMIN$ or create a service anywhere in a domain",
+        "Nothing — Domain Admin membership is the only way to write to ADMIN$ or create a service anywhere in a domain, since local Administrators groups are always populated exclusively through domain-level group nesting",
         "The action only proves local administrator rights on SRV-FIL02 specifically; that can be granted narrowly (for example via a GPO Restricted Groups policy scoping a support account's admin rights to certain hosts) with no Domain Admin membership involved at all",
-        "ADMIN$ access actually requires no privilege whatsoever — any authenticated user can write to it",
-        "Service creation requires SeDebugPrivilege, which only Domain Admins hold",
+        "ADMIN$ access actually requires no privilege whatsoever — any authenticated user, including a standard domain user with no group memberships beyond Domain Users, can write to it by default",
+        "Service creation requires SeDebugPrivilege specifically, and that privilege is granted only to accounts that are members of Domain Admins, never through a local Administrators group membership",
       ],
       answer: 1,
       explanation:
@@ -617,10 +617,10 @@ const lateralMovementRoom: Room = {
           question:
             "TargetUserName is sysmgr_svc, LogonType is 3, and LogonProcessName is 'NtLmSsp ' — an NTLM network logon. Given that sysmgr_svc genuinely holds local admin rights broadly, does this event by itself prove an intrusion?",
           options: [
-            "Yes — NTLM network logons by an admin-capable account are always malicious",
+            "Yes — NTLM network logons by an admin-capable account are always malicious, because legitimate remote administration exclusively uses Kerberos and never falls back to the NtLmSsp authentication package",
             "No — this exact mechanism (an NTLM network logon by an account with legitimate local admin rights) is also precisely how normal remote administration and support tooling works; the event alone doesn't distinguish the two",
-            "Yes, because LogonType 3 is exclusive to attacker tooling and is never used by legitimate remote administration",
-            "No, because sysmgr_svc is a service account and service accounts cannot be compromised",
+            "Yes, because LogonType 3 is exclusive to attacker tooling and is never used by legitimate remote administration, file sharing, or any of Kestrel's approved management software",
+            "No, because sysmgr_svc is a service account, and Windows service accounts are excluded from credential theft by design since their passwords are never held in memory once a session is established",
           ],
           answer: 1,
           explanation:
@@ -631,9 +631,9 @@ const lateralMovementRoom: Room = {
           question: "What one additional piece of evidence would most efficiently settle whether this is legitimate administration or an intrusion?",
           options: [
             "Whether WKS-SALES14 has any history of being used as a source for administrative logons to servers like SRV-FIL02, and whether an open change ticket or support session covers this timeframe",
-            "Re-confirming that LogonType is exactly 3, since that value alone is the deciding factor",
-            "Nothing further is needed — the presence of NtLmSsp in LogonProcessName already settles it",
-            "Whether SRV-FIL02 has ever been rebooted in the past year",
+            "Re-confirming that LogonType is exactly 3, since that value alone is the deciding factor between legitimate remote administration and an attacker riding stolen credentials, regardless of what else the two hosts' histories show",
+            "Nothing further is needed — the presence of NtLmSsp in LogonProcessName already settles it, because that authentication package is only ever selected by trusted, pre-approved administrative tooling",
+            "Whether SRV-FIL02 has ever been rebooted in the past year, since a recent reboot would explain why an unfamiliar workstation was able to authenticate as sysmgr_svc in the first place",
           ],
           answer: 0,
           explanation:
@@ -643,10 +643,10 @@ const lateralMovementRoom: Room = {
         {
           question: "WKS-SALES14 has no history of admin-source activity toward SRV-FIL02, and no change ticket exists for this timeframe. What should the analyst do?",
           options: [
-            "Close as benign, since sysmgr_svc genuinely holds the local admin rights that made this succeed",
+            "Close as benign, since sysmgr_svc genuinely holds the local admin rights that made this succeed, and a successful, privileged action is itself sufficient evidence that it was authorized",
             "Treat this as a likely intrusion using sysmgr_svc's credentials: investigate WKS-SALES14 as the probable point of compromise, and continue tracing what sysmgr_svc did next on SRV-FIL02",
-            "Disable sysmgr_svc's local admin rights domain-wide immediately, without further investigation",
-            "Take no action until a full 90-day audit of every account's logon history is complete",
+            "Disable sysmgr_svc's local admin rights domain-wide immediately, without further investigation, since any use of a broadly-scoped support account from an unexpected source is definitionally malicious and requires no corroboration",
+            "Take no action until a full 90-day audit of every account's logon history across the domain is complete, since a single unexplained session in isolation is never enough to justify starting an investigation",
           ],
           answer: 1,
           explanation:
@@ -667,10 +667,10 @@ const lateralMovementRoom: Room = {
           question:
             "This event's computer_name is SRV-FIL02 and its timestamp is 02:20:11 — 27 seconds after the 4624 logon from Log Analysis 1 on the same host. What does connecting these two records tell you that neither one tells you alone?",
           options: [
-            "Nothing new — a service installation and a network logon on the same host are unrelated by default",
+            "Nothing new — a service installation and a network logon on the same host are unrelated by default, since Windows assigns each new service its own independent audit trail with no connection back to whichever session created it",
             "Together they show the NTLM session from WKS-SALES14 wasn't just a connection attempt — it was followed, within half a minute, by a real new service being created and started on SRV-FIL02, consistent with the ADMIN$/IPC$/svcctl mechanism from Reading 2",
-            "The 27-second gap proves this service installation is unrelated to sysmgr_svc's session, since real attacks happen instantly",
-            "This event alone proves domain-wide compromise, without needing Log Analysis 1 at all",
+            "The 27-second gap proves this service installation is unrelated to sysmgr_svc's session, since real attacks happen instantly and any gap longer than a few seconds rules out a causal connection between the two events",
+            "This event alone proves domain-wide compromise, without needing Log Analysis 1 at all, because any new service installed via svcctl automatically replicates its registration to every domain controller in the forest",
           ],
           answer: 1,
           explanation:
@@ -680,10 +680,10 @@ const lateralMovementRoom: Room = {
         {
           question: "ServiceName is 'PSEXESVC' and ImagePath is its literal, unmodified default value. Why is it common to see a tool's real default name here rather than something disguised?",
           options: [
-            "PSEXESVC cannot be renamed under any circumstances, so this is the only name that could ever appear",
+            "PSEXESVC cannot be renamed under any circumstances, so this is the only name that could ever appear regardless of which command-line flags were passed to the tool that installed it",
             "Operators frequently don't bother renaming default tooling, especially when moving quickly — which cuts both ways: instantly recognizable to an analyst who knows the default, but easy to miss if you don't already know what PSEXESVC.exe's presence typically means",
-            "The default name proves this specific installation was legitimate, since attackers always rename their tools",
-            "The ImagePath field doesn't actually exist on a 7045 event, so this value is unreliable",
+            "The default name proves this specific installation was legitimate, since attackers always rename their tools to avoid detection and would never risk deploying PsExec under its own recognizable service name",
+            "The ImagePath field doesn't actually exist on a 7045 event, so this value is unreliable and was most likely synthesized by the SIEM's own enrichment pipeline rather than read from the original Windows event",
           ],
           answer: 1,
           explanation:
@@ -712,10 +712,10 @@ const lateralMovementRoom: Room = {
       question:
         "Two records show byte-for-byte identical ADMIN$/IPC$-then-7045 mechanics on two different hosts. One is later confirmed to be an intrusion; the other, reviewed next, turns out to be legitimate. Since the technical mechanism was identical in both, what actually made the difference?",
       options: [
-        "Nothing could actually differ — if the mechanism is identical, both cases must have the same verdict",
+        "Nothing could actually differ — if the mechanism is identical, both cases must have the same verdict, since Windows' own audit logging is specifically designed to encode intent, not just action, in every event it generates",
         "Context outside the mechanism itself: the source host's known role and history, whether a change ticket or support session covers the activity, and whether the timing matches normal administrative patterns",
-        "The ServiceName field, since malicious services always use a different name than legitimate ones",
-        "The LogonType value, since intrusions always use a different LogonType than legitimate remote administration",
+        "The ServiceName field, since malicious services always use a randomly generated or obfuscated name, while legitimate deployment tools always register under a fixed, predictable name across every install",
+        "The LogonType value, since intrusions always authenticate using LogonType 10 (RemoteInteractive) while legitimate remote administration tools exclusively use LogonType 3 (Network)",
       ],
       answer: 1,
       explanation:
@@ -1003,9 +1003,9 @@ const webAttacksRoom: Room = {
           "Per Reading 2, why does a web server's own access log typically show the load balancer's IP instead of the real client's IP?",
         options: [
           "Because the load balancer opens its own connection to the web server, using its own address, unless the environment is specifically configured to forward and log the original client's address via X-Forwarded-For",
-          "Because web servers never log client IP addresses at all",
-          "Because the WAF strips the client IP before forwarding the request",
-          "Because IIS randomly substitutes a placeholder IP for privacy reasons",
+          "Because web servers never log client IP addresses at all, relying entirely on the WAF's own record to supply that field whenever an investigation needs it",
+          "Because the WAF strips the client IP before forwarding the request, replacing it with the load balancer's address specifically to comply with data-minimization requirements in transit",
+          "Because IIS randomly substitutes a placeholder IP for privacy reasons, cycling through a pool of internal addresses so no single client's browsing pattern can be reconstructed from its own access log",
         ],
         answer: 0,
         explanation:
@@ -1040,10 +1040,10 @@ const webAttacksRoom: Room = {
           question:
             "scStatus here is 200 and scBytes is 48,231 — against a baseline of roughly 2,000-3,000 bytes for a normal search result on this endpoint. Combined with the fact that 37 of the 40 requests in this burst returned 500, what does this specific record most likely represent?",
           options: [
-            "A normal search that happened to return a large result set",
+            "A normal search that happened to return a large result set, since search terms with many matching products routinely produce responses in the tens of kilobytes on this endpoint",
             "The one payload in the burst whose SQL syntax was valid enough to execute, returning far more data than a real search ever would — consistent with a successful UNION-based extraction, unlike the 37 failed attempts that crashed the query parser",
-            "Evidence that the WAF successfully blocked this specific request, since it returned a non-error status",
-            "A caching artifact, since scBytes reflects the size of a cached response, not the actual query result",
+            "Evidence that the WAF successfully blocked this specific request, since it returned a non-error status, and a 200 from a WAF-protected endpoint always confirms the managed rule set intervened before the application ever saw the payload",
+            "A caching artifact, since scBytes reflects the size of a cached response rather than the actual query result, and this endpoint serves cached search results by default for any repeated query string",
           ],
           answer: 1,
           explanation:
@@ -1053,10 +1053,10 @@ const webAttacksRoom: Room = {
         {
           question: "csUriQuery contains a UNION SELECT payload targeting a users table. Does the presence of that payload text, by itself, prove the injection succeeded?",
           options: [
-            "Yes — the payload text appearing in the log is sufficient proof on its own",
+            "Yes — the payload text appearing in the log is sufficient proof on its own, since IIS only records a query string in csUriQuery once the application layer has actually parsed and executed it",
             "No — the payload only shows what was attempted; scStatus and scBytes are what confirm whether it actually executed and returned data, which is exactly why this record needs to be read for outcome, not just for the query string",
-            "No — csUriQuery is never actually logged for GET requests, so this field can't be trusted",
-            "Yes, but only because the User-Agent string in this record is unusually suspicious",
+            "No — csUriQuery is never actually logged for GET requests, so this field can't be trusted, and its presence here means the record was fabricated or tampered with somewhere in the log pipeline",
+            "Yes, but only because the User-Agent string in this record is unusually suspicious, and IIS only records SQL-shaped query strings from clients whose User-Agent has already been flagged as untrustworthy",
           ],
           answer: 1,
           explanation:
@@ -1066,10 +1066,10 @@ const webAttacksRoom: Room = {
         {
           question: "What is the appropriate next step given this finding?",
           options: [
-            "Close this as one more blocked injection attempt, consistent with the other 37 requests in the burst",
+            "Close this as one more blocked injection attempt, consistent with the other 37 requests in the burst, since scStatus 200 from an IIS access log still just means the WAF layer upstream ultimately handled it",
             "Treat this as a confirmed, successful SQL injection rather than just an attempt: pull the database's own query/audit log for this timeframe to determine what was actually read, and move to contain the source",
-            "No further action is needed since the WAF already logged the request",
-            "Reset every user's password site-wide as the only appropriate response to a database query",
+            "No further action is needed since the WAF already logged the request, and a WAF logging a request -- regardless of the status code IIS itself returned -- is Orbitline's confirmation that nothing reached the database",
+            "Reset every user's password site-wide as the only appropriate response to a database query, since any successful SELECT against the users table is functionally equivalent to every account being compromised at once",
           ],
           answer: 1,
           explanation:
@@ -1090,9 +1090,9 @@ const webAttacksRoom: Room = {
           question: "waf.httpRequest.clientIp shows 91.203.44.187, but iis.cIP for the same request shows 10.12.4.9. Which one is the true originating client, and why do they differ?",
           options: [
             "91.203.44.187 is the true client — the WAF sees the raw internet-facing connection, while 10.12.4.9 is the internal Application Load Balancer's own address, which is what IIS sees because the request reaches it already re-proxied",
-            "10.12.4.9 is the true client, since the web server is always closer to the source than a WAF",
-            "They're both equally valid representations of the same external address, just recorded in different formats",
-            "This is a logging error — a single request can only ever have one recorded IP, so one of these two fields must be wrong",
+            "10.12.4.9 is the true client, since the web server is always closer to the source than a WAF in a standard reverse-proxy deployment, making its own recorded address the more authoritative one",
+            "They're both equally valid representations of the same external address, just recorded in different formats -- one as a dotted-decimal string and the other as a hexadecimal-encoded value that happens to render identically",
+            "This is a logging error — a single request can only ever have one recorded IP, so one of these two fields must be wrong, most likely due to a timestamp collision between the WAF and IIS's own logging pipelines",
           ],
           answer: 0,
           explanation:
@@ -1102,10 +1102,10 @@ const webAttacksRoom: Room = {
         {
           question: "If an analyst tried to build a source-IP block list purely from IIS's own cIP field across many requests, what would go wrong?",
           options: [
-            "Nothing — cIP reliably reflects the true external source for every request",
+            "Nothing — cIP reliably reflects the true external source for every request, since IIS is configured to read the original client address straight through any load balancer or proxy sitting in front of it",
             "Every request proxied through the same load balancer shows the identical internal address (10.12.4.9) regardless of which external client actually sent it, making cIP useless for attribution on its own — this is exactly why the WAF record has to be pulled for the same request",
-            "cIP only appears on requests that were blocked, so it can't be used for a block list of allowed traffic",
-            "cIP rotates randomly on every request, making it impossible to build any list from it at all",
+            "cIP only appears on requests that were blocked, so it can't be used for a block list of allowed traffic, meaning any request that reached the application successfully would have no cIP value logged at all",
+            "cIP rotates randomly on every request, making it impossible to build any list from it at all, since Orbitline's load balancer is configured to round-robin across a pool of outbound addresses for each new connection",
           ],
           answer: 1,
           explanation:
@@ -1115,10 +1115,10 @@ const webAttacksRoom: Room = {
         {
           question: "Both records now confirm 91.203.44.187 as the true source of the successful injection from Log Analysis 1. What should the analyst do with this IP specifically?",
           options: [
-            "Add a block/deny rule for it at the web server's own configuration, since that's where the request was ultimately processed",
+            "Add a block/deny rule for it at the web server's own configuration, since that's where the request was ultimately processed and IIS-level IP restrictions apply before the load balancer ever reroutes anything",
             "Add a targeted block/deny rule for it at the WAF (the only point in the chain that actually sees this address), and search WAF logs broadly for this same clientIp across the full incident window to scope its other activity",
-            "Take no further action, since the injection has already been logged",
-            "Block the internal load balancer address 10.12.4.9 instead, since that's the IP IIS itself recorded",
+            "Take no further action, since the injection has already been logged, and a WAF record combined with an IIS record together already constitute full containment of the threat",
+            "Block the internal load balancer address 10.12.4.9 instead, since that's the IP IIS itself recorded, and blocking it at the WAF would immediately stop this specific attacker's traffic from reaching the application",
           ],
           answer: 1,
           explanation:
@@ -1133,10 +1133,10 @@ const webAttacksRoom: Room = {
       question:
         "Two WAF-blocked bursts against the same endpoint look identical in payload shape — the same SQLi payload catalogue, similar volume. One turns out to be an authorized vulnerability scan; the other is a real attacker's calibration probing. What most reliably tells them apart?",
       options: [
-        "Nothing can reliably tell them apart — payload shape is the only signal available",
+        "Nothing can reliably tell them apart — payload shape is the only signal a WAF record captures, and source IP, User-Agent, and change records are not fields either an authorized scanner or a real attacker's traffic would ever populate",
         "A stable, non-rotating source IP with a self-identifying User-Agent and a matching change record on the scan side, versus a source that rotates across a range, an ordinary browser or scripting User-Agent, and no corresponding change record on the attack side",
-        "The scan will always use a lower HTTP status code than a real attack",
-        "Authorized scans never trigger a WAF's managed rule sets, so any WAF block is automatically a real attack",
+        "The scan will always use a lower HTTP status code than a real attack, since vulnerability-scanning tools are specifically built to avoid triggering the same terminatingRuleId a genuine attacker's payload would trip",
+        "Authorized scans never trigger a WAF's managed rule sets, so any WAF block is automatically a real attack, since scanning tools are pre-registered with the WAF vendor to bypass signature matching entirely",
       ],
       answer: 1,
       explanation:

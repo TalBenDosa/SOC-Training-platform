@@ -81,9 +81,9 @@ const k8sSecurityRoom = {
         question: "According to the reading, what is the kubelet, and why is it a high-value target for an attacker?",
         options: [
           "The agent running on every node that takes instructions from the control plane and starts/stops containers — controlling it means controlling every pod on that node",
-          "The kubectl command-line tool human administrators use to issue commands",
-          "A network policy engine that enforces firewall rules between pods",
-          "The cloud provider's load balancer that routes traffic into the cluster",
+          "The kubectl command-line tool that human administrators install locally to issue commands against a cluster",
+          "A network policy engine deployed as its own pod that enforces firewall-style rules governing traffic between other pods",
+          "The cloud provider's managed load balancer service that routes external traffic into the cluster's ingress",
         ],
         answer: 0,
         explanation: "The reading defines the kubelet as the agent on every node that takes instructions from the control plane and starts/stops containers — controlling the kubelet means controlling every pod scheduled on that node.",
@@ -114,9 +114,9 @@ const k8sSecurityRoom = {
         question: "According to the reading, where is a pod's ServiceAccount token mounted by default, unless explicitly disabled?",
         options: [
           "/var/run/secrets/kubernetes.io/serviceaccount/token",
-          "/etc/kubernetes/admin.conf",
-          "/root/.kube/config",
-          "/var/lib/docker/token",
+          "/etc/kubernetes/pki/apiserver-kubelet-client.crt",
+          "/root/.kube/config, the same config file kubectl reads on an administrator's own workstation",
+          "/var/lib/kubelet/pods/<pod-uid>/volumes/serviceaccount.token",
         ],
         answer: 0,
         explanation: "The reading states that every pod, by default, has its ServiceAccount token automatically mounted at /var/run/secrets/kubernetes.io/serviceaccount/token unless explicitly disabled — which is how a compromised application inherits its ServiceAccount's permissions.",
@@ -163,10 +163,10 @@ const k8sSecurityRoom = {
       question:
         "Why can't a SOC analyst rely on the Kubernetes audit log's 'verb' and 'objectRef.resource' fields alone (e.g. verb=create, resource=pods) to decide whether a pod-creation event is malicious?",
       options: [
-        "Because those fields are frequently missing or corrupted in Kubernetes audit logs",
+        "Because the verb and objectRef.resource fields are frequently missing or silently corrupted whenever the Kubernetes API server is under heavy load",
         "Because a completely ordinary, successfully authorised 'create pods' API call looks identical whether the pod being created is a harmless application container or a privileged, hostPID, hostNetwork pod designed to escape to the node — the dangerous settings only appear inside the requestObject.spec fields, which must be inspected directly",
-        "Because Kubernetes does not log pod creation events by default in any configuration",
-        "Because verb and resource fields only apply to delete operations, not create operations",
+        "Because Kubernetes audit logging is disabled for pod-creation events by default in every standard cluster configuration, including managed EKS and GKE",
+        "Because the verb and objectRef.resource fields are only ever populated on delete operations, and are left blank on every create operation",
       ],
       answer: 1,
       explanation:
@@ -189,10 +189,10 @@ const k8sSecurityRoom = {
           question:
             "Looking at the requestObject.spec fields, what combination of settings makes this pod creation a near-certain node-escape attempt rather than routine deployment activity?",
           options: [
-            "The pod was created in the kube-system namespace, which alone is always malicious regardless of configuration",
+            "The pod was scheduled into the kube-system namespace, which by itself is always a confirmed malicious placement regardless of what the pod spec actually contains",
             "The pod specification sets hostPID: true, hostNetwork: true, and containers[0].securityContext.privileged: true simultaneously — this combination removes process isolation, network isolation, and kernel-capability restrictions all at once, which is never required for a legitimate monitoring or application workload",
-            "The response code is 201, which by itself indicates a security violation",
-            "The pod name 'svc-monitoring-backup' is inherently suspicious because it contains the word 'backup'",
+            "The responseStatus.code field reads 201, and any HTTP 201 response on a pod-creation call is itself a direct indicator of a security violation",
+            "The pod name 'svc-monitoring-backup' is inherently suspicious purely because it contains the word 'backup', regardless of anything else in the spec",
           ],
           answer: 1,
           explanation:
@@ -203,10 +203,10 @@ const k8sSecurityRoom = {
           question:
             "The container image is pulled from '185.220.101.47:5000/monitor:latest' — a bare IP address rather than a named registry like docker.io or a private ECR repository. Why does this detail matter for your investigation?",
           options: [
-            "It doesn't matter — container images are frequently pulled from IP addresses in legitimate CI/CD pipelines",
+            "It doesn't matter at all — pulling container images directly from a bare IP address is standard, routine practice in the large majority of legitimate CI/CD pipelines",
             "A bare IP address acting as a container registry, with no corporate DNS name and no association with any approved image source, is exactly the same red flag pattern as a raw-IP-over-plain-HTTP payload download you learned about in the supply-chain reading — legitimate container infrastructure uses named, trusted registries with proper certificates, not disposable IP-addressed servers",
-            "The port number 5000 is inherently a sign of compromise regardless of what is hosted there",
-            "Container images can only be pulled from IP addresses when the cluster has no internet connectivity",
+            "Port number 5000 is inherently a documented sign of compromise on its own, regardless of what service is actually listening on it",
+            "Container images can only ever be pulled from a bare IP address when the cluster has been provisioned with no outbound internet connectivity at all",
           ],
           answer: 1,
           explanation:
@@ -217,10 +217,10 @@ const k8sSecurityRoom = {
           question:
             "The requesting identity is 'system:serviceaccount:kube-system:ci-deploy-token'. What should the analyst check next, based on what you learned about RBAC over-permissioning?",
           options: [
-            "Nothing further is needed — ServiceAccount names ending in '-token' are always considered trusted by Kubernetes",
+            "Nothing further is needed — any ServiceAccount whose name happens to end in '-token' is automatically treated as fully trusted by the Kubernetes API server",
             "Whether this ServiceAccount's RBAC bindings grant it the ability to create privileged pods at all, and whether a CI/CD deployment pipeline has any legitimate business reason to hold that level of permission — an over-permissioned CI ServiceAccount is the Kubernetes equivalent of the over-permissioned CI IAM role you studied in the AWS room",
-            "Whether the ServiceAccount's password meets complexity requirements",
-            "Whether the ServiceAccount is a member of the Windows Domain Admins group",
+            "Whether the ServiceAccount's password satisfies the cluster's configured complexity and rotation requirements",
+            "Whether the ServiceAccount object happens to be a member of the Windows Active Directory Domain Admins security group",
           ],
           answer: 1,
           explanation:
@@ -245,10 +245,10 @@ const k8sSecurityRoom = {
           question:
             "The event shows objectRef.subresource = 'exec' rather than a plain pod creation. What does this specifically mean happened, and why is it functionally similar to an interactive remote-desktop or SSH session in a traditional Windows/Linux environment?",
           options: [
-            "It means a new pod was created and immediately deleted — exec has nothing to do with existing pods",
+            "It means a brand-new pod was created and then immediately torn down again — the 'exec' subresource only ever applies to pods that no longer exist by the time the event is logged",
             "It means the user opened an interactive command session inside an already-running production pod, executing shell commands directly inside a live workload — the direct container equivalent of an interactive RDP or SSH session onto a running server, and just as significant an event to have visibility into",
-            "It means the pod's exec permission was revoked for this user",
-            "It means the pod automatically restarted due to a health-check failure",
+            "It means the pod's exec permission was specifically revoked for this user as a result of this logged event",
+            "It means the pod automatically restarted on its own due to a failed liveness or readiness health-check probe",
           ],
           answer: 1,
           explanation:
@@ -259,10 +259,10 @@ const k8sSecurityRoom = {
           question:
             "Given that d.abrams' command was 'apt-get install -y curl' inside a production checkout-service pod, what is the most appropriate analyst action, consistent with the investigative habits taught elsewhere in this platform?",
           options: [
-            "Close immediately as benign — installing curl is a harmless, everyday administrative action",
-            "Escalate immediately to law enforcement without further investigation",
+            "Close the alert immediately as benign, since installing curl is such a harmless, everyday administrative action that it never warrants any further look regardless of where or when it happens",
+            "Escalate this directly to law enforcement immediately, without performing any internal verification or investigation of d.abrams' account activity first",
             "Treat this as worth verifying rather than an automatic false positive or automatic true positive: confirm whether d.abrams has a legitimate, documented reason (an open incident ticket, a debugging task) to be interactively execing into a production pod outside their normal working pattern, since installing network tooling like curl inside a production container is unusual even when the actor is a real, known engineer — and unverified interactive access to production is exactly the kind of event the 'IT verify' workflow exists for",
-            "Automatically revoke d.abrams' Kubernetes RBAC permissions without any investigation",
+            "Automatically and immediately revoke every one of d.abrams' Kubernetes RBAC permissions across the whole cluster, before performing any investigation into whether this specific action was legitimate",
           ],
           answer: 2,
           explanation:

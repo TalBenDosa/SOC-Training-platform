@@ -206,9 +206,9 @@ const remoteEmailCollectionRoom = {
         "A New-InboxRule audit record shows: ForwardTo -> ap-invoices@northgate-logisitics.com (note the extra 'i'), DeleteMessage -> true, StopProcessingRules -> true, scoped to SubjectContainsWords: 'wire, invoice, ACH'. What makes this specific combination especially dangerous, beyond simply having an external forward?",
       options: [
         "DeleteMessage:true erases the mailbox owner's copy after forwarding, and StopProcessingRules:true prevents any other rule — including a security team's own detection rule — from ever evaluating the same message, so the owner never sees it and no downstream rule gets a chance to flag it",
-        "ForwardTo rules are automatically blocked by Exchange Online for any external domain, so this specific rule poses no real risk",
-        "The keyword scoping to 'wire, invoice, ACH' makes the rule less dangerous, since it only matches a small number of messages instead of the whole mailbox",
-        "StopProcessingRules only affects spam filtering settings and has no relationship to inbox rule forwarding behavior",
+        "ForwardTo rules pointed at any domain outside the tenant are automatically rejected by Exchange Online's default configuration, so this specific rule could never have actually taken effect",
+        "The keyword scoping to 'wire, invoice, ACH' makes the rule easier for Exchange to detect and auto-quarantine, since narrowly-scoped rules are held to stricter review than broad ones",
+        "StopProcessingRules is a display-only audit flag with no functional effect on which rules actually evaluate a given message",
       ],
       answer: 0,
       explanation:
@@ -286,10 +286,10 @@ const remoteEmailCollectionRoom = {
           question:
             "data.office365.MailAccessType reads 'Bind' rather than 'Sync', and the same SessionId produced 24 near-identical Bind records within four minutes, each against a different message. What does that combination indicate?",
           options: [
-            "Bind means Outlook is performing its normal full-folder sync on startup, so 24 records in four minutes is routine client behavior",
+            "Bind means Outlook is performing its normal full-folder sync on startup, so 24 records like this in four minutes is routine client behavior that needs no further look",
             "Bind means each record represents one individual item pulled by its own separate request — 24 separate Binds in four minutes is consistent with a script iterating through the mailbox message by message, not a person reading email",
-            "Bind vs Sync only controls which folder is displayed and says nothing about whether a human or a script made the request",
-            "Bind means the accessed item was permanently deleted immediately afterward",
+            "Bind vs Sync is purely a display setting controlling folder view options and carries no information about whether a human or a script made the request",
+            "Bind means the accessed item was permanently and irreversibly deleted from the mailbox the moment this record was generated",
           ],
           answer: 1,
           explanation:
@@ -300,10 +300,10 @@ const remoteEmailCollectionRoom = {
           question:
             "The SessionId on this record also appears on a sign-in nine minutes earlier, sourced from outside the only known corporate VPN egress (a single static Chicago IP), on an account whose laptop has never shown after-hours activity in eleven months. Based on Reading 4, what should you do first?",
           options: [
-            "Close the alert — a MailItemsAccessed record by itself is routine mailbox traffic and doesn't warrant any further action",
+            "Close the alert — a MailItemsAccessed record on its own is routine mailbox traffic, and the surrounding facts described in this scenario don't change that conclusion",
             "Treat this as likely session or account compromise: pull every audit record on this SessionId, check specifically for a New-InboxRule created around the same time, and begin containment (revoke the session) while you confirm the full scope",
-            "Immediately delete r.iversen's mailbox to stop any further access",
-            "Email r.iversen directly and ask whether they recognize this specific sign-in before taking any other action",
+            "Immediately delete r.iversen's mailbox entirely so that no further message can possibly be accessed by anyone",
+            "Email r.iversen directly at their own address and wait for them to confirm or deny recognizing this specific sign-in before taking any other action",
           ],
           answer: 1,
           explanation:
@@ -541,10 +541,10 @@ const deviceRegistrationPersistenceRoom = {
       checkpoint: {
         question: "Per Reading 1, why does registering a new authentication method specifically defeat a password reset as remediation?",
         options: [
-          "Because password resets are always delayed by 24 hours in Entra ID",
+          "Because Entra ID enforces a mandatory 24-hour delay between a password reset request and the reset actually taking effect on the account",
           "Because the registered method is a separate object on the account that a password reset does not touch at all -- like a burglar's own key added to a smart lock, changing the front lock's code doesn't remove their key",
-          "Because Entra ID does not support password resets on compromised accounts",
-          "Because MFA methods automatically expire after any password change, which delays remediation",
+          "Because Entra ID blocks any password reset attempt on an account flagged as compromised until an administrator manually clears the flag",
+          "Because every registered MFA method is automatically set to expire 90 days after a password change, under Entra ID's default authentication policy",
         ],
         answer: 1,
         explanation:
@@ -587,10 +587,10 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "Entra ID logs two different self-service operations: 'User registered security info' and 'Register device' / 'Add registered owner to device'. What is the actual difference between what each one adds to an account's persistence surface?",
       options: [
-        "They are two names for the exact same event and can be treated interchangeably during an investigation",
+        "They are two display names generated by the same underlying audit event, and Entra ID logs them identically regardless of which one actually happened",
         "'User registered security info' adds or changes an authentication method used to satisfy MFA; 'Register device' adds an entire device object to the tenant, which can separately satisfy Conditional Access policies requiring a compliant or hybrid-joined device — an attacker could pursue either, or both",
-        "'Register device' only ever applies to mobile phones, while 'User registered security info' only ever applies to desktop computers",
-        "Both operations require an administrator to initiate them, so neither can happen through self-service",
+        "'Register device' is restricted specifically to mobile phone enrollment, while 'User registered security info' is restricted specifically to desktop and laptop devices",
+        "Both operations require a Global Administrator or Authentication Administrator to initiate them, so self-service registration is never possible for either one",
       ],
       answer: 1,
       explanation:
@@ -622,10 +622,10 @@ const deviceRegistrationPersistenceRoom = {
         question:
           "Beyond abusing SSPR directly, what is the second mechanism Reading 3 describes by which an unremoved rogue authentication method benefits an attacker?",
         options: [
-          "It automatically grants the attacker a directory administrator role after 30 days",
+          "It automatically escalates the compromised account into the Global Administrator role after a fixed 30-day dormancy period with no admin action required",
           "If the attacker later re-obtains the account's password through some other means, they walk straight into a fully-satisfied MFA challenge using the method they already registered -- they don't need to defeat MFA a second time",
-          "It disables MFA enforcement for every other account in the tenant",
-          "It prevents the legitimate user from ever logging in again, forcing a permanent account rebuild",
+          "It silently disables Conditional Access MFA enforcement tenant-wide for every other account, not just the one that was compromised",
+          "It permanently locks the legitimate account owner out of their own account, requiring IT to delete and completely rebuild the identity from scratch",
         ],
         answer: 1,
         explanation:
@@ -676,10 +676,10 @@ const deviceRegistrationPersistenceRoom = {
           question:
             "Compare azure.auditlogs.properties.initiatedBy.user.id to targetResources[0].id, and note initiatedBy.user.roles is an empty array. What does that combination tell you about how this registration happened?",
           options: [
-            "It was admin-assisted: a Helpdesk Administrator registered the method on m.delgado's behalf, indicated by the empty roles array",
+            "It was admin-assisted: an empty roles array is Entra ID's way of specifically flagging that a Helpdesk Administrator performed this registration on m.delgado's behalf",
             "It was self-service: the same identity (b8f42a09...) appears as both the actor and the target, and the actor held no directory role — whoever was signed in as m.delgado registered this themselves, with no admin involved",
-            "The two ID fields are unrelated placeholder values and carry no investigative meaning on their own",
-            "An empty roles array always means the record should be closed as a false positive without further review",
+            "The matching ID fields are coincidental placeholder GUIDs that Entra ID reuses across unrelated audit records and carry no investigative meaning",
+            "An empty initiatedBy.user.roles array is Entra ID's standard signal that a record can be auto-closed as a false positive without further review",
           ],
           answer: 1,
           explanation:
@@ -770,9 +770,9 @@ const deviceRegistrationPersistenceRoom = {
         "In both the log analysis case and the analyst_choice case, initiatedBy.user.roles is an empty array. Why doesn't that field alone tell you whether a registration is malicious?",
       options: [
         "Because an empty roles array simply means self-service registration, which is the normal path for the vast majority of legitimate device and method changes — you have to correlate it with sign-in risk, IP baseline, and timing to judge intent",
-        "Because the roles field is deprecated in current Entra ID audit schemas and is no longer populated",
-        "Because self-service registration is inherently malicious in every case, making the field's emptiness redundant information",
-        "Because the roles field only applies to device-registration operations and is never populated for StrongAuthenticationMethod changes",
+        "Because Microsoft deprecated the initiatedBy.user.roles field in current Entra ID audit schemas, so it is never reliably populated regardless of who acted",
+        "Because self-service registration is inherently malicious in every single case, which makes the field's emptiness fully redundant with the malicious verdict",
+        "Because the roles field is scoped only to device-registration events like 'Register device' and is never populated for StrongAuthenticationMethod changes at all",
       ],
       answer: 0,
       explanation:
@@ -814,10 +814,10 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "This room's log analysis case was tagged mitre_technique T1098.005 (Account Manipulation: Device Registration). Which of these is the most accurate summary of why this sub-technique matters more than plain credential theft alone?",
       options: [
-        "It doesn't matter more than plain credential theft — both are fully remediated by the exact same single step, a password reset",
+        "It doesn't matter more than plain credential theft at all — both are always fully remediated by the exact same single remediation step, a password reset",
         "It specifically survives the standard first remediation step (a password reset) because the added authentication method or device isn't touched by a password change at all, so it must be found and removed as its own explicit step",
-        "It only affects on-premises Active Directory environments and has no relevance to cloud identity providers like Entra ID",
-        "It is only relevant to Windows Hello for Business specifically and has no bearing on any other authentication method",
+        "It is a purely on-premises Active Directory concern, with the technique having no equivalent mechanism or relevance inside a cloud identity provider like Entra ID",
+        "It is scoped narrowly to Windows Hello for Business enrollments specifically, with no bearing on any other authentication method type",
       ],
       answer: 1,
       explanation:

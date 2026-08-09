@@ -280,10 +280,10 @@ const emailRoom = {
         question:
           "According to the reading, what happens when an SPF record evaluation exceeds the 10-DNS-lookup limit?",
         options: [
-          "The lookup automatically succeeds as a Pass",
+          "The lookup automatically succeeds as a Pass — SPF is specifically designed to fail open rather than fail closed, so exceeding the 10-lookup budget always resolves in the sender's favor to avoid breaking legitimate mail delivery",
           "SPF returns a PermError, treated by most receivers as equivalent to a fail — regardless of whether the actual sending IP was legitimately authorized",
-          "The domain's MX records are automatically disabled",
-          "The message is silently delivered without any SPF result recorded at all",
+          "The domain's MX records are automatically disabled — DNS servers treat an SPF record that exceeds the 10-lookup limit as malformed, and as a penalty they stop resolving that domain's MX records entirely until the SPF record is corrected",
+          "The message is silently delivered without any SPF result recorded at all — once the 10-lookup budget is exceeded, receiving servers skip SPF evaluation entirely and simply omit any spf= field from the Authentication-Results header for that message",
         ],
         answer: 1,
         explanation:
@@ -388,10 +388,10 @@ const emailRoom = {
         question:
           "According to the reading, what does DMARC require to evaluate as passing?",
         options: [
-          "Both SPF and DKIM must pass and align with the header From domain",
+          "Both SPF and DKIM must pass and align with the header From domain — DMARC has no partial-credit mechanism, so a message failing either check independently causes an automatic DMARC failure regardless of the other's result",
           "Either SPF passes and aligns with the header From domain, OR DKIM passes and aligns with it — only one of the two is required",
-          "Only DKIM matters; SPF is never considered by DMARC",
-          "The message must be digitally signed by a public certificate authority",
+          "Only DKIM matters; SPF is never considered by DMARC at all — DMARC alignment evaluates exclusively against the DKIM d= signing domain, and the envelope/MAIL FROM domain has no bearing on the DMARC verdict under any circumstances",
+          "The message must be digitally signed by a public certificate authority — DMARC requires a valid X.509 certificate chain rooted in a trusted CA, similar to how HTTPS certificate validation works for websites",
         ],
         answer: 1,
         explanation:
@@ -406,10 +406,10 @@ const emailRoom = {
       question:
         "An email's Return-Path shows bounce@random-marketing-relay.net while the header From shows billing@solvix.com. What does this mismatch, by itself, tell an analyst?",
       options: [
-        "Nothing at all — Return-Path and header From are always identical by protocol design",
+        "Nothing at all — Return-Path and header From are always identical by protocol design, since SMTP requires the MAIL FROM command and the From: header written later in the DATA block to be automatically synchronized by the sending server before the message can be queued for delivery",
         "The envelope sender (what SPF actually checks) and the header sender (what the recipient sees displayed) are different domains — this alone doesn't prove malicious intent (some legitimate bulk-mail/marketing platforms send on a domain's behalf this way), but it means SPF passing for random-marketing-relay.net says nothing about whether billing@solvix.com is legitimate, and DMARC alignment specifically is what needs to be checked next",
-            "This proves the message passed both SPF and DKIM successfully",
-        "This mismatch can only occur if the message was manually forwarded by the recipient",
+            "This proves the message passed both SPF and DKIM successfully — a Return-Path domain different from the header From domain is only possible after a message has already been cryptographically verified by SPF and DKIM, since verification is what generates the Return-Path field in the first place",
+        "This mismatch can only occur if the message was manually forwarded by the recipient — a Return-Path domain differing from the header From domain never happens on original, non-forwarded inbound mail, since sending servers are required to keep both fields identical unless a human forwards the message afterward",
       ],
       answer: 1,
       explanation:
@@ -424,10 +424,10 @@ const emailRoom = {
       question:
         "A message shows spf=pass, dkim=fail, dmarc=pass in its Authentication-Results header. Given that DMARC only requires ONE of SPF or DKIM to pass and align, and recalling that mailing-list forwarding commonly breaks DKIM specifically, what is the most reasonable initial interpretation?",
       options: [
-        "This is impossible — DMARC cannot pass if DKIM fails, under any circumstances",
+        "This is impossible — DMARC cannot pass if DKIM fails, under any circumstances, because DMARC's specification treats a DKIM failure as an unconditional, non-overridable veto that blocks a passing verdict regardless of what SPF independently reports",
         "SPF passed and aligned with the header From domain, which alone is sufficient for DMARC to pass even with DKIM failing — this pattern is fully consistent with legitimate mail (including forwarded mail where DKIM broke due to in-transit modification) and should not be treated as inherently suspicious on this basis alone",
-        "DKIM failing always indicates the message was sent by an attacker regardless of what SPF or DMARC report",
-        "This combination means the message bypassed all authentication checks entirely",
+        "DKIM failing always indicates the message was sent by an attacker regardless of what SPF or DMARC report — a broken DKIM signature can only ever result from deliberate tampering with message content in transit, never from routine, expected causes like mailing-list reformatting",
+        "This combination means the message bypassed all authentication checks entirely — spf=pass, dkim=fail, and dmarc=pass together indicate that the receiving server's authentication engine encountered an internal error and skipped evaluating the message altogether",
       ],
       answer: 1,
       explanation:
@@ -442,10 +442,10 @@ const emailRoom = {
       question:
         "You are reading a Received-header chain with three hops. Which header in the chain should you generally trust the MOST regarding the true, verified connecting IP address, and why?",
       options: [
-        "The bottom-most header, because attackers never bother forging the earliest hop",
-        "Whichever header contains the word 'ESMTPS', since that always indicates an encrypted, verified connection",
+        "The bottom-most header, because attackers never bother forging the earliest hop — since the true originating server always adds this header before the attacker gains any ability to influence message content, it is structurally guaranteed to be accurate in every case",
+        "Whichever header contains the word 'ESMTPS', since that always indicates an encrypted, verified connection whose reported source IP has been independently authenticated by a trusted certificate authority before the header was ever written",
         "The header your OWN organization's mail infrastructure added (typically the topmost one) — because while an attacker fully controls what they write into headers and content during their own SMTP session, they cannot control what YOUR server independently observed and recorded about the actual TCP connection it received",
-        "All headers in the chain are equally trustworthy since Received headers cannot be forged by design",
+        "All headers in the chain are equally trustworthy since Received headers cannot be forged by design — every mail server, including ones fully controlled by an attacker, is constrained by the SMTP specification to write only truthful, independently verifiable connection data into every header it adds",
       ],
       answer: 2,
       explanation:
@@ -466,10 +466,10 @@ const emailRoom = {
           question:
             "header.from shows 'm.whitfield@solvix.com' but header.return_path shows 'bounce-8841@sv-notify-relay.net', and header.reply_to shows a completely different third domain, 'outlook-secure-mail.com'. What does having THREE different domains across these three fields indicate?",
           options: [
-            "This is completely normal — every legitimate email has three different domains across these fields",
+            "This is completely normal — every legitimate email has three different domains across these fields, because SMTP requires the From, Return-Path, and Reply-To domains to always be distinct from one another as a built-in anti-spam requirement enforced by every major mail provider",
             "The header From domain (what the recipient sees, solvix.com) does not match either the envelope/Return-Path domain (what SPF actually checks) or the Reply-To domain (where any reply the recipient sends would actually go) — this three-way mismatch is a strong structural indicator of spoofing, since a genuine solvix.com message would have no reason to route replies to an unrelated third domain",
-            "Reply-To fields are ignored by all modern email clients and have no security relevance",
-            "This proves the message passed DKIM validation",
+            "Reply-To fields are ignored by all modern email clients and have no security relevance — when a recipient clicks 'Reply', every major email client is hardcoded to always send the response to the original From address instead, making the Reply-To header purely cosmetic and functionally inert",
+            "This proves the message passed DKIM validation — a message can only contain a populated Reply-To header at all if its DKIM signature was first successfully verified by the receiving mail gateway, since Reply-To is written into the message by the DKIM verification process itself",
           ],
           answer: 1,
           explanation:
@@ -481,9 +481,9 @@ const emailRoom = {
             "header.authentication_results shows 'spf=fail ... dkim=none ... dmarc=fail (p=reject dis=none) header.from=solvix.com'. Given that solvix.com's own DMARC policy is p=reject, why did this message still reach k.osei's inbox instead of being blocked outright?",
           options: [
             "dis=none in the DMARC result indicates the receiving system logged the failure and the applicable enforcement disposition was 'none' was actually applied for this delivery, rather than the domain's stated reject policy — meaning a gap exists between solvix.com's DMARC policy and what the receiving mail gateway actually enforced, which is itself worth escalating to whoever manages the gateway's DMARC enforcement configuration",
-            "A dmarc=fail result always means the message was already deleted before reaching any inbox, so this must be a logging error",
-            "spf=fail and dmarc=fail messages are always delivered normally by design, since DMARC is purely advisory and never blocks anything",
-            "The message must have been manually forwarded by someone inside Solvix, bypassing all filtering",
+            "A dmarc=fail result always means the message was already deleted before reaching any inbox, so this must be a logging error — mail gateways are physically incapable of recording a DMARC verdict for any message that wasn't actually delivered somewhere, making this event's mere existence in the log a contradiction",
+            "spf=fail and dmarc=fail messages are always delivered normally by design, since DMARC is purely advisory and never blocks anything — no DMARC policy configuration, including p=reject, has any technical capability to cause a receiving mail gateway to quarantine or reject a message under any circumstances",
+            "The message must have been manually forwarded by someone inside Solvix, bypassing all filtering — DMARC and SPF evaluation only ever runs on a message's very first delivery attempt, and any subsequent internal forward is completely invisible to and unchecked by the mail gateway's authentication engine",
           ],
           answer: 0,
           explanation:
@@ -494,10 +494,10 @@ const emailRoom = {
           question:
             "Given connecting_ip_reverse_dns shows 'no-ptr-record' and the Received chain shows only two hops both from the same 154.16.88.201 address claiming to be sv-notify-relay.net, what is the appropriate response?",
           options: [
-            "Deliver the message normally since it already reached the inbox, and take no further action",
+            "Deliver the message normally since it already reached the inbox, and take no further action — once a message has been delivered to any recipient's inbox, mail security tooling has no further capability to quarantine or recall it from that mailbox under any circumstances",
             "Treat this as a confirmed spoofing/BEC (Business Email Compromise) attempt: quarantine/remove the message from k.osei's inbox and any other recipients, block the sending infrastructure (154.16.88.201 and sv-notify-relay.net), alert the finance team about the specific wire-authorization pretext being used, and review the mail gateway's DMARC enforcement gap identified above",
-            "Reply to the message asking 'is this really you?' to verify the CFO's identity directly",
-            "Take no action since the missing PTR record could just mean the sender's DNS provider has a minor configuration issue",
+            "Reply to the message asking 'is this really you?' to verify the CFO's identity directly — since Reply-To was set to outlook-secure-mail.com, this reply would automatically route back to the CFO's real corporate mailbox first before reaching any external party, making this a safe verification method",
+            "Take no action since the missing PTR record could just mean the sender's DNS provider has a minor configuration issue — a missing PTR record has no bearing on message authenticity whatsoever and is never considered alongside SPF/DMARC failures when evaluating a suspected spoofing attempt",
           ],
           answer: 1,
           explanation:
@@ -520,10 +520,10 @@ const emailRoom = {
           question:
             "header.authentication_results shows spf=pass, dkim=pass, and dmarc=pass, all aligned to header.from=solvix-payr0ll.com. Given everything you learned in Reading 6, why does a full DMARC pass NOT mean this message is safe?",
           options: [
-            "DMARC passing always guarantees the sender is a legitimate, trusted brand — this must be a false alarm",
+            "DMARC passing always guarantees the sender is a legitimate, trusted brand — this must be a false alarm, since no domain can ever successfully configure passing SPF, DKIM, and DMARC records unless it has first been vetted and approved by a recognized brand-protection registry",
             "DMARC alignment only verifies that the SPF/DKIM-validated domain matches the header From domain — it has no concept of whether that domain itself is a legitimate brand or a lookalike impersonating one; here, the attacker registered and correctly configured their OWN domain (solvix-payr0ll.com, using a zero in place of the letter O), so every check passes cleanly against a domain that was never legitimate to begin with",
-            "The message must have been sent internally by an actual Solvix employee, since only internal senders can pass DMARC for header.from values ending in a domain that looks similar to solvix.com",
-            "DKIM cannot pass unless the message content has been manually reviewed and approved by a human at the receiving organization",
+            "The message must have been sent internally by an actual Solvix employee, since only internal senders can pass DMARC for header.from values ending in a domain that looks similar to solvix.com — DMARC's alignment check specifically cross-references a registry of known-similar internal domain spellings before issuing a pass verdict",
+            "DKIM cannot pass unless the message content has been manually reviewed and approved by a human at the receiving organization — DKIM verification is fundamentally a manual process requiring a security analyst to individually inspect and sign off on each message's body content before the signature can validate",
           ],
           answer: 1,
           explanation:
@@ -534,10 +534,10 @@ const emailRoom = {
           question:
             "domain_first_seen_days_ago shows 2, and domain_registrar shows 'NiceNIC'. Since none of this appears in the Authentication-Results header at all, why does it matter to the investigation?",
           options: [
-            "It doesn't matter — authentication header results are the only fields worth checking in any email investigation",
+            "It doesn't matter — authentication header results are the only fields worth checking in any email investigation, since every other metadata field a mail gateway captures (domain registration date, registrar, geolocation) is purely cosmetic and carries no investigative value whatsoever",
             "Domain age is exactly the kind of signal that catches what DMARC structurally cannot: a domain registered only 2 days ago, used for a message impersonating a well-established internal brand (Solvix Payroll), is a strong indicator of a purpose-built phishing domain, entirely independent of and complementary to the authentication results, which by themselves gave no warning at all",
-            "NiceNIC is a domain registrar exclusively used by Fortune 500 companies, making this registration inherently trustworthy",
-            "Domain age can only be determined through full packet capture, not through any available metadata",
+            "NiceNIC is a domain registrar exclusively used by Fortune 500 companies, making this registration inherently trustworthy — no discount or budget domain registrar service permits registration of a domain by any individual or small entity outside an established, publicly-traded corporation",
+            "Domain age can only be determined through full packet capture, not through any available metadata — WHOIS records, registrar databases, and passive DNS history are all incapable of ever revealing when a domain was first registered, leaving packet capture as the sole method",
           ],
           answer: 1,
           explanation:
@@ -548,10 +548,10 @@ const emailRoom = {
           question:
             "What is the correct response, given that this message technically passes every standard authentication check?",
           options: [
-            "Deliver the message normally, since a full SPF/DKIM/DMARC pass is the highest bar of legitimacy an email can meet",
+            "Deliver the message normally, since a full SPF/DKIM/DMARC pass is the highest bar of legitimacy an email can meet — no phishing message has ever successfully passed all three authentication mechanisms simultaneously, since doing so is technically impossible for any domain an attacker doesn't already legitimately own",
             "Treat this as a confirmed phishing attempt based on the lookalike domain, its 2-day registration age, and its sensitive-data-change pretext; quarantine the message, block/sinkhole the domain, and alert payroll and broader staff about this specific lookalike-domain pattern — and separately, flag to the security team that authentication-only email filtering rules should be supplemented with domain-age/lookalike detection specifically because of cases exactly like this one",
-            "Escalate this as a false positive, since 'the technical checks all passed' should always override any other signal",
-            "Reply to notifications@solvix-payr0ll.com asking them to confirm their identity before taking any action",
+            "Escalate this as a false positive, since 'the technical checks all passed' should always override any other signal — domain age, registrar reputation, and content pretext are lower-priority signals that must always be disregarded whenever SPF, DKIM, and DMARC all report a passing result",
+            "Reply to notifications@solvix-payr0ll.com asking them to confirm their identity before taking any action — since the domain passed DMARC, any reply sent to it is guaranteed to be routed only to Solvix's own verified internal payroll system rather than to any external party",
           ],
           answer: 1,
           explanation:

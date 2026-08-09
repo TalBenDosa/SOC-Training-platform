@@ -221,10 +221,10 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "What is the defining trait that separates a dropper from a loader?",
         options: [
-          "A dropper always requires administrator rights; a loader never does",
+          "A dropper always requires administrator rights to execute; a loader can run entirely under a standard user context, which is the actual reason loaders are more commonly seen in phishing campaigns",
           "A dropper's payload is already embedded inside the file at execution; a loader fetches its real payload from the network after launching",
-          "A loader can only be delivered via USB; a dropper only via email",
-          "There is no real difference -- both terms describe identical behavior",
+          "A loader can only be delivered via USB; a dropper can only ever arrive as an email attachment, since each term describes a fixed delivery channel rather than a payload-retrieval mechanism",
+          "There is no real difference -- both terms describe identical behavior, and security vendors use them interchangeably depending purely on which detection engine flagged the file first",
         ],
         answer: 1,
         explanation:
@@ -237,10 +237,10 @@ const malwareTypesRoom: Room = {
       question:
         "An EDR alert reports a worm-style outbreak beginning to spread machine-to-machine across an unpatched subnet with no user interaction required, at the same moment a phishing-based trojan is reported on a single user's laptop elsewhere in the company. Both are rated the same severity by the product. Why does the worm typically demand faster action?",
       options: [
-        "It doesn't — a single infected laptop and a spreading worm should always be treated with identical urgency since both are technically 'malware present' events",
+        "It doesn't — a single infected laptop and a spreading worm should always be treated with identical urgency since both are technically 'malware present' events, and severity should never be adjusted based on how many hosts a given technique could theoretically reach",
         "The worm can spread to every reachable, unpatched machine on that subnet without anyone clicking anything, so the number of compromised hosts can grow dramatically in the time it takes to triage a single ticket, while the trojan's spread is capped by how many more people open the same phishing email",
-        "Trojans are always more dangerous than worms because they are disguised, and disguise is inherently worse than direct network propagation",
-        "Worms cannot actually execute a payload, so they are lower priority than a trojan that has already run",
+        "Trojans are always more dangerous than worms because they are disguised, and disguise is inherently worse than direct network propagation, since a hidden threat is by definition harder to remediate than one that announces itself by spreading visibly",
+        "Worms cannot actually execute a payload, so they are lower priority than a trojan that has already run, since self-propagating code is architecturally limited to the propagation mechanism itself and nothing more",
       ],
       answer: 1,
       explanation:
@@ -259,10 +259,10 @@ const malwareTypesRoom: Room = {
           question:
             "quarterly_invoice.exe reached out to an external domain about four seconds after launch, before any invoice content had rendered, and it arrived as a single file attached to an email. What does this pattern most likely indicate?",
           options: [
-            "This is normal — every Windows application checks for updates within seconds of launching, regardless of what the application claims to be",
+            "This is normal — every Windows application checks for updates within seconds of launching, regardless of what the application claims to be, which is exactly the behavior an invoice viewer reaching out four seconds after opening would represent",
             "This is most likely a loader: rather than carrying a full malicious payload inside itself the way a dropper would, it is reaching out to the network immediately after execution to fetch a second stage — which is exactly why a destination like cdn-assets-delivery.net now exists as a blockable network indicator",
-            "This is definitely a dropper, since droppers always contact a command-and-control domain immediately by definition",
-            "DestinationPort 443 proves this connection is legitimate encrypted web traffic and therefore benign",
+            "This is definitely a dropper, since droppers always contact a command-and-control domain immediately by definition, making the network connection itself the defining signature of that category",
+            "DestinationPort 443 proves this connection is legitimate encrypted web traffic and therefore benign, since malware is required to use non-standard ports to avoid blending in with ordinary browsing traffic",
           ],
           answer: 1,
           explanation:
@@ -273,10 +273,10 @@ const malwareTypesRoom: Room = {
           question:
             "If quarterly_invoice.exe had instead been a dropper rather than a loader, what would be different about the detection and response opportunity here?",
           options: [
-            "Nothing would change — droppers and loaders are simply two different names for identical behavior",
+            "Nothing would change — droppers and loaders are simply two different names for identical behavior, and any distinction security vendors draw between them is purely a marketing choice rather than a technical one",
             "A dropper would have needed no network connection at all, since its full payload is already embedded inside the file; response would have to focus on the file's hash and on-disk content from the moment of execution, since there would be no destination domain or IP available to block",
-            "A dropper always requires local administrator rights to execute, while a loader never does",
-            "A dropper can only be delivered via a USB drive, never as an email attachment",
+            "A dropper always requires local administrator rights to execute, while a loader never does, since embedding a payload inside a file is what actually triggers Windows' privilege-elevation prompts",
+            "A dropper can only be delivered via a USB drive, never as an email attachment, since email attachment scanning would always detect and strip an embedded payload before it ever reached the recipient",
           ],
           answer: 1,
           explanation:
@@ -287,10 +287,10 @@ const malwareTypesRoom: Room = {
           question:
             "Given this event, what is the correct immediate response?",
           options: [
-            "No action needed, since the connection used standard HTTPS on port 443",
+            "No action needed, since the connection used standard HTTPS on port 443, and TLS-encrypted traffic on the default web port is exempt from further analysis under most SOC playbooks",
             "Isolate the host, block cdn-assets-delivery.net and its resolved IP at the proxy/firewall to try to stop stage 2 from landing (or spreading further if it already has), and submit the on-disk quarterly_invoice.exe for hash/reputation lookup and further analysis",
-            "Delete the Sysmon event so it stops appearing in the console",
-            "Wait for a second, independent alert before taking any action, since a single network-connection event is never actionable by itself",
+            "Delete the Sysmon event so it stops appearing in the console, since an event that has already been reviewed once by an analyst no longer needs to persist in the SIEM for correlation purposes",
+            "Wait for a second, independent alert before taking any action, since a single network-connection event is never actionable by itself and correlation rules require at least two distinct detections before triage can begin",
           ],
           answer: 1,
           explanation:
@@ -329,10 +329,10 @@ const malwareTypesRoom: Room = {
       question:
         "Which network pattern is the strongest indicator of an active RAT/backdoor rather than a one-time loader fetch?",
       options: [
-        "A single outbound connection immediately after execution that is never repeated again",
+        "A single outbound connection immediately after execution that is never repeated again, since a RAT's beacon is strongest and most detectable in the very first few seconds after the implant lands, before the attacker has issued any commands",
         "Recurring outbound connections to the same destination at regular or semi-regular intervals, continuing for hours or days after the initial process launch — the beaconing pattern of a live command-and-control channel still checking in for instructions",
-        "Any connection that uses port 443, since that port is reserved exclusively for command-and-control traffic",
-        "A connection that only ever occurs during normal business hours and never outside them",
+        "Any connection that uses port 443, since that port is reserved exclusively for command-and-control traffic and is never used by browsers, update services, or any other legitimate application",
+        "A connection that only ever occurs during normal business hours and never outside them, since RATs are specifically engineered to blend their check-in schedule with an organization's expected working hours",
       ],
       answer: 1,
       explanation:
@@ -354,10 +354,10 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "Per Reading 4, why is deleting the infostealer file and running a scan not sufficient response on its own?",
         options: [
-          "Because infostealers always reinstall themselves automatically after deletion",
+          "Because infostealers always reinstall themselves automatically after deletion, using a persistence mechanism that survives even a full endpoint scan and quarantine action",
           "Because the theft already happened -- credentials and cookies already left the building -- so the correct primary response is revoking sessions and resetting passwords, with endpoint cleanup as a secondary task",
-          "Because antivirus scans can never detect infostealers",
-          "Because infostealers require a full disk reimage before any other action is possible",
+          "Because antivirus scans can never detect infostealers, since credential-harvesting code is specifically designed to evade every signature-based and behavioral detection engine on the market",
+          "Because infostealers require a full disk reimage before any other action is possible, since the credential theft itself corrupts the operating system's own file-permission structures",
         ],
         answer: 1,
         explanation:
@@ -414,10 +414,10 @@ const malwareTypesRoom: Room = {
       question:
         "A file server shows vssadmin.exe deleting shadow copies, the Security log being cleared (Event ID 1102), and one service account reading thousands of files across multiple shares within ten minutes. No files have been encrypted yet. What should an analyst do?",
       options: [
-        "Wait until files actually start appearing with a new extension before treating this as an incident, since nothing has technically been encrypted",
+        "Wait until files actually start appearing with a new extension before treating this as an incident, since nothing has technically been encrypted and pre-encryption indicators alone never justify escalation under most incident response frameworks",
         "Treat this as an active pre-encryption ransomware sequence and escalate immediately — shadow copy deletion removes the easiest recovery path, log clearing is covering tracks, and file-access volume at this scale is very rarely legitimate; the goal is to contain before encryption begins, not after",
-        "This is normal end-of-quarter backup activity and can be closed without further review",
-        "Only the log-clearing event is worth escalating; shadow copy deletion and file-access volume are unrelated administrative tasks",
+        "This is normal end-of-quarter backup activity and can be closed without further review, since legitimate backup jobs routinely delete shadow copies and clear the security log as part of their standard cleanup routine",
+        "Only the log-clearing event is worth escalating; shadow copy deletion and file-access volume are unrelated administrative tasks that happen independently and don't need to be considered alongside it",
       ],
       answer: 1,
       explanation:
@@ -451,10 +451,10 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "What is the fundamental difference between a wiper and ransomware, given they often follow the same pre-encryption sequence?",
         options: [
-          "A wiper never drops a ransom note, while ransomware always does",
+          "A wiper never drops a ransom note, while ransomware always does, making the presence or absence of a note the single reliable way to distinguish the two the moment either one is discovered",
           "A wiper has no working decryption key and no intention of ever restoring data, even if the victim pays -- ransomware has a real key sold for payment",
-          "A wiper only targets government systems; ransomware only targets businesses",
-          "A wiper always uses a different pre-encryption sequence than ransomware",
+          "A wiper only targets government systems; ransomware only targets businesses, since the two categories were originally defined by their intended victim sector rather than by what happens to the encrypted data",
+          "A wiper always uses a different pre-encryption sequence than ransomware, skipping shadow copy deletion and log clearing entirely since it has no need to protect a recovery path it never intends to offer",
         ],
         answer: 1,
         explanation:
@@ -496,10 +496,10 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "Why can a rootkit hide its own files and processes from an EDR agent even during a routine scan?",
         options: [
-          "It doesn't hide anything -- EDR agents always detect rootkits by default",
+          "It doesn't hide anything -- EDR agents always detect rootkits by default, since kernel-level security tooling is specifically immune to any technique operating at the same privilege layer",
           "It embeds itself at a privileged layer beneath the operating system, so it can intercept and falsify the answers security tools receive when they ask what's running",
-          "Rootkits only run on air-gapped machines with no EDR installed at all",
-          "Rootkits disguise themselves using file names that look like legitimate Windows processes",
+          "Rootkits only run on air-gapped machines with no EDR installed at all, since any endpoint with active security tooling would immediately prevent kernel-level code from ever loading in the first place",
+          "Rootkits disguise themselves using file names that look like legitimate Windows processes, which is what actually defeats a standard process listing rather than anything to do with the privilege layer they operate from",
         ],
         answer: 1,
         explanation:
@@ -512,10 +512,10 @@ const malwareTypesRoom: Room = {
       question:
         "An analyst argues that a suspected fileless attack 'can't be malware — the antivirus scan came back completely clean, and no new file was ever created on disk.' What is wrong with that reasoning?",
       options: [
-        "It's correct — if antivirus finds nothing and no new file exists, there is nothing left to investigate",
+        "It's correct — if antivirus finds nothing and no new file exists, there is nothing left to investigate, since every legitimate detection method a SOC has available ultimately depends on a file existing somewhere to scan",
         "A clean signature-based scan proves nothing here: fileless techniques use legitimate, already-present tools (PowerShell, WMI, admin utilities) to achieve their objective without ever dropping a new file to hash, which is exactly what defeats traditional signature matching — behavior, not file presence, is the detection surface that matters",
-        "Fileless attacks are purely theoretical and have never been used in a real intrusion",
-        "Antivirus always detects fileless activity through network scanning even when no file exists, so a clean scan in this specific case must mean the AV product itself is broken",
+        "Fileless attacks are purely theoretical and have never been used in a real intrusion, existing only as a conference-talk concept rather than something that shows up in genuine incident response engagements",
+        "Antivirus always detects fileless activity through network scanning even when no file exists, so a clean scan in this specific case must mean the AV product itself is broken and needs to be reinstalled before the investigation can continue",
       ],
       answer: 1,
       explanation:
@@ -641,10 +641,10 @@ const assetContextRoom: Room = {
       checkpoint: {
         question: "Per Reading 1, what determines the correct response to an alert -- the alert text alone, or the asset behind it?",
         options: [
-          "The alert text alone -- identical alerts should always get identical responses",
+          "The alert text alone -- identical alerts should always get identical responses, since the detection rule that generated them already accounts for every asset it could possibly fire against",
           "The asset behind it -- the same detection rule firing on a lab VM, a workstation, and a domain controller warrants three different responses",
-          "Only the product's assigned severity field matters, regardless of the asset",
-          "Only the time of day the alert fired matters",
+          "Only the product's assigned severity field matters, regardless of the asset, since that score is calculated using the asset's criticality tier as one of its core inputs already",
+          "Only the time of day the alert fired matters, since a failed-logon burst at 2 AM always indicates compromise while the identical pattern during business hours never does, regardless of which host it targets",
         ],
         answer: 1,
         explanation:
@@ -684,10 +684,10 @@ const assetContextRoom: Room = {
       question:
         "Two identical malware detections fire at the same moment, with the exact same product-assigned severity: one on a receptionist's kiosk PC that can only ever access the visitor sign-in application, and one on a backup server that holds the only offline copies of the company's file shares. Which deserves the faster response, and why?",
       options: [
-        "The kiosk PC, because it's a public-facing device anyone in the lobby can physically touch",
+        "The kiosk PC, because it's a public-facing device anyone in the lobby can physically touch, and physical accessibility to a device always outweighs whatever role it plays in the organization's operations",
         "The backup server, because of what it controls: it is the organization's recovery capability, and losing it changes every other incident from 'recoverable' to 'potentially unrecoverable', regardless of how little the server itself might seem to 'hold' day to day",
-        "Neither — since the severity score is identical, the response should be identical",
-        "The kiosk PC, because kiosk devices always run outdated, unpatched software and are therefore inherently higher risk",
+        "Neither — since the severity score is identical, the response should be identical, because asset context is already baked into how the product calculated that score in the first place",
+        "The kiosk PC, because kiosk devices always run outdated, unpatched software and are therefore inherently higher risk than any purpose-built server regardless of what that server holds or controls",
       ],
       answer: 1,
       explanation:
@@ -715,10 +715,10 @@ const assetContextRoom: Room = {
       checkpoint: {
         question: "According to Reading 3, why does a domain controller have such a large blast radius?",
         options: [
-          "Because it stores the most sensitive customer data of any system in the company",
+          "Because it stores the most sensitive customer data of any system in the company, holding the master copy of every record that any other application server only ever queries a subset of",
           "Because it controls the KDC (Kerberos Key Distribution Center), which issues every authentication ticket, so a compromise can let an attacker impersonate any user across every system trusting that domain",
-          "Because it is always internet-facing, unlike other servers",
-          "Because it has the highest CVSS-scored vulnerabilities of any asset type",
+          "Because it is always internet-facing, unlike other servers, which puts it within reach of a fundamentally larger population of potential attackers than any internally-segmented system",
+          "Because it has the highest CVSS-scored vulnerabilities of any asset type, meaning its blast radius is a direct function of how severe its unpatched software flaws happen to be",
         ],
         answer: 1,
         explanation:
@@ -731,10 +731,10 @@ const assetContextRoom: Room = {
       question:
         "An attacker gains full control of a hypervisor hosting 40 virtual machines, including three domain controllers and the ticketing system's database server. Why does compromising the hypervisor represent a larger blast radius than compromising any single one of those 40 VMs individually?",
       options: [
-        "It doesn't — compromising one VM and compromising the hypervisor carry identical risk, since a hypervisor is just one more server on the network",
+        "It doesn't — compromising one VM and compromising the hypervisor carry identical risk, since a hypervisor is just one more server on the network with no more reach into its guests than any of those guests has into each other",
         "The hypervisor sits below every guest VM's own operating system and security controls, so a compromise at that layer can affect every one of the 40 VMs simultaneously and directly, regardless of how well-defended any individual guest is — a single point of failure for all of them at once, which is what makes it a force multiplier",
-        "Hypervisors are always less critical than the VMs running on them, because the VMs are where the actual applications and data live",
-        "Compromising 40 individual VMs one at a time is always faster for an attacker than compromising the single hypervisor underneath them",
+        "Hypervisors are always less critical than the VMs running on them, because the VMs are where the actual applications and data live, and the layer underneath them is purely infrastructure with nothing of value to an attacker",
+        "Compromising 40 individual VMs one at a time is always faster for an attacker than compromising the single hypervisor underneath them, since each guest VM's own security stack is weaker than the hypervisor's combined defenses",
       ],
       answer: 1,
       explanation:
@@ -753,10 +753,10 @@ const assetContextRoom: Room = {
           question:
             "This burst is targeting DC02 — a domain controller — directly over the network, attempting 14 different accounts in two minutes. Why does the target being a domain controller change the priority of this alert compared to the exact same signature landing on a single ordinary application server?",
           options: [
-            "It doesn't — a failed logon burst is scored identically regardless of which host receives it",
+            "It doesn't — a failed logon burst is scored identically regardless of which host receives it, since the detection rule's own severity field is calculated purely from the attempt count and time window, independent of the target",
             "A domain controller is the identity authority for the entire domain (Reading 3's blast radius point); if this spray succeeds against even one of the 14 accounts, or if it's reconnaissance ahead of a more targeted attempt, the consequences extend to every resource across the domain that trusts that authentication — not just one server's worth of data",
-            "Domain controllers cannot receive network logon attempts at all, so this must be a logging error",
-            "LogonType 3 only ever applies to low-criticality systems, so this confirms the target has low criticality",
+            "Domain controllers cannot receive network logon attempts at all, so this must be a logging error, since all authentication against a DC is required to occur over Kerberos rather than NTLM's network logon type",
+            "LogonType 3 only ever applies to low-criticality systems, so this confirms the target has low criticality, since domain controllers and other identity infrastructure exclusively use interactive or RemoteInteractive logon types",
           ],
           answer: 1,
           explanation:
@@ -767,10 +767,10 @@ const assetContextRoom: Room = {
           question:
             "If this identical 14-account, two-minute failed-logon burst had instead landed on an isolated lab VM used only for occasional testing, with no production data and no trust relationship to the domain, how should the response differ?",
           options: [
-            "It shouldn't differ at all — the same log pattern always demands the same response regardless of the asset behind it",
+            "It shouldn't differ at all — the same log pattern always demands the same response regardless of the asset behind it, since a detection rule's own logic already accounts for whatever asset eventually triggers it",
             "The technical signature is identical, but the priority is much lower: a compromise of that VM has almost nowhere to go from there, so logging and monitoring is a reasonable response, unlike the domain controller case where the same pattern justifies immediate escalation",
-            "It should be escalated even faster than the domain controller case, since isolated lab VMs are always the highest-priority asset type by definition",
-            "No response is needed in either case, since failed logons are a routine part of daily operations everywhere",
+            "It should be escalated even faster than the domain controller case, since isolated lab VMs are always the highest-priority asset type by definition, precisely because their isolation makes any anomaly on them inherently suspicious",
+            "No response is needed in either case, since failed logons are a routine part of daily operations everywhere, and identity infrastructure receives so much authentication traffic that a spray pattern is statistically indistinguishable from normal noise",
           ],
           answer: 1,
           explanation:
@@ -781,10 +781,10 @@ const assetContextRoom: Room = {
           question:
             "What is the correct immediate response to the DC02 burst as described?",
           options: [
-            "No action — 4625 (failed logon) events are routine and this volume is within normal limits for a domain controller",
+            "No action — 4625 (failed logon) events are routine and this volume is within normal limits for a domain controller, which regularly absorbs far higher failure counts from ordinary password-expiry noise across the whole organization",
             "Block or rate-limit the source IP at the network edge, check whether any of the 14 attempted accounts show a subsequent successful logon (Event 4624) from the same or a related source, and escalate given that the target is identity infrastructure for the whole domain",
-            "Immediately and permanently disable all 14 targeted accounts without further investigation",
-            "Wait for an account-lockout notification from one of the affected accounts before taking any action",
+            "Immediately and permanently disable all 14 targeted accounts without further investigation, since any account named in a burst against identity infrastructure must be treated as already compromised regardless of outcome",
+            "Wait for an account-lockout notification from one of the affected accounts before taking any action, since a lockout event is the only reliable confirmation that a burst against a domain controller was ever real",
           ],
           answer: 1,
           explanation:
@@ -810,10 +810,10 @@ const assetContextRoom: Room = {
       question:
         "The exact same critical vulnerability (CVSS 9.8) is found on two servers: one is a customer-facing web portal reachable from the open internet, the other is an internal reporting server reachable only from a management VLAN that requires VPN plus MFA, with no route from ordinary user workstations. Both have identical CVSS scores. Why might these still warrant different urgency?",
       options: [
-        "They shouldn't — an identical CVSS score means identical urgency in every case, by definition",
+        "They shouldn't — an identical CVSS score means identical urgency in every case, by definition, since the scoring system already factors in network topology and access requirements for the specific environment it's deployed in",
         "Exposure differs: the internet-facing portal can be attempted by any attacker on the internet with no prior foothold at all, while reaching the segmented internal server first requires breaching a VPN and MFA-protected management network — CVSS measures theoretical severity, not how reachable the target actually is in this environment",
-        "CVSS scores are automatically lower for internal systems, so a 9.8 on an internal server is actually a scoring error",
-        "The internal server should always be treated as more urgent, since internal systems are inherently more trusted and therefore more damaging to lose",
+        "CVSS scores are automatically lower for internal systems, so a 9.8 on an internal server is actually a scoring error that should be reported back to whichever team maintains the vulnerability scanner",
+        "The internal server should always be treated as more urgent, since internal systems are inherently more trusted and therefore more damaging to lose, regardless of how many additional controls stand between an attacker and actually reaching it",
       ],
       answer: 1,
       explanation:
@@ -833,10 +833,10 @@ const assetContextRoom: Room = {
       checkpoint: {
         question: "Per Reading 5, what is the difference between severity and priority?",
         options: [
-          "They are the same thing, just different names for the same score",
+          "They are the same thing, just different names for the same score, and any organization drawing a distinction between them is simply introducing unnecessary process overhead into triage",
           "Severity is a technical, product-calculated property of the finding itself; priority is the analyst's own judgment about response order, built by adding business context on top of severity",
-          "Priority is always calculated automatically by the SIEM, while severity requires manual analyst review",
-          "Severity only applies to malware alerts; priority only applies to authentication alerts",
+          "Priority is always calculated automatically by the SIEM, while severity requires manual analyst review, meaning the two roles are reversed from how the product and the analyst actually contribute to a triage decision",
+          "Severity only applies to malware alerts; priority only applies to authentication alerts, since each concept was originally designed for one specific alert category and was never meant to generalize across others",
         ],
         answer: 1,
         explanation:
@@ -870,10 +870,10 @@ const assetContextRoom: Room = {
       checkpoint: {
         question: "When an analyst finds a hostname with no CMDB record, what does Reading 6 say the correct instinct is?",
         options: [
-          "Deprioritize it -- if it's not in the inventory, it's probably not important",
+          "Deprioritize it -- if it's not in the inventory, it's probably not important, since anything genuinely worth tracking would have been entered into the CMDB by whichever team stood it up",
           "Treat it as an open question and chase it (DNS/DHCP records, cloud console, ask the infrastructure team) rather than skip it -- an unrecognized asset could be shadow IT or attacker infrastructure chosen precisely because it wouldn't show up in a normal check",
-          "Automatically escalate it as a confirmed incident with no further investigation needed",
-          "Ignore it, since CMDBs are always accurate in a well-run organization",
+          "Automatically escalate it as a confirmed incident with no further investigation needed, since an unrecognized hostname appearing in the logs is, on its own, definitive proof of unauthorized or malicious infrastructure",
+          "Ignore it, since CMDBs are always accurate in a well-run organization, and any hostname missing from it is far more likely to be a display glitch in the SIEM than a real, unaccounted-for asset",
         ],
         answer: 1,
         explanation:

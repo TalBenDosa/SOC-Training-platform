@@ -244,10 +244,10 @@ const investigateAlertRoom: Room = {
       checkpoint: {
         question: "Per Reading 2, what is the key difference between querying by the named person versus querying by an observable artifact (IP, workstation, hash)?",
         options: [
-          "There is no meaningful difference -- both return the same results",
+          "There is no meaningful difference -- both queries return the same result set regardless of which value they filter on, so the choice is purely stylistic",
           "Querying by person can only ever confirm what you already suspected about that one person; querying by artifact asks who else, across the whole environment, shares that same property -- only the second can surface an account nobody has flagged yet",
-          "Querying by artifact is always slower and should be avoided under time pressure",
-          "Querying by person is required by the workflow before an artifact-based query is allowed",
+          "Querying by artifact is always slower and should be avoided under time pressure, since it has to scan every identity in the tenant instead of one named account's history",
+          "Querying by person is a mandatory first gate the workflow requires before an artifact-based query is permitted to run at all",
         ],
         answer: 1,
         explanation:
@@ -261,10 +261,10 @@ const investigateAlertRoom: Room = {
       question:
         "An EDR alert fires: 'Suspicious PowerShell Execution' on a single workstation, severity high. It is minute one. What is the single most useful action for Step 1 — Validate?",
       options: [
-        "Immediately isolate the host from the network before looking at anything else",
+        "Immediately isolate the host from the network before looking at anything else, treating a single unconfirmed alert with the same urgency as a fully scoped, validated intrusion",
         "Enrich the alert against other data sources — was this process hash or command-line pattern seen elsewhere in the environment, does the parent process and account make sense together, is this a known-benign admin script — to confirm the record itself is real and not a parsing artefact or duplicate",
-        "Close the alert if its severity is only 'high' rather than 'critical', since lower severities rarely warrant a full validation pass",
-        "Assume it is a true positive because the EDR already assigned it a severity, and move straight to Step 3 collection",
+        "Close the alert if its severity is only 'high' rather than 'critical', since lower severities rarely warrant a full validation pass and are usually safe to triage away without further review",
+        "Assume it is a true positive because the EDR already assigned it a severity, and move straight to Step 3 collection without first checking whether the record is even genuine",
       ],
       answer: 1,
       explanation:
@@ -284,10 +284,10 @@ const investigateAlertRoom: Room = {
           question:
             "Which fields establish that this is a genuine process execution and not a duplicated or mis-parsed record, and what do they show?",
           options: [
-            "ReportId is populated, which is Defender's field for marking a record as verified and non-duplicated",
+            "ReportId is populated, which is Defender's field for marking a record as verified and non-duplicated, so a numeric value there is itself proof the event is genuine",
             "ProcessId and ParentProcessId are both populated with real, distinct values, ActionType reads ProcessCreated, and ProcessCommandLine contains an actual, well-formed command line — together these describe a specific process creation event, not a placeholder or template record",
-            "AccountDomain reads CASTLETON, which confirms the process ran under a real domain account rather than a local one",
-            "The event cannot be validated without pulling the workstation's full event log first",
+            "AccountDomain reads CASTLETON, which confirms the process ran under a real domain account rather than a local one, and that alone is enough to validate the record",
+            "The event cannot be validated without pulling the workstation's full event log first, since no single Defender record ever contains enough detail on its own",
           ],
           answer: 1,
           explanation:
@@ -298,10 +298,10 @@ const investigateAlertRoom: Room = {
           question:
             "ParentProcessFileName is WINWORD.EXE and ParentProcessCommandLine shows Word opening a file named Q3_Vendor_Statement.docm from the user's Downloads folder. Why does this specific parent-child relationship matter for validation?",
           options: [
-            "It doesn't matter — PowerShell is commonly spawned by many applications and the parent process carries no investigative weight",
+            "It doesn't matter — PowerShell is commonly spawned by many applications, and a document viewer's parent-child relationship to a shell carries no investigative weight on its own",
             "Word spawning PowerShell is not a normal part of opening a document; a .docm file is macro-enabled, and a macro capable of running arbitrary code is the most direct explanation for a document viewer producing a hidden, encoded PowerShell child process moments after being opened",
-            "It confirms the file is a legitimate vendor statement, since the filename describes routine Accounts Payable business",
-            "It shows the user manually opened PowerShell themselves right after finishing the document",
+            "It confirms the file is a legitimate vendor statement, since the filename describes routine Accounts Payable business that j.alvarez's role would plausibly receive",
+            "It shows the user manually opened PowerShell themselves right after finishing the document, most likely to check a formula or macro setting in the file",
           ],
           answer: 1,
           explanation:
@@ -407,10 +407,10 @@ const investigateAlertRoom: Room = {
           question:
             "TargetUserName is d.reyes, not j.alvarez, and WorkstationName is WKS-FIN07 — the same host from Step 1. What does this combination establish about scope?",
           options: [
-            "Nothing new — d.reyes is presumably a colleague of j.alvarez's and this is unrelated background activity",
+            "Nothing new — d.reyes is presumably a colleague of j.alvarez's in the same department, and this logon is unrelated background activity that happens every day",
             "A different account, d.reyes, authenticated onto a second host, FIN-DB02, with the logon record naming the already-compromised workstation as its source — the activity has moved beyond the one account and one host the original ticket named",
-            "It confirms j.alvarez has two Active Directory accounts under different usernames",
-            "It shows FIN-DB02 is actually the same physical machine as WKS-FIN07, just referenced by two different hostnames",
+            "It confirms j.alvarez has two Active Directory accounts under different usernames, one for daily work and one reserved for privileged database access",
+            "It shows FIN-DB02 is actually the same physical machine as WKS-FIN07, just referenced by two different hostnames depending on which log source recorded it",
           ],
           answer: 1,
           explanation:
@@ -421,11 +421,10 @@ const investigateAlertRoom: Room = {
           question:
             "LogonType is 3 and AuthenticationPackageName is NTLM. Combined with everything else in this record, what should this prompt you to check next, and why?",
           options: [
-            "Nothing further — LogonType 3 is an interactive desktop logon and is the least noteworthy type available",
+            "Nothing further — LogonType 3 is an interactive desktop logon and is the least noteworthy type available, so this record needs no additional scrutiny beyond what's already been noted",
             "LogonType 3 is a network logon (the kind used for things like accessing a file share or admin tooling remotely, not sitting at a physical console) — worth checking whether d.reyes normally authenticates to FIN-DB02 at all, and from where, since a privileged account reaching a database server from a Finance workstation it has never used is exactly the anomaly a baseline comparison would catch",
-            "NTLM authentication always indicates the credential was stolen, regardless of any other context",
-            "This combination confirms the logon failed and no further action is needed",
-
+            "NTLM authentication always indicates the credential was stolen, regardless of any other context, since Kerberos is mandatory in any properly hardened domain",
+            "This combination confirms the logon failed and no further action is needed, since AuthenticationPackageName only appears on unsuccessful attempts",
           ],
           answer: 1,
           explanation:
@@ -436,10 +435,10 @@ const investigateAlertRoom: Room = {
           question:
             "You now have: a macro-driven PowerShell process on WKS-FIN07 under j.alvarez, followed 52 minutes later by d.reyes authenticating from that same workstation onto FIN-DB02. Per Step 2's guidance, what should you do with this finding, and what should you explicitly avoid concluding yet?",
           options: [
-            "Conclude the investigation is fully scoped at two hosts and two accounts, close the scoping step, and move straight to containment on both",
+            "Conclude the investigation is fully scoped at two hosts and two accounts, close the scoping step, and move straight to containment on both, since two pivots is generally considered thorough enough",
             "Treat this as scope expansion requiring another loop — collect evidence from FIN-DB02 itself and check whether d.reyes's credentials or session were used anywhere else — while explicitly not yet claiming this is the full extent, since that has not been searched for",
-            "Discard this finding as irrelevant, since the original ticket only named j.alvarez and this room's Step 2 only concerns the account in the ticket",
-            "Reset d.reyes's password immediately as the entire scoping step, since a privileged account is involved",
+            "Discard this finding as irrelevant, since the original ticket only named j.alvarez and this room's Step 2 only concerns the account in the ticket, not accounts discovered along the way",
+            "Reset d.reyes's password immediately as the entire scoping step, since resetting a privileged account's credentials is itself considered sufficient evidence-gathering under this workflow",
           ],
           answer: 1,
           explanation:
@@ -482,10 +481,10 @@ const investigateAlertRoom: Room = {
         question:
           "In the '5 Whys' worked example in Reading 4, why is 'a user opened a malicious document' rejected as the root cause?",
         options: [
-          "Because it isn't true -- the user never actually opened the document",
+          "Because it isn't true -- the user never actually opened the document, so the entire premise of the statement is factually incorrect from the start",
           "Because it describes the trigger, not the failure -- the actual root cause is the specific control gap (e.g. macro execution from internet-sourced documents wasn't blocked by policy on that workstation) that let opening it lead to code execution",
-          "Because root cause must always name a specific software vendor's product",
-          "Because 5 Whys requires exactly five separate root causes to be listed",
+          "Because root cause must always name a specific software vendor's product responsible for the flaw, and this phrasing names no vendor at all",
+          "Because 5 Whys requires exactly five separate root causes to be listed as the end result, and this statement only offers one",
         ],
         answer: 1,
         explanation:
@@ -514,10 +513,10 @@ const investigateAlertRoom: Room = {
       question:
         "The archive-creation record shows a PowerShell process invoking a compression utility against a folder of export files, producing a single large archive. Which ATT&CK tactic and technique does this specific behaviour map to?",
       options: [
-        "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel) — the data has already left the environment at this point",
+        "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel) — the data has already left the environment at this point, since compressing files is understood as the first stage of a C2 transfer",
         "Tactic: Collection; Technique: T1560.001 (Archive Collected Data via Utility) — files are being gathered and compressed into a single package, which is preparation for likely removal, not removal itself",
-        "Tactic: Discovery; Technique: T1083 (File and Directory Discovery) — the activity only involves identifying which files exist",
-        "Tactic: Persistence; Technique: T1547 (Boot or Logon Autostart Execution) — the archive is being staged to survive a reboot",
+        "Tactic: Discovery; Technique: T1083 (File and Directory Discovery) — the activity only involves identifying which files exist, and no content has actually been read or copied yet",
+        "Tactic: Persistence; Technique: T1547 (Boot or Logon Autostart Execution) — the archive is being staged in a location that will re-launch it automatically at the next system boot",
       ],
       answer: 1,
       explanation:
@@ -560,10 +559,10 @@ const investigateAlertRoom: Room = {
       question:
         "A colleague hands off a ticket with the note: 'Confirmed malicious PowerShell on one host, contained, closed.' Based on this room, what is missing from a complete Step 7 hand-off, and why does it matter?",
       options: [
-        "Nothing is missing — containment is the goal of an investigation, and once a host is contained the hand-off is complete",
+        "Nothing is missing — containment is the goal of an investigation, and once a host is contained the hand-off note has done its job regardless of what else it does or doesn't say",
         "It is missing detection method, full timeline, root cause and corrective actions — without them, the next person (or the next shift) has no way to know how this was found, whether it could recur, or whether the scope claim was ever actually tested by pivoting beyond the one host named",
-        "It is missing only the exact time the ticket was closed, which is a formatting issue rather than a substantive gap",
-        "It is missing nothing substantive, since 'contained' already implies scope was fully established beforehand",
+        "It is missing only the exact time the ticket was closed, which is a formatting issue a ticketing system's audit trail already captures automatically anyway",
+        "It is missing nothing substantive, since the word 'confirmed' already implies every one of Step 7's five required elements was independently verified",
       ],
       answer: 1,
       explanation:
@@ -716,10 +715,10 @@ const writingIncidentReportRoom: Room = {
       checkpoint: {
         question: "Per Reading 1, why is one report with an executive summary at the top usually preferred over two entirely separate documents?",
         options: [
-          "Separate documents are harder to store on a shared drive",
+          "Separate documents are harder to store on a shared drive, since most document-management systems only version-control a single file at a time",
           "Splitting into separate documents invites drift -- the executive version can quietly diverge from the technical version over revisions, which nobody notices until they're compared line by line later",
-          "Executives are legally required to read the full technical report",
-          "Two documents take longer to write than one",
+          "Executives are legally required to read the full technical report, so producing a separate summary document would fail to satisfy that requirement",
+          "Two documents take longer to write than one, since the writer has to format and proofread each file separately before either can be circulated",
         ],
         answer: 1,
         explanation:
@@ -769,10 +768,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "A draft executive summary reads: 'T1053.005 persistence was established via a scheduled task on AP-SRV14 using svc-report credentials; ATT&CK mapping and MITRE technique classification are documented in Section 5.' What is the strongest criticism of this summary?",
       options: [
-        "It is too short and needs additional technical detail to be complete",
+        "It is too short and needs additional technical detail to be complete, including the full command-line strings and process tree Section 5 already documents",
         "It reads as technical-lite rather than genuinely translated — ATT&CK IDs and technique names are not business language, and a non-technical reader still cannot answer 'what does this mean for us' from this text alone, which is the entire purpose of the section",
-        "It should not mention the affected hostname, since hostnames are always considered too sensitive for an executive summary",
-        "It is fine as written, since executives at a technology-driven company should be expected to understand MITRE ATT&CK terminology",
+        "It should not mention the affected hostname, since hostnames are always considered too sensitive for an executive summary and belong exclusively in the technical section",
+        "It is fine as written, since executives at a technology-driven company should be expected to understand MITRE ATT&CK terminology as part of general business literacy",
       ],
       answer: 1,
       explanation:
@@ -859,9 +858,9 @@ const writingIncidentReportRoom: Room = {
             "Which field should be listed as a file-hash IOC, and what critical detail must accompany it in the report so the value is actually usable?",
           options: [
             "SHA256, and it must be labelled as SHA256 specifically — a hash value with no algorithm stated is ambiguous and can't be matched correctly against another tool's hash database",
-            "FolderPath, since a full path is more precise than any hash value",
-            "AccountSid, since it uniquely identifies the account regardless of hash type",
-            "No labelling is needed — all hash algorithms produce values in the same format and are interchangeable",
+            "FolderPath, since a full path is more precise than any hash value and should be listed instead of a hash whenever both are available",
+            "AccountSid, since it uniquely identifies the account regardless of hash type and is a more stable long-term identifier than any file-level indicator",
+            "No labelling is needed — all hash algorithms produce values in the same fixed-length format and are interchangeable once extracted from a Defender record",
           ],
           answer: 0,
           explanation:
@@ -872,10 +871,10 @@ const writingIncidentReportRoom: Room = {
           question:
             "Drafting the technical timeline entry for this event, which of the following is written correctly per this room's standard?",
           options: [
-            "'Late one night, something suspicious happened on the AP server involving a task' — vague enough to avoid overstating what's known",
+            "'Late one night, something suspicious happened on the AP server involving a task' — vague phrasing chosen deliberately, on the reasoning that fewer specific claims means fewer things a reviewer could later dispute",
             "'2026-06-02T23:14:08 UTC — A scheduled task named OneDriveSyncHelper was created on AP-SRV14 under the svc-report account, configured to run an unsigned binary from ProgramData at every logon with SYSTEM privileges — an established persistence mechanism (T1053.005) surviving reboot or credential rotation'",
-            "'This is definitely the attacker's primary backdoor and the most important finding in the entire case' — strong, decisive language for maximum clarity",
-            "The event should be left out of the timeline entirely and only listed in the IOCs section, since the file hash already captures what's needed",
+            "'This is definitely the attacker's primary backdoor and the most important finding in the entire case' — strong, decisive language chosen for maximum clarity and impact on the reader",
+            "The event should be left out of the timeline entirely and only listed in the IOCs section, since the file hash by itself already captures everything a reviewer would need to know about this finding",
           ],
           answer: 1,
           explanation:
@@ -891,10 +890,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "Three weeks after the report is submitted, you're asked why AP-SRV14 was disabled for four hours during the response. Your notes on that decision were never written down and you're relying on memory. What does this room's principle of defensibility say about that situation?",
       options: [
-        "It's fine, as long as your memory of the decision is accurate, since accuracy is all that matters for a review",
+        "It's fine, as long as your memory of the decision is accurate, since a reviewer's job is to evaluate whether the decision itself was sound, not whether it was written down at the time",
         "An undocumented decision is, for practical and defensibility purposes, indistinguishable from a decision with no basis at all — 'if it wasn't documented, it didn't happen' means a reviewer three weeks later has no way to verify your reasoning was sound at the time, regardless of whether it actually was",
-        "This only matters if the incident becomes a legal matter; for an internal-only review, memory is an acceptable substitute for contemporaneous notes",
-        "Defensibility only applies to evidence collected from logs, not to operational decisions like disabling a host",
+        "This only matters if the incident becomes a legal matter; for an internal-only review, memory is an acceptable substitute for contemporaneous notes since no outside party will ever scrutinize it",
+        "Defensibility only applies to evidence collected from logs, not to operational decisions like disabling a host, which are judgment calls that don't require the same documentation standard",
       ],
       answer: 1,
       explanation:
@@ -929,10 +928,10 @@ const writingIncidentReportRoom: Room = {
       checkpoint: {
         question: "Per Reading 4, what six questions should every factual claim in a report be able to answer?",
         options: [
-          "Severity, priority, confidence, impact, likelihood, and cost",
+          "Severity, priority, confidence, impact, likelihood, and cost -- the standard six-field scoring rubric Reading 4 says every claim should be rated against before it's included",
           "Who, what, when, where, why, and how -- and a sentence missing several of these is one a reviewer will have to come back and ask about",
-          "Detection method, scope, timeline, root cause, recommendations, and owner",
-          "Vendor, product, version, hostname, IP, and hash",
+          "Detection method, scope, timeline, root cause, recommendations, and owner -- the six section headings Reading 2 lists for the report as a whole, applied here to individual sentences",
+          "Vendor, product, version, hostname, IP, and hash -- the six technical fields Reading 4 says must accompany every claim drawn from a log record",
         ],
         answer: 1,
         explanation:
@@ -968,10 +967,10 @@ const writingIncidentReportRoom: Room = {
       checkpoint: {
         question: "Why does Reading 5 single out 'human error' as a failure mode for a root cause statement, alongside vague restatements of the attack?",
         options: [
-          "Because human error is never actually a factor in real intrusions",
+          "Because human error is never actually a factor in real intrusions, so citing it as a cause is factually incorrect in every case, not just an unhelpfully vague one",
           "Because it sounds like an explanation but names no specific, correctable gap, and tends to unfairly concentrate blame on an individual for a failure that was actually organisational",
-          "Because 'human error' is a term reserved exclusively for safety incidents, not security incidents",
-          "Because naming human error always triggers a legal disclosure requirement",
+          "Because 'human error' is a term reserved exclusively for safety incidents, not security incidents, and using it here is simply the wrong vocabulary for this document type",
+          "Because naming human error always triggers a legal disclosure requirement that the SOC would rather avoid creating in the first place",
         ],
         answer: 1,
         explanation:
@@ -1003,10 +1002,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "A draft Recommendations section reads: 'Improve overall security awareness training' and 'Patch systems regularly,' with no reference to anything specific from this incident. What is the correct criticism, based on this room?",
       options: [
-        "These are strong recommendations because they are broadly applicable to any organization and therefore safe to include",
+        "These are strong recommendations because they are broadly applicable to any organization, and broad applicability is exactly what makes a recommendation valuable in a report",
         "These recommendations don't trace back to the specific root cause identified in this incident — they read as generic filler that lets the actual gap (in this case, excess service-account privilege and missing detection coverage) go unaddressed while making the report look complete",
-        "Recommendations should never mention training or patching under any circumstances, regardless of the incident",
-        "This is fine as long as the Root Cause section above it is written well, since Recommendations don't need to connect to it directly",
+        "Recommendations should never mention training or patching under any circumstances, regardless of the incident, since those two categories are considered out of scope for any SOC report by convention",
+        "This is fine as long as the Root Cause section above it is written well, since Recommendations are read independently and don't need to connect to it directly",
       ],
       answer: 1,
       explanation:
@@ -1029,10 +1028,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "A reviewer asks why your Technical Timeline states 'no activity beyond AP-SRV14 was identified' rather than 'no activity beyond AP-SRV14 occurred.' Why does this room's approach to defensibility prefer the first phrasing?",
       options: [
-        "There is no meaningful difference between the two phrasings, and either is equally acceptable in a report",
+        "There is no meaningful difference between the two phrasings, and either is equally acceptable in a report since both convey the same finding to the reader",
         "The first phrasing accurately states the boundary of what was actually searched and found, while the second asserts a fact about the entire environment that the investigation cannot actually prove — only what was checked, and what that check found, can be honestly claimed",
-        "The second phrasing should always be preferred, since a confident report is more useful to leadership than a hedged one",
-        "This distinction only matters for reports that will be reviewed by outside legal counsel",
+        "The second phrasing should always be preferred, since a confident report is more useful to leadership than a hedged one, even when that confidence outruns what the evidence actually supports",
+        "This distinction only matters for reports that will be reviewed by outside legal counsel, and can be safely ignored for reports staying entirely inside the SOC",
       ],
       answer: 1,
       explanation:

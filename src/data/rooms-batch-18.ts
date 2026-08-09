@@ -280,10 +280,10 @@ const kerberosRoom: Room = {
       question:
         "A junior analyst says 'this can't be Kerberoasting — the requesting user, k.alvarez, has no group membership or ACL entry granting them access to the SQL service they requested a ticket for.' Why does this reasoning not rule out Kerberoasting?",
       options: [
-        "It doesn't matter because Kerberoasting only works against Domain Admin accounts, which k.alvarez is not",
+        "It doesn't matter because Kerberoasting only works against Domain Admin accounts, which k.alvarez is not — the KDC specifically checks the requester's admin group membership before it will ever issue a TGS for any SPN",
         "The KDC issuing a TGS-REQ/TGS-REP does not check the requesting user's authorization to actually use the target service at all — only that the SPN exists and the requester holds a valid TGT; authorization happens later, at the service itself, which the attacker never needs to reach if they only want to crack the ticket offline",
-        "Group membership and ACLs are only relevant to NTLM, not Kerberos, so the question is a category error",
-        "TGS tickets can only be requested by accounts that are already local administrators on the target server",
+        "Group membership and ACLs are only relevant to NTLM, not Kerberos, so the question is a category error — Kerberos tickets are never subject to any access-control evaluation at any stage, by either the KDC or the target service",
+        "TGS tickets can only be requested by accounts that are already local administrators on the target server, so k.alvarez must already hold elevated rights there for this ticket to have been issued at all",
       ],
       answer: 1,
       explanation:
@@ -322,10 +322,10 @@ const kerberosRoom: Room = {
         question:
           "According to the reading, what is the fastest way to distinguish Kerberoasting from AS-REP roasting in DC logs?",
         options: [
-          "The encryption type recorded — Kerberoasting always uses AES and AS-REP roasting always uses RC4",
+          "The encryption type recorded — Kerberoasting always uses AES-256 and AS-REP roasting always uses RC4, so TicketEncryptionType alone is sufficient to tell them apart without checking the Event ID at all",
           "The Event ID and precondition: a 4769 from an account that already holds a TGT is Kerberoasting; a 4768 with PreAuthType 0 requiring no prior credentials is AS-REP roasting",
-          "The source IP address, since only Kerberoasting logs a source IP at all",
-          "The time of day the ticket was requested",
+          "The source IP address, since only Kerberoasting requests log a source IP field at all — AS-REP roasting requests are recorded without any IpAddress value on the 4768",
+          "The time of day the ticket was requested, since Kerberoasting only occurs during business hours and AS-REP roasting only occurs overnight when monitoring is reduced",
         ],
         answer: 1,
         explanation:
@@ -344,10 +344,10 @@ const kerberosRoom: Room = {
           question:
             "TargetUserName — the requesting account on a 4769 — is 'k.alvarez', TicketEncryptionType is 0x17 (RC4), Status is 0x0 (success), and per the SIEM correlation noted above this account requested 59 distinct SPNs in the preceding three minutes. What does this combination indicate?",
           options: [
-            "This is routine behavior — Kerberos clients always request tickets in bulk when a workstation first joins the network each morning",
+            "This is routine behavior — Kerberos clients always request tickets in bulk when a workstation first joins the network each morning, regardless of how many distinct services are involved or which account is requesting them",
             "k.alvarez is Kerberoasting: an authenticated user with no apparent business need for these services requested RC4-encrypted TGS tickets across 59 distinct SPNs in three minutes, matching the volume, encryption-downgrade, and breadth-across-services signature from Reading 5",
-            "TicketEncryptionType 0x17 means the request failed and no ticket was actually issued",
-            "Nothing has actually been captured yet — the ticket is encrypted, so the KDC has not disclosed any secret to k.alvarez at this stage",
+            "TicketEncryptionType 0x17 means the request failed and no ticket was actually issued, so Status: 0x0 in this event must refer to an unrelated system check rather than the Kerberos exchange itself",
+            "Nothing has actually been captured yet — the ticket is encrypted, so the KDC has not disclosed any secret to k.alvarez at this stage, and no further action is needed until an actual decryption attempt is observed",
           ],
           answer: 1,
           explanation:
@@ -358,10 +358,10 @@ const kerberosRoom: Room = {
           question:
             "A colleague argues this can't be Kerberoasting because k.alvarez has no permissions on the reporting service and would be denied access if they tried to actually use the ticket. Why is that argument incomplete?",
           options: [
-            "It's correct — without permission to use the service, the ticket has no value to an attacker at all",
+            "It's correct — without permission to use the service, the ticket has no value to an attacker at all, since Kerberos tickets can only be decrypted by whoever the KDC intended to grant access to",
             "Whether k.alvarez could ever successfully use the service is irrelevant to Kerberoasting: the attacker's goal is to crack the ticket offline to recover svc_reporting's password, which requires no further interaction with the service or the domain at all",
-            "Permissions on the target service are checked by the KDC before it issues the 4769, so this event proves k.alvarez does have access",
-            "This argument would be correct for AS-REP roasting but Kerberoasting works differently and never requires cracking anything",
+            "Permissions on the target service are checked by the KDC before it issues the 4769, so this event proves k.alvarez does have some legitimate form of access to the reporting service already",
+            "This argument would be correct for AS-REP roasting but Kerberoasting works differently and never requires cracking anything at all, since the TGS itself already contains the plaintext password",
           ],
           answer: 1,
           explanation:
@@ -372,10 +372,10 @@ const kerberosRoom: Room = {
           question:
             "What is the correct response given this pattern?",
           options: [
-            "No action needed — since the request succeeded normally, this is expected Kerberos behavior",
+            "No action needed — since the request succeeded normally, this is expected Kerberos behavior, and a single account requesting many distinct SPNs in a short window is a routine, well-documented pattern with no security implications",
             "Treat svc_reporting's password as potentially compromised: rotate it immediately, review k.alvarez's account and host for how it came to enumerate and request 59 SPNs (likely automated tooling, not manual activity), and audit domain-wide for other accounts still permitted to request RC4 tickets that should be AES-only",
-            "Disable Kerberos domain-wide until the investigation concludes",
-            "Add svc_reporting to a Kerberos allowlist so future ticket requests for it are automatically denied",
+            "Disable Kerberos domain-wide until the investigation concludes, since there is no way to isolate this behavior to one account without turning off the authentication protocol for the entire environment",
+            "Add svc_reporting to a Kerberos allowlist so future ticket requests for it are automatically denied, since an allowlist is how the KDC restricts which accounts may request a ticket for a given SPN",
           ],
           answer: 1,
           explanation:
@@ -425,10 +425,10 @@ const kerberosRoom: Room = {
           question:
             "PreAuthType is recorded as 0, TicketEncryptionType is 0x17, and Status is 0x0 (success), with no 4771 (pre-authentication failure) preceding it for this account. What does this combination indicate?",
           options: [
-            "PreAuthType 0 simply means AES was used instead of RC4, which is unrelated to encryption type and not a concern",
+            "PreAuthType 0 simply means AES was used instead of RC4, which is unrelated to encryption type and not a concern — TicketEncryptionType and PreAuthType describe the exact same underlying cipher choice",
             "This account has Kerberos pre-authentication disabled (PreAuthType: 0, normal is 2), meaning the KDC issued this AS-REP to anyone who requested a TGT by username, with no proof of the password at all — a textbook AS-REP roasting target, and the RC4 encryption further means any recovered password is cheap to crack",
-            "The absence of a 4771 proves the request definitely came from the legitimate service and should be closed as benign",
-            "Status: 0x0 combined with PreAuthType: 0 indicates the account is locked and the request was automatically rejected",
+            "The absence of a 4771 proves the request definitely came from the legitimate service and should be closed as benign, since any illegitimate pre-authentication attempt would always generate a 4771 first",
+            "Status: 0x0 combined with PreAuthType: 0 indicates the account is locked and the request was automatically rejected, meaning no AS-REP was actually returned to the requester at all",
           ],
           answer: 1,
           explanation:
@@ -439,10 +439,10 @@ const kerberosRoom: Room = {
           question:
             "The requesting IP, 10.55.2.211, has no prior association with svc_reports in any log, and the account belongs to a tool the asset inventory says was decommissioned eight months ago. Why does that context matter here specifically, more than it would for a normal service account?",
           options: [
-            "It doesn't matter — decommissioned accounts are automatically disabled in Active Directory and cannot authenticate at all",
+            "It doesn't matter — decommissioned accounts are automatically disabled in Active Directory the moment they are retired, so a successful AS-REP for this account is itself proof the asset inventory's 'decommissioned eight months ago' note must be incorrect and can be safely disregarded",
             "A decommissioned account with pre-authentication disabled is exactly the kind of forgotten, unmonitored credential AS-REP roasting targets — nobody is watching its password, nobody expected it to ever authenticate again, and unlike Kerberoasting, this attack requires no valid domain credentials at all, so this event alone could represent the very first foothold of an intrusion rather than lateral movement from an already-compromised account",
-            "The IP address field is not logged for 4768 events, so this detail cannot be verified",
-            "AS-REP roasting can only be performed by an account that is already a Domain Administrator",
+            "The IP address field is not logged for 4768 events at all, so this detail cannot be verified from the Domain Controller's own audit trail, and the analyst has no reliable way to determine whether the request originated from an internal host or an external attacker",
+            "AS-REP roasting can only be performed by an account that is already a Domain Administrator, so an unprivileged, decommissioned service account like svc_reports could never realistically be a viable target for this specific technique regardless of its pre-authentication settings",
           ],
           answer: 1,
           explanation:
@@ -454,9 +454,9 @@ const kerberosRoom: Room = {
             "What is the correct next step?",
           options: [
             "Disable svc_reports immediately if it is confirmed genuinely unused, rotate its password regardless as a precaution, and check whether it (or the DONT_REQ_PREAUTH flag) also appears on any other still-active account, since this misconfiguration is rarely limited to one account",
-            "No action is needed since the ticket was only issued, not necessarily cracked yet",
-            "Re-enable pre-authentication is impossible once an account is created, so the only fix is deleting the account entirely without further review",
-            "Escalate as a confirmed Golden Ticket incident, since PreAuthType 0 is the Golden Ticket indicator",
+            "No action is needed since the ticket was only issued, not necessarily cracked yet, and Kerberos tickets cannot be brute-forced offline without also compromising the Domain Controller directly",
+            "Re-enable pre-authentication is impossible once an account is created, so the only fix is deleting the account entirely without further review or confirmation that it is truly unused",
+            "Escalate as a confirmed Golden Ticket incident, since PreAuthType 0 is the definitive Golden Ticket indicator described in Reading 6, requiring immediate krbtgt password rotation",
           ],
           answer: 0,
           explanation:
@@ -471,10 +471,10 @@ const kerberosRoom: Room = {
       question:
         "You are triaging two separate DC log entries. Entry A: a 4769 for SPN MSSQLSvc/sqlrpt02.meridian.local:1433, TicketEncryptionType 0x17, requested by an account that also has 47 similar requests to other SPNs in the same two minutes. Entry B: a 4768 for account svc_legacyftp, PreAuthType 0, TicketEncryptionType 0x17, no prior activity from this account at all. Which is Kerberoasting and which is AS-REP roasting?",
       options: [
-        "Both are Kerberoasting, since both show RC4 (0x17) encryption, which is the defining signal for the technique",
+        "Both are Kerberoasting, since both show RC4 (0x17) encryption, which is the defining signal for the technique regardless of which Event ID or precondition each entry shows",
         "Entry A is Kerberoasting (a 4769, high volume of distinct SPN requests, from an account that already holds a valid TGT); Entry B is AS-REP roasting (a 4768 with PreAuthType 0, meaning pre-authentication was never required at all)",
-        "Entry A is AS-REP roasting and Entry B is Kerberoasting, because AS-REP roasting always involves multiple requests in a short window",
-        "Neither can be determined without the source IP address, since Event ID alone never distinguishes these two attacks",
+        "Entry A is AS-REP roasting and Entry B is Kerberoasting, because AS-REP roasting always involves multiple requests in a short window while Kerberoasting only ever produces a single request",
+        "Neither can be determined without the source IP address, since Event ID alone never distinguishes these two attacks and PreAuthType is not a reliable field on its own",
       ],
       answer: 1,
       explanation:
@@ -717,10 +717,10 @@ const privescRoom: Room = {
       question:
         "An EDR alert shows a process at IntegrityLevel: Medium attempting to open lsass.exe with GrantedAccess: 0x1FFFFF, and the access request is logged as denied. What is the correct interpretation?",
       options: [
-        "The attempt still succeeded in reading LSASS memory, since the process explicitly requested full access",
+        "The attempt still succeeded in reading LSASS memory, since the process explicitly requested full access — GrantedAccess always reflects what the requesting process obtained, never what was merely asked for",
         "Windows correctly denied the request because a Medium-integrity process lacks the enabled SeDebugPrivilege and elevation required for PROCESS_ALL_ACCESS against a SYSTEM-protected process — the attacker (or tool) would need to escalate to High/System integrity first before this request could succeed",
-        "GrantedAccess only reflects what was requested, never what Windows actually allowed, so this field is not useful for triage",
-        "Medium integrity processes can always read LSASS memory as long as the user account is a local administrator",
+        "GrantedAccess only reflects what was requested, never what Windows actually allowed, so this field is not useful for triage — an analyst would need to separately confirm success or denial from an entirely different log source",
+        "Medium integrity processes can always read LSASS memory as long as the user account is a local administrator, since group membership alone determines what access mask Windows will grant regardless of integrity level",
       ],
       answer: 1,
       explanation:
@@ -765,9 +765,9 @@ const privescRoom: Room = {
           "According to the reading, what precondition must already be true for the fodhelper UAC bypass to work at all?",
         options: [
           "The account must already be a member of the local Administrators group in Admin Approval Mode",
-          "The account must hold SeImpersonatePrivilege",
-          "The target machine must have UAC completely disabled",
-          "The attacker must already have dumped LSASS memory",
+          "The account must hold SeImpersonatePrivilege, since that privilege alone is what allows any auto-elevate binary to skip the UAC consent prompt",
+          "The target machine must have UAC completely disabled, since fodhelper only silently auto-elevates when UAC enforcement itself has been turned off",
+          "The attacker must already have dumped LSASS memory, since the credentials recovered there are what fodhelper uses to authenticate the elevation request",
         ],
         answer: 0,
         explanation:
@@ -786,10 +786,10 @@ const privescRoom: Room = {
           question:
             "ParentImage is fodhelper.exe with IntegrityLevel: High, but this session's own explorer.exe (the process that would have launched fodhelper.exe) is running at Medium integrity, and no consent.exe process appears anywhere in the session. What does this combination indicate?",
           options: [
-            "fodhelper.exe legitimately requires no elevation at all, so IntegrityLevel: High here is unremarkable",
+            "fodhelper.exe legitimately requires no elevation at all under any circumstances, so IntegrityLevel: High here is completely unremarkable and no different from any other ordinary process this user might launch during a normal workday",
             "fodhelper.exe is one of a small set of Microsoft binaries that silently auto-elevate; the missing consent.exe combined with the immediately preceding HKCU registry write matches the fodhelper UAC bypass (T1548.002) — a hijacked command handler planted in the user's own writable hive was executed at High integrity the moment fodhelper.exe auto-elevated and read it",
-            "IntegrityLevel is a Sysmon field with no relationship to whether a UAC prompt was shown",
-            "This always happens automatically whenever Windows Update restarts explorer.exe",
+            "IntegrityLevel is only a cosmetic Sysmon display field with no real relationship to whether a UAC prompt was actually shown, so its value here provides no useful information about how this process actually reached High integrity",
+            "This always happens automatically whenever Windows Update silently restarts explorer.exe in the background, re-elevating every child process fodhelper.exe subsequently launches regardless of any registry state",
           ],
           answer: 1,
           explanation:
@@ -815,9 +815,9 @@ const privescRoom: Room = {
             "What is the correct response, given this pattern is confirmed?",
           options: [
             "Kill the resulting process tree, remove the hijacked HKCU registry value, pull the full Sysmon ancestry for ProcessGuid to determine what the High-integrity process actually did, and separately review why/how d.oyelaran's account holds local administrator rights on this endpoint at all, since the technique only works against an already-privileged account",
-            "No action needed since fodhelper.exe is a legitimate, digitally signed Microsoft binary",
-            "Immediately revoke d.oyelaran's domain account entirely, since local admin rights alone prove malicious intent",
-            "Disable UAC domain-wide so future auto-elevate whitelisting can no longer be abused",
+            "No action needed since fodhelper.exe is a legitimate, digitally signed Microsoft binary, and any process it subsequently launches automatically inherits that same trusted, verified status regardless of what registry key actually directed it",
+            "Immediately revoke d.oyelaran's domain account entirely, since local admin rights alone are always sufficient proof of malicious intent and no further investigation of what actually executed is ever necessary",
+            "Disable UAC domain-wide so future auto-elevate whitelisting can never again be abused by anyone, even though this permanently removes a control layer for every other legitimate elevation across every endpoint in the domain",
           ],
           answer: 0,
           explanation:
@@ -863,10 +863,10 @@ const privescRoom: Room = {
       question:
         "A web shell is confirmed running under the IIS APPPOOL\\ContosoSite identity, which shows IntegrityLevel: Medium and holds SeImpersonatePrivilege by default. What is the accurate way to describe the attacker's current position?",
       options: [
-        "The attacker already has full SYSTEM-level control of the host, since any code execution on a Windows server is equivalent to SYSTEM access",
+        "The attacker already has full SYSTEM-level control of the host, since any code execution on a Windows server is equivalent to SYSTEM access regardless of which account the process is actually running under",
         "The attacker has code execution limited to a low-privileged virtual service account, but because that account holds SeImpersonatePrivilege, they are potentially one Potato-family exploit away from a SYSTEM token — the escalation still has to happen, it just has a short, well-known path available",
-        "IIS application pool identities never hold any privileges beyond serving HTTP requests, so no further escalation from this position is possible",
-        "SeImpersonatePrivilege only matters for Kerberos authentication and has no relevance to a locally running web shell",
+        "IIS application pool identities never hold any privileges beyond serving HTTP requests, so no further escalation from this position is possible under any circumstances, including via impersonation-based exploits",
+        "SeImpersonatePrivilege only matters for Kerberos authentication and has no relevance to a locally running web shell, since impersonation privileges apply exclusively to network-based protocols",
       ],
       answer: 1,
       explanation:
@@ -930,10 +930,10 @@ const privescRoom: Room = {
       question:
         "A service named MeridianSyncSvc is configured with ImagePath: C:\\Program Files\\Meridian Sync\\agent.exe (unquoted, containing spaces) and runs as LocalSystem. An analyst finds a newly created file at C:\\Program Files\\Meridian.exe that was not present last week. What is the most likely explanation and risk?",
       options: [
-        "This is unrelated to the service — Windows never attempts to resolve unquoted paths by trying space-delimited substrings",
+        "This is unrelated to the service — Windows never attempts to resolve unquoted paths by trying space-delimited substrings, and ImagePath is always executed exactly as written regardless of spaces or quoting",
         "An attacker placed a binary at exactly one of the intermediate paths Windows tries when resolving this unquoted ImagePath; the next time MeridianSyncSvc starts, Windows will likely execute C:\\Program Files\\Meridian.exe instead of the intended agent.exe, running the attacker's file as SYSTEM",
-        "The file is harmless because services only ever execute the exact final path listed in ImagePath, regardless of quoting",
-        "This only becomes exploitable if the attacker also has SeImpersonatePrivilege, which is unrelated to unquoted service paths",
+        "The file is harmless because services only ever execute the exact final path listed in ImagePath, regardless of quoting, since Windows always validates the full string against the service's registered configuration first",
+        "This only becomes exploitable if the attacker also has SeImpersonatePrivilege, which is unrelated to unquoted service paths, since privilege escalation always requires impersonation regardless of the specific technique used",
       ],
       answer: 1,
       explanation:
@@ -1130,10 +1130,10 @@ const persistenceRoom: Room = {
         question:
           "According to the reading, why does an entry under HKLM's Run key imply more about an attacker's access than one under HKCU's Run key?",
         options: [
-          "HKLM entries only run once and then delete themselves",
+          "HKLM entries only run once and then delete themselves, which is what makes them require administrator rights to write in the first place",
           "Writing to HKLM requires administrator rights, since it's a machine-wide protected location, while HKCU is always writable by the logged-on user regardless of privilege",
-          "HKCU entries can only be created by SYSTEM-level processes",
-          "There is no difference — both require identical privilege to write to",
+          "HKCU entries can only be created by SYSTEM-level processes, which is exactly why a HKCU Run key entry implies more privileged access than one under HKLM",
+          "There is no difference — both require identical administrator-level privilege to write to, regardless of which hive the Run key value is stored under",
         ],
         answer: 1,
         explanation:
@@ -1190,10 +1190,10 @@ const persistenceRoom: Room = {
         question:
           "A local account with no sudo rights runs crontab -e and successfully installs a recurring job. No privilege-escalation event appears anywhere in the logs. Why not?",
         options: [
-          "This must be a logging failure — installing a cron job always requires root, so an escalation event should have fired",
+          "This must be a logging failure — installing a cron job always requires root, so an escalation event should have fired somewhere in the auditd trail even if crontab itself didn't log one directly",
           "The setgid bit on /usr/bin/crontab lets any user temporarily borrow the crontab group's write access to the spool directory for that one command — the user never actually escalated privileges, so there is nothing for an escalation detection to catch",
-          "Cron jobs installed via crontab -e always run with the privileges of the user who last edited /etc/crontab, so no escalation was needed",
-          "Escalation events only fire for Windows Task Scheduler, not for any Linux persistence mechanism",
+          "Cron jobs installed via crontab -e always run with the privileges of the user who last edited /etc/crontab, so no escalation was needed because that file's owner is effectively inherited by every new job",
+          "Escalation events only fire for Windows Task Scheduler, not for any Linux persistence mechanism, since Linux auditd does not track privilege-related process activity at all",
         ],
         answer: 1,
         explanation:
@@ -1280,10 +1280,10 @@ const persistenceRoom: Room = {
         question:
           "According to the reading, why are WMI permanent event subscriptions considered one of the stealthiest persistence mechanisms?",
         options: [
-          "They require SYSTEM privilege just to create, which makes them rare",
+          "They require SYSTEM privilege just to create, which makes them rare enough that most environments never see one registered outside of legitimate management tooling",
           "They live in the WMI repository itself — not the file system, registry Run keys, or Task Scheduler — so standard 'autoruns' tooling checking only the well-known locations won't find them at all",
-          "They can only be detected by physically inspecting the hard drive",
-          "They automatically delete all Sysmon logs related to their creation",
+          "They can only be detected by physically inspecting the hard drive with the machine powered off, since no live Windows tooling can query the WMI repository while the OS is running",
+          "They automatically delete all Sysmon logs related to their creation, which is why Sysmon Events 19/20/21 never actually appear for this mechanism",
         ],
         answer: 1,
         explanation:
@@ -1296,10 +1296,10 @@ const persistenceRoom: Room = {
       question:
         "An incident responder checks Run keys, the Startup folder, Task Scheduler, and Services on a compromised host and finds nothing unusual. They conclude the host has no persistence. What is wrong with this conclusion?",
       options: [
-        "Nothing is wrong — those four locations cover every possible Windows persistence mechanism",
+        "Nothing is wrong — those four locations cover every possible Windows persistence mechanism, since Microsoft has never introduced any component capable of running code outside them",
         "It's incomplete: BITS jobs (with a NotifyCmdLine payload) and WMI permanent event subscriptions are both common persistence mechanisms that live entirely outside those four locations, and a thorough sweep has to check the WMI repository and BITS job list specifically",
-        "The conclusion is wrong because Run keys and Startup folders are actually the same location and were only checked once",
-        "Persistence mechanisms are only relevant on Linux hosts, so this check was unnecessary on a Windows host to begin with",
+        "The conclusion is wrong because Run keys and Startup folders are actually the same underlying location and were effectively only checked once, leaving Task Scheduler and Services unexamined",
+        "Persistence mechanisms are only relevant on Linux hosts, so this check was unnecessary on a Windows host to begin with, and Windows processes cannot be made to survive a reboot at all",
       ],
       answer: 1,
       explanation:
@@ -1318,10 +1318,10 @@ const persistenceRoom: Room = {
           question:
             "The command line specifies /ru SYSTEM, and the process ran at IntegrityLevel: High. What does IntegrityLevel: High tell you about whether this registration would succeed, given what Reading 2 taught about the /ru flag?",
           options: [
-            "It's irrelevant — /ru SYSTEM always succeeds regardless of the caller's integrity level",
+            "It's irrelevant — /ru SYSTEM always succeeds regardless of the caller's integrity level, since Task Scheduler only validates the target principal exists, never the caller's own privileges",
             "It confirms the calling process already held an elevated token, satisfying the requirement Task Scheduler enforces before allowing a task to be registered under the SYSTEM principal — this registration would very likely succeed rather than being rejected",
-            "IntegrityLevel: High means the task will run once and then be automatically deleted",
-            "This field only applies to Sysmon Event 13, not process-creation events, so it can't be used to reason about this task",
+            "IntegrityLevel: High means the task will run once and then be automatically deleted, the same behavior as a RunOnce registry key rather than a persistent scheduled task",
+            "This field only applies to Sysmon Event 13, not process-creation events, so it can't be used to reason about this task, which was instead captured under a different event type entirely",
           ],
           answer: 1,
           explanation:
@@ -1332,10 +1332,10 @@ const persistenceRoom: Room = {
           question:
             "The task binary path is C:\\Users\\Public\\svchelper.exe, and the trigger is /sc onstart. What does this combination tell you operationally, beyond confirming a task was created?",
           options: [
-            "Nothing beyond that a task was created — the trigger type and file location are not meaningful on their own",
+            "Nothing beyond that a task was created — the trigger type and file location are not meaningful on their own, since every scheduled task behaves identically at every boot regardless of what triggers it or where its binary happens to be staged on disk",
             "The onstart trigger fires this binary with SYSTEM privileges at every single boot, with no user logon required at all; combined with a world-writable staging location (C:\\Users\\Public), this matches the boot-persistence pattern from Reading 3, and the location itself is a secondary risk since anyone with local write access could tamper with the file later",
-            "C:\\Users\\Public is a protected, admin-only folder, so the presence of a file there proves this was authorized",
-            "onstart triggers only fire once, the very first time the task is created, and never again afterward",
+            "C:\\Users\\Public is a protected, admin-only folder, so the presence of a file there proves this was authorized by an administrator and staged through a legitimate deployment process",
+            "onstart triggers only fire once, the very first time the task is created, and never again afterward, making this functionally equivalent to a RunOnce registry key rather than a persistent boot trigger",
           ],
           answer: 1,
           explanation:
@@ -1346,10 +1346,10 @@ const persistenceRoom: Room = {
           question:
             "What is the correct containment order once this task is confirmed malicious?",
           options: [
-            "Delete the scheduled task and close the ticket — the persistence mechanism has been removed",
+            "Delete the scheduled task and close the ticket — the persistence mechanism has been fully removed, and no further investigation of this session's other activity is necessary at this stage of the response",
             "Isolate the host, but before considering it clean, hunt for and remove every other persistence mechanism this session may have planted (Run keys, other tasks, services, WMI subscriptions), determine how c.iversen's session reached High integrity to register this in the first place, and only then move to credential resets or rebuilding",
-            "Immediately reset c.iversen's domain password — that alone fully remediates the incident",
-            "Disable Task Scheduler domain-wide to prevent any future scheduled task creation",
+            "Immediately reset c.iversen's domain password — that alone fully remediates the incident, since scheduled tasks always re-authenticate using the account's current credentials every single time they fire",
+            "Disable Task Scheduler domain-wide to prevent any future scheduled task creation, even though this permanently breaks every legitimate scheduled maintenance job running across the entire production environment",
           ],
           answer: 1,
           explanation:
@@ -1440,10 +1440,10 @@ const persistenceRoom: Room = {
       question:
         "During a cloud account compromise investigation, the SOC resets the affected user's password within minutes of detection and closes the incident. Three days later, the same user's mailbox is still leaking messages to an external address via a forwarding rule the attacker configured before the reset. What was missed, and why?",
       options: [
-        "Nothing was missed — password resets always immediately invalidate any mailbox rules configured under that account",
+        "Nothing was missed — password resets always immediately invalidate any mailbox rules configured under that account, since Exchange ties every mailbox setting directly to the account's current password",
         "The mailbox forwarding rule is configured mailbox-side, not credential-side, so it survives a password reset by design, exactly as covered in Reading 5 — remediation needed to specifically check for and remove mailbox rules and revoke OAuth/session tokens, not stop at the password reset",
-        "The password reset should have been delayed until after business hours to avoid triggering the forwarding rule",
-        "Forwarding rules can only be created by administrators, so this indicates the attacker had domain admin rights, unrelated to the password reset question",
+        "The password reset should have been delayed until after business hours to avoid triggering the forwarding rule, since forwarding rules only activate during an active password-change event",
+        "Forwarding rules can only be created by administrators, so this indicates the attacker had domain admin rights, unrelated to the password reset question and the account's own mailbox settings",
       ],
       answer: 1,
       explanation:

@@ -146,10 +146,10 @@ const edrDetectionInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 1, what does an EDR agent see that a firewall log or a single Windows event cannot?",
         options: [
-          "Nothing more -- all three log sources capture identical information",
+          "Nothing more -- a firewall log, a single Windows event, and EDR telemetry all capture exactly the same fields for the same activity",
           "The full causal chain of a process: its parent, its exact command-line arguments, and every file, registry, or network action tied specifically to that process as one continuous story",
-          "Only the destination IP address of outbound connections",
-          "Only whether a file was signed, with no visibility into process behavior at all",
+          "Only the destination IP address of outbound connections, the same single field a firewall log would already provide",
+          "Only whether a file was digitally signed, with no visibility into what that process actually did afterward",
         ],
         answer: 1,
         explanation:
@@ -183,10 +183,10 @@ const edrDetectionInvestigationRoom = {
         question:
           "What is the difference between what SeverityName and PatternDispositionDescription each tell you about a CrowdStrike detection?",
         options: [
-          "They are two names for the same field and always carry identical information",
+          "They are simply two display labels generated from the same underlying value, so reading either one tells you exactly the same thing",
           "SeverityName is the tool's automatic rating of how seriously it scored the matched pattern; PatternDispositionDescription tells you whether the tool actually intervened (e.g. blocked it) or merely observed it",
-          "SeverityName only applies to network detections, while PatternDispositionDescription only applies to file detections",
-          "PatternDispositionDescription is always 'Critical' whenever SeverityName is 'Critical'",
+          "SeverityName is scoped only to network-based detections, while PatternDispositionDescription is scoped only to file-based detections",
+          "PatternDispositionDescription is automatically set to 'Critical' as its value whenever SeverityName happens to also read 'Critical'",
         ],
         answer: 1,
         explanation:
@@ -296,10 +296,10 @@ const edrDetectionInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 4, what determines whether a LOLBin like rundll32.exe or regsvr32.exe is worth escalating?",
         options: [
-          "The binary's file name alone -- these tools are always malicious regardless of context",
+          "The binary's file name alone -- any process named rundll32.exe or regsvr32.exe should always be treated as malicious regardless of context",
           "The combination of parent process, command-line arguments, and destination -- the file name alone tells you almost nothing, since these are legitimate, signed Windows utilities that can also be abused",
-          "Whether the binary is larger than 1MB in file size",
-          "Whether the binary was launched before or after business hours",
+          "Whether the binary's on-disk file size exceeds roughly 1MB, since legitimate Windows utilities are always smaller than that",
+          "Whether the binary happened to be launched before or after standard business hours for that specific workstation",
         ],
         answer: 1,
         explanation:
@@ -313,10 +313,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "A process tree shows OUTLOOK.EXE launching WINWORD.EXE after a user opened an email attachment, which then launches powershell.exe with an encoded command-line argument. Based on Reading 4, what is the correct read of this chain?",
       options: [
-        "Routine — Word frequently needs to launch PowerShell to render document formatting correctly",
+        "Routine — Word's document-rendering engine frequently shells out to PowerShell internally to lay out complex formatting and embedded objects",
         "This is the classic malicious-macro pattern: an Office application spawning a scripting engine essentially never happens in legitimate use, and the encoded PowerShell argument on top of it strengthens the case further",
-        "Nothing meaningful can be concluded until the file's SHA256 hash comes back flagged in a threat intelligence feed",
-        "The chain is irrelevant, because OUTLOOK.EXE launching WINWORD.EXE to open an attachment is itself already the malicious action",
+        "Nothing meaningful can be concluded from the process tree at all until the file's SHA256 hash comes back flagged in a threat intelligence feed",
+        "The tree is irrelevant here, because OUTLOOK.EXE launching WINWORD.EXE simply to open a normal attachment is itself already the malicious action",
       ],
       answer: 1,
       explanation:
@@ -350,10 +350,10 @@ const edrDetectionInvestigationRoom = {
           question:
             "crowdstrike.TargetProcessName reads lsass.exe and crowdstrike.GrantedAccess reads 0x1FFFFF. What does this access mask represent, and why is it significant against this specific target?",
           options: [
-            "0x1FFFFF is a Windows error code meaning the access attempt was denied",
+            "0x1FFFFF is a standard Windows API error code specifically indicating that the requested handle access was denied by the operating system",
             "0x1FFFFF is PROCESS_ALL_ACCESS — full control over the target process — and against lsass.exe, the process holding Windows credential material in memory, that level of access is exactly what a credential-dumping tool needs to read and extract it",
-            "0x1FFFFF only applies to Windows services and has no relevance when the target is a process like lsass.exe",
-            "GrantedAccess values are internal sensor noise with no operational meaning for an analyst",
+            "0x1FFFFF is a value that only has meaning when the requesting object is a Windows service, and carries no significance against an ordinary process like lsass.exe",
+            "GrantedAccess is internal Falcon sensor telemetry noise, logged for engineering diagnostics only, with no operational meaning for a SOC analyst",
           ],
           answer: 1,
           explanation:
@@ -364,10 +364,10 @@ const edrDetectionInvestigationRoom = {
           question:
             "crowdstrike.CallStackModuleNames lists dbghelp.dll among the modules loaded at the moment of the LSASS access. Why does this specific detail matter on top of the GrantedAccess value alone?",
           options: [
-            "dbghelp.dll is loaded by every Windows process at all times, so its presence here carries no meaning",
+            "dbghelp.dll is loaded automatically by every single Windows process at startup, regardless of what that process does, so its presence here carries no meaning",
             "dbghelp.dll contains the MiniDumpWriteDump function used to create process memory dumps — its presence in the call stack of a process requesting full access to lsass.exe is consistent with the exact mechanism Mimikatz-style credential dumpers use, though the same DLL is also loaded by legitimate diagnostic and crash-dump tools",
-            "dbghelp.dll is a networking library, indicating the process was about to exfiltrate data over the network",
-            "The presence of any DLL in CallStackModuleNames automatically confirms the detection is a false positive",
+            "dbghelp.dll is fundamentally a networking and socket library, so its presence indicates the process was preparing to exfiltrate data over the network",
+            "CallStackModuleNames listing any DLL at all, regardless of which one, is Falcon's own built-in signal that automatically confirms a detection is a false positive",
           ],
           answer: 1,
           explanation:
@@ -378,10 +378,10 @@ const edrDetectionInvestigationRoom = {
           question:
             "crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', and this is the third behavior in twenty-two minutes on this host sharing the same IncidentId, following a scheduled-task creation and a PowerShell download. Taken together with the unsigned, generically-named binary requesting full access to lsass.exe, what should the analyst do next?",
           options: [
-            "Close the detection as informational, since PatternDispositionDescription shows Falcon didn't consider it worth blocking",
+            "Close the detection as purely informational, since a 'Detected, no action taken' disposition is Falcon's own signal that the pattern wasn't actually worth worrying about",
             "Treat this as a likely true positive credential-access attempt that Falcon only observed rather than stopped — pull the full sibling behaviors under this IncidentId, check the file hash's reputation, then move toward containing the host and treating credentials on it as potentially exposed",
-            "Wait for a fourth behavior before taking any action, since three correlated behaviors in twenty-two minutes isn't yet a strong enough pattern",
-            "Immediately reset every domain user's password across the entire company before doing any further investigation on this specific host",
+            "Wait for a fourth correlated behavior to appear before taking any action at all, since three behaviors sharing one IncidentId in twenty-two minutes still isn't a strong enough pattern to act on",
+            "Immediately force a password reset for every domain user across the entire company, before doing any further investigation specific to this one host",
           ],
           answer: 1,
           explanation:
@@ -421,10 +421,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "Three Falcon behaviors fire against the same host within nine minutes, all sharing one IncidentId: a scheduled-task creation (Medium), a PowerShell download from an external site (Medium), and a credential-access attempt against lsass.exe (Critical). An analyst triages only the Critical one and closes the other two separately as routine, unrelated notices. What is wrong with this approach, based on Reading 5?",
       options: [
-        "Nothing — severity alone should always determine which behaviors get full attention, and lower-severity ones can safely be closed independently",
+        "Nothing — Falcon's own severity rating should always be the sole determining factor for triage priority, and every lower-severity behavior can safely be closed independently of any others",
         "Treating the three behaviors as separate, unrelated cases misses the actual sequence — the scheduled task and PowerShell download are plausibly the persistence and tooling steps of the same intrusion that ends in the credential-access attempt, and closing them separately can leave the persistence mechanism untouched even after the workstation is remediated",
-        "IncidentId only groups behaviors for licensing and billing purposes and carries no investigative value",
-        "A PowerShell download is always unrelated to a credential-access detection, regardless of timing or a shared IncidentId",
+        "IncidentId is purely an internal CrowdStrike licensing and per-seat billing identifier and carries no genuine investigative correlation value",
+        "A PowerShell download from an external site is, by definition, always unrelated to a credential-access detection regardless of timing or a shared IncidentId",
       ],
       answer: 1,
       explanation:
@@ -514,10 +514,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "On WKS-FIN-0231, the credential-access behavior is confirmed as a true positive: PatternDispositionDescription showed 'Detected, no action taken', and the SHA256 hash pivots back as a known credential-dumping utility in your threat intelligence platform. What is the correct immediate containment action?",
       options: [
-        "Shut the workstation down completely to stop any further activity",
+        "Power the workstation down completely and unplug it from the network, which stops any further activity immediately and preserves the disk exactly as-is",
         "Network-contain (isolate) the host through the EDR console so it can no longer communicate while staying reachable for forensic collection, kill the malicious process, and treat any credentials that were logged onto this host as potentially exposed pending rotation",
-        "Wait until the end of the business day to avoid disrupting the finance analyst's workday",
-        "Email the finance analyst directly and ask them to close their laptop lid",
+        "Wait until the end of the business day to contain the host, so as to avoid disrupting the finance analyst's ongoing work",
+        "Email the finance analyst directly and simply ask them to close their laptop lid until IT can look at it",
       ],
       answer: 1,
       explanation:

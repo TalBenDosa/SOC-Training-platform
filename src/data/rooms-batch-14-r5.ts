@@ -374,9 +374,9 @@ const gcpRoom = {
       question:
         "A file was downloaded from a Cloud Storage bucket last night, but Data Access audit logging was never explicitly enabled for Cloud Storage in this project. What is the most accurate statement about what the SOC will find?",
       options: [
-        "Cloud Audit Logs will still show the storage.objects.get call because all Cloud Storage activity is logged by default",
+        "Cloud Audit Logs will still show the storage.objects.get call in full detail regardless of any configuration, because Google considers all Cloud Storage read activity part of the same always-on logging stream as bucket creation and permission changes",
         "The storage.objects.get Data Access event was very likely NOT logged, even though Admin Activity events (like changing the bucket's IAM policy) would still appear, since Data Access logs are not enabled by default for most services",
-        "GCP does not support logging of any Cloud Storage activity under any configuration",
+        "GCP does not support logging of any Cloud Storage activity under any configuration whatsoever, meaning there is no setting anywhere in the platform that could ever surface who read which object in a bucket",
         "Security Command Center automatically captures the download regardless of Cloud Audit Logs settings",
       ],
       answer: 1,
@@ -434,10 +434,10 @@ const gcpRoom = {
           question:
             "The event shows gcp.audit.method_name 'SetIamPolicy' targeting resource_name 'projects/nexacorp-prod', called by principal_email svc-data@nexacorp.iam.gserviceaccount.com from caller_ip 185.220.101.47 (an external Tor exit node). The response.bindings show the service account now holds BOTH roles/owner AND roles/editor. Why is this combination especially alarming?",
           options: [
-            "SetIamPolicy calls are purely informational and never actually change permissions until manually approved",
+            "SetIamPolicy calls are purely informational log entries and never actually change any live permissions on their own, since every IAM binding change requires a separate manual approval step from a project administrator before it takes effect",
             "The service account, which should only have narrow BigQuery read access, granted itself roles/owner — GCP's most powerful basic role, equivalent to AWS AdministratorAccess — meaning it can now read, modify, or delete anything in the project, including further changing IAM itself",
-            "roles/owner only applies to billing settings and has no bearing on data or compute resources",
-            "This is expected behavior because all service accounts automatically receive roles/owner when first created",
+            "roles/owner only applies to billing settings and consolidated invoicing configuration, and it has absolutely no bearing on data access, compute resources, or the ability to modify IAM policy on the project itself",
+            "This is completely expected, routine behavior, because every single service account in GCP automatically receives roles/owner the moment it is first created, regardless of what the application actually needs to do",
           ],
           answer: 1,
           explanation:
@@ -448,10 +448,10 @@ const gcpRoom = {
           question:
             "The caller_ip is 185.220.101.47, a known Tor exit node, and gcp.audit.status.code is 0 with an empty status.message. What does this combination confirm about the outcome of the request?",
           options: [
-            "status.code 0 means the request failed and was rejected by Cloud IAM",
+            "status.code 0 means the request failed outright and was firmly rejected by Cloud IAM before any policy binding could ever be evaluated or applied to the project",
             "status.code 0 (with no error message) confirms the SetIamPolicy call succeeded — the privilege escalation was NOT blocked, and the attacker now holds Owner-level access to the project from external, anonymized infrastructure",
-            "The Tor exit node IP is irrelevant since GCP automatically blocks all Tor traffic",
-            "status.code fields in GCP audit logs only apply to billing operations",
+            "The Tor exit node source IP is completely irrelevant to this investigation, since GCP automatically detects and blocks all traffic originating from any known Tor exit node by default",
+            "status.code fields appearing anywhere in GCP audit logs only ever apply to billing and invoicing operations, and carry no meaning whatsoever for IAM, storage, or compute API calls",
           ],
           answer: 1,
           explanation:
@@ -462,10 +462,10 @@ const gcpRoom = {
           question:
             "Given this is a confirmed successful privilege escalation to roles/owner from an external Tor IP, what should the analyst's immediate response be?",
           options: [
-            "Wait for the next scheduled access review to catch and correct the over-broad role",
+            "Wait for the next quarterly scheduled access review cycle to eventually catch and correct the over-broad role, since there is no urgency to act on an IAM binding change outside of the normal review calendar",
             "Immediately revoke the malicious IAM binding (remove roles/owner and roles/editor from svc-data), disable or delete any unauthorized service-account keys, audit every action taken by this identity and this source IP since the escalation, and rotate/re-scope the service account to its original narrow role",
-            "Simply delete the svc-data service account entirely with no further investigation, since deleting it will automatically undo every action it performed",
-            "Block the Tor exit node IP at the VPC firewall level and consider the incident resolved",
+            "Simply delete the svc-data service account entirely and immediately, with absolutely no further investigation of any kind, since deleting the account will automatically and retroactively undo every single action it performed while compromised",
+            "Block the Tor exit node IP address at the VPC firewall level, update the firewall rule documentation, and consider the entire incident fully resolved with no further containment or credential rotation needed",
           ],
           answer: 1,
           explanation:
@@ -488,10 +488,10 @@ const gcpRoom = {
           question:
             "The event shows gcp.audit.authentication_info.principal_email as 'allUsers' and storage.bucket.iam_binding.members includes 'allUsers'. What does the identity value 'allUsers' specifically mean in GCP IAM?",
           options: [
-            "'allUsers' refers to every employee inside NexaCorp's Google Workspace domain only",
+            "'allUsers' refers exclusively to every employee inside NexaCorp's own Google Workspace domain, and never grants any access whatsoever to anyone outside the organization's managed accounts",
             "'allUsers' is a special GCP member representing literally anyone on the internet, authenticated or not — meaning the bucket object was readable by any anonymous caller with the object's URL, with no GCP account or credentials required at all",
-            "'allUsers' is a placeholder value that GCP uses when the true caller identity could not be determined",
-            "'allUsers' only applies to Compute Engine VMs, never to Cloud Storage buckets",
+            "'allUsers' is simply a generic placeholder value that GCP inserts automatically into a log entry whenever the true underlying caller identity could not be reliably determined or resolved by the audit system",
+            "'allUsers' as an IAM member only ever applies to Compute Engine VM-level firewall rules, and it can never legitimately appear as a binding on a Cloud Storage bucket's IAM policy",
           ],
           answer: 1,
           explanation:
@@ -502,10 +502,10 @@ const gcpRoom = {
           question:
             "This event's gcp.audit.log_type is 'DATA_ACCESS' rather than 'ADMIN_ACTIVITY', and the request came from caller_ip 91.108.56.19 (Russia) using a python-requests user agent. Why is the log_type field itself an important investigative clue here?",
           options: [
-            "DATA_ACCESS log entries are less trustworthy than ADMIN_ACTIVITY entries and should be ignored",
+            "DATA_ACCESS log entries are inherently less trustworthy and far more easily forged or spoofed than ADMIN_ACTIVITY entries, so any finding based purely on a DATA_ACCESS log type should always be dismissed and ignored entirely during triage",
             "Because this is a DATA_ACCESS event, it means Data Access logging happened to be explicitly enabled for this bucket — without that configuration, this exact download might have left NO audit trail at all, even though the bucket's public IAM binding (an ADMIN_ACTIVITY change) would still have been logged",
-            "The log_type field has no bearing on the investigation — only the source IP matters",
-            "DATA_ACCESS entries are only generated for BigQuery, never for Cloud Storage",
+            "The log_type field carries absolutely no meaningful bearing on this investigation whatsoever — only the source IP address ever matters when deciding how seriously to treat any single Cloud Audit Log entry you come across",
+            "DATA_ACCESS entries are only ever generated automatically for BigQuery query jobs, and Cloud Storage object reads never produce a DATA_ACCESS log entry under any circumstances or configuration",
           ],
           answer: 1,
           explanation:
@@ -516,10 +516,10 @@ const gcpRoom = {
           question:
             "Given a 46 MB customer export file was successfully downloaded (status.code 0) by an anonymous internet caller from Russia, what is the correct immediate action?",
           options: [
-            "No action needed since storage.objects.get is a read-only, low-impact operation by definition",
+            "No action is needed at all, since storage.objects.get is, by strict technical definition, always a read-only and therefore low-impact operation regardless of what data the object actually contains or who is calling it",
             "Immediately remove the allUsers binding from the bucket's IAM policy to stop further exposure, treat this as confirmed data exfiltration of customer data (triggering incident response and potential breach-notification obligations), and audit the bucket's full Data Access history to determine how many other callers accessed it while it was public",
-            "Simply rename the bucket so the old public URL no longer resolves, and consider the incident closed",
-            "Wait for Security Command Center to automatically revoke the public binding, since SCC has write access to fix findings by default",
+            "Simply rename the bucket so that the old public URL no longer resolves for any future requests, and consider the entire incident fully closed, since renaming the resource is functionally equivalent to fixing the underlying IAM policy",
+            "Wait for Security Command Center to automatically detect and revoke the public IAM binding on its own, since SCC is granted write access to directly remediate any finding it raises by default, with no analyst action required",
           ],
           answer: 1,
           explanation:

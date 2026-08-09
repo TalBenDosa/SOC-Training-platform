@@ -404,14 +404,14 @@ const azureSecurityRoom = {
         question:
           "According to the reading, why is Azure's VM Run Command feature such a powerful attack tool once an attacker holds Contributor-level RBAC access?",
         options: [
-          "It requires the attacker to already know the VM's SSH/RDP login credentials",
+          "It still requires the attacker to authenticate over SSH or RDP with a valid username and password before any script can be delivered through the Run Command channel",
           "It executes code on the VM through the Azure control plane (Resource Manager API), completely bypassing NSGs, network firewalls, and the need for login credentials",
-          "It only works on VMs that have no NSG attached",
-          "It is limited to read-only diagnostic commands and cannot execute arbitrary scripts",
+          "It only functions on VMs that have no Network Security Group attached at all, since the NSG's default rules would otherwise block the Azure VM Agent's outbound heartbeat",
+          "It is restricted to a fixed library of Microsoft-signed, read-only diagnostic commands and has no capability to execute arbitrary PowerShell or Bash scripts supplied by the caller",
         ],
         answer: 1,
         explanation:
-          "Run Command executes through the Azure Resource Manager API using the Azure VM Agent, not over the network — so it bypasses NSGs, firewalls, and the need to know any login credentials entirely. Anyone with Contributor or Virtual Machine Contributor rights can use it.",
+          "Run Command executes through the Azure Resource Manager API using the Azure VM Agent, not over the network — so it bypasses NSGs, firewalls, and the need to know any login credentials entirely. Anyone with Contributor or Virtual Machine Contributor rights can use it. It does not require SSH/RDP authentication (that's exactly the point — it skips the network path entirely), it works regardless of whether an NSG is attached (NSGs only govern network traffic, not the control-plane API path Run Command uses), and it can execute arbitrary attacker-supplied scripts, not just a fixed read-only command set.",
       },
     },
 
@@ -422,14 +422,14 @@ const azureSecurityRoom = {
       question:
         "A SOC analyst confirms the Azure Activity Log shows a Key Vault's access policy was updated (a control-plane event), but wants to know exactly WHICH secret was read and WHEN. The Activity Log alone does not show this. What is the most likely reason, and what should the analyst do?",
       options: [
-        "Azure never logs individual secret reads under any circumstances — this information is permanently unavailable",
+        "Azure never logs individual secret reads under any circumstances, for any Key Vault, regardless of configuration — this information is considered permanently unavailable and cannot be retrieved through any Azure logging or auditing mechanism",
         "The Activity Log only records control-plane (management) operations by default; secret-level read events require diagnostic settings to be explicitly enabled on that specific Key Vault to forward detailed audit events into Log Analytics",
-        "The analyst must contact Microsoft Support directly, as this data is never accessible to customers",
-        "Secret reads are recorded in Azure AD sign-in logs instead, not in any Key Vault-related log",
+        "The analyst must open a formal support case with Microsoft directly, since secret-level read data inside a customer's own Key Vault is never accessible to the customer through any first-party Azure logging or auditing tool",
+        "Secret reads are actually recorded in the Azure AD sign-in logs instead of anywhere within Key Vault's own logging, because Key Vault authentication is treated purely as a sign-in event rather than a resource-access event",
       ],
       answer: 1,
       explanation:
-        "Just as AWS requires explicitly enabling S3 data event logging to see individual GetObject calls, Azure requires diagnostic settings to be configured on a specific resource (here, the Key Vault) to forward detailed data-plane events like individual secret reads into Log Analytics or a SIEM. The Activity Log by itself only captures control-plane (management) actions such as changing an access policy or creating the vault — not what happens to the data inside it.",
+        "Just as AWS requires explicitly enabling S3 data event logging to see individual GetObject calls, Azure requires diagnostic settings to be configured on a specific resource (here, the Key Vault) to forward detailed data-plane events like individual secret reads into Log Analytics or a SIEM. The Activity Log by itself only captures control-plane (management) actions such as changing an access policy or creating the vault — not what happens to the data inside it. Secret reads are not permanently unavailable (they show up once diagnostic logging is enabled), they don't require a Microsoft support case (the customer can enable this themselves), and they are logged under Key Vault's own diagnostic logs, not Azure AD sign-in logs.",
       xp: 20,
     },
 
@@ -440,10 +440,10 @@ const azureSecurityRoom = {
       question:
         "An analyst sees azure.activitylogs.identity.claims.idtyp: 'app' and azure.activitylogs.identity.authorization.evidence.principalType: 'ServicePrincipal' on a suspicious event. What is the KEY investigative difference versus if this had instead shown principalType: 'ManagedIdentity'?",
       options: [
-        "There is no difference — both identity types behave identically in every respect",
+        "There is no meaningful difference at all — both identity types behave identically in every respect, so the investigation would proceed exactly the same way regardless of which one is shown",
         "A service principal typically authenticates with a client secret or certificate that can be independently leaked (e.g. committed to a code repository) and reused from anywhere, whereas a managed identity has no such extractable credential — its risk is entirely about over-granted permissions and the security of the resource it's attached to",
-        "Managed identities can only be used for read-only operations, while service principals can only perform write operations",
-        "Service principals are exclusively used by Microsoft's own internal services and can be ruled out as a compromise vector",
+        "Managed identities are architecturally restricted to performing only read-only operations against Azure resources, while service principals are the only identity type capable of performing write operations",
+        "Service principals are, by Azure design, exclusively reserved for Microsoft's own first-party internal services, so a service principal can always be safely ruled out as a possible compromise vector",
       ],
       answer: 1,
       explanation:
@@ -458,10 +458,10 @@ const azureSecurityRoom = {
       question:
         "You see a burst of read-only operations (roleAssignments/read, vaults/read, storageAccounts/listKeys/action, virtualMachines/read) across dozens of different resources, all from one service principal that normally only ever calls one specific API. How should a SOC analyst interpret this pattern?",
       options: [
-        "Ignore it completely — all of these operations are individually read-only and therefore can never be part of an attack",
+        "Ignore it completely — every one of these operations is individually read-only, and read-only Azure Resource Manager calls can, by definition, never form part of a genuine attack sequence",
         "This is a classic reconnaissance pattern: an identity enumerating what it has access to across many resource types is a common early-stage attacker behavior, even though no single call is destructive on its own — the anomaly is in the breadth and deviation from that identity's normal behavior",
-        "This confirms the service principal's credentials have definitely NOT been compromised, since no write operations occurred",
-        "This pattern only ever occurs during planned infrastructure audits and should be automatically suppressed",
+        "This conclusively confirms the service principal's credentials have definitely NOT been compromised, since compromise can only ever be proven once at least one destructive write operation has occurred",
+        "This exact pattern only ever occurs during planned, pre-scheduled infrastructure audits, so any occurrence of it should be automatically suppressed by the SIEM without analyst review",
       ],
       answer: 1,
       explanation:
@@ -482,10 +482,10 @@ const azureSecurityRoom = {
           question:
             "The event shows azure.activitylogs.identity.authorization.evidence.principalType as 'ManagedIdentity' with role 'Key Vault Secrets User', calling SECRETS.GET from callerIpAddress 203.0.113.44. Why is the source IP the most important anomaly here, given the identity type?",
           options: [
-            "Managed identities are designed to be used from any IP address worldwide, so the source IP is irrelevant",
+            "Managed identities are explicitly designed by Microsoft to be usable securely from any IP address anywhere on the public internet, so the specific source IP carries no investigative significance here",
             "Managed identities issue tokens that are meant to be used only from within Azure's own infrastructure serving that specific resource — legitimate use should originate from the web app's own outbound IP or Azure's internal ranges, not from an external, unfamiliar public IP like 203.0.113.44",
-            "The source IP field is only populated for human users, never for managed identities, so this must be a logging error",
-            "This IP being external is expected because all Key Vault traffic is routed through Microsoft's global CDN, which uses public IPs",
+            "The callerIpAddress field is only ever populated when a human user account performs the action, and is always left blank or null for any managed identity, so its presence here must indicate a logging bug",
+            "This external IP address is fully expected and benign, because all Key Vault API traffic in Azure is always routed through Microsoft's global content-delivery network, which legitimately uses public-facing IPs",
           ],
           answer: 1,
           explanation:
@@ -496,10 +496,10 @@ const azureSecurityRoom = {
           question:
             "The requestUri shows 'https://nexacorp-prod-kv.vault.azure.net/secrets/sql-connection-string' with httpStatusCode 200 and azure.activitylogs.resultType 'Success'. What does this confirm about the outcome?",
           options: [
-            "The request failed, since a 200 status code always indicates an error in Azure APIs",
+            "The request actually failed silently despite appearances, since a 200 status code in the Azure REST API family conventionally signals a rejected or throttled request rather than success",
             "The request succeeded — the attacker (via the compromised web app's managed identity) successfully retrieved the actual value of the sql-connection-string secret, meaning database credentials have very likely been compromised",
-            "A 200 status code only confirms the request was received, not that any data was returned",
-            "resultType 'Success' only applies to control-plane operations, not to Key Vault secret retrieval",
+            "A 200 status code here only confirms that the HTTP request was received and acknowledged by the Key Vault endpoint, without proving that any actual secret data was returned in the response body",
+            "The resultType field of 'Success' is a control-plane-only concept in Azure logging and simply does not apply to, or carry any meaning for, a data-plane operation like Key Vault secret retrieval",
           ],
           answer: 1,
           explanation:
@@ -510,10 +510,10 @@ const azureSecurityRoom = {
           question:
             "What should the analyst's immediate containment actions be?",
           options: [
-            "Wait for a scheduled monthly secret-rotation cycle before taking any action",
+            "Take no immediate action and simply wait for the organisation's already-scheduled monthly secret-rotation cycle to run on its normal calendar, since that process will eventually rotate this secret along with all the others",
             "Immediately rotate the sql-connection-string secret (and the underlying database credential it represents), restrict or remove the managed identity's Key Vault Secrets User role to only the minimum required scope, investigate the web app itself for the initial compromise vector (e.g. a vulnerability that allowed token exfiltration), and review Key Vault access logs for any other secrets the same identity may have retrieved",
-            "Simply delete the Key Vault, since it is now considered fully compromised",
-            "Block callerIpAddress 203.0.113.44 at the network layer and consider the incident resolved, since Key Vault access is control-plane only and cannot be abused further",
+            "Simply delete the entire Key Vault resource outright and provision a brand-new empty vault in its place, on the reasoning that once any single secret inside it has been read by an attacker, the whole vault and every secret it ever contained must be considered permanently and irrecoverably compromised beyond any possibility of remediation",
+            "Block callerIpAddress 203.0.113.44 at the network layer and consider the incident fully resolved, since Key Vault access is a control-plane-only concern that by definition cannot be abused any further once the source IP is blocked",
           ],
           answer: 1,
           explanation:
@@ -536,10 +536,10 @@ const azureSecurityRoom = {
           question:
             "The requestbody shows direction 'Inbound', access 'Allow', destinationPortRange '3389', sourceAddressPrefix '*', and priority 100 for a new rule named 'allow-rdp-temp', created by the same managed identity as the Key Vault event. Why is sourceAddressPrefix '*' combined with destinationPortRange '3389' especially dangerous?",
           options: [
-            "Port 3389 is a harmless, commonly-used web port with no special sensitivity",
+            "Port 3389 is actually a harmless, extremely commonly-used web port comparable to port 80 or 443, carrying no special security sensitivity of its own",
             "sourceAddressPrefix '*' means ANY IP address on the entire internet is allowed to attempt this connection, and port 3389 is RDP (Remote Desktop Protocol) — this rule effectively opens direct remote-desktop access to the VM from anywhere in the world",
-            "The priority value of 100 means this rule has the LOWEST possible priority and will almost never be evaluated",
-            "This rule only affects outbound traffic, so inbound connections are unaffected",
+            "The priority value of 100 means this particular rule has been assigned the LOWEST possible priority in the entire NSG and will therefore almost never actually be evaluated against incoming traffic",
+            "The direction field marks this rule as affecting outbound traffic exclusively, so any inbound connection attempts to the VM remain completely unaffected by this specific rule change",
           ],
           answer: 1,
           explanation:
@@ -550,10 +550,10 @@ const azureSecurityRoom = {
           question:
             "The NSG Flow Log flowTuples field reads '1781490891,203.0.113.44,10.40.2.15,51422,3389,T,I,A' — decode this and explain its significance given the earlier Key Vault event.",
           options: [
-            "This shows an outbound denied connection with no relevance to the investigation",
+            "This tuple decodes to an outbound connection that was explicitly denied by the NSG, meaning it carries essentially no relevance to the ongoing Key Vault and RDP-exposure investigation",
             "This decodes to a TCP (T) inbound (I) connection from 203.0.113.44 (the SAME external IP seen abusing the managed identity's Key Vault access) to 10.40.2.15 on port 3389, and it was ALLOWED (A) — confirming the attacker didn't just open the door, they walked through it and successfully connected to the VM's RDP port",
-            "The flow log only proves the rule exists; it cannot show whether any actual network traffic occurred",
-            "This IP address belongs to NexaCorp's internal network, so the connection is expected and benign",
+            "NSG Flow Log entries only ever prove that a matching rule technically exists in the NSG's rule set; they are structurally incapable of showing whether any actual network traffic ever flowed",
+            "This particular IP address, 203.0.113.44, actually belongs to NexaCorp's own internal corporate network range, so this connection is fully expected, routine, and entirely benign",
           ],
           answer: 1,
           explanation:
@@ -564,10 +564,10 @@ const azureSecurityRoom = {
           question:
             "Given both the Key Vault secret theft and the successful RDP connection are now tied to the same attacker and the same compromised managed identity, what is the correct escalation path?",
           options: [
-            "Treat this as a routine network configuration change ticket, since NSG rule modifications happen frequently in normal operations",
+            "Treat this purely as a routine, low-priority network configuration change ticket for the infrastructure team to pick up during their next normal sprint, since NSG rule modifications of this kind happen frequently as part of everyday day-to-day cloud operations and rarely warrant security review",
             "Escalate immediately as an active, multi-stage cloud compromise: remove or restrict the malicious NSG rule, isolate the affected VM from the network, rotate the managed identity's permissions and any credentials it exposed, forensically investigate the VM for what the attacker did after connecting via RDP, and audit all other resources reachable by the same identity and resource group",
-            "Only revoke the Key Vault access, since the NSG rule change is unrelated infrastructure work",
-            "No further action is needed since Microsoft Defender for Cloud will automatically remediate the NSG rule within 24 hours"
+            "Only revoke the Key Vault access for the compromised managed identity and consider that sufficient, since the separate NSG rule change is best treated as entirely unrelated infrastructure work to be handled independently by a different networking team",
+            "No further action from the SOC is needed at all in this case, since Microsoft Defender for Cloud is expected to automatically detect and silently remediate the risky NSG rule on its own within roughly the next 24 hours without any human intervention",
           ],
           answer: 1,
           explanation:
@@ -751,14 +751,14 @@ const azureSecurityRoom = {
         question:
           "According to the reading, what is the only way to fully invalidate an account-key-based SAS token before its stated expiry?",
         options: [
-          "Delete the specific blob it grants access to",
-          "Wait for Microsoft Defender for Storage to automatically revoke it",
+          "Delete the specific blob or container the SAS token points to, so the signed URL has nothing left to return — though the token itself remains cryptographically valid and would work again if a resource with the same name were re-created before the token's stated expiry",
+          "Wait for Microsoft Defender for Storage to automatically detect the anomalous access pattern and revoke the token on your behalf, since Defender's real-time protection includes automatic credential revocation for storage resources",
           "Regenerate the storage account's access keys that the token was signed with — which also breaks every other SAS token and app using those same keys",
-          "Change the container's public access level back to Private",
+          "Change the container's public access level back to Private, which also invalidates any SAS tokens already issued for that container, since a SAS token's validity is tied to the container's current public-access setting",
         ],
         answer: 2,
         explanation:
-          "Account-key-based SAS tokens are cryptographically signed strings that Azure cannot individually revoke. The only way to invalidate one before its expiry is regenerating the underlying storage account access keys — but that breaks every other SAS token and application relying on those same keys, forcing a tradeoff between closing the exposure and causing an outage.",
+          "Account-key-based SAS tokens are cryptographically signed strings that Azure cannot individually revoke. The only way to invalidate one before its expiry is regenerating the underlying storage account access keys — but that breaks every other SAS token and application relying on those same keys, forcing a tradeoff between closing the exposure and causing an outage. Deleting the resource does not invalidate the token itself (a same-named resource created before expiry would again be reachable). Defender for Storage detects and alerts on anomalous access — it does not automatically revoke credentials. And a SAS token's cryptographic validity is independent of the container's public-access level, so reverting to Private does nothing to the token itself.",
       },
     },
   ],

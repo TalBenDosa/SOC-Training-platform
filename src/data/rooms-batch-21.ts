@@ -396,9 +396,9 @@ const logEntryAnatomyRoom: Room = {
             "Using the five-question frame, which of WHEN, WHERE, and WHAT can you answer directly from this record, and which of the five questions has no field at all in this log format?",
           options: [
             "You can answer WHEN (ts), WHERE (id.orig_h / id.resp_h), and WHAT (proto and id.resp_p show a TCP connection to port 3389); there is no WHO field at all — Zeek's connection log records network activity, not identity, and there's no HOW CONFIDENT/severity field either, since conn.log summarises connections rather than rating them",
-            "You can answer all five questions directly from this one record, including WHO, because uid identifies the user who made the connection",
-            "This record only answers WHEN — none of the other fields map to the five-question frame",
-            "WHERE cannot be determined because Zeek does not record IP addresses, only hostnames",
+            "You can answer all five questions directly from this single record, including WHO, because the uid field is Zeek's way of recording the specific human username that initiated the connection, in the same way TargetUserName does in a Windows event",
+            "This record only ever answers the WHEN question — none of the remaining id.orig_h, id.resp_h, proto, or duration fields map onto any of the other four questions in the five-question frame at all",
+            "WHERE cannot be determined from this record at all, because Zeek's conn.log format is documented as never recording IP addresses, capturing only hostnames and fully-qualified domain names instead",
           ],
           answer: 0,
           explanation:
@@ -409,10 +409,10 @@ const logEntryAnatomyRoom: Room = {
           question:
             "duration is 812.334 seconds, orig_bytes is 48210, resp_bytes is 991823, and conn_state is SF. Zeek's documentation defines SF as a connection that completed a normal TCP handshake and closed normally, as opposed to S0 (a connection attempt with no reply at all). What does this combination tell you about the WHAT of this record?",
           options: [
-            "The connection was rejected by the destination host before any data was exchanged",
+            "The connection was actually rejected outright by the destination host, meaning the TCP handshake never fully completed and no data of any kind was ever exchanged between the two endpoints",
             "A sustained (over 13-minute), fully-established TCP session to port 3389 (the standard port for Remote Desktop Protocol) exchanged data in both directions and ended normally — a real, completed session, not a blocked or failed attempt",
-            "conn_state SF means the connection was flagged as malicious by the sensor",
-            "The byte counts indicate this must be a file download, unrelated to port 3389's normal use",
+            "The conn_state value of SF is Zeek's own built-in verdict field, and it specifically means the sensor itself has flagged this exact connection as malicious based on its behaviour",
+            "The large byte counts recorded here strongly indicate this must actually have been a file download of some kind, a use of port 3389 that is entirely unrelated to its normal, documented purpose",
           ],
           answer: 1,
           explanation:
@@ -423,10 +423,10 @@ const logEntryAnatomyRoom: Room = {
           question:
             "This record shows a real, completed 13-minute connection to TCP/3389 with substantial two-way data transfer between two internal hosts. Before concluding anything about whether this was legitimate remote administration or something else, what is essential that this record cannot tell you, and where would you look for it?",
           options: [
-            "Nothing further is needed — the connection details alone are sufficient to close this as informational",
+            "Nothing further is actually needed here — the connection details captured in this single Zeek record are entirely sufficient on their own to close this out as purely informational with no further review",
             "This record has no identity field at all, so you cannot tell WHO used this connection; you would need to correlate the timestamp and the two IP addresses against an authentication log (for example, a Windows Security 4624 logon on the destination host) to find out which account, if any, actually logged on during this window",
-            "You would need to run this same query again with a longer time range, since the missing information is simply a matter of expanding the search window",
-            "Zeek logs always include the associated username in a separate field called owner, which should be queried instead",
+            "You would simply need to re-run this exact same Zeek query again but with a longer overall time range selected, since the missing identity information is purely a matter of the search window being too narrow",
+            "Zeek connection logs always include the associated human username in a separate, dedicated field called owner, and that field is what should be queried instead of looking anywhere else",
           ],
           answer: 1,
           explanation:
@@ -585,14 +585,14 @@ const identityBasicsRoom: Room = {
         question:
           "Why can a stolen password hash alone sometimes be enough for an attacker to authenticate, without ever cracking it into a plaintext password?",
         options: [
-          "Hashes can always be reversed back into the plaintext password with enough computing power",
+          "Hashes can always be mathematically reversed back into the original plaintext password given enough computing power, making a stolen hash functionally identical to a stolen plaintext password in every protocol",
           "Some protocols, like NTLM, can be satisfied by presenting the hash directly, without the plaintext ever being supplied -- this is the pass-the-hash technique",
-          "Password hashes are stored in plaintext alongside the password, so both are exposed together",
-          "This is never actually possible in any real authentication protocol",
+          "Password hashes are stored in plain, unencrypted text directly alongside the password itself in the same database record, so stealing one automatically exposes both values to the attacker at once",
+          "This kind of attack is a purely theoretical concept and has never actually been demonstrated or used against any real-world authentication protocol",
         ],
         answer: 1,
         explanation:
-          "The reading names this directly: in protocols like NTLM, the hash itself can be presented to satisfy the check, so an attacker who steals a hash from memory doesn't need to crack it at all -- that's the pass-the-hash technique.",
+          "The reading names this directly: in protocols like NTLM, the hash itself can be presented to satisfy the check, so an attacker who steals a hash from memory doesn't need to crack it at all -- that's the pass-the-hash technique. Hashes are one-way by design and are not reversible with brute computing power in any practical sense; they are stored as hashes, not alongside a plaintext copy; and pass-the-hash is a well-documented, widely used real-world technique, not a theoretical one.",
       },
     },
     // ----- Matching --------------------------------------------------------------------
@@ -641,10 +641,10 @@ const identityBasicsRoom: Room = {
       question:
         "An attacker uses a malicious proxy to intercept a user's login and steals the session token issued right after the user completes MFA. What is true about this attacker's access?",
       options: [
-        "The attacker still needs the user's password to do anything, since only the password is checked on each request",
-        "The attacker's access is limited to read-only actions, since tokens never carry the same permissions as a live login",
+        "The attacker still needs to separately obtain the user's actual password to do anything useful with the stolen token, since the password itself is what gets re-checked on every subsequent request",
+        "The attacker's access with the stolen token is automatically limited to harmless, read-only actions only, since session tokens are designed to never carry the same write permissions a live interactive login would have",
         "The attacker can present the stolen token as if they were the already-authenticated user, bypassing MFA entirely, because MFA already succeeded before the theft — no password or second factor is required from this point",
-        "MFA will automatically detect and block the stolen token the next time it's used, since MFA is checked on every request",
+        "MFA will automatically notice, detect, and block the stolen token the very next time it gets used by someone else, since a proper MFA implementation re-checks the second factor on every single request",
       ],
       answer: 2,
       explanation:
@@ -715,10 +715,10 @@ const identityBasicsRoom: Room = {
         question:
           "Why can a FIDO2/WebAuthn security key resist an adversary-in-the-middle (AitM) proxy attack in a way SMS codes and TOTP apps cannot?",
         options: [
-          "It requires a longer PIN than other MFA methods",
+          "It simply requires the user to enter a longer, more complex PIN than other MFA methods typically demand, which makes it statistically harder for a proxy to guess in real time",
           "It cryptographically binds the authentication to the real website's domain, so it refuses to complete against a fraudulent look-alike site at all",
-          "It sends the code over a different network path than the password",
-          "It automatically blocks any login attempt from outside the corporate network",
+          "It transmits its one-time code over a physically different network path than the one carrying the password, which a proxy sitting in the middle cannot intercept both of at once",
+          "It automatically and permanently blocks any login attempt that originates from outside the organisation's own corporate network address range, regardless of the domain being accessed",
         ],
         answer: 1,
         explanation:
@@ -760,10 +760,10 @@ const identityBasicsRoom: Room = {
       question:
         "Why do attackers who gain an initial foothold frequently pivot toward compromising a service account rather than continuing to target user accounts?",
       options: [
-        "Service accounts are always disabled by default and represent no real risk if compromised",
+        "Service accounts are always disabled by default in any well-run environment, and therefore represent essentially no real risk to an attacker even if fully compromised",
         "Service accounts are often over-privileged for their actual task, rarely have their passwords rotated, and are frequently exempted from MFA since no human is present to approve a prompt — making them a high-value, comparatively undefended target",
-        "Service accounts cannot authenticate over a network at all, so compromising one has no practical value",
-        "Service accounts are subject to stricter monitoring than user accounts in every organisation, making them a poor target",
+        "Service accounts are structurally incapable of authenticating over a network connection at all, meaning that compromising one has essentially no practical value to any attacker",
+        "Service accounts are, in virtually every organisation, subject to noticeably stricter logging and monitoring than ordinary human user accounts, which makes them a comparatively poor and unattractive target",
       ],
       answer: 1,
       explanation:
@@ -807,10 +807,10 @@ const identityBasicsRoom: Room = {
           question:
             "Fourteen failed logon attempts (rejected for bad password) preceded this single successful logon, all from the same source IP against the same account, with no account lockout in between. What pattern does this match, and what does the absence of a lockout suggest?",
           options: [
-            "This is routine behaviour — users mistype their passwords fourteen times fairly often and there is nothing unusual about it",
+            "This is routine, everyday behaviour — plenty of ordinary users genuinely mistype their own password fourteen separate times in a row, so there is nothing here that should be considered unusual",
             "This matches password-guessing (brute-force) activity against one account that eventually succeeded, and the lack of any lockout in between suggests the account's lockout threshold is either not configured or was never reached — worth reviewing separately",
-            "Fourteen failures followed by a success proves this is a legitimate user who simply forgot their password several times before remembering it",
-            "The event is meaningless without also knowing the exact keyboard layout the user typed on",
+            "Fourteen failures immediately followed by one success conclusively proves this must be a legitimate user who simply forgot their own password several times in a row before finally remembering it correctly",
+            "This event record is essentially meaningless and impossible to interpret at all without also separately knowing the exact physical keyboard layout the user was typing on at the time",
           ],
           answer: 1,
           explanation:
@@ -821,10 +821,10 @@ const identityBasicsRoom: Room = {
           question:
             "IpAddress is 185.220.101.47 — an external address — yet AuthenticationPackageName is NTLM rather than Kerberos, and there is no MFA-related field anywhere in this record. Why does the missing MFA field matter here?",
           options: [
-            "It doesn't matter — MFA fields are never logged on 4624 events regardless of whether MFA was used",
+            "It genuinely doesn't matter at all here — MFA-related fields are, as a matter of Windows Security log design, simply never logged on any 4624 event regardless of whether MFA was actually used during that specific logon",
             "This account authenticated via an NTLM network logon (LogonType 3) directly to a file server; NTLM network logons commonly do not enforce MFA at all, since MFA is typically bound to a different authentication path, so an attacker who successfully guesses this password walks straight in with no second factor to stop them",
-            "The missing field proves this is a forged event and did not actually happen",
-            "NTLM logons always include MFA by design, so this record must be incomplete or corrupted",
+            "The missing MFA field on its own is sufficient proof that this entire event record was forged or fabricated after the fact, and that the logon described in it did not actually occur",
+            "NTLM-based logons always include and enforce MFA by design as part of the protocol itself, so this specific record must therefore be incomplete, corrupted, or missing data somewhere",
           ],
           answer: 1,
           explanation:
@@ -836,13 +836,13 @@ const identityBasicsRoom: Room = {
             "What is the correct immediate response to this event?",
           options: [
             "Revoke b.osei's active sessions and tokens first, then reset the account's password, review what the session accessed, and evaluate whether this account's NTLM network-logon path should be restricted or brought under MFA",
-            "Reset the password only — since the login already succeeded normally, no further action is needed",
-            "Take no action, since a successful logon is by definition not a security event",
-            "Block the source IP only, and leave the account's credentials unchanged",
+            "Reset the account's password only — since this was an NTLM network logon rather than a browser-issued session token, there is no separate session to revoke, so changing the password by itself fully removes any access the attacker gained during the compromise",
+            "Take no action at all — LogonType 3 (network) events are inherently lower-risk than interactive or RDP logons, so a successful 4624 that follows earlier failures on a file server is routine and does not warrant any follow-up review",
+            "Block the source IP address at the perimeter firewall and consider the incident closed — stopping any further connection from that address is sufficient containment, regardless of whether the account's password or any access it already established are addressed separately",
           ],
           answer: 0,
           explanation:
-            "This is the correct containment order from Reading 5, applied to a real case: revoke sessions and tokens first so any access already granted is cut immediately, then reset the password so the same guessed credential can't be reused, then review what happened during the session and consider whether this account's exposure over NTLM without MFA needs to change. Resetting the password alone leaves an already-established session untouched, and blocking only the IP does nothing about the account itself, which is now confirmed compromised.",
+            "This is the correct containment order from Reading 5, applied to a real case: revoke sessions and tokens first so any access already granted is cut immediately, then reset the password so the same guessed credential can't be reused, then review what happened during the session and consider whether this account's exposure over NTLM without MFA needs to change. Resetting the password alone leaves an already-established session untouched — NTLM logons still create an authenticated access token for the duration of the connection, exactly like any other logon type, so 'no session to revoke' is false. Taking no action ignores the burst-then-success pattern Reading 8 taught as a strong compromise signature regardless of logon type. And blocking only the source IP does nothing about the account itself, which is now confirmed compromised — the attacker can simply reconnect from a different address using the same guessed credential.",
           xp: 25,
         },
       ],

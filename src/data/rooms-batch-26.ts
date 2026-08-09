@@ -263,10 +263,10 @@ const playbookExecutionRoom: Room = {
       checkpoint: {
         question: "Per Reading 1, what is the one thing a playbook cannot know when it's written?",
         options: [
-          "Which specific analyst will be handling the ticket",
+          "Which specific analyst on the current shift roster will ultimately be assigned to pick up and work the ticket once it is opened",
           "Whether the situation actually in front of the analyst matches the assumption the playbook was written against",
-          "The exact time zone the incident will occur in",
-          "How many steps the procedure should contain",
+          "The exact local time zone in which the incident will actually be detected and subsequently opened as a ticket",
+          "Precisely how many individual numbered steps the finished procedure document should end up containing",
         ],
         answer: 1,
         explanation:
@@ -398,10 +398,10 @@ const playbookExecutionRoom: Room = {
       question:
         "A colleague reviewing your ticket says: 'You had enough at Step 2 to reset the password. Collecting mailbox rules and app consents first just gave the intruder ten more minutes.' What is the strongest reply?",
       options: [
-        "They are right — collection is optional once the sign-in is confirmed malicious, and speed should win",
+        "They are right that speed matters most here — collection is a nice-to-have step that becomes optional the moment a sign-in is confirmed malicious, and the faster the password gets reset, the faster the intruder loses access, full stop",
         "Collection is what makes the response correct rather than merely fast: the password reset is irreversible for evidence purposes, ends your visibility into what the intruder was doing, and warns them they are seen — and if a mailbox rule or app consent was planted, resetting the password alone leaves it in place",
-        "They are right, but only because Northvale has no compliance requirement to preserve identity evidence",
-        "Collection matters only for incidents that are eventually reported to a regulator, so it can be skipped on routine tickets",
+        "They are right, but only in Northvale's specific case, because this organisation happens to carry no regulatory or compliance requirement whatsoever to preserve identity evidence before remediating an account",
+        "Collection genuinely matters, but only for incidents that are eventually escalated and formally reported to an external regulator, so on routine internal tickets that never reach that threshold, it can safely be skipped entirely",
       ],
       answer: 1,
       explanation:
@@ -464,10 +464,10 @@ const playbookExecutionRoom: Room = {
           question:
             "Set this record beside the a.brennan record from the previous task. Which specific fields are identical across the two, and what does that combination establish?",
           options: [
-            "Only LocationDetails.countryOrRegion matches, which shows both users happened to be in Lithuania and nothing more",
+            "Only the LocationDetails.countryOrRegion field matches between the two sign-ins, which simply shows that both users happened to be physically located somewhere in Lithuania at the time and reveals nothing more specific than that",
             "IPAddress, AutonomousSystemNumber, UserAgent and AppId are all identical, while UserPrincipalName and UserId differ — the same client, on the same network, authenticated to the same application as two different people twelve minutes apart",
-            "The CorrelationId values match, which is Entra's way of linking sign-ins belonging to a single intruder session",
-            "RiskLevelDuringSignIn matches across both records, which is what establishes they are part of the same activity",
+            "The CorrelationId values match between the two records, which is documented as Entra's dedicated mechanism for linking every sign-in belonging to one single, continuous intruder session together",
+            "RiskLevelDuringSignIn matches identically across both sign-in records, and that shared value alone is documented as what establishes the two events are part of the same coordinated malicious activity",
           ],
           answer: 1,
           explanation:
@@ -478,10 +478,10 @@ const playbookExecutionRoom: Room = {
           question:
             "This record shows RiskLevelDuringSignIn none, RiskState none and an empty RiskEventTypes_V2, and it produced no ticket — it surfaced only because you ran the pivot. Why did Entra score it as unremarkable, and what should you take from that?",
           options: [
-            "Entra scored it as safe after evaluating it against the a.brennan sign-in, which means it has already been assessed as unrelated and can be set aside",
+            "Entra scored this specific sign-in as safe only after evaluating it directly against the earlier a.brennan sign-in, which means it has already been formally assessed as unrelated activity and can therefore be safely set aside",
             "Risk is scored per sign-in against that user's own history, and nothing about this one looked unusual for t.okafor in isolation — the alert queue therefore undercounts the affected accounts, and only the pivot reveals the true number",
-            "The empty risk fields mean the record has not finished processing yet, and the risk score will populate within a few hours",
-            "Risk scoring is disabled for users outside Accounts Payable, so no comparison between the two records is meaningful",
+            "The empty risk fields simply mean the record has not yet finished its full backend processing pipeline, and the actual risk score is expected to populate automatically within the next few hours",
+            "Risk scoring is entirely disabled for any user account that sits outside the Accounts Payable department, so no meaningful comparison between the two sign-in records is possible or worthwhile",
           ],
           answer: 1,
           explanation:
@@ -492,10 +492,10 @@ const playbookExecutionRoom: Room = {
           question:
             "Every one of the three sign-ins returned by your pivot shows Correct password succeeded true on the first attempt, and the tenant has recorded zero failed sign-ins from this address in fourteen days. What does the complete absence of failures tell you about how these credentials were obtained?",
           options: [
-            "It shows the passwords were guessed efficiently, which is consistent with a password spray that happened to succeed on its first try against each account",
+            "It shows the passwords were simply guessed with remarkable efficiency, which is entirely consistent with a targeted password spray campaign that happened to succeed on its very first attempt against each of the three accounts",
             "The intruder already held valid passwords for all three accounts before authenticating — there is no guessing phase anywhere in the telemetry, which points at a common source that supplied working credentials rather than at any attack against the login endpoint",
-            "It shows the three users authenticated themselves and the sign-ins are legitimate, since only the real owner knows the password on the first attempt",
-            "It indicates the accounts have no lockout policy configured, which is the finding to raise",
+            "It simply shows that the three users authenticated themselves and that the sign-ins are entirely legitimate, since only the genuine account owner could possibly know the correct password on the very first attempt",
+            "It indicates that the accounts have no account-lockout policy configured on the tenant, which is a real and separate finding worth raising, but it does not by itself explain how the correct passwords were obtained",
           ],
           answer: 1,
           explanation:
@@ -526,10 +526,10 @@ const playbookExecutionRoom: Room = {
       question:
         "You have decided to stop at Step 3 and page the on-call IR lead. What separates a correct deviation from an incorrect one — given that you are, factually, not completing the procedure you were assigned?",
       options: [
-        "Nothing — deviating from an assigned playbook is always an error, and the correct action is to complete it and raise concerns afterwards",
+        "Nothing needs to happen procedurally in the moment — deviating from an officially assigned playbook is always treated as a process error, and the correct action is to quietly complete every step anyway and only raise concerns afterwards",
         "The deviation is documented and communicated in the moment: the ticket records which step you stopped at, the specific evidence that broke the scope condition, and the escalation you raised — so the next person inherits your reasoning rather than an unexplained gap",
-        "The deviation is acceptable as long as you complete the remaining steps yourself once the IR lead confirms your assessment",
-        "The deviation is justified purely by being correct — if the assessment turns out right, no record of the decision is needed",
+        "The deviation is only acceptable and appropriate as long as you personally go back and complete every one of the remaining steps yourself, once the IR lead has separately confirmed your assessment of the situation",
+        "The deviation is justified purely by being correct in hindsight — if the analyst's assessment turns out to have been right all along, then no written record of the decision or its reasoning is actually needed",
       ],
       answer: 1,
       explanation:
@@ -592,9 +592,9 @@ const playbookExecutionRoom: Room = {
         question: "Per Reading 3, why is stopping at Step 3 and escalating not actually a deviation from IR-014?",
         options: [
           "Because IR-014's own final line explicitly instructs the analyst to stop at Step 3 and escalate when the scope condition fails -- following that line is compliance, not an exception",
-          "Because the IR lead has the authority to override the playbook at any time",
-          "Because playbooks are only suggestions and analysts are free to skip any step",
-          "Because Step 3 is technically optional and was never required to begin with",
+          "Because the IR lead holds standing authority under Northvale's incident response charter to override any written playbook step at any time during an active incident, regardless of what the document says",
+          "Because every playbook at Northvale, including IR-014, is treated purely as an optional suggestion, and individual analysts are always free to skip or reorder any step according to their own personal judgment",
+          "Because Step 3 of IR-014 is explicitly marked as a technically optional checkpoint within the document itself, and was therefore never actually a required part of the procedure to begin with",
         ],
         answer: 0,
         explanation:

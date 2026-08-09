@@ -332,9 +332,9 @@ const avVsEdrMasterclass = {
         question: "According to the reading, what is the key distinction between EPP (Endpoint Protection Platform) and EDR?",
         options: [
           "EPP is the prevention layer that tries to stop threats before execution; EDR is the detection and response layer that assumes some threats get through",
-          "EPP only runs in the cloud, while EDR only runs locally on the endpoint",
-          "EPP monitors network traffic only, while EDR monitors only the file system",
-          "The two terms are interchangeable and describe the same technology",
+          "EPP and EDR are simply different marketing names used by different vendors for the exact same underlying cloud-based antivirus scanning engine and signature database",
+          "EPP only runs as a cloud-hosted service and cannot function without constant internet connectivity, while EDR runs entirely offline on the local endpoint disk",
+          "EPP and EDR are two interchangeable names for the same product category, and vendors use the terms without any meaningful technical distinction between them",
         ],
         answer: 0,
         explanation: "The reading explains that EPP (antivirus, host firewall, application control) tries to stop threats before they execute, while EDR assumes some threats will get through and focuses on detecting and responding to them once active.",
@@ -665,10 +665,10 @@ const avVsEdrMasterclass = {
       question:
         "In the context of EDR, what is a 'Living-Off-the-Land' (LOLBin) attack, and why does it evade traditional AV?",
       options: [
-        "An attack that uses malware with no persistent mechanism, making it harder to remove",
+        "An attack that relies on malware with no persistence mechanism at all, so a simple reboot of the infected machine is normally enough to fully remove it",
         "An attack that abuses legitimate Windows tools like PowerShell, WMI, or certutil.exe to execute malicious code — the tools themselves are trusted by AV",
-        "An attack that targets agricultural or industrial control systems",
-        "An attack launched from within the corporate network, bypassing perimeter defenses",
+        "An attack that specifically targets agricultural machinery and industrial control systems (ICS/SCADA), rather than standard Windows desktop and server environments",
+        "An attack launched entirely from a compromised host already inside the corporate network, deliberately designed to bypass perimeter firewalls and border defenses",
       ],
       answer: 1,
       explanation:
@@ -721,10 +721,10 @@ const avVsEdrMasterclass = {
           question:
             "The crowdstrike.GrantedAccess value is 0x1FFFFF and the TargetProcessId is 3128. What has the malware done to explorer.exe?",
           options: [
-            "The malware added explorer.exe to the Windows Defender exclusion list",
+            "The malware silently added explorer.exe's file path to the Windows Defender exclusion list, so future scans would skip scanning the legitimate explorer.exe binary itself entirely",
             "The malware opened explorer.exe with PROCESS_ALL_ACCESS permissions, allowing it to inject shellcode into the explorer process — using explorer.exe as a host to hide malicious code",
-            "The malware terminated explorer.exe to prevent the user from using the desktop",
-            "The malware created a new process called explorer.exe to replace the legitimate one",
+            "The malware forcibly terminated the explorer.exe process to prevent the logged-in user from accessing the desktop shell, taskbar, or Start menu",
+            "The malware spawned an entirely new process that it deceptively named explorer.exe, running from a different file path, to replace the legitimate Windows shell process",
           ],
           answer: 1,
           explanation:

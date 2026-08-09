@@ -213,9 +213,9 @@ const nacMasterclass = {
         question: "According to the reading, why is EAP-TLS considered the 'gold standard' EAP method?",
         options: [
           "It uses mutual certificate authentication with no password required, making it resistant to password spray, phishing, and credential theft",
-          "It is the fastest authentication method, completing in under one second",
-          "It requires no PKI infrastructure, making it easy to deploy",
-          "It is the only EAP method supported by Cisco ISE",
+          "It is simply the fastest of all EAP authentication methods available in 802.1X, typically completing the entire handshake in well under one second",
+          "It requires no PKI infrastructure at all — it authenticates using a single shared secret configured on the RADIUS server rather than per-device certificates, which makes it far simpler to roll out",
+          "It is the only EAP method supported by Cisco ISE, so any organisation running a different NAC vendor cannot implement this authentication type at all",
         ],
         answer: 0,
         explanation: "The reading states that EAP-TLS uses mutual authentication via client and server certificates with no username or password needed, making it resistant to password spray, phishing, and credential theft — though it requires a PKI to issue certificates.",
@@ -339,9 +339,9 @@ const nacMasterclass = {
         question: "According to the reading, what is the difference between a 'persistent agent' and a 'temporal agent' in NAC posture assessment?",
         options: [
           "The persistent agent is installed permanently on managed corporate devices and reports continuously; the temporal agent is a dissolvable executable used for unmanaged/guest devices that deletes itself after the check",
-          "The persistent agent runs only once per year, while the temporal agent runs on every connection",
-          "The temporal agent is used for corporate devices while the persistent agent is used for guests",
-          "There is no functional difference; the terms are used interchangeably",
+          "The persistent agent runs once per year during an annual compliance audit and then goes dormant, while the temporal agent runs continuously in the background on every single network connection a device makes",
+          "The temporal agent is permanently installed only on managed corporate laptops and desktops, while the persistent agent is the disposable, browser-based tool used for unmanaged guest and BYOD devices",
+          "There is no functional or technical difference between them at all — persistent and temporal are simply two interchangeable marketing terms different NAC vendors use for the exact same posture-check agent",
         ],
         answer: 0,
         explanation: "The reading explains that the persistent agent runs continuously on managed corporate devices for real-time posture monitoring, while the temporal (dissolvable/web) agent is a small executable downloaded for unmanaged or guest devices that runs the check once and then deletes itself.",
@@ -677,10 +677,10 @@ const nacMasterclass = {
       question:
         "What is the key difference between RADIUS and LDAP in the context of network authentication?",
       options: [
-        "RADIUS and LDAP are the same protocol with different names used by different vendors",
+        "RADIUS and LDAP are really just two different names for the exact same directory protocol, and most vendors let administrators use either term interchangeably in their configuration",
         "RADIUS is the protocol the switch uses to ask the authentication server for an access decision; LDAP is the protocol the authentication server uses to query the user directory (like Active Directory)",
-        "LDAP is used for wired 802.1X authentication; RADIUS is used for wireless authentication only",
-        "RADIUS stores user accounts and passwords; LDAP manages network access policies",
+        "LDAP is the protocol used specifically for wired 802.1X port authentication on Ethernet switches, while RADIUS is reserved only for wireless Wi-Fi authentication requests",
+        "RADIUS is the database that stores every user's account and password directly; LDAP is a separate system that manages which network resources and VLANs each user is allowed to reach",
       ],
       answer: 1,
       explanation:
@@ -700,10 +700,10 @@ const nacMasterclass = {
           question:
             "The cisco.ise.selected_vlan field shows VLAN-50-QUARANTINE and cisco.ise.acl shows ACL-QUARANTINE-REMEDIATION. Together, what do these two fields tell you about the access this device has received?",
           options: [
-            "The device has been completely blocked — VLAN-50 has no network access and the ACL blocks all traffic",
+            "The device has been completely and permanently blocked from the network — VLAN-50 provides no network access whatsoever and the ACL denies every single packet, including remediation traffic",
             "The device is in quarantine VLAN 50 with access restricted by an ACL — likely allowing only remediation server traffic (Windows Update, AV updates, ISE portal) and blocking all corporate resources",
-            "The device has full corporate network access but with enhanced logging enabled",
-            "The device has been placed in the guest WiFi network with internet-only access",
+            "The device has full, unrestricted corporate network access identical to a fully compliant machine, with the only difference being that its activity is logged more verbosely for later audit review",
+            "The device has been moved into the guest WiFi network, which provides unrestricted internet-only access with no visibility into or restriction on the corporate LAN segments",
           ],
           answer: 1,
           explanation:
@@ -714,10 +714,10 @@ const nacMasterclass = {
           question:
             "The cisco.ise.posture_failure_reasons field shows 'AntivirusDefinitionOutOfDate, MissingWindowsPatches'. From a SOC analyst perspective, why is an out-of-date AV definition a significant security concern that justifies quarantine?",
           options: [
-            "It is not a significant concern — AV definitions only affect commodity malware, and modern attacks do not use malware that would be caught by AV",
+            "It is not a significant concern at all — antivirus signature updates only affect low-skill commodity malware, and modern, sophisticated attacks never rely on any malware that traditional signature-based AV could ever catch",
             "Out-of-date AV definitions mean the endpoint cannot detect malware variants released in the past 45 days. Combined with missing patches, this device is highly vulnerable and could be a vector for introducing malware into the corporate network",
-            "Out-of-date AV is primarily a compliance issue for audit purposes, not an operational security risk",
-            "AV definitions are automatically updated by Windows Update, so this is likely a temporary condition that resolves itself",
+            "Out-of-date AV is primarily a documentation and compliance issue that auditors care about for the annual report, not something that creates any real operational security risk to the organisation",
+            "AV definitions are always automatically and silently updated in the background by Windows Update on every endpoint, so an out-of-date signature is likely just a temporary reporting lag that resolves itself within minutes",
           ],
           answer: 1,
           explanation:
@@ -728,10 +728,10 @@ const nacMasterclass = {
           question:
             "The cisco.ise.cisco_av_pair field contains 'url-redirect=https://ise-psn-01.corp.local/guestportal/gateway'. What is the purpose of this attribute, and what will the user experience?",
           options: [
-            "This is an error message — the url-redirect indicates the authentication failed and the user should go to the helpdesk URL",
+            "This is simply an error message — the url-redirect attribute only appears when authentication has already failed, and its sole purpose is to point the user's browser to the IT helpdesk contact page",
             "When the user opens a web browser, their HTTP requests will be intercepted by the switch and redirected to the ISE remediation portal. The portal will explain what failed and provide instructions or automated tools to fix the compliance issues",
-            "This attribute sends an automated email to the user explaining the quarantine reason",
-            "The URL is the address of the corporate Windows Update server that the device should connect to for remediation",
+            "This cisco_av_pair attribute is used only to trigger an automated email to the device owner explaining the quarantine reason, but it has no effect on what the user's web browser actually displays",
+            "The URL simply points to the address of the corporate Windows Update server, and the device is expected to connect there directly and silently to download its own remediation updates without further redirection",
           ],
           answer: 1,
           explanation:

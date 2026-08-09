@@ -93,10 +93,10 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what problem does Sigma solve for detection engineers?",
           options: [
-            "It automatically tests rules against production traffic with no manual work",
+            "It automatically tests every rule against a full year of production traffic with no manual work required from the analyst at any stage",
             "It provides a vendor-neutral YAML rule format that can be converted into the query language of different SIEMs, avoiding vendor lock-in",
-            "It replaces the need for the MITRE ATT&CK framework entirely",
-            "It only works with Splunk's SPL query language",
+            "It replaces the need for the MITRE ATT&CK framework entirely, since Sigma rules already encode their own complete tactic and technique taxonomy",
+            "It only works with Splunk's SPL query language and cannot be converted to any other SIEM's native syntax",
           ],
           answer: 1,
           explanation:
@@ -178,10 +178,10 @@ const rooms = [
         question:
           "Your use case for detecting brute-force attacks fires when 5 failed logins occur within 10 minutes from a single account. After a company merger, the rule now generates 500 false-positive alerts per day — all from legitimate password resets for newly onboarded users. What should you do FIRST?",
         options: [
-          "Disable the rule permanently to stop the noise",
-          "Escalate every alert to Tier 3 for manual investigation",
+          "Disable the rule permanently to stop the noise, accepting that brute-force detection coverage will simply be gone until someone eventually revisits it",
+          "Escalate every one of the 500 daily alerts to Tier 3 for manual investigation until the merger's onboarding wave is fully complete",
           "Tune the rule — adjust the threshold, add an exception for the onboarding process, or scope it to exclude known-good IP ranges for the migration period",
-          "Delete the rule and start over from scratch",
+          "Delete the rule and start over from scratch, rebuilding the detection logic from an empty file rather than adjusting the existing one",
         ],
         answer: 2,
         explanation:
@@ -246,10 +246,10 @@ const rooms = [
             question:
               "The process is running from C:\\Windows\\Temp and its parent is cmd.exe. Why does this combination increase the severity of this alert?",
             options: [
-              "C:\\Windows\\Temp is a protected directory that requires admin rights to access",
-              "cmd.exe is a deprecated program that should never run PowerShell",
+              "C:\\Windows\\Temp is a protected directory that requires administrator rights to access, so any process launching from it must already hold elevated privileges",
+              "cmd.exe is a deprecated program on modern Windows and should never be capable of spawning PowerShell as a child process under any circumstance",
               "Legitimate PowerShell scripts typically run from application or user directories, not Temp; and spawning PowerShell from cmd.exe is a common attacker pattern for staging and executing payloads",
-              "The parent-child relationship between cmd.exe and powershell.exe is blocked by default firewall rules",
+              "The parent-child relationship between cmd.exe and powershell.exe is blocked by default Windows Firewall rules, so this process chain should never have been able to execute",
             ],
             answer: 2,
             explanation:
@@ -429,10 +429,10 @@ const rooms = [
         question:
           "An analyst responds to a ransomware incident, successfully contains it, and closes the ticket with only the note: 'Ransomware. Cleaned up.' What is the PRIMARY problem with this documentation?",
         options: [
-          "The ticket should have been assigned to a different analyst",
+          "The ticket should have been assigned to a different, more senior analyst before it was ever allowed to be closed",
           "The note doesn't answer who/what/when/where/why/how — it provides no timeline, no IOCs, no affected systems, no root cause, and no lessons learned",
-          "The word 'Ransomware' should be capitalized differently in the ticketing system",
-          "The ticket was closed too quickly without Tier 3 approval",
+          "The word 'Ransomware' should be capitalized differently and formatted according to the ticketing system's official style guide",
+          "The ticket was closed too quickly without obtaining formal Tier 3 sign-off, regardless of what the note itself actually said",
         ],
         answer: 1,
         explanation:
@@ -740,10 +740,10 @@ const rooms = [
         question:
           "An analyst drafts this client notification: 'We detected T1078 Valid Account usage with impossible travel IOA across your tenant.' What is the main problem with this notification?",
         options: [
-          "The notification is too long and should be shorter",
-          "T1078 is not a real MITRE ATT&CK technique",
+          "The notification is far too long for a client-facing message and needs to be trimmed down to a single short sentence",
+          "T1078 is not a real MITRE ATT&CK technique, so the entire notification is technically inaccurate and should be rewritten from scratch",
           "The notification uses technical jargon (T1078, IOA, impossible travel) that most business contacts won't understand — it should be translated to plain language describing the impact",
-          "The notification should include the analyst's personal phone number",
+          "The notification should include the analyst's personal phone number so the client can reach them directly instead of going through the SOC's main line",
         ],
         answer: 2,
         explanation:
@@ -757,10 +757,10 @@ const rooms = [
         question:
           "A client says: 'We don't want you to isolate the infected machine. Our CFO needs it for a board presentation tomorrow morning.' What is the BEST response from the SOC analyst?",
         options: [
-          "Immediately comply — the client's business needs always take absolute priority over security concerns",
-          "Ignore the client and isolate the machine anyway without telling them",
+          "Immediately comply without further discussion — the client's stated business needs always take absolute priority over any security concern the SOC might raise",
+          "Ignore the client's request entirely and isolate the machine anyway, without telling them it happened or why it was necessary",
           "Explain the specific business risk of leaving the machine connected (potential spread, data exposure), offer alternatives (temporary device for the CFO), and document the client's decision if they insist on waiting",
-          "Escalate to Tier 3 and let them handle the client conversation",
+          "Escalate to Tier 3 immediately and let them handle the entire client conversation, without attempting to explain the risk yourself first",
         ],
         answer: 2,
         explanation:
@@ -805,10 +805,10 @@ const rooms = [
             question:
               "According to the SLA log, why did the P1 notification breach occur?",
             options: [
-              "The analyst forgot to check the ticketing system for new P1 incidents",
+              "The analyst forgot to periodically check the ticketing system for new P1 incidents during their shift, a basic monitoring failure",
               "The assigned analyst was on a call with a different client when the P1 was confirmed, and the backup escalation pager was not acknowledged in time",
-              "The client's phone was turned off and calls could not be received",
-              "The SOAR platform experienced a technical outage that delayed notification",
+              "The client's phone line was turned off outside business hours and calls to their security team could not be received",
+              "The SOAR platform experienced an unplanned technical outage that delayed the notification workflow from firing at all",
             ],
             answer: 1,
             explanation:
@@ -969,10 +969,10 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what is the correct action when you are uncertain about an alert but have not yet completed the investigation steps in your playbook?",
           options: [
-            "Escalate immediately to avoid missing an SLA",
-            "Close it as a false positive without documentation",
+            "Escalate immediately to Tier 2 to avoid missing any possible SLA deadline, even before any investigation steps have been attempted",
+            "Close it as a false positive without documentation, since uncertainty alone is grounds for dismissing the alert entirely",
             "Complete your playbook's investigation steps first, rather than escalating out of uncertainty",
-            "Wait for the next shift to handle it",
+            "Wait for the next shift to handle it, leaving the alert untouched in the queue in the meantime",
           ],
           answer: 2,
           explanation:
@@ -1050,10 +1050,10 @@ const rooms = [
         question:
           "A Tier 1 analyst confirms active ransomware spreading across 12 endpoints. The analyst escalates to Tier 2. After handing over the ticket, what should the Tier 1 analyst do?",
         options: [
-          "Log off and end their shift — the incident has been handed to Tier 2 so it's no longer their responsibility",
+          "Log off and end their shift immediately — the incident has been formally handed to Tier 2, so it is entirely no longer their responsibility in any capacity",
           "Remain available as a resource, provide context to Tier 2 when asked, and use the experience as a learning opportunity — while continuing to monitor the alert queue for related activity",
-          "Immediately call the client directly to inform them, bypassing the Tier 2 and Tier 3 chain of command",
-          "Delete their investigation notes to avoid confusing Tier 2 with conflicting information",
+          "Immediately call the client directly to inform them of the ransomware personally, bypassing the Tier 2 and Tier 3 chain of command entirely",
+          "Delete their investigation notes right away to avoid confusing Tier 2 with what might turn out to be conflicting information",
         ],
         answer: 1,
         explanation:
@@ -1107,10 +1107,10 @@ const rooms = [
             question:
               "According to the escalation log, why did Tier 1 analyst r.cohen escalate this incident to Tier 2? Select the MOST complete answer.",
             options: [
-              "Because the analyst was not sure if it was a real incident",
+              "Because the analyst was not yet sure whether this was a real incident and wanted a second opinion before proceeding any further",
               "Because confirmed ransomware encryption was active on 12 hosts and isolation authority (to block at the firewall and isolate the VLAN) exceeds Tier 1 authority — and the Tier 1 playbook was exhausted",
-              "Because the analyst wanted to go on break and needed someone else to watch the ticket",
-              "Because the client had not yet been notified and only Tier 2 can call clients",
+              "Because the analyst wanted to go on a scheduled break and needed someone else to keep watching the ticket in their absence",
+              "Because the client had not yet been notified, and only a Tier 2 analyst is permitted to place client notification calls",
             ],
             answer: 1,
             explanation:
@@ -1121,10 +1121,10 @@ const rooms = [
             question:
               "The analyst notes mention that 'Domain controller SRV-DC-01 is NOT yet affected.' Why is this information critical to include in the escalation?",
             options: [
-              "It's not important — once ransomware is on 12 hosts, the domain controller doesn't matter",
+              "It's not particularly important information — once ransomware is already active on 12 separate hosts, whether the domain controller is affected doesn't meaningfully change anything",
               "The domain controller holds the master keys to the entire environment — if ransomware reaches it, it can encrypt credentials for all users and potentially spread to every system. Its current clean status defines the containment priority and urgency.",
-              "Domain controllers automatically block ransomware, so this note is just confirming the domain controller is doing its job",
-              "This information should not be in the escalation — it could create panic if Tier 2 reads it",
+              "Domain controllers automatically detect and block ransomware by default, so this note is simply confirming that the domain controller is functioning as designed",
+              "This information should not have been included in the escalation at all — mentioning the domain controller by name could create unnecessary panic if Tier 2 happens to read it",
             ],
             answer: 1,
             explanation:

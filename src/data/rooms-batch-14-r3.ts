@@ -286,9 +286,9 @@ const edgeCaseRoom = {
         question: "According to the reading, why can a dependency-confusion attack succeed even when an organization already has a legitimate internal package with the same name?",
         options: [
           "Many build tools default to checking the public registry first, or fail over to it, letting a higher-versioned public malicious package win dependency resolution",
-          "Internal package servers are always slower than the public registry, so builds time out",
-          "npm and pip cannot connect to private registries at all",
-          "The malicious package must always have a lower version number to be selected",
+          "Internal package servers are always significantly slower to respond than the public npm registry, so build tools time out waiting on them and silently fall back to installing from the public registry instead by design",
+          "npm and pip are fundamentally incapable of connecting to any private or internal registry at all, so every organization is forced to publish all of its internal packages publicly regardless of sensitivity",
+          "The malicious package must always be published with a strictly lower version number than the internal package for dependency resolution to select it over the legitimate internal version",
         ],
         answer: 0,
         explanation: "The reading explains that build tools often default to or fail over to the public registry, so a public package with a higher version number can silently win dependency resolution over the real internal package.",
@@ -360,9 +360,9 @@ const edgeCaseRoom = {
         question: "According to the reading, what is the detection tell that most reliably surfaces a Magecart-style skimmer, since it never appears in the victim's own server-side logs?",
         options: [
           "Subresource Integrity (SRI) hash mismatches and unexpected outbound domains captured in Content-Security-Policy violation reports",
-          "A spike in HTTP 500 errors on the checkout page",
-          "An increase in WAF-blocked SQL injection attempts",
-          "A drop in page load time for the checkout page",
+          "A measurable spike in HTTP 500 server errors returned by the checkout page's own backend application code, logged in the standard web server access logs alongside every other request",
+          "A sustained increase in WAF-blocked SQL injection attempts targeting the checkout form's input fields, visible directly in the web application firewall's own rule-match logs",
+          "A gradual drop in page load time for the checkout page, measured by the site's own real-user-monitoring and application performance dashboards over several weeks",
         ],
         answer: 0,
         explanation: "The reading states that for Magecart, the tell is monitoring SRI hash mismatches and unexpected outbound domains, best surfaced through Content-Security-Policy violation reports — since the skimmer runs client-side and never touches the victim's server logs.",
@@ -466,10 +466,10 @@ const edgeCaseRoom = {
       question:
         "Why does a dependency-confusion attack routinely bypass EDR tools that would normally flag suspicious child processes?",
       options: [
-        "Because npm and pip are always excluded from EDR monitoring by default in every product",
+        "Because npm and pip processes, along with everything they spawn, are always excluded from EDR monitoring entirely by default in every commercial EDR product on the market today",
         "Because the malicious code executes inside a normal, expected process lineage (npm/pip spawning a runtime like node.exe or python.exe), so the process tree shape itself looks routine — the malicious intent is only visible in the command-line content and network destination",
-        "Because dependency-confusion attacks never actually spawn a child process, so there is nothing for EDR to see",
-        "Because the attack always uses a digitally signed binary, and EDR tools trust all signed binaries unconditionally",
+        "Because dependency-confusion attacks never actually spawn a visible child process at all — the malicious code runs silently inside npm's own process memory, so there is structurally nothing for any EDR sensor to observe or record",
+        "Because the attack always uses a digitally signed binary as the spawned process, and EDR tools are designed to unconditionally trust and never inspect the behavior of any binary carrying a valid code-signing certificate",
       ],
       answer: 1,
       explanation:
@@ -485,9 +485,9 @@ const edgeCaseRoom = {
         "An OAuth consent-grant phishing attack succeeds without the attacker ever obtaining the victim's password and without triggering any MFA challenge on subsequent access. Why does MFA never fire for the attacker's ongoing access to the mailbox?",
       options: [
         "Because the attacker cracked the MFA seed value during the initial phishing email",
-        "Because Microsoft/Google disable MFA automatically for any newly registered third-party application",
+        "Because Microsoft and Google both automatically and permanently disable MFA enforcement tenant-wide for any account that has ever granted consent to a newly registered third-party application",
         "Because the OAuth token issued at consent time becomes the ongoing credential for API access — subsequent calls authenticate with the token itself, not a fresh username/password/MFA challenge, so there is no login event to protect",
-        "Because the victim's account did not have MFA enabled in the first place, which is a prerequisite for this attack to work",
+        "Because the victim's account did not have MFA enabled on it in the first place, and having MFA already disabled is treated as a hard prerequisite for an OAuth consent-phishing attack to succeed at all",
       ],
       answer: 2,
       explanation:
@@ -502,10 +502,10 @@ const edgeCaseRoom = {
       question:
         "A password-reset endpoint returns HTTP 200 for every request regardless of whether the submitted email exists, and no single request is malformed. What makes this endpoint exploitable for account enumeration, and what is the correct detection layer to catch it?",
       options: [
-        "It cannot be exploited if every response is HTTP 200 with identical status codes — enumeration requires an explicit error message difference",
+        "It cannot be exploited in any way if every single HTTP response returns status code 200 with identical status codes across the board — real account enumeration strictly requires the application to return an explicit, differently worded error message for each case",
         "The endpoint leaks information through a side channel (response-time variance between the 'user exists' and 'user does not exist' code paths); catching it requires application/business-logic-layer monitoring of response timing and request velocity per source, not network signature detection",
         "This can only be detected by a WAF rule blocking POST requests to any endpoint containing the word 'password'",
-        "It is not actually exploitable — response time variance is not considered a security-relevant signal in any real attack",
+        "It is not actually exploitable at all — response time variance between two code paths is not considered a meaningful, security-relevant signal in any realistic production attack scenario, regardless of how consistently it can be measured",
       ],
       answer: 1,
       explanation:
@@ -526,10 +526,10 @@ const edgeCaseRoom = {
           question:
             "The crowdstrike.CommandLine shows 'node -e' followed by an inline require('child_process').exec(...) call. Why is this specific pattern unusual for a package's postinstall script, even though node.exe spawning from npm is completely normal?",
           options: [
-            "It isn't unusual at all — postinstall scripts commonly use inline node -e evaluation for legitimate build steps",
+            "It isn't unusual at all — postinstall scripts commonly use inline node -e evaluation for legitimate build steps, since many popular open-source packages ship their entire build and asset-compilation pipeline as inline code rather than as a separate committed file",
             "Inline -e evaluation combined with an immediate child_process.exec call to spawn PowerShell is a pattern built for one purpose: executing an arbitrary downloaded payload, not performing a build task. Legitimate postinstall scripts are almost always separate .js files (like scripts/setup.js) that npm invokes, not raw inline code passed on the command line",
-            "It is unusual only because PowerShell is involved, and PowerShell is never used in legitimate Windows development workflows",
-            "It is unusual because node.exe should never be a child of npm.cmd under any circumstances",
+            "It is unusual only because PowerShell is involved in the chain, and PowerShell is never used for any legitimate purpose whatsoever in real-world Windows development or IT automation workflows, regardless of how it is invoked or what arguments are passed to it",
+            "It is unusual because node.exe should never, under any circumstances, be a legitimate child process of npm.cmd — any observation of node.exe spawning directly beneath npm.cmd in a process tree is, by itself, conclusive proof of compromise",
           ],
           answer: 1,
           explanation:
@@ -540,9 +540,9 @@ const edgeCaseRoom = {
           question:
             "The raw field npm.registry shows the package was resolved from https://registry.npmjs.org (the PUBLIC registry), but the package name 'internal-logging-utils' strongly implies an internal-only naming convention. What attack does this combination point to?",
           options: [
-            "A typosquatting attack, where the attacker registered a name one character different from a popular public package",
+            "A typosquatting attack, where the attacker registered a package name that is one character different from a popular, well-known public package, hoping a developer would mistype the name while installing it",
             "Dependency confusion — the developer's build tooling resolved a public package with an internal-sounding name instead of the organization's actual private internal package of the same name, because the public registry was checked and won resolution",
-            "This is not evidence of any attack — it just means the company chose to publish an internal tool publicly, which is a normal business decision",
+            "This is not evidence of any attack at all — it simply means the company made a normal business decision to also publish this particular internal tool publicly on the open npm registry for external contributors to use",
             "A DNS hijacking attack that redirected the request for the internal registry to the public one",
           ],
           answer: 1,
@@ -554,9 +554,9 @@ const edgeCaseRoom = {
           question:
             "The destination in the network field is a raw IP address (185.220.101.47) over plain HTTP, rather than a domain name over HTTPS. Why does this specific detail matter for triage prioritization?",
           options: [
-            "It doesn't matter — IP-based HTTP connections are just as common as domain-based HTTPS ones in legitimate developer tooling",
+            "It doesn't matter at all — IP-based connections over plain HTTP are exactly as common and exactly as trustworthy as domain-based connections over HTTPS in legitimate developer tooling and package-management infrastructure across the industry",
             "Legitimate package infrastructure, CDNs, and update servers almost universally use domain names with valid TLS certificates; a bare IP address over unencrypted HTTP for a second-stage payload download is a strong low-cost indicator of malicious infrastructure and should raise this from a routine detection to a priority investigation",
-            "It matters only because the IP is outside the company's registered ASN — the protocol (HTTP vs HTTPS) is not a meaningful signal on its own",
+            "It matters only because the IP falls outside the company's own registered ASN range — the choice of protocol, HTTP versus HTTPS, carries no meaningful security signal on its own and should never factor into a triage decision",
             "This detail is only relevant for network engineers, not for triage severity decisions",
           ],
           answer: 1,
@@ -580,10 +580,10 @@ const edgeCaseRoom = {
           question:
             "The data.office365.ExtendedProperties.Value field lists the requested scopes as 'Mail.Read offline_access User.Read Contacts.Read'. Which single scope in this list is the strongest independent red flag, and why?",
           options: [
-            "User.Read, because it grants access to the user's basic profile information which is highly sensitive",
+            "User.Read, because it grants access to the user's basic profile information (display name, job title, email address), and that category of profile data is considered highly sensitive personal information under most data-protection regulations regardless of which other scopes are requested alongside it",
             "offline_access, because it converts what would otherwise be a session-limited grant into a persistent one — the app can silently refresh its access token indefinitely without the user ever logging in again, which very few legitimate lightweight utility apps ('Quick Doc Viewer') genuinely require",
-            "Contacts.Read, because reading contacts is always a sign of malicious intent regardless of context",
-            "Mail.Read, because any application requesting mail access should be auto-blocked by default in every tenant",
+            "Contacts.Read, because reading a user's contact list is always, in every single case and for every application category, a definitive sign of malicious intent regardless of what other scopes are requested or what the application's stated purpose is",
+            "Mail.Read, because any application requesting any level of mail access at all should be automatically and permanently blocked by default in every Microsoft 365 tenant, with no exceptions ever made for legitimate business email tools",
           ],
           answer: 1,
           explanation:
@@ -594,10 +594,10 @@ const edgeCaseRoom = {
           question:
             "The data.office365.ApplicationDisplayName is 'Quick Doc Viewer' and the GeoLocation fields show the consent occurred from Latvia. On their own, is either of these facts conclusive proof of a malicious app?",
           options: [
-            "Yes — any application name containing a generic term like 'Quick' or 'Viewer' is definitionally malicious",
-            "Yes — any consent action originating from Latvia should always be auto-blocked regardless of other context",
+            "Yes — any application display name containing a generic marketing term like 'Quick' or 'Viewer' is, by itself and without exception, definitionally proof of malicious intent, regardless of what permissions the app actually requests or where the consent originated",
+            "Yes — any consent action originating from an IP address geolocated to Latvia, or any other country the analyst does not personally recognize, should always be automatically blocked and treated as malicious regardless of any other surrounding context",
             "No, neither fact alone is conclusive — generic app names and foreign IP addresses both have legitimate explanations individually. They become meaningful only in combination with other risk factors: the offline_access scope request, the application's registration/verification status, and whether this location is typical for the user",
-            "No, because Azure AD consent screens cannot be triggered from outside the tenant's home country under any circumstances",
+            "No, because Azure AD consent screens are technically incapable of being triggered from any IP address or geography outside the tenant's registered home country under any circumstances, making the Latvia location itself impossible",
           ],
           answer: 2,
           explanation:
@@ -620,10 +620,10 @@ const edgeCaseRoom = {
           question:
             "The dlp.rule_triggered field is false and dlp.observed_files_this_hour (14) is far below dlp.threshold_files_per_hour (50). Why is it a mistake to close this alert as benign based on the DLP fields alone?",
           options: [
-            "It is not a mistake — if the DLP threshold was not crossed, the activity is by definition not a security concern",
+            "It is not a mistake in any way — if the DLP threshold for files-per-hour was not crossed during this specific session, then by strict definition the activity can never be considered a security concern worth any further review, no matter how many other days show a similar pattern",
             "DLP thresholds are calibrated to catch bulk, single-session exfiltration; they are structurally blind to sustained, sub-threshold activity repeated over many days, which is exactly the pattern a patient insider uses to stay invisible. The threshold not firing tells you this session wasn't a smash-and-grab — it tells you nothing about the multi-week trend",
-            "It is a mistake only because the threshold value of 50 files/hour is set too high and should be lowered to 10",
-            "It is a mistake because DLP should have blocked the download entirely regardless of file count",
+            "It is a mistake only because the specific threshold value of 50 files per hour that this DLP policy uses is set far too high and should simply be lowered to something like 10 files per hour to catch this exact kind of activity going forward",
+            "It is a mistake because DLP should have blocked this download entirely and immediately, regardless of the file count involved, since any download from a library containing contracts ought to require a manual approval step before it is ever allowed to proceed",
           ],
           answer: 1,
           explanation:
@@ -634,10 +634,10 @@ const edgeCaseRoom = {
           question:
             "The ueba.consecutive_days_elevated field shows 17, and ueba.library_role_relevance is marked LOW for this Finance-department user accessing the Contracts library. What is the correct analyst action given these two fields together?",
           options: [
-            "No action needed — SharePoint access within the company is always considered normal regardless of department or duration",
+            "No action needed at all — SharePoint access to any document library within the company is always considered completely normal and routine, regardless of which department the user belongs to, which library they access, or how many consecutive days the pattern continues",
             "Escalate for investigation: 17 consecutive days of elevated (though individually sub-threshold) activity from a library outside this user's normal job function is a textbook low-and-slow insider exfiltration pattern, and should trigger a review of what was downloaded, whether it was forwarded/uploaded externally, and a conversation with the user's manager",
-            "Automatically disable the user's account without further investigation, since 17 days is definitive proof of malicious intent",
-            "Lower the user's SharePoint permissions silently without notifying anyone, to avoid tipping off a potential insider",
+            "Automatically disable the user's account and revoke all access without any further investigation or manager conversation, since 17 consecutive days of elevated activity is, on its own, definitive and sufficient proof of malicious intent requiring no additional corroboration",
+            "Lower the user's SharePoint permissions silently and without notifying anyone on the security team, their manager, or HR, specifically to avoid tipping off a potential insider before enough evidence has been gathered to justify a formal case",
           ],
           answer: 1,
           explanation:

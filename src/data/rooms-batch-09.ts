@@ -961,10 +961,10 @@ By combining memory forensics (what was running), disk forensics (what files exi
       id: "dfir-q4",
       question: "Windows Prefetch files can help identify malware even after it has been deleted from disk. Why?",
       options: [
-        "Prefetch files contain the full binary code of every program that has ever run",
+        "Prefetch files store a full compressed copy of the executable itself, so investigators can extract and re-run the original binary directly from the Prefetch file",
         "Prefetch files record evidence that a program was executed — including its name, path, and last run times — even after the executable is deleted",
-        "Prefetch files are only useful for troubleshooting slow application launches",
-        "Prefetch files are stored in RAM, so they are lost when the machine reboots",
+        "Prefetch files are cleared automatically every time Windows Defender runs a scan, so they only reflect activity from the last few minutes",
+        "Prefetch files are stored only in RAM and volatile cache, so like other memory artefacts they are lost the moment the machine reboots or loses power",
       ],
       answer: 1,
       explanation:

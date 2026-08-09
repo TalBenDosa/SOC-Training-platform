@@ -839,10 +839,10 @@ If the test event appears: integration is working. If not: check the agent statu
           question:
             "In the CEF format, what does the 'cs1' field represent, and how do you know what it means?",
           options: [
-            "cs1 is the source country — it is always the country of the source IP",
+            "cs1 is a fixed, reserved CEF field that always holds the two-letter source country code derived from the src IP address",
             "cs1 is a custom string field — the 'cs1Label=RuleName' field tells you that in this log, cs1 contains the firewall rule name",
-            "cs1 is the CEF severity level — values 1 through 10",
-            "cs1 is always the username of the user who triggered the event",
+            "cs1 is a duplicate of the CEF header's own severity field, just repeated inside the extension for convenience when parsing",
+            "cs1 is a fixed, reserved CEF field that always holds the authenticated username of whoever triggered the logged event",
           ],
           answer: 1,
           explanation:
@@ -1184,14 +1184,14 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
       question:
         "What does Microsoft Defender for Office 365 Safe Attachments do that traditional antivirus scanning cannot?",
       options: [
-        "It scans attachments faster than traditional AV",
+        "It scans attachments against a signature database that refreshes hourly instead of daily, so known-malware definitions simply reach the mailbox faster than a standard antivirus feed would",
         "It opens and executes attachments in an isolated sandbox to observe behavior, detecting zero-day malware with no known signature",
-        "It prevents all attachments from being delivered, regardless of content",
-        "It encrypts all attachments to protect sensitive data in transit",
+        "It blocks any attachment whose sender domain fails SPF or DKIM authentication, regardless of what the attachment itself actually contains",
+        "It applies Microsoft Purview sensitivity labels to attachments in transit, encrypting them so a stolen copy of the mailbox export cannot be opened",
       ],
       answer: 1,
       explanation:
-        "Traditional antivirus works by comparing file contents to a database of known malware signatures. It can't detect brand-new malware that isn't in the signature database (zero-day malware). Safe Attachments uses behavioral analysis — it actually runs the attachment in an isolated cloud sandbox and watches what it does. If the file tries to connect to a command-and-control server, download additional payloads, or modify system files — behaviors characteristic of malware — it's detected and blocked, even if no one has ever seen this specific malware before.",
+        "Traditional antivirus works by comparing file contents to a database of known malware signatures. It can't detect brand-new malware that isn't in the signature database (zero-day malware). Safe Attachments uses behavioral analysis — it actually runs the attachment in an isolated cloud sandbox and watches what it does. If the file tries to connect to a command-and-control server, download additional payloads, or modify system files — behaviors characteristic of malware — it's detected and blocked, even if no one has ever seen this specific malware before. A faster signature refresh is still signature-based detection (the exact limitation Safe Attachments overcomes); SPF/DKIM enforcement is what anti-phishing and anti-spoofing policies do, a separate MDO capability from attachment sandboxing; and sensitivity-label encryption is a Purview Information Protection feature, not what stops a malicious file from executing.",
       xp: 30,
     },
 
@@ -1270,10 +1270,10 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
           question:
             "The source IP 185.220.101.45 is from Moscow, Russia. The user j.chen@corp.com is a Finance Manager who works in New York. What should the SOC analyst do FIRST?",
           options: [
-            "Wait 24 hours to see if any financial damage occurs before acting",
-            "Send j.chen@corp.com an email asking if they created this rule",
+            "Wait 24 hours and monitor for a wire-transfer attempt before taking any containment action on the account",
+            "Send j.chen@corp.com an email at their corp.com address asking whether they created this rule, and wait for a reply before acting",
             "Immediately disable j.chen's account, revoke active sessions, remove the forwarding rule, and begin incident response — this is a confirmed BEC indicator",
-            "Delete the forwarding rule only and close the alert as resolved",
+            "Delete the forwarding rule only, leave the account enabled, and close the alert as resolved once the rule is gone",
           ],
           answer: 2,
           explanation:
@@ -1627,10 +1627,10 @@ When sign-in logs show authentication from two locations too far apart to travel
       question:
         "What is the main security advantage of Microsoft Entra ID Privileged Identity Management (PIM)?",
       options: [
-        "It encrypts privileged user accounts so attackers cannot read their passwords",
+        "It encrypts every privileged account's password at rest with a hardware-backed key, so a compromise of the Entra ID database alone cannot recover the credential",
         "It replaces standing privilege with just-in-time access — admin roles are only active for a limited time when explicitly needed, reducing the window of exposure",
-        "It prevents admins from logging in outside business hours",
-        "It automatically enables MFA for all privileged accounts",
+        "It blocks admin sign-ins entirely outside a configured business-hours window, regardless of whether the role is currently activated or not",
+        "It automatically enables MFA for every privileged account the moment it is created, without requiring a Conditional Access policy to enforce it",
       ],
       answer: 1,
       explanation:
@@ -1663,10 +1663,10 @@ When sign-in logs show authentication from two locations too far apart to travel
       question:
         "What is 'MFA Fatigue' (also called Push Bombing) and why does it work?",
       options: [
-        "An attack where the attacker exhausts the victim's MFA app battery by generating many requests",
+        "An attack where the attacker floods the victim's Authenticator app with requests specifically to drain the phone's battery and force it offline",
         "An attack where the attacker already has the victim's password and repeatedly sends MFA push notifications until the frustrated victim taps 'Approve' to make them stop",
-        "An attack where the attacker reuses an old MFA code (replay attack)",
-        "An attack where the attacker changes the victim's phone number to redirect MFA SMS codes",
+        "An attack where the attacker captures a valid MFA code in transit and resubmits that exact same code again before it expires",
+        "An attack where the attacker social-engineers the mobile carrier into porting the victim's phone number onto a SIM card the attacker controls",
       ],
       answer: 1,
       explanation:
@@ -1721,10 +1721,10 @@ When sign-in logs show authentication from two locations too far apart to travel
           question:
             "The CEO's account shows a failed login from Shanghai, China. The CEO was confirmed to be in New York at the time of this event. Which Entra ID Protection risk detection type does this trigger?",
           options: [
-            "Leaked credentials — the password was found on the dark web",
-            "Anonymous IP — the sign-in is from a Tor exit node",
+            "Leaked credentials — Microsoft matched this username and password against a known breach or dark-web paste site",
+            "Anonymous IP — the sign-in originates from a known Tor exit node or public anonymization proxy service",
             "Impossible travel — the sign-in is from a location too far away to reach in the time since the last sign-in",
-            "Malware-linked IP — the source IP is in a botnet blocklist",
+            "Malware-linked IP — the source IP address appears on a threat-intelligence botnet command-and-control blocklist",
           ],
           answer: 2,
           explanation:
@@ -1735,10 +1735,10 @@ When sign-in logs show authentication from two locations too far apart to travel
           question:
             "The ErrorNumber in this log is 50126. The sign-in FAILED. Does this mean the CEO's account is safe and no further investigation is needed?",
           options: [
-            "Yes — the attack failed, so there is no incident to investigate",
+            "Yes — a failed login attempt with ErrorNumber 50126 means the credential offered was wrong, so nothing about the account itself was ever actually exposed",
             "No — a failed attempt from a high-risk location still indicates the attacker has the CEO's username. They may try again, and successful logins to other services with the same credentials should be checked. Password reset is recommended.",
-            "Yes — Entra ID automatically blocked and banned the source IP",
-            "No — but only because the CEO is a high-value target; for regular users a failed login would be safe to ignore",
+            "Yes — Entra ID automatically adds any source IP behind a failed sign-in to a permanent tenant-wide block list after a single attempt",
+            "No — but only because the CEO is a high-value target; for a regular employee's account, a single failed login from an unusual country would be safe to close without any further review",
           ],
           answer: 1,
           explanation:
@@ -1784,10 +1784,10 @@ When sign-in logs show authentication from two locations too far apart to travel
       question:
         "In Entra ID's tenant model, what is a 'Service Principal'?",
       options: [
-        "A backup administrator account created for emergency access",
+        "A break-glass emergency-access administrator account, excluded from Conditional Access, kept for use only if every other admin is locked out",
         "The instance of an application registration within a specific tenant — used by applications and automation to authenticate with Entra ID without a human user",
-        "A special user account that cannot be deleted or modified",
-        "A network firewall rule that controls which applications can access Entra ID",
+        "A built-in system account Microsoft provisions in every tenant that cannot be deleted, renamed, or have its permissions modified by an admin",
+        "A Conditional Access policy component that allow-lists which registered applications are permitted to authenticate against the tenant",
       ],
       answer: 1,
       explanation:

@@ -46,14 +46,14 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what is the key difference in Windows Security logs between password spray and credential stuffing?",
           options: [
-            "Password spray only targets service accounts; credential stuffing only targets human accounts",
+            "Password spray only ever targets non-interactive service accounts, while credential stuffing exclusively targets accounts belonging to human users",
             "Credential stuffing shows some successful logons because attackers use real leaked username/password pairs, while a pure password spray is all failures with SubStatus 0xC000006A",
-            "Password spray always originates from Tor exit nodes; credential stuffing never does",
-            "There is no observable difference in the logs between the two attacks",
+            "Password spray attacks always originate from known Tor exit node IP ranges, whereas credential stuffing attacks never use Tor infrastructure at all",
+            "There is no observable difference between the two attacks anywhere in the logs — both produce an identical field pattern in Windows Security events",
           ],
           answer: 1,
           explanation:
-            "In credential stuffing, some login attempts succeed because the attacker is using real username/password pairs leaked from another breach and reused by the victim. In pure password spray, the attacker is guessing a common password, so it's almost entirely failures (0xC000006A) across many accounts with no successes.",
+            "In credential stuffing, some login attempts succeed because the attacker is using real username/password pairs leaked from another breach and reused by the victim. In pure password spray, the attacker is guessing a common password, so it's almost entirely failures (0xC000006A) across many accounts with no successes. Neither attack is defined by account type (service vs. human) or by whether Tor is used — both are defined by the shape of the attempts, and that shape is clearly visible in the logs, not identical between the two.",
         },
       },
       // ── Reading 3 ──────────────────────────────────────────────
@@ -166,10 +166,10 @@ const rooms = [
             question:
               "The LogonType is '3' and AuthenticationPackageName is 'NTLM'. What does this combination tell you about HOW the attacker is authenticating?",
             options: [
-              "The attacker is sitting at a physical keyboard on the DC (interactive logon)",
+              "The attacker is physically sitting at the Domain Controller's own keyboard, which is what LogonType 3 combined with the NTLM package specifically represents",
               "The attacker is connecting over the network using NTLM — possibly because they are connecting by IP address rather than hostname, or Kerberos is unavailable",
-              "The attacker is using a Remote Desktop session and has domain credentials",
-              "The attacker has already obtained a Kerberos TGT and is using it to request service tickets",
+              "The attacker is using an interactive Remote Desktop Protocol session and already holds valid domain credentials for the account being targeted",
+              "The attacker has already obtained a full Kerberos Ticket Granting Ticket and is now using it to request additional Kerberos service tickets",
             ],
             answer: 1,
             explanation:
@@ -180,10 +180,10 @@ const rooms = [
             question:
               "The alert notes that 3 accounts successfully authenticated 7 minutes AFTER the spray ended. What is the CORRECT next action for the analyst?",
             options: [
-              "Close the alert as resolved — the spray stopped and the 3 successes are probably coincidental",
-              "Increase the SIEM threshold to reduce future alert noise from similar patterns",
+              "Close the alert as fully resolved — the spray traffic has stopped and the 3 successful logons that followed it are most likely just coincidental timing",
+              "Simply increase the SIEM's alerting threshold going forward, so that similar future patterns generate less noise for the on-call analyst to review",
               "Immediately disable the 3 accounts that had successful logons, preserve evidence, and escalate to Tier 2 for full investigation of what those accounts accessed post-logon",
-              "Block the source IP at the perimeter firewall and take no further action since the attack is over",
+              "Block the source IP address at the perimeter firewall and consider the matter fully handled, since the attacker can no longer reach the network at all",
             ],
             answer: 2,
             explanation:
@@ -293,10 +293,10 @@ const rooms = [
         checkpoint: {
           question: "According to the reading's attack chain, what does the attacker use in Step 5 (DCSync / NTDS extraction) to pull all password hashes from Active Directory?",
           options: [
-            "A brute-force attack against the Domain Controller's RDP port",
+            "A sustained brute-force password-guessing attack launched directly against the Domain Controller's exposed RDP listener on port 3389",
             "A mimicked legitimate Domain Controller replication request that pulls hashes without touching NTDS.DIT on disk",
-            "A phishing email sent to the Domain Admin",
-            "A golden ticket forged from the krbtgt hash",
+            "A targeted phishing email sent directly to the Domain Admin, tricking them into typing their credentials into a fake login portal",
+            "A golden ticket forged from the previously extracted krbtgt hash, used here to authenticate directly to the DC as any user",
           ],
           answer: 1,
           explanation:
@@ -344,10 +344,10 @@ const rooms = [
         question:
           "What is the PRIMARY security purpose of a PAM (Privileged Access Management) vault solution like CyberArk?",
         options: [
-          "To encrypt all network traffic between privileged users and the systems they manage",
+          "To transparently encrypt all network traffic flowing between privileged users and the systems they remotely manage, similar to what a VPN concentrator already does",
           "To store privileged account passwords so that human administrators never know the actual password — requiring vault checkout, logging all use, and automatically rotating credentials after each session",
-          "To enforce multi-factor authentication on VPN connections for all employees",
-          "To scan Active Directory for accounts with excessive privileges and remove them automatically",
+          "To centrally enforce multi-factor authentication on VPN connections for every employee in the organisation, privileged or not",
+          "To continuously scan Active Directory for accounts holding excessive privileges and automatically strip or remove those privileges without human review",
         ],
         answer: 1,
         explanation:
@@ -532,10 +532,10 @@ const rooms = [
             question:
               "The process.parent.name is 'sqlservr.exe' and the process.name is 'powershell.exe'. Why is this parent-child relationship, on its own, enough to escalate this alert to critical — even before reading the sql.stored_procedure field?",
             options: [
-              "It isn't unusual — DBAs commonly launch PowerShell scripts directly from the SQL Server process during routine maintenance",
+              "It isn't unusual at all — DBAs routinely launch PowerShell maintenance scripts as a direct child process of sqlservr.exe itself during scheduled overnight maintenance windows, so this parent-child pairing is expected and benign on any production database server",
               "sqlservr.exe (the SQL Server database engine process) has no legitimate reason to spawn a shell interpreter like PowerShell — real database administration happens through management tools or scheduled SQL Agent jobs, not through the database engine process itself launching cmd.exe or powershell.exe. This parent-child pattern is functionally identical to the 'Office app spawns shell' red flag you learned earlier, just with a database process instead of Word or Excel",
-              "PowerShell should never run on a database server under any circumstances, regardless of what launched it",
-              "The alert is only critical because the integrity level is 'High' — the parent process name is not itself meaningful",
+              "PowerShell itself should never be allowed to run on any database server under any circumstances whatsoever, entirely independent of which process launched it or why, since PowerShell's mere presence is the actual indicator here",
+              "The alert is only rated critical because the EDR happened to record an integrity level of 'High' on this particular process — the identity of the parent process itself carries no real investigative meaning on its own",
             ],
             answer: 1,
             explanation:
@@ -546,14 +546,14 @@ const rooms = [
             question:
               "The event occurred 6 hours after a Kerberoasting alert against the same account, svc-mssql. What does this timing gap tell you about what happened in between, and what should the analyst's investigation timeline include?",
             options: [
-              "The 6-hour gap is irrelevant — the two events should be treated as completely unrelated incidents",
+              "The 6-hour gap is entirely irrelevant to the investigation, because SIEM correlation only ever matters within the same 5-10 minute alerting window — the two events happened to involve the same account purely by coincidence, and standard SOC practice is to open, triage, and close them as two completely separate, unrelated tickets rather than trying to connect them into a single incident timeline",
               "The gap is consistent with offline password cracking: the attacker captured svc-mssql's Kerberos service ticket (RC4-encrypted) via Kerberoasting, spent time cracking it offline on their own hardware (generating zero logs during that period), and once cracked, authenticated as svc-mssql to the SQL Server instance and abused its sysadmin privileges via xp_cmdshell. The investigation timeline should span from the original 4769 Kerberoasting event through to this process creation, treating both as one continuous incident",
-              "The gap indicates the SQL Server was rebooted during that window, which reset the account's permissions",
-              "A 6-hour gap is too long for the two events to be part of the same attack — Kerberoasting attacks must be followed by exploitation within minutes",
+              "The gap most likely indicates that the SQL Server instance underwent a routine reboot for scheduled patching sometime during that six-hour window, and it was specifically that reboot process which reset the service account's underlying database-level permissions back to an overly broad default configuration, unrelated to any credential theft",
+              "A 6-hour gap between the two events is simply far too long for them to plausibly belong to the same attack chain, since Kerberoasting exploitation must always follow the initial ticket capture within a few minutes at most, or the captured ticket is considered to have expired and become useless to the attacker",
             ],
             answer: 1,
             explanation:
-              "This is the exact 'silent gap' pattern taught in the Active Directory room's AS-REP Roasting reading, applied to Kerberoasting: cracking an RC4-encrypted Kerberos ticket offline can take anywhere from minutes to many hours depending on password strength and attacker hardware, and it generates no logs at all because it happens entirely outside the domain's visibility. A mature SOC investigation treats the original Kerberoasting alert and this xp_cmdshell escalation as a single incident timeline, not two unrelated events — the multi-hour gap is itself diagnostic evidence of offline cracking having occurred in between.",
+              "This is the exact 'silent gap' pattern taught in the Active Directory room's AS-REP Roasting reading, applied to Kerberoasting: cracking an RC4-encrypted Kerberos ticket offline can take anywhere from minutes to many hours depending on password strength and attacker hardware, and it generates no logs at all because it happens entirely outside the domain's visibility. A mature SOC investigation treats the original Kerberoasting alert and this xp_cmdshell escalation as a single incident timeline, not two unrelated events — the multi-hour gap is itself diagnostic evidence of offline cracking having occurred in between. SIEM correlation absolutely can and should span hours, not just minutes, when the same account is involved. There is no Windows or SQL Server behaviour that resets database permissions on reboot. And Kerberos service tickets remain crackable offline for as long as the attacker holds the captured ticket — there is no built-in expiry that forces exploitation within minutes.",
             xp: 30,
           },
         ],
@@ -671,10 +671,10 @@ const rooms = [
         question:
           "In AWS CloudTrail, what does `userIdentity.type = \"Root\"` in a CloudTrail event indicate, and why should SOC analysts treat this as high-priority?",
         options: [
-          "The action was performed by an IAM user with 'root' in their username — common for database administrators",
+          "The action was performed by an ordinary IAM user whose username simply happens to contain the literal string 'root' — a fairly common naming convention among database administrators",
           "The action was performed by the AWS account root user — the all-powerful account that bypasses all IAM policies. Root should almost never be used, and any root activity should be investigated immediately.",
-          "The action was performed by a Lambda function running with root-level OS privileges within the container",
-          "The event was generated by AWS's internal automation systems maintaining account infrastructure",
+          "The action was performed by a containerised Lambda function that was granted root-level operating-system privileges inside its own isolated execution sandbox",
+          "The event was auto-generated by one of AWS's own internal automation systems that periodically performs routine housekeeping on account-level infrastructure",
         ],
         answer: 1,
         explanation:
@@ -915,7 +915,7 @@ const rooms = [
           "Sigma rules execute faster than native SIEM queries because they are compiled to machine code before being stored in the SIEM",
           "Sigma rules are vendor-neutral and portable — they can be compiled into the query language of any supported SIEM, allowing the organisation to share rules with the community and migrate between vendors without rewriting all detections",
           "Sigma rules support artificial intelligence-based anomaly detection that native SIEM query languages do not provide",
-          "Sigma format automatically tests rules against historical data before deploying them, eliminating the need for a separate testing phase",
+          "Sigma format automatically tests every rule against a year of historical data before deploying it to production, entirely eliminating the need for a separate manual testing or tuning phase",
         ],
         answer: 1,
         explanation:

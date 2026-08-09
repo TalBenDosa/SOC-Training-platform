@@ -290,10 +290,10 @@ const soarRoom = {
       question:
         "Using the smoke detector / sprinkler analogy from this room, which statement correctly describes the relationship between a SIEM and a SOAR platform?",
       options: [
-        "SOAR replaces the SIEM entirely — once you have SOAR, log correlation and alerting are no longer needed",
+        "SOAR replaces the SIEM entirely and makes it obsolete — once an organization deploys SOAR, log correlation, event aggregation, and alerting become completely unnecessary since the playbooks handle detection on their own",
         "The SIEM detects and raises the alert (the smoke detector going off); the SOAR platform takes the automated response actions and coordinates the workflow (the sprinkler activating and the call to the fire department) — they work together, not as substitutes for each other",
-        "SOAR is simply a nicer user interface for viewing the same SIEM alerts, with no automation capability of its own",
-        "The SIEM only matters for compliance reporting, while SOAR does all real detection work"
+        "SOAR is simply a nicer, more modern user interface layered on top of the same underlying SIEM alerts, with no automation, orchestration, or response capability of its own beyond prettier dashboards",
+        "The SIEM only ever matters for after-the-fact compliance reporting and audit trails, while the SOAR platform is the one doing all of the real, meaningful detection and correlation work"
       ],
       answer: 1,
       explanation:
@@ -326,10 +326,10 @@ const soarRoom = {
       question:
         "Why do mature SOC teams typically insist on a human approval gate before a playbook auto-blocks an IP address or disables a user account, even though the technology is capable of doing it instantly with no human involved?",
       options: [
-        "Because SOAR platforms are technically incapable of taking action without a human clicking a button first",
+        "Because SOAR platforms as a technology category are fundamentally and permanently incapable of ever taking any containment action without a human physically clicking a button first, regardless of how the playbook is configured",
         "Because containment actions change something in the live environment, and if the enrichment/confidence behind the recommendation is wrong, the automation itself can cause an outage or business disruption — the approval gate limits the blast radius of an incorrect automated decision",
-        "Because compliance regulations universally forbid any security automation from taking action without a ticket number",
-        "Because human analysts are always faster than automated playbooks at making containment decisions"
+        "Because compliance regulations such as PCI-DSS, HIPAA, and SOC 2 universally and explicitly forbid any form of security automation from ever taking action without an open, human-assigned ticket number attached to it",
+        "Because human analysts, even when tired or under heavy alert load, are always meaningfully faster than any automated playbook could ever be at making containment decisions under real-world time pressure"
       ],
       answer: 1,
       explanation:
@@ -350,10 +350,10 @@ const soarRoom = {
           question:
             "Looking only at this raw alert, which piece of context that a human analyst would normally need is NOT yet present, and would require manual lookup (or automated enrichment) to answer?",
           options: [
-            "The number of failed attempts — that information is missing from this alert",
+            "The number of failed attempts recorded against this account within the observed window — that specific count information is entirely missing and unavailable anywhere in this particular raw alert",
             "Whether the source IP (185.220.101.47) has any known malicious reputation, and whether this IP has ever legitimately contacted this environment before",
-            "The target username — that information is missing from this alert",
-            "The SubStatus code — that information is missing from this alert"
+            "The target username value itself, meaning which specific account was actually the subject of these repeated failed logon attempts — that piece of information is completely missing from this alert",
+            "The SubStatus code explaining precisely why each individual logon attempt failed at the authentication layer — that specific status detail is entirely missing from this particular alert"
           ],
           answer: 1,
           explanation:
@@ -364,10 +364,10 @@ const soarRoom = {
           question:
             "The target account is svc-backup — a service account, not a named human. Why does that fact alone raise the priority of this alert, using the WHO framework from earlier training?",
           options: [
-            "It doesn't — service accounts are always lower priority than human accounts",
+            "It doesn't raise the priority at all — service accounts should always be treated as universally and permanently lower priority than any human account, regardless of what privileges they carry or how they normally authenticate",
             "Service accounts typically have broad, standing privileges and do not have a 'the user just mistyped their password' explanation the way a human does, since nothing should be manually typing a service account's password at all — repeated failures against one are inherently more suspicious",
-            "Service accounts cannot be locked out, so failed logons against them are never meaningful",
-            "The LogonType value proves this is definitely an attacker and needs no further check"
+            "Service accounts, by design, can never be locked out under any configuration, so any number of failed logons recorded against one are structurally meaningless and carry absolutely no investigative value whatsoever",
+            "The LogonType value alone, on its own and without any other corroborating evidence, definitively proves this is an attacker and therefore needs absolutely no further verification or enrichment of any kind"
           ],
           answer: 1,
           explanation:
@@ -390,10 +390,10 @@ const soarRoom = {
           question:
             "Based on the enrichment fields now present, does this alert look MORE or LESS likely to be a genuine attack compared to the raw version — and which specific enriched field is most responsible for that shift?",
           options: [
-            "Less likely — the enrichment did not add any useful information",
+            "Less likely, not more — the enrichment data did not actually add any genuinely useful information beyond what the raw alert already showed, so the analyst's confidence level should remain completely unchanged either way",
             "More likely — the IP reputation lookup tags this source as a TOR exit node with a malicious score, and the user-context enrichment confirms the normal source IPs for this service account are internal (10.10.5.0/24), meaning this external TOR-associated IP has no legitimate reason to be authenticating as svc-backup at all",
-            "About the same — enrichment only adds cosmetic detail, not decision-relevant information",
-            "Less likely — the asset owner enrichment shows this is a low-criticality system"
+            "About the same either way — enrichment fields like IP reputation and user context only ever add cosmetic, decorative detail to an alert and never carry any real decision-relevant investigative weight on their own",
+            "Less likely to be a real attack — the asset owner enrichment field shows this backup infrastructure is classified as a low-criticality system, which by itself rules out any need for further concern"
           ],
           answer: 1,
           explanation:
@@ -404,10 +404,10 @@ const soarRoom = {
           question:
             "The playbook set 'xsoar.playbook.approval_required' to true and 'approval_status' to 'pending', rather than immediately executing 'block_ip_and_disable_account'. Why is this the correct design, even though the enrichment strongly supports a malicious verdict?",
           options: [
-            "It is a mistake — a TOR-associated IP with a bad reputation score should always be blocked instantly with no human involved",
+            "It is a clear mistake to require approval here — any TOR-associated IP with a bad reputation score should always, without exception, be blocked and the associated account disabled instantly with absolutely no human involved in the decision at all",
             "Disabling a privileged service account is a disruptive, moderately-hard-to-reverse action (it could break a legitimate backup process if the verdict were somehow wrong) — even strong enrichment evidence should pass through a human approval gate before an action with real operational consequences fires automatically",
-            "SOAR platforms are never allowed to recommend account actions, only IP blocks",
-            "Approval is only required during business hours, and this alert happens to have fired at night"
+            "SOAR platforms as a category of technology are structurally never allowed to recommend account-disabling actions of any kind, since their playbooks are architecturally limited to recommending only network-layer IP blocks",
+            "Approval is only ever required during standard business hours as a policy default, and since this particular alert happens to have fired at night, the normal approval-gate requirement simply does not apply in this case"
           ],
           answer: 1,
           explanation:

@@ -288,10 +288,10 @@ const webApplicationSecurityRoom: Room = {
       question:
         "An attacker sends a SQL injection payload in the BODY of a POST request to /login.aspx. You open the IIS access log for that exact second. What do you see?",
       options: [
-        "The full payload in csUriQuery, since IIS records every parameter a request carries regardless of method",
+        "The full request payload appears directly in the csUriQuery field, since a W3C-format IIS access log is documented to record every parameter a request carries, no matter which HTTP method was used to send it",
         "A csMethod of POST, a csUriStem of /login.aspx and a csUriQuery of '-' — the payload itself does not appear anywhere, because a W3C access log records the request line and selected headers, never the request body",
-        "Nothing at all, because IIS does not create access-log entries for POST requests",
-        "The payload appears, but only in the scBytes field, encoded as its byte length",
+        "Nothing at all is written to the log for this request, because IIS is documented to never create W3C access-log entries for any POST-method request under any configuration",
+        "The payload does appear, but only indirectly, inside the scBytes field, which the W3C log format is documented to encode as the total byte length of everything the client actually sent in the request body",
       ],
       answer: 1,
       explanation:
@@ -388,10 +388,10 @@ const webApplicationSecurityRoom: Room = {
           question:
             "Start with the request itself. csMethod is GET, csUriStem is /download.aspx and csUriQuery is 'file=..%2f..%2f..%2fWindows%2fwin.ini'. What is the client asking for, once you decode it?",
           options: [
-            "A product datasheet named win.ini stored in the site's normal download folder",
+            "A product datasheet file named win.ini, sitting in the exact same normal public download folder as every other legitimate document the site is designed to serve to any visitor",
             "A file path that uses URL-encoded dot-dot-slash sequences (%2f is a forward slash) to climb three folders up out of the intended download directory and reach a file elsewhere on the server's filesystem",
-            "Nothing meaningful — %2f is not a valid encoding and the server would reject this parameter outright",
-            "A second web page to be loaded inside the first, which is standard behaviour for any page that takes a file parameter",
+            "Nothing meaningful is being requested at all — %2f is documented to not be a valid URL encoding anywhere, so the web server would reject this parameter outright before ever reaching the application",
+            "A second entire web page meant to be loaded and rendered inside the first one, which is completely standard, expected behaviour for any page that legitimately takes a file parameter from the user",
           ],
           answer: 1,
           explanation:
@@ -402,10 +402,10 @@ const webApplicationSecurityRoom: Room = {
           question:
             "Now read the outcome fields. scStatus is 200 and scBytes is 5,312, against this endpoint's normal range of 240,000 to 900,000 bytes. Why is this pairing more serious than the same request returning 403?",
           options: [
-            "It is not more serious — 200 simply confirms the web server received the request, while 403 would mean it never arrived at all",
+            "It is not actually more serious at all — a 200 status simply confirms the web server received and processed the request normally, while a 403 would mean the request never even arrived at the application layer",
             "A 403 would mean the request was refused before the application did anything; a 200 means the application ANSWERED, and a byte count nowhere near this endpoint's normal PDF size is consistent with it having returned a small text file rather than a datasheet",
-            "A 200 status on a download endpoint always means a cached response was served, so nothing was actually read from disk",
-            "scBytes counts the size of the request, so a small value proves the payload was truncated before it could do anything",
+            "A 200 status on a download endpoint always and specifically means a cached response was served straight from a proxy layer, so nothing on the file system was actually read for this particular request",
+            "scBytes counts the total size of the incoming client request rather than the response, so a small recorded value here actually proves the malicious payload itself was truncated before it could execute",
           ],
           answer: 1,
           explanation:
@@ -416,10 +416,10 @@ const webApplicationSecurityRoom: Room = {
           question:
             "One more field before you escalate. cIP shows 10.44.2.7 — a private, internal address, even though shop.larkfield.com is a public internet-facing site. What should you conclude?",
           options: [
-            "The attack came from inside the network, so start the investigation on the internal host at 10.44.2.7",
+            "The attack traffic came from somewhere inside the corporate network itself, so the investigation should start immediately on the internal host sitting at address 10.44.2.7",
             "The public site sits behind a load balancer, which opened its own connection to the web server — so cIP is the load balancer's internal address, not the real client, and the true source has to come from an upstream log such as the WAF's",
-            "The cIP field was corrupted during log ingestion and should be ignored entirely",
-            "A private address in cIP proves the request never actually reached the application, since internal addresses cannot route to public sites",
+            "The cIP field must have been silently corrupted somewhere during log ingestion or transport, and the entire record should simply be ignored rather than investigated further",
+            "A private RFC1918 address appearing in cIP conclusively proves the request never actually reached the application at all, since internal addresses can never route to a public-facing site by definition",
           ],
           answer: 1,
           explanation:
@@ -484,10 +484,10 @@ const webApplicationSecurityRoom: Room = {
       question:
         "A customer logs into Larkfield's portal legitimately, then edits the URL /invoice.aspx?id=88412 to id=88413 and receives another customer's invoice with a 200 response. The WAF logged the request with action ALLOW and terminatingRuleId NONE. Why did the WAF not stop it?",
       options: [
-        "The WAF's managed rule groups were disabled, and enabling them would catch this request",
+        "The WAF's managed rule groups were simply disabled or misconfigured at deployment time, and re-enabling the full standard rule set would definitely catch and block this particular request",
         "The request is perfectly well-formed with no malicious pattern to match — whether it is theft depends on whether that customer owns invoice 88413, a fact about the application's data the WAF has no access to",
-        "The WAF ignores any request that carries a valid session cookie, treating authenticated traffic as trusted by default",
-        "A WAF only inspects POST bodies, so GET requests with query strings pass through uninspected",
+        "The WAF ignores and skips inspection of any request that carries a valid, already-authenticated session cookie, treating all authenticated user traffic as automatically trusted and safe by default",
+        "A WAF is only ever able to inspect POST request bodies by design, so any GET request that carries its parameters in a query string always passes through completely uninspected",
       ],
       answer: 1,
       explanation:
@@ -510,10 +510,10 @@ const webApplicationSecurityRoom: Room = {
           question:
             "httpRequest.clientIp here is 45.147.230.19, while cIP on the IIS record for the same request was 10.44.2.7. Which address should the investigation follow, and why do the two records disagree?",
           options: [
-            "10.44.2.7, because the web server sits closer to the application and therefore has the more accurate view of the request",
+            "10.44.2.7, because the internal web server sits physically and logically closer to the application code, and therefore always has the more technically accurate view of any incoming request's true origin",
             "45.147.230.19 — the WAF sits at the edge and saw the real client connection, whereas the load balancer opened a separate connection to IIS using its own address, which is what IIS correctly recorded",
-            "Neither can be trusted, since a single request cannot legitimately produce two different source addresses in two logs",
-            "Both are equally valid views of the same external client, simply recorded in different notations by two vendors",
+            "Neither address can be trusted at all, since a single incoming client request can never legitimately produce two genuinely different recorded source addresses appearing across two separate log files",
+            "Both recorded addresses are equally valid views of the exact same external client, simply expressed in slightly different notations and formats by two different security vendors' logging systems",
           ],
           answer: 1,
           explanation:
@@ -524,10 +524,10 @@ const webApplicationSecurityRoom: Room = {
           question:
             "action is ALLOW and terminatingRuleId is NONE. What does that combination actually mean, and what does it tell you about how much protection the WAF provided here?",
           options: [
-            "A rule evaluated the request, judged it safe and explicitly permitted it, so the WAF has confirmed this traffic is benign",
+            "A specific rule was evaluated against this exact request, judged the traffic entirely safe, and explicitly permitted it through, so the WAF has already confirmed with certainty that this traffic is benign",
             "No rule fired at all — the encoded traversal sequence did not match any signature in the deployed rule set, so the request passed straight through to the application, which then answered it with a 200",
-            "ALLOW with no terminating rule means the request was logged but never actually forwarded to the backend",
-            "terminatingRuleId NONE indicates a WAF configuration error, and the record should be discarded as unreliable",
+            "ALLOW with no terminating rule ID present means the request was fully logged for visibility but was never actually forwarded onward to the backend application server for processing",
+            "A terminatingRuleId value of NONE indicates the WAF itself suffered a configuration error during evaluation, and this specific record should be discarded entirely as fundamentally unreliable",
           ],
           answer: 1,
           explanation:
@@ -538,10 +538,10 @@ const webApplicationSecurityRoom: Room = {
           question:
             "You now have a confirmed source and confirmed evidence the application answered. What is the right next step?",
           options: [
-            "Add a deny rule for 45.147.230.19 in the web server's own configuration, since that is where the request was finally processed",
+            "Add a deny rule for 45.147.230.19 directly in the web server's own local configuration, since IIS is where the request was finally received, parsed, and fully processed end to end",
             "Block 45.147.230.19 at the WAF — the only component in the path that can actually match on that address — then search WAF logs for that same clientIp across the wider window to scope everything else it touched, and get the download endpoint's file parameter fixed",
-            "Take no action, since the WAF has already recorded the request and the record is available for later review",
-            "Block 10.44.2.7 at the perimeter, since that is the address the web server itself recorded for the request",
+            "Take no action at all right now, since the WAF has already recorded the full request permanently, and that record will remain available and searchable for whenever a later review happens",
+            "Block 10.44.2.7 at the network perimeter firewall, since that is the address the web server itself faithfully recorded as the source of the incoming request in its own local access log",
           ],
           answer: 1,
           explanation:

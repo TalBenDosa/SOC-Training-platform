@@ -208,10 +208,10 @@ Beyond protecting managed endpoints, **Falcon Discover** scans your network for 
       checkpoint: {
         question: "According to the reading, what is CrowdStrike OverWatch?",
         options: [
-          "A module that scans for devices without the Falcon Sensor installed",
+          "Falcon Discover — the module that scans the network for devices without the Falcon Sensor installed, such as rogue laptops, printers, and IoT devices",
           "CrowdStrike's 24/7 elite threat hunting team that proactively hunts through Falcon telemetry for activity automated detections might miss",
-          "The dashboard that shows sensor health and last check-in time for each host",
-          "The remote shell tool used to run commands on an isolated endpoint",
+          "Host Management — the console page showing sensor health, last check-in time, and OS version for every enrolled Falcon endpoint, useful when a host goes offline",
+          "Real Time Response (RTR) — the remote shell tool that lets an analyst run commands, kill processes, and retrieve files from an isolated endpoint",
         ],
         answer: 1,
         explanation:
@@ -408,10 +408,10 @@ After compromising one machine, attackers move to others. A common tool is **PsE
           question:
             "The dump file is being written to 'C:\\Windows\\Temp\\lsass.dmp'. As the responding SOC analyst, what is your FIRST priority action?",
           options: [
-            "Email the affected user to change their password",
-            "Wait 24 hours to see if more detections appear before taking action",
+            "Email the affected user, svc-backup, to change their password and ask them to confirm whether they were running a legitimate backup job at the time",
+            "Wait 24 hours to see if additional detections appear before taking any containment action, so you can be certain this is not a one-off false positive",
             "Use CrowdStrike RTR to kill the process, retrieve the dump file for evidence, and isolate the host from the network",
-            "Reboot the domain controller immediately to clear the threat",
+            "Reboot the domain controller immediately to clear the threat, since a restart terminates all running processes including any malicious ones",
           ],
           answer: 2,
           explanation:
@@ -439,10 +439,10 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       question:
         "A security analyst needs to remotely check running processes on a potentially compromised endpoint without opening RDP or requiring VPN access. Which CrowdStrike Falcon feature enables this?",
       options: [
-        "Falcon Discover — network scanner module",
-        "Falcon OverWatch — managed detection team",
+        "Falcon Discover — the network scanner module that finds unmanaged devices lacking the Falcon Sensor, but it does not provide any way to run commands on a host",
+        "Falcon OverWatch — the managed 24/7 threat hunting team that reviews telemetry for missed attacker activity, but it does not give the analyst an interactive shell",
         "Real Time Response (RTR) — remote shell through the existing Falcon Sensor channel",
-        "Falcon Prevent — NGAV blocking module",
+        "Falcon Prevent — the NGAV module that blocks malicious files before they execute, but it has no remote command execution capability",
       ],
       answer: 2,
       explanation:
@@ -697,10 +697,10 @@ SentinelOne detects Cobalt Strike through:
       question:
         "What is SentinelOne's 'Storyline' feature, and what problem does it solve for SOC analysts?",
       options: [
-        "A reporting tool that creates weekly PDF summaries of detected threats",
+        "A reporting tool that generates weekly PDF summaries of detected threats for compliance audits, but does not connect individual alerts into a single attack timeline",
         "An automatic correlation engine that links all related attack events (processes, files, network connections) into a single connected attack story using a shared StorylineID",
-        "A training module that teaches junior analysts how to use the console",
-        "A feature that automatically patches vulnerabilities on the endpoint",
+        "A training module built into the console that teaches junior analysts how to navigate the Threats page and Deep Visibility, but does not correlate live alert data",
+        "A feature that automatically downloads and applies vendor patches to close known vulnerabilities on the endpoint, unrelated to alert correlation",
       ],
       answer: 1,
       explanation:
@@ -809,10 +809,10 @@ SentinelOne detects Cobalt Strike through:
           question:
             "The malware process is named 'chrome_update.exe' and appears to have been launched by 'explorer.exe' (the Windows file manager). Why is the name 'chrome_update.exe' significant as a red flag?",
           options: [
-            "Chrome never releases updates, so any chrome_update.exe is automatically malware",
+            "Chrome does release standalone updater executables, so a file called chrome_update.exe in a Temp folder is exactly what you would expect from a normal browser update",
             "Attackers name their malware after trusted applications to trick users into running it; legitimate Chrome updates are delivered through Chrome itself, not via a .exe in AppData\\Temp",
-            "The .exe extension is forbidden on Windows systems and should never appear",
-            "The process ID 7291 is reserved for system processes only",
+            "The .exe extension is disallowed by Windows security policy by default, so seeing one in a user's Downloads or Temp folder always indicates tampering with system settings",
+            "Process ID 7291 falls inside the range Windows reserves for built-in system services, so any process using that PID must be a trusted OS component",
           ],
           answer: 1,
           explanation:
@@ -837,10 +837,10 @@ SentinelOne detects Cobalt Strike through:
           question:
             "What is the StorylineID for this attack, and why is it useful?",
           options: [
-            "The StorylineID is 'LockBit3' — the malware family name used to group all detections",
+            "The StorylineID is 'LockBit3' — the malware family name SentinelOne uses to group every detection of the same ransomware variant across all customers, not a per-incident identifier",
             "The StorylineID is '0x1A2B3C4D' — a unique identifier that links all events in this attack chain together so analysts can see the complete attack story in one view",
-            "The StorylineID is 'j.smith' — the username of the affected account",
-            "The StorylineID is the SentinelOne detection policy ID that triggered this alert",
+            "The StorylineID is 'j.smith' — the username of the affected account, which SentinelOne records separately in the s1.userName field rather than as the correlation identifier",
+            "The StorylineID is the SentinelOne detection policy ID that triggered this alert, describing which prevention rule fired rather than linking the events of one attack together",
           ],
           answer: 1,
           explanation:
@@ -868,10 +868,10 @@ SentinelOne detects Cobalt Strike through:
       question:
         "SentinelOne's 'Static AI' engine scans files before they execute. What is the key advantage of this approach compared to traditional signature-based antivirus?",
       options: [
-        "Static AI only works on files downloaded from the internet, not files on USB drives",
+        "Static AI only scans files downloaded from the internet, so malware copied in from a USB drive or a network share bypasses this engine entirely",
         "Static AI uses ML models trained on millions of samples to identify malicious characteristics even in files never seen before — catching zero-day malware that has no existing signature",
-        "Static AI requires an internet connection to query a signature database before every scan",
-        "Static AI only scans .exe files and ignores other file types like .dll or .js",
+        "Static AI works like traditional antivirus, requiring an active internet connection to query a cloud signature database before it can evaluate any file",
+        "Static AI only scans .exe files, so malicious .dll files, scripts, and Office macros pass through without any pre-execution evaluation",
       ],
       answer: 1,
       explanation:
@@ -886,10 +886,10 @@ SentinelOne detects Cobalt Strike through:
       question:
         "What is the difference between SentinelOne's 'Detect Mode' and 'Protect Mode' for the endpoint agent?",
       options: [
-        "Detect Mode only works on Windows; Protect Mode works on all operating systems",
+        "Detect Mode is only supported on Windows endpoints; Protect Mode is required to enable coverage on macOS and Linux endpoints",
         "Detect Mode monitors and logs threats for analyst review without blocking them; Protect Mode autonomously blocks, kills, and quarantines threats in real-time without waiting for human approval",
-        "Detect Mode uses AI detection; Protect Mode uses only signature-based detection",
-        "Both modes are identical; the difference is only in the reporting format",
+        "Detect Mode relies purely on the Behavioral and Static AI engines; Protect Mode disables the AI engines and falls back to traditional signature matching only",
+        "Both modes take identical blocking actions on the endpoint; the only difference is whether the console displays a PDF or a CSV report of what happened",
       ],
       answer: 1,
       explanation:
@@ -1095,10 +1095,10 @@ When you need deeper analysis beyond what an online sandbox provides:
       question:
         "A suspicious file arrives in a phishing email. A SOC analyst runs a SHA-256 hash of the file and searches it on VirusTotal. The result shows '0/72 vendors detected this as malicious'. Does this mean the file is definitely safe?",
       options: [
-        "Yes — if 72 antivirus engines don't detect it, it is definitely clean",
+        "Yes — a 0/72 result means every major antivirus engine has independently verified the file's code and confirmed there is no malicious functionality present",
         "No — the file could be a zero-day malware sample that no vendor has seen yet, or it could be deliberately crafted to evade signature detection. Additional analysis is required.",
-        "Yes — VirusTotal is 100% accurate and zero detections means zero risk",
-        "No — VirusTotal only scans .pdf files and cannot analyse .exe files",
+        "Yes — VirusTotal aggregates every antivirus vendor in the world, so a zero-detection result is a guarantee that has never been wrong for a genuinely malicious file",
+        "No — VirusTotal only scans document formats like .pdf and .docx, so the .exe hash in this case was never actually analysed by any engine",
       ],
       answer: 1,
       explanation:
@@ -1113,10 +1113,10 @@ When you need deeper analysis beyond what an online sandbox provides:
       question:
         "While performing PE file analysis in PEStudio, an analyst notices the malware imports functions from 'WS2_32.dll' and 'WinINet.dll'. What does this reveal about the malware's capabilities?",
       options: [
-        "The malware can only print documents and does not perform any network activity",
+        "The malware can only print documents to a local printer — WS2_32 and WinINet are printing spooler libraries with no networking capability",
         "The malware has network communication capabilities — WS2_32 provides raw socket functions and WinINet provides HTTP/S internet connectivity, suggesting it will communicate with a remote server",
-        "The malware is a legitimate web browser component used by internet Explorer",
-        "The malware encrypts files on disk — these DLLs are Windows encryption libraries",
+        "The malware is a legitimate browser helper component — WS2_32 and WinINet are DLLs exclusively used by Internet Explorer and cannot be imported by other programs",
+        "The malware encrypts files on disk — WS2_32 and WinINet are Windows cryptographic libraries used to generate encryption keys, not networking APIs",
       ],
       answer: 1,
       explanation:
@@ -1131,10 +1131,10 @@ When you need deeper analysis beyond what an online sandbox provides:
       question:
         "What is a 'Domain Generation Algorithm' (DGA) and why do attackers use it?",
       options: [
-        "A tool for registering new company domain names at reduced cost",
+        "A registrar service that lets companies bulk-register hundreds of domain names at a discounted rate for legitimate marketing campaigns",
         "A technique where malware generates pseudo-random domain names on a daily schedule, making C2 infrastructure extremely difficult to block because defenders cannot predict which domain the malware will use next",
-        "An algorithm that detects malicious domains in web traffic using machine learning",
-        "A Windows feature that assigns domain names to computers on a local network",
+        "A machine learning algorithm built into next-generation firewalls that automatically detects and blocks malicious domains by analysing web traffic patterns",
+        "A Windows Active Directory feature that automatically assigns domain names to computers joining a local network, unrelated to malware or C2 infrastructure",
       ],
       answer: 1,
       explanation:
@@ -1196,10 +1196,10 @@ When you need deeper analysis beyond what an online sandbox provides:
           question:
             "The threat name is 'Trojan:Win32/Emotet.A!ml'. What does the '!ml' suffix at the end indicate?",
           options: [
-            "The malware uses multiple languages (multilingual) in its code",
+            "The '!ml' suffix means the malware's code contains strings in multiple languages, a technique attackers use to target victims in several countries at once",
             "The detection was made by machine learning, not a traditional signature — meaning the file's behaviour or structure matched a trained AI model, not a known exact signature",
-            "The malware is part of the 'ML' threat actor group",
-            "The detection severity is 'medium-low' as indicated by the ML abbreviation",
+            "The '!ml' suffix identifies the threat actor group behind this campaign, publicly tracked by Microsoft under the codename 'ML', similar to CrowdStrike's animal-themed names",
+            "The '!ml' suffix is Defender's severity shorthand, always mapping to a medium-low risk score regardless of what detection method was actually used",
           ],
           answer: 1,
           explanation:
@@ -1210,10 +1210,10 @@ When you need deeper analysis beyond what an online sandbox provides:
           question:
             "The 'data.ms365.CompanyName' field is empty ('\"\"'). During static analysis of a legitimate software file (like a browser or Office application), this field typically contains the publisher's name. Why is an empty CompanyName field suspicious for an .exe file?",
           options: [
-            "All Windows executable files have empty company names — this field is not used by Windows",
+            "All Windows executable files leave the CompanyName field empty by default — Windows itself does not read or populate PE version metadata for any application, signed or unsigned, so an empty field carries no investigative meaning",
             "Legitimate commercial software is almost always digitally signed and includes company metadata. An empty CompanyName suggests the file was not professionally compiled and signed — a common characteristic of malware or hastily created attack tools.",
-            "Empty company name indicates the file was compiled in a country that does not require software registration",
-            "This field is only populated for files downloaded from official Microsoft websites",
+            "An empty CompanyName field indicates the file was compiled in a jurisdiction that does not legally require software vendors to embed publisher registration details into their PE version metadata",
+            "The CompanyName field is only ever populated for executables downloaded directly from an official Microsoft domain; third-party vendors like Adobe or Google never fill in this metadata field",
           ],
           answer: 1,
           explanation:
@@ -1224,10 +1224,10 @@ When you need deeper analysis beyond what an online sandbox provides:
           question:
             "The analyst wants to determine if this exact malware sample has reached any other endpoints in the organisation. What is the FASTEST method to check?",
           options: [
-            "Physically visit every employee's computer and manually check their Downloads folder",
-            "Send a company-wide email asking employees if they received an invoice email",
+            "Physically visit every employee's desk to manually inspect their Downloads folder for a file matching this name, department by department, across the whole organisation",
+            "Send a company-wide email asking every employee to reply if they recall receiving an invoice email in the last few days, then manually cross-reference the responses",
             "Search the SIEM or EDR platform for the file's SHA-256 hash ('5a6b7c8d...') across all endpoints to find any other machine that has seen this exact file",
-            "Submit the file to VirusTotal and wait for other organisations to report the same hash",
+            "Submit the file's hash to VirusTotal and wait for other organisations that use the same VirusTotal account to publicly report having seen the identical hash",
           ],
           answer: 2,
           explanation:
@@ -1255,10 +1255,10 @@ When you need deeper analysis beyond what an online sandbox provides:
       question:
         "Why should a SOC analyst NEVER upload a suspicious file to a public online sandbox (like VirusTotal or ANY.RUN) if the file came from a company's internal email system and might contain sensitive business data?",
       options: [
-        "Public sandboxes only accept files under 1 KB in size",
+        "Public sandboxes reject any file larger than 1 KB, so a real-world malware sample would simply fail to upload and no analysis would ever run",
         "Public sandbox results are shared with the entire security community — any file uploaded becomes visible to other researchers worldwide, which could expose confidential client data, legal documents, or trade secrets",
-        "Sandboxes can only analyse malware, not regular files, so the upload would fail",
-        "The file would automatically be emailed back to the original sender",
+        "Public sandboxes are built to detonate malware only — a legitimate business document or spreadsheet would be rejected at upload and no scan would occur",
+        "Uploading a file to a public sandbox automatically forwards a copy back to the original sender's email address as a courtesy notification",
       ],
       answer: 1,
       explanation:
@@ -1273,10 +1273,10 @@ When you need deeper analysis beyond what an online sandbox provides:
       question:
         "A sandbox report for a suspicious executable shows it queried the Windows registry key 'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' and wrote a new value pointing to itself. What does this behaviour indicate?",
       options: [
-        "The malware is checking for Windows Update availability",
+        "The malware is checking the Windows Update registry branch to see whether a patch is pending, which has no effect on how the program starts",
         "The malware is establishing persistence — this registry key makes programs run automatically every time the user logs into Windows",
-        "The malware is reading user preferences from the system registry",
-        "The malware is uninstalling itself from the system",
+        "The malware is reading existing user preference values from the Run key without writing any new entry, so nothing changes about how it starts",
+        "The malware is deleting its own Run key entry as part of an uninstall routine, ensuring it will not start again on the next login",
       ],
       answer: 1,
       explanation:
@@ -1500,10 +1500,10 @@ Before adding an IOC to your blocklist, ask:
       question:
         "According to the 'Pyramid of Pain' model, which type of indicator is the MOST valuable for defenders to detect and block — and causes the MOST disruption to attackers?",
       options: [
-        "File hashes (SHA-256) of specific malware samples",
-        "IP addresses of known command-and-control servers",
+        "File hashes (SHA-256) of specific malware samples — trivial for an attacker to defeat by changing a single byte to produce a completely different hash",
+        "IP addresses of known command-and-control servers — moderately disruptive to block, but attackers can rent a new server and rotate to a different IP within hours",
         "TTPs (Tactics, Techniques, and Procedures) — the attacker's methods and behaviours",
-        "Email subject lines used in phishing campaigns",
+        "Email subject lines used in phishing campaigns — easily rewritten by the attacker for the next wave, providing almost no lasting detection value",
       ],
       answer: 2,
       explanation:
@@ -1518,10 +1518,10 @@ Before adding an IOC to your blocklist, ask:
       question:
         "An analyst uses VirusTotal to investigate an IP address found in firewall logs. The 'Passive DNS' section shows that 6 different domains have pointed to this IP over the past year, including known phishing domains. How is this information useful for the investigation?",
       options: [
-        "Passive DNS confirms that the IP is safe — multiple domains using it means it's a shared legitimate hosting provider",
+        "Passive DNS confirms that the IP is safe to trust — when multiple unrelated domains have pointed to the same address, that pattern always indicates a shared legitimate hosting provider rather than attacker infrastructure",
         "Passive DNS reveals the full history of domain names that have resolved to this IP, enabling the analyst to discover related phishing domains they may not have known about — and block them proactively",
-        "Passive DNS is only relevant for email investigations and provides no useful information for IP analysis",
-        "Passive DNS shows the geographic location of the IP address",
+        "Passive DNS records are only collected for mail server (MX) lookups, so they are irrelevant when investigating a firewall log entry for a plain IP address with no email involved",
+        "Passive DNS shows the physical geographic location and ISP of the IP address, similar to a WHOIS geolocation lookup, but does not track any domain name history",
       ],
       answer: 1,
       explanation:
@@ -1536,10 +1536,10 @@ Before adding an IOC to your blocklist, ask:
       question:
         "What is Shodan, and how is it different from a regular web search engine like Google?",
       options: [
-        "Shodan is a cybersecurity news aggregator that indexes articles about recent attacks",
+        "Shodan is a cybersecurity news aggregator that indexes published articles, blog posts, and vendor advisories about recent attacks, similar to a curated RSS feed for the security community",
         "Shodan is a search engine that continuously scans and indexes internet-connected devices and their exposed services (open ports, running software, banners) — unlike Google which indexes web page content",
-        "Shodan is a tool for scanning your own internal network for vulnerabilities",
-        "Shodan is a SIEM platform for collecting and analysing security logs",
+        "Shodan is an internal vulnerability scanner installed inside your own network perimeter, similar to Nessus or Qualys, that only reports on assets you already own and manage",
+        "Shodan is a SIEM platform that collects, indexes, and correlates security logs forwarded from firewalls, endpoints, and applications across an organisation's own infrastructure",
       ],
       answer: 1,
       explanation:
@@ -1591,10 +1591,10 @@ Before adding an IOC to your blocklist, ask:
           question:
             "The IP is classified as a 'Tor Exit Node'. What is Tor, and why would connecting to a Tor Exit Node be flagged as suspicious in a corporate environment?",
           options: [
-            "Tor is a type of malware that automatically installs itself on corporate laptops",
+            "Tor is a self-propagating type of malware that silently installs itself on corporate laptops through drive-by downloads, then uses the compromised machine's resources to relay traffic for other infected hosts on the same botnet",
             "Tor (The Onion Router) is an anonymisation network that hides internet traffic. Traffic entering Tor exits through a Tor Exit Node — meaning the actual destination IP is hidden. Attackers use Tor to anonymise C2 communications; employees might use Tor browsers to bypass corporate web filters.",
-            "Tor is a legitimate Microsoft networking protocol used for encrypted communications",
-            "Tor Exit Nodes are servers owned by antivirus companies for threat research",
+            "Tor is a legitimate Microsoft-developed networking protocol built into Windows for encrypted VPN-style communications between domain-joined machines, similar to DirectAccess or Always On VPN",
+            "Tor Exit Nodes are servers owned and operated by antivirus vendors specifically to capture and analyse malware samples for threat research, which is why traffic to them is flagged for visibility rather than as a genuine risk",
           ],
           answer: 1,
           explanation:
@@ -1605,10 +1605,10 @@ Before adding an IOC to your blocklist, ask:
           question:
             "The alert shows the connection was made on port 443 (HTTPS). Why might an attacker specifically use port 443 for malicious traffic rather than a non-standard port like 4444 or 8080?",
           options: [
-            "Port 443 provides twice the bandwidth of other ports",
-            "Port 443 is used exclusively by government networks and is automatically trusted",
+            "Port 443 provides twice the network bandwidth of standard ports like 8080 or 4444, so attackers prefer it purely for faster data transfer during an active intrusion",
+            "Port 443 is reserved exclusively for government and military networks, and most commercial firewalls are pre-configured to automatically trust any traffic seen on it",
             "Port 443 (HTTPS) is allowed outbound on virtually every corporate firewall because blocking it would prevent all secure web browsing. Attackers use it to blend malicious traffic with normal HTTPS web traffic and avoid firewall blocks.",
-            "Port 443 is required by the Tor protocol and cannot be changed",
+            "Port 443 is a hardcoded requirement of the Tor protocol itself — Tor traffic cannot be configured to use any other port, so seeing port 443 always confirms Tor is in use",
           ],
           answer: 2,
           explanation:
@@ -1619,10 +1619,10 @@ Before adding an IOC to your blocklist, ask:
           question:
             "The analyst wants to pivot from this IP address to find any related threat infrastructure. What is the MOST useful next step using VirusTotal?",
           options: [
-            "Check the IP's geolocation to determine which country the attacker is in",
+            "Check the IP's geolocation database entry to determine which country the attacker is physically located in, since that alone is enough to identify the full scope of their infrastructure",
             "Submit the IP to VirusTotal and check the 'Relations' and 'Passive DNS' tabs to discover all domains that have ever pointed to this IP and all malware files that have ever communicated with it",
-            "Block the IP in the firewall and close the investigation without further analysis",
-            "Email the IP address to the Internet Service Provider and ask them to take action",
+            "Block the IP in the firewall immediately and close the investigation, since a firewall block fully removes the threat and there is no further intelligence value in researching the IP further",
+            "Email the flagged IP address to the hosting Internet Service Provider and wait for them to independently identify and report any related domains or malware samples on your behalf",
           ],
           answer: 1,
           explanation:
@@ -1650,10 +1650,10 @@ Before adding an IOC to your blocklist, ask:
       question:
         "A security analyst receives an IOC list from a threat intelligence feed containing 500 IP addresses associated with a recent attack campaign. What is the MOST effective way to operationalise these IOCs in the SOC?",
       options: [
-        "Print the list and manually check each IP against firewall logs once per week",
+        "Print the list on paper and manually cross-check each of the 500 IP addresses against a week's worth of firewall logs by eye, once every seven days",
         "Import the IOC list into the SIEM and firewall as a watchlist, so any connection to/from these IPs automatically triggers an alert in real-time",
-        "Email the list to all employees and ask them to avoid visiting these addresses",
-        "Store the list in a spreadsheet and only check it when an incident occurs",
+        "Email the raw list of 500 IP addresses to all employees and ask each of them to personally remember and avoid connecting to any of these numeric addresses",
+        "Store the list in a shared spreadsheet and only open it to manually check specific IPs after an incident has already been reported by another team",
       ],
       answer: 1,
       explanation:
@@ -1668,10 +1668,10 @@ Before adding an IOC to your blocklist, ask:
       question:
         "An analyst finds an IP address in a threat intelligence report published 14 months ago. Should they immediately add it to their firewall blocklist? Why or why not?",
       options: [
-        "Yes — any IP ever associated with malicious activity should be permanently blocked",
+        "Yes — any IP address that has ever been linked to malicious activity in a threat intelligence report, regardless of age, should be permanently added to every blocklist without exception",
         "No — IP addresses can be reassigned. The server that hosted malware 14 months ago might now be a legitimate cloud customer's web server. Adding it to a blocklist could break legitimate traffic without providing any security benefit.",
-        "Yes — IP addresses never change ownership, so if it was malicious once it's always malicious",
-        "No — only IP addresses from the current week should ever be considered as IOCs",
+        "Yes — cloud and hosting providers permanently assign an IP address to the customer who first leased it, so an IP flagged as malicious a year ago is guaranteed to still belong to the same attacker today",
+        "No — threat intelligence only has investigative value in the same week it was published; any IOC older than seven days should be discarded and never referenced again",
       ],
       answer: 1,
       explanation:

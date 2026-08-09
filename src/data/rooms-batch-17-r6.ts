@@ -145,10 +145,10 @@ const tunnelingRoom = {
         question:
           "According to the reading, what does SSH's -D (dynamic forwarding) flag actually create?",
         options: [
-          "A single fixed port-forward, identical to -L but in the opposite direction",
+          "A single, fixed port-forward tunneling in the opposite direction from -L, but still limited to exactly one predetermined local port and one predetermined remote destination, not to arbitrary destinations chosen on demand",
           "A full SOCKS proxy on the local machine, letting any application reach any destination reachable from the remote side, on any port",
-          "A read-only file transfer channel with no ability to forward TCP connections",
-          "An encrypted DNS tunnel specifically for name resolution",
+          "A read-only file transfer channel with no ability to forward live TCP connections at all — -D specifically repurposes the SSH session exclusively for SFTP-style file listing and download operations, disabling any other network forwarding capability for the duration of the session",
+          "An encrypted DNS tunnel specifically for name resolution — -D reconfigures the SSH client to intercept and encrypt only DNS queries issued by the local machine, leaving all other TCP application traffic completely unaffected and unencrypted",
         ],
         answer: 1,
         explanation:
@@ -205,10 +205,10 @@ const tunnelingRoom = {
         question:
           "According to the reading, why are reverse shells overwhelmingly more common and successful than bind shells?",
         options: [
-          "Reverse shells only work over UDP, which is rarely filtered",
+          "Reverse shells only work over UDP, which is rarely filtered — TCP-based reverse connections are blocked by essentially all modern firewalls by default, making UDP the only transport protocol capable of carrying an interactive reverse shell session successfully",
           "A bind shell requires an inbound connection to reach the victim, which most firewalls block; a reverse shell only requires an outbound connection, which is permitted far more liberally in most environments",
-          "Bind shells are illegal to implement in most penetration testing frameworks",
-          "Reverse shells do not require any network connection at all",
+          "Bind shells are illegal to implement in most penetration testing frameworks — major offensive security tools like Metasploit and Cobalt Strike have deliberately removed bind-shell payload support entirely due to legal restrictions in most jurisdictions",
+          "Reverse shells do not require any network connection at all — the entire interactive session is transmitted through the host's local process memory using shared inter-process communication, without ever touching the network stack",
         ],
         answer: 1,
         explanation:
@@ -313,9 +313,9 @@ const tunnelingRoom = {
           "According to the reading, why doesn't jitter make a beacon's timing indistinguishable from genuine human activity?",
         options: [
           "Jitter only randomizes within a fixed, bounded band around the base interval — every gap still falls within that band, unlike genuinely unstructured human timing",
-          "Jitter is only applied to the first connection, never to subsequent ones",
-          "Jitter changes the destination IP on every connection, which is unrelated to timing",
-          "Jitter makes every connection interval exactly identical",
+          "Jitter is only applied to the first connection in a beacon's lifetime, never to any subsequent check-in, meaning every connection after the initial one reverts to the exact, un-jittered base interval with mathematical precision",
+          "Jitter changes the destination IP on every connection, which is unrelated to timing — a jittered beacon rotates through a pool of different C2 server IP addresses each time it checks in, specifically to randomize network-layer metadata rather than the timing between connections",
+          "Jitter makes every connection interval exactly identical — despite its name, configuring a jitter percentage actually eliminates timing variation entirely, forcing the beacon to check in at the precise base interval every single time with zero deviation",
         ],
         answer: 0,
         explanation:
@@ -411,10 +411,10 @@ const tunnelingRoom = {
         question:
           "According to the reading's six-step investigation playbook, what does an it_verify_result of 'confirmed' indicate?",
         options: [
-          "The finding should always be escalated regardless of context",
+          "The finding should always be escalated regardless of context, since it_verify_result is a purely informational field that carries no bearing whatsoever on how an analyst should prioritize or triage any given finding",
           "A legitimate, documented business explanation exists for the activity, making it very likely a false positive",
-          "The tool involved has been definitively proven malicious",
-          "The host must be immediately isolated from the network",
+          "The tool involved has been definitively proven malicious — 'confirmed' specifically means an incident responder has already completed a full forensic analysis of the tool's binary and concluded with certainty that it was used with malicious intent in this instance",
+          "The host must be immediately isolated from the network — any it_verify_result value, whether confirmed or unverified, automatically triggers a mandatory network isolation action as the very next mechanical step of the playbook",
         ],
         answer: 1,
         explanation:
@@ -429,10 +429,10 @@ const tunnelingRoom = {
       question:
         "An internal server initiates an outbound SSH connection to an external host using the -R flag with arguments forwarding its own local port 3389. What does this specific flag and direction indicate, and why is it considered more dangerous than a -L forward?",
       options: [
-        "-R simply reverses the text direction of the terminal session and has no security implication",
+        "-R simply reverses the text direction of the terminal session and has no security implication — it is purely a cosmetic display option affecting whether characters render left-to-right or right-to-left in the SSH client's terminal emulator",
         "-R (remote forwarding) exposes a LOCAL service on the internal server to a listener on the REMOTE (external) side — meaning the external party can now reach back INTO the internal network through the tunnel, using only an outbound connection the internal server itself initiated, entirely bypassing inbound firewall restrictions",
-        "-R can only be used to forward DNS traffic, making it irrelevant to RDP-related services",
-        "-R and -L are functionally identical; the flag choice is purely stylistic",
+        "-R can only be used to forward DNS traffic, making it irrelevant to RDP-related services — the flag is hardcoded to intercept and tunnel UDP port 53 queries exclusively, and rejects any other port number specified alongside it, including 3389",
+        "-R and -L are functionally identical; the flag choice is purely stylistic, and both create a listener on the SAME side (the machine initiating the SSH connection), tunneling traffic in the same direction regardless of which flag is used",
       ],
       answer: 1,
       explanation:
@@ -465,10 +465,10 @@ const tunnelingRoom = {
       question:
         "A production database server, which has never previously made outbound connections to any consumer SaaS platform, is observed making a TLS connection with SNI 'x7f2a9.ngrok-free.app'. Why is ngrok's own infrastructure being legitimate SaaS not enough to clear this finding on its own?",
       options: [
-        "It should be cleared automatically, since ngrok is a well-known and reputable company",
+        "It should be cleared automatically, since ngrok is a well-known and reputable company — no security team has ever documented a single instance of ngrok's tunneling infrastructure being used for malicious C2 or data exfiltration purposes in any publicly available incident report or threat intelligence source",
         "Even though the underlying ngrok infrastructure and TLS traffic are genuinely legitimate from ngrok's own perspective, ngrok tunnels are also a well-documented technique for creating covert C2/exfiltration channels that blend into normal HTTPS-to-a-trusted-SaaS-provider traffic — the relevant question is whether THIS SPECIFIC HOST (a production database server with no ngrok usage history) has any legitimate business reason to be using a developer tunneling tool at all, not whether ngrok itself is a legitimate company",
-        "ngrok domains are always automatically blocked by every corporate firewall, so this traffic must indicate a firewall bypass exploit",
-        "SNI values ending in .app are a reserved TLD that cannot be used for legitimate purposes",
+        "ngrok domains are always automatically blocked by every corporate firewall, so this traffic must indicate a firewall bypass exploit — no enterprise proxy or firewall product, including Zscaler, is technically capable of permitting an outbound TLS connection to any *.ngrok-free.app hostname under its default configuration",
+        "SNI values ending in .app are a reserved TLD that cannot be used for legitimate purposes — ICANN specifically restricts the .app top-level domain to internal testing and development environments only, prohibiting its use in any production TLS certificate issued for public-facing services",
       ],
       answer: 1,
       explanation:
@@ -489,10 +489,10 @@ const tunnelingRoom = {
           question:
             "The command line reads 'plink.exe -ssh -N -R 3389:127.0.0.1:3389 -P 443 -l relay -pw ******** 45.83.219.11', and prior_occurrences_of_plink_on_host is 0. What does the -R flag combined with the -P 443 argument tell you about what this connection is actually doing?",
           options: [
-            "It's a standard local file backup operation with no network tunneling involved",
+            "It's a standard local file backup operation with no network tunneling involved — plink.exe's -R flag is actually a backup-archival option that redirects file output to a remote storage location, unrelated to any TCP port-forwarding or SSH tunneling functionality",
             "This is a remote SSH port forward (-R), exposing SRV-APP12's own local port 3389 (RDP) to a listener on the remote host 45.83.219.11, and the connection is deliberately made on TCP port 443 (-P 443) rather than the standard SSH port 22, likely specifically to blend in with ordinary outbound HTTPS traffic on casual inspection",
-            "-R indicates the connection is read-only and cannot transmit any data back to the remote host",
-            "-P 443 means the connection is using plaintext HTTP rather than SSH at all",
+            "-R indicates the connection is read-only and cannot transmit any data back to the remote host — traffic can only ever flow from the remote host 45.83.219.11 toward SRV-APP12, never in the reverse direction, making any RDP-related activity through this tunnel technically impossible",
+            "-P 443 means the connection is using plaintext HTTP rather than SSH at all — the -P flag overrides plink's underlying protocol entirely, switching it from an encrypted SSH session to an unencrypted HTTP request whenever port 443 is specified",
           ],
           answer: 1,
           explanation:
@@ -503,10 +503,10 @@ const tunnelingRoom = {
           question:
             "connection_duration_seconds_so_far shows 15240 (over 4 hours) and prior_occurrences_of_plink_on_host is 0. Why do these two facts together matter more than either alone?",
           options: [
-            "Neither fact is relevant to determining whether this activity is suspicious",
+            "Neither fact is relevant to determining whether this activity is suspicious — connection duration and a tool's prior-occurrence history on a given host are both purely cosmetic metadata fields that Sysmon and EDR platforms collect for statistical reporting purposes only, never for any actual security triage decision",
             "A never-before-seen tool on this specific host, combined with a connection that has remained open continuously for over four hours (far longer than any single legitimate SSH command execution or file transfer would typically require), together indicate a persistent, maintained tunnel rather than a one-off administrative action — exactly the pattern expected of an active reverse tunnel being kept alive for ongoing attacker access",
-            "A long connection duration always indicates a network hardware failure rather than any application-level activity",
-            "prior_occurrences_of_plink_on_host being 0 means the event itself must be a logging error",
+            "A long connection duration always indicates a network hardware failure rather than any application-level activity — any TCP connection persisting beyond roughly thirty minutes is, by definition, evidence of a router or switch malfunction failing to properly terminate a stale session, unrelated to what application initiated it",
+            "prior_occurrences_of_plink_on_host being 0 means the event itself must be a logging error — Sysmon is structurally incapable of recording a value of zero for any historical-occurrence field, so any log showing 0 here indicates the telemetry pipeline itself malfunctioned rather than reflecting a genuinely first-time execution",
           ],
           answer: 1,
           explanation:
@@ -517,10 +517,10 @@ const tunnelingRoom = {
           question:
             "Given SignatureStatus is 'Valid' and Signed is 'true' for plink.exe (Company: Simon Tatham, the real, legitimate PuTTY suite author), should the valid code signature reduce how seriously this finding is treated?",
           options: [
-            "Yes — a validly signed binary from a known publisher can never be involved in malicious activity, so this finding should be closed",
+            "Yes — a validly signed binary from a known publisher can never be involved in malicious activity, so this finding should be closed, since Windows code-signing certificates are only ever issued to organizations that have first been vetted and legally bound never to have their software misused by any third party",
             "No — plink.exe being genuinely, legitimately signed by its real publisher is exactly why it's a favored living-off-the-land tool in the first place (Reading 5); a valid signature only confirms the BINARY's authenticity, not that its use in this specific context, on this specific host, launched from this specific unusual location and command line, is authorized or expected",
-            "The signature status is irrelevant because Sysmon cannot actually verify code signatures",
-            "A valid signature means this must be an approved IT deployment tool, ending the investigation",
+            "The signature status is irrelevant because Sysmon cannot actually verify code signatures — the SignatureStatus and Signed fields shown in this event are placeholder values Sysmon always populates identically regardless of the executed binary's actual signing state, and carry no forensic meaning",
+            "A valid signature means this must be an approved IT deployment tool, ending the investigation — no organization's approved software deployment catalog has ever included an unsigned or third-party binary, so signature validity alone is sufficient proof of prior IT approval for any given execution",
           ],
           answer: 1,
           explanation:
@@ -543,10 +543,10 @@ const tunnelingRoom = {
           question:
             "network.domain (from tls.sni) shows '8f2a9c1e.ngrok-free.app', with connections_last_hour: 58 and interval_seconds_avg: 61.2 / interval_seconds_stddev: 6.8. What does this timing pattern indicate, using the beaconing math from Reading 4?",
           options: [
-            "The interval and standard deviation values are irrelevant without knowing the exact jitter percentage configured",
+            "The interval and standard deviation values are irrelevant without knowing the exact jitter percentage configured — beacon-timing analysis requires the analyst to already know the attacker's specific jitter setting in advance, since no meaningful conclusion about clustering can ever be drawn purely from observed connection statistics alone",
             "58 connections averaging roughly 61 seconds apart, with a tight standard deviation of 6.8 seconds, is a textbook example of jittered beacon timing — the deltas cluster consistently in a bounded band around a roughly 60-second base interval, sustained over a full hour, which is not a pattern ordinary application or human-driven traffic produces",
-            "This pattern proves the connections are entirely automated Windows Update checks unrelated to ngrok",
-            "A standard deviation of 6.8 seconds indicates the connections are completely random with no underlying pattern at all",
+            "This pattern proves the connections are entirely automated Windows Update checks unrelated to ngrok — Windows Update's background service is known to generate exactly 58 connections per hour at a 61-second average interval, and any traffic matching those specific numbers can be attributed to it with certainty",
+            "A standard deviation of 6.8 seconds indicates the connections are completely random with no underlying pattern at all — a low standard deviation is actually the statistical signature of maximally random, unstructured timing, the opposite of what a consistent pattern would produce",
           ],
           answer: 1,
           explanation:
@@ -557,10 +557,10 @@ const tunnelingRoom = {
           question:
             "process_hint shows 'sqlservr.exe' — the actual SQL Server database engine process — as the source of these connections. Why does this specific detail sharply increase the severity of this finding?",
           options: [
-            "It doesn't increase severity — any process on the host could equally explain this finding",
+            "It doesn't increase severity — any process on the host could equally explain this finding, since Zscaler's proxy logs attribute all outbound connections from a given host to a single generic 'system' process label rather than to the specific application that actually initiated the traffic",
             "SQL Server's own database engine process has no legitimate reason to be initiating outbound HTTPS connections to a developer tunneling SaaS domain at all — this indicates the tunnel is being established from within, or by something exploiting, the database engine process itself, which is a far more severe finding than an unrelated administrative or monitoring process making the same connection would be",
-            "sqlservr.exe is a placeholder value that always appears by default and carries no forensic significance",
-            "This detail suggests the finding is a false positive, since SQL Server is expected to make outbound HTTPS connections routinely",
+            "sqlservr.exe is a placeholder value that always appears by default and carries no forensic significance — Zscaler populates the process_hint field with this exact string for every logged connection on Windows Server hosts, regardless of which application actually generated the traffic",
+            "This detail suggests the finding is a false positive, since SQL Server is expected to make outbound HTTPS connections routinely — the database engine process regularly initiates connections to arbitrary third-party SaaS tunneling domains as part of its normal licensing-check and telemetry behavior",
           ],
           answer: 1,
           explanation:
@@ -571,10 +571,10 @@ const tunnelingRoom = {
           question:
             "What is the correct, prioritized response given the combination of beacon-shaped timing, an ngrok tunneling domain, and sqlservr.exe as the source process?",
           options: [
-            "Allowlist ngrok-free.app domains going forward to prevent similar alerts on other hosts",
+            "Allowlist ngrok-free.app domains going forward to prevent similar alerts on other hosts — since the underlying ngrok TLS infrastructure itself is legitimate, permanently permitting all traffic to this domain pattern eliminates any future risk without requiring further investigation of this specific incident",
             "Treat this as a high-severity, active compromise of the production database server: isolate SRV-DB07 from the network while preserving it for forensic investigation, investigate sqlservr.exe for signs of exploitation (recent extended stored procedure usage, unusual child processes, SQL injection indicators in query logs), block the ngrok destination, and treat any data the database contains as potentially exposed pending investigation",
-            "No action needed since ngrok is a legitimate, reputable company and this must be an approved developer workflow",
-            "Simply restart the SQL Server service and consider the issue resolved",
+            "No action needed since ngrok is a legitimate, reputable company and this must be an approved developer workflow — production database engine processes are commonly configured by IT teams to use consumer tunneling SaaS products as part of standard, routine backup and licensing operations",
+            "Simply restart the SQL Server service and consider the issue resolved — restarting sqlservr.exe automatically terminates any injected malicious code, reverses any unauthorized configuration changes, and fully remediates whatever exploitation mechanism established the tunnel in the first place",
           ],
           answer: 1,
           explanation:

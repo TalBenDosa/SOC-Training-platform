@@ -709,10 +709,10 @@ const firewallMasterclass = {
       question:
         "What is the main advantage of STATEFUL inspection over STATELESS packet filtering?",
       options: [
-        "Stateful inspection is faster because it processes fewer rules",
+        "Stateful inspection is faster than stateless filtering because it caches decisions and processes far fewer rules per packet once a session has already been established and approved",
         "Stateful inspection tracks connection state, allowing it to block traffic that does not belong to an established session (e.g., unsolicited SYN-ACK packets)",
-        "Stateful inspection can read encrypted HTTPS traffic",
-        "Stateful inspection works at Layer 7 and can identify specific applications",
+        "Stateful inspection can decrypt and read the contents of encrypted HTTPS traffic by tracking the TLS session keys as part of its connection-state table",
+        "Stateful inspection works primarily at Layer 7 of the OSI model, using deep packet inspection to identify specific applications regardless of the port they use",
       ],
       answer: 1,
       explanation:
@@ -751,10 +751,10 @@ const firewallMasterclass = {
           question:
             "Looking at the sentbyte (1024) and rcvdbyte (512) fields — the attacker's server sends back HALF of what the client sends. In the context of C2 beaconing, what does this asymmetric byte pattern indicate?",
           options: [
-            "Normal HTTPS traffic — servers typically send less data than clients",
-            "The server is rejecting the connection — hence the smaller response",
+            "Normal HTTPS traffic — web servers often send smaller responses than the initial request, especially lightweight API endpoints that just acknowledge receipt without a full page body",
+            "The server is actively rejecting the connection with a TCP RST packet, and the 512-byte payload before the reset is just the server's standard error page delivered before it tears down the session",
             "The malware sends a beacon check-in (1024 bytes including host info), and the server sends back a short acknowledgement or command (512 bytes) — consistent with a C2 keep-alive pattern",
-            "The connection is being rate-limited by the FortiGate policy",
+            "The connection is being rate-limited by the FortiGate traffic-shaping policy, which caps the response size at 512 bytes per session regardless of what the destination server actually sent back",
           ],
           answer: 2,
           explanation:
@@ -765,10 +765,10 @@ const firewallMasterclass = {
           question:
             "The firewall action field shows 'accept' — meaning the FortiGate ALLOWED this connection. If the connection was to a known-malicious Tor exit node, why did the firewall allow it?",
           options: [
-            "FortiGate does not have threat intelligence feeds and cannot identify Tor exit nodes",
+            "FortiGate does not maintain its own threat intelligence feeds at all — Tor exit node identification always requires a separate third-party subscription service bolted on outside the firewall",
             "The outbound-web-allow policy (policyname field) is a broad rule permitting all outbound HTTPS — the firewall had no rule specifically blocking this IP",
-            "The Tor exit node was added to an allowlist by a previous administrator",
-            "The connection used a corporate SSL certificate, so the firewall trusted it",
+            "The Tor exit node's IP address was manually added to an allowlist exception by a previous administrator, so the firewall's own policy explicitly permits traffic to and from it",
+            "The connection presented a valid corporate SSL certificate during the TLS handshake, and the firewall's trust store treats any certificate signed by a known internal CA as automatically safe",
           ],
           answer: 1,
           explanation:

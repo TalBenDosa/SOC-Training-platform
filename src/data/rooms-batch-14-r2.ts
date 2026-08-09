@@ -282,9 +282,9 @@ const analystMindsetRoom = {
         question: "According to the reading, what is the recommended fix for confirmation bias?",
         options: [
           "Deliberately look for the piece of evidence that would prove your hypothesis wrong, not just more confirming evidence",
-          "Trust your first instinct, since it is usually correct",
-          "Escalate every alert automatically to avoid bias entirely",
-          "Rely on the SIEM's default severity label instead of manual judgment",
+          "Trust your first instinct without checking further, since a seasoned analyst's gut reaction is generally accurate enough to justify skipping additional verification steps",
+          "Escalate every single alert automatically regardless of severity, so that bias is removed entirely from the initial screening decision",
+          "Rely on the SIEM's default severity label as the final word instead of applying your own manual judgment to the underlying raw evidence",
         ],
         answer: 0,
         explanation: "The reading's fix for confirmation bias is to deliberately look for the piece of evidence that would PROVE you wrong, not just more evidence that confirms you're right.",
@@ -395,10 +395,10 @@ const analystMindsetRoom = {
           question:
             "Which piece of information in this event is a FACT, and which is closer to an ASSUMPTION you should still verify independently before fully trusting it?",
           options: [
-            "The logon time (03:12 AM) is an assumption; the badge swipe is a fact",
+            "The logon time (03:12 AM) is an unverifiable assumption because Active Directory timestamps can be silently rewritten by any attacker with local access, while the badge swipe is the only genuinely trustworthy fact in the whole event",
             "The logon event itself (event.code 4624, LogonType 2) is a fact pulled directly from the log; the badge system record and calendar note are additional facts from OTHER systems that corroborate the story, but should still be cross-checked for tampering or coincidence rather than accepted purely at face value",
-            "Everything in the raw log and the context note should be treated as equally certain, since it all came from company systems",
-            "None of this can be trusted without asking the user directly first",
+            "Everything in the raw log and the context note should be treated as equally certain and immediately actionable, since anything that appears inside a company's own logging systems is automatically corroborated and needs no further verification",
+            "None of this event can be trusted or acted upon in any way until the user is personally reached and explicitly confirms, in their own words, that they were the one who logged in at that exact time",
           ],
           answer: 1,
           explanation:
@@ -409,10 +409,10 @@ const analystMindsetRoom = {
           question:
             "Applying the 'WHY' question from the framework (find the innocent explanation FIRST) — what is the most plausible benign explanation here, and what would make you suspicious enough to keep digging despite it?",
           options: [
-            "There is no plausible benign explanation for a 3 AM logon, so this should always be escalated as an attack regardless of context",
+            "There is no plausible benign explanation that could ever justify a 3 AM logon on a finance workstation, so any interactive logon at that hour should always be escalated immediately as a confirmed attack, regardless of any surrounding context or corroborating evidence",
             "The benign explanation is quarter-close overtime, supported by the calendar note and badge swipe; you would still dig further if, for example, the badge system showed no matching swipe, or if this user had never logged in this late before in their history",
-            "Since LogonType is 2 (interactive) rather than 3 (network), this can never be an attack, so no further checking is needed",
-            "The workstation name (WS-FIN-2041) alone proves this is authorized financial activity",
+            "Since LogonType is 2 (interactive) rather than 3 (network-only), an interactive logon can never be part of an attack technique, so once you see LogonType 2 no further checking of the surrounding context is ever needed",
+            "The workstation name (WS-FIN-2041) alone, independent of who is logged into it or when, is sufficient proof by itself that any activity on that machine is authorized financial work and needs no further review",
           ],
           answer: 1,
           explanation:
@@ -435,10 +435,10 @@ const analystMindsetRoom = {
           question:
             "Using the 'blast radius' and 'is this normal for this entity' questions together, what is the single most important fact that changes how you should read this alert?",
           options: [
-            "The process name is powershell.exe, which is inherently suspicious regardless of context",
+            "The process name is powershell.exe, and PowerShell is inherently a red flag on any endpoint regardless of who launched it, what repository the script came from, or what the user's actual job role happens to be",
             "The script is hosted on the company's OWN internal GitHub organization (nexacorp-it/deploy-scripts), and the user is a Tier 2 IT technician whose job role plausibly includes running deployment scripts — this is entity-specific normal, not generic 'PowerShell is always scary'",
-            "The parent process is cmd.exe, which always indicates malware staging",
-            "-ExecutionPolicy Bypass always means an attack, with no legitimate use case"
+            "The parent process is cmd.exe, and any PowerShell process spawned from cmd.exe always indicates malware staging, regardless of what command was actually run or which legitimate account launched it",
+            "The command line includes -ExecutionPolicy Bypass, and that flag always means an attack is underway, because there is no legitimate enterprise scenario where a script would ever need to bypass the default execution policy"
           ],
           answer: 1,
           explanation:
@@ -449,10 +449,10 @@ const analystMindsetRoom = {
           question:
             "Even though the context here looks benign, what specific follow-up check would still be reasonable before fully closing this alert, consistent with 'keep digging until questions are actually answered' rather than just accepting the surface story?",
           options: [
-            "None — the GitHub org name alone is sufficient proof, no further check needed",
+            "No further check is needed at all — the GitHub organization name alone, simply by looking legitimate and matching the company's naming convention, is sufficient proof that this specific script and download were authorized",
             "Verify that the referenced change tickets are real, currently open/approved, and actually correspond to this specific script and time window — rather than just trusting that a plausible-sounding org name means the activity was authorized",
-            "Escalate automatically regardless of findings, because PowerShell was involved",
-            "Ask the technician for a verbal confirmation and treat that as sufficient proof on its own"
+            "Escalate this automatically as a confirmed incident regardless of what the change tickets or repository ownership actually show, because any PowerShell process that downloads and immediately executes a remote script is inherently malicious",
+            "Ask the technician for a verbal confirmation over chat or in person, and treat that spoken assurance alone as sufficient proof, without needing to independently verify it against the change-ticket system"
           ],
           answer: 1,
           explanation:
