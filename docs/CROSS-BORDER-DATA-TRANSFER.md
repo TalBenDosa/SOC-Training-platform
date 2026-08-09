@@ -32,7 +32,7 @@ progress data, not sensitive data, which is what keeps the risk profile modest.
 
 | Processor | Role | Data it sees | Location |
 |---|---|---|---|
-| **Supabase** | Database + authentication | All account and progress data | Outside Israel (region per project config) |
+| **Supabase** | Database + authentication | All account and progress data | **EU — Ireland (`aws-0-eu-west-1`)**, confirmed 9 Aug 2026 |
 | **Vercel** | Application hosting + edge | Request data in transit; no independent store | Outside Israel (global edge) |
 | **Anthropic** and/or **OpenAI** | AI grading of free-text answers | The *text of the submitted report only* | United States |
 | **Resend** | Transactional email (invitations, nudges) | Recipient email address | Outside Israel |
@@ -65,8 +65,23 @@ holds. The bases relevant here:
 
 ## 4. The basis relied on
 
-**Primary: necessity for performance of the contract (basis 3), reinforced by
-contractual safeguards (basis 4).**
+**For the database — the bulk of the personal data — the strongest basis
+applies: adequacy (basis 1).**
+
+The Supabase project is hosted in **Ireland (`eu-west-1`)**, confirmed from the
+live connection endpoint on 9 August 2026. Ireland is an EU member state, and
+EU/EEA countries are recognised under Israeli law as ensuring adequate
+protection of personal data. Every account record, progress row and audit entry
+therefore rests in an adequate jurisdiction — this is the single most favourable
+fact in this document, and it is worth protecting: **migrating the Supabase
+project to a US region would silently downgrade the legal basis for the entire
+dataset.** Treat the region as a compliance setting, not an infrastructure
+preference.
+
+**For the remaining processors: necessity for performance of the contract
+(basis 3), reinforced by contractual safeguards (basis 4).**
+
+This covers Vercel (global edge), the AI graders (United States) and Resend.
 
 The service *is* a hosted web application. A student who creates an account to
 take the course cannot be served without their credentials and progress being
@@ -85,10 +100,10 @@ Supporting this:
 - **Minimisation.** Only what the service needs is transferred, and the grading
   path is de-identified (§2).
 
-**Not relied on:** adequacy (basis 1) is not asserted for the United States, and
-consent (basis 2) is not used as the primary basis — consent given as a
-precondition of using a service is a weak footing, and basis 3 is the honest
-description of what is actually happening.
+**Not relied on:** adequacy is *not* asserted for the United States (the AI
+graders) — only for the EU-hosted database. Consent (basis 2) is not used as a
+primary basis anywhere: consent given as a precondition of using a service is a
+weak footing, and basis 3 is the honest description of what actually happens.
 
 ---
 
@@ -100,7 +115,7 @@ description of what is actually happening.
 | 2 | Execute / file the **Vercel DPA** | ☐ To do |
 | 3 | File the **Anthropic** and/or **OpenAI** DPA / zero-retention terms | ☐ To do |
 | 4 | File the **Resend DPA** | ☐ To do |
-| 5 | Record the Supabase project **region** here once confirmed | ☐ To do |
+| 5 | Record the Supabase project **region** | ☑ **Done** — Ireland (`eu-west-1`), confirmed 9 Aug 2026 from the live endpoint. Do not move it out of the EU without redoing §4. |
 | 6 | Add a processor list + this basis to the college contract template | ☐ To do |
 
 Items 1–4 are administrative — each provider publishes a DPA that is accepted
