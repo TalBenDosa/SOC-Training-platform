@@ -179,15 +179,19 @@ const activeDirectory: Room = {
           "event.code": "4769",
           "winlog.channel": "Security",
           "winlog.computer_name": "DC01.corp.contoso.com",
-          "winlog.event_data.TargetUserName": "svc_sqlbackup",
-          "winlog.event_data.TargetDomainName": "CORP",
-          "winlog.event_data.ServiceName": "MSSQLSvc/sqlsrv01.corp.contoso.com:1433",
+          // 4769 field roles, per Microsoft's schema — these were previously
+          // swapped here, which taught the wrong field to filter a Kerberoasting
+          // hunt on. TargetUserName is the account that REQUESTED the ticket;
+          // ServiceName is the account the ticket was requested FOR (the
+          // Kerberoast target). There is no RequestorName field on 4769.
+          "winlog.event_data.TargetUserName": "j.harrison@CORP.CONTOSO.COM",
+          "winlog.event_data.TargetDomainName": "CORP.CONTOSO.COM",
+          "winlog.event_data.ServiceName": "svc_sqlbackup",
           "winlog.event_data.TicketEncryptionType": "0x17",
           "winlog.event_data.TicketOptions": "0x40810000",
           "winlog.event_data.Status": "0x0",
           "winlog.event_data.IpAddress": "10.10.25.88",
           "winlog.event_data.IpPort": "54321",
-          "winlog.event_data.RequestorName": "j.harrison@corp.contoso.com",
           "winlog.event_id": 4769,
           "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
           "@timestamp": "2024-11-14T02:17:33.000Z",
@@ -198,14 +202,14 @@ const activeDirectory: Room = {
           question:
             "What is the name of the service account whose ticket was requested, and why is that significant?",
           options: [
-            "j.harrison — because j.harrison is the attacker and all their actions are suspicious",
+            "j.harrison — TargetUserName always names the account the ticket was issued for, so that is the Kerberoast target here",
             "svc_sqlbackup — a service account for SQL Server backup, which likely has elevated database privileges, making it a high-value Kerberoasting target",
-            "MSSQLSvc — this is the service name and has no bearing on the attack",
-            "DC01 — the Domain Controller is the target of the attack",
+            "DC01 — ServiceName resolves to the Domain Controller that issued the ticket, so the DC is the account under attack",
+            "CORP.CONTOSO.COM — the realm in TargetDomainName is what the attacker is roasting, since Kerberos tickets are scoped per-realm",
           ],
           answer: 1,
           explanation:
-            "The TargetUserName field shows 'svc_sqlbackup'. Service accounts like this one often have weak passwords (set once and never changed) and elevated privileges. This makes them prime Kerberoasting targets — an attacker requests a service ticket encrypted with svc_sqlbackup's password hash, then cracks it offline. The RequestorName (j.harrison) may itself be a compromised account.",
+            "Read the two account fields in the right order — this is the single most confused pair on 4769. ServiceName is the account the ticket was requested FOR: 'svc_sqlbackup'. TargetUserName is the account that REQUESTED it: 'j.harrison@CORP.CONTOSO.COM'. So svc_sqlbackup is the Kerberoasting target, and j.harrison is the requester who may itself be a compromised account. Service accounts like svc_sqlbackup often carry weak, never-rotated passwords and elevated privileges — an attacker requests a service ticket encrypted with that account's password hash, then cracks it offline. When you hunt Kerberoasting you filter on ServiceName (which service accounts are being asked for) and pivot on TargetUserName (who keeps asking); getting them the wrong way round sends the whole investigation at the wrong account.",
           xp: 30,
         },
         {

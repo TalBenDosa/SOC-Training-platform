@@ -224,11 +224,26 @@ for (const r of ROOMS) {
     add("WARN", at, "no log_analysis or analyst_choice task — reading a log is the job");
   }
 
-  // three readings in a row is a wall of text
+  // Three readings in a row with no retrieval is a wall of text.
+  //
+  // This counted EVERY reading task, which made it fire on all 63 rooms that
+  // have a long theory stretch — and every one of those was a false positive.
+  // Readings gained an optional inline `checkpoint` (a required active-recall
+  // question, see ReadingTask.checkpoint) after this check was written, and 60%
+  // of readings now carry one; measured across the whole curriculum, NO room
+  // has even two consecutive readings without a checkpoint. The failure mode
+  // this exists to catch — a student scrolling through passive text with
+  // nothing asked of them — had already been designed out, and the check was
+  // just reporting on the wrong property.
+  //
+  // A checkpointed reading cannot be passed without answering correctly, so it
+  // breaks the passive run. Counting only UNCHECKPOINTED readings measures the
+  // thing the rule is actually about. (It stays strict: three passive readings
+  // in a row still warns.)
   let run = 0;
   for (const t of tasks) {
-    run = t.type === "reading" ? run + 1 : 0;
-    if (run === 3) { add("WARN", at, "three consecutive reading tasks"); break; }
+    run = t.type === "reading" && !t.checkpoint ? run + 1 : 0;
+    if (run === 3) { add("WARN", at, "three consecutive reading tasks with no checkpoint"); break; }
   }
 
   // xp accounting
