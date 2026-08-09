@@ -273,7 +273,10 @@ export default function ManagePage() {
               <form onSubmit={addMember} className="mt-4 flex flex-wrap items-end gap-2">
                 <div className="flex-1 min-w-[220px]">
                   <label className="mb-1.5 block text-xs font-semibold text-slate-400" htmlFor="mg-email">Or attach an existing account by email</label>
-                  <input id="mg-email" type="email" className={field} value={email} onChange={e => setEmail(e.target.value)} placeholder="student@college.ac.il" required />
+                  {/* Placeholder is deliberately a personal address: students
+                      enrol with whatever email they actually use, and an
+                      institutional one is not required anywhere. */}
+                  <input id="mg-email" type="email" className={field} value={email} onChange={e => setEmail(e.target.value)} placeholder="dana.levi@gmail.com" required />
                 </div>
                 <Button type="submit" variant="primary" size="sm" disabled={adding}><UserPlus className="mr-1.5 h-4 w-4" />{adding ? "Adding…" : "Add"}</Button>
               </form>
@@ -281,7 +284,12 @@ export default function ManagePage() {
 
             <Card>
               <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-white"><Upload className="h-4 w-4 text-cyber-300" /> Bulk invite (CSV or list)</h2>
-              <p className="mb-3 text-xs text-slate-400">Upload a CSV or paste a list of student emails — each gets a personal invite emailed to them (where email is configured).</p>
+              <p className="mb-3 text-xs text-slate-400">
+                Upload a CSV or paste a list of student emails — each gets a personal invite emailed
+                to them (where email is configured). Any email provider works; an institutional
+                address isn&apos;t required. Each invite only works for the address you enter here,
+                so send students the address they actually use.
+              </p>
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-bg px-3.5 py-2 text-xs font-bold text-slate-200 transition hover:text-white">
                   <Upload className="h-4 w-4" /> Choose CSV
@@ -292,7 +300,7 @@ export default function ManagePage() {
               <textarea
                 value={bulkText} onChange={e => setBulkText(e.target.value)} rows={4}
                 className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
-                placeholder={"dana@college.ac.il\nomri@college.ac.il\n…"}
+                placeholder={"dana.levi@gmail.com\nomri@sapir.ac.il\nyael.cohen@outlook.com\n…"}
                 aria-label="Student emails"
               />
               <div className="mt-2 flex items-center justify-between">
