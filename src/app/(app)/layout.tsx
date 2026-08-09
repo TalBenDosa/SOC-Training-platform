@@ -1,9 +1,18 @@
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/nav/Sidebar";
 import { MotionProvider } from "@/components/MotionProvider";
 import { EarnMoment } from "@/components/EarnMoment";
 import { SyncStatus } from "@/components/system/SyncStatus";
+import { affiliationExpired } from "@/lib/org/affiliationGate";
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  // The 100-day rule (0028): an org student whose affiliation lapsed is
+  // diverted to /renew before ANY app page renders. Server-side, so it cannot
+  // be skipped by disabling JS; /renew itself lives in the (auth) group,
+  // outside this layout, so the diversion cannot loop.
+  if (await affiliationExpired()) {
+    redirect("/renew");
+  }
   return (
     <MotionProvider>
       <div className="flex min-h-screen">

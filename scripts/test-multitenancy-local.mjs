@@ -160,8 +160,12 @@ const tiny = await createOrg("Tiny College", "tiny", 1);
 await enroll(tiny, "tiny_one", "One Student"); // fills the single seat
 let capBlocked = false;
 try {
-  const u = randomUUID();
-  await q(`insert into auth.users (id,email) values ($1,'x@x.com')`, [u]);
+  // 0028 closed open signup, so the bare `insert into auth.users` this test
+  // used to create its outsider now raises signup_requires_code before the
+  // seat check is ever reached. Enroll the outsider properly in a DIFFERENT
+  // org (sapir has spare seats), then attempt the cross-attach into the full
+  // one — which is the operation this check actually pins.
+  const u = await enroll(sapir, "cap_outsider", "Cap Outsider");
   await q(`select public.attach_member_if_seat_available($1,$2,'student')`, [tiny, u]);
 } catch (e) { capBlocked = /seat_limit_reached/.test(e.message); }
 check("attaching beyond the seat limit is rejected", capBlocked);

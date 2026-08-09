@@ -36,6 +36,8 @@ export interface StudentRow {
   status: string;
   role: string;
   joined_at: string | null;
+  /** When the student's 100-day affiliation lapses (0028); null for staff. */
+  affiliation_expires_at: string | null;
   xp: number;
   level: number;
   rooms_completed: number;
@@ -59,7 +61,7 @@ export async function GET() {
 
   const [membersRes, roomsRes, scenariosRes, sessionsRes] = await Promise.all([
     admin.from("org_members")
-      .select("user_id, role, status, joined_at, profiles(handle, display_name, xp, level)")
+      .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level)")
       .eq("org_id", orgId),
     admin.from("room_progress")
       .select("user_id, room_id, completed_at, updated_at")
@@ -118,6 +120,7 @@ export async function GET() {
       status: m.status,
       role: m.role,
       joined_at: m.joined_at,
+      affiliation_expires_at: m.affiliation_expires_at ?? null,
       xp: p?.xp ?? 0,
       level: p?.level ?? 1,
       rooms_completed: completed.length,

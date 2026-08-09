@@ -11,7 +11,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, ShieldCheck, Link2, Copy, Check, CheckCircle2, DollarSign } from "lucide-react";
+import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, ShieldCheck, Link2, Copy, Check, CheckCircle2, DollarSign, KeyRound } from "lucide-react";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 const STATUS_STYLE: Record<OrgStatus, string> = {
@@ -39,6 +39,30 @@ export default function SuperAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // affiliation codes across all orgs (0028)
+  interface OrgCodeRow {
+    id: string; name: string; status: string;
+    active_code: { code: string; expires_at: string } | null;
+  }
+  const [codes, setCodes] = useState<OrgCodeRow[] | null>(null);
+  const [codeBusyOrg, setCodeBusyOrg] = useState<string | null>(null);
+
+  async function loadCodes() {
+    const res = await fetch("/api/superadmin/org-codes");
+    if (res.ok) { const d = await res.json(); setCodes(d.orgs ?? []); }
+  }
+
+  async function generateFor(orgId: string) {
+    setCodeBusyOrg(orgId);
+    const res = await fetch("/api/superadmin/org-codes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ org_id: orgId }),
+    });
+    setCodeBusyOrg(null);
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not generate."); return; }
+    await loadCodes();
+  }
+
   async function load() {
     setError(null);
     const res = await fetch("/api/superadmin/orgs");
@@ -47,7 +71,7 @@ export default function SuperAdminPage() {
     setOrgs(body.orgs);
     setSpend(body.ai_spend ?? null);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadCodes(); }, []);
 
   return (
     <div>
@@ -102,6 +126,52 @@ export default function SuperAdminPage() {
             )}
           </Card>
         )}
+
+        {/* Affiliation codes across every tenant (0028). The spec grants the
+            super-admin sight of ALL codes and cooldown-free generation. */}
+        <Card>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
+                <KeyRound className="h-4.5 w-4.5 text-cyber-300" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-white">Class codes</p>
+                <p className="text-[11px] text-slate-400">Every org&apos;s live affiliation code · 24h validity · generate for any org</p>
+              </div>
+            </div>
+          </div>
+          {codes === null ? (
+            <p className="mt-3 text-sm text-slate-400">Loading codes…</p>
+          ) : codes.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-400">No organizations yet.</p>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {codes.map(c => (
+                <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-2">
+                  <span className="min-w-[140px] flex-1 truncate text-sm font-medium text-slate-100">{c.name}</span>
+                  {c.active_code ? (
+                    <>
+                      <span className="rounded border border-neon-cyan/40 bg-neon-cyan/5 px-2.5 py-1 font-mono text-sm font-bold tracking-[0.2em] text-neon-cyan">
+                        {c.active_code.code}
+                      </span>
+                      <span className="text-[11px] text-slate-400">expires {fmtDate(c.active_code.expires_at)}</span>
+                    </>
+                  ) : (
+                    <span className="text-[11px] text-slate-500">no live code</span>
+                  )}
+                  <Button
+                    variant="outline" size="sm"
+                    disabled={codeBusyOrg === c.id}
+                    onClick={() => generateFor(c.id)}
+                  >
+                    {codeBusyOrg === c.id ? "…" : "Generate"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
 
         {orgs === null ? (
           <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>

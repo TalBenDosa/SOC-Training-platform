@@ -32,6 +32,9 @@ export default function SignupPage() {
   /** "checking" until the token resolves, so we never render a form that looks
    *  like a normal signup while an invitation is still being validated. */
   const [inviteState, setInviteState] = useState<"none" | "checking" | "valid" | "invalid">("none");
+  /** The class affiliation code (0028) — REQUIRED whenever there's no invite
+      token. Prefilled from ?code= when the student came via /join. */
+  const [orgCode, setOrgCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -49,7 +52,11 @@ export default function SignupPage() {
   // told the admin why their student never appeared on the roster. An invitation
   // that cannot be honoured is now a blocking state.
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get("invite");
+    const params = new URLSearchParams(window.location.search);
+    // A class code handed off from /join — prefill so the student types nothing twice.
+    const codeParam = params.get("code");
+    if (codeParam) setOrgCode(codeParam.toUpperCase());
+    const token = params.get("invite");
     if (!token) return;
     setInviteToken(token);
     setInviteState("checking");
@@ -136,6 +143,17 @@ export default function SignupPage() {
     if (trimmedName) metadata.full_name = trimmedName;
     // Carries the enrollment: the trigger re-validates the token and assigns the org.
     if (inviteToken) metadata.invitation_token = inviteToken;
+    // The student path (0028): no invite link → a class code is REQUIRED. The
+    // trigger enforces this server-side (signup_requires_code); this check just
+    // saves a round-trip for the obvious case.
+    if (!inviteToken) {
+      const trimmedCode = orgCode.trim();
+      if (!trimmedCode) {
+        setError("Enter your class code — you'll find it with your instructor. Without it, registration isn't possible.");
+        return;
+      }
+      metadata.org_code = trimmedCode;
+    }
 
     setSubmitting(true);
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -161,6 +179,10 @@ export default function SignupPage() {
         );
       } else if (raw.includes("invitation_invalid")) {
         setError("This invitation has expired or has already been used. Ask your course administrator for a fresh link.");
+      } else if (raw.includes("org_code_invalid")) {
+        setError("That class code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
+      } else if (raw.includes("signup_requires_code")) {
+        setError("Registration requires a class code or an invitation link. Ask your instructor for today's code.");
       } else if (raw.includes("seat_limit_reached")) {
         setError(`${inviteOrg ?? "This course"} has no seats left. Ask your course administrator to free one up, then try again.`);
       } else {
@@ -309,6 +331,30 @@ export default function SignupPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* The entry condition, so it leads the form: with no invite link, a
+            class code is what makes registration possible at all (0028). An
+            invite link already carries the enrolment, so the field disappears
+            rather than asking for a second credential. */}
+        {!inviteToken && (
+          <div>
+            <label htmlFor="signup-orgcode" className="mb-1.5 block text-xs font-semibold text-slate-400">
+              Class code <span className="text-neon-cyan">*</span>
+            </label>
+            <input
+              id="signup-orgcode"
+              type="text"
+              required
+              autoComplete="off"
+              value={orgCode}
+              onChange={e => setOrgCode(e.target.value.toUpperCase())}
+              placeholder="e.g. K7MRW3TQ"
+              className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 font-mono text-sm tracking-widest text-white placeholder:text-slate-500 focus:border-neon-cyan focus:outline-none focus:ring-1 focus:ring-neon-cyan"
+            />
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              From your instructor — refreshed daily. Registration isn&apos;t possible without it.
+            </p>
+          </div>
+        )}
         <div>
           <label htmlFor="signup-fullname" className="mb-1.5 block text-xs font-semibold text-slate-400">
             Full name <span className="font-normal text-slate-400">(optional)</span>

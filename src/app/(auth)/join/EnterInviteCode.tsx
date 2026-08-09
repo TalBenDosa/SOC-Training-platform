@@ -48,7 +48,15 @@ export function EnterInviteCode() {
     e.preventDefault();
     if (!token) return;
     setSubmitting(true);
-    router.push(`/join?token=${encodeURIComponent(token)}`);
+    // Two credential shapes arrive here and go to different doors:
+    //  - invitation tokens are UUIDs (36 chars, dashed) → resolved by /join;
+    //  - class affiliation codes (0028) are 8 unambiguous chars → belong on
+    //    the signup form, which sends them through the enrolment trigger.
+    if (/^[A-Z0-9]{6,12}$/i.test(token)) {
+      router.push(`/signup?code=${encodeURIComponent(token.toUpperCase())}`);
+    } else {
+      router.push(`/join?token=${encodeURIComponent(token)}`);
+    }
   }
 
   return (

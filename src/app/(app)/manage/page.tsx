@@ -10,7 +10,7 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
-  Users, Trophy, Activity, Target, DoorOpen, UserPlus, Link2, Copy, Check, AlertTriangle, Loader2, Upload, Mail,
+  Users, Trophy, Activity, Target, DoorOpen, UserPlus, Link2, Copy, Check, AlertTriangle, Loader2, Upload, Mail, KeyRound,
   Power, PowerOff, Trash2, Download, TrendingDown, Clock, ClipboardList, Plus, X, CalendarClock,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
@@ -96,6 +96,11 @@ export default function ManagePage() {
   const [deletions, setDeletions] = useState<DeletionRequest[]>([]);
   const [dBusy, setDBusy] = useState<string | null>(null);
 
+  // class affiliation code (0028) — the live code + when a new one is allowed
+  const [classCode, setClassCode] = useState<{ code: string; expires_at: string } | null>(null);
+  const [codeNextAt, setCodeNextAt] = useState<string | null>(null);
+  const [codeBusy, setCodeBusy] = useState(false);
+
   async function load() {
     setError(null);
     const res = await fetch("/api/org/members");
@@ -136,6 +141,25 @@ export default function ManagePage() {
       const { requests } = await dlRes.json();
       setDeletions(requests ?? []);
     }
+    const ccRes = await fetch("/api/org/class-code");
+    if (ccRes.ok) {
+      const cc = await ccRes.json();
+      setClassCode(cc.active ?? null);
+      setCodeNextAt(cc.next_generate_at ?? null);
+    }
+  }
+
+  async function generateClassCode() {
+    setCodeBusy(true);
+    const res = await fetch("/api/org/class-code", { method: "POST" });
+    setCodeBusy(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setError(data?.error ?? "Could not generate a code."); return; }
+    setClassCode(data.active ?? null);
+    // The cooldown starts from this generation.
+    const ccRes = await fetch("/api/org/class-code");
+    if (ccRes.ok) { const cc = await ccRes.json(); setCodeNextAt(cc.next_generate_at ?? null); }
+    setNotice("New class code generated — valid for 24 hours.");
   }
   useEffect(() => { load(); }, []);
 
@@ -169,7 +193,7 @@ export default function ManagePage() {
     const header = [
       "Student", "Handle", "Status", "Role", "XP", "Level",
       "Rooms completed", "Rooms started", "Scenarios completed", "Avg scenario score",
-      "Dashboard sessions", "Avg detect rate %", "Last active",
+      "Dashboard sessions", "Avg detect rate %", "Last active", "Enrolment valid until",
     ];
     const body = students.map(s => [
       s.display_name ?? s.handle ?? s.user_id.slice(0, 8),
@@ -178,6 +202,7 @@ export default function ManagePage() {
       String(s.scenarios_completed), s.scenario_avg_score === null ? "" : String(s.scenario_avg_score),
       String(s.sessions), s.avg_detect_rate === null ? "" : String(s.avg_detect_rate),
       s.last_active_at ?? "",
+      s.affiliation_expires_at ?? "",
     ]);
     const blob = new Blob([toCsv([header, ...body])], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -306,6 +331,52 @@ export default function ManagePage() {
               <Stat icon={<Target className="h-4 w-4" />} label="Scenarios" value={String(usage?.scenarios_completed ?? 0)} />
               <Stat icon={<DoorOpen className="h-4 w-4" />} label="Rooms" value={String(usage?.rooms_completed ?? 0)} />
             </div>
+
+            {/* The class affiliation code (0028) — now the PRIMARY way a
+                student joins, so it leads the column. One live code at a time,
+                24h window, one generation per day. */}
+            <Card className="border-neon-cyan/30">
+              <h2 className="flex items-center gap-2 text-sm font-bold text-white">
+                <KeyRound className="h-4 w-4 text-neon-cyan" /> Class code
+              </h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Students register with their email + this code. It&apos;s valid for 24 hours —
+                generate a fresh one each day. A student&apos;s enrolment lasts 100 days before
+                they need to enter a current code again.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {classCode ? (
+                  <>
+                    <span className="rounded-lg border border-neon-cyan/40 bg-neon-cyan/5 px-4 py-2 font-mono text-xl font-bold tracking-[0.3em] text-neon-cyan">
+                      {classCode.code}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      expires {new Date(classCode.expires_at).toLocaleString()}
+                    </span>
+                    <Button
+                      variant="outline" size="sm"
+                      onClick={() => { navigator.clipboard.writeText(classCode.code); setNotice("Class code copied."); }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <span className="text-sm text-slate-400">No live code — generate one for today&apos;s class.</span>
+                )}
+                <Button
+                  variant="primary" size="sm"
+                  disabled={codeBusy || Boolean(codeNextAt && new Date(codeNextAt) > new Date())}
+                  onClick={generateClassCode}
+                >
+                  {codeBusy ? "Generating…" : "Generate today's code"}
+                </Button>
+                {codeNextAt && new Date(codeNextAt) > new Date() && (
+                  <span className="text-xs text-slate-500">
+                    next generation {new Date(codeNextAt).toLocaleString()}
+                  </span>
+                )}
+              </div>
+            </Card>
 
             <Card>
               <h2 className="mb-3 text-sm font-bold text-white">Invite students</h2>
@@ -594,6 +665,23 @@ export default function ManagePage() {
                               >
                                 <Clock className="mr-1 inline h-3 w-3" />{sinceLabel(s.last_active_at)}
                               </span>
+                              {/* The 100-day affiliation clock (0028). Quiet
+                                  until it matters: plain until 14 days out,
+                                  amber then, red once lapsed — at which point
+                                  the student is locked out until they enter a
+                                  current class code. */}
+                              {s.affiliation_expires_at && (() => {
+                                const daysLeft = Math.ceil((Date.parse(s.affiliation_expires_at) - Date.now()) / 86_400_000);
+                                return (
+                                  <span
+                                    title={`Enrolment ${daysLeft < 0 ? "lapsed" : `valid until ${new Date(s.affiliation_expires_at).toLocaleDateString()}`} — renewed with a current class code`}
+                                    className={daysLeft < 0 ? "font-bold text-severity-high" : daysLeft <= 14 ? "text-neon-amber" : ""}
+                                  >
+                                    <KeyRound className="mr-1 inline h-3 w-3" />
+                                    {daysLeft < 0 ? "lapsed" : `${daysLeft}d`}
+                                  </span>
+                                );
+                              })()}
                             </div>
                           )}
                           <span className="font-mono text-xs font-bold text-cyber-300">{(m.xp ?? 0).toLocaleString()} XP</span>
