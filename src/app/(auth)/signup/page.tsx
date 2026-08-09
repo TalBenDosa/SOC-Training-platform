@@ -431,6 +431,19 @@ export default function SignupPage() {
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting || checkingHandle || handleFree === false || !handleWellFormed}>
           {submitting ? "Creating account…" : "Create account"}
         </Button>
+
+        {/* Notice at the point of collection, not only in a footer link on the
+            marketing page. The transparency duty toward the data subject
+            (יידוע נושא המידע) attaches when the data is COLLECTED — a student
+            arriving straight from an invite link never sees the landing page,
+            so that footer link reached nobody on the invited path. */}
+        <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-500">
+          By creating an account you agree we may store your email, display name and
+          learning progress to run the course.{" "}
+          <Link href="/privacy" className="text-slate-400 underline underline-offset-2 hover:text-cyber-300">
+            What we store and why
+          </Link>
+        </p>
       </form>
 
       <p className="mt-5 text-center text-xs text-slate-400">

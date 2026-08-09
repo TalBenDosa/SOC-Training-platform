@@ -78,9 +78,14 @@ jobs:
           # Build must succeed WITHOUT real secrets (routes fall back to stubs).
           NODE_ENV: production
 
-      # Security gate. Currently fails only on CRITICAL (the codebase's remaining
-      # highs are dev-only esbuild/glob + advisories fixed only by the planned
-      # Next 16 upgrade — see PRODUCTION_READINESS_PLAN.md Phase 0.5).
-      # TODO(after Next 16 upgrade): tighten to `--audit-level=high`.
-      - name: Dependency audit (prod deps, fail on critical)
-        run: npm audit --omit=dev --audit-level=critical
+      # Security gate. Fails on ANY production-dependency vulnerability at any
+      # severity, except those explicitly allowlisted in the script WITH a
+      # written reason the code cannot execute here.
+      #
+      # This replaced `npm audit --omit=dev --audit-level=critical`, which
+      # passed while five HIGH advisories were live: raising the threshold to
+      # hide unfixable noise also hid everything below it. The allowlist keeps
+      # the signal instead — noise is named individually, so a genuinely new
+      # finding fails the build on the day it appears.
+      - name: Dependency audit (prod deps, allowlist-gated)
+        run: npm run audit:deps

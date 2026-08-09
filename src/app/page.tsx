@@ -430,7 +430,7 @@ export default function Landing() {
         <div className="mx-auto max-w-2xl text-center">
           <SectionLabel>// Access</SectionLabel>
           <h2 className="mt-4 font-mono text-3xl font-bold text-white md:text-4xl">
-            This one isn&apos;t free
+            Two ways in
           </h2>
           <p className="mt-4 text-slate-400">
             Building an intrusion that survives an analyst&apos;s scrutiny takes real work, and it

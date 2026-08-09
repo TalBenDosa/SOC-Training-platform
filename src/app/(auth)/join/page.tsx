@@ -13,13 +13,18 @@
  *
  * An invalid or expired token still stops here with a real explanation, rather
  * than dumping them on a signup form that would silently enrol them nowhere.
+ *
+ * Reached with NO token, this renders a code-entry form rather than an error:
+ * the landing page's "I have an invite code" CTA points here on purpose, for
+ * students handed a code instead of a link.
  */
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, KeyRound } from "lucide-react";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { EnterInviteCode } from "./EnterInviteCode";
 
 export const metadata = { title: "Join" };
 
@@ -36,8 +41,13 @@ function InvalidInvite({ reason }: { reason: string }) {
       <p className="mt-4 text-xs text-slate-400">
         Ask your course administrator to send you a fresh invite link.
       </p>
-      <Link href="/login" className="mt-6 inline-block">
-        <Button variant="outline">Back to sign in</Button>
+      {/* Mistyped codes are the common case here, so offer another go before
+          sending them to a sign-in page they have no account for yet. */}
+      <Link href="/join" className="mt-6 inline-block">
+        <Button variant="outline">Try another code</Button>
+      </Link>
+      <Link href="/login" className="mt-4 block text-xs text-slate-400 hover:text-white">
+        Already have an account? Sign in
       </Link>
     </Card>
   );
@@ -46,8 +56,23 @@ function InvalidInvite({ reason }: { reason: string }) {
 export default async function JoinPage({ searchParams }: PageProps) {
   const { token } = await searchParams;
 
+  // No token is NOT an error: the landing page's "I have an invite code" CTA
+  // lands here deliberately, for students who were given a code rather than a
+  // link. Ask for it instead of rejecting them.
   if (!token) {
-    return <InvalidInvite reason="This link is missing its invitation code." />;
+    return (
+      <Card className="w-full max-w-md text-center">
+        <KeyRound className="mx-auto h-8 w-8 text-neon-cyan" />
+        <h1 className="mt-4 text-lg font-bold text-white">Enter your invitation code</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          Your course administrator sends this by email — paste the code, or the whole invite link.
+        </p>
+        <EnterInviteCode />
+        <Link href="/login" className="mt-6 inline-block text-xs text-slate-400 hover:text-white">
+          Already have an account? Sign in
+        </Link>
+      </Card>
+    );
   }
 
   const admin = getSupabaseAdminClient();

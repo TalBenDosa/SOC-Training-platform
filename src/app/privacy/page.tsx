@@ -11,6 +11,13 @@ export const metadata = {
 // תקנות הגנת הפרטיות, and to disclose the third-party AI sub-processors that
 // grade free-text answers.
 export default function PrivacyPage() {
+  // Server Component, so this reads at render time and never reaches the client
+  // bundle. Left unset deliberately in dev: publishing a wrong or personal
+  // address on a public page is worse than routing requests through the course
+  // administrator, which is the real channel for a B2B/college deployment
+  // anyway. Set PRIVACY_CONTACT_EMAIL in production to offer a direct route.
+  const contactEmail = process.env.PRIVACY_CONTACT_EMAIL?.trim();
+
   return (
     <main id="main-content" className="mx-auto max-w-3xl px-6 py-16 text-slate-300">
       <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-cyber-300">
@@ -64,12 +71,41 @@ export default function PrivacyPage() {
         </section>
 
         <section>
+          <h2 className="mb-2 text-xl font-semibold text-white">How long we keep it</h2>
+          <p>
+            Account and progress data is kept for as long as your account is active, and is removed
+            when your account or your institution&apos;s licence is closed. Records of privileged
+            administrative actions (the audit trail) are kept for at least{" "}
+            <strong className="text-white">24 months</strong>, which is the retention the Israeli
+            Privacy Protection (Information Security) Regulations require for access records.
+          </p>
+        </section>
+
+        <section>
           <h2 className="mb-2 text-xl font-semibold text-white">Your rights</h2>
           <p>
-            You may request access to, correction of, or deletion of your account data. Contact the
-            platform owner to exercise these rights. Under Israeli privacy law (חוק הגנת הפרטיות
-            והתקנות מכוחו, כולל תיקון 13), you have the right to know what is held about you and to
-            have it corrected or removed.
+            Under Israeli privacy law (חוק הגנת הפרטיות והתקנות מכוחו, כולל תיקון 13) you have the
+            right to know what is held about you, and to have it corrected or deleted. We answer
+            such requests within <strong className="text-white">30 days</strong>.
+          </p>
+          <p className="mt-3">
+            To exercise them:{" "}
+            {contactEmail ? (
+              <>
+                write to{" "}
+                <a href={`mailto:${contactEmail}`} className="text-cyber-300 hover:underline">
+                  {contactEmail}
+                </a>
+                . If you study through a college or employer, you can also ask your course
+                administrator, who can act on your account directly.
+              </>
+            ) : (
+              <>
+                contact your course administrator — the person who issued your invitation. They
+                administer your institution&apos;s accounts and can action access, correction and
+                deletion requests, escalating to the platform operator where needed.
+              </>
+            )}
           </p>
         </section>
 
