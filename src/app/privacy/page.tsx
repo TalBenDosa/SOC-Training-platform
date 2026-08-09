@@ -6,6 +6,22 @@ export const metadata = {
   description: "What data HACK THE SOC stores, why, and who processes it.",
 };
 
+/**
+ * Rendered per request rather than prerendered, ONLY because of
+ * PRIVACY_CONTACT_EMAIL below.
+ *
+ * As a static page, that env var is read once during `next build` and baked
+ * into the HTML. Changing the address in the host's dashboard then does
+ * nothing until a full rebuild — and a "Redeploy" that reuses the build cache
+ * is not one. The failure is silent and in the worst possible place: the page
+ * keeps publishing a stale contact address for a legally required channel,
+ * while the dashboard shows the new value and everything looks correct.
+ *
+ * The cost is one server render of a small static page. The benefit is that
+ * the published address always matches the configured one.
+ */
+export const dynamic = "force-dynamic";
+
 // Public, static content page. Deliberately plain and honest — it exists to
 // satisfy the transparency duty toward data subjects (יידוע נושא המידע) under
 // תקנות הגנת הפרטיות, and to disclose the third-party AI sub-processors that
