@@ -109,9 +109,18 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyber-500/40 bg-cyber-500/10 text-[11px] font-bold text-cyber-300">
               {(user.email ?? "?")[0].toUpperCase()}
             </span>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100" title={user.email ?? undefined}>
+            {/* The identity block is the conventional place to look for account
+                settings, and /account is where the right-to-deletion controls
+                live — so it has to be reachable from the product, not only
+                from a link in the privacy policy. */}
+            <Link
+              href="/account"
+              onClick={onNavigate}
+              className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100 hover:text-cyber-300 transition-colors"
+              title={user.email ?? undefined}
+            >
               {user.email}
-            </span>
+            </Link>
             <button
               onClick={() => { signOut(); onNavigate?.(); }}
               aria-label="Sign out"

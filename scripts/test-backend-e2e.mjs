@@ -237,6 +237,69 @@ let h2Err = null; try { await q(`select public.purge_org($1)`, [h2Org]); } catch
 check("H2: purge_org clears an org that has audit_log rows", h2Err === null && (await one(`select count(*)::int n from public.organizations where id=$1`, [h2Org])).n === 0, h2Err ?? "");
 check("H2: audit_log row survives purge (org_id nulled)", (await one(`select count(*)::int n from public.audit_log where action='org.create' and org_id is null`)).n >= 1);
 
+// ═══════════════════════════════════════════════════════════════════════════
+group("H) Right-to-deletion queue (0027)");
+// The properties asserted here are the ones the API relies on but cannot prove
+// about itself: that a request is visible ONLY to its subject and their own
+// college, and that erasing the person really does erase the request. If the
+// cascade were missing, an approved deletion would leave an orphan row naming
+// someone who no longer exists — personal data surviving its own deletion.
+const dOrgA = await makeOrg("Deletion College A", 50);
+const dOrgB = await makeOrg("Deletion College B", 50);
+const dStudent = await signup("del-s1@x.io", { invitation_token: await invite(dOrgA), handle: "dels1" });
+const dMate    = await signup("del-s2@x.io", { invitation_token: await invite(dOrgA), handle: "dels2" });
+const dOtherA  = await signup("del-o1@x.io", { invitation_token: await invite(dOrgB), handle: "delo1" });
+await q(`update public.org_members set role='org_admin' where org_id=$1 and user_id=$2`, [dOrgB, dOtherA]);
+
+await q(
+  `insert into public.account_deletion_requests (user_id, org_id, reason) values ($1,$2,'leaving the course')`,
+  [dStudent, dOrgA],
+);
+
+// One open request per person — a double click must not create a second row.
+let dupErr = null;
+try {
+  await q(`insert into public.account_deletion_requests (user_id, org_id) values ($1,$2)`, [dStudent, dOrgA]);
+} catch (e) { dupErr = e.message; }
+check("0027: a second open request for the same user is refused", dupErr !== null);
+
+await asUser(dStudent, async () => {
+  const rows = (await q(`select id from public.account_deletion_requests`)).rows;
+  check("0027: subject sees their own request", rows.length === 1, `${rows.length} rows`);
+});
+
+await asUser(dMate, async () => {
+  const rows = (await q(`select id from public.account_deletion_requests`)).rows;
+  check("0027: a classmate sees nothing", rows.length === 0, `${rows.length} rows`);
+});
+
+// The cross-tenant case: an org_admin of a DIFFERENT college must not see it.
+await asUser(dOtherA, async () => {
+  const rows = (await q(`select id from public.account_deletion_requests`)).rows;
+  check("0027: another college's admin sees nothing", rows.length === 0, `${rows.length} rows`);
+});
+
+// No client role may decide a request — approving one erases an account, so it
+// must stay a service-role operation behind the API guard.
+// Note the failure MODE: this raises `permission denied`, it does not quietly
+// update zero rows. The table's UPDATE grant is revoked outright, so the
+// statement is rejected before RLS is ever consulted — a strictly stronger
+// guarantee than a policy that filters the row set, and worth pinning as such.
+await asUser(dStudent, async () => {
+  let updErr = null;
+  try {
+    await q(`update public.account_deletion_requests set status='completed' where user_id=$1`, [dStudent]);
+  } catch (e) { updErr = e.message; }
+  check("0027: subject cannot self-approve (grant revoked, not just filtered)", /permission denied/i.test(updErr ?? ""), updErr ?? "no error raised");
+});
+
+// The cascade: deleting the profile must take the request with it.
+await q(`delete from public.profiles where id=$1`, [dStudent]);
+check(
+  "0027: request cascades away when the account is deleted",
+  (await one(`select count(*)::int n from public.account_deletion_requests where user_id=$1`, [dStudent])).n === 0,
+);
+
 console.log(`\n${"═".repeat(64)}`);
 if (fail === 0) console.log(`\x1b[32m✅ BACKEND E2E: ALL ${pass} CHECKS PASSED\x1b[0m`);
 else { console.log(`\x1b[31m❌ BACKEND E2E: ${fail} FAILURE(S), ${pass} passed\x1b[0m`); failures.forEach(f => console.log("   - " + f)); }

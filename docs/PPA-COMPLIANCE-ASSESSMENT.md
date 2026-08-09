@@ -103,50 +103,61 @@ retention.
 
 ---
 
-## 5. Open items — decisions needed, not code
+## 5. Previously open items — now closed
 
-These are deliberately **not** fixed unilaterally: each is a product or
-commercial decision rather than a defect.
+All three were closed on 9 August 2026. Each is recorded here with the
+resolution, because *how* a judgement call was decided matters more later than
+the fact that it was.
 
-### 5.1 No self-service account deletion — MEDIUM
+### 5.1 No self-service account deletion — **CLOSED**
 
-A student cannot delete their own account. Deletion exists only as
-`purge_org()` (whole-institution, super-admin). The right to deletion is
-therefore satisfied only by a manual request.
+Was: a student could not delete their own account; deletion existed only as
+`purge_org()` (whole-institution, super-admin).
 
-This is genuinely a **product decision, not a bug**: in a B2B college
-deployment, a student unilaterally deleting their record also destroys the
-college's assessment record for a course they may be enrolled in. That conflict
-needs an answer before an endpoint is built — most likely "request deletion →
-org admin approves → purge", with an exception while a course is active.
+The conflict was real — a student unilaterally deleting their record also
+destroys the college's assessment record for a course they may still be taking.
+Resolved by splitting on the actual distinction rather than picking one rule for
+everyone:
 
-### 5.2 Cross-border transfer has no documented basis — MEDIUM
+- **Solo learner** (no institution) — deletes immediately, in-product. There is
+  no counterparty, so making them wait on a human is friction with no
+  justification.
+- **Enrolled student** — files a request that their org admin actions, with the
+  30-day statutory clock shown in `/manage` and the queue rendered above class
+  analytics so a deadline cannot sit below the fold.
 
-All processors sit outside Israel: **Supabase** (database + auth), **Vercel**
-(hosting), **Anthropic / OpenAI** (free-text grading). Section 36 permits
-transfer where the destination has adequate protection, the subject consented,
-it is necessary for contract performance, or contractual safeguards are in
-place.
+The delete itself is a single `auth.admin.deleteUser()` call: every per-user
+table already cascades from `auth.users` / `public.profiles`, so the database
+removes the whole graph atomically and no hand-maintained purge list exists to
+rot. `audit_log.actor_id` is `on delete set null`, so the security record
+survives the person — which is what the 24-month retention duty wants.
 
-The likely basis here — necessity for contract performance plus the providers'
-standard DPAs — is defensible, but it is **not written down anywhere**, and a
-college procurement process will ask for it. Recommend executing/filing the
-Supabase and Vercel DPAs and recording the transfer basis in a short note.
+Built in `supabase/migrations/0027_account_deletion.sql`, `/api/account`,
+`/api/org/deletion-requests`, `/account`, and the `/manage` queue.
 
-Worth noting the free-text grading path is already well designed: the report
-text is sent for grading but the student's identity is not sent with it.
+### 5.2 Cross-border transfer basis — **CLOSED (documented)**
 
-### 5.3 No breach-notification runbook — MEDIUM
+Now recorded in [CROSS-BORDER-DATA-TRANSFER.md](CROSS-BORDER-DATA-TRANSFER.md):
+what leaves Israel, to whom, and the basis relied on — necessity for performance
+of the contract (s.36), reinforced by the processors' DPAs, with adequacy and
+consent explicitly *not* relied on.
 
-Amendment 13 requires a serious security incident to be reported to the PPA
-**immediately**, and statutory damages of up to **NIS 100,000** are available
-without proof of harm. `/privacy` commits to notifying, but there is no internal
-runbook saying who decides an incident is "serious", who contacts the PPA, or
-how affected students and colleges are told (in Hebrew, for Israeli residents).
+The document carries an action register of DPAs still to be filed. Those are
+administrative, but they stay ticked-open until the documents actually exist:
+having a DPA and being able to produce one are different things, and procurement
+asks for the second.
 
-For a platform that *teaches incident response*, having no IR runbook for itself
-is the finding with the sharpest irony and the lowest cost to close: one page,
-naming a decision-maker and the notification steps.
+### 5.3 Breach-notification runbook — **CLOSED**
+
+Now at [INCIDENT-RESPONSE-RUNBOOK.md](INCIDENT-RESPONSE-RUNBOOK.md): the
+serious/not-serious test decided in advance, a one-hour containment sequence,
+the immediate PPA notification path in Hebrew, and — the part easy to miss in a
+B2B deployment — notification of **both** the affected colleges (each is the
+controller for its own cohort) and the affected students.
+
+One genuine gap remains inside it: the **Deputy incident lead is unassigned**. A
+single-person chain has no redundancy, and "immediately" does not pause because
+one person is unreachable.
 
 ---
 
@@ -158,12 +169,18 @@ naming a decision-maker and the notification steps.
 | Data minimisation | **Strong** — the platform's best privacy property |
 | Technical security measures | **Strong** and CI-enforced |
 | Transparency & consent | **Now compliant** (§4.1) |
-| Data-subject rights | **Route now exists** (§4.2); self-service deletion still open (§5.1) |
+| Data-subject rights | **Compliant** — contact route (§4.2) and working deletion (§5.1) |
 | Retention | **Documented and met** (§4.3) |
-| Cross-border transfer | **Open** — defensible but undocumented (§5.2) |
-| Breach notification | **Open** — no runbook (§5.3) |
+| Cross-border transfer | **Documented** (§5.2) — DPAs still to be filed |
+| Breach notification | **Runbook in place** (§5.3) — deputy lead unassigned |
 
-Nothing found rises to a blocking legal exposure at current scale. The three
-open items are all cheap to close and are the ones a college's procurement or
-legal review will ask about first — §5.2 and §5.3 especially, since they are
-paperwork rather than engineering.
+Nothing found rises to a blocking legal exposure at current scale, and every
+item this assessment opened has been closed.
+
+Two small things remain, both a signature rather than a sprint:
+
+1. **File the DPAs** listed in the [cross-border register](CROSS-BORDER-DATA-TRANSFER.md#5-action-register).
+2. **Name a deputy incident lead** — the notification duty is "immediate", and a
+   one-person chain has no redundancy.
+
+And one configuration step: set `PRIVACY_CONTACT_EMAIL` in production (§4.2).

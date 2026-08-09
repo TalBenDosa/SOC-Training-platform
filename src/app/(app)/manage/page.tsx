@@ -22,6 +22,17 @@ interface CatalogItem { kind: "room" | "scenario"; id: string; title: string; gr
 interface OrgLite { id: string; name: string; slug: string; seat_limit: number; status: string; expires_at: string | null }
 type Member = OrgMember & { xp?: number };
 
+/** A student's right-to-deletion request awaiting this college's decision. */
+interface DeletionRequest {
+  id: string;
+  user_id: string;
+  handle: string | null;
+  display_name: string | null;
+  reason: string | null;
+  requested_at: string;
+  days_open: number;
+}
+
 interface ClassStats {
   size: number;
   avg_scenario_score: number | null;
@@ -81,6 +92,10 @@ export default function ManagePage() {
   const [aSearch, setASearch] = useState("");
   const [aBusy, setABusy] = useState(false);
 
+  // right-to-deletion requests filed by this college's students
+  const [deletions, setDeletions] = useState<DeletionRequest[]>([]);
+  const [dBusy, setDBusy] = useState<string | null>(null);
+
   async function load() {
     setError(null);
     const res = await fetch("/api/org/members");
@@ -112,6 +127,14 @@ export default function ManagePage() {
       const { assignments: rows, catalog: cat } = await asRes.json();
       setAssignments(rows ?? []);
       setCatalog(cat ?? []);
+    }
+    // Right-to-deletion queue. Separate call for the same reason as analytics:
+    // the roster must still render if this is slow or the table isn't migrated
+    // yet on a given deployment.
+    const dlRes = await fetch("/api/org/deletion-requests");
+    if (dlRes.ok) {
+      const { requests } = await dlRes.json();
+      setDeletions(requests ?? []);
     }
   }
   useEffect(() => { load(); }, []);
@@ -190,6 +213,31 @@ export default function ManagePage() {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to remove."); return; }
+    await load();
+  }
+
+  /**
+   * Decide a right-to-deletion request. Approving ERASES the student's account
+   * and everything cascading from it — hence the explicit confirm naming the
+   * student, separate from the generic "remove from class" above, which only
+   * detaches them and leaves the account intact.
+   */
+  async function decideDeletion(r: DeletionRequest, decision: "approve" | "reject") {
+    const who = r.display_name || r.handle || "this student";
+    if (decision === "approve" && !confirm(
+      `Permanently erase ${who}'s account and all of their learning data?\n\n` +
+      `This satisfies their legal deletion request and CANNOT be undone. ` +
+      `Their results will no longer appear in your class records.`,
+    )) return;
+
+    setDBusy(r.id);
+    const res = await fetch("/api/org/deletion-requests", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: r.id, decision }),
+    });
+    setDBusy(null);
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to action the request."); return; }
+    setNotice(decision === "approve" ? `${who}'s account was deleted.` : `Request from ${who} was declined.`);
     await load();
   }
 
@@ -415,6 +463,52 @@ export default function ManagePage() {
                 </div>
               )}
             </Card>
+
+            {/* Right-to-deletion queue. Placed ABOVE class progress on purpose:
+                these carry a 30-day statutory deadline, so they must not sit
+                below the fold under analytics nobody scrolls past. Renders only
+                when there is something to decide. */}
+            {deletions.length > 0 && (
+              <Card className="border-neon-amber/40">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-white">
+                  <AlertTriangle className="h-4 w-4 text-neon-amber" />
+                  Account deletion requests ({deletions.length})
+                </h2>
+                <p className="mt-1.5 text-xs text-slate-400">
+                  Students exercising their right to deletion under the Privacy Protection Law.
+                  You must answer within 30 days. Approving <strong className="text-slate-300">permanently
+                  erases</strong> the account and removes their results from your class records.
+                </p>
+                <div className="mt-4 space-y-2">
+                  {deletions.map(r => (
+                    <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-100">
+                          {r.display_name || r.handle || "Unnamed student"}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          Requested {sinceLabel(r.requested_at)}
+                          {r.days_open >= 21 && (
+                            <span className="ml-2 font-semibold text-neon-amber">
+                              · {30 - r.days_open} days left to answer
+                            </span>
+                          )}
+                        </p>
+                        {r.reason && <p className="mt-1 text-xs italic text-slate-400">“{r.reason}”</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="danger" disabled={dBusy === r.id} onClick={() => decideDeletion(r, "approve")}>
+                          {dBusy === r.id ? "Working…" : "Approve & erase"}
+                        </Button>
+                        <Button size="sm" variant="ghost" disabled={dBusy === r.id} onClick={() => decideDeletion(r, "reject")}>
+                          Decline
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
             {/* Class signals — the "who needs me this week" view. Only shown once
                 there's a cohort to say anything about. */}
