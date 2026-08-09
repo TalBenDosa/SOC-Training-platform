@@ -18,3 +18,10 @@ next-env.d.ts
 __*.mjs
 __*.json
 email-preview.html
+
+# Marketing/video side projects. Standalone: each ships its own package.json,
+# tsconfig and node_modules (promo/ alone carries a full Playwright install),
+# plus rendered video, audio and screenshot output. Not part of the app build —
+# they're also excluded from the app's tsconfig for the same reason.
+promo/
+promo-remotion/
