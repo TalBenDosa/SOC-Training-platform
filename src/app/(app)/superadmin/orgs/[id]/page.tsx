@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft, Loader2, Users, Trophy, Activity, Target, DoorOpen, Trash2, UserPlus, X, AlertTriangle,
-  Link2, Copy, Check, Globe, Download,
+  Copy, Check, Download, KeyRound,
 } from "lucide-react";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
 
@@ -43,9 +43,10 @@ export default function OrgDetailPage() {
   const [role, setRole] = useState<OrgRole>("student");
   const [adding, setAdding] = useState(false);
 
-  // enrollment
-  const [domains, setDomains] = useState("");
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  // enrollment — the org's affiliation code (0028/0029). Domains auto-join and
+  // class links are gone: this code is the ONLY way a student enters this org.
+  const [orgCode, setOrgCode] = useState<{ code: string; expires_at: string } | null>(null);
+  const [codeBusy, setCodeBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // branding
@@ -70,7 +71,6 @@ export default function OrgDetailPage() {
     const data = await res.json();
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
     setSeatLimit(String(data.org.seat_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
-    setDomains((data.org.allowed_domains ?? []).join(" "));
     const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
     setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
     const ct = (data.org.contract ?? {}) as {
@@ -84,31 +84,30 @@ export default function OrgDetailPage() {
     setCPo(ct.po_number ?? "");
     setCSigned(toDateInput(ct.signed_at ?? null));
     setCNotes(ct.notes ?? "");
-    // Surface the standing class invite link (auto-created at org creation).
-    const invRes = await fetch(`/api/superadmin/orgs/${id}/invites`);
-    if (invRes.ok) {
-      const { invites } = await invRes.json();
-      const primary = (invites ?? []).find(
-        (i: { email: string | null; role: string; accepted_at: string | null; expires_at: string; link: string }) =>
-          !i.email && i.role === "student" && !i.accepted_at && new Date(i.expires_at) > new Date(),
-      );
-      if (primary) setInviteLink(primary.link);
+    // This org's live affiliation code (from the all-orgs endpoint).
+    const codesRes = await fetch("/api/superadmin/org-codes");
+    if (codesRes.ok) {
+      const { orgs } = await codesRes.json();
+      const mine = (orgs ?? []).find((o: { id: string }) => o.id === id);
+      setOrgCode(mine?.active_code ?? null);
     }
   }
 
-  async function createInvite() {
-    setError(null); setNotice(null); setInviteLink(null);
-    const res = await fetch(`/api/superadmin/orgs/${id}/invites`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: "student" }),
+  async function generateOrgCode() {
+    setError(null); setNotice(null); setCodeBusy(true);
+    const res = await fetch("/api/superadmin/org-codes", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
     });
-    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create invite."); return; }
+    setCodeBusy(false);
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to generate a code."); return; }
     const data = await res.json();
-    setInviteLink(data.invites?.[0]?.link ?? null);
+    setOrgCode(data.active ?? null);
+    setNotice("New affiliation code generated — valid for 24 hours.");
   }
 
-  async function copyInvite() {
-    if (!inviteLink) return;
-    try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
+  async function copyCode() {
+    if (!orgCode) return;
+    try { await navigator.clipboard.writeText(orgCode.code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
   }
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
 
@@ -208,36 +207,36 @@ export default function OrgDetailPage() {
               </div>
             </Card>
 
-            {/* Enrollment */}
-            <Card>
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-white"><Globe className="h-4 w-4 text-cyber-300" /> Enrollment</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className={label} htmlFor="e-domains">Allowed email domains <span className="font-normal">(auto-join — space separated)</span></label>
-                  <div className="flex flex-wrap gap-2">
-                    <input id="e-domains" className={`${field} max-w-md`} value={domains} onChange={e => setDomains(e.target.value)} placeholder="sapir.ac.il students.college.edu" />
-                    <Button variant="outline" size="sm" disabled={saving}
-                      onClick={() => patch({ allowed_domains: domains.split(/[\s,]+/).filter(Boolean) }, "Domains updated.")}>
-                      Save domains
+            {/* Enrollment — the org's affiliation code, and ONLY that. The
+                domain auto-join editor and the anonymous class link that used
+                to live here described doors 0028/0029 removed: showing them
+                would promise enrolment paths that no longer exist. */}
+            <Card className="border-neon-cyan/30">
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-white">
+                <KeyRound className="h-4 w-4 text-neon-cyan" /> Affiliation code
+              </h2>
+              <p className="mb-4 text-[11px] text-slate-400">
+                This environment&apos;s own code — the only way a student joins it. The org admin
+                shares it with their class; students register with email + code. Valid 24 hours;
+                each enrolment lasts 100 days.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                {orgCode ? (
+                  <>
+                    <span className="rounded-lg border border-neon-cyan/40 bg-neon-cyan/5 px-4 py-2 font-mono text-xl font-bold tracking-[0.3em] text-neon-cyan">
+                      {orgCode.code}
+                    </span>
+                    <span className="text-xs text-slate-400">expires {new Date(orgCode.expires_at).toLocaleString()}</span>
+                    <Button variant="outline" size="sm" onClick={copyCode} aria-label="Copy code">
+                      {copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
                     </Button>
-                  </div>
-                  <p className="mt-1 text-[11px] text-slate-400">Anyone who signs up with one of these domains joins this org automatically (seat permitting).</p>
-                </div>
-                <div>
-                  <label className={label}>Class invite link</label>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={createInvite}><Link2 className="mr-1.5 h-4 w-4" /> Generate link</Button>
-                    {inviteLink && (
-                      <>
-                        <input readOnly value={inviteLink} className={`${field} max-w-sm font-mono text-[11px]`} aria-label="Invite link" onFocus={e => e.currentTarget.select()} />
-                        <Button variant="outline" size="sm" onClick={copyInvite}>
-                          {copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                  <p className="mt-1 text-[11px] text-slate-400">Share with a class — anyone opening it can create an account inside this org (valid 14 days).</p>
-                </div>
+                  </>
+                ) : (
+                  <span className="text-sm text-slate-400">No live code.</span>
+                )}
+                <Button variant="primary" size="sm" disabled={codeBusy} onClick={generateOrgCode}>
+                  {codeBusy ? "Generating…" : "Generate code"}
+                </Button>
               </div>
             </Card>
 

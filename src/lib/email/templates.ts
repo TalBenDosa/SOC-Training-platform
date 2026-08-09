@@ -29,10 +29,10 @@ function linkBox(href: string): string {
 }
 
 /** Sent to a college's admin when their environment is provisioned. */
-export function orgWelcomeEmail(args: { orgName: string; classLink: string; adminLink?: string | null }): {
+export function orgWelcomeEmail(args: { orgName: string; adminLink?: string | null }): {
   subject: string; html: string; text: string;
 } {
-  const { orgName, classLink, adminLink } = args;
+  const { orgName, adminLink } = args;
   const adminBlock = adminLink
     ? `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">First, set up your own admin account:</p>
        <p style="margin:0 0 4px;">${button(adminLink, "Create your admin account")}</p>
@@ -41,12 +41,14 @@ export function orgWelcomeEmail(args: { orgName: string; classLink: string; admi
   const html = shell(
     `Your ${orgName} environment is ready`,
     `${adminBlock}
-     <p style="margin:0 0 8px;font-size:14px;line-height:1.6;"><strong>Class invite link</strong> — share this with your students. Anyone who opens it creates an account inside your college's environment:</p>
-     <p style="margin:0 0 4px;">${button(classLink, "Open the class invite link")}</p>
-     ${linkBox(classLink)}
-     <p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.6;">Each student's data is isolated to your organisation. You can manage your class any time from the "Manage Class" area after signing in.</p>`,
+     <p style="margin:0 0 8px;font-size:14px;line-height:1.6;"><strong>How students join:</strong> from your "Manage Class" area, generate your class's <strong>affiliation code</strong> (valid 24 hours — generate a fresh one each day) and share it with your students. They register with their email + the code. There is no other way in, so nobody outside your class can enrol.</p>
+     <p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.6;">Each student's data is isolated to your organisation, and their enrolment is valid for 100 days before they re-enter a current code.</p>`,
   );
-  const text = `Your ${orgName} environment is ready.\n\n${adminLink ? `Create your admin account: ${adminLink}\n\n` : ""}Class invite link to share with students:\n${classLink}\n\nAnyone who opens it creates an account inside your college's environment.`;
+  const text = `Your ${orgName} environment is ready.
+
+${adminLink ? `Create your admin account: ${adminLink}
+
+` : ""}How students join: from "Manage Class", generate your class's affiliation code (valid 24 hours) and share it. Students register with their email + the code — there is no other way in.`;
   return { subject: `Your ${orgName} environment on HACK THE SOC is ready`, html, text };
 }
 

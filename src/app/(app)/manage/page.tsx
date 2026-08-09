@@ -69,8 +69,6 @@ export default function ManagePage() {
 
   const [email, setEmail] = useState("");
   const [adding, setAdding] = useState(false);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   // bulk invite (CSV / pasted list)
   const [bulkText, setBulkText] = useState("");
@@ -108,17 +106,6 @@ export default function ManagePage() {
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
     const data = await res.json();
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
-    // Surface the standing class invite link (created with the org) so it's
-    // ready to share without pressing "Generate".
-    const invRes = await fetch("/api/org/invites");
-    if (invRes.ok) {
-      const { invites } = await invRes.json();
-      const primary = (invites ?? []).find(
-        (i: { email: string | null; role: string; accepted_at: string | null; expires_at: string; link: string }) =>
-          !i.email && i.role === "student" && !i.accepted_at && new Date(i.expires_at) > new Date(),
-      );
-      if (primary) setInviteLink(primary.link);
-    }
     // Per-student progress + class signals. Separate call so the roster still
     // renders if analytics is slow or unavailable.
     const anRes = await fetch("/api/org/analytics");
@@ -266,15 +253,6 @@ export default function ManagePage() {
     await load();
   }
 
-  async function makeInvite() {
-    setError(null); setInviteLink(null);
-    const res = await fetch("/api/org/invites", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: "student" }),
-    });
-    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create invite."); return; }
-    setInviteLink((await res.json()).invites?.[0]?.link ?? null);
-  }
-
   // Pull every email-looking token out of a CSV / pasted list (any column).
   function extractEmails(text: string): string[] {
     const found = text.toLowerCase().match(/[^\s,;<>"']+@[^\s,;<>"']+\.[^\s,;<>"']+/g) ?? [];
@@ -300,10 +278,6 @@ export default function ManagePage() {
     const { invites } = await res.json();
     setBulkResult(`Created ${invites?.length ?? 0} invitation${invites?.length === 1 ? "" : "s"}. Emails sent where email is configured.`);
     setBulkText("");
-  }
-  async function copyInvite() {
-    if (!inviteLink) return;
-    try { await navigator.clipboard.writeText(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* blocked */ }
   }
 
   const field = "h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30";
@@ -378,18 +352,13 @@ export default function ManagePage() {
               </div>
             </Card>
 
+            {/* The anonymous "Generate class link" that used to lead this card
+                is gone (0029): students join with the class code above. What
+                remains are the admin's EXPLICIT acts — attaching an existing
+                account, and named email invites below. */}
             <Card>
-              <h2 className="mb-3 text-sm font-bold text-white">Invite students</h2>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button variant="outline" size="sm" onClick={makeInvite}><Link2 className="mr-1.5 h-4 w-4" /> Generate class link</Button>
-                {inviteLink && (
-                  <>
-                    <input readOnly value={inviteLink} className={`${field} max-w-sm font-mono text-[11px]`} aria-label="Invite link" onFocus={e => e.currentTarget.select()} />
-                    <Button variant="outline" size="sm" onClick={copyInvite}>{copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}</Button>
-                  </>
-                )}
-              </div>
-              <form onSubmit={addMember} className="mt-4 flex flex-wrap items-end gap-2">
+              <h2 className="mb-3 text-sm font-bold text-white">Add students directly</h2>
+              <form onSubmit={addMember} className="flex flex-wrap items-end gap-2">
                 <div className="flex-1 min-w-[220px]">
                   <label className="mb-1.5 block text-xs font-semibold text-slate-400" htmlFor="mg-email">Or attach an existing account by email</label>
                   {/* Placeholder is deliberately a personal address: students

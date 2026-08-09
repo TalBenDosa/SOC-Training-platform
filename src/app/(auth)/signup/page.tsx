@@ -179,6 +179,8 @@ export default function SignupPage() {
         );
       } else if (raw.includes("invitation_invalid")) {
         setError("This invitation has expired or has already been used. Ask your course administrator for a fresh link.");
+      } else if (raw.includes("student_invite_requires_code")) {
+        setError("Class-wide invite links were retired — students now join with a class code. Ask your instructor for today's code.");
       } else if (raw.includes("org_code_invalid")) {
         setError("That class code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
       } else if (raw.includes("signup_requires_code")) {

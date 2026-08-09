@@ -47,10 +47,21 @@ export async function POST(req: Request) {
   // 200 comfortably covers any real class roster.
   const MAX_INVITES = 200;
   const emails = [...new Set(rawEmails.filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))].slice(0, MAX_INVITES);
+
+  // 0029: invitations are NAMED-ONLY. The anonymous class-link shape (email
+  // null) was the one student door that bypassed the affiliation code, so the
+  // trigger now rejects it — refusing to mint one here keeps the API honest
+  // rather than issuing links that can never be redeemed.
+  if (emails.length === 0) {
+    return NextResponse.json(
+      { error: "Invites are named-only. Students join with your class code — generate it in the Class code panel." },
+      { status: 400 },
+    );
+  }
   const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
 
-  const rows = (emails.length > 0 ? emails.map(email => ({ email })) : [{ email: null }]).map(r => ({
-    org_id: c.orgId, role, email: r.email, token: crypto.randomUUID(), expires_at: expiresAt,
+  const rows = emails.map(email => ({
+    org_id: c.orgId, role, email, token: crypto.randomUUID(), expires_at: expiresAt,
   }));
   const { data, error } = await c.admin.from("invitations").insert(rows).select("id, email, role, token, expires_at");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

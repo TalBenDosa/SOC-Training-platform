@@ -251,10 +251,16 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setSubmitting(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create."); return; }
     const data = await res.json();
-    setCreatedName(name);
-    setCreatedLink(data.inviteLink ?? null);
-    setEmailed(!!data.emailed);
-    // don't close yet — surface the invite link first (onCreated on "Done").
+    // With an admin email the success screen surfaces the admin's invite link;
+    // without one there is nothing to hand over (students join by code), so
+    // close straight back to the refreshed list.
+    if (data.adminLink) {
+      setCreatedName(name);
+      setCreatedLink(data.adminLink);
+      setEmailed(!!data.emailed);
+    } else {
+      onCreated();
+    }
   }
 
   async function copyLink() {
@@ -276,24 +282,26 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
                 <h2 className="text-lg font-bold text-white">{createdName} is ready</h2>
               </div>
               <p className="mb-3 text-sm text-slate-400">
-                Share this class invite link with the college — anyone who opens it creates an account inside their environment.
+                This is the <strong className="text-slate-200">admin&apos;s invite link</strong> — for the person who will run
+                the college. Students never get links: the admin generates the class&apos;s
+                affiliation code and students register with email + code.
               </p>
               <div className="flex items-center gap-2">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-cyber-500/30 bg-cyber-500/10">
                   <Link2 className="h-4 w-4 text-cyber-300" />
                 </span>
                 <input readOnly value={createdLink} onFocus={e => e.currentTarget.select()}
-                  className="h-10 flex-1 rounded-md border border-border bg-bg px-3 font-mono text-[11px] text-white focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30" aria-label="Class invite link" />
+                  className="h-10 flex-1 rounded-md border border-border bg-bg px-3 font-mono text-[11px] text-white focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30" aria-label="Admin invite link" />
                 <Button type="button" variant="outline" size="sm" onClick={copyLink}>
                   {copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               {emailed && (
                 <p className="mt-2 flex items-center gap-1.5 text-[11px] text-neon-green">
-                  <Check className="h-3.5 w-3.5" /> We emailed these links to {adminEmail}.
+                  <Check className="h-3.5 w-3.5" /> We emailed this link to {adminEmail}.
                 </p>
               )}
-              <p className="mt-2 text-[11px] text-slate-400">The link is also always available on the organization page. The regular signup form still works for everyone else.</p>
+              <p className="mt-2 text-[11px] text-slate-400">You can generate the org&apos;s affiliation code any time from its organization page.</p>
               <div className="mt-5 flex justify-end">
                 <Button type="button" variant="primary" size="sm" onClick={onCreated}>Done</Button>
               </div>

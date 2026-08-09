@@ -113,25 +113,15 @@ export async function POST(req: Request) {
     adminLink = `${origin}/join?token=${token}`;
   }
 
-  // Every new environment gets a STANDING class invite link out of the box, so
-  // the college admin can distribute it to students immediately. It's a generic
-  // student invite (no fixed recipient); its lifetime tracks the licence window
-  // (or a year if the licence has no expiry).
-  const classToken = crypto.randomUUID();
-  const classExpiry = expiresAt ?? new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString();
-  await admin.from("invitations").insert({
-    org_id: org.id, email: null, role: "student", token: classToken, expires_at: classExpiry,
-  });
-  const inviteLink = `${origin}/join?token=${classToken}`;
-
-  // Best-effort notification to the college admin with both links. Never blocks
-  // or fails org creation — degrades to a no-op when email isn't configured.
+  // 0029: no standing class link is minted anymore. Students join with the
+  // org's affiliation code, which the admin generates from /manage (or the
+  // super-admin from /superadmin) — the welcome email explains exactly that.
   let emailed = false;
   if (adminEmail) {
-    const mail = orgWelcomeEmail({ orgName: name, classLink: inviteLink, adminLink });
+    const mail = orgWelcomeEmail({ orgName: name, adminLink });
     const r = await sendEmail({ to: adminEmail, subject: mail.subject, html: mail.html, text: mail.text });
     emailed = r.ok;
   }
 
-  return NextResponse.json({ org, inviteLink, emailed }, { status: 201 });
+  return NextResponse.json({ org, adminLink, emailed }, { status: 201 });
 }

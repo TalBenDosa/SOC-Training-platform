@@ -50,8 +50,11 @@ const ISO = ms => new Date(Date.now() + ms).toISOString();
 async function invite(org, role = "student", opts = {}) {
   const token = randomUUID();
   const expires = opts.expires ?? ISO(14 * 864e5);
-  await q(`insert into public.invitations (org_id,role,token,expires_at,accepted_at) values ($1,$2,$3,$4,$5)`,
-    [org, role, token, expires, opts.accepted ?? null]);
+  // 0029: student invitations must NAME their recipient (email) — the
+  // anonymous class-link shape is rejected by the trigger. Staff invites may
+  // stay generic. Pass opts.email for any student invite that will be redeemed.
+  await q(`insert into public.invitations (org_id,role,email,token,expires_at,accepted_at) values ($1,$2,$3,$4,$5,$6)`,
+    [org, role, opts.email ?? null, token, expires, opts.accepted ?? null]);
   return token;
 }
 async function signup(email, meta = {}) {
@@ -126,7 +129,7 @@ check("expire_due_orgs flips a past-due org to 'expired'", (await one(`select st
 group("C) Triggers");
 // enrollment via invite token
 const enrOrg = await makeOrg("Enroll Co", 50);
-const enrTok = await invite(enrOrg, "student");
+const enrTok = await invite(enrOrg, "student", { email: "student1@x.io" });
 const enrU = await signup("student1@x.io", { invitation_token: enrTok, handle: "student1" });
 check("handle_new_user: invite token assigns the right org", (await one(`select org_id from public.profiles where id=$1`, [enrU])).org_id === enrOrg);
 check("handle_new_user: invite marked accepted", (await one(`select accepted_at is not null a from public.invitations where token=$1`, [enrTok])).a === true);
@@ -145,7 +148,7 @@ check("handle_new_user: open signup (no code, no invite) is refused", /signup_re
 // invite to a full org → signup fails
 const fullOrg = await makeOrg("Full Co", 1);
 await q(`select public.attach_member_if_seat_available($1,$2,'student')`, [fullOrg, await signup("seat@x.io", HARNESS)]);
-const fullTok = await invite(fullOrg, "student");
+const fullTok = await invite(fullOrg, "student", { email: "late@x.io" });
 let fullErr = null; try { await signup("late@x.io", { invitation_token: fullTok }); } catch (e) { fullErr = e.message; }
 check("handle_new_user: invite to a FULL org fails the signup", /seat_limit_reached/.test(fullErr ?? ""));
 
@@ -177,7 +180,7 @@ check("touch_updated_at bumps updated_at on write", before && after && new Date(
 // ═══════════════════════════════════════════════════════════════════════════
 group("D) RLS isolation (2 orgs)");
 const A = await makeOrg("College A", 50), B = await makeOrg("College B", 50);
-const aTok = await invite(A), bTok = await invite(B);
+const aTok = await invite(A, "student", { email: "a1@x.io" }), bTok = await invite(B, "student", { email: "b1@x.io" });
 const a1 = await signup("a1@x.io", { invitation_token: aTok, handle: "a1" });
 const b1 = await signup("b1@x.io", { invitation_token: bTok, handle: "b1" });
 await q(`insert into public.room_progress (user_id,org_id,room_id,completed_task_ids,xp_earned) values ($1,$2,'r','[]',10)`, [a1, A]);
@@ -196,7 +199,7 @@ await asUser(a1, async () => {
 // ═══════════════════════════════════════════════════════════════════════════
 group("E) purge_org completeness");
 const P = await makeOrg("Purge Co", 50);
-const pTok = await invite(P);
+const pTok = await invite(P, "student", { email: "pu@x.io" });
 const pu = await signup("pu@x.io", { invitation_token: pTok, handle: "pu" });
 await q(`insert into public.room_progress (user_id,org_id,room_id,completed_task_ids,xp_earned) values ($1,$2,'r','[]',10)`, [pu, P]);
 await q(`insert into public.dashboard_sessions (user_id,org_id,played_at,xp_earned,detect_rate,avg_catch_ms,attacks_caught_count,attacks_presented_count) values ($1,$2,now(),5,50,1000,1,2)`, [pu, P]);
@@ -212,11 +215,11 @@ check("purge_org refuses to delete the internal org", /cannot_purge_internal/.te
 // ═══════════════════════════════════════════════════════════════════════════
 group("F) Licensing (hook claims)");
 const susOrg = await makeOrg("Suspended Co", 50, { status: "suspended" });
-const susTok = await invite(susOrg);
+const susTok = await invite(susOrg, "student", { email: "sus@x.io" });
 const susU = await signup("sus@x.io", { invitation_token: susTok, handle: "susu" });
 check("suspended org → hook org_active=false", (await claims(susU)).org_active === false);
 const okOrg = await makeOrg("Active Co", 50);
-const okTok = await invite(okOrg);
+const okTok = await invite(okOrg, "student", { email: "ok@x.io" });
 const okU = await signup("ok@x.io", { invitation_token: okTok, handle: "okok" });
 const okC = await claims(okU);
 check("active org → org_active=true + org_name + org_role", okC.org_active === true && okC.org_name === "Active Co" && okC.org_role === "student");
@@ -232,7 +235,7 @@ for (const t of ["learning_paths", "modules", "lessons", "scenarios", "badges"])
 }
 // M3 — a student sees only their OWN org_members row, not the whole roster.
 const rOrg = await makeOrg("Roster Co", 50);
-const rTok1 = await invite(rOrg), rTok2 = await invite(rOrg);
+const rTok1 = await invite(rOrg, "student", { email: "rs1@x.io" }), rTok2 = await invite(rOrg, "student", { email: "rs2@x.io" });
 const rStudent = await signup("rs1@x.io", { invitation_token: rTok1, handle: "rs1" });
 await signup("rs2@x.io", { invitation_token: rTok2, handle: "rs2" }); // classmate
 await asUser(rStudent, async () => {
@@ -263,9 +266,9 @@ group("H) Right-to-deletion queue (0027)");
 // someone who no longer exists — personal data surviving its own deletion.
 const dOrgA = await makeOrg("Deletion College A", 50);
 const dOrgB = await makeOrg("Deletion College B", 50);
-const dStudent = await signup("del-s1@x.io", { invitation_token: await invite(dOrgA), handle: "dels1" });
-const dMate    = await signup("del-s2@x.io", { invitation_token: await invite(dOrgA), handle: "dels2" });
-const dOtherA  = await signup("del-o1@x.io", { invitation_token: await invite(dOrgB), handle: "delo1" });
+const dStudent = await signup("del-s1@x.io", { invitation_token: await invite(dOrgA, "student", { email: "del-s1@x.io" }), handle: "dels1" });
+const dMate    = await signup("del-s2@x.io", { invitation_token: await invite(dOrgA, "student", { email: "del-s2@x.io" }), handle: "dels2" });
+const dOtherA  = await signup("del-o1@x.io", { invitation_token: await invite(dOrgB, "student", { email: "del-o1@x.io" }), handle: "delo1" });
 await q(`update public.org_members set role='org_admin' where org_id=$1 and user_id=$2`, [dOrgB, dOtherA]);
 
 await q(
@@ -362,6 +365,13 @@ await asUser(iStu, async () => {
   const rows = (await q(`select code from public.org_codes`)).rows;
   check("0028 RLS: a student sees no codes", rows.length === 0, `${rows.length} rows`);
 });
+
+// 0029: the anonymous class-link shape is dead — a generic student invite is
+// refused even with a valid unexpired token, while NAMED student invites keep
+// working (proven by every student signup above). A revert of 0029 fails here.
+const genTok = await invite(iOrgA, "student"); // email deliberately null
+let genErr = null; try { await signup("generic-victim@x.io", { invitation_token: genTok }); } catch (e) { genErr = e.message; }
+check("0029: generic (email-less) student invite is refused", /student_invite_requires_code/.test(genErr ?? ""), genErr ?? "signup succeeded");
 
 console.log(`\n${"═".repeat(64)}`);
 if (fail === 0) console.log(`\x1b[32m✅ BACKEND E2E: ALL ${pass} CHECKS PASSED\x1b[0m`);

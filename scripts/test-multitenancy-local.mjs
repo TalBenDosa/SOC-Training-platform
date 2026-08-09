@@ -81,7 +81,8 @@ async function createOrg(name, slug, seats) {
 // a student self-enrolls via an invitation link (fires handle_new_user)
 async function enroll(orgId, handle, fullName) {
   const token = randomUUID();
-  await q(`insert into public.invitations (org_id,role,token,expires_at) values ($1,'student',$2, now()+interval '14 days')`, [orgId, token]);
+  // 0029: student invitations are named-only — bind to the email being enrolled.
+  await q(`insert into public.invitations (org_id,role,email,token,expires_at) values ($1,'student',$2,$3, now()+interval '14 days')`, [orgId, `${handle}@example.com`, token]);
   const uid = randomUUID();
   await q(`insert into auth.users (id,email,raw_user_meta_data) values ($1,$2,$3)`,
     [uid, `${handle}@example.com`, JSON.stringify({ invitation_token: token, handle, full_name: fullName })]);
