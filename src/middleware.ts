@@ -62,7 +62,7 @@ function clientIp(req: NextRequest): string {
  *                       only an org name + validity, keyed by an opaque token
  * Everything else is closed by default (see the gate in middleware()).
  */
-const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/", "/api/invitations/"];
+const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/", "/api/invitations/", "/api/access-codes/"];
 
 function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIXES.some(p => pathname === p || pathname.startsWith(p));

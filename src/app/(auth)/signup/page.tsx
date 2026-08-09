@@ -32,9 +32,12 @@ export default function SignupPage() {
   /** "checking" until the token resolves, so we never render a form that looks
    *  like a normal signup while an invitation is still being validated. */
   const [inviteState, setInviteState] = useState<"none" | "checking" | "valid" | "invalid">("none");
-  /** The class affiliation code (0028) — REQUIRED whenever there's no invite
-      token. Prefilled from ?code= when the student came via /join. */
+  /** The access code (0028) — the ONLY student door. Arrives via ?code= from
+      the /join gate, which already validated it; re-resolved here so the form
+      can show WHICH college it joins, and so a stale deep link blocks cleanly. */
   const [orgCode, setOrgCode] = useState("");
+  const [codeState, setCodeState] = useState<"none" | "checking" | "valid" | "invalid">("none");
+  const [codeOrg, setCodeOrg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -53,10 +56,31 @@ export default function SignupPage() {
   // that cannot be honoured is now a blocking state.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    // A class code handed off from /join — prefill so the student types nothing twice.
     const codeParam = params.get("code");
-    if (codeParam) setOrgCode(codeParam.toUpperCase());
     const token = params.get("invite");
+
+    // CODE-FIRST: the registration form only exists behind a credential. A
+    // bare /signup (no code, no invite) goes back to the access gate.
+    if (!token && !codeParam) {
+      router.replace("/join");
+      return;
+    }
+
+    // Code handed off from the /join gate — re-resolve to display the college
+    // and to block a stale bookmark with a clear message rather than a
+    // surprise failure on submit.
+    if (!token && codeParam) {
+      const cleaned = codeParam.toUpperCase();
+      setOrgCode(cleaned);
+      setCodeState("checking");
+      fetch(`/api/access-codes/${encodeURIComponent(cleaned)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(d => {
+          if (d?.valid) { setCodeOrg(d.orgName ?? null); setCodeState("valid"); }
+          else setCodeState("invalid");
+        })
+        .catch(() => setCodeState("invalid"));
+    }
     if (!token) return;
     setInviteToken(token);
     setInviteState("checking");
@@ -263,6 +287,24 @@ export default function SignupPage() {
     );
   }
 
+  // A dead code from a stale bookmark blocks HERE, before any typing — with
+  // the fix in hand (get today's code), not a dead end.
+  if (codeState === "invalid") {
+    return (
+      <Card className="w-full max-w-md text-center">
+        <AlertTriangle className="mx-auto h-8 w-8 text-neon-amber" />
+        <h1 className="mt-4 text-lg font-bold text-white">This access code isn&apos;t valid</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          Codes are refreshed daily and each one lasts 24 hours. Ask your instructor for
+          today&apos;s code, then try again.
+        </p>
+        <Link href="/join" className="mt-6 inline-block">
+          <Button variant="outline">Enter a different code</Button>
+        </Link>
+      </Card>
+    );
+  }
+
   if (inviteState === "checking") {
     return (
       <Card className="w-full max-w-md text-center">
@@ -333,29 +375,31 @@ export default function SignupPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* The entry condition, so it leads the form: with no invite link, a
-            class code is what makes registration possible at all (0028). An
-            invite link already carries the enrolment, so the field disappears
-            rather than asking for a second credential. */}
-        {!inviteToken && (
-          <div>
-            <label htmlFor="signup-orgcode" className="mb-1.5 block text-xs font-semibold text-slate-400">
-              Class code <span className="text-neon-cyan">*</span>
-            </label>
-            <input
-              id="signup-orgcode"
-              type="text"
-              required
-              autoComplete="off"
-              value={orgCode}
-              onChange={e => setOrgCode(e.target.value.toUpperCase())}
-              placeholder="e.g. K7MRW3TQ"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 font-mono text-sm tracking-widest text-white placeholder:text-slate-500 focus:border-neon-cyan focus:outline-none focus:ring-1 focus:ring-neon-cyan"
-            />
-            <p className="mt-1.5 text-[11px] text-slate-500">
-              From your instructor — refreshed daily. Registration isn&apos;t possible without it.
-            </p>
+        {/* The credential that admitted them — LOCKED, not editable. The code
+            was entered and validated at the /join gate (code-first flow); here
+            it only shows what it unlocked and offers a way back. */}
+        {!inviteToken && codeState === "valid" && (
+          <div className="rounded-lg border border-neon-cyan/30 bg-neon-cyan/[0.05] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyber-400">
+                  Joining
+                </p>
+                <p className="truncate text-base font-bold text-white">{codeOrg ?? "your course"}</p>
+              </div>
+              <span className="flex items-center gap-1.5 rounded border border-neon-cyan/40 bg-bg px-2.5 py-1 font-mono text-sm font-bold tracking-[0.2em] text-neon-cyan">
+                <Lock className="h-3 w-3" /> {orgCode}
+              </span>
+            </div>
+            <Link href="/join" className="mt-2 inline-block text-[11px] text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
+              Use a different code
+            </Link>
           </div>
+        )}
+        {!inviteToken && codeState === "checking" && (
+          <p className="flex items-center gap-2 text-sm text-slate-400">
+            <Loader2 className="h-4 w-4 animate-spin" /> Checking your access code…
+          </p>
         )}
         <div>
           <label htmlFor="signup-fullname" className="mb-1.5 block text-xs font-semibold text-slate-400">

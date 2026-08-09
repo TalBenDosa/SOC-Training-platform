@@ -121,7 +121,7 @@ export default function Landing() {
           <Link href="/login" className="hidden text-sm text-slate-300 transition hover:text-cyber-300 sm:block">
             Sign in
           </Link>
-          <Link href="#access">
+          <Link href="/join">
             <Button variant="primary">Get access</Button>
           </Link>
         </div>
@@ -170,7 +170,7 @@ export default function Landing() {
             className="rise-in mt-9 flex flex-wrap items-center justify-center gap-3"
             style={{ animationDelay: "300ms" }}
           >
-            <Link href="#access">
+            <Link href="/join">
               <Button size="lg" variant="primary">
                 Get access <ArrowRight className="h-4 w-4" />
               </Button>
@@ -464,7 +464,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link href="/signup" className="mt-7 block">
+              <Link href="/join" className="mt-7 block">
                 <Button size="lg" variant="primary" className="w-full">
                   Get access <ArrowRight className="h-4 w-4" />
                 </Button>

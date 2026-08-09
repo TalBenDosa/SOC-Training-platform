@@ -1,30 +1,26 @@
 "use client";
 /**
- * Code-entry form for students who arrive at /join WITHOUT a token — i.e. they
- * clicked "I have an invite code" on the landing page rather than opening the
- * emailed link.
+ * The access gate's input — step 1 of the code-first entry flow:
  *
- * Before this existed, that button led to /join, which treated a missing token
- * as a hard error ("This link is missing its invitation code") — the CTA
- * promised somewhere to type the code and then gave the student nowhere to
- * type it.
+ *   Get access → THIS (enter code) → validated → /signup?code=… (the form)
  *
- * Accepts either the bare token or a pasted invite URL, because a student told
- * to "use your invite code" will copy whichever of the two they were sent. The
- * token is never validated here: submitting just re-enters /join?token=…, and
- * the Server Component resolves it exactly as it does for an emailed link. So
- * this form widens the entrance without adding a second trust path.
+ * The code is checked against /api/access-codes/[code] BEFORE the student
+ * moves on, so a typo fails here with "ask for today's code" instead of after
+ * they've filled a whole registration form. The trigger re-validates at
+ * signup regardless — this check is UX, not enforcement.
+ *
+ * Also accepts a pasted invite LINK (admins get those by email): a UUID token
+ * routes to /join?token=… and resolves through the invitation path unchanged.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 
 /**
- * Pull the token out of whatever the student pasted. A full invite URL carries
- * it as ?token=…; anything else is treated as the bare code. Falls back to the
- * raw string when URL parsing fails, so a mistyped URL still reaches the
- * resolver and gets the resolver's own "we don't recognise this" message
- * rather than a client-side one that would be guessing.
+ * Pull the credential out of whatever was pasted. A full invite URL carries
+ * ?token=…; anything else is treated as an access code. Falls back to the raw
+ * string when URL parsing fails, so a mangled paste still reaches validation
+ * and gets a real answer.
  */
 function extractToken(input: string): string {
   const trimmed = input.trim();
@@ -40,29 +36,43 @@ function extractToken(input: string): string {
 export function EnterInviteCode() {
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const token = extractToken(value);
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!token) return;
-    setSubmitting(true);
-    // Two credential shapes arrive here and go to different doors:
-    //  - invitation tokens are UUIDs (36 chars, dashed) → resolved by /join;
-    //  - class affiliation codes (0028) are 8 unambiguous chars → belong on
-    //    the signup form, which sends them through the enrolment trigger.
-    if (/^[A-Z0-9]{6,12}$/i.test(token)) {
-      router.push(`/signup?code=${encodeURIComponent(token.toUpperCase())}`);
-    } else {
+    if (!token || submitting) return;
+    setError(null);
+
+    // Invite links are UUIDs (36 chars, dashed) → the invitation resolver.
+    if (!/^[A-Z0-9]{6,12}$/i.test(token)) {
+      setSubmitting(true);
       router.push(`/join?token=${encodeURIComponent(token)}`);
+      return;
     }
+
+    // Access code → validate NOW, before the student invests in a form.
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/access-codes/${encodeURIComponent(token.toUpperCase())}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.valid) {
+        router.push(`/signup?code=${encodeURIComponent(token.toUpperCase())}`);
+        return;
+      }
+      setError("That access code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
+    } catch {
+      setError("Couldn't check the code just now. Try again in a moment.");
+    }
+    setSubmitting(false);
   }
 
   return (
     <form onSubmit={onSubmit} className="mt-6 text-left">
       <label htmlFor="invite-code" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-        Invitation code
+        Access code
       </label>
       <input
         id="invite-code"
@@ -71,13 +81,14 @@ export function EnterInviteCode() {
         autoComplete="off"
         autoFocus
         value={value}
-        onChange={e => setValue(e.target.value)}
-        placeholder="Paste your code or invite link"
-        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-neon-cyan focus:outline-none focus:ring-1 focus:ring-neon-cyan"
+        onChange={e => { setValue(e.target.value); setError(null); }}
+        placeholder="e.g. K7MRW3TQ — or paste an invite link"
+        className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 font-mono text-sm tracking-widest text-white placeholder:text-slate-500 focus:border-neon-cyan focus:outline-none focus:ring-1 focus:ring-neon-cyan"
       />
       <Button type="submit" className="mt-4 w-full" disabled={!token || submitting}>
         {submitting ? "Checking…" : "Continue"}
       </Button>
+      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
     </form>
   );
 }

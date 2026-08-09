@@ -56,16 +56,17 @@ function InvalidInvite({ reason }: { reason: string }) {
 export default async function JoinPage({ searchParams }: PageProps) {
   const { token } = await searchParams;
 
-  // No token is NOT an error: the landing page's "I have an invite code" CTA
-  // lands here deliberately, for students who were given a code rather than a
-  // link. Ask for it instead of rejecting them.
+  // No token: this is the ACCESS GATE — step 1 of the code-first entry flow.
+  // Every "Get access" button on the landing page leads here; the registration
+  // form only exists on the other side of a validated code.
   if (!token) {
     return (
       <Card className="w-full max-w-md text-center">
         <KeyRound className="mx-auto h-8 w-8 text-neon-cyan" />
-        <h1 className="mt-4 text-lg font-bold text-white">Enter your invitation code</h1>
+        <h1 className="mt-4 text-lg font-bold text-white">Get access</h1>
         <p className="mt-2 text-sm text-slate-400">
-          Your course administrator sends this by email — paste the code, or the whole invite link.
+          Entry is by access code only. Your instructor shares today&apos;s code with the
+          class — enter it and you&apos;ll move straight to registration.
         </p>
         <EnterInviteCode />
         <Link href="/login" className="mt-6 inline-block text-xs text-slate-400 hover:text-white">
