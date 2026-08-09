@@ -430,7 +430,7 @@ export default function Landing() {
         <div className="mx-auto max-w-2xl text-center">
           <SectionLabel>// Access</SectionLabel>
           <h2 className="mt-4 font-mono text-3xl font-bold text-white md:text-4xl">
-            Two ways in
+            One door in
           </h2>
           <p className="mt-4 text-slate-400">
             Building an intrusion that survives an analyst&apos;s scrutiny takes real work, and it
@@ -438,25 +438,29 @@ export default function Landing() {
           </p>
         </div>
 
-        <div className="mx-auto mt-14 grid max-w-4xl grid-cols-1 gap-5 md:grid-cols-2">
-          {/* Individual */}
-          <div className="relative overflow-hidden rounded-xl border border-cyber-500/40 bg-bg-elevated p-7 shadow-glow">
+        {/* ONE box, one door. There used to be two cards here (individual seat
+            vs cohort licence) with two different CTAs — but the entry model has
+            exactly one shape now: everyone registers with an access code, so
+            two boxes only implied a choice that doesn't exist. */}
+        <div className="mx-auto mt-14 max-w-2xl">
+          <div className="relative overflow-hidden rounded-xl border border-cyber-500/40 bg-bg-elevated p-8 shadow-glow">
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyber-500/10 to-transparent" />
             <div className="relative">
               <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-cyber-300">
-                Analyst seat
+                Access by code
               </p>
-              <h3 className="mt-3 text-xl font-bold text-white">For individuals</h3>
+              <h3 className="mt-3 text-xl font-bold text-white">For colleges, teams &amp; individuals</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                Full access to the live console, the guided path, and graded incident reporting —
-                one analyst, one seat.
+                Every seat lives inside a licensed environment — your college&apos;s or your team&apos;s.
+                Registration takes one thing: the access code your instructor or admin shares with you.
               </p>
               <ul className="mt-5 space-y-2.5 text-sm text-slate-300">
                 {[
                   "The live SOC console and every attack scenario",
                   "The full guided curriculum, start to finish",
                   "AI-graded incident reports with ground-truth feedback",
-                  "Progress, XP and rank tracked across everything",
+                  "A private organisation, isolated from every other tenant",
+                  "Instructor console: assignments, per-student drill-down, exportable grades",
                 ].map(f => (
                   <li key={f} className="flex gap-2.5">
                     <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-cyber-400" />
@@ -470,42 +474,10 @@ export default function Landing() {
                 </Button>
               </Link>
               <p className="mt-3 text-center text-xs text-slate-500">
-                Already licensed? <Link href="/login" className="text-cyber-300 underline-offset-2 hover:underline">Sign in</Link>
+                Already registered? <Link href="/login" className="text-cyber-300 underline-offset-2 hover:underline">Sign in</Link>
+                {" · "}Licensing an environment is arranged directly — talk to us first.
               </p>
             </div>
-          </div>
-
-          {/* Cohort */}
-          <div className="rounded-xl border border-border bg-bg-elevated/60 p-7">
-            <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-neon-purple">
-              Cohort licence
-            </p>
-            <h3 className="mt-3 text-xl font-bold text-white">For colleges &amp; teams</h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Your own isolated tenant, your roster, your reporting — for training a class or a
-              security team together.
-            </p>
-            <ul className="mt-5 space-y-2.5 text-sm text-slate-300">
-              {[
-                "A private organisation, isolated from every other tenant",
-                "Instructor console: assignments, due dates, per-student drill-down",
-                "Class leaderboard and exportable grades",
-                "Seat provisioning and invite links you control",
-              ].map(f => (
-                <li key={f} className="flex gap-2.5">
-                  <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-neon-purple" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-            <Link href="/join" className="mt-7 block">
-              <Button size="lg" variant="secondary" className="w-full">
-                I have an invite code
-              </Button>
-            </Link>
-            <p className="mt-3 text-center text-xs text-slate-500">
-              Licensing a cohort is arranged directly — talk to us first.
-            </p>
           </div>
         </div>
       </section>

@@ -13,8 +13,9 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft, Loader2, Users, Trophy, Activity, Target, DoorOpen, Trash2, UserPlus, X, AlertTriangle,
-  Copy, Check, Download, KeyRound,
+  Copy, Check, Download, KeyRound, LogIn,
 } from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
 
 function toDateInput(iso: string | null): string {
@@ -42,6 +43,27 @@ export default function OrgDetailPage() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<OrgRole>("student");
   const [adding, setAdding] = useState(false);
+
+  // entering the environment (super-admin context switch)
+  const [entering, setEntering] = useState(false);
+
+  async function enterEnvironment() {
+    setError(null); setNotice(null); setEntering(true);
+    const res = await fetch("/api/superadmin/enter-org", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
+    });
+    if (!res.ok) {
+      setEntering(false);
+      setError((await res.json().catch(() => ({})))?.error ?? "Could not enter the environment.");
+      return;
+    }
+    // The org claims live in the JWT — refresh the session so the access-token
+    // hook restamps them for the NEW active org, then reload so every consumer
+    // (nav, /manage, leaderboards) picks the new context up at once.
+    const supabase = getSupabaseBrowserClient();
+    await supabase?.auth.refreshSession();
+    window.location.href = "/manage";
+  }
 
   // enrollment — the org's affiliation code (0028/0029). Domains auto-join and
   // class links are gone: this code is the ONLY way a student enters this org.
@@ -154,9 +176,19 @@ export default function OrgDetailPage() {
     <div>
       <Topbar title={org?.name ?? "Organization"} subtitle={org ? `/${org.slug}` : ""} />
       <div className="container mx-auto max-w-[1000px] px-6 py-6 space-y-6">
-        <Link href="/superadmin" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200">
-          <ArrowLeft className="h-3.5 w-3.5" /> All organizations
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href="/superadmin" className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200">
+            <ArrowLeft className="h-3.5 w-3.5" /> All organizations
+          </Link>
+          {/* Super-admin enters ANY environment: joins as org_admin (no seat
+              cap, no affiliation clock — see /api/superadmin/enter-org) and
+              switches active context to it. Entering B keeps membership in A,
+              so environments accumulate rather than replace. */}
+          <Button variant="outline" size="sm" disabled={entering} onClick={enterEnvironment}>
+            <LogIn className="mr-1.5 h-4 w-4" />
+            {entering ? "Entering…" : "Enter this environment"}
+          </Button>
+        </div>
 
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {notice && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{notice}</div>}
