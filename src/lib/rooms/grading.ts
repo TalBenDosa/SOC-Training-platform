@@ -10,14 +10,17 @@ import "server-only";
  * src/components/rooms/TaskPlayer.tsx (kept faithful on purpose — the pass/fail
  * rules a student experiences must not change, only where they're evaluated).
  *
- * Scope: covers the 6 task types with an explicit answer field (question,
- * log_analysis, flag, analyst_choice, query_fill, reading.checkpoint).
- * `matching`/`ordering` are NOT covered — their "answer" is structurally
- * encoded in shared/ordered ids on the task itself (pairs[].id equality,
- * correct_order), which the client legitimately needs in full to render the
- * board at all. Closing that residual leak needs a content-schema change
- * (separating displayable ids from a server-only solution key), not a grading
- * endpoint, and is tracked separately rather than attempted here.
+ * Scope: ALL eight task types. `matching` and `ordering` were the last two
+ * holdouts — their answer is structurally encoded in data the board needs to
+ * render, so they were graded client-side long after the rest moved here. Both
+ * are now server-graded, using the shapes src/lib/rooms/sanitize.ts delivers:
+ *
+ *  - matching: the client never receives an id linking a left item to a right
+ *    one. It submits `{ leftId: rightText }` and the server checks that text
+ *    against `pairs[].right`. Safe because no matching task in the curriculum
+ *    has two identical right-hand texts (verified across all 40).
+ *  - ordering: the client submits the item ids in the order it placed them and
+ *    the server compares against `correct_order`, which it alone holds.
  */
 import { ROOMS, type Room, type RoomTask } from "@/data/rooms";
 
@@ -150,7 +153,52 @@ export function gradeTask(task: RoomTask, submission: any): GradeResult {
       };
     }
 
-    default:
-      return fail(`Task type "${task.type}" is not server-graded. Use the client-side board for matching/ordering.`, 501);
+    case "matching": {
+      const connections = submission?.connections;
+      if (!connections || typeof connections !== "object") return fail("connections (object) is required.");
+      // { leftPairId: rightText }. Graded by TEXT because the client is never
+      // told which right item belongs to which left one — see the file doc.
+      const perPair = task.pairs.map(p => ({
+        id: p.id,
+        correct: typeof connections[p.id] === "string" && connections[p.id] === p.right,
+      }));
+      const correctCount = perPair.filter(p => p.correct).length;
+      const allCorrect = correctCount === task.pairs.length;
+      const xpEarned = allCorrect ? task.xp : Math.floor((task.xp * correctCount) / task.pairs.length);
+      return {
+        ok: true,
+        correct: allCorrect,
+        xpEarned,
+        reveal: {
+          perPair,
+          correctCount,
+          total: task.pairs.length,
+          // The solution, released only now that an attempt is in.
+          solution: task.pairs.map(p => ({ id: p.id, left: p.left, right: p.right })),
+          explanation: task.explanation,
+        },
+      };
+    }
+
+    case "ordering": {
+      const placed = submission?.placed;
+      if (!Array.isArray(placed)) return fail("placed (array of item ids) is required.");
+      const perSlot = task.correct_order.map((id, i) => ({ slot: i, correct: placed[i] === id }));
+      const correctCount = perSlot.filter(s => s.correct).length;
+      const allCorrect = correctCount === task.correct_order.length;
+      const xpEarned = allCorrect ? task.xp : Math.floor((task.xp * correctCount) / task.correct_order.length);
+      return {
+        ok: true,
+        correct: allCorrect,
+        xpEarned,
+        reveal: {
+          perSlot,
+          correctCount,
+          total: task.correct_order.length,
+          correctOrder: task.correct_order,
+          explanation: task.explanation,
+        },
+      };
+    }
   }
 }

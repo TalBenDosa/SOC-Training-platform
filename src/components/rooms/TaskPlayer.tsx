@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, BookOpen, Shield } from "lucide-react";
-import type { MatchingTask, OrderingTask } from "@/data/rooms";
 import type {
   SanitizedRoomTask as RoomTask,
   SanitizedReadingTask as ReadingTask,
@@ -13,6 +12,8 @@ import type {
   SanitizedFlagTask as FlagTask,
   SanitizedAnalystChoiceTask as AnalystChoiceTask,
   SanitizedQueryFillTask as QueryFillTask,
+  SanitizedMatchingTask as MatchingTask,
+  SanitizedOrderingTask as OrderingTask,
 } from "@/lib/rooms/sanitize";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
@@ -1042,29 +1043,54 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted }: { roomId
 }
 
 // ─── Matching Task ────────────────────────────────────────────────────────────────
-function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function MatchingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: MatchingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
+  // { leftId -> right TEXT }. The right side has no id: the server delivers it
+  // as bare shuffled strings precisely so no id can tie a right item back to
+  // its left one. Text is the key — verified unique across every matching task.
   const [connections, setConnections] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [awardedXp, setAwardedXp] = useState(0);
+  const [result, setResult] = useState<{
+    correctCount: number;
+    total: number;
+    perPair: { id: string; correct: boolean }[];
+    solution: { id: string; left: string; right: string }[];
+    explanation: string;
+  } | null>(null);
 
-  const shuffledRight = React.useMemo(() => {
-    const n = task.pairs.length;
-    return task.pairs.map((_, i) => task.pairs[(i + Math.ceil(n / 2)) % n]);
-  }, [task.pairs]);
+  const allConnected = Object.keys(connections).length === task.left.length;
+  const allCorrect = !!result && result.correctCount === result.total;
+  const correctOf = (leftId: string) => result?.perPair.find(p => p.id === leftId)?.correct;
 
-  const allConnected = Object.keys(connections).length === task.pairs.length;
-  const correctCount = task.pairs.filter(p => connections[p.id] === p.id).length;
-  const allCorrect = correctCount === task.pairs.length;
-
-  function handleLeftClick(pairId: string) {
+  function handleLeftClick(leftId: string) {
     if (revealed) return;
-    setSelectedLeft(prev => prev === pairId ? null : pairId);
+    setSelectedLeft(prev => prev === leftId ? null : leftId);
   }
 
-  function handleRightClick(rightPairId: string) {
+  function handleRightClick(rightText: string) {
     if (revealed || !selectedLeft) return;
-    setConnections(prev => ({ ...prev, [selectedLeft]: rightPairId }));
+    setConnections(prev => ({ ...prev, [selectedLeft]: rightText }));
     setSelectedLeft(null);
+  }
+
+  async function checkMatches() {
+    setBusy(true);
+    try {
+      const res = await submitTask(roomId, task.id, { connections });
+      setAwardedXp(res.xpEarned);
+      setResult({
+        correctCount: Number(res.reveal.correctCount ?? 0),
+        total: Number(res.reveal.total ?? task.left.length),
+        perPair: Array.isArray(res.reveal.perPair) ? res.reveal.perPair : [],
+        solution: Array.isArray(res.reveal.solution) ? res.reveal.solution : [],
+        explanation: typeof res.reveal.explanation === "string" ? res.reveal.explanation : "",
+      });
+      setRevealed(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (isCompleted) {
@@ -1091,15 +1117,15 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
         {/* Left column */}
         <div className="space-y-2">
           <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Match from</p>
-          {task.pairs.map(pair => {
-            const connectedRightId = connections[pair.id];
-            const isSelected = selectedLeft === pair.id;
-            const isCorrect = revealed && connectedRightId === pair.id;
-            const isWrong  = revealed && connectedRightId !== undefined && connectedRightId !== pair.id;
+          {task.left.map(item => {
+            const connectedText = connections[item.id];
+            const isSelected = selectedLeft === item.id;
+            const isCorrect = revealed && correctOf(item.id) === true;
+            const isWrong  = revealed && connectedText !== undefined && correctOf(item.id) === false;
             return (
               <button
-                key={pair.id}
-                onClick={() => handleLeftClick(pair.id)}
+                key={item.id}
+                onClick={() => handleLeftClick(item.id)}
                 disabled={revealed}
                 className={cn(
                   "w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-all",
@@ -1108,12 +1134,12 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
                       : isWrong ? "border-severity-high/50 bg-severity-high/10 text-severity-high"
                       : "border-border/40 bg-bg-elevated/30 text-slate-400"
                     : isSelected ? "border-cyber-500/70 bg-cyber-500/15 text-white"
-                    : connectedRightId ? "border-cyber-500/30 bg-cyber-500/5 text-white"
+                    : connectedText ? "border-cyber-500/30 bg-cyber-500/5 text-white"
                     : "border-border/50 bg-bg-elevated/40 text-slate-300 hover:border-cyber-500/40 hover:text-white",
                 )}
               >
-                <span className="font-medium">{pair.left}</span>
-                {connectedRightId && !revealed && (
+                <span className="font-medium">{item.text}</span>
+                {connectedText && !revealed && (
                   <span className="mt-0.5 block text-[10px] text-cyber-400">connected</span>
                 )}
               </button>
@@ -1126,15 +1152,16 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
           <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
             {selectedLeft ? "Click to connect" : "Select left first"}
           </p>
-          {shuffledRight.map(pair => {
-            const connectedLeftId = Object.entries(connections).find(([, rId]) => rId === pair.id)?.[0];
+          {/* Already shuffled server-side — do NOT reorder here. */}
+          {task.right.map(rightText => {
+            const connectedLeftId = Object.entries(connections).find(([, txt]) => txt === rightText)?.[0];
             const isConnected = !!connectedLeftId;
-            const isCorrect = revealed && connectedLeftId === pair.id;
-            const isWrong  = revealed && connectedLeftId !== undefined && connectedLeftId !== pair.id;
+            const isCorrect = revealed && connectedLeftId !== undefined && correctOf(connectedLeftId) === true;
+            const isWrong  = revealed && connectedLeftId !== undefined && correctOf(connectedLeftId) === false;
             return (
               <button
-                key={pair.id}
-                onClick={() => handleRightClick(pair.id)}
+                key={rightText}
+                onClick={() => handleRightClick(rightText)}
                 disabled={revealed || !selectedLeft}
                 className={cn(
                   "w-full rounded-lg border px-3 py-2.5 text-left text-sm transition-all",
@@ -1147,7 +1174,7 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
                     : "border-border/50 bg-bg-elevated/40 text-slate-300 cursor-default",
                 )}
               >
-                {pair.right}
+                {rightText}
               </button>
             );
           })}
@@ -1156,31 +1183,42 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
 
       {!revealed && (
         <p className="text-xs text-slate-400">
-          {Object.keys(connections).length}/{task.pairs.length} pairs connected
+          {Object.keys(connections).length}/{task.left.length} pairs connected
           {selectedLeft ? " — now click an item on the right" : " — select an item on the left to begin"}
         </p>
       )}
 
       {!revealed && allConnected && (
-        <Button variant="primary" size="md" onClick={() => setRevealed(true)}>
+        <Button variant="primary" size="md" disabled={busy} onClick={checkMatches}>
           Check Matches
         </Button>
       )}
 
-      {revealed && (
+      {revealed && result && (
         <div className={cn("rounded-lg border p-4 text-sm space-y-2",
           allCorrect ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
         )}>
           <p className={cn("font-semibold", allCorrect ? "text-neon-green" : "text-neon-amber")}>
-            {allCorrect ? `Perfect! +${task.xp} XP` : `${correctCount}/${task.pairs.length} correct`}
+            {allCorrect ? `Perfect! +${awardedXp} XP` : `${result.correctCount}/${result.total} correct`}
           </p>
-          <p className="text-slate-300">{task.explanation}</p>
+          {/* The correct pairing, released only now that an attempt is in —
+              without this a student who got some wrong learns nothing. */}
+          {!allCorrect && (
+            <ul className="space-y-1 border-l-2 border-neon-amber/40 pl-3">
+              {result.solution.map(s => (
+                <li key={s.id} className="text-xs text-slate-300">
+                  <span className="text-white">{s.left}</span> → {s.right}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="text-slate-300">{result.explanation}</p>
         </div>
       )}
 
       {revealed && (
         <Button variant={allCorrect ? "primary" : "secondary"} size="md"
-          onClick={() => onComplete(allCorrect ? task.xp : Math.floor(task.xp * correctCount / task.pairs.length))}>
+          onClick={() => onComplete(awardedXp)}>
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       )}
@@ -1189,21 +1227,50 @@ function MatchingPlayer({ task, onComplete, isCompleted }: { task: MatchingTask;
 }
 
 // ─── Ordering Task ────────────────────────────────────────────────────────────────
-function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function OrderingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: OrderingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
   const [placed, setPlaced] = useState<(string | null)[]>(Array(task.items.length).fill(null));
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [xpEarned, setXpEarned] = useState(0);
+  const [result, setResult] = useState<{
+    correctCount: number;
+    total: number;
+    perSlot: { slot: number; correct: boolean }[];
+    correctOrder: string[];
+    explanation: string;
+  } | null>(null);
 
-  const shuffledItems = React.useMemo(() => {
-    const n = task.items.length;
-    return task.items.map((_, i) => task.items[(i + Math.ceil(n / 2)) % n]);
-  }, [task.items]);
+  // task.items arrives ALREADY shuffled by the server. It must not be reordered
+  // here: 29 of 32 ordering tasks are authored with items already in the correct
+  // sequence, so the delivered order is the only thing standing between the
+  // student and the answer. The old client-side rotation was applied on top of
+  // the authored (correct) order, which meant the answer was one trivial
+  // un-rotation away in the page payload.
+  const poolItems = task.items;
 
   const allPlaced = placed.every(Boolean);
   const placedSet = new Set(placed.filter(Boolean) as string[]);
-  const correctCount = placed.filter((id, i) => id === task.correct_order[i]).length;
-  const allCorrect = correctCount === task.items.length;
-  const xpEarned = allCorrect ? task.xp : Math.floor(task.xp * correctCount / task.items.length);
+  const allCorrect = !!result && result.correctCount === result.total;
+  const slotCorrect = (i: number) => result?.perSlot.find(s => s.slot === i)?.correct;
+
+  async function submitOrder() {
+    setBusy(true);
+    try {
+      const res = await submitTask(roomId, task.id, { placed });
+      setXpEarned(res.xpEarned);
+      setResult({
+        correctCount: Number(res.reveal.correctCount ?? 0),
+        total: Number(res.reveal.total ?? task.items.length),
+        perSlot: Array.isArray(res.reveal.perSlot) ? res.reveal.perSlot : [],
+        correctOrder: Array.isArray(res.reveal.correctOrder) ? res.reveal.correctOrder : [],
+        explanation: typeof res.reveal.explanation === "string" ? res.reveal.explanation : "",
+      });
+      setRevealed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function handleItemClick(itemId: string) {
     if (revealed) return;
@@ -1261,8 +1328,8 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
           {task.items.map((_, slotIdx) => {
             const placedId = placed[slotIdx];
             const placedItem = placedId ? task.items.find(i => i.id === placedId) : null;
-            const isCorrect = revealed && placedId === task.correct_order[slotIdx];
-            const isWrong  = revealed && placedId && placedId !== task.correct_order[slotIdx];
+            const isCorrect = revealed && slotCorrect(slotIdx) === true;
+            const isWrong  = revealed && !!placedId && slotCorrect(slotIdx) === false;
             return (
               <button
                 key={slotIdx}
@@ -1306,7 +1373,7 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
           <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
             {selectedItem ? "Now click a numbered slot" : "Select an item to place"}
           </p>
-          {shuffledItems.map(item => {
+          {poolItems.map(item => {
             const isPlaced   = placedSet.has(item.id);
             const isSelected = selectedItem === item.id;
             return (
@@ -1339,19 +1406,31 @@ function OrderingPlayer({ task, onComplete, isCompleted }: { task: OrderingTask;
       )}
 
       {!revealed && allPlaced && (
-        <Button variant="primary" size="md" onClick={() => setRevealed(true)}>
+        <Button variant="primary" size="md" disabled={busy} onClick={submitOrder}>
           Submit Order
         </Button>
       )}
 
-      {revealed && (
+      {revealed && result && (
         <div className={cn("rounded-lg border p-4 text-sm space-y-2",
           allCorrect ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
         )}>
           <p className={cn("font-semibold", allCorrect ? "text-neon-green" : "text-neon-amber")}>
-            {allCorrect ? `Perfect order! +${task.xp} XP` : `${correctCount}/${task.items.length} in the correct position`}
+            {allCorrect ? `Perfect order! +${xpEarned} XP` : `${result.correctCount}/${result.total} in the correct position`}
           </p>
-          <p className="text-slate-300">{task.explanation}</p>
+          {/* Released only after an attempt — otherwise a student who got the
+              sequence wrong has nothing to learn from. */}
+          {!allCorrect && result.correctOrder.length > 0 && (
+            <ol className="space-y-0.5 border-l-2 border-neon-amber/40 pl-3">
+              {result.correctOrder.map((id, i) => (
+                <li key={id} className="text-xs text-slate-300">
+                  <span className="text-slate-500">{i + 1}.</span>{" "}
+                  {task.items.find(it => it.id === id)?.text ?? id}
+                </li>
+              ))}
+            </ol>
+          )}
+          <p className="text-slate-300">{result.explanation}</p>
         </div>
       )}
 
@@ -1516,8 +1595,8 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
       case "log_analysis":    return <LogAnalysisPlayer  roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       case "flag":            return <FlagPlayer         roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} prevLogEvent={prevLogEvent} />;
       case "analyst_choice":  return <AnalystChoicePlayer roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "matching":        return <MatchingPlayer     task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "ordering":        return <OrderingPlayer     task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "matching":        return <MatchingPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "ordering":        return <OrderingPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       case "query_fill":      return <QueryFillPlayer    roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       default:                return null;
     }
