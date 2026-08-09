@@ -421,10 +421,10 @@ const investigateAlertRoom: Room = {
           question:
             "LogonType is 3 and AuthenticationPackageName is NTLM. Combined with everything else in this record, what should this prompt you to check next, and why?",
           options: [
-            "Nothing further — LogonType 3 is an interactive desktop logon and is the least noteworthy type available, so this record needs no additional scrutiny beyond what's already been noted",
+            "Nothing further — LogonType 3 is an interactive desktop logon, meaning d.reyes was physically seated at FIN-DB02's own console, which is the least noteworthy logon type available and needs no comparison against what is normal for that account or that host",
             "LogonType 3 is a network logon (the kind used for things like accessing a file share or admin tooling remotely, not sitting at a physical console) — worth checking whether d.reyes normally authenticates to FIN-DB02 at all, and from where, since a privileged account reaching a database server from a Finance workstation it has never used is exactly the anomaly a baseline comparison would catch",
-            "NTLM authentication always indicates the credential was stolen, regardless of any other context, since Kerberos is mandatory in any properly hardened domain",
-            "This combination confirms the logon failed and no further action is needed, since AuthenticationPackageName only appears on unsuccessful attempts",
+            "NTLM authentication always indicates the credential was stolen, regardless of any other context, since Kerberos is mandatory inside every Active Directory domain and Windows falls back to NTLM only when an attacker supplies a captured hash instead of a valid ticket",
+            "This combination confirms the logon failed and no further action is needed, since AuthenticationPackageName is populated only on unsuccessful attempts and LogonType 3 is reserved for Event ID 4625 failure records rather than successful 4624 authentications",
           ],
           answer: 1,
           explanation:

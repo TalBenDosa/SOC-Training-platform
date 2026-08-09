@@ -118,15 +118,18 @@ The four most powerful pivot points are:
 
 Tools that help: Microsoft Sentinel's Investigation Graph (automatically draws entity relationships), MDE (Microsoft Defender for Endpoint) Timeline tab (per-device chronological view), and even a shared spreadsheet or Google Sheet works perfectly for smaller investigations.`,
       checkpoint: {
-        question: "According to the reading, which time zone should an analyst normalize all timestamps to before building an investigation timeline?",
+        // Asked as a scenario rather than "which timezone?" on purpose. The bare
+        // answer to that version is "UTC" — three characters against three long
+        // phrases, which a student can pick off by shape without knowing why.
+        question: "You are building one timeline from an Eastern-Time endpoint and a Pacific-Time mail server. According to the reading, how should you handle the timestamps?",
         options: [
-          "The endpoint's local system time",
-          "UTC",
-          "The SIEM server's local timezone",
-          "Whichever timezone the analyst is currently in",
+          "Leave each event in its source system's own local time, noting the offset alongside each entry",
+          "Convert every timestamp to UTC before ordering the events into a single sequence",
+          "Convert everything to the SIEM server's local timezone, since that is where the timeline is assembled",
+          "Convert everything to your own local timezone so the sequence reads naturally at handover",
         ],
         answer: 1,
-        explanation: "The reading's rule is: always work in UTC. Mixing local timezones (Eastern Time endpoint, Pacific Time mail server) causes events to appear in the wrong order.",
+        explanation: "The reading's rule is: always work in UTC. Mixing local timezones (an Eastern-Time endpoint, a Pacific-Time mail server) puts events in the wrong order, and a timeline whose order is wrong is worse than no timeline — it invents causation that never happened. Leaving each event in its source timezone pushes that conversion onto every future reader, and normalising to the SIEM's or your own timezone just picks a different arbitrary offset that breaks the moment someone in another region opens the case.",
       },
     },
 
@@ -228,10 +231,10 @@ A good case ticket contains:
       id: "inv-method-q3",
       question: "Why is UTC the standard for investigation timelines?",
       options: [
-        "UTC is the fastest time zone to compute",
+        "UTC is a fixed offset from local time everywhere on earth, so no conversion is ever needed when comparing logs",
         "Different systems may record timestamps in different local time zones; UTC provides a single reference point for accurate ordering",
-        "The MITRE ATT&CK framework requires UTC timestamps in all reports",
-        "Firewalls only accept UTC-formatted log entries",
+        "The MITRE ATT&CK framework mandates UTC timestamps in every incident report an organisation produces",
+        "Syslog RFC 5424 forbids any timestamp carrying a non-zero offset, so non-UTC entries are silently dropped",
       ],
       answer: 1,
       explanation:
@@ -450,10 +453,10 @@ This last step is crucial: threat hunting improves your detection capability ove
       checkpoint: {
         question: "According to the reading, what is the crucial last step of the Hunt Cycle after a finding is confirmed?",
         options: [
-          "Delete the query so it cannot be reused",
+          "Delete the hunt query so the same hypothesis is never re-tested and every future hunt stays novel",
           "Convert the confirmed finding into a new SIEM rule so the next occurrence is caught automatically",
-          "Escalate directly to law enforcement",
-          "Wait 90 days before taking any further action",
+          "Escalate directly to law enforcement before any internal containment or documentation is attempted",
+          "Wait 90 days before acting, so the attacker's full dwell time can be measured before the hunt closes",
         ],
         answer: 1,
         explanation: "The Hunt Cycle's final step converts a confirmed hunt finding into a new detection rule — this is how threat hunting improves the SOC's automated detection capability over time.",
@@ -902,7 +905,7 @@ By combining memory forensics (what was running), disk forensics (what files exi
       type: "log_analysis" as const,
       id: "dfir-la1",
       heading: "Memory Forensics — Suspicious svchost.exe Process",
-      context: `You are conducting memory forensics on a suspected compromised host using Volatility 3. You have run the "windows.pstree" plugin on a memory dump captured from HOST-FINANCE-03. The output below shows a suspicious svchost.exe process. Normally, all svchost.exe processes should be children of services.exe (PID ~804). The PPID shown here is a red flag. Analyse the event and answer the questions.`,
+      context: `You are conducting memory forensics on a suspected compromised host using Volatility 3. You have run the "windows.pslist" plugin on a memory dump captured from HOST-FINANCE-03. The output below shows a suspicious svchost.exe process. Normally, all svchost.exe processes should be children of services.exe (PID ~804). The PPID shown here is a red flag. Analyse the event and answer the questions.`,
       event: {
         id: "dfir-la1-evt-001",
         ts: "2025-06-24T14:31:55.000Z",
@@ -922,8 +925,16 @@ By combining memory forensics (what was running), disk forensics (what files exi
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "What is the Parent Process ID (PPID) of this suspicious svchost.exe?",
-          options: ["804", "4892", "1", "640"],
+          // Asked as full statements rather than bare PID numbers on purpose: the
+          // correct answer to "what is the PPID?" is the single character "1",
+          // which a student can pick off by shape without reading the output.
+          question: "Volatility lists this svchost.exe at PID 4892. What does the volatility.ppid field tell you about its parent?",
+          options: [
+            "PPID 804 — services.exe spawned it, the normal parent for svchost.exe",
+            "PPID 4892 — the process is recorded as its own parent",
+            "PPID 1 — the System process, not services.exe, is the parent",
+            "PPID 640 — a parent that is neither services.exe nor System",
+          ],
           answer: 2,
           explanation:
             "The PPID (Parent Process ID) is 1, which corresponds to the System process. Legitimate svchost.exe instances are spawned by services.exe, which has a PID of approximately 804 (it varies but is always services.exe). A PPID of 1 (System) means something unusual is the parent of this process — this is a classic indicator of process injection or hollow process creation, where an attacker creates a new svchost.exe process outside the normal startup hierarchy. This is one of the most reliable indicators of process injection in memory forensics.",
@@ -1296,10 +1307,10 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
         {
           question: "The attachment is named 'invoice_approval.html'. Why is an HTML file particularly dangerous as a phishing attachment?",
           options: [
-            "HTML files can contain viruses that spread through Wi-Fi",
+            "HTML attachments execute embedded VBA macros the instant they are opened, which is how they slip past Protected View",
             "HTML files run in the browser, allowing a credential harvesting page to display without triggering email gateway attachment scanners that look for executables",
-            "HTML attachments are always blocked by Microsoft 365",
-            "HTML files automatically forward the user's password to the attacker",
+            "HTML attachments are stripped by Exchange Online Protection by default, so only on-premises Exchange mailboxes are ever exposed to them",
+            "HTML files can read the browser's saved password store directly and post it to the attacker with no user input at all",
           ],
           answer: 1,
           explanation:

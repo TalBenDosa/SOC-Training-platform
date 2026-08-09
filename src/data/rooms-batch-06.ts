@@ -657,10 +657,10 @@ When you receive a DLP alert or a bulk-download alert:
         {
           question: "The alert only captures FileDownloaded operations inside SharePoint. Which MITRE ATT&CK tactic does this bulk-download activity fall under, and what would you still need to confirm to prove data actually left the organisation?",
           options: [
-            "Command and Control — the downloads themselves prove a C2 channel exists between the attacker and the file server",
+            "Command and Control — a FileDownloaded operation in the Unified Audit Log is Microsoft's own indicator that a C2 channel has been established between the attacker and SharePoint Online",
             "Collection — the downloads gather data locally onto the user's device; you would still need to check for a follow-on transfer (e.g. USB, personal cloud upload, or email) to confirm exfiltration",
-            "Initial Access — file downloads are how the attacker first got into the SharePoint site",
-            "Persistence — repeatedly downloading the same files is how the attacker maintains access to the account"
+            "Initial Access — file downloads are the technique the attacker used to first obtain access to the SharePoint site, which is why the alert carries the T1213.002 mapping",
+            "Persistence — re-downloading the same documents repeatedly is how an attacker keeps a valid session token alive and retains access to the compromised account"
           ],
           answer: 1,
           explanation: "Downloading files out of a repository like SharePoint onto a local device is the **Collection** tactic — the attacker (or insider) is gathering data, not yet moving it out of the organisation. To confirm actual **exfiltration**, you would need corroborating evidence of the data leaving the network entirely, such as DLP alerts for USB transfer, uploads to personal cloud storage, or large outbound email attachments. Seeing only the download operation tells you data was collected locally — it does not by itself prove the data left the company.",
@@ -776,10 +776,10 @@ Instead of having separate tools for each domain that analysts must correlate ma
       checkpoint: {
         question: "According to the reading, what is the key limitation of traditional signature-based antivirus?",
         options: [
-          "It cannot scan network traffic at all",
+          "It can only inspect files on removable media such as USB drives, so malware written straight to the system drive is never scanned",
           "It is blind to new malware it has never seen before, and easily evaded by slightly modified (polymorphic) malware",
-          "It only works on Windows and not on Linux or macOS",
-          "It requires a live internet connection to function at all",
+          "It runs only on Windows, because signature matching depends on NTFS alternate data streams that Linux and macOS filesystems do not provide",
+          "It cannot function without a live internet connection, because every file hash must be checked against the vendor's cloud before the file is allowed to open",
         ],
         answer: 1,
         explanation:
@@ -945,10 +945,10 @@ Based on your analysis:
       id: "ep-sec-q1",
       question: "What is the fundamental difference between traditional signature-based antivirus and EDR (Endpoint Detection & Response)?",
       options: [
-        "Traditional AV is cloud-based while EDR runs only locally on the device",
+        "Traditional AV is a cloud-delivered service with no software installed on the device, while EDR runs entirely on the local machine with no cloud console behind it",
         "Traditional AV matches files against a database of known-bad signatures; EDR continuously records all endpoint activity and detects threats through behavioural analysis and threat hunting",
-        "EDR only works on Windows devices while traditional AV supports all operating systems",
-        "Traditional AV can isolate infected hosts; EDR can only alert without taking action"
+        "EDR only works on Windows because its telemetry depends on ETW, which is why traditional AV remains the only option available for Linux and macOS endpoints",
+        "Traditional AV can isolate an infected host from the network on demand, whereas EDR is a passive alerting tool with no containment or remediation capability"
       ],
       answer: 1,
       explanation: "The key difference is **scope and approach**. Traditional AV relies on known-bad **signatures** — it cannot detect new malware it has never seen before. EDR continuously records all endpoint telemetry (processes, files, network connections, registry changes) and applies **behavioural analysis** to detect threats regardless of whether they have known signatures. EDR also provides **visibility** for investigation (process trees, command lines, timelines) and **response** capabilities (host isolation, remote shell) that traditional AV completely lacks.",
@@ -977,10 +977,10 @@ Based on your analysis:
       id: "ep-sec-q3",
       question: "A user's laptop is confirmed to be infected with malware that is actively spreading to other machines on the network. What is the most important immediate EDR response action?",
       options: [
-        "Delete the malware file from the infected laptop",
-        "Run a full antivirus scan on the laptop",
+        "Delete the malware file from disk, which also terminates the running instance and tears down its open network connections",
+        "Run a full antivirus scan, since the scan blocks all outbound traffic from the host for as long as it is running",
         "Isolate (network-isolate) the host from the network to prevent further lateral movement",
-        "Reboot the laptop to clear the malware from memory"
+        "Reboot the laptop — a restart clears the malware from memory and removes its registry Run-key persistence at the same time"
       ],
       answer: 2,
       explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.\n\nNote what makes this an easy call: it is a **user's laptop**, and the spread is **confirmed and active**. Both halves matter. Change either one — a production database server instead of a laptop, or a single suspicious process instead of confirmed spreading — and the calculation shifts, because isolation is an outage you are deliberately causing. Reading 2 covers the questions to ask first when the asset is business-critical.",
@@ -993,10 +993,10 @@ Based on your analysis:
       id: "ep-sec-q4",
       question: "What does XDR (Extended Detection & Response) add compared to EDR (Endpoint Detection & Response)?",
       options: [
-        "XDR adds a graphical user interface to EDR alerts",
+        "XDR is the same endpoint-only telemetry as EDR, repackaged behind a graphical incident dashboard — the underlying data sources are identical",
         "XDR extends telemetry collection beyond the endpoint to include network, identity, email, and cloud data — correlating across all sources in a single platform",
-        "XDR provides better antivirus signatures than EDR",
-        "XDR is simply the mobile-device version of EDR"
+        "XDR replaces EDR's behavioural detection with a far larger signature database, shipping roughly ten times the malware signatures an EDR agent carries",
+        "XDR is the mobile-device tier of EDR, covering the iOS and Android handsets that a standard EDR agent cannot be installed on"
       ],
       answer: 1,
       explanation: "The 'X' in **XDR** stands for 'Extended' — it extends detection and response **across multiple security domains** beyond just the endpoint. While EDR sees only what happens on a single device, XDR correlates telemetry from endpoints, network traffic, identity systems (Active Directory, Entra ID), email (Exchange, phishing), and cloud workloads (AWS, Azure). This cross-domain correlation allows XDR to detect multi-stage attacks that would appear as disconnected, low-confidence signals in isolated tools. Microsoft Defender XDR, CrowdStrike Falcon XDR, and SentinelOne Singularity XDR are current examples.",

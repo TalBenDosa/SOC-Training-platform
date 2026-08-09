@@ -120,10 +120,30 @@ function checkOptionBalance(where, options, correctIdx, sev = "WARN") {
   const right = options[correctIdx];
   if (typeof right !== "string") return;
   const wrong = options.filter((_, i) => i !== correctIdx);
-  const longestWrong = Math.max(...wrong.map(o => String(o).length));
+  const lengths = wrong.map(o => String(o).length);
+  const longestWrong = Math.max(...lengths);
+  const shortestWrong = Math.min(...lengths);
+
   if (right.length > longestWrong * 1.7) {
     add(sev, where,
       `correct option is ${Math.round(right.length / longestWrong * 100)}% of the longest distractor — answerable without reading`);
+  }
+
+  // The MIRROR of the same defect. This check was one-directional for a long
+  // time, which measured only half the problem: a correct answer that is
+  // dramatically SHORTER than every distractor is just as guessable, by
+  // "always pick the odd short one". It surfaced while rebalancing the long
+  // cases — one checkpoint ended up with every distractor more than ten times
+  // the length of the correct answer.
+  //
+  // The threshold is deliberately looser than the 1.7 above. A correct answer
+  // is legitimately terse fairly often — the right response to "which encoding
+  // does -EncodedCommand expect?" really is just "UTF-16LE (Unicode)", and
+  // padding it out would be the same mistake as trimming a long correct answer.
+  // 2.0 catches the genuinely lopsided cases without punishing honest brevity.
+  if (shortestWrong > right.length * 2.0) {
+    add(sev, where,
+      `every distractor is at least ${Math.round(shortestWrong / right.length * 100)}% of the correct option's length — answerable by picking the short one`);
   }
 }
 

@@ -897,10 +897,10 @@ Despite these limitations, the Cyber Kill Chain remains one of the most influent
       checkpoint: {
         question: "According to the reading, which organisation developed the Cyber Kill Chain framework, and when was it published?",
         options: [
-          "MITRE, in 2013",
+          "MITRE, in the 2013 paper that also introduced the Diamond Model",
           "Lockheed Martin, in a 2011 white paper",
-          "NIST, in 2015",
-          "The NSA, in 2009",
+          "NIST, in the 2015 revision of Special Publication 800-53",
+          "The NSA, in its 2009 Defense in Depth architecture guidance",
         ],
         answer: 1,
         explanation: "The Cyber Kill Chain was developed by Lockheed Martin and published in a 2011 white paper titled 'Intelligence-Driven Computer Network Defense.'",
@@ -1073,10 +1073,10 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       question:
         "A threat hunter notices that a workstation on the company network is making an outbound HTTPS connection to an external server every exactly 30 seconds, around the clock — even at 3 AM when no employees are working. What Kill Chain stage is this most consistent with, and what should the hunter do?",
       options: [
-        "Stage 1 — Reconnaissance. The attacker is scanning the company network.",
-        "Stage 3 — Delivery. A phishing email attachment is being downloaded.",
+        "Stage 1 — Reconnaissance. Repeated outbound HTTPS to a single external host at a fixed interval is the standard signature of an attacker port-scanning the internal network.",
+        "Stage 3 — Delivery. Downloading a phishing attachment produces exactly this pattern, because mail clients re-request the attachment every 30 seconds until it is cached locally.",
         "Stage 6 — Command and Control. The regular 30-second intervals ('beaconing') suggest malware communicating with an attacker's C2 server.",
-        "Stage 7 — Actions on Objectives. Data is being exfiltrated continuously.",
+        "Stage 7 — Actions on Objectives. Exfiltration is identified by the regularity of the connection interval rather than by the volume of data leaving the host.",
       ],
       answer: 2,
       explanation:
@@ -1119,10 +1119,10 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
           question:
             "The firewall log shows 'repeatcount: 121' for this session signature — the firewall aggregated 121 near-identical short outbound sessions (elapsed: 30s each) to the same external IP over the hour, at a steady cadence. Which Kill Chain stage does this regular, repeating pattern represent?",
           options: [
-            "Stage 3 — Delivery. This is a phishing email attachment being downloaded.",
-            "Stage 5 — Installation. The workstation is creating a scheduled task on disk.",
+            "Stage 3 — Delivery. A repeatcount of 121 in a Palo Alto log means the mail client re-fetched the same phishing attachment 121 separate times from the same server.",
+            "Stage 5 — Installation. Scheduled-task creation on the host is precisely what a firewall session log records when malware writes its persistence mechanism to disk.",
             "Stage 6 — Command and Control. Regular, machine-speed connections at a fixed interval ('beaconing') indicate malware checking in with an attacker-controlled server.",
-            "Stage 7 — Actions on Objectives. This traffic pattern shows data actively being exfiltrated.",
+            "Stage 7 — Actions on Objectives. Exfiltration is confirmed by short 30-second sessions, because bulk data theft is always split into fixed-length transfer windows.",
           ],
           answer: 2,
           explanation:
@@ -1133,10 +1133,10 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
           question:
             "The domain field shows 'updates.microsoft-cdn-services.net' and dns_category shows 'newly_registered_domain' (registered only 14 days ago). The destination IP geolocates to Moscow, Russia. What technique is the attacker using, and what is the significance of the domain name?",
           options: [
-            "The domain is legitimate — Microsoft CDN servers are sometimes located in Russia",
+            "The domain is legitimate — Microsoft publishes Windows and Office update content from *.microsoft-cdn-services.net edge nodes, several of which are hosted in Moscow",
             "The attacker is using domain squatting and typosquatting — the domain mimics Microsoft's naming to evade detection, while the recent registration and Russian IP confirm it is malicious infrastructure",
-            "The 14-day domain age indicates the attacker is a beginner who just started this operation today",
-            "Newly registered domains are automatically safe because they have no reputation history",
+            "The 14-day age is irrelevant here — Palo Alto's newly_registered_domain category only covers domains created in the previous 24 hours, so anything older has already aged out",
+            "Newly registered domains carry no inherent risk — URL filtering scores a domain purely on its registrar's reputation, and .net registrations are treated as trusted by default",
           ],
           answer: 1,
           explanation:

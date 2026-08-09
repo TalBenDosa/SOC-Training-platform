@@ -422,10 +422,10 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
       question:
         "Which log collection method is most appropriate for a Palo Alto firewall that cannot have third-party software installed on it?",
       options: [
-        "Agent-based (Filebeat installed on the firewall)",
+        "Agent-based — installing Filebeat directly onto PAN-OS through its underlying Linux shell",
         "Agentless Syslog — the firewall sends logs to a remote syslog server over UDP/TCP port 514",
-        "Manual log download by an analyst each morning",
-        "API polling from the analyst's laptop",
+        "Manual CSV export from the PAN-OS web UI each morning, the only method that preserves original timestamps",
+        "API polling from the analyst's laptop, since the PAN-OS XML API needs no key or credentials",
       ],
       answer: 1,
       explanation:
@@ -1102,10 +1102,10 @@ The Wazuh Dashboard includes several built-in sections:
       question:
         "A Wazuh decoder processes a raw Linux syslog line and extracts fields like 'data.srcip', 'data.srcuser', and 'data.program_name'. What happens to these extracted fields NEXT in the Wazuh processing pipeline?",
       options: [
-        "They are immediately displayed to the analyst in the dashboard",
-        "They are encrypted and sent to the Wazuh Indexer for storage",
+        "They are written straight to the dashboard's Discover view, which is what assigns each event its alert level",
+        "They are encrypted with the agent key and sent to the Wazuh Indexer, which runs the rule engine at index time",
         "They are evaluated against the rule engine — each active rule checks whether its conditions match the extracted fields",
-        "They are forwarded to the Wazuh Agent for local storage",
+        "They are forwarded back to the Wazuh Agent, which stores them in local_rules.xml on the endpoint",
       ],
       answer: 2,
       explanation:

@@ -364,10 +364,10 @@ const edrDetectionInvestigationRoom = {
           question:
             "crowdstrike.CallStackModuleNames lists dbghelp.dll among the modules loaded at the moment of the LSASS access. Why does this specific detail matter on top of the GrantedAccess value alone?",
           options: [
-            "dbghelp.dll is loaded automatically by every single Windows process at startup, regardless of what that process does, so its presence here carries no meaning",
+            "dbghelp.dll is mapped into every Windows process automatically by the loader at startup, exactly the way ntdll.dll and kernel32.dll are, so its appearance in CallStackModuleNames is a constant of the sensor's telemetry and carries no investigative meaning on any host",
             "dbghelp.dll contains the MiniDumpWriteDump function used to create process memory dumps — its presence in the call stack of a process requesting full access to lsass.exe is consistent with the exact mechanism Mimikatz-style credential dumpers use, though the same DLL is also loaded by legitimate diagnostic and crash-dump tools",
-            "dbghelp.dll is fundamentally a networking and socket library, so its presence indicates the process was preparing to exfiltrate data over the network",
-            "CallStackModuleNames listing any DLL at all, regardless of which one, is Falcon's own built-in signal that automatically confirms a detection is a false positive",
+            "dbghelp.dll is the Windows sockets and name-resolution library backing the WSAStartup and getaddrinfo calls, so seeing it in the call stack means the flagged process had already opened an outbound channel and was preparing to exfiltrate the credential material over the network",
+            "CallStackModuleNames is populated by Falcon only for behaviors its cloud has already scored as benign, so the presence of any module list at all — whichever DLLs it happens to name — is the sensor's own built-in indication that the detection was auto-classified as a false positive",
           ],
           answer: 1,
           explanation:
@@ -421,10 +421,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "Three Falcon behaviors fire against the same host within nine minutes, all sharing one IncidentId: a scheduled-task creation (Medium), a PowerShell download from an external site (Medium), and a credential-access attempt against lsass.exe (Critical). An analyst triages only the Critical one and closes the other two separately as routine, unrelated notices. What is wrong with this approach, based on Reading 5?",
       options: [
-        "Nothing — Falcon's own severity rating should always be the sole determining factor for triage priority, and every lower-severity behavior can safely be closed independently of any others",
+        "Nothing — Falcon's own severity rating should always be the sole determining factor for triage priority, because the sensor assigns a severity only after weighing every other behavior already correlated under the same IncidentId, so a Medium rating means the correlation engine has itself ruled that behavior out of the Critical one's chain",
         "Treating the three behaviors as separate, unrelated cases misses the actual sequence — the scheduled task and PowerShell download are plausibly the persistence and tooling steps of the same intrusion that ends in the credential-access attempt, and closing them separately can leave the persistence mechanism untouched even after the workstation is remediated",
-        "IncidentId is purely an internal CrowdStrike licensing and per-seat billing identifier and carries no genuine investigative correlation value",
-        "A PowerShell download from an external site is, by definition, always unrelated to a credential-access detection regardless of timing or a shared IncidentId",
+        "IncidentId is purely an internal CrowdStrike licensing identifier used to meter per-seat billing in the Falcon console, and it is reissued to every sensor at each subscription renewal, so two behaviors sharing one value tells an analyst nothing beyond the fact that both hosts sit under the same contract",
+        "A PowerShell download from an external site is, by definition, always unrelated to a credential-access detection, because Falcon groups behaviors into an IncidentId strictly by MITRE ATT&CK tactic — an Execution-tactic behavior and a Credential Access-tactic behavior can never share one, so the shared value here is a console display artifact",
       ],
       answer: 1,
       explanation:
@@ -514,10 +514,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "On WKS-FIN-0231, the credential-access behavior is confirmed as a true positive: PatternDispositionDescription showed 'Detected, no action taken', and the SHA256 hash pivots back as a known credential-dumping utility in your threat intelligence platform. What is the correct immediate containment action?",
       options: [
-        "Power the workstation down completely and unplug it from the network, which stops any further activity immediately and preserves the disk exactly as-is",
+        "Power the workstation down completely and unplug it from the network — a hard shutdown stops all further activity immediately and flushes the full contents of physical memory into the hibernation file on disk, so the volatile evidence is preserved for the forensics team exactly as it stood at the moment of the detection",
         "Network-contain (isolate) the host through the EDR console so it can no longer communicate while staying reachable for forensic collection, kill the malicious process, and treat any credentials that were logged onto this host as potentially exposed pending rotation",
-        "Wait until the end of the business day to contain the host, so as to avoid disrupting the finance analyst's ongoing work",
-        "Email the finance analyst directly and simply ask them to close their laptop lid until IT can look at it",
+        "Wait until the end of the business day to contain the host, since network containment in the Falcon console can only be applied inside a scheduled maintenance window and the sensor would otherwise lose its own connection back to the CrowdStrike cloud along with everything else",
+        "Email the finance analyst directly and ask them to close their laptop lid until IT can look at it, since suspending the machine to sleep terminates every running process and severs any active attacker session just as reliably as EDR network containment would",
       ],
       answer: 1,
       explanation:

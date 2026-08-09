@@ -532,10 +532,10 @@ const rooms = [
             question:
               "The process.parent.name is 'sqlservr.exe' and the process.name is 'powershell.exe'. Why is this parent-child relationship, on its own, enough to escalate this alert to critical — even before reading the sql.stored_procedure field?",
             options: [
-              "It isn't unusual at all — DBAs routinely launch PowerShell maintenance scripts as a direct child process of sqlservr.exe itself during scheduled overnight maintenance windows, so this parent-child pairing is expected and benign on any production database server",
+              "It isn't unusual at all — DBAs routinely launch PowerShell maintenance scripts as a direct child process of sqlservr.exe itself during scheduled overnight maintenance windows, so this parent-child pairing is expected and benign on any production database server, and Microsoft ships xp_cmdshell enabled by default on SQL Server for exactly that purpose",
               "sqlservr.exe (the SQL Server database engine process) has no legitimate reason to spawn a shell interpreter like PowerShell — real database administration happens through management tools or scheduled SQL Agent jobs, not through the database engine process itself launching cmd.exe or powershell.exe. This parent-child pattern is functionally identical to the 'Office app spawns shell' red flag you learned earlier, just with a database process instead of Word or Excel",
-              "PowerShell itself should never be allowed to run on any database server under any circumstances whatsoever, entirely independent of which process launched it or why, since PowerShell's mere presence is the actual indicator here",
-              "The alert is only rated critical because the EDR happened to record an integrity level of 'High' on this particular process — the identity of the parent process itself carries no real investigative meaning on its own",
+              "PowerShell itself should never be allowed to run on any database server under any circumstances whatsoever, entirely independent of which process launched it or why, since PowerShell's mere presence is the actual indicator here — this is why the SQL Server installer removes powershell.exe from every database host it provisions",
+              "The alert is only rated critical because the EDR happened to record an integrity level of 'High' on this particular process — the identity of the parent process itself carries no real investigative meaning on its own, and the T1059.001 mapping is derived purely from that integrity level rather than from the interpreter that executed",
             ],
             answer: 1,
             explanation:
@@ -850,10 +850,10 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, why can't a SOC just rely on a SIEM vendor's default detection rules?",
           options: [
-            "Default rules are always more expensive than custom rules",
+            "Default rules are licensed per rule and always cost more than rules a detection engineer writes in-house",
             "Default rules are built for the average environment, not the specific tools, assets, and behaviours unique to your organisation",
-            "Default rules only cover network traffic, never authentication logs",
-            "Vendors intentionally disable default rules after 30 days",
+            "Default rules only query network sources such as firewall and proxy logs, and never touch authentication or endpoint telemetry",
+            "Vendors intentionally disable their default rule packs after a 30-day trial, so the rules stop firing unless each one is repurchased",
           ],
           answer: 1,
           explanation:
@@ -870,10 +870,10 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what is the main advantage of writing a detection rule in Sigma format instead of directly in a specific SIEM's query language?",
           options: [
-            "Sigma rules run faster than native SIEM queries",
+            "Sigma rules execute faster than native SIEM queries, because the SIEM runs the YAML directly instead of parsing its own query language",
             "Sigma is a vendor-neutral format that can be compiled for Splunk, Elastic, Sentinel, QRadar and other SIEMs, making rules portable and shareable",
-            "Sigma rules do not need to be tested before deployment",
-            "Sigma automatically maps every rule to MITRE ATT&CK without any manual tagging",
+            "Sigma rules ship pre-validated by the SigmaHQ project, so a rule taken from the public repository can go straight to production severity untested",
+            "Sigma derives the MITRE ATT&CK technique for every rule automatically from its detection logic, so the tags section never has to be written by hand",
           ],
           answer: 1,
           explanation:

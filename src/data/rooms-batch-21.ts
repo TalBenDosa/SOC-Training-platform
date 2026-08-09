@@ -108,7 +108,7 @@ const logEntryAnatomyRoom: Room = {
         `**WHO — the identity.** Who or what caused this? A username, a service account, a process, sometimes a device with no human behind it at all — one server calling another. Not every log has a human identity in it at all, and that absence is itself information, covered later in this room.\n\n` +
         `**WHERE — source and destination.** Which host, IP address, or system was involved — often two of them: where the action came from, and what it touched. A login has a source (the workstation the person typed on) and a destination (the server they logged into).\n\n` +
         `**WHAT — the action and its outcome.** What actually happened, and did it succeed or fail? "User logged in" and "user failed to log in" are opposite outcomes of the same action, and mixing them up is one of the most common beginner mistakes in this field.\n\n` +
-        `**HOW CONFIDENT — severity or level.** Most logs carry some rating of how urgent the vendor thinks this entry is: critical, high, informational, and so on. Reading 6 in this room explains why that field deserves more suspicion than the other four put together.\n\n` +
+        `**HOW CONFIDENT — severity or level.** Most logs carry some rating of how urgent the vendor thinks this entry is: critical, high, informational, and so on. Reading 7 in this room explains why that field deserves more suspicion than the other four put together.\n\n` +
         `Hold onto this five-question frame — it is also the method. When you meet an unfamiliar log format for the first time: find the timestamp, find the identity field, find the action field, find the outcome field, and only then go looking for any additional fields the specific question in front of you actually requires. Every reading after this one hands you a different format — plain text, key-value pairs, JSON, spreadsheets — but the same five questions apply to all of them.`,
       diagram:
         "flowchart TD\n" +
@@ -121,7 +121,12 @@ const logEntryAnatomyRoom: Room = {
       diagramCaption: "Mapping the five-question frame onto a real log line",
       checkpoint: {
         question: "Which of the five questions does a log's severity or level field answer?",
-        options: ["WHEN", "WHO", "WHERE", "HOW CONFIDENT"],
+        options: [
+          "WHEN — the field records how long ago the event happened",
+          "WHO — the field names the account that performed the action",
+          "WHERE — the field identifies the host that generated the entry",
+          "HOW CONFIDENT — the field rates how urgent the vendor thinks the entry is",
+        ],
         answer: 3,
         explanation:
           "Severity/level is the HOW CONFIDENT question -- most logs carry some rating of how urgent the vendor thinks the entry is, which Reading 7 later explains deserves more suspicion than the other four fields.",

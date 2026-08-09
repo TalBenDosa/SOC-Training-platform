@@ -434,10 +434,10 @@ The characteristic false positive for both is identical, because it comes from t
       question:
         "A Suricata sensor fires an identical signature for the same exploit attempt on two different network segments. On Segment A the alert shows alert.action: 'blocked' and the connection never reached its target. On Segment B the alert shows alert.action: 'allowed' and the exploit succeeded. What is the most likely explanation?",
       options: [
-        "Segment A's sensor was updated with a newer signature revision hours before Segment B's, and that version difference alone explains the different outcome",
+        "Segment A's sensor received a newer revision of the signature hours before Segment B's did, and because Suricata writes alert.action directly from the matching rule's own revision number, a higher rev always serialises as 'blocked' while an older rev of the very same rule serialises as 'allowed'",
         "Segment A's sensor is deployed inline as an IPS, positioned directly in the traffic path so it could drop the malicious packet; Segment B's sensor is deployed out-of-band as an IDS, reading only a copy of the traffic, so it could alert but had no way to stop the original packet from being delivered",
-        "The exploit against Segment B must have used a fundamentally different, more sophisticated payload than whatever was sent at Segment A",
-        "The 'blocked' versus 'allowed' wording is purely cosmetic logging terminology and has no bearing on whether the underlying attack actually succeeded",
+        "The exploit against Segment B must have used a fundamentally different, more sophisticated payload, since Suricata only ever emits alert.action: 'allowed' when a rule matches on traffic whose payload the decoder could not fully parse — a successfully decoded packet is always terminated by the engine regardless of where the sensor sits in the network",
+        "The 'blocked' versus 'allowed' wording is purely cosmetic EVE-JSON terminology inherited from Snort: Suricata populates alert.action from the signature's priority metadata, so priority:1 rules always render as 'blocked' and everything below them as 'allowed', which says nothing about whether the packet was actually delivered",
       ],
       answer: 1,
       explanation:
@@ -492,9 +492,9 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
             "ruleGroupList shows the AWS Managed SQL Injection Rule Group with terminatingRule: null and nonTerminatingMatchingRules: [] — no match at all — and the final action is ALLOW. The Content-Length header reads 48213 bytes. What does this combination most likely indicate?",
           options: [
             "AWS WAF's managed rule groups only inspect a request body up to a configured size limit (commonly around 8KB); a body this large means a substantial portion of it — potentially including any injected payload — was never evaluated by the SQLi rule group at all, so 'no match' does not mean 'no attack'",
-            "terminatingRule: null is AWS WAF's explicit confirmation flag that the entire request body, regardless of size, was fully parsed end-to-end and found completely clean",
-            "Content-Length is a purely informational header that AWS WAF's managed rule groups never read or factor into how much of a body they inspect",
-            "ALLOW paired with a null terminatingRule proves this specific request never actually reached the SQLi rule group for evaluation in the first place",
+            "terminatingRule: null is AWS WAF's explicit confirmation that the entire request body was parsed end-to-end regardless of its size — the field is populated with a rule name only when inspection had to be truncated, so a null value is the log's own guarantee that no part of the payload went unexamined",
+            "Content-Length is a purely informational header that AWS WAF never reads: the service measures body size only after decompression at the origin, so the number recorded in the log bears no relationship at all to how many bytes the managed rule groups actually inspected before rendering their verdict",
+            "ALLOW paired with a null terminatingRule proves this request never reached the SQLi rule group at all — AWS WAF omits a rule group from ruleGroupList entirely whenever it did evaluate the request, and lists it only for rule groups that were skipped because an earlier rule had already produced a verdict",
           ],
           answer: 0,
           explanation:
@@ -505,10 +505,10 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
           question:
             "clientIp is 154.16.88.203 (a Romanian IP with no prior history against this endpoint) and the User-Agent is 'python-requests/2.31.0' — a generic HTTP scripting library, not a browser. Combined with the oversized body, what should an analyst do next?",
           options: [
-            "Nothing — an ALLOW verdict from a managed rule group is, by AWS's own definition, conclusive proof the request was safe",
+            "Nothing further is warranted — an ALLOW verdict from an AWS managed rule group is, by AWS's own published definition, a conclusive attestation that the request body was inspected in full and found safe, which is exactly why managed rule groups are offered under a documented detection guarantee",
             "Pull the full request body from origin/access logging if available, inspect it for injection patterns beyond what the rule group's inspection limit covered, and review whether the SQLi rule group's oversize-handling setting should be tightened from its current permissive behavior",
-            "Immediately create a WAF rule blocking all traffic originating from Romania, since the clientIp country field alone is sufficient grounds for a country-wide block",
-            "Disable the AWS Managed SQL Injection Rule Group entirely across the whole web ACL, since this one event shows the rule group isn't working at all",
+            "Immediately add a geo-match rule to the web ACL blocking every source in Romania, since the clientIp country field alone is sufficient grounds for a permanent country-wide block, and blocking the source region also closes the oversize-inspection gap for every other client hitting the endpoint",
+            "Disable the AWS Managed SQL Injection Rule Group across the entire web ACL, since a rule group that returns no match on an oversized body is by definition faulty — removing it also forces AWS WAF back onto its default full-body inspection path, which carries no size limit at all",
           ],
           answer: 1,
           explanation:
@@ -519,10 +519,10 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
           question:
             "What is the broader lesson this event teaches about reading WAF verdicts?",
           options: [
-            "A BLOCK verdict confirms the rule group is functioning, and by strict logical symmetry an ALLOW verdict must always mean the request was genuinely evaluated in full and found clean",
+            "A BLOCK verdict confirms the rule group is functioning, and by strict logical symmetry an ALLOW verdict must therefore mean the request was genuinely evaluated in full and found clean — AWS WAF is documented as failing closed, returning a 403 rather than an ALLOW on any request it was unable to inspect completely",
             "An ALLOW is only meaningful in combination with knowing what was actually evaluated — a rule group with an inspection size limit and a permissive oversize-handling setting can report 'no match' on a request it only ever partially examined, which is a common, low-visibility way managed rulesets get bypassed",
-            "WAFs provide no genuine value for SQL injection protection under any configuration, so application-layer input validation should be the only defense an organization relies on",
-            "This inspection-limit issue only ever matters for POST requests carrying a body; GET requests are structurally immune to any body-size inspection limit",
+            "WAFs provide no genuine value for SQL injection protection under any configuration, because managed rule groups match only on literal string signatures and a parameterised query at the application layer defeats every injection attempt anyway — application-layer input validation should therefore be the only defense an organization relies on",
+            "The inspection-limit issue applies only to POST requests, because the HTTP specification forbids every other method from carrying a request body and AWS WAF consequently applies its body-size cap to POST alone — PUT, PATCH and DELETE requests are inspected without any size limit whatsoever",
           ],
           answer: 1,
           explanation:
@@ -705,10 +705,10 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       question:
         "An incident responder confirms an attacker moved laterally through a segment of the network for three days, but the SIEM shows zero alerts for that segment during the entire window. A junior analyst concludes 'the SIEM proves nothing happened here before day three.' What's wrong with that conclusion?",
       options: [
-        "Nothing is wrong with it — by design, a SIEM with zero alerts for a given time period is mathematically conclusive proof that no attack activity occurred during that period",
+        "Nothing is wrong with it — a SIEM ingests a full packet-level copy of every network segment through its own built-in collector, entirely independently of whatever log sources happen to be onboarded, so zero alerts across a three-day window is conclusive proof that no attack activity occurred on that segment",
         "The SIEM has no sensor of its own; an absence of alerts for a segment is at least as likely to mean that segment's logs were never being forwarded to the SIEM at all, as it is to mean nothing happened — the first step is checking whether that source was actually onboarded, not treating silence as proof of safety",
-        "SIEM platforms are structurally incapable of ever correlating lateral movement patterns, regardless of what logs are flowing into them, so this outcome was unavoidable",
-        "This silence can only be explained by the attacker's use of encryption, which by itself is always sufficient to defeat a SIEM's visibility completely",
+        "SIEM platforms are structurally incapable of correlating lateral movement, whatever logs are flowing into them, because a correlation rule can only ever evaluate events drawn from a single source type at a time and no SIEM supports a rule that joins authentication, network and endpoint telemetry together",
+        "The silence can only be explained by the attacker encrypting their lateral-movement traffic, which by itself defeats a SIEM completely — Windows suppresses logon events such as 4624 and 4648 whenever the session that produced them was carried over an encrypted channel, so nothing existed to forward in the first place",
       ],
       answer: 1,
       explanation:

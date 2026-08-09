@@ -565,10 +565,10 @@ Modern cloud services (Azure, AWS, Okta, Office 365) deliver logs via REST APIs 
       checkpoint: {
         question: "According to the reading, which log format is IBM QRadar's equivalent of CEF, using tabs as field separators?",
         options: [
-          "Syslog (RFC 5424)",
+          "Syslog RFC 5424, which is tab-delimited",
           "LEEF — Log Event Extended Format",
-          "JSON over HTTPS",
-          "NXLog format",
+          "JSON over HTTPS, an ArcSight-only format",
+          "NXLog format, IBM's licensed CEF rename",
         ],
         answer: 1,
         explanation: "LEEF (Log Event Extended Format) is IBM QRadar's structured logging format — conceptually similar to CEF but with tab-separated fields and different field naming.",
@@ -968,10 +968,10 @@ Your primary SOC workspace for M365. Key sections:
       checkpoint: {
         question: "According to the reading, what does Microsoft Secure Score measure?",
         options: [
-          "The number of active alerts in the Defender portal",
+          "The number of active alerts open in the Defender portal, weighted by their severity",
           "The organization's security posture, based on points awarded for implemented best-practice configurations",
-          "The total number of licensed M365 users",
-          "The amount of storage used across SharePoint and OneDrive",
+          "The tenant's Purview Compliance Manager score for regulatory controls such as GDPR and ISO 27001",
+          "The Defender Vulnerability Management exposure score for unpatched CVEs on enrolled endpoints",
         ],
         answer: 1,
         explanation: "Secure Score evaluates your M365 configuration against best practices and awards points for each recommendation implemented (like enabling MFA for admins) — a numeric measure of security posture.",

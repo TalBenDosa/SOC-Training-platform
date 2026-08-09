@@ -1116,10 +1116,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             question:
               "The log shows 'syn_packets_without_ack: 14'. In the context of TCP's three-way handshake, what does this indicate about the scan technique?",
             options: [
-              "The attacker's computer had an unstable network connection that caused the final ACK packets to be dropped in transit before reaching the target, unrelated to any scanning intent",
+              "The attacker's connection was unstable and the final ACK packets were dropped in transit, unrelated to any scanning intent — a real port scan would show a matching ACK for every SYN, since Nmap always completes the three-way handshake before it records a port as open",
               "This is a SYN scan (half-open scan) — the attacker sent SYN packets to probe ports but never completed the handshake. If a port is open, the server sends SYN-ACK; if closed, it sends RST. By never sending the final ACK, the attacker maps open ports without fully establishing connections (harder to detect)",
-              "The firewall was successfully blocking all the connection attempts, which is exactly why no ACK packets were recorded following any of the SYN packets sent",
-              "This is normal TCP behavior for a busy server — ACK packets are routinely batched and sent as a group well after the corresponding SYN packets arrive",
+              "The firewall was successfully blocking all the connection attempts — a DROP action strips the ACK flag out of the returning packets, and that flag removal is exactly what makes the syn_packets_without_ack counter climb on a correctly configured policy",
+              "This is normal TCP behavior for a busy server — the RFC 793 delayed-ACK mechanism lets a host defer the handshake's third packet for up to 40 seconds, so ACKs are routinely batched and logged well after their corresponding SYN packets",
             ],
             answer: 1,
             explanation:

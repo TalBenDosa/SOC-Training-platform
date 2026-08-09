@@ -48,9 +48,9 @@ const rooms = [
           question: "According to the reading, what are the six core components of a use case?",
           options: [
             "Hypothesis, Data Source, Detection Logic, Severity, Response Playbook, Exceptions/Suppressions",
-            "Title, Author, Date, Status, Owner, Version",
-            "Alert, Ticket, SLA, Escalation Path, Contact, Signature",
-            "IOC, TTP, Kill Chain Stage, MITRE ID, CVE, Patch Status",
+            "Log Source, Index, Sourcetype, Field Extraction, Lookup Table, Saved Search",
+            "Alert Name, Ticket ID, SLA Timer, Escalation Path, On-call Contact, Signature Hash",
+            "IOC, TTP, Kill Chain Stage, MITRE ATT&CK ID, CVE Number, Patch Status",
           ],
           answer: 0,
           explanation:
@@ -230,12 +230,12 @@ const rooms = [
         questions: [
           {
             question:
-              "Which command-line flag in the process.cmdline field is the specific indicator that triggered use case UC-ENDPOINT-0089 (Encoded PowerShell Execution)?",
+              "Which command-line flag in the process.cmdline field is the specific indicator that triggered use case UC-ENDPOINT-0089 (Encoded PowerShell Execution), and why?",
             options: [
-              "-NoProfile",
-              "-NonInteractive",
-              "-WindowStyle Hidden",
-              "-enc",
+              "-NoProfile — it skips the user's PowerShell profile, which this rule does not key on",
+              "-NonInteractive — it suppresses prompts during a script run, not an encoding indicator",
+              "-WindowStyle Hidden — it hides the console window, not an encoding indicator",
+              "-enc — it accepts a Base64-encoded command string, exactly what this rule detects",
             ],
             answer: 3,
             explanation:

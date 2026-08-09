@@ -177,7 +177,12 @@ const encodingRoom: Room = {
       checkpoint: {
         question:
           "What specific text encoding does PowerShell's -EncodedCommand flag expect the Base64 blob to represent?",
-        options: ["ASCII", "UTF-8", "UTF-16LE (Unicode)", "Latin-1"],
+        options: [
+          "ASCII — the same thing Linux's base64 command emits, so a blob built there pastes straight into -enc",
+          "UTF-8, the .NET in-memory string default",
+          "UTF-16LE (Unicode)",
+          "Latin-1, a superset of UTF-8",
+        ],
         answer: 2,
         explanation:
           "The reading states -EncodedCommand specifically expects UTF-16LE text, Base64-encoded -- which is why decoding one by hand shows what looks like a null byte after every readable character.",

@@ -958,9 +958,9 @@ Most professional SOC analysts use online sandboxes for quick dynamic analysis �
         question: "According to the reading, what is the key difference between static and dynamic malware analysis?",
         options: [
           "Static analysis examines the file without running it; dynamic analysis runs the file in a controlled environment and observes its behaviour",
-          "Static analysis is only for ransomware; dynamic analysis is only for spyware",
-          "Static analysis requires an internet connection; dynamic analysis does not",
-          "There is no real difference — both terms describe the same process",
+          "Static analysis executes the sample inside a hypervisor snapshot; dynamic analysis only reads the PE header offline",
+          "Static analysis is what tools like Cuckoo Sandbox and ANY.RUN perform; dynamic analysis is what strings, PEview and CFF Explorer perform",
+          "Static analysis works only on packed samples — once a binary is UPX-unpacked it can no longer be examined statically",
         ],
         answer: 0,
         explanation:
@@ -1354,7 +1354,12 @@ At the **very top** (hardest to change, maximum pain):
 IOCs have a shelf-life. A domain used for a phishing campaign last month may be abandoned today and reassigned to a legitimate website. An IP address used by a threat actor last week might now belong to an innocent cloud customer. Always note the **first seen / last seen** dates on any IOC, and treat stale IOCs (older than 3-6 months) with appropriate scepticism.`,
       checkpoint: {
         question: "According to the Pyramid of Pain described in the reading, which IOC type sits at the very top — causing the attacker the most pain to change?",
-        options: ["Hash values", "IP addresses", "Domain names", "TTPs (Tactics, Techniques, and Procedures)"],
+        options: [
+          "Hash values — recompiling the malware leaves the SHA-256 unchanged",
+          "IP addresses — an attacker cannot relocate C2 to a new host",
+          "Domain names — DNS records are frozen once a domain is registered",
+          "TTPs (Tactics, Techniques, and Procedures)",
+        ],
         answer: 3,
         explanation:
           "TTPs sit at the top of the Pyramid of Pain — detecting the attacker's actual playbook (e.g., PowerShell downloading a payload and injecting into svchost.exe) forces them to retrain and retool entirely. Hash values sit at the bottom because a single changed byte defeats them.",
