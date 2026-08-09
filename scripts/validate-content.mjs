@@ -267,6 +267,19 @@ for (const r of ROOMS) {
         add("ERROR", w, "answer index outside options");
       } else checkOptionBalance(w, t.options, t.answer);
     }
+    // Option balance was only ever checked on `question` tasks, which left the
+    // two biggest assessment surfaces unmeasured: log_analysis sub-questions
+    // (the read-a-real-log exercise this platform exists for) and the
+    // active-recall checkpoints attached to readings. Together they hid roughly
+    // three times as many length-guessable questions as the gate reported.
+    if (t.type === "log_analysis") {
+      (t.questions ?? []).forEach((q, i) => {
+        checkOptionBalance(`${w}[q${i + 1}]`, q.options, q.answer);
+      });
+    }
+    if (t.type === "reading" && t.checkpoint) {
+      checkOptionBalance(`${w}[checkpoint]`, t.checkpoint.options, t.checkpoint.answer);
+    }
     if (t.type === "ordering") {
       const itemIds = new Set((t.items ?? []).map(i => i.id));
       for (const id of t.correct_order ?? []) {
