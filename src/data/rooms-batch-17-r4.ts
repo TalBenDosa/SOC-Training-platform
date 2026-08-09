@@ -134,10 +134,10 @@ const winProtoRoom = {
         question:
           "According to the reading, what does the IPC$ administrative share actually map to on disk?",
         options: [
-          "The root of the C: drive — that's what C$ (and every other per-drive-letter share) maps to, granting full drive access to anyone authenticating with local administrator rights",
-          "The Windows installation folder at %SystemRoot% — that's ADMIN$'s mapping, not IPC$'s, and it's used by tools that need to deploy files directly into C:\\Windows",
+          "The root of the C: drive — the same mapping C$ uses, reachable by any local administrator",
+          "The Windows installation folder at %SystemRoot%, which is why deployment tools write files to IPC$",
           "Nothing — IPC$ has no filesystem location at all; it exists purely to carry named pipes",
-          "The logged-on user's personal home directory under C:\\Users — not a default administrative share at all, and not something IPC$, C$, or ADMIN$ ever expose",
+          "The logged-on user's home directory under C:\\Users, exposed over SMB to that user alone",
         ],
         answer: 2,
         explanation:

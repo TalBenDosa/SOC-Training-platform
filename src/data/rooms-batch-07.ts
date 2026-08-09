@@ -1505,10 +1505,10 @@ Before adding an IOC to your blocklist, ask:
       question:
         "According to the 'Pyramid of Pain' model, which type of indicator is the MOST valuable for defenders to detect and block — and causes the MOST disruption to attackers?",
       options: [
-        "File hashes (SHA-256) of specific malware samples — trivial for an attacker to defeat by changing a single byte to produce a completely different hash",
-        "IP addresses of known command-and-control servers — moderately disruptive to block, but attackers can rent a new server and rotate to a different IP within hours",
+        "File hashes (SHA-256) of malware samples — the apex of the Pyramid of Pain, since a hash uniquely fingerprints a sample",
+        "IP addresses of known command-and-control servers — the indicator an attacker finds hardest to change",
         "TTPs (Tactics, Techniques, and Procedures) — the attacker's methods and behaviours",
-        "Email subject lines used in phishing campaigns — easily rewritten by the attacker for the next wave, providing almost no lasting detection value",
+        "Email subject lines used in phishing campaigns — costlier to change than the attacker's tooling or tradecraft",
       ],
       answer: 2,
       explanation:

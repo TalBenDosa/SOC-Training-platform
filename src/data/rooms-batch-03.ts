@@ -1112,9 +1112,9 @@ const linuxLogAnalysis: Room = {
         "You need to check what the SSH service logged on November 22, 2024 between midnight and 06:00 AM. Which journalctl command would filter for exactly this?",
       options: [
         "journalctl -u sshd --since '2024-11-22 00:00:00' --until '2024-11-22 06:00:00'",
-        "cat /var/log/auth.log | grep sshd | head -100 — this reliably captures only the midnight-to-6-AM entries, since auth.log is written in strict chronological order and overnight periods typically produce close to exactly 100 sshd log lines",
-        "systemctl status sshd — displays the live current status of the SSH service including this specific historical time window in its default output",
-        "ps aux | grep sshd — lists the running sshd processes along with a complete historical log of every connection accepted between midnight and 6 AM",
+        "cat /var/log/auth.log | grep sshd | head -100 — auth.log is written one file per calendar day, so this returns only that date",
+        "systemctl status sshd --since '2024-11-22 00:00:00' — systemctl status accepts the same time-range flags as journalctl",
+        "ps aux | grep sshd — a process listing includes the connection history each daemon has handled since boot",
       ],
       answer: 0,
       explanation:

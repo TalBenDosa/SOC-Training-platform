@@ -136,12 +136,24 @@ function checkOptionBalance(where, options, correctIdx, sev = "WARN") {
   // cases — one checkpoint ended up with every distractor more than ten times
   // the length of the correct answer.
   //
-  // The threshold is deliberately looser than the 1.7 above. A correct answer
-  // is legitimately terse fairly often — the right response to "which encoding
-  // does -EncodedCommand expect?" really is just "UTF-16LE (Unicode)", and
-  // padding it out would be the same mistake as trimming a long correct answer.
-  // 2.0 catches the genuinely lopsided cases without punishing honest brevity.
-  if (shortestWrong > right.length * 2.0) {
+  // SYMMETRIC with the 1.7 above, deliberately.
+  //
+  // This shipped at 2.0 first, on the reasoning that a correct answer is
+  // legitimately terse fairly often and padding it out would be the same
+  // mistake as trimming a long one. A sensitivity sweep killed that argument:
+  // at 2.0 the corpus reported zero, at 1.9 one, and at 1.7 seven real cases —
+  // and inspecting those seven showed they are not innocent brevity at all.
+  // They carry a SECOND tell that pure length can't see: the correct answer is
+  // short and factual while every distractor is padded with absolutist
+  // justification ("regardless of context", "automatically", "definitively"),
+  // which is itself a well-known giveaway to anyone who has sat an exam.
+  //
+  // A threshold picked because it makes the current corpus report zero is not
+  // a standard, it is a description of the corpus. Symmetry is defensible on
+  // its own terms and does not move when the content moves; where a correct
+  // answer really must be a bare token, the fix is to reframe the question so
+  // every option is a full statement — see inv-method-r2 in rooms-batch-09.ts.
+  if (shortestWrong > right.length * 1.7) {
     add(sev, where,
       `every distractor is at least ${Math.round(shortestWrong / right.length * 100)}% of the correct option's length — answerable by picking the short one`);
   }

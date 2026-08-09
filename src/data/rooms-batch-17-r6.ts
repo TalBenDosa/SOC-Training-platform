@@ -411,10 +411,10 @@ const tunnelingRoom = {
         question:
           "According to the reading's six-step investigation playbook, what does an it_verify_result of 'confirmed' indicate?",
         options: [
-          "The finding should always be escalated regardless of context, since it_verify_result is a purely informational field that carries no bearing whatsoever on how an analyst should prioritize or triage any given finding",
+          "it_verify_result records which analyst reviewed the alert, and says nothing about the activity itself",
           "A legitimate, documented business explanation exists for the activity, making it very likely a false positive",
-          "The tool involved has been definitively proven malicious — 'confirmed' specifically means an incident responder has already completed a full forensic analysis of the tool's binary and concluded with certainty that it was used with malicious intent in this instance",
-          "The host must be immediately isolated from the network — any it_verify_result value, whether confirmed or unverified, automatically triggers a mandatory network isolation action as the very next mechanical step of the playbook",
+          "An incident responder has finished forensic analysis of the tool's binary and proved malicious intent",
+          "The host has been confirmed compromised, so the playbook's next step is to isolate it from the network",
         ],
         answer: 1,
         explanation:

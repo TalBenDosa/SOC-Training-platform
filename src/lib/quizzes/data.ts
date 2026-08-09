@@ -404,9 +404,9 @@ export const QUIZZES: Quiz[] = [
         question: "You observe thousands of DNS queries per minute to subdomains like 'a3f2b1.evil.com', 'd9e7c6.evil.com', each with different long random subdomains. What does this suggest?",
         options: [
         "DNS tunneling — data exfiltration or C2 communication encoded in DNS queries",
-        "A CDN using DNS-based load balancing, which returns different IP addresses for one hostname rather than generating thousands of unique random subdomains",
-        "A misconfigured DNS forwarder, which typically produces repeated failed lookups for the same names rather than a constant stream of unique high-entropy ones",
-        "A DDoS attack against the DNS server, which floods the resolver with repeated queries rather than encoding data into distinct subdomain labels",
+        "A CDN using DNS-based load balancing to spread traffic across edge nodes",
+        "A misconfigured DNS forwarder retrying the same failed lookups",
+        "A DDoS flood saturating the DNS resolver with repeated queries",
       ],
         answer: 0,
         explanation: "High-entropy subdomains in DNS queries are the hallmark of DNS tunneling. Tools like iodine, dnscat2, and custom C2 frameworks encode data into subdomain labels and TXT record responses. Legitimate DNS traffic does not have thousands of unique high-entropy subdomains.",
