@@ -203,6 +203,16 @@ export default function SignupPage() {
         );
       } else if (raw.includes("invitation_invalid")) {
         setError("This invitation has expired or has already been used. Ask your course administrator for a fresh link.");
+      } else if (raw.toLowerCase().includes("already registered")) {
+        // The multi-environment case: this email HAS an account and is holding
+        // a code for a (possibly additional) environment. Registration is the
+        // wrong door — sign in and the code joins the environment to the
+        // existing account, keeping every environment they're already in.
+        setError(
+          orgCode
+            ? "This email already has an account — and that's fine: sign in and this code will add the environment to it, alongside any you're already in."
+            : "This email already has an account. Sign in instead.",
+        );
       } else if (raw.includes("student_invite_requires_code")) {
         setError("Class-wide invite links were retired — students now join with a class code. Ask your instructor for today's code.");
       } else if (raw.includes("org_code_invalid")) {
@@ -517,6 +527,17 @@ export default function SignupPage() {
         {error && (
           <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
             {error}
+            {/* The one error whose FIX is a different door: an existing account
+                holding a code signs in, and the code joins the environment to
+                that account (/login applies ?code= after authentication). */}
+            {error.toLowerCase().includes("already has an account") && orgCode && (
+              <Link
+                href={`/login?code=${encodeURIComponent(orgCode)}`}
+                className="mt-2 block rounded border border-cyber-500/40 bg-cyber-500/10 px-3 py-2 text-center text-sm font-semibold text-cyber-300 hover:bg-cyber-500/20"
+              >
+                Sign in &amp; join with this code →
+              </Link>
+            )}
           </div>
         )}
 

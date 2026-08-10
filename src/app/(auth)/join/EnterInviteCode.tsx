@@ -15,6 +15,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 /**
  * Pull the credential out of whatever was pasted. A full invite URL carries
@@ -38,6 +40,9 @@ export function EnterInviteCode() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  // A SIGNED-IN user entering a code isn't registering — they're joining an
+  // additional environment with the account they already have.
+  const { user } = useAuth();
 
   const token = extractToken(value);
 
@@ -53,13 +58,34 @@ export function EnterInviteCode() {
       return;
     }
 
-    // Access code → validate NOW, before the student invests in a form.
+    const code = token.toUpperCase();
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/access-codes/${encodeURIComponent(token.toUpperCase())}`);
+      // Signed in → redeem the code onto THIS account: join the environment,
+      // switch into it, done. No signup form, no "User already registered".
+      if (user) {
+        const res = await fetch("/api/account/join-environment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          // Org claims live in the JWT — restamp them for the new context.
+          await getSupabaseBrowserClient()?.auth.refreshSession();
+          window.location.href = "/dashboard";
+          return;
+        }
+        setError(data.error ?? "Couldn't join with this code.");
+        setSubmitting(false);
+        return;
+      }
+
+      // Not signed in → validate, then on to registration.
+      const res = await fetch(`/api/access-codes/${encodeURIComponent(code)}`);
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.valid) {
-        router.push(`/signup?code=${encodeURIComponent(token.toUpperCase())}`);
+        router.push(`/signup?code=${encodeURIComponent(code)}`);
         return;
       }
       setError("That access code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
@@ -88,6 +114,12 @@ export function EnterInviteCode() {
       <Button type="submit" className="mt-4 w-full" disabled={!token || submitting}>
         {submitting ? "Checking…" : "Continue"}
       </Button>
+      {user && (
+        <p className="mt-3 text-center text-[11px] text-slate-500">
+          Signed in as <span className="text-slate-300">{user.email}</span> — this environment
+          will be added to your account, alongside any you&apos;re already in.
+        </p>
+      )}
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
     </form>
   );

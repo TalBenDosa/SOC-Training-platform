@@ -23,6 +23,12 @@ function LoginForm() {
   const justRegistered = searchParams.get("registered") === "1";
   const rawNext = searchParams.get("next");
   const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/welcome";
+  // ?code= — an access code carried over from signup's "this email already has
+  // an account" path. Applied AFTER authentication: the code joins its
+  // environment to the signed-in account (multi-environment), then we land on
+  // the dashboard of the newly joined environment.
+  const rawCode = searchParams.get("code");
+  const joinCode = rawCode && /^[A-Z0-9]{6,12}$/i.test(rawCode.trim()) ? rawCode.trim().toUpperCase() : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +56,28 @@ function LoginForm() {
       );
       return;
     }
+
+    // Carried access code → join its environment onto this account before
+    // navigating. On failure we STOP with the reason (seat cap, expired code)
+    // rather than silently landing the user somewhere they didn't join.
+    if (joinCode) {
+      setSubmitting(true);
+      const res = await fetch("/api/account/join-environment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: joinCode }),
+      });
+      setSubmitting(false);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Signed in, but couldn't join with this code.");
+        return;
+      }
+      await supabase.auth.refreshSession(); // restamp org claims for the new context
+      window.location.href = "/dashboard";
+      return;
+    }
+
     router.push(nextPath);
     router.refresh();
   }
@@ -82,6 +110,15 @@ function LoginForm() {
         </div>
       </div>
 
+      {joinCode && (
+        <div className="mb-4 flex items-start gap-2 rounded border border-cyber-500/30 bg-cyber-500/5 px-3 py-2.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyber-300" />
+          <p className="text-xs text-slate-300">
+            Sign in and the code <span className="font-mono font-bold text-cyber-300">{joinCode}</span>{" "}
+            will add its environment to your account.
+          </p>
+        </div>
+      )}
       {justRegistered && (
         <div className="mb-4 flex items-start gap-2 rounded border border-neon-green/30 bg-neon-green/5 px-3 py-2.5">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-neon-green" />
