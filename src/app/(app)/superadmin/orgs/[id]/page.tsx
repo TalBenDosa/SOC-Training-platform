@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   ArrowLeft, Loader2, Users, Trophy, Activity, Target, DoorOpen, Trash2, UserPlus, X, AlertTriangle,
-  Copy, Check, Download, KeyRound, LogIn,
+  Copy, Check, Download, KeyRound, LogIn, ShieldCheck, Mail,
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
@@ -46,6 +46,12 @@ export default function OrgDetailPage() {
 
   // entering the environment (super-admin context switch)
   const [entering, setEntering] = useState(false);
+
+  // invite a new org admin by email
+  const [adminEmail, setAdminEmail] = useState("");
+  const [invitingAdmin, setInvitingAdmin] = useState(false);
+  const [adminInvite, setAdminInvite] = useState<{ email: string; link: string; emailed: boolean } | null>(null);
+  const [adminCopied, setAdminCopied] = useState(false);
 
   async function enterEnvironment() {
     setError(null); setNotice(null); setEntering(true);
@@ -160,6 +166,22 @@ export default function OrgDetailPage() {
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to remove."); return; }
     await load();
+  }
+
+  async function inviteAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    setInvitingAdmin(true); setError(null); setNotice(null); setAdminInvite(null);
+    const res = await fetch(`/api/superadmin/orgs/${id}/invite-admin`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: adminEmail }),
+    });
+    setInvitingAdmin(false);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setError(data?.error ?? "Failed to invite admin."); return; }
+    // Surface the link (and whether the email actually went out) so it can be
+    // sent by hand if Resend isn't configured yet.
+    setAdminInvite({ email: adminEmail, link: data.adminLink, emailed: data.emailed });
+    setAdminEmail("");
+    setNotice(data.emailed ? `Invitation emailed to ${adminEmail}.` : `Invite created — email delivery is off, share the link below.`);
   }
 
   async function deleteOrg() {
@@ -342,6 +364,46 @@ export default function OrgDetailPage() {
                 </Button>
                 <span className="text-[11px] text-slate-500">Visible to this college — keep internal-only notes elsewhere.</span>
               </div>
+            </Card>
+
+            {/* Invite a NEW org admin by email — the person who will run this
+                college. They get a join link to their org's registration form,
+                then the /manage dashboard. Distinct from "attach existing
+                account" below, which only works once someone already signed up. */}
+            <Card className="border-neon-purple/30">
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-bold text-white">
+                <ShieldCheck className="h-4 w-4 text-neon-purple" /> Invite an org admin
+              </h2>
+              <p className="mb-3 text-[11px] text-slate-400">
+                Sends an email invitation to run this college. The link opens their org&apos;s
+                registration form; once registered they get the management dashboard and can
+                generate the class code for students.
+              </p>
+              <form onSubmit={inviteAdmin} className="flex flex-wrap items-end gap-2">
+                <div className="flex-1 min-w-[220px]">
+                  <label className={label} htmlFor="a-email">Admin email</label>
+                  <input id="a-email" type="email" className={field} value={adminEmail} onChange={e => setAdminEmail(e.target.value)} placeholder="head.of.dept@college.ac.il" required />
+                </div>
+                <Button type="submit" variant="primary" size="sm" disabled={invitingAdmin}>
+                  <Mail className="mr-1.5 h-4 w-4" /> {invitingAdmin ? "Sending…" : "Send invitation"}
+                </Button>
+              </form>
+              {adminInvite && (
+                <div className="mt-3 rounded-lg border border-border bg-bg-elevated px-3 py-2.5">
+                  <p className="text-[11px] text-slate-400">
+                    {adminInvite.emailed
+                      ? <>Emailed to <span className="text-slate-200">{adminInvite.email}</span>. The link is also here:</>
+                      : <>Email delivery is off on this deployment — <span className="text-neon-amber">send this link to {adminInvite.email} yourself</span>:</>}
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input readOnly value={adminInvite.link} onFocus={e => e.currentTarget.select()}
+                      className={`${field} flex-1 font-mono text-[11px]`} aria-label="Admin invite link" />
+                    <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(adminInvite.link); setAdminCopied(true); setTimeout(() => setAdminCopied(false), 2000); }}>
+                      {adminCopied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </Card>
 
             {/* Members */}
