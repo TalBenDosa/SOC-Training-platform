@@ -11,8 +11,15 @@ import "server-only";
  * Env:
  *   RESEND_API_KEY  — enables real sending.
  *   EMAIL_FROM      — the From address, e.g. "HACK THE SOC <noreply@your-domain>".
- *                     Falls back to Resend's shared onboarding sender for testing.
+ *                     Optional override. Defaults to noreply@hackthesoc.app — the
+ *                     project's own VERIFIED Resend domain, which can deliver to
+ *                     any recipient. (The old fallback, onboarding@resend.dev, is
+ *                     Resend's shared sender and only delivers to the account
+ *                     owner — so a missing/typo'd EMAIL_FROM used to silently 403
+ *                     every real invite. Defaulting to the verified domain removes
+ *                     that footgun; email works out of the box, env just overrides.)
  */
+const DEFAULT_FROM = "HACK THE SOC <noreply@hackthesoc.app>";
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 export interface EmailInput {
@@ -24,7 +31,7 @@ export interface EmailInput {
 
 export async function sendEmail(input: EmailInput): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || "HACK THE SOC <onboarding@resend.dev>";
+  const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
   const to = Array.isArray(input.to) ? input.to : [input.to];
 
   if (!key) {

@@ -22,7 +22,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { AlertTriangle, KeyRound } from "lucide-react";
+import { AlertTriangle, KeyRound, CheckCircle2 } from "lucide-react";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { EnterInviteCode } from "./EnterInviteCode";
 
@@ -48,6 +48,29 @@ function InvalidInvite({ reason }: { reason: string }) {
       </Link>
       <Link href="/login" className="mt-4 block text-xs text-slate-400 hover:text-white">
         Already have an account? Sign in
+      </Link>
+    </Card>
+  );
+}
+
+/**
+ * A CONSUMED invite (accepted_at set) is not a failure — the person already
+ * registered with it. Re-opening the same one-time link is the single most
+ * common way to hit "not valid", and the generic error read as a breakage to
+ * someone who had, in fact, just succeeded. Send them to sign in instead.
+ */
+function AlreadyRegistered({ orgName }: { orgName: string | null }) {
+  return (
+    <Card className="w-full max-w-md text-center">
+      <CheckCircle2 className="mx-auto h-8 w-8 text-neon-green" />
+      <h1 className="mt-4 text-lg font-bold text-white">You&apos;re already registered</h1>
+      <p className="mt-2 text-sm text-slate-400">
+        This invitation has already been used to create your account
+        {orgName ? <> for <span className="font-semibold text-white">{orgName}</span></> : null}.
+        An invite link works once — there&apos;s nothing more to do here. Just sign in.
+      </p>
+      <Link href="/login" className="mt-6 inline-block">
+        <Button>Continue to sign in</Button>
       </Link>
     </Card>
   );
@@ -91,7 +114,19 @@ export default async function JoinPage({ searchParams }: PageProps) {
     return <InvalidInvite reason="We don't recognise this invitation code." />;
   }
   if (row.valid !== true) {
-    return <InvalidInvite reason="This invitation has expired or has already been used." />;
+    // valid=false conflates two very different states. Look up the invitation
+    // itself to tell them apart: accepted_at set → the person already
+    // registered with this link (success, not failure); otherwise it genuinely
+    // lapsed. resolve_invitation doesn't surface accepted_at, so read it here.
+    const { data: inv } = await admin
+      .from("invitations")
+      .select("accepted_at")
+      .eq("token", token)
+      .maybeSingle();
+    if (inv?.accepted_at) {
+      return <AlreadyRegistered orgName={row.org_name ?? null} />;
+    }
+    return <InvalidInvite reason="This invitation has expired. Ask your course administrator for a fresh link." />;
   }
 
   // Valid → straight to registration, carrying the token.
