@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useRouter } from "next/navigation";
-import { UserPlus, Mail, CheckCircle2, AlertTriangle, Loader2, Check, X, Building2, Lock } from "lucide-react";
+import { UserPlus, Mail, CheckCircle2, AlertTriangle, Loader2, Check, X, Building2, Lock, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -226,16 +226,18 @@ export default function SignupPage() {
       }
       return;
     }
-    // If email confirmation is disabled in the Supabase project, signUp already
-    // returns an active session — go straight in. Otherwise show "check your email".
+    // If email confirmation is disabled in the Supabase project (it is, on this
+    // deployment: mailer_autoconfirm), signUp returns an active session — the
+    // account is ready NOW. Otherwise show "check your email".
     if (data.session) {
-      // Confirmation is disabled on this project, so the account is already
-      // active. Sign the fresh session out and hand them to the login form:
-      // the request was to land on sign-in, and arriving there already
-      // authenticated would be confusing.
-      await supabase.auth.signOut();
+      // Render the success confirmation FIRST, so it can't be skipped by the
+      // sign-out below re-rendering the tree. Then sign the fresh session out
+      // in the background (the request is to land on sign-in, and arriving
+      // there already authenticated would be confusing), and auto-advance
+      // after a beat long enough to actually read the confirmation.
       setSignedUp(true);
-      setTimeout(() => router.push("/login?registered=1"), 1600);
+      void supabase.auth.signOut();
+      setTimeout(() => router.push("/login?registered=1"), 2600);
     } else {
       setCheckEmail(true);
     }
@@ -260,20 +262,26 @@ export default function SignupPage() {
   if (signedUp) {
     return (
       <Card className="w-full max-w-md text-center">
-        <CheckCircle2 className="mx-auto h-8 w-8 text-neon-green" />
-        <h1 className="mt-4 text-lg font-bold text-white">Account created</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          {normalisedHandle
-            ? <>You&apos;ll be known as <span className="font-semibold text-white">{normalisedHandle}</span>. </>
-            : null}
-          Taking you to sign in…
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-neon-green/40 bg-neon-green/10">
+          <CheckCircle2 className="h-8 w-8 text-neon-green" />
+        </div>
+        <h1 className="mt-5 text-xl font-bold text-white">You&apos;re registered!</h1>
+        <p className="mt-2 text-sm text-slate-300">
+          Your account is ready
+          {codeOrg ? <> in <span className="font-semibold text-white">{codeOrg}</span></> : null}
+          {normalisedHandle ? <>, as <span className="font-semibold text-white">{normalisedHandle}</span></> : null}.
         </p>
-        <Loader2 className="mx-auto mt-5 h-4 w-4 animate-spin text-slate-400" />
-        {/* A manual way through, in case the redirect does not fire — the
-            previous flow left the user with no feedback and no next step. */}
-        <Link href="/login?registered=1" className="mt-5 inline-block">
-          <Button variant="outline" size="sm">Go to sign in</Button>
+        <p className="mt-1 text-sm text-slate-400">Sign in to start training.</p>
+        {/* The confirmation is the point, so the button is the primary path.
+            An auto-redirect follows a couple of seconds later as a fallback. */}
+        <Link href="/login?registered=1" className="mt-6 block">
+          <Button variant="primary" size="lg" className="w-full">
+            Continue to sign in <ArrowRight className="h-4 w-4" />
+          </Button>
         </Link>
+        <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+          <Loader2 className="h-3 w-3 animate-spin" /> Taking you there automatically…
+        </p>
       </Card>
     );
   }
