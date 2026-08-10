@@ -7,11 +7,13 @@
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Users, Trophy, Activity, Target, DoorOpen, UserPlus, Link2, Copy, Check, AlertTriangle, Loader2, Upload, Mail, KeyRound,
   Power, PowerOff, Trash2, Download, TrendingDown, Clock, ClipboardList, Plus, X, CalendarClock,
+  Building2, ChevronRight, CalendarDays,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 import type { StudentRow } from "@/app/api/org/analytics/route";
@@ -298,6 +300,32 @@ export default function ManagePage() {
           <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
         ) : (
           <>
+            {/* At-a-glance banner: the college's name and its live class code,
+                the two things an admin opens this page to see. The code CARD
+                below keeps the generate/copy controls; this is the summary. */}
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-neon-cyan/30 bg-gradient-to-r from-neon-cyan/[0.07] to-transparent px-5 py-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-neon-cyan/30 bg-neon-cyan/10">
+                  <Building2 className="h-5 w-5 text-neon-cyan" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400">College</p>
+                  <p className="truncate text-lg font-bold text-white">{org?.name ?? "—"}</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Class code</p>
+                {classCode ? (
+                  <>
+                    <p className="font-mono text-xl font-bold tracking-[0.3em] text-neon-cyan">{classCode.code}</p>
+                    <p className="text-[10px] text-slate-500">rotates every 24h · a student&apos;s enrolment lasts 100 days from sign-up</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400">No live code — generate one below.</p>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               <Stat icon={<Users className="h-4 w-4" />} label="Students" value={`${active.length}${org && org.seat_limit > 0 ? `/${org.seat_limit}` : ""}`} />
               <Stat icon={<Trophy className="h-4 w-4" />} label="Total XP" value={(usage?.total_xp ?? 0).toLocaleString()} />
@@ -609,10 +637,18 @@ export default function ManagePage() {
                       <div key={m.user_id} className={`flex flex-wrap items-center justify-between gap-3 py-2.5 ${isActive ? "" : "opacity-60"}`}>
                         <div className="flex items-center gap-3 min-w-0">
                           <span className="w-5 shrink-0 text-center font-mono text-[11px] text-slate-500">{isActive ? i + 1 : "—"}</span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-white">{m.display_name || m.handle || m.user_id.slice(0, 8)}</p>
-                            <p className="truncate font-mono text-[11px] text-slate-400">{m.handle ? `@${m.handle}` : ""} · {m.role}</p>
-                          </div>
+                          {/* Name links to the per-student drill-down (timeline,
+                              per-scenario score + time, decision latency). */}
+                          <Link href={`/manage/students/${m.user_id}`} className="group min-w-0">
+                            <p className="flex items-center gap-1 truncate text-sm font-medium text-white group-hover:text-cyber-300">
+                              {m.display_name || m.handle || m.user_id.slice(0, 8)}
+                              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-cyber-300" />
+                            </p>
+                            <p className="truncate font-mono text-[11px] text-slate-400">
+                              {m.handle ? `@${m.handle}` : ""} · {m.role}
+                              {s?.joined_at ? <> · <CalendarDays className="inline h-3 w-3" /> joined {new Date(s.joined_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</> : null}
+                            </p>
+                          </Link>
                           <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
                             isActive ? "border-neon-green/30 bg-neon-green/10 text-neon-green" : "border-slate-600 bg-slate-800/60 text-slate-400"
                           }`}>{isActive ? "Active" : "Inactive"}</span>

@@ -80,6 +80,10 @@ export async function POST(req: Request) {
   const startsAt = body.starts_at ? new Date(String(body.starts_at)).toISOString() : new Date().toISOString();
   const expiresAt = body.expires_at ? new Date(String(body.expires_at)).toISOString() : null;
   const status: OrgStatus = (["trial", "active"].includes(String(body.status)) ? body.status : "active") as OrgStatus;
+  // Commercial record (0020) — optional, captured on the create form now (was
+  // previously only editable on the org detail page). A plain object; the
+  // detail page can later fill in the structured fields (plan/price/PO…).
+  const contract = body.contract && typeof body.contract === "object" ? body.contract : undefined;
 
   if (!name) return NextResponse.json({ error: "Name is required." }, { status: 400 });
   if (!slug) return NextResponse.json({ error: "A valid slug (letters/numbers) is required." }, { status: 400 });
@@ -90,7 +94,7 @@ export async function POST(req: Request) {
 
   const { data: org, error } = await admin
     .from("organizations")
-    .insert({ name, slug, seat_limit: seatLimit, starts_at: startsAt, expires_at: expiresAt, status })
+    .insert({ name, slug, seat_limit: seatLimit, starts_at: startsAt, expires_at: expiresAt, status, ...(contract ? { contract } : {}) })
     .select()
     .single();
 

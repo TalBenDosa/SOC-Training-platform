@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
+import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
 import {
   LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag,
 } from "lucide-react";
@@ -189,6 +190,9 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             <span>Super Admin</span>
           </Link>
         )}
+        {/* Super-admin environment switcher — present in all tenants, switch
+            between them in one click. Self-gates on the platform-admin claim. */}
+        <EnvironmentSwitcher onNavigate={onNavigate} />
       </div>
     </>
   );
