@@ -54,6 +54,21 @@ export async function GET() {
       .sort()
       .map(k => JSON.stringify(k)),
 
+    // Email delivery config — the definitive answer to "does PRODUCTION have
+    // Resend?" Presence only, never the key value. If email_sends_enabled is
+    // false, transactional emails (org welcome, admin invite) are SKIPPED —
+    // Supabase auth emails (password reset) are separate and unaffected.
+    email: {
+      email_sends_enabled: Boolean(process.env.RESEND_API_KEY?.trim()),
+      resend_api_key_set: Boolean(process.env.RESEND_API_KEY?.trim()),
+      email_from_set: Boolean(process.env.EMAIL_FROM?.trim()),
+      email_from_value: process.env.EMAIL_FROM?.trim() || "(unset → default onboarding@resend.dev)",
+      email_env_names: Object.keys(process.env)
+        .filter(k => /resend|email|smtp|mail/i.test(k))
+        .sort()
+        .map(k => JSON.stringify(k)),
+    },
+
     deployment: {
       vercel_env: process.env.VERCEL_ENV ?? "(not on vercel)",
       commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "(unknown)",
