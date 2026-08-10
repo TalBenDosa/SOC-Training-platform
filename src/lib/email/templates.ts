@@ -28,27 +28,47 @@ function linkBox(href: string): string {
   return `<div style="margin:10px 0;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-family:'Courier New',monospace;font-size:12px;word-break:break-all;color:#334155;">${href}</div>`;
 }
 
+/** A prominent monospace code chip — for the class affiliation code. */
+function codeChip(code: string): string {
+  return `<div style="margin:10px 0;padding:14px 18px;background:#f0f9ff;border:1px solid ${BRAND};border-radius:10px;text-align:center;font-family:'Courier New',monospace;font-size:24px;font-weight:bold;letter-spacing:6px;color:#0369a1;">${code}</div>`;
+}
+
 /** Sent to a college's admin when their environment is provisioned. */
-export function orgWelcomeEmail(args: { orgName: string; adminLink?: string | null }): {
+export function orgWelcomeEmail(args: { orgName: string; adminLink?: string | null; classCode?: string | null }): {
   subject: string; html: string; text: string;
 } {
-  const { orgName, adminLink } = args;
+  const { orgName, adminLink, classCode } = args;
   const adminBlock = adminLink
     ? `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">First, set up your own admin account:</p>
        <p style="margin:0 0 4px;">${button(adminLink, "Create your admin account")}</p>
        ${linkBox(adminLink)}<hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0;">`
     : "";
+  // A starter class code, when one is minted with the invite. It is valid 24h —
+  // stated plainly, because the invite link itself lasts 14 days, so an admin
+  // who registers later must generate a fresh one from Manage Class.
+  const codeBlock = classCode
+    ? `<p style="margin:18px 0 6px;font-size:14px;line-height:1.6;"><strong>Your first class code</strong> — share it with your students so they can register today:</p>
+       ${codeChip(classCode)}
+       <p style="margin:6px 0 0;font-size:12px;color:#64748b;line-height:1.5;">This code is valid for <strong>24 hours</strong>. Generate a fresh one anytime from your "Manage Class" area — a new code always replaces the old one.</p>`
+    : `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;"><strong>How students join:</strong> from your "Manage Class" area, generate your class's <strong>affiliation code</strong> (valid 24 hours — generate a fresh one each day) and share it with your students.</p>`;
   const html = shell(
     `Your ${orgName} environment is ready`,
     `${adminBlock}
-     <p style="margin:0 0 8px;font-size:14px;line-height:1.6;"><strong>How students join:</strong> from your "Manage Class" area, generate your class's <strong>affiliation code</strong> (valid 24 hours — generate a fresh one each day) and share it with your students. They register with their email + the code. There is no other way in, so nobody outside your class can enrol.</p>
-     <p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.6;">Each student's data is isolated to your organisation, and their enrolment is valid for 100 days before they re-enter a current code.</p>`,
+     ${codeBlock}
+     <p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.6;">Students register with their email + the code — there is no other way in, so nobody outside your class can enrol. Each student's data is isolated to your organisation, and their enrolment is valid for 100 days before they re-enter a current code.</p>`,
   );
   const text = `Your ${orgName} environment is ready.
 
 ${adminLink ? `Create your admin account: ${adminLink}
 
-` : ""}How students join: from "Manage Class", generate your class's affiliation code (valid 24 hours) and share it. Students register with their email + the code — there is no other way in.`;
+` : ""}${classCode
+    ? `Your first class code (share with students, valid 24 hours): ${classCode}
+Generate a fresh one anytime from "Manage Class".
+
+`
+    : `How students join: from "Manage Class", generate your class's affiliation code (valid 24 hours) and share it.
+
+`}Students register with their email + the code — there is no other way in.`;
   return { subject: `Your ${orgName} environment on HACK THE SOC is ready`, html, text };
 }
 

@@ -3,6 +3,7 @@ import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { orgWelcomeEmail } from "@/lib/email/templates";
+import { generateCode } from "@/lib/org/classCode";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 /**
@@ -113,15 +114,19 @@ export async function POST(req: Request) {
     adminLink = `${origin}/join?token=${token}`;
   }
 
-  // 0029: no standing class link is minted anymore. Students join with the
-  // org's affiliation code, which the admin generates from /manage (or the
-  // super-admin from /superadmin) — the welcome email explains exactly that.
+  // 0029: no standing class link — students join with the org's affiliation
+  // code. Mint a starter one and include it in the admin's welcome email so
+  // the college is ready to enrol students immediately.
+  let classCode: string | null = null;
+  if (adminEmail) {
+    try { classCode = (await generateCode(admin, org.id, gate.user.id)).code; } catch { /* non-fatal */ }
+  }
   let emailed = false;
   if (adminEmail) {
-    const mail = orgWelcomeEmail({ orgName: name, adminLink });
+    const mail = orgWelcomeEmail({ orgName: name, adminLink, classCode });
     const r = await sendEmail({ to: adminEmail, subject: mail.subject, html: mail.html, text: mail.text });
     emailed = r.ok;
   }
 
-  return NextResponse.json({ org, adminLink, emailed }, { status: 201 });
+  return NextResponse.json({ org, adminLink, classCode, emailed }, { status: 201 });
 }

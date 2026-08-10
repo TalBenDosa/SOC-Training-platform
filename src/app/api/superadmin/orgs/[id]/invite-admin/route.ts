@@ -4,6 +4,7 @@ import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { orgWelcomeEmail } from "@/lib/email/templates";
+import { generateCode } from "@/lib/org/classCode";
 import { logAudit } from "@/lib/audit/logAudit";
 
 /**
@@ -56,13 +57,21 @@ export async function POST(req: Request, { params }: Ctx) {
   const origin = new URL(req.url).origin;
   const adminLink = `${origin}/join?token=${token}`;
 
-  const mail = orgWelcomeEmail({ orgName: org.name, adminLink });
+  // Mint a starter class code so the admin can distribute it to students right
+  // away — included in the welcome email. Best-effort: if generation fails,
+  // the invite still goes out, the admin just makes a code from Manage Class.
+  let classCode: string | null = null;
+  try {
+    classCode = (await generateCode(admin, orgId, gate.user.id)).code;
+  } catch { /* non-fatal — the invite is the point, the code is a convenience */ }
+
+  const mail = orgWelcomeEmail({ orgName: org.name, adminLink, classCode });
   const r = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
 
   await logAudit({
     actorId: gate.user.id, action: "superadmin.admin_invited",
-    targetTable: "invitations", targetId: orgId, metadata: { email, emailed: r.ok },
+    targetTable: "invitations", targetId: orgId, metadata: { email, emailed: r.ok, code_included: Boolean(classCode) },
   });
 
-  return NextResponse.json({ ok: true, adminLink, emailed: r.ok, emailSkipped: r.skipped ?? false });
+  return NextResponse.json({ ok: true, adminLink, classCode, emailed: r.ok, emailSkipped: r.skipped ?? false });
 }
