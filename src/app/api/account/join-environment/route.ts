@@ -31,6 +31,23 @@ export async function POST(req: Request) {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
+  // Org admins are single-org by design — they belong to exactly one
+  // organisation and only ever access that one. The multi-environment door is
+  // for students; the super-admin has their own /superadmin/enter-org (no seat
+  // cap, no clock). So a non-super-admin who already administers ANY org is
+  // refused here — this is what enforces "an org admin is registered once".
+  if (!user.isPlatformAdmin) {
+    const { data: adminElsewhere } = await admin
+      .from("org_members").select("org_id")
+      .eq("user_id", user.id).eq("role", "org_admin").eq("status", "active")
+      .limit(1);
+    if (adminElsewhere && adminElsewhere.length > 0) {
+      return NextResponse.json({
+        error: "Org admins belong to a single organisation and can't join another. Ask the platform owner if you need access elsewhere.",
+      }, { status: 403 });
+    }
+  }
+
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const code = String(body.code ?? "").trim().toUpperCase();

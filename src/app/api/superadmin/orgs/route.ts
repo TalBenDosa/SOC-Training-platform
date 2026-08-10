@@ -99,6 +99,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // The platform super-admin owns every tenant and is present in EVERY
+  // environment by design ("super-admin registered in all environments"). Enrol
+  // every super-admin (profiles.role='admin') as an org_admin of the new org so
+  // it appears in their environments immediately — no need to enter-org after
+  // each creation. Non-fatal: the console lists all orgs regardless.
+  const { data: supers } = await admin.from("profiles").select("id").eq("role", "admin");
+  if (supers && supers.length) {
+    await admin.from("org_members").upsert(
+      supers.map(s => ({ org_id: org.id, user_id: s.id, role: "org_admin", status: "active" })),
+      { onConflict: "org_id,user_id" },
+    );
+  }
+
   const origin = new URL(req.url).origin;
 
   // Optionally invite a first org-admin (email) — capture the link so we can
