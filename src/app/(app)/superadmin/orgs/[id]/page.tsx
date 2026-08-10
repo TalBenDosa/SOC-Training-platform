@@ -50,7 +50,7 @@ export default function OrgDetailPage() {
   // invite a new org admin by email
   const [adminEmail, setAdminEmail] = useState("");
   const [invitingAdmin, setInvitingAdmin] = useState(false);
-  const [adminInvite, setAdminInvite] = useState<{ email: string; link: string; emailed: boolean } | null>(null);
+  const [adminInvite, setAdminInvite] = useState<{ email: string; link: string; emailed: boolean; status?: string; error?: string | null } | null>(null);
   const [adminCopied, setAdminCopied] = useState(false);
 
   async function enterEnvironment() {
@@ -179,9 +179,13 @@ export default function OrgDetailPage() {
     if (!res.ok) { setError(data?.error ?? "Failed to invite admin."); return; }
     // Surface the link (and whether the email actually went out) so it can be
     // sent by hand if Resend isn't configured yet.
-    setAdminInvite({ email: adminEmail, link: data.adminLink, emailed: data.emailed });
+    setAdminInvite({ email: adminEmail, link: data.adminLink, emailed: data.emailed, status: data.email_status, error: data.email_error });
     setAdminEmail("");
-    setNotice(data.emailed ? `Invitation emailed to ${adminEmail}.` : `Invite created — email delivery is off, share the link below.`);
+    setNotice(data.emailed
+      ? `Invitation emailed to ${adminEmail}.`
+      : data.email_status === "rejected"
+        ? `Invite created, but the email provider rejected this recipient — share the link below.`
+        : `Invite created — email isn't configured yet, share the link below.`);
   }
 
   async function deleteOrg() {
@@ -393,7 +397,9 @@ export default function OrgDetailPage() {
                   <p className="text-[11px] text-slate-400">
                     {adminInvite.emailed
                       ? <>Emailed to <span className="text-slate-200">{adminInvite.email}</span>. The link is also here:</>
-                      : <>Email delivery is off on this deployment — <span className="text-neon-amber">send this link to {adminInvite.email} yourself</span>:</>}
+                      : adminInvite.status === "rejected"
+                        ? <>The email provider <span className="text-neon-amber">rejected {adminInvite.email}</span> — with the default sender it only allows your own Resend address. Verify a domain and set EMAIL_FROM to send to anyone; meanwhile, <span className="text-neon-amber">share this link yourself</span>:</>
+                        : <>Email isn&apos;t configured on this deployment — <span className="text-neon-amber">send this link to {adminInvite.email} yourself</span>:</>}
                   </p>
                   <div className="mt-2 flex items-center gap-2">
                     <input readOnly value={adminInvite.link} onFocus={e => e.currentTarget.select()}

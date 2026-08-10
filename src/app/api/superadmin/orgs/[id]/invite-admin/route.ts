@@ -68,10 +68,29 @@ export async function POST(req: Request, { params }: Ctx) {
   const mail = orgWelcomeEmail({ orgName: org.name, adminLink, classCode });
   const r = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
 
+  // Distinguish the two failure modes — they were being reported identically
+  // as "delivery is off", which is only true for the first:
+  //   skipped         → RESEND_API_KEY unset (no delivery configured).
+  //   ok:false + error → Resend REJECTED this recipient. With the default
+  //     onboarding@resend.dev sender, Resend only allows the account owner's
+  //     own address; any other recipient 403s until a domain is verified and
+  //     EMAIL_FROM points at it. That is a config gap, not "delivery off".
+  const emailStatus = r.ok
+    ? "sent"
+    : r.skipped
+      ? "not_configured"
+      : "rejected";
+
   await logAudit({
     actorId: gate.user.id, action: "superadmin.admin_invited",
-    targetTable: "invitations", targetId: orgId, metadata: { email, emailed: r.ok, code_included: Boolean(classCode) },
+    targetTable: "invitations", targetId: orgId,
+    metadata: { email, email_status: emailStatus, resend_error: r.error ?? null, code_included: Boolean(classCode) },
   });
 
-  return NextResponse.json({ ok: true, adminLink, classCode, emailed: r.ok, emailSkipped: r.skipped ?? false });
+  return NextResponse.json({
+    ok: true, adminLink, classCode,
+    emailed: r.ok,
+    email_status: emailStatus,
+    email_error: r.error ?? null,
+  });
 }
