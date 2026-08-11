@@ -299,6 +299,11 @@ export default function DashboardPage() {
   const [sessionElapsed,      setSessionElapsed]      = useState(0);
   const [showReportModal,     setShowReportModal]     = useState(false);
   const [showChainBoard,      setShowChainBoard]      = useState(false);
+  // Writing the incident report auto-pauses the live feed (a real analyst stops
+  // watching to write up the ticket). pausedForReport marks that WE paused it,
+  // so on close we offer to resume; showResumePrompt is that "continue?" dialog.
+  const [pausedForReport,     setPausedForReport]     = useState(false);
+  const [showResumePrompt,    setShowResumePrompt]    = useState(false);
 
   // ─── Company progression ──────────────────────────────────────────────────
   // Cleared companies persist through the storage facade → DB (user_progress.
@@ -576,6 +581,20 @@ export default function DashboardPage() {
     live.reset(getCompanyEvents(selectedCompanyId), story);
   };
 
+  // ── Report ⇄ feed pause/resume ────────────────────────────────────────────
+  /** Open the incident report — auto-pause the live feed while they write. */
+  const openReport = () => {
+    if (live.isStreaming) { live.pause(); setPausedForReport(true); }
+    setShowReportModal(true);
+  };
+  /** Close the report — if we paused the feed for it, ask before resuming. */
+  const closeReport = () => {
+    setShowReportModal(false);
+    if (pausedForReport) setShowResumePrompt(true);
+  };
+  const resumeShift = () => { live.resume(); setPausedForReport(false); setShowResumePrompt(false); };
+  const stayPaused  = () => { setPausedForReport(false); setShowResumePrompt(false); };
+
   /** Ends the session, stops the clock, freezes the feed and locks the EDR. */
   const handleEndSession = () => {
     setSessionSummary(live.endSession());
@@ -717,7 +736,7 @@ export default function DashboardPage() {
                 they've "caught" anything — that would leak the answer. */}
             <button
               id="report-incident-btn"
-              onClick={() => setShowReportModal(true)}
+              onClick={openReport}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3.5 py-2 text-xs font-bold shadow transition",
                 reportPassed
@@ -817,7 +836,7 @@ export default function DashboardPage() {
               You investigated this attack on the endpoint — <span className="font-semibold text-white">now file your incident report</span> to close the ticket.
             </p>
             <button
-              onClick={() => setShowReportModal(true)}
+              onClick={openReport}
               className="ml-auto rounded-md bg-neon-purple px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-110"
             >
               Report Incident
@@ -1208,7 +1227,7 @@ export default function DashboardPage() {
             attackTitle={storyTitle}
             attackMitreTechniques={storyMitre}
             decoys={decoysSeen}
-            onClose={() => setShowReportModal(false)}
+            onClose={closeReport}
             onPassed={() => {
               setReportPassed(true);
               // Report filed — clear the EDR "don't forget" reminder.
@@ -1260,6 +1279,33 @@ export default function DashboardPage() {
           nextCompanyName={nextCompany?.name ?? null}
           onContinue={handleClearedContinue}
         />
+      )}
+
+      {/* ── Resume-shift prompt — after closing the report, the feed is still
+          paused; ask before resuming so the analyst isn't dropped back into a
+          moving feed unexpectedly. ─────────────────────────────────────────── */}
+      {showResumePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resume-shift-title">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-bg-elevated p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neon-green/30 bg-neon-green/10">
+                <Play className="h-5 w-5 text-neon-green" />
+              </span>
+              <div>
+                <h2 id="resume-shift-title" className="text-base font-bold text-white">Resume the shift?</h2>
+                <p className="mt-0.5 text-xs text-slate-400">The live feed is paused while you wrote the report.</p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={stayPaused} className="rounded-md border border-border px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/5">
+                Stay paused
+              </button>
+              <button onClick={resumeShift} className="flex items-center gap-1.5 rounded-md bg-neon-green px-4 py-2 text-xs font-bold text-bg transition hover:bg-neon-green/90">
+                <Play className="h-3.5 w-3.5" /> Continue
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
