@@ -678,31 +678,38 @@ export default function DashboardPage() {
               Switch Company
             </button>
             {/* Pivot from the SIEM feed into the EDR console — the Falcon motion
-                of alert → endpoint execution details. Only appears when the live
-                attack has actually raised EDR alerts (endpoint detections); a
-                badge pops with the alert count. Identity/cloud-only attacks raise
-                no endpoint telemetry, so the button stays hidden. */}
-            {edrAlertCount > 0 && (
+                of alert → endpoint execution details. Present for the whole shift
+                so it's always findable; it stays MUTED/disabled until the attack
+                actually raises endpoint alerts, then lights up cyan with a
+                pulsing count badge. Opens the EDR in a new tab (SIEM + EDR side by
+                side). Only rendered while a shift is running. */}
+            {sessionStartedAt !== null && (
               <a
-                href="/edr?case=live"
+                href={edrAlertCount > 0 ? "/edr?case=live" : undefined}
                 target="_blank"
                 rel="noopener"
                 onClick={() => {
-                  // Stash in localStorage (NOT sessionStorage) so the EDR tab —
-                  // a separate tab — can read it. Opening in a new tab keeps the
-                  // Dashboard shift alive and streaming while the student pivots
-                  // to the endpoint, exactly like a real SIEM + EDR side by side.
-                  if (liveEdrInvestigation && typeof window !== "undefined")
+                  if (edrAlertCount > 0 && liveEdrInvestigation && typeof window !== "undefined")
                     localStorage.setItem("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
                 }}
-                className="relative flex items-center gap-1.5 rounded border border-cyber-500/50 bg-cyber-500/10 px-2.5 py-1.5 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/20 transition"
-                title={`${edrAlertCount} EDR alert${edrAlertCount > 1 ? "s" : ""} on the endpoint — investigate this attack (opens the EDR console)`}
+                className={cn(
+                  "relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition",
+                  edrAlertCount > 0
+                    ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20"
+                    : "cursor-not-allowed border-border bg-bg text-slate-500",
+                )}
+                aria-disabled={edrAlertCount === 0}
+                title={edrAlertCount > 0
+                  ? `${edrAlertCount} EDR alert${edrAlertCount > 1 ? "s" : ""} on the endpoint — investigate this attack (opens the EDR console)`
+                  : "No endpoint alerts yet — this lights up when the attack reaches an endpoint"}
               >
                 <Cpu className="h-3.5 w-3.5" />
                 Investigate in EDR
-                <span className="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
-                  {edrAlertCount}
-                </span>
+                {edrAlertCount > 0 && (
+                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
+                    {edrAlertCount}
+                  </span>
+                )}
               </a>
             )}
             {/* Report Incident — the key action, and the only place the analyst
