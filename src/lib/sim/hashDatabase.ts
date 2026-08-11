@@ -1,7 +1,19 @@
 /**
- * Real malware SHA256 hashes from public threat intelligence.
- * Sources: NCSC alerts, Microsoft MSRC, Talos Intelligence, MalwareBazaar, CISA advisories.
- * Students can verify any hash at https://www.virustotal.com/gui/file/<sha256>
+ * Real, sourced malware SHA256 hashes for the hash-lookup / Threat-Intel drawer.
+ *
+ * Every MALICIOUS hash below is a real sample from abuse.ch MalwareBazaar or a
+ * CISA/Mandiant advisory — NONE are fabricated. The in-app verdict
+ * (vt_detections/vt_total) is a training simulation; pivoting a malicious hash
+ * to https://www.virustotal.com/gui/file/<sha256> returns real detections
+ * (iconic samples permanently; commodity-family samples while the upload lives).
+ * Enforced by scripts/validate-malware-hashes.mjs so a synthetic hash can't
+ * regress in.
+ *
+ * The CLEAN system-binary hashes are representative — a specific OS build's real
+ * hash varies, so VirusTotal may show "not found" for one (which is itself
+ * realistic for a niche build); the in-app verdict is the source of truth.
+ *
+ * Sources: CISA advisories, Mandiant, abuse.ch MalwareBazaar (signature tags).
  */
 
 export interface MalwareHashEntry {
@@ -28,7 +40,7 @@ export interface CleanHashEntry {
 
 export type HashEntry = MalwareHashEntry | CleanHashEntry;
 
-// ─── Malicious hashes (from public threat intelligence) ───────────────────────
+// ─── Malicious hashes (real samples — MalwareBazaar / CISA / Mandiant) ─────────
 
 export const MALWARE_HASHES: MalwareHashEntry[] = [
   {
@@ -65,124 +77,113 @@ export const MALWARE_HASHES: MalwareHashEntry[] = [
     malicious: true,
   },
   {
-    sha256: "5f71f5c33f5e008c8a66c4e73d4deb36e22c3b2c8b7e3b2a5e7f4c1d9b6a3e0f",
-    name: "Cobalt Strike Beacon (x64)",
+    sha256: "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd",
+    name: "Cobalt Strike Beacon",
     family: "CobaltStrike",
     type: "c2_implant",
     tags: ["cobalt_strike", "c2", "post_exploitation", "apt"],
     vt_detections: 54, vt_total: 72,
-    first_seen: "2021",
-    source: "CISA/FBI Advisory AA21-148A",
+    first_seen: "2022",
+    source: "abuse.ch MalwareBazaar (signature:CobaltStrike)",
     malicious: true,
   },
   {
-    sha256: "92318a793b1a26f41d0f8fc4b5742ff2d5a98db7d95c42c9fb34e73da3697b23",
+    sha256: "a66d1021e54269963e9a54892869d569ffa1c74d9fb1b67f023ea5fdfd90c1a6",
     name: "Mimikatz Credential Dumper",
     family: "Mimikatz",
     type: "credential_dumper",
     tags: ["credential_dumping", "lsass", "pass_the_hash", "kerberoasting"],
     vt_detections: 61, vt_total: 72,
     first_seen: "2022",
-    source: "Public DFIR / ATT&CK T1003.001",
+    source: "abuse.ch MalwareBazaar (tag:Mimikatz) / ATT&CK T1003.001",
     malicious: true,
   },
   {
-    sha256: "0a6f0d5d4e06aa43e7b31892e4cbaec5a9e7dc0e90a24a49e82d79e2b02cd0ee",
+    sha256: "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7",
     name: "LockBit 3.0 Ransomware",
     family: "LockBit",
     type: "ransomware",
     tags: ["ransomware", "double_extortion", "lockbit", "raas"],
     vt_detections: 59, vt_total: 72,
     first_seen: "2022",
-    source: "CISA AA23-075A / FBI Flash CU-000162-MW",
+    source: "abuse.ch MalwareBazaar (signature:LockBit) / CISA AA23-075A",
     malicious: true,
   },
   {
-    sha256: "f717b718b29cf3ee19a52c45d4eedf9a35498b8cf39a92a89b4b2e46b4640e5a",
+    sha256: "731adcf2d7fb61a8335e23dbee2436249e5d5753977ec465754c6b699e9bf161",
     name: "BlackCat/ALPHV Ransomware",
     family: "BlackCat",
     type: "ransomware",
     tags: ["ransomware", "rust", "alphv", "double_extortion"],
     vt_detections: 56, vt_total: 72,
     first_seen: "2022",
-    source: "CISA AA22-040A",
+    source: "abuse.ch MalwareBazaar (signature:BlackCat) / CISA AA22-040A",
     malicious: true,
   },
   {
-    sha256: "4a8f955b43e26de08b9e1cd09c21e25895b9c7e51a3bafe8d5b49d7c938a2740",
-    name: "Emotet Loader (Epoch 4)",
+    sha256: "f10052e10c319749ccd6aead272df3e831e4d4224a32ac589e1a577db38e2b70",
+    name: "Emotet Loader",
     family: "Emotet",
     type: "loader",
     tags: ["emotet", "loader", "botnet", "email", "macro"],
     vt_detections: 62, vt_total: 72,
     first_seen: "2022",
-    source: "CERT-UA CERT-UA#4751 / Cryptolaemus",
+    source: "abuse.ch MalwareBazaar (tag:Emotet)",
     malicious: true,
   },
   {
-    sha256: "1a3b2c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+    sha256: "415dde31bb66f5a6fa3b7ec84d5c1c33c4c6c7038e897dee5b562d8ce70246a9",
     name: "Agent Tesla RAT",
     family: "AgentTesla",
     type: "infostealer",
     tags: ["rat", "infostealer", "keylogger", "credential_theft"],
     vt_detections: 58, vt_total: 72,
     first_seen: "2023",
-    source: "MalwareBazaar / ANY.RUN public analysis",
+    source: "abuse.ch MalwareBazaar (signature:AgentTesla)",
     malicious: true,
   },
   {
-    sha256: "d50d98dcc8b7043cb5c38c3de36a2ad62b293704e3cf23b0cd7450578785af3d",
-    name: "Conti Ransomware v3",
+    sha256: "2579148e5f020145007ac0dc1be478190137d7915e6fbca2c787b55dbec1d370",
+    name: "Conti Ransomware",
     family: "Conti",
     type: "ransomware",
     tags: ["ransomware", "conti", "double_extortion", "affiliate"],
     vt_detections: 63, vt_total: 72,
     first_seen: "2021",
-    source: "CISA AA21-265A / NCSC advisory",
+    source: "abuse.ch MalwareBazaar (signature:Conti) / CISA AA21-265A",
     malicious: true,
   },
   {
-    sha256: "7dc2765a40d6ea4d56c3f485b85f9afd3b6ea9c5dba2e1f0d4c3b2a9f8e7d6c5",
+    sha256: "e3a04f56354b8f46d50a34c0552aba944f9abf0d9bf06c227854ef91c6eb5032",
     name: "Loki Bot Information Stealer",
     family: "LokiBot",
     type: "infostealer",
     tags: ["infostealer", "credential_theft", "browser_credentials"],
     vt_detections: 55, vt_total: 72,
     first_seen: "2021",
-    source: "CISA Alert AA20-266A",
+    source: "abuse.ch MalwareBazaar (signature:Loki) / CISA AA20-266A",
     malicious: true,
   },
   {
-    sha256: "3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c",
+    sha256: "02ea3563b3d105d5eeeb7ea9698e26311e2271ff86080d68afb4aba1c444be1f",
     name: "QakBot (QBot) Loader",
     family: "QakBot",
     type: "loader",
     tags: ["qakbot", "loader", "botnet", "banking", "lateral_movement"],
     vt_detections: 57, vt_total: 72,
     first_seen: "2023",
-    source: "CISA AA23-243A / MS MSTIC",
+    source: "abuse.ch MalwareBazaar (signature:Quakbot) / CISA AA23-243A",
     malicious: true,
   },
   {
-    sha256: "9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d",
+    sha256: "17139a10fd226d01738fe9323918614aa913b2a50e1a516e95cced93fa151c61",
     name: "DarkSide Ransomware",
     family: "DarkSide",
     type: "ransomware",
     tags: ["ransomware", "darkside", "pipeline", "critical_infrastructure"],
     vt_detections: 61, vt_total: 72,
     first_seen: "2021",
-    source: "CISA AA21-131A (Colonial Pipeline incident)",
-    malicious: true,
-  },
-  {
-    sha256: "2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d",
-    name: "Sliver C2 Implant",
-    family: "Sliver",
-    type: "c2_implant",
-    tags: ["c2", "sliver", "post_exploitation", "lateral_movement"],
-    vt_detections: 42, vt_total: 72,
-    first_seen: "2023",
-    source: "CISA/NSA Joint Advisory AA23-320A",
+    source: "abuse.ch MalwareBazaar (signature:DarkSide) / CISA AA21-131A",
     malicious: true,
   },
   {
@@ -199,30 +200,13 @@ export const MALWARE_HASHES: MalwareHashEntry[] = [
 ];
 
 // ─── Clean / legitimate file hashes ─────────────────────────────────────────
+// Representative — a real OS build's hash varies. In-app verdict is authoritative.
 
 export const CLEAN_HASHES: CleanHashEntry[] = [
   {
     sha256: "b14a7b8059d9c055954c92d74c23f7386be4d450a1d703d5d5ba4c21e5f6b8c4",
     name: "powershell.exe",
     description: "Windows PowerShell 5.1 (Windows 10 21H2) — legitimate system file",
-    vt_detections: 0, vt_total: 72, malicious: false,
-  },
-  {
-    sha256: "7f4b5c3d2a1e9f8c7b6a5d4e3f2c1b0a9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c",
-    name: "svchost.exe",
-    description: "Windows Service Host (Windows 10 22H2) — legitimate system file",
-    vt_detections: 0, vt_total: 72, malicious: false,
-  },
-  {
-    sha256: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
-    name: "chrome.exe",
-    description: "Google Chrome 120.0 — legitimate browser",
-    vt_detections: 0, vt_total: 72, malicious: false,
-  },
-  {
-    sha256: "f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0d1c2b3a4f5e6d7c8b9a0f1e2",
-    name: "teams.exe",
-    description: "Microsoft Teams 1.6 — legitimate collaboration app",
     vt_detections: 0, vt_total: 72, malicious: false,
   },
   // Linux/dev-tooling binaries — the benign CI-runner and developer-laptop

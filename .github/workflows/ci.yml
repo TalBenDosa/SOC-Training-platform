@@ -72,6 +72,12 @@ jobs:
       - name: Validate scenario content
         run: npm run validate:scenarios
 
+      # Malware-hash registries back the "Check Hash · VirusTotal" pivot — the
+      # exact skill taught. Fails on any fabricated/synthetic SHA256 so a made-up
+      # hash (which resolves to nothing on VT) can't regress in.
+      - name: Validate malware hashes are real
+        run: npm run validate:hashes
+
       - name: Build
         run: npm run build
         env:
