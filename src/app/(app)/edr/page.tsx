@@ -7,8 +7,7 @@
  * hash lookups hit the real hashDatabase so "Look up hash" returns a genuine
  * verdict.
  */
-import { Suspense, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
@@ -29,37 +28,34 @@ const SEV_STYLE: Record<string, string> = {
 };
 
 export default function EdrConsolePage() {
-  return (
-    <Suspense fallback={null}>
-      <EdrConsoleInner />
-    </Suspense>
-  );
-}
-
-function EdrConsoleInner() {
   usePageTitle("EDR Console");
-  const params = useSearchParams();
-  // Deep-link from the SOC Dashboard: /edr?case=<investigation-id> opens that
-  // host pre-loaded — the "Investigate in EDR" pivot, same as a Falcon alert
-  // opening straight into execution details.
-  //
-  // case=live: the Dashboard generated an EdrInvestigation from the attack story
-  // actually running in the feed and stashed it in sessionStorage — so the EDR
-  // shows the SAME live attack from the endpoint's side. Read once on mount.
-  const requested = params.get("case");
-  const liveInv = useMemo<EdrInvestigation | null>(() => {
-    if (requested !== "live" || typeof window === "undefined") return null;
-    try { return JSON.parse(sessionStorage.getItem("edr_live_investigation") || "null"); }
-    catch { return null; }
-  }, [requested]);
+  // A plain client component (no useSearchParams / Suspense) so the page hydrates
+  // normally on a hard load or refresh — an earlier Suspense-wrapped
+  // useSearchParams left the console rendered but NON-interactive after a direct
+  // navigation. The deep-link (?case=…) is read post-mount instead, which also
+  // avoids any server/client hydration mismatch.
+  const [liveInv, setLiveInv] = useState<EdrInvestigation | null>(null);
+  const [invId, setInvId] = useState(EDR_INVESTIGATIONS[0].id);
+
+  useEffect(() => {
+    // Deep-link from the SOC Dashboard: /edr?case=<id> opens that host, the
+    // "Investigate in EDR" pivot. case=live loads the EdrInvestigation the
+    // Dashboard generated from the attack running in the feed (sessionStorage).
+    const requested = new URLSearchParams(window.location.search).get("case");
+    if (requested === "live") {
+      try {
+        const stashed = JSON.parse(sessionStorage.getItem("edr_live_investigation") || "null");
+        if (stashed?.id) { setLiveInv(stashed); setInvId(stashed.id); return; }
+      } catch { /* fall through to a static case */ }
+    }
+    if (requested && EDR_INVESTIGATIONS.some(i => i.id === requested)) setInvId(requested);
+  }, []);
 
   const investigations = useMemo(
     () => (liveInv ? [liveInv, ...EDR_INVESTIGATIONS] : EDR_INVESTIGATIONS),
     [liveInv],
   );
-  const initialId = liveInv ? "live" : (EDR_INVESTIGATIONS.find(i => i.id === requested)?.id ?? EDR_INVESTIGATIONS[0].id);
-  const [invId, setInvId] = useState(initialId);
-  const inv = useMemo(() => investigations.find(i => i.id === invId) ?? investigations[0], [investigations, invId]);
+  const inv = investigations.find(i => i.id === invId) ?? investigations[0];
   return <Console key={inv.id} inv={inv} investigations={investigations} onSwitch={setInvId} invId={inv.id} />;
 }
 
