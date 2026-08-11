@@ -8,13 +8,16 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Cpu,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/rooms",        label: "Learning Rooms", icon: DoorOpen        },
   { href: "/dashboard",    label: "SOC Dashboard",  icon: LayoutDashboard },
-  { href: "/edr",          label: "EDR Console",    icon: Cpu             },
+  // NOTE: /edr is deliberately NOT in the nav. The EDR console is only reachable
+  // from an ACTIVE live-dashboard shift (via "Investigate in EDR"), so an analyst
+  // never opens it cold — it always shows the endpoint side of the attack they're
+  // working. The page itself redirects to /dashboard when no shift is running.
   { href: "/learn",        label: "Learning Path",  icon: BookOpen        },
   { href: "/progress",     label: "Progress",       icon: TrendingUp      },
   { href: "/scenarios",    label: "Scenarios",      icon: Target          },

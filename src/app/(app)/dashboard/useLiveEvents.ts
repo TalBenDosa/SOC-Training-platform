@@ -828,6 +828,12 @@ interface UseLiveEventsOptions {
   onStoryComplete?: () => void;
   intervalMs?: number;
   maxVisible?: number;
+  /**
+   * When false, the feed starts IDLE — no initial events, no streaming — until
+   * reset()/resume() is called. The dashboard uses this so nothing runs until
+   * the student presses Start Training. Defaults to true (legacy auto-start).
+   */
+  autoStart?: boolean;
 }
 
 export interface LiveEventsApi {
@@ -899,12 +905,13 @@ export function useLiveEvents({
   onStoryComplete,
   intervalMs = 40000,
   maxVisible = 100,
+  autoStart = true,
 }: UseLiveEventsOptions): LiveEventsApi {
   // Engine mode: true when companyId is provided
   const engineMode = Boolean(companyId);
   // Start empty — populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
   const [events, setEvents] = useState<LiveEvent[]>([]);
-  const [isStreaming, setIsStreaming]       = useState(true);
+  const [isStreaming, setIsStreaming]       = useState(autoStart);
   const [sessionXp, setSessionXp]           = useState(0);
   const [newIds, setNewIds]                 = useState<Set<string>>(new Set());
   const [activeIncident, setActiveIncident] = useState<ActiveIncident | null>(null);
@@ -998,6 +1005,9 @@ export function useLiveEvents({
 
   // ── Populate initial events client-side only (avoids SSR/hydration mismatch) ─
   useEffect(() => {
+    // Idle until Start Training: with autoStart=false the feed shows nothing
+    // until reset() runs (from handleStartTraining). No logs before the shift.
+    if (!autoStart) return;
     const now = Date.now();
 
     if (engineMode && worldStateRef.current) {

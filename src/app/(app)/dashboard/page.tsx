@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { pickStoryForCompany, instantiateStory } from "./attackStories";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
@@ -24,6 +23,7 @@ import { startDashboardTour } from "./OnboardingTour";
 import { COMPANY_PROFILES, COMPANY_EVENTS, NEXACORP_PROFILE } from "@/lib/sim/companyProfiles";
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
+import { setTrainingActive } from "@/lib/sim/trainingSession";
 import {
   AlertTriangle, BookOpen, Building2, Cpu, FileText, Filter, LogOut, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
@@ -335,6 +335,27 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Did the student investigate in the EDR this shift? If so, nudge them to
+  // actually file the incident report (set on the /edr decision; cleared on a
+  // fresh shift and once the report passes). Reactive so returning from /edr
+  // shows the reminder immediately.
+  const [edrInvestigated, setEdrInvestigated] = useState(false);
+  useEffect(() => {
+    // The EDR runs in a separate tab, so the "student investigated" signal
+    // arrives via the localStorage `storage` event (fires in OTHER tabs). Also
+    // re-check on focus, for when they alt-tab back to the Dashboard.
+    const sync = () => { try { setEdrInvestigated(localStorage.getItem("soc_edr_investigated") === "1"); } catch { /* ignore */ } };
+    sync();
+    window.addEventListener("storage", sync);
+    window.addEventListener("soc:edr-investigated", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("soc:edr-investigated", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
+
   // ─── Progress counters (session-scoped, reset on company switch) ─────────
   const [reportPassed,    setReportPassed]    = useState(false);
 
@@ -393,8 +414,16 @@ export default function DashboardPage() {
     intervalMs: 90_000,   // 90s between ticks — readable pace for training
     story:      sessionStory,
     onStoryComplete: handleStoryComplete,
+    autoStart:  false,    // nothing streams until the student presses Start Training
   });
   liveRef.current = live;
+
+  // Number of EDR alerts for the attack currently live in the feed. Non-zero
+  // only while a shift is running AND an endpoint attack is active — an
+  // identity/cloud attack produces no endpoint telemetry, so no EDR alerts.
+  // Drives the badge that pops next to the "Investigate in EDR" button.
+  const edrAlertCount = (live.activeIncident && liveEdrInvestigation)
+    ? liveEdrInvestigation.detections.length : 0;
 
   // ── Persist session XP to localStorage (cumulative across sessions) ───────
   const prevSessionXpRef = useRef(0);
@@ -407,24 +436,25 @@ export default function DashboardPage() {
     prevSessionXpRef.current = live.sessionXp;
   }, [live.sessionXp]);
 
-  // ── On mount: restore saved company, arm the session story, pick modal ────
+  // ── On mount: restore saved company + pick the opening modal ──────────────
+  // The feed stays IDLE — no story is armed and nothing streams until the
+  // student presses Start Training. That's the whole gate: no logs, and no
+  // telemetry to the EDR, before the shift begins.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved    = localStorage.getItem(COMPANY_KEY);
-    const seenWelcome = localStorage.getItem(WELCOME_KEY);
+    const saved       = localStorage.getItem(COMPANY_KEY);
+    const seenWelcome  = localStorage.getItem(WELCOME_KEY);
 
-    // Pick this session's attack story for the active company (client-side only —
-    // the anti-repeat memory lives in localStorage) and arm the scheduler.
-    const companyId = saved ?? "nexacorp";
-    const story = instantiateStory(pickStoryForCompany(companyId), getCompanyEvents(companyId));
-    setSessionStory(story);
-    setInjectedStories([story]);
-    if (saved && saved !== "nexacorp") {
-      setSelectedCompanyId(saved);
-      live.reset(getCompanyEvents(saved), story);
-    } else {
-      live.reset(undefined, story);
-    }
+    if (saved && saved !== "nexacorp") setSelectedCompanyId(saved);
+
+    // Clean slate: a fresh Dashboard load has no live shift, so lock the EDR
+    // and drop any stale cross-tab handoff from a previous session. This is what
+    // keeps a lingering localStorage flag from leaving /edr reachable.
+    setTrainingActive(false);
+    try {
+      localStorage.removeItem("edr_live_investigation");
+      localStorage.removeItem("soc_edr_investigated");
+    } catch { /* ignore */ }
 
     if (!seenWelcome) {
       setShowWelcome(true);
@@ -454,10 +484,15 @@ export default function DashboardPage() {
     setShowCompanySelector(false);
     setSourceFilter("all");
     setReportPassed(false);
-    const newStory = instantiateStory(pickStoryForCompany(id), getCompanyEvents(id));
-    setSessionStory(newStory);
-    setInjectedStories([newStory]);
-    live.reset(getCompanyEvents(id), newStory);
+    // Picking a company does NOT start the feed — it waits for Start Training.
+    // If a shift was running, end it so nothing streams for the new company
+    // until the student explicitly starts again.
+    setSessionStory(null);
+    setInjectedStories([]);
+    setSessionStartedAt(null);
+    setSessionDifficulty(null);
+    setTrainingActive(false);
+    live.pause();
   };
 
   const hasActiveFilters =
@@ -530,14 +565,24 @@ export default function DashboardPage() {
     setSessionStartedAt(Date.now());
     setSessionDifficulty(difficulty);
     setSessionElapsed(0);
+    // Open the shift: this is the ONLY thing that starts the feed and unlocks
+    // the EDR console. Clear any EDR-report reminder from a previous shift.
+    setTrainingActive(true);
+    try {
+      localStorage.removeItem("soc_edr_investigated");
+      localStorage.removeItem("edr_live_investigation");
+    } catch { /* ignore */ }
+    setEdrInvestigated(false);
     live.reset(getCompanyEvents(selectedCompanyId), story);
   };
 
-  /** Ends the session and stops the clock. */
+  /** Ends the session, stops the clock, freezes the feed and locks the EDR. */
   const handleEndSession = () => {
     setSessionSummary(live.endSession());
     setSessionStartedAt(null);
     setSessionDifficulty(null);
+    setTrainingActive(false);   // locks the EDR console again
+    live.pause();               // stop the feed — nothing streams outside a shift
   };
 
   /**
@@ -633,22 +678,33 @@ export default function DashboardPage() {
               Switch Company
             </button>
             {/* Pivot from the SIEM feed into the EDR console — the Falcon motion
-                of alert → endpoint execution details. When the live attack has
-                endpoint telemetry, generate its process tree and open THAT exact
-                attack in the EDR (case=live). Identity/cloud-only attacks have no
-                process tree, so it falls back to the static console. */}
-            <Link
-              href={liveEdrInvestigation ? "/edr?case=live" : "/edr"}
-              onClick={() => {
-                if (liveEdrInvestigation && typeof window !== "undefined")
-                  sessionStorage.setItem("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
-              }}
-              className="flex items-center gap-1.5 rounded border border-cyber-500/40 bg-cyber-500/8 px-2.5 py-1.5 text-xs font-semibold text-cyber-300 hover:bg-cyber-500/15 transition"
-              title={liveEdrInvestigation ? "Investigate this attack on the endpoint (live)" : "Open the EDR console"}
-            >
-              <Cpu className="h-3.5 w-3.5" />
-              Investigate in EDR
-            </Link>
+                of alert → endpoint execution details. Only appears when the live
+                attack has actually raised EDR alerts (endpoint detections); a
+                badge pops with the alert count. Identity/cloud-only attacks raise
+                no endpoint telemetry, so the button stays hidden. */}
+            {edrAlertCount > 0 && (
+              <a
+                href="/edr?case=live"
+                target="_blank"
+                rel="noopener"
+                onClick={() => {
+                  // Stash in localStorage (NOT sessionStorage) so the EDR tab —
+                  // a separate tab — can read it. Opening in a new tab keeps the
+                  // Dashboard shift alive and streaming while the student pivots
+                  // to the endpoint, exactly like a real SIEM + EDR side by side.
+                  if (liveEdrInvestigation && typeof window !== "undefined")
+                    localStorage.setItem("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
+                }}
+                className="relative flex items-center gap-1.5 rounded border border-cyber-500/50 bg-cyber-500/10 px-2.5 py-1.5 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/20 transition"
+                title={`${edrAlertCount} EDR alert${edrAlertCount > 1 ? "s" : ""} on the endpoint — investigate this attack (opens the EDR console)`}
+              >
+                <Cpu className="h-3.5 w-3.5" />
+                Investigate in EDR
+                <span className="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
+                  {edrAlertCount}
+                </span>
+              </a>
+            )}
             {/* Report Incident — the key action, and the only place the analyst
                 is graded. Solid CTA throughout; no pulse/hint tied to whether
                 they've "caught" anything — that would leak the answer. */}
@@ -741,6 +797,23 @@ export default function DashboardPage() {
             <p className="text-sm text-slate-200">{scenarioObjective}</p>
             <button onClick={() => setScenarioObjective(null)} className="ml-auto text-slate-400 hover:text-slate-300">
               <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Don't-forget-the-report reminder — shows once the student has
+            investigated on the endpoint but not yet filed a passing report. */}
+        {edrInvestigated && !reportPassed && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-5 py-3">
+            <FileText className="h-4 w-4 shrink-0 text-neon-amber" />
+            <p className="text-sm text-slate-200">
+              You investigated this attack on the endpoint — <span className="font-semibold text-white">now file your incident report</span> to close the ticket.
+            </p>
+            <button
+              onClick={() => setShowReportModal(true)}
+              className="ml-auto rounded-md bg-neon-purple px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-110"
+            >
+              Report Incident
             </button>
           </div>
         )}
@@ -1131,6 +1204,9 @@ export default function DashboardPage() {
             onClose={() => setShowReportModal(false)}
             onPassed={() => {
               setReportPassed(true);
+              // Report filed — clear the EDR "don't forget" reminder.
+              try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
+              setEdrInvestigated(false);
               // A passing report IS the catch — register it for real. Without
               // this, markCaught() was never called from anywhere: the SLA
               // never cleared on a correct report, avgCatchMs/attacksCaughtCount

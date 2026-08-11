@@ -8,6 +8,7 @@
  * verdict.
  */
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
@@ -19,6 +20,7 @@ import {
 import { EDR_INVESTIGATIONS, buildProcessTree, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
 import { lookupHash, vtLabel, vtColor } from "@/lib/sim/hashDatabase";
 import { isContained, setContained } from "@/lib/edr/containment";
+import { isTrainingActive } from "@/lib/sim/trainingSession";
 
 const SEV_STYLE: Record<string, string> = {
   critical: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical",
@@ -29,33 +31,43 @@ const SEV_STYLE: Record<string, string> = {
 
 export default function EdrConsolePage() {
   usePageTitle("EDR Console");
+  const router = useRouter();
   // A plain client component (no useSearchParams / Suspense) so the page hydrates
   // normally on a hard load or refresh — an earlier Suspense-wrapped
   // useSearchParams left the console rendered but NON-interactive after a direct
   // navigation. The deep-link (?case=…) is read post-mount instead, which also
   // avoids any server/client hydration mismatch.
+  const [allowed, setAllowed] = useState<boolean | null>(null); // null = still checking
   const [liveInv, setLiveInv] = useState<EdrInvestigation | null>(null);
   const [invId, setInvId] = useState(EDR_INVESTIGATIONS[0].id);
 
   useEffect(() => {
+    // The EDR console is ONLY reachable from an active shift — the student must
+    // have pressed Start Training on the Dashboard. No shift → bounce back to
+    // the Dashboard (there's nothing to investigate on the endpoint yet).
+    if (!isTrainingActive()) { router.replace("/dashboard"); return; }
+    setAllowed(true);
     // Deep-link from the SOC Dashboard: /edr?case=<id> opens that host, the
     // "Investigate in EDR" pivot. case=live loads the EdrInvestigation the
     // Dashboard generated from the attack running in the feed (sessionStorage).
     const requested = new URLSearchParams(window.location.search).get("case");
     if (requested === "live") {
       try {
-        const stashed = JSON.parse(sessionStorage.getItem("edr_live_investigation") || "null");
+        // localStorage (shared across tabs) — the Dashboard stashed it here so
+        // this EDR tab can read the live attack it generated.
+        const stashed = JSON.parse(localStorage.getItem("edr_live_investigation") || "null");
         if (stashed?.id) { setLiveInv(stashed); setInvId(stashed.id); return; }
       } catch { /* fall through to a static case */ }
     }
     if (requested && EDR_INVESTIGATIONS.some(i => i.id === requested)) setInvId(requested);
-  }, []);
+  }, [router]);
 
   const investigations = useMemo(
     () => (liveInv ? [liveInv, ...EDR_INVESTIGATIONS] : EDR_INVESTIGATIONS),
     [liveInv],
   );
   const inv = investigations.find(i => i.id === invId) ?? investigations[0];
+  if (!allowed) return null; // checking access / redirecting to the Dashboard
   return <Console key={inv.id} inv={inv} investigations={investigations} onSwitch={setInvId} invId={inv.id} />;
 }
 
@@ -139,6 +151,14 @@ function Console({ inv, investigations, invId, onSwitch }: { inv: EdrInvestigati
 
   function decide(choice: number /* pid, or -1 for benign */) {
     setDecided({ correct: choice === inv.answer.pid });
+    // Flag that the student investigated on the endpoint, so the Dashboard can
+    // remind them to actually FILE the incident report — investigating without
+    // writing it up is the classic half-finished ticket. localStorage so the
+    // write fires a `storage` event in the Dashboard tab.
+    try {
+      localStorage.setItem("soc_edr_investigated", "1");
+      window.dispatchEvent(new CustomEvent("soc:edr-investigated"));
+    } catch { /* ignore */ }
   }
 
   return (
@@ -376,9 +396,19 @@ function Console({ inv, investigations, invId, onSwitch }: { inv: EdrInvestigati
               </h2>
               <p className="mt-2 text-[13px] text-slate-200">{inv.answer.explanation}</p>
               <p className="mt-2 text-[11px] text-slate-500">The process tree is now colour-coded by verdict, and each node&apos;s reasoning is shown in its detail panel.</p>
-              <div className="mt-3">
+              {/* The investigation isn't done until it's written up. This runs in
+                  its own tab, so send them BACK to the Dashboard tab to file the
+                  report — the one place they're actually graded. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => window.close()}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-neon-purple px-3.5 py-2 text-xs font-bold text-white shadow transition hover:brightness-110"
+                >
+                  <FileWarning className="h-4 w-4" /> Done — return to the Dashboard and file your report
+                </button>
                 <Button variant="outline" size="sm" onClick={() => { setDecided(null); }}>Investigate again</Button>
               </div>
+              <p className="mt-2 text-[11px] text-neon-amber">Switch back to your SOC Dashboard tab to write the incident report — your findings only count once it&apos;s submitted.</p>
             </>
           )}
         </Card>
