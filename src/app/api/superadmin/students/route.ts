@@ -18,6 +18,7 @@ export interface GlobalStudentRow {
   org_name: string;
   handle: string | null;
   display_name: string | null;
+  email: string | null;
   role: string;
   status: string;
   joined_at: string | null;
@@ -55,6 +56,14 @@ export async function GET() {
 
   const orgName = new Map<string, string>((orgsRes.data ?? []).map(o => [o.id, o.name]));
 
+  // Member emails (0032 org_member_emails is per-org) — call it for each org and
+  // merge into one user_id→email map. The dataset is platform-small.
+  const emailBy = new Map<string, string>();
+  await Promise.all([...orgName.keys()].map(async orgId => {
+    const { data } = await admin.rpc("org_member_emails", { p_org: orgId });
+    for (const e of (data ?? []) as Array<{ user_id: string; email: string }>) emailBy.set(e.user_id, e.email);
+  }));
+
   type R = { user_id: string; completed_at?: string | null; updated_at?: string | null };
   const roomRows = (roomsRes.data ?? []) as R[];
   const scRows = (scenariosRes.data ?? []) as Array<{ user_id: string; score: number | null; completed_at: string | null }>;
@@ -81,6 +90,7 @@ export async function GET() {
       org_name: orgName.get(m.org_id) ?? "—",
       handle: p?.handle ?? null,
       display_name: p?.display_name ?? null,
+      email: emailBy.get(m.user_id) ?? null,
       role: m.role,
       status: m.status,
       joined_at: m.joined_at,

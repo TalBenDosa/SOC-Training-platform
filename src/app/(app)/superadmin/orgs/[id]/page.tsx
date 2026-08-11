@@ -17,9 +17,19 @@ import {
 } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
+import type { GlobalStudentRow } from "@/app/api/superadmin/students/route";
 
 function toDateInput(iso: string | null): string {
   return iso ? new Date(iso).toISOString().slice(0, 10) : "";
+}
+
+function sinceLabel(iso: string | null): string {
+  if (!iso) return "never";
+  const days = Math.floor((Date.now() - Date.parse(iso)) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" });
 }
 
 export default function OrgDetailPage() {
@@ -30,6 +40,8 @@ export default function OrgDetailPage() {
   const [org, setOrg] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrgMember[]>([]);
   const [usage, setUsage] = useState<OrgUsage | null>(null);
+  // rich per-student list for THIS org (reuses the global students endpoint)
+  const [students, setStudents] = useState<GlobalStudentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -118,6 +130,15 @@ export default function OrgDetailPage() {
       const { orgs } = await codesRes.json();
       const mine = (orgs ?? []).find((o: { id: string }) => o.id === id);
       setOrgCode(mine?.active_code ?? null);
+    }
+    // Rich per-student list for this org — reuse the global students endpoint
+    // and filter to this org (the dataset is platform-small).
+    const stRes = await fetch("/api/superadmin/students");
+    if (stRes.ok) {
+      const { students: all } = await stRes.json();
+      setStudents(((all ?? []) as GlobalStudentRow[]).filter(s => s.org_id === id));
+    } else {
+      setStudents([]);
     }
   }
 
@@ -413,6 +434,58 @@ export default function OrgDetailPage() {
             </Card>
 
             {/* Members */}
+            {/* All students in THIS org — the same rich list as the global
+                /superadmin/students view, scoped to this college. */}
+            <Card className="overflow-hidden p-0">
+              {(() => {
+                const rows = (students ?? []).filter(s => s.role === "student");
+                const entered = rows.filter(r => r.last_active_at).length;
+                return (
+                  <>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <h2 className="flex items-center gap-2 text-sm font-bold text-white">
+                        <Users className="h-4 w-4 text-cyber-300" /> All students ({rows.length})
+                      </h2>
+                      {rows.length > 0 && <span className="text-[11px] text-slate-400">{entered} have entered</span>}
+                    </div>
+                    {students === null ? (
+                      <p className="px-4 pb-4 text-sm text-slate-400">Loading…</p>
+                    ) : rows.length === 0 ? (
+                      <p className="px-4 pb-4 text-sm text-slate-400">No students have registered into this environment yet.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead>
+                            <tr className="border-y border-border text-[11px] uppercase tracking-wider text-slate-400">
+                              <th className="px-4 py-2.5 font-medium">Student</th>
+                              <th className="px-4 py-2.5 font-medium">Email</th>
+                              <th className="px-4 py-2.5 font-medium" title="Correct answers across all graded tasks">Score</th>
+                              <th className="px-4 py-2.5 font-medium">XP</th>
+                              <th className="px-4 py-2.5 font-medium">Last active</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/60">
+                            {rows.map(s => (
+                                <tr key={s.user_id} className={`hover:bg-white/[0.02] ${s.status === "active" ? "" : "opacity-60"}`}>
+                                  <td className="px-4 py-2.5">
+                                    <p className="font-medium text-white">{s.display_name || s.handle || s.user_id.slice(0, 8)}</p>
+                                    <p className="font-mono text-[10px] text-slate-500">{s.handle ? `@${s.handle}` : ""}{s.status !== "active" ? " · inactive" : ""}</p>
+                                  </td>
+                                  <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300">{s.email ?? "—"}</td>
+                                  <td className="px-4 py-2.5 font-mono text-slate-200">{s.scenario_avg_score === null ? "—" : `${s.scenario_avg_score}%`}</td>
+                                  <td className="px-4 py-2.5 font-mono font-bold text-cyber-300">{s.xp.toLocaleString()}</td>
+                                  <td className={`px-4 py-2.5 text-[12px] ${!s.last_active_at ? "text-slate-600" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>{sinceLabel(s.last_active_at)}</td>
+                                </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </Card>
+
             <Card>
               <h2 className="mb-3 text-sm font-bold text-white">Members ({activeMembers.length})</h2>
               <form onSubmit={addMember} className="mb-4 flex flex-wrap items-end gap-2">

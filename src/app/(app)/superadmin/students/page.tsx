@@ -94,6 +94,7 @@ export default function SuperadminStudentsPage() {
                   <thead>
                     <tr className="border-b border-border text-[11px] uppercase tracking-wider text-slate-400">
                       <th className="px-4 py-2.5 font-medium">Student</th>
+                      <th className="px-4 py-2.5 font-medium">Email</th>
                       <th className="px-4 py-2.5 font-medium">College</th>
                       <th className="px-4 py-2.5 font-medium">Rooms</th>
                       <th className="px-4 py-2.5 font-medium">Scenarios</th>
@@ -105,13 +106,14 @@ export default function SuperadminStudentsPage() {
                   </thead>
                   <tbody className="divide-y divide-border/60">
                     {rows.length === 0 ? (
-                      <tr><td colSpan={8} className="px-4 py-6 text-center text-sm text-slate-400">No students match these filters.</td></tr>
+                      <tr><td colSpan={9} className="px-4 py-6 text-center text-sm text-slate-400">No students match these filters.</td></tr>
                     ) : rows.map(s => (
                       <tr key={`${s.org_id}-${s.user_id}`} className="hover:bg-white/[0.02]">
                         <td className="px-4 py-2.5">
                           <p className="font-medium text-white">{s.display_name || s.handle || s.user_id.slice(0, 8)}</p>
                           <p className="font-mono text-[11px] text-slate-500">{s.handle ? `@${s.handle}` : ""} · {s.role}{s.status !== "active" ? ` · ${s.status}` : ""}</p>
                         </td>
+                        <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300">{s.email ?? "—"}</td>
                         <td className="px-4 py-2.5 text-slate-300">{s.org_name}</td>
                         <td className="px-4 py-2.5 font-mono text-slate-400">{s.rooms_completed}/{s.rooms_started}</td>
                         <td className="px-4 py-2.5 font-mono text-slate-400">{s.scenarios_completed}</td>
