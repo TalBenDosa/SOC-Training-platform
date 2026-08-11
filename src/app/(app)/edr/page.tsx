@@ -46,9 +46,54 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
   const [isolated, setIsolated] = useState(false);
   const [hashResult, setHashResult] = useState<Record<number, string>>({});
   const [decided, setDecided] = useState<null | { correct: boolean }>(null);
+  const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
+  const [rtr, setRtr] = useState<{ cmd: string; out: string }[]>([]);
+  const [rtrIn, setRtrIn] = useState("");
 
   const sel = inv.processes.find(p => p.pid === selPid) ?? null;
   const toggle = (pid: number) => setExpanded(s => { const n = new Set(s); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+
+  // RTR-lite: a simulated Real Time Response shell answering from the host's data.
+  function runRtr(raw: string) {
+    const cmd = raw.trim();
+    if (!cmd) return;
+    const [verb, ...args] = cmd.split(/\s+/);
+    let out = "";
+    switch (verb.toLowerCase()) {
+      case "help":
+        out = "Commands: ps · netstat · kill <pid> · get <path> · reg query <key> · cat <path> · contain · clear"; break;
+      case "ps":
+        out = ["PID    PPID   USER                 IMAGE", ...inv.processes
+          .slice().sort((a, b) => a.pid - b.pid)
+          .map(p => `${String(p.pid).padEnd(6)} ${String(p.ppid).padEnd(6)} ${p.user.padEnd(20)} ${p.name}`)].join("\n"); break;
+      case "netstat": {
+        const rows = inv.processes.flatMap(p => (p.network ?? []).map(c => `${c.proto ?? "TCP"}  ${p.name}(${p.pid}) -> ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}  ${c.direction}`));
+        out = rows.length ? rows.join("\n") : "No active connections."; break;
+      }
+      case "kill": {
+        const pid = Number(args[0]);
+        const p = inv.processes.find(x => x.pid === pid);
+        out = p ? `Process ${pid} (${p.name}) terminated.` : `No process with pid ${args[0] ?? "?"}.`; break;
+      }
+      case "get": {
+        const path = args.join(" ");
+        const hit = inv.processes.some(p => (p.files ?? []).some(f => f.path.toLowerCase() === path.toLowerCase()));
+        out = path ? `Queued "${path}" for upload to the cloud (password: infected).${hit ? " File captured." : " (path not seen on host — check spelling)"}` : "usage: get <full path>"; break;
+      }
+      case "reg":
+        out = args[0] === "query"
+          ? `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\n    Updater   REG_SZ   rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start`
+          : "usage: reg query <key>"; break;
+      case "cat": {
+        const path = args.join(" ");
+        out = path ? `(binary content) ${path} — use 'get' to pull it to the cloud for analysis.` : "usage: cat <path>"; break;
+      }
+      case "contain": setIsolated(true); out = "Host network-contained. Only sensor traffic allowed."; break;
+      case "clear": setRtr([]); return;
+      default: out = `rtr: unknown command '${verb}'. Type 'help'.`;
+    }
+    setRtr(r => [...r, { cmd, out }]);
+  }
 
   function decide(choice: number /* pid, or -1 for benign */) {
     setDecided({ correct: choice === inv.answer.pid });
@@ -109,35 +154,83 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
                   <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-cyber-300" /> {sel.name} <span className="font-mono text-[11px] font-normal text-slate-400">pid {sel.pid}</span></h2>
                   {!sel.signed && <span className="rounded border border-severity-high/40 bg-severity-high/10 px-2 py-0.5 text-[10px] font-bold text-severity-high">UNSIGNED</span>}
                 </div>
-                <div className="space-y-2 px-4 py-3 text-[12px]">
-                  <Field label="Command line"><code className="break-all text-slate-200">{sel.cmdline}</code></Field>
-                  <Field label="Image path"><code className="break-all text-slate-400">{sel.path}</code></Field>
-                  <Field label="User"><span className="font-mono text-slate-300">{sel.user}</span></Field>
-                  <Field label="Started"><span className="font-mono text-slate-300">{sel.startedAt}</span></Field>
-                  <Field label="Signed"><span className={sel.signed ? "text-neon-green" : "text-severity-high"}>{sel.signed ? "Yes" : "No — not signed"}</span></Field>
-                  {sel.sha256 && (
-                    <div className="pt-1">
-                      <div className="flex items-center gap-2">
-                        <Fingerprint className="h-3.5 w-3.5 text-slate-500" />
-                        <code className="break-all text-[11px] text-slate-400">{sel.sha256}</code>
-                      </div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => {
-                          const e = lookupHash(sel.sha256!);
-                          setHashResult(r => ({ ...r, [sel.pid]: e ? vtLabel(e) : "Unknown — no reputation on record" }));
-                        }}><FileSearch className="mr-1.5 h-3.5 w-3.5" /> Look up hash</Button>
-                        {hashResult[sel.pid] && (
-                          <span className={`text-[12px] font-bold ${lookupHash(sel.sha256!)?.malicious ? vtColor(lookupHash(sel.sha256!)!) : "text-slate-400"}`}>
-                            {hashResult[sel.pid]}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {decided && sel.note && (
-                    <p className="mt-2 rounded-lg border border-border bg-bg px-3 py-2 text-[12px] text-slate-300"><span className="text-slate-500">why:</span> {sel.note}</p>
-                  )}
+                {/* tabs: Overview / Network / Files (Falcon execution-details style) */}
+                <div className="flex gap-1 border-b border-border px-3 pt-2 text-[11px]">
+                  {(["overview", "network", "files"] as const).map(t => (
+                    <button key={t} onClick={() => setTab(t)}
+                      className={`rounded-t px-2.5 py-1.5 font-medium capitalize transition ${tab === t ? "bg-bg text-cyber-300" : "text-slate-400 hover:text-white"}`}>
+                      {t}{t === "network" && sel.network?.length ? ` (${sel.network.length})` : ""}{t === "files" && sel.files?.length ? ` (${sel.files.length})` : ""}
+                    </button>
+                  ))}
                 </div>
+
+                {tab === "overview" && (
+                  <div className="space-y-2 px-4 py-3 text-[12px]">
+                    <Field label="Command line"><code className="break-all text-slate-200">{sel.cmdline}</code></Field>
+                    <Field label="Image path"><code className="break-all text-slate-400">{sel.path}</code></Field>
+                    <Field label="User"><span className="font-mono text-slate-300">{sel.user}</span></Field>
+                    <Field label="Started"><span className="font-mono text-slate-300">{sel.startedAt}</span></Field>
+                    <Field label="Signed"><span className={sel.signed ? "text-neon-green" : "text-severity-high"}>{sel.signed ? "Yes" : "No — not signed"}</span></Field>
+                    {sel.sha256 && (
+                      <div className="pt-1">
+                        <div className="flex items-center gap-2">
+                          <Fingerprint className="h-3.5 w-3.5 text-slate-500" />
+                          <code className="break-all text-[11px] text-slate-400">{sel.sha256}</code>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            const e = lookupHash(sel.sha256!);
+                            setHashResult(r => ({ ...r, [sel.pid]: e ? vtLabel(e) : "Unknown — no reputation on record" }));
+                          }}><FileSearch className="mr-1.5 h-3.5 w-3.5" /> Look up hash</Button>
+                          {hashResult[sel.pid] && (
+                            <span className={`text-[12px] font-bold ${lookupHash(sel.sha256!)?.malicious ? vtColor(lookupHash(sel.sha256!)!) : "text-slate-400"}`}>
+                              {hashResult[sel.pid]}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {(() => { const ioa = detByPid.get(sel.pid)?.[0] as { ioa?: string } | undefined; return ioa?.ioa ? (
+                      <p className="mt-2 rounded-lg border border-severity-high/25 bg-severity-high/5 px-3 py-2 text-[12px] text-slate-300"><span className="font-bold text-severity-high">IOA</span> · {ioa.ioa}</p>
+                    ) : null; })()}
+                    {decided && sel.note && (
+                      <p className="mt-1 rounded-lg border border-border bg-bg px-3 py-2 text-[12px] text-slate-300"><span className="text-slate-500">why:</span> {sel.note}</p>
+                    )}
+                  </div>
+                )}
+
+                {tab === "network" && (
+                  <div className="px-4 py-3 text-[12px]">
+                    {sel.network?.length ? (
+                      <table className="w-full text-left"><tbody className="divide-y divide-border/50">
+                        {sel.network.map((c, i) => (
+                          <tr key={i}>
+                            <td className="py-1.5 pr-2 font-mono text-slate-500">{c.ts}</td>
+                            <td className="py-1.5 pr-2 text-slate-400">{c.proto ?? "TCP"}</td>
+                            <td className="py-1.5 pr-2 font-mono text-slate-200">{c.remote_ip}:{c.remote_port}</td>
+                            <td className="py-1.5 font-mono text-cyber-300">{c.domain ?? ""}</td>
+                          </tr>
+                        ))}
+                      </tbody></table>
+                    ) : <p className="text-slate-500">No network activity recorded for this process.</p>}
+                  </div>
+                )}
+
+                {tab === "files" && (
+                  <div className="px-4 py-3 text-[12px]">
+                    {sel.files?.length ? (
+                      <div className="space-y-1.5">
+                        {sel.files.map((f, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <span className="font-mono text-slate-500">{f.ts}</span>
+                            <span className={`rounded px-1 text-[10px] font-bold uppercase ${f.action === "write" ? "bg-neon-amber/15 text-neon-amber" : "bg-slate-700 text-slate-300"}`}>{f.action}</span>
+                            <code className="break-all text-slate-300">{f.path}</code>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-slate-500">No file activity recorded for this process.</p>}
+                  </div>
+                )}
               </Card>
             )}
 
@@ -155,6 +248,33 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
             </Card>
           </div>
         </div>
+
+        {/* RTR-lite — simulated Real Time Response shell */}
+        <Card className="p-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-neon-green" /> Real Time Response — {inv.host.name}</h2>
+            <div className="flex flex-wrap gap-1">
+              {["ps", "netstat", "reg query Run", "help"].map(c => (
+                <button key={c} onClick={() => runRtr(c)} className="rounded border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-slate-400 transition hover:text-white">{c}</button>
+              ))}
+            </div>
+          </div>
+          <div className="max-h-[240px] overflow-auto bg-black/40 px-4 py-3 font-mono text-[11.5px] leading-relaxed">
+            {rtr.length === 0 && <p className="text-slate-500">Connected to {inv.host.name}. Type <span className="text-slate-300">help</span>, or use the quick commands above. RTR runs on the endpoint — <span className="text-neon-amber">kill</span>, <span className="text-neon-amber">get</span> and <span className="text-neon-amber">contain</span> take real action.</p>}
+            {rtr.map((l, i) => (
+              <div key={i} className="mb-2">
+                <p className="text-neon-green">{inv.host.name}&gt; <span className="text-slate-200">{l.cmd}</span></p>
+                <pre className="whitespace-pre-wrap text-slate-400">{l.out}</pre>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={e => { e.preventDefault(); runRtr(rtrIn); setRtrIn(""); }} className="flex items-center gap-2 border-t border-border px-4 py-2.5">
+            <span className="font-mono text-[12px] text-neon-green">&gt;</span>
+            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill 6388 · get <path> · reg query Run"
+              className="flex-1 bg-transparent font-mono text-[12px] text-white placeholder-slate-600 focus:outline-none" aria-label="RTR command" />
+            <Button type="submit" variant="outline" size="sm">Run</Button>
+          </form>
+        </Card>
 
         {/* decision */}
         <Card className={decided ? (decided.correct ? "border-neon-green/40" : "border-severity-high/40") : "border-cyber-500/30"}>

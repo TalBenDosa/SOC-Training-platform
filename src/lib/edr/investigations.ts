@@ -13,6 +13,22 @@
 
 export type Verdict = "benign" | "suspicious" | "malicious";
 
+export interface EdrNetConn {
+  ts: string;
+  direction: "outbound" | "inbound";
+  remote_ip: string;
+  remote_port: number;
+  domain?: string;
+  proto?: string;
+  bytes?: number;
+}
+
+export interface EdrFileOp {
+  ts: string;
+  action: "write" | "read" | "delete" | "rename";
+  path: string;
+}
+
 export interface EdrProcess {
   pid: number;
   ppid: number;
@@ -26,6 +42,9 @@ export interface EdrProcess {
   verdict: Verdict;       // ground truth (drives grading; not all shown as labels)
   /** Why it's suspicious/malicious — revealed in the debrief, not up front. */
   note?: string;
+  /** Per-process telemetry surfaced in the detail tabs (Falcon-style). */
+  network?: EdrNetConn[];
+  files?: EdrFileOp[];
 }
 
 export interface EdrDetection {
@@ -33,6 +52,8 @@ export interface EdrDetection {
   technique: string;      // MITRE ID
   name: string;
   severity: "low" | "medium" | "high" | "critical";
+  /** The Indicator of Attack behaviour Falcon would show for this detection. */
+  ioa?: string;
 }
 
 export interface EdrTimelineEvent {
@@ -66,15 +87,25 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { pid: 4820, ppid: 1200, name: "OUTLOOK.EXE", cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE\"", user: "CORP\\r.bakker", path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE", signed: true, startedAt: "09:14:03", verdict: "benign" },
       { pid: 5610, ppid: 4820, name: "WINWORD.EXE", cmdline: "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\r.bakker\\Downloads\\Invoice_4471.docm\"", user: "CORP\\r.bakker", path: "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE", signed: true, startedAt: "09:41:52", verdict: "suspicious", note: "Word opened a macro-enabled doc (.docm) from Downloads — legitimate binary, but it should NOT be spawning a shell." },
       { pid: 6104, ppid: 5610, name: "cmd.exe", cmdline: "cmd.exe /c powershell -w hidden -enc SQBFAFgAKABOAGUAdwAt...", user: "CORP\\r.bakker", path: "C:\\Windows\\System32\\cmd.exe", signed: true, startedAt: "09:41:55", verdict: "suspicious", note: "Office spawning cmd.exe is the classic macro-execution tell. Signed LOLBin, but the parent (WINWORD) makes it anomalous." },
-      { pid: 6240, ppid: 6104, name: "powershell.exe", cmdline: "powershell.exe -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQ...", user: "CORP\\r.bakker", path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", signed: true, startedAt: "09:41:56", verdict: "suspicious", note: "Encoded, hidden-window PowerShell — the downloader. Signed LOLBin abused; it fetched and ran the payload below." },
-      { pid: 6388, ppid: 6240, name: "rundll32.exe", cmdline: "rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start", user: "CORP\\r.bakker", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll", signed: false, sha256: "415dde31bb66f5a6fa3b7ec84d5c1c33c4c6c7038e897dee5b562d8ce70246a9", startedAt: "09:42:01", verdict: "malicious", note: "THE PAYLOAD. rundll32 running an UNSIGNED DLL from AppData\\Roaming — real rundll32 loads system DLLs, never user-writable ones. The hash is a known Agent Tesla sample; it beaconed to the C2 below." },
+      { pid: 6240, ppid: 6104, name: "powershell.exe", cmdline: "powershell.exe -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAATgBlAHQ...", user: "CORP\\r.bakker", path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", signed: true, startedAt: "09:41:56", verdict: "suspicious", note: "Encoded, hidden-window PowerShell — the downloader. Signed LOLBin abused; it fetched and ran the payload below.",
+        network: [{ ts: "09:41:59", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 80, domain: "cdn-msupdate.info", proto: "HTTP", bytes: 207872 }],
+        files: [{ ts: "09:42:00", action: "write", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll" }] },
+      { pid: 6388, ppid: 6240, name: "rundll32.exe", cmdline: "rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start", user: "CORP\\r.bakker", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll", signed: false, sha256: "415dde31bb66f5a6fa3b7ec84d5c1c33c4c6c7038e897dee5b562d8ce70246a9", startedAt: "09:42:01", verdict: "malicious", note: "THE PAYLOAD. rundll32 running an UNSIGNED DLL from AppData\\Roaming — real rundll32 loads system DLLs, never user-writable ones. The hash is a known Agent Tesla sample; it beaconed to the C2 below.",
+        network: [
+          { ts: "09:42:04", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 443, domain: "cdn-msupdate.info", proto: "TLS", bytes: 4096 },
+          { ts: "09:42:34", direction: "outbound", remote_ip: "45.137.22.19", remote_port: 443, domain: "cdn-msupdate.info", proto: "TLS", bytes: 2048 },
+        ],
+        files: [
+          { ts: "09:42:02", action: "write", path: "C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\config.bin" },
+          { ts: "09:42:03", action: "read", path: "C:\\Users\\r.bakker\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data" },
+        ] },
       { pid: 2140, ppid: 1064, name: "svchost.exe", cmdline: "C:\\Windows\\System32\\svchost.exe -k netsvcs -p", user: "NT AUTHORITY\\SYSTEM", path: "C:\\Windows\\System32\\svchost.exe", signed: true, startedAt: "08:01:40", verdict: "benign", note: "Benign noise — a real service host under SYSTEM, correct path and signer." },
       { pid: 7702, ppid: 1200, name: "chrome.exe", cmdline: "\"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\"", user: "CORP\\r.bakker", path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", signed: true, startedAt: "09:05:22", verdict: "benign", note: "Benign — normal browser under the user, signed, correct path." },
     ],
     detections: [
-      { pid: 6240, technique: "T1059.001", name: "Encoded PowerShell command line", severity: "high" },
-      { pid: 6388, technique: "T1218.011", name: "rundll32 executing unsigned DLL from AppData", severity: "critical" },
-      { pid: 6104, technique: "T1059.003", name: "Office application spawned a command shell", severity: "medium" },
+      { pid: 6240, technique: "T1059.001", name: "Encoded PowerShell command line", severity: "high", ioa: "A hidden-window PowerShell decoded a Base64 blob and reached out to an external host — the download-and-execute pattern." },
+      { pid: 6388, technique: "T1218.011", name: "rundll32 executing unsigned DLL from AppData", severity: "critical", ioa: "rundll32 — a signed system binary — loaded an UNSIGNED DLL from a user-writable path and immediately opened a repeating TLS connection. Signed-binary-proxy execution of a payload." },
+      { pid: 6104, technique: "T1059.003", name: "Office application spawned a command shell", severity: "medium", ioa: "WINWORD.EXE spawned cmd.exe. A document has no legitimate reason to launch a shell — the macro-execution tell." },
     ],
     timeline: [
       { at: "09:41:52", kind: "process", pid: 5610, text: "WINWORD.EXE opened Invoice_4471.docm (macro-enabled) from Downloads" },
