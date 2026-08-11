@@ -42,14 +42,28 @@ function EdrConsoleInner() {
   // Deep-link from the SOC Dashboard: /edr?case=<investigation-id> opens that
   // host pre-loaded — the "Investigate in EDR" pivot, same as a Falcon alert
   // opening straight into execution details.
+  //
+  // case=live: the Dashboard generated an EdrInvestigation from the attack story
+  // actually running in the feed and stashed it in sessionStorage — so the EDR
+  // shows the SAME live attack from the endpoint's side. Read once on mount.
   const requested = params.get("case");
-  const initialId = EDR_INVESTIGATIONS.find(i => i.id === requested)?.id ?? EDR_INVESTIGATIONS[0].id;
+  const liveInv = useMemo<EdrInvestigation | null>(() => {
+    if (requested !== "live" || typeof window === "undefined") return null;
+    try { return JSON.parse(sessionStorage.getItem("edr_live_investigation") || "null"); }
+    catch { return null; }
+  }, [requested]);
+
+  const investigations = useMemo(
+    () => (liveInv ? [liveInv, ...EDR_INVESTIGATIONS] : EDR_INVESTIGATIONS),
+    [liveInv],
+  );
+  const initialId = liveInv ? "live" : (EDR_INVESTIGATIONS.find(i => i.id === requested)?.id ?? EDR_INVESTIGATIONS[0].id);
   const [invId, setInvId] = useState(initialId);
-  const inv = useMemo(() => EDR_INVESTIGATIONS.find(i => i.id === invId)!, [invId]);
-  return <Console key={inv.id} inv={inv} onSwitch={setInvId} invId={invId} />;
+  const inv = useMemo(() => investigations.find(i => i.id === invId) ?? investigations[0], [investigations, invId]);
+  return <Console key={inv.id} inv={inv} investigations={investigations} onSwitch={setInvId} invId={inv.id} />;
 }
 
-function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: string; onSwitch: (id: string) => void }) {
+function Console({ inv, investigations, invId, onSwitch }: { inv: EdrInvestigation; investigations: EdrInvestigation[]; invId: string; onSwitch: (id: string) => void }) {
   const { roots, childrenOf } = useMemo(() => buildProcessTree(inv.processes), [inv]);
   const detByPid = useMemo(() => {
     const m = new Map<number, typeof inv.detections>();
@@ -138,9 +152,10 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
         {/* case switch + host header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
-            {EDR_INVESTIGATIONS.map(i => (
+            {investigations.map(i => (
               <button key={i.id} onClick={() => onSwitch(i.id)}
                 className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${i.id === invId ? "border-cyber-500/60 bg-cyber-500/10 text-cyber-200" : "border-border bg-bg-elevated text-slate-400 hover:text-white"}`}>
+                {i.id === "live" && <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-neon-green align-middle" />}
                 {i.host.name}
               </button>
             ))}

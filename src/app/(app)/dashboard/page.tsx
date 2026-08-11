@@ -23,6 +23,7 @@ import { CompanyClearedModal } from "./CompanyClearedModal";
 import { startDashboardTour } from "./OnboardingTour";
 import { COMPANY_PROFILES, COMPANY_EVENTS, NEXACORP_PROFILE } from "@/lib/sim/companyProfiles";
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
+import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import {
   AlertTriangle, BookOpen, Building2, Cpu, FileText, Filter, LogOut, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
@@ -379,6 +380,14 @@ export default function DashboardPage() {
   const eventPool       = useMemo(() => getCompanyEvents(selectedCompanyId), [selectedCompanyId]);
   const selectedCompany = useMemo(() => getCompanyProfile(selectedCompanyId), [selectedCompanyId]);
 
+  // Endpoint view of THE attack currently in the feed — built from the live
+  // story's real process telemetry. Null for pure identity/cloud attacks (no
+  // process tree), in which case "Investigate in EDR" opens the static console.
+  const liveEdrInvestigation = useMemo(
+    () => (sessionStory ? buildInvestigationFromStory(sessionStory) : null),
+    [sessionStory],
+  );
+
   const live = useLiveEvents({
     eventPool,
     intervalMs: 90_000,   // 90s between ticks — readable pace for training
@@ -624,13 +633,18 @@ export default function DashboardPage() {
               Switch Company
             </button>
             {/* Pivot from the SIEM feed into the EDR console — the Falcon motion
-                of alert → endpoint execution details. Deep-links to the endpoint
-                investigation while a shift is running; opens the console list
-                otherwise. */}
+                of alert → endpoint execution details. When the live attack has
+                endpoint telemetry, generate its process tree and open THAT exact
+                attack in the EDR (case=live). Identity/cloud-only attacks have no
+                process tree, so it falls back to the static console. */}
             <Link
-              href={sessionStartedAt !== null ? "/edr?case=phishing-beacon" : "/edr"}
+              href={liveEdrInvestigation ? "/edr?case=live" : "/edr"}
+              onClick={() => {
+                if (liveEdrInvestigation && typeof window !== "undefined")
+                  sessionStorage.setItem("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
+              }}
               className="flex items-center gap-1.5 rounded border border-cyber-500/40 bg-cyber-500/8 px-2.5 py-1.5 text-xs font-semibold text-cyber-300 hover:bg-cyber-500/15 transition"
-              title="Open the endpoint in the EDR console"
+              title={liveEdrInvestigation ? "Investigate this attack on the endpoint (live)" : "Open the EDR console"}
             >
               <Cpu className="h-3.5 w-3.5" />
               Investigate in EDR
