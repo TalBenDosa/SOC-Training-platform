@@ -11,15 +11,11 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
-  Users, Trophy, Activity, Target, DoorOpen, UserPlus, Link2, Copy, Check, AlertTriangle, Loader2, Upload, Mail, KeyRound,
-  Power, PowerOff, Trash2, Download, TrendingDown, Clock, ClipboardList, Plus, X, CalendarClock,
-  Building2, ChevronRight, CalendarDays,
+  Users, Trophy, Activity, Target, DoorOpen, Copy, AlertTriangle, Loader2, KeyRound,
+  Power, PowerOff, Trash2, Download, TrendingDown, Building2, ChevronRight,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 import type { StudentRow } from "@/app/api/org/analytics/route";
-import type { AssignmentRow, AssignmentItem } from "@/app/api/org/assignments/route";
-
-interface CatalogItem { kind: "room" | "scenario"; id: string; title: string; group: string; difficulty: string }
 
 interface OrgLite { id: string; name: string; slug: string; seat_limit: number; status: string; expires_at: string | null }
 type Member = OrgMember & { xp?: number };
@@ -69,28 +65,9 @@ export default function ManagePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [email, setEmail] = useState("");
-  const [adding, setAdding] = useState(false);
-
-  // bulk invite (CSV / pasted list)
-  const [bulkText, setBulkText] = useState("");
-  const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkResult, setBulkResult] = useState<string | null>(null);
-
   // cohort analytics (per-student progress + class signals)
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [classStats, setClassStats] = useState<ClassStats | null>(null);
-
-  // assignments (instructor-set coursework)
-  const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [showNew, setShowNew] = useState(false);
-  const [aTitle, setATitle] = useState("");
-  const [aDue, setADue] = useState("");
-  const [aInstructions, setAInstructions] = useState("");
-  const [aItems, setAItems] = useState<AssignmentItem[]>([]);
-  const [aSearch, setASearch] = useState("");
-  const [aBusy, setABusy] = useState(false);
 
   // right-to-deletion requests filed by this college's students
   const [deletions, setDeletions] = useState<DeletionRequest[]>([]);
@@ -115,12 +92,6 @@ export default function ManagePage() {
       const { students: rows, class: cls } = await anRes.json();
       setStudents(rows ?? []);
       setClassStats(cls ?? null);
-    }
-    const asRes = await fetch("/api/org/assignments");
-    if (asRes.ok) {
-      const { assignments: rows, catalog: cat } = await asRes.json();
-      setAssignments(rows ?? []);
-      setCatalog(cat ?? []);
     }
     // Right-to-deletion queue. Separate call for the same reason as analytics:
     // the roster must still render if this is slow or the table isn't migrated
@@ -152,31 +123,6 @@ export default function ManagePage() {
   }
   useEffect(() => { load(); }, []);
 
-  async function createAssignment(e: React.FormEvent) {
-    e.preventDefault();
-    setABusy(true); setError(null);
-    const res = await fetch("/api/org/assignments", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: aTitle, instructions: aInstructions, due_at: aDue || null, items: aItems }),
-    });
-    setABusy(false);
-    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create assignment."); return; }
-    setNotice("Assignment set."); setShowNew(false);
-    setATitle(""); setADue(""); setAInstructions(""); setAItems([]); setASearch("");
-    load();
-  }
-
-  async function deleteAssignment(id: string) {
-    const res = await fetch(`/api/org/assignments?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!res.ok) { setError("Failed to delete assignment."); return; }
-    setAssignments(prev => prev.filter(a => a.id !== id));
-  }
-
-  const toggleItem = (it: CatalogItem) => setAItems(prev => {
-    const i = prev.findIndex(p => p.kind === it.kind && p.id === it.id);
-    return i >= 0 ? prev.filter((_, n) => n !== i) : [...prev, { kind: it.kind, id: it.id }];
-  });
-
   /** Grade sheet for the college's own records / their LMS. */
   function exportCsv() {
     const header = [
@@ -200,16 +146,6 @@ export default function ManagePage() {
     a.download = `${org?.slug ?? "class"}-progress-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  }
-
-  async function addMember(e: React.FormEvent) {
-    e.preventDefault(); setAdding(true); setError(null); setNotice(null);
-    const res = await fetch("/api/org/members", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role: "student" }),
-    });
-    setAdding(false);
-    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to add."); return; }
-    setEmail(""); setNotice(`Added ${email}.`); await load();
   }
 
   async function setActive(userId: string, active: boolean) {
@@ -255,34 +191,6 @@ export default function ManagePage() {
     await load();
   }
 
-  // Pull every email-looking token out of a CSV / pasted list (any column).
-  function extractEmails(text: string): string[] {
-    const found = text.toLowerCase().match(/[^\s,;<>"']+@[^\s,;<>"']+\.[^\s,;<>"']+/g) ?? [];
-    return [...new Set(found)];
-  }
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    setBulkText(prev => (prev ? prev + "\n" : "") + text);
-    e.target.value = "";
-  }
-  async function sendBulk() {
-    const emails = extractEmails(bulkText);
-    setError(null); setBulkResult(null);
-    if (emails.length === 0) { setError("No valid email addresses found in the list."); return; }
-    setBulkBusy(true);
-    const res = await fetch("/api/org/invites", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ emails, role: "student" }),
-    });
-    setBulkBusy(false);
-    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to send invitations."); return; }
-    const { invites } = await res.json();
-    setBulkResult(`Created ${invites?.length ?? 0} invitation${invites?.length === 1 ? "" : "s"}. Emails sent where email is configured.`);
-    setBulkText("");
-  }
-
-  const field = "h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30";
   const active = members.filter(m => m.status === "active");
   // Active first, then by XP.
   const roster = [...members].sort((a, b) =>
