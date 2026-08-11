@@ -994,12 +994,14 @@ export const QUIZZES: Quiz[] = [
 import { QUIZZES_ENDPOINT_IDENTITY } from "./data-endpoint-identity";
 import { QUIZZES_DETECTION_APPSEC } from "./data-detection-appsec";
 import { QUIZZES_FOUNDATIONS_DATASEC } from "./data-foundations-datasec";
+import { QUIZZES_SECURITY_TOOLS } from "./data-security-tools";
 
 export const ALL_QUIZZES: Quiz[] = [
   ...QUIZZES,
   ...QUIZZES_ENDPOINT_IDENTITY,
   ...QUIZZES_DETECTION_APPSEC,
   ...QUIZZES_FOUNDATIONS_DATASEC,
+  ...QUIZZES_SECURITY_TOOLS,
 ];
 
 export function getQuiz(slug: string): Quiz | undefined {
