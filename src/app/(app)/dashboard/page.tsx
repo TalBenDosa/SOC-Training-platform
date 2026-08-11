@@ -389,16 +389,16 @@ export default function DashboardPage() {
   // is invoked from inside the hook over a stale closure, cannot arm another
   // campaign behind the modal.
   const haltedRef = useRef(false);
-  const handleStoryComplete = () => {
-    if (haltedRef.current) return;
-    const nextStory = instantiateStory(
-      pickStoryForCompany(selectedCompanyId),
-      getCompanyEvents(selectedCompanyId)
-    );
-    setSessionStory(nextStory);
-    setInjectedStories(prev => [...prev, nextStory]);
-    liveRef.current?.startStory(nextStory);
-  };
+  // Have we already armed the NEXT attack for the current incident? Reset when a
+  // new incident opens (see the effect below). This enforces ONE incident at a
+  // time: the next attack is armed only when the student files a passing report
+  // (handleReportPassed), never automatically when a story finishes injecting.
+  const armedNextRef = useRef(false);
+  // Story completion no longer auto-arms the next attack — that let a second
+  // incident pile on while the student was still working the first. A story that
+  // completes uncaught is handled by the hook's missed-attack modal; a caught one
+  // arms its successor from the report handler instead.
+  const handleStoryComplete = () => { /* intentionally does nothing — see handleReportPassed */ };
   // Memoize the pool/profile lookups: getCompanyEvents filters ~8000 benign
   // events, and without memoization it ran on EVERY render and handed a fresh
   // array identity to useLiveEvents each pass — which re-triggered the hook's
@@ -429,6 +429,22 @@ export default function DashboardPage() {
   // Drives the badge that pops next to the "Investigate in EDR" button.
   const edrAlertCount = (live.activeIncident && liveEdrInvestigation)
     ? liveEdrInvestigation.detections.length : 0;
+
+  // When a FRESH incident opens, reset the per-incident state so the student
+  // works it cleanly: report button ready again, EDR reminder cleared, and the
+  // next-attack arming re-enabled. This is what makes each incident a discrete
+  // "handle it, report it, next" unit instead of a running pile.
+  const prevIncidentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = live.activeIncident?.id ?? null;
+    if (id && id !== prevIncidentIdRef.current) {
+      prevIncidentIdRef.current = id;
+      setReportPassed(false);
+      armedNextRef.current = false;
+      try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
+      setEdrInvestigated(false);
+    }
+  }, [live.activeIncident]);
 
   // ── Persist session XP to localStorage (cumulative across sessions) ───────
   const prevSessionXpRef = useRef(0);
@@ -573,6 +589,7 @@ export default function DashboardPage() {
     // Open the shift: this is the ONLY thing that starts the feed and unlocks
     // the EDR console. Clear any EDR-report reminder from a previous shift.
     setTrainingActive(true);
+    armedNextRef.current = false;   // fresh session — next attack arms only after the first report
     try {
       localStorage.removeItem("soc_edr_investigated");
       localStorage.removeItem("edr_live_investigation");
@@ -1240,6 +1257,19 @@ export default function DashboardPage() {
               // later and count a genuinely-caught attack as missed.
               const caughtIds = live.activeIncident?.eventIds ?? [];
               if (caughtIds.length > 0) live.markCaught(caughtIds[0]);
+              // ONE incident at a time: only now — with the current one reported —
+              // do we arm the NEXT attack, and only once per incident. It lands
+              // after a short breather so the student is never juggling two.
+              if (!armedNextRef.current) {
+                armedNextRef.current = true;
+                const nextStory = instantiateStory(
+                  pickStoryForCompany(selectedCompanyId, sessionDifficulty ?? undefined),
+                  getCompanyEvents(selectedCompanyId),
+                );
+                setSessionStory(nextStory);
+                setInjectedStories(prev => [...prev, nextStory]);
+                live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min
+              }
             }}
           />
         );

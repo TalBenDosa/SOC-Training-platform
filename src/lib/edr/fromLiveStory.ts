@@ -39,6 +39,35 @@ function hostOf(url?: string): string | undefined {
   try { return new URL(url).hostname; } catch { return undefined; }
 }
 
+// Parents that have no business launching another executable — an Office doc or
+// a script host spawning a child is the classic "living off the land" tell.
+const ANOMALOUS_PARENTS = new Set([
+  "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
+  "wscript.exe", "cscript.exe", "mshta.exe", "cmd.exe", "powershell.exe",
+]);
+
+/**
+ * The behavioural "why this stands out" a real EDR surfaces BEYOND the raw log
+ * line — the enrichment the student reasons from. Shown in the debrief after the
+ * decision (never up front, so it can't leak the answer). Built from the same
+ * telemetry, so it stays tied to the case.
+ */
+function whyItStandsOut(
+  p: NonNullable<TelemetryEvent["process"]>,
+  o: { signed: boolean; malicious?: boolean; userWritable: boolean },
+): string | undefined {
+  const bits: string[] = [];
+  if (o.malicious) bits.push("its SHA-256 matches a known-bad sample on record");
+  if (!o.signed && o.userWritable) bits.push(`it runs UNSIGNED from a user-writable path (${p.path ?? "?"}) — a real system binary never does`);
+  else if (!o.signed) bits.push("it is not digitally signed");
+  else if (o.userWritable) bits.push(`it runs from a user-writable path (${p.path ?? "?"})`);
+  const parent = p.parent_name?.toLowerCase();
+  if (parent && ANOMALOUS_PARENTS.has(parent) && p.name.toLowerCase() !== parent)
+    bits.push(`its parent is ${p.parent_name}, which has no legitimate reason to launch this`);
+  if (bits.length === 0) return undefined;
+  return "Why it stands out: " + bits.join("; ") + ".";
+}
+
 function timelineKind(e: TelemetryEvent): EdrTimelineEvent["kind"] {
   const t = e.event_type;
   if (t.startsWith("net") || t === "http_request" || t === "dns_query" || t === "http_blocked") return "network";
@@ -82,6 +111,7 @@ export function buildInvestigationFromStory(
       sha256,
       startedAt: hhmmss(e.ts),
       verdict,
+      note: verdict === "benign" ? undefined : whyItStandsOut(p, { signed, malicious, userWritable }),
       network: [],
       files: [],
     });

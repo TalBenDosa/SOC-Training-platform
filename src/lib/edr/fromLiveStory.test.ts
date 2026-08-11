@@ -72,6 +72,28 @@ describe("buildInvestigationFromStory", () => {
     expect(buildInvestigationFromStory({ id: "x", title: "x", events: [] })).toBeNull();
   });
 
+  // The EDR is an investigation tool — its content MUST be tied to the case the
+  // student saw in the feed. Every entity it shows (host, process names, hashes,
+  // C2 domains) has to come from the story's own telemetry, never invented.
+  it("keeps the EDR strictly tied to the log — no invented entities", () => {
+    for (const [id, b] of ENDPOINT_STORIES) {
+      const inv = buildInvestigationFromStory({ id, title: b.title, events: b.events });
+      if (!inv) continue;
+      const log = new Set<string>();
+      for (const e of b.events) {
+        [e.hostname, e.src_ip, e.dst_ip, e.process?.name, e.process?.parent_name,
+         e.process?.hash?.sha256, e.network?.domain].forEach(v => { if (v) log.add(v); });
+      }
+      // Host, every process name + hash, and every C2 domain must be from the log.
+      if (inv.host.name !== "endpoint") expect(log.has(inv.host.name)).toBe(true);
+      for (const p of inv.processes) {
+        expect(log.has(p.name)).toBe(true);
+        if (p.sha256) expect(log.has(p.sha256)).toBe(true);
+        for (const c of p.network ?? []) if (c.domain) expect(log.has(c.domain)).toBe(true);
+      }
+    }
+  });
+
   // Guards the guards: prove the meaningful (non-null) path actually exercised —
   // at least one real endpoint story must yield a tree WITH detections, and at
   // least one must produce a real (non -1) malicious payload.

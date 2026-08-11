@@ -846,8 +846,9 @@ export interface LiveEventsApi {
   pause: () => void;
   resume: () => void;
   reset: (pool?: TelemetryEvent[], story?: AttackStory | null) => void;
-  /** Arm a new attack story mid-session (e.g. a second story after the first completes) */
-  startStory: (story: AttackStory) => void;
+  /** Arm a new attack story mid-session. Optional delayMs overrides the default
+   *  8-12 min campaign cooldown (the dashboard uses a shorter gap after a report). */
+  startStory: (story: AttackStory, delayMs?: number) => void;
   // Miss-detection
   missedAttack: boolean;
   clearMissedAttack: () => void;
@@ -1307,11 +1308,11 @@ export function useLiveEvents({
   }, [isStreaming, maxVisible, engineMode, injectNextPhase]);
 
   /** Arm a new story mid-session (second attack after the first completes) */
-  const startStory = useCallback((next: AttackStory) => {
+  const startStory = useCallback((next: AttackStory, delayMs?: number) => {
     storyRef.current = next;
     storyCursorRef.current = 0;
     if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
-    attackTimerRef.current = setTimeout(injectNextPhase, ATTACK_COOLDOWN());
+    attackTimerRef.current = setTimeout(injectNextPhase, delayMs ?? ATTACK_COOLDOWN());
   }, [injectNextPhase]);
 
   const pause = useCallback(() => setIsStreaming(false), []);
