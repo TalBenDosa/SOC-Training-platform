@@ -33,6 +33,7 @@ export interface StudentRow {
   user_id: string;
   handle: string | null;
   display_name: string | null;
+  email: string | null;
   status: string;
   role: string;
   joined_at: string | null;
@@ -46,6 +47,9 @@ export interface StudentRow {
   completed_room_ids: string[];
   scenarios_completed: number;
   scenario_avg_score: number | null;
+  /** Overall score across ALL graded room tasks: % correct (task_attempts, 0031). */
+  task_accuracy: number | null;
+  tasks_graded: number;
   sessions: number;
   avg_detect_rate: number | null;
   last_active_at: string | null;
@@ -59,7 +63,7 @@ export async function GET() {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const [membersRes, roomsRes, scenariosRes, sessionsRes] = await Promise.all([
+  const [membersRes, roomsRes, scenariosRes, sessionsRes, attemptsRes, emailsRes] = await Promise.all([
     admin.from("org_members")
       .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level)")
       .eq("org_id", orgId),
@@ -72,15 +76,22 @@ export async function GET() {
     admin.from("dashboard_sessions")
       .select("user_id, detect_rate, played_at")
       .eq("org_id", orgId),
+    // graded task submissions (0031) → overall task accuracy per student
+    admin.from("task_attempts").select("user_id, correct").eq("org_id", orgId),
+    // member emails (0032) — service-role-only definer function
+    admin.rpc("org_member_emails", { p_org: orgId }),
   ]);
 
   type RoomRow = { user_id: string; room_id: string; completed_at: string | null; updated_at: string | null };
   type ScenarioRow = { user_id: string; score: number | null; completed_at: string | null };
   type SessionRow = { user_id: string; detect_rate: number | null; played_at: string | null };
+  type AttemptRow = { user_id: string; correct: boolean };
 
   const roomRows     = (roomsRes.data ?? []) as RoomRow[];
   const scenarioRows = (scenariosRes.data ?? []) as ScenarioRow[];
   const sessionRows  = (sessionsRes.data ?? []) as SessionRow[];
+  const attemptRows  = (attemptsRes.data ?? []) as AttemptRow[];
+  const emailBy = new Map<string, string>(((emailsRes.data ?? []) as Array<{ user_id: string; email: string }>).map(e => [e.user_id, e.email]));
 
   const byUser = <T extends { user_id: string }>(rows: T[]) => {
     const m = new Map<string, T[]>();
@@ -93,6 +104,7 @@ export async function GET() {
   const roomsBy     = byUser(roomRows);
   const scenariosBy = byUser(scenarioRows);
   const sessionsBy  = byUser(sessionRows);
+  const attemptsBy  = byUser(attemptRows);
 
   const latest = (dates: (string | null | undefined)[]): string | null => {
     let best: number | null = null;
@@ -111,12 +123,15 @@ export async function GET() {
     const rp = roomsBy.get(m.user_id) ?? [];
     const sc = scenariosBy.get(m.user_id) ?? [];
     const ds = sessionsBy.get(m.user_id) ?? [];
+    const at = attemptsBy.get(m.user_id) ?? [];
     const completed = rp.filter(r => r.completed_at);
+    const correctCount = at.filter(a => a.correct).length;
 
     return {
       user_id: m.user_id,
       handle: p?.handle ?? null,
       display_name: p?.display_name ?? null,
+      email: emailBy.get(m.user_id) ?? null,
       status: m.status,
       role: m.role,
       joined_at: m.joined_at,
@@ -128,6 +143,8 @@ export async function GET() {
       completed_room_ids: completed.map(r => r.room_id),
       scenarios_completed: sc.length,
       scenario_avg_score: avg(sc.map(s => s.score ?? 0)),
+      task_accuracy: at.length ? Math.round((correctCount / at.length) * 100) : null,
+      tasks_graded: at.length,
       sessions: ds.length,
       avg_detect_rate: avg(ds.map(s => s.detect_rate ?? 0)),
       last_active_at: latest([
