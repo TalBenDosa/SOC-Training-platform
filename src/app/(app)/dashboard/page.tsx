@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { pickStoryForCompany, instantiateStory } from "./attackStories";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
@@ -21,9 +22,10 @@ import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
 import { startDashboardTour } from "./OnboardingTour";
 import { COMPANY_PROFILES, COMPANY_EVENTS, NEXACORP_PROFILE } from "@/lib/sim/companyProfiles";
+import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import {
-  AlertTriangle, BookOpen, Building2, FileText, Filter, LogOut, Pause, Play,
-  RefreshCw, Search, Siren, Star, Target, X, Zap,
+  AlertTriangle, BookOpen, Building2, Cpu, FileText, Filter, LogOut, Pause, Play,
+  RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
 const COMPANY_KEY       = "soc_selected_company_v1";  // device-local UI preference (which company is open)
@@ -316,6 +318,22 @@ export default function DashboardPage() {
   // ─── Session summary modal ────────────────────────────────────────────────
   const [sessionSummary, setSessionSummary] = useState<DashboardSessionRecord | null>(null);
 
+  // ─── Hosts contained in the EDR console ───────────────────────────────────
+  // Shared state with /edr: isolating a host there marks it "Contained" here,
+  // so the two surfaces read as one product (SIEM + EDR). Reactive to the EDR's
+  // own event and to cross-tab storage writes.
+  const [edrContained, setEdrContained] = useState<string[]>([]);
+  useEffect(() => {
+    const sync = () => setEdrContained(containedHosts());
+    sync();
+    window.addEventListener(EDR_CONTAINMENT_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(EDR_CONTAINMENT_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
   // ─── Progress counters (session-scoped, reset on company switch) ─────────
   const [reportPassed,    setReportPassed]    = useState(false);
 
@@ -605,6 +623,18 @@ export default function DashboardPage() {
               <Building2 className="h-3.5 w-3.5 text-slate-400" />
               Switch Company
             </button>
+            {/* Pivot from the SIEM feed into the EDR console — the Falcon motion
+                of alert → endpoint execution details. Deep-links to the endpoint
+                investigation while a shift is running; opens the console list
+                otherwise. */}
+            <Link
+              href={sessionStartedAt !== null ? "/edr?case=phishing-beacon" : "/edr"}
+              className="flex items-center gap-1.5 rounded border border-cyber-500/40 bg-cyber-500/8 px-2.5 py-1.5 text-xs font-semibold text-cyber-300 hover:bg-cyber-500/15 transition"
+              title="Open the endpoint in the EDR console"
+            >
+              <Cpu className="h-3.5 w-3.5" />
+              Investigate in EDR
+            </Link>
             {/* Report Incident — the key action, and the only place the analyst
                 is graded. Solid CTA throughout; no pulse/hint tied to whether
                 they've "caught" anything — that would leak the answer. */}
@@ -653,6 +683,17 @@ export default function DashboardPage() {
             <span className="font-semibold text-white">Companies</span>
             <span className="font-mono text-sm font-bold text-neon-purple">{clearedCompanies.length}/{COMPANY_ORDER.length}</span>
           </span>
+          {/* Reflected from the EDR console: a host contained there shows as
+              contained here too — one shared response state across both surfaces. */}
+          {edrContained.length > 0 && (
+            <span
+              className="flex items-center gap-1.5 rounded-full border border-neon-amber/40 bg-neon-amber/10 px-2.5 py-1 text-[11px] font-semibold text-neon-amber"
+              title={`Contained in EDR: ${edrContained.join(", ")}`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {edrContained.length === 1 ? `${edrContained[0]} contained in EDR` : `${edrContained.length} hosts contained in EDR`}
+            </span>
+          )}
           {/* Session state — the analyst should never have to guess whether a
               graded session is running. Live pulse + elapsed clock when active,
               an explicit idle hint when not. */}

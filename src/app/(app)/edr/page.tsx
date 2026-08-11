@@ -7,7 +7,8 @@
  * hash lookups hit the real hashDatabase so "Look up hash" returns a genuine
  * verdict.
  */
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { EDR_INVESTIGATIONS, buildProcessTree, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
 import { lookupHash, vtLabel, vtColor } from "@/lib/sim/hashDatabase";
+import { isContained, setContained } from "@/lib/edr/containment";
 
 const SEV_STYLE: Record<string, string> = {
   critical: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical",
@@ -27,8 +29,22 @@ const SEV_STYLE: Record<string, string> = {
 };
 
 export default function EdrConsolePage() {
+  return (
+    <Suspense fallback={null}>
+      <EdrConsoleInner />
+    </Suspense>
+  );
+}
+
+function EdrConsoleInner() {
   usePageTitle("EDR Console");
-  const [invId, setInvId] = useState(EDR_INVESTIGATIONS[0].id);
+  const params = useSearchParams();
+  // Deep-link from the SOC Dashboard: /edr?case=<investigation-id> opens that
+  // host pre-loaded — the "Investigate in EDR" pivot, same as a Falcon alert
+  // opening straight into execution details.
+  const requested = params.get("case");
+  const initialId = EDR_INVESTIGATIONS.find(i => i.id === requested)?.id ?? EDR_INVESTIGATIONS[0].id;
+  const [invId, setInvId] = useState(initialId);
   const inv = useMemo(() => EDR_INVESTIGATIONS.find(i => i.id === invId)!, [invId]);
   return <Console key={inv.id} inv={inv} onSwitch={setInvId} invId={invId} />;
 }
@@ -43,7 +59,11 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
 
   const [selPid, setSelPid] = useState<number | null>(inv.detections[0]?.pid ?? roots[0]?.pid ?? null);
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(inv.processes.map(p => p.pid))); // all open
-  const [isolated, setIsolated] = useState(false);
+  // Isolation is shared with the SOC Dashboard: containing here marks the host
+  // "Contained" there too. Seed from the store so a host isolated on either
+  // surface stays isolated on both.
+  const [isolated, setIsolated] = useState(() => isContained(inv.host.name));
+  const isolate = (next: boolean) => { setIsolated(next); setContained(inv.host.name, next); };
   const [hashResult, setHashResult] = useState<Record<number, string>>({});
   const [decided, setDecided] = useState<null | { correct: boolean }>(null);
   const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
@@ -52,6 +72,18 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
 
   const sel = inv.processes.find(p => p.pid === selPid) ?? null;
   const toggle = (pid: number) => setExpanded(s => { const n = new Set(s); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+
+  // Incident Workbench roll-up — the "full picture" a Falcon incident gives:
+  // one score, the ATT&CK techniques seen on this host, and the affected
+  // entities, all derived from the detections already on the investigation.
+  const workbench = useMemo(() => {
+    const SEV_WEIGHT: Record<string, number> = { critical: 40, high: 25, medium: 12, low: 4 };
+    const score = Math.min(100, inv.detections.reduce((s, d) => s + (SEV_WEIGHT[d.severity] ?? 0), 0));
+    const techniques = Array.from(new Set(inv.detections.map(d => d.technique)));
+    const band = score >= 70 ? "Critical" : score >= 40 ? "High" : score >= 15 ? "Medium" : "Low";
+    return { score, techniques, band };
+  }, [inv]);
+  const bandStyle = workbench.band === "Critical" ? "text-severity-critical" : workbench.band === "High" ? "text-severity-high" : workbench.band === "Medium" ? "text-neon-amber" : "text-neon-green";
 
   // RTR-lite: a simulated Real Time Response shell answering from the host's data.
   function runRtr(raw: string) {
@@ -88,7 +120,7 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
         const path = args.join(" ");
         out = path ? `(binary content) ${path} — use 'get' to pull it to the cloud for analysis.` : "usage: cat <path>"; break;
       }
-      case "contain": setIsolated(true); out = "Host network-contained. Only sensor traffic allowed."; break;
+      case "contain": isolate(true); out = "Host network-contained. Only sensor traffic allowed."; break;
       case "clear": setRtr([]); return;
       default: out = `rtr: unknown command '${verb}'. Type 'help'.`;
     }
@@ -113,7 +145,7 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
               </button>
             ))}
           </div>
-          <Button variant={isolated ? "outline" : "primary"} size="sm" onClick={() => setIsolated(v => !v)}>
+          <Button variant={isolated ? "outline" : "primary"} size="sm" onClick={() => isolate(!isolated)}>
             <MonitorX className="mr-1.5 h-4 w-4" /> {isolated ? "Host isolated ✓ — release" : "Isolate host"}
           </Button>
         </div>
@@ -132,6 +164,39 @@ function Console({ inv, invId, onSwitch }: { inv: EdrInvestigation; invId: strin
             </span>
           </div>
           <p className="mt-3 text-[13px] text-slate-300">{inv.summary}</p>
+        </Card>
+
+        {/* Incident Workbench — one incident, scored, with the ATT&CK picture */}
+        <Card className="border-border">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <p className={`font-mono text-2xl font-bold leading-none ${bandStyle}`}>{workbench.score}</p>
+                <p className="text-[9px] uppercase tracking-wider text-slate-500">score</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Incident severity</p>
+                <p className={`text-sm font-bold ${bandStyle}`}>{workbench.band}</p>
+              </div>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Detections</p>
+              <p className="text-sm font-bold text-white">{inv.detections.length}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Affected</p>
+              <p className="text-sm font-mono text-slate-200">{inv.host.name} · {inv.host.user}</p>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">ATT&amp;CK techniques</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {workbench.techniques.length ? workbench.techniques.map(t => (
+                  <span key={t} className="rounded border border-neon-purple/30 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-purple">{t}</span>
+                )) : <span className="text-[11px] text-slate-500">none</span>}
+              </div>
+            </div>
+          </div>
         </Card>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_1fr]">
