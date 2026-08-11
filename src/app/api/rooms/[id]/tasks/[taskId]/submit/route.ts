@@ -1,14 +1,21 @@
 import { NextResponse } from "next/server";
 import { findRoom, findTask, gradeTask } from "@/lib/rooms/grading";
+import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
 /**
  * Grades one Room task submission server-side (see src/lib/rooms/grading.ts
- * for why). No auth gate: Rooms are usable by guests (progress kept in
+ * for why). No auth GATE: Rooms are usable by guests (progress kept in
  * localStorage) as well as signed-in users, and grading itself has no
  * user-specific side effect — the caller still persists the result via the
  * existing storage facade, exactly as before this endpoint existed.
+ *
+ * It DOES, however, record the attempt for a signed-in student (task_attempts,
+ * migration 0031) so the instructor drill-down can show WHERE a student erred —
+ * what they submitted, whether it was right, which try it was. Best-effort and
+ * non-blocking: a guest, or a failed insert, never affects the grade returned.
  */
 export async function POST(
   req: Request,
@@ -33,6 +40,32 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
+
+  // Record the attempt for a signed-in student — best-effort, never blocks the
+  // grade. Written via the service role with user_id + org_id from the session.
+  try {
+    const user = await getAuthedUser();
+    const admin = getSupabaseAdminClient();
+    if (user && admin) {
+      const b = (body ?? {}) as Record<string, unknown>;
+      const attemptNo = Number(b.attemptNumber);
+      const latency = Number(b.latencyMs ?? b.decisionLatencyMs);
+      // Store the submission minus bookkeeping fields — just what they answered.
+      const { attemptNumber: _a, latencyMs: _l, decisionLatencyMs: _d, ...submitted } = b;
+      void _a; void _l; void _d;
+      await admin.from("task_attempts").insert({
+        user_id: user.id,
+        org_id: user.orgId ?? null,
+        room_id: room.id,
+        task_id: task.id,
+        task_type: task.type,
+        correct: result.correct,
+        submitted,
+        attempt_no: Number.isFinite(attemptNo) && attemptNo > 0 ? attemptNo : 1,
+        latency_ms: Number.isFinite(latency) && latency >= 0 ? Math.round(latency) : null,
+      });
+    }
+  } catch { /* telemetry is a convenience, never a hard dependency */ }
 
   return NextResponse.json({
     correct: result.correct,

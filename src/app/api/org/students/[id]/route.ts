@@ -45,7 +45,15 @@ export interface StudentDetail {
     /** Median decision latency across every task the student answered (ms). */
     median_decision_latency_ms: number | null;
     tasks_answered: number;
+    /** From task_attempts (0031): graded submissions + how many were wrong. */
+    graded_submissions: number;
+    wrong_submissions: number;
   };
+  /** Where the student erred — recent wrong submissions (task_attempts, 0031). */
+  mistakes: Array<{
+    room_id: string; room_title: string; task_id: string; task_type: string | null;
+    submitted: unknown; attempt_no: number; latency_ms: number | null; created_at: string | null;
+  }>;
   rooms: Array<{
     room_id: string; title: string; completed: boolean;
     tasks_done: number; xp_earned: number;
@@ -85,7 +93,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     .eq("org_id", orgId).eq("user_id", id).maybeSingle();
   if (!member) return NextResponse.json({ error: "No such student in your organisation." }, { status: 404 });
 
-  const [roomsRes, scenariosRes, sessionsRes] = await Promise.all([
+  const [roomsRes, scenariosRes, sessionsRes, attemptsRes] = await Promise.all([
     admin.from("room_progress")
       .select("room_id, completed_task_ids, per_task_xp, xp_earned, telemetry, completed_at, updated_at")
       .eq("org_id", orgId).eq("user_id", id),
@@ -95,12 +103,19 @@ export async function GET(_req: Request, { params }: Ctx) {
     admin.from("dashboard_sessions")
       .select("detect_rate, played_at, duration_ms")
       .eq("org_id", orgId).eq("user_id", id).order("played_at", { ascending: false }),
+    // task_attempts (0031) — where the student erred. Pinned to org + user.
+    admin.from("task_attempts")
+      .select("room_id, task_id, task_type, correct, submitted, attempt_no, latency_ms, created_at")
+      .eq("org_id", orgId).eq("user_id", id).order("created_at", { ascending: false }).limit(300),
   ]);
 
   type RoomRow = { room_id: string; completed_task_ids: string[] | null; per_task_xp: Record<string, number> | null; xp_earned: number | null; telemetry: TelemetryEntry[] | null; completed_at: string | null; updated_at: string | null };
   const roomRows = (roomsRes.data ?? []) as RoomRow[];
   const scenarioRows = (scenariosRes.data ?? []) as Array<{ slug: string; title: string | null; score: number | null; time_taken: number | null; completed_at: string | null }>;
   const sessionRows = (sessionsRes.data ?? []) as Array<{ detect_rate: number | null; played_at: string | null; duration_ms: number | null }>;
+  type AttemptRow = { room_id: string; task_id: string; task_type: string | null; correct: boolean; submitted: unknown; attempt_no: number | null; latency_ms: number | null; created_at: string | null };
+  const attemptRows = (attemptsRes.data ?? []) as AttemptRow[];
+  const wrongRows = attemptRows.filter(a => !a.correct);
 
   const allLatencies: number[] = [];
   const rooms = roomRows.map(r => {
@@ -144,10 +159,23 @@ export async function GET(_req: Request, { params }: Ctx) {
       avg_detect_rate: avg(sessionRows.map(s => s.detect_rate ?? 0)),
       median_decision_latency_ms: median(allLatencies),
       tasks_answered: allLatencies.length,
+      graded_submissions: attemptRows.length,
+      wrong_submissions: wrongRows.length,
     },
     rooms,
     scenarios: scenarioRows.map(s => ({ slug: s.slug, title: s.title ?? s.slug, score: s.score, time_taken: s.time_taken, completed_at: s.completed_at })),
     sessions: sessionRows.map(s => ({ detect_rate: s.detect_rate, played_at: s.played_at, duration_ms: s.duration_ms })),
+    // Most-recent wrong submissions — capped so a long history stays readable.
+    mistakes: wrongRows.slice(0, 40).map(a => ({
+      room_id: a.room_id,
+      room_title: ROOM_TITLE[a.room_id] ?? a.room_id,
+      task_id: a.task_id,
+      task_type: a.task_type,
+      submitted: a.submitted,
+      attempt_no: a.attempt_no ?? 1,
+      latency_ms: a.latency_ms,
+      created_at: a.created_at,
+    })),
   };
 
   return NextResponse.json(detail);

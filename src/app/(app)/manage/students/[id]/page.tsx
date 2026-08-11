@@ -15,7 +15,7 @@ import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import {
-  ArrowLeft, Loader2, AlertTriangle, DoorOpen, Target, Trophy, Activity, Timer, Clock, KeyRound, CalendarDays, Gauge,
+  ArrowLeft, Loader2, AlertTriangle, DoorOpen, Target, Trophy, Activity, Timer, Clock, KeyRound, CalendarDays, Gauge, XCircle,
 } from "lucide-react";
 import type { StudentDetail } from "@/app/api/org/students/[id]/route";
 
@@ -35,6 +35,18 @@ function fmtSecs(sec: number | null): string {
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+/** Render whatever the student submitted (varies by task type) compactly. */
+function summariseSubmission(sub: unknown): string {
+  if (sub === null || sub === undefined) return "—";
+  if (typeof sub === "string" || typeof sub === "number" || typeof sub === "boolean") return String(sub);
+  try {
+    // Pull the human-meaningful field for common task shapes, else stringify.
+    const o = sub as Record<string, unknown>;
+    const pick = o.answer ?? o.choice ?? o.verdict ?? o.flag ?? o.selected ?? o.values ?? o.blanks;
+    const s = JSON.stringify(pick ?? o);
+    return s.length > 160 ? s.slice(0, 157) + "…" : s;
+  } catch { return "—"; }
 }
 
 export default function StudentDetailPage() {
@@ -168,6 +180,43 @@ export default function StudentDetailPage() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </Card>
+
+            {/* Where they erred — wrong submissions (task_attempts, 0031). */}
+            <Card>
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-white"><XCircle className="h-4 w-4 text-severity-high" /> Where they erred</h2>
+                <span className="text-[11px] text-slate-400">
+                  {data.summary.wrong_submissions} wrong of {data.summary.graded_submissions} graded submissions
+                </span>
+              </div>
+              <p className="mb-3 text-[11px] text-slate-400">The most recent incorrect answers — what the student submitted, and on which try.</p>
+              {data.mistakes.length === 0 ? (
+                <p className="text-sm text-slate-400">
+                  {data.summary.graded_submissions === 0
+                    ? "No graded submissions recorded yet — mistakes appear here as the student works through rooms."
+                    : "No wrong answers recorded. 🎯"}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {data.mistakes.map((m, i) => (
+                    <div key={`${m.task_id}-${i}`} className="rounded-lg border border-border bg-bg px-3 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm text-slate-200">{m.room_title}</span>
+                        <span className="flex items-center gap-2 text-[10px] text-slate-500">
+                          {m.task_type && <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono">{m.task_type}</span>}
+                          {m.attempt_no > 1 && <span className="text-neon-amber">try #{m.attempt_no}</span>}
+                          {m.latency_ms !== null && <span><Timer className="mr-0.5 inline h-3 w-3" />{fmtMs(m.latency_ms)}</span>}
+                          <span>{fmtDate(m.created_at)}</span>
+                        </span>
+                      </div>
+                      <p className="mt-1 break-words font-mono text-[11px] text-slate-400">
+                        <span className="text-slate-500">submitted:</span> {summariseSubmission(m.submitted)}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
             </Card>
