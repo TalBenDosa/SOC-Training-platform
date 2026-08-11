@@ -995,6 +995,9 @@ import { QUIZZES_ENDPOINT_IDENTITY } from "./data-endpoint-identity";
 import { QUIZZES_DETECTION_APPSEC } from "./data-detection-appsec";
 import { QUIZZES_FOUNDATIONS_DATASEC } from "./data-foundations-datasec";
 import { QUIZZES_SECURITY_TOOLS } from "./data-security-tools";
+import { QUIZZES_PROTOCOLS_PORTS } from "./data-protocols-ports";
+import { QUIZZES_SECURITY_MODELS } from "./data-security-models";
+import { QUIZZES_ATTACK_TYPES } from "./data-attack-types";
 
 export const ALL_QUIZZES: Quiz[] = [
   ...QUIZZES,
@@ -1002,6 +1005,9 @@ export const ALL_QUIZZES: Quiz[] = [
   ...QUIZZES_DETECTION_APPSEC,
   ...QUIZZES_FOUNDATIONS_DATASEC,
   ...QUIZZES_SECURITY_TOOLS,
+  ...QUIZZES_PROTOCOLS_PORTS,
+  ...QUIZZES_SECURITY_MODELS,
+  ...QUIZZES_ATTACK_TYPES,
 ];
 
 export function getQuiz(slug: string): Quiz | undefined {
