@@ -92,10 +92,11 @@ export default function SuperAdminPage() {
           </div>
         )}
 
-        {/* Super-admin hub — the two consoles the platform owner runs. Customer
-            management IS this page; content management lives at /admin. Before
-            this row the two were disconnected with no link between them. */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Super-admin hub — the consoles the platform owner runs. Customer
+            management IS this page; content management lives at /admin; the
+            global student list at /superadmin/students. Before this row they
+            were disconnected with no link between them. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex items-center gap-3 rounded-xl border border-cyber-500/40 bg-cyber-500/5 px-4 py-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10">
               <Building2 className="h-5 w-5 text-cyber-300" />
@@ -105,6 +106,16 @@ export default function SuperAdminPage() {
               <p className="text-[11px] text-slate-400">Colleges, seats, codes — you&apos;re here</p>
             </div>
           </div>
+          <Link href="/superadmin/students" className="group flex items-center gap-3 rounded-xl border border-border bg-bg-elevated px-4 py-3 transition hover:border-cyber-500/50">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
+              <Users className="h-5 w-5 text-cyber-300" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-white">All students</p>
+              <p className="text-[11px] text-slate-400">Every learner, across all colleges</p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-cyber-300" />
+          </Link>
           <Link href="/admin" className="group flex items-center gap-3 rounded-xl border border-border bg-bg-elevated px-4 py-3 transition hover:border-cyber-500/50">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
               <FileText className="h-5 w-5 text-cyber-300" />
