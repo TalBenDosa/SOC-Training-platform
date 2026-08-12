@@ -1088,6 +1088,72 @@ When you need deeper analysis beyond what an online sandbox provides:
 - **Ghidra:** Free NSA-developed tool for decompiling binary code back into readable C-like code. The free alternative to IDA Pro.`,
     },
 
+    // ── Reading 4: Writing a YARA Rule ────────────────────────────────────────
+    {
+      type: "reading",
+      id: "malware-r4",
+      heading: "Writing a YARA Rule",
+      content: `Static analysis gives you strings, imports, and structural clues about a file. YARA is what lets you turn those clues into something reusable — a rule you can run against one file, an entire disk, or millions of samples on VirusTotal. YARA's own creators describe it as "the pattern-matching swiss army knife" for malware researchers, and that description is accurate: it is not an antivirus engine and it does not understand code the way a disassembler does. It simply asks, "Does this file contain the patterns I'm looking for?" — but that simple question turns out to be extremely powerful once you know how to phrase it.
+
+**Anatomy of a YARA Rule**
+
+Every YARA rule has the same structure: a name, an optional \`meta\` block for documentation, a \`strings\` block that defines the patterns you're searching for, and a \`condition\` block that decides when those patterns count as a match. Here is a complete, syntactically valid example. It is **illustrative only** — a rule shaped like something you might write for a commodity infostealer, not a rule that matches any specific named real-world malware family:
+
+\`\`\`yara
+rule Suspicious_Credential_Stealer_Strings
+{
+    meta:
+        description = "Flags a PE containing strings commonly seen in commodity infostealers"
+        author = "SOC Training"
+        date = "2026-08-12"
+
+    strings:
+        $s1 = "Login Data" wide ascii
+        $s2 = "\\AppData\\Local\\Google\\Chrome\\User Data" wide ascii
+        $s3 = { 4D 5A }  // MZ header — PE file
+        $re1 = /https?:\\/\\/[a-z0-9]{16,}\\.(top|xyz|info)/ nocase
+
+    condition:
+        $s3 at 0 and 1 of ($s1, $s2) and $re1
+}
+\`\`\`
+
+**meta — documentation only.** Everything inside \`meta\` (description, author, date) is metadata for humans reading the rule. YARA never evaluates it against the file — you could write anything there and the rule would still match or fail based purely on \`strings\` and \`condition\`. Good practice is to always fill it in anyway, because a shared rule with no author or description is a rule nobody trusts six months later.
+
+**strings — the patterns you're hunting for.** Each string is given a name starting with \`$\` so the condition can refer to it. YARA supports three kinds of patterns:
+
+- **Plain text**, like \`$s1 = "Login Data"\`. The \`wide\` modifier tells YARA to also match the string encoded as UTF-16 (two bytes per character) — the encoding Windows programs commonly use internally for things like registry paths and window titles — while \`ascii\` keeps the standard single-byte match active too. \`nocase\` (used on \`$re1\` here) makes a match case-insensitive.
+- **Hex bytes**, written in \`{ }\`, like \`$s3 = { 4D 5A }\`. This is a raw byte pattern rather than text — \`4D 5A\` are the two bytes that spell "MZ" in hex, which is the magic number every Windows PE file (.exe, .dll) starts with. Hex patterns are how you match binary structures, packer signatures, or shellcode fragments that aren't readable text.
+- **Regular expressions**, written between \`/ /\`, like \`$re1\`. This one matches an \`http://\` or \`https://\` URL where the domain is a long lowercase alphanumeric string ending in \`.top\`, \`.xyz\`, or \`.info\` — cheap, disposable top-level domains that infostealer C2 panels are frequently hosted on. Regex strings let you catch a whole family of values instead of one exact one.
+
+**condition — the boolean logic that decides a match.** This is where the rule stops being a list of patterns and becomes a decision. Conditions are plain boolean expressions over the strings you defined, plus a few special operators:
+
+- \`$s3 at 0\` means the \`$s3\` pattern must occur at file offset 0 — the very first bytes of the file. Combined with the MZ header, this effectively says "this must be a PE executable," filtering out unrelated file types before anything else is checked.
+- \`1 of ($s1, $s2)\` means at least one of those two named strings must be present. YARA lets you write \`N of (...)\` for any number — \`2 of ($s1, $s2, $s3)\` would require at least two of those three to match, and \`all of them\` requires every string in the rule.
+- \`and\` chains conditions together the way you'd expect: every clause joined by \`and\` must be true for the rule to fire.
+
+Read as a sentence, the full condition says: "This must be a PE file, AND it must contain at least one of the Chrome credential-store strings, AND it must contain a URL matching the disposable-TLD C2 pattern." No single condition alone would be reliable — "Login Data" appears in plenty of legitimate software, and cheap TLDs host plenty of legitimate sites — but the combination narrows things down considerably. This is the core skill in writing YARA rules: picking patterns that are individually common but collectively rare.
+
+**Using YARA rules in practice**
+
+Once a rule is saved (typically as a \`.yar\` file), you run it from the command line against a single file or a whole directory: \`yara rule.yar suspicious_file.exe\` prints the rule name if it matches, nothing if it doesn't. Point it at a directory recursively (\`yara -r rule.yar C:\\Users\\\`) and you can sweep an entire endpoint for anything matching your pattern in seconds — useful when an IR team needs to know "does this rule match anywhere else on this machine, or across the fleet?"
+
+Beyond your own machine, VirusTotal lets you run YARA rules against its enormous historical corpus of submitted files — a feature often called **retrohunting**. Instead of scanning files as they arrive, you submit a rule and VirusTotal searches everything it has already collected (going back months or years) for anything matching your pattern. This is how researchers frequently discover that a technique they just identified in one sample was actually used across dozens of related files submitted over the preceding weeks — turning one detection into a whole cluster of related activity.`,
+      checkpoint: {
+        question:
+          "In a YARA condition, what does the expression `2 of ($s1, $s2, $s3)` require in order for the rule to match?",
+        options: [
+          "All three of $s1, $s2, and $s3 must be present in the file, with no exceptions allowed",
+          "At least two of the three named strings ($s1, $s2, $s3) must be present somewhere in the file",
+          "Exactly two of the three strings must be present — if all three match, the rule is considered a non-match",
+          "The string $s2 specifically must appear at least twice within the file for the condition to be true",
+        ],
+        answer: 1,
+        explanation:
+          "'N of (...)' is a YARA shorthand meaning 'at least N of the listed strings must match.' So '2 of ($s1, $s2, $s3)' is satisfied if any two (or all three) of those strings are found in the file — it is a minimum threshold, not an exact count, and it does not require all three the way 'all of them' would.",
+      },
+    },
+
     // ── Question 1 ────────────────────────────────────────────────────────────
     {
       type: "question",

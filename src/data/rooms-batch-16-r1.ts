@@ -761,6 +761,75 @@ const azureSecurityRoom = {
           "Account-key-based SAS tokens are cryptographically signed strings that Azure cannot individually revoke. The only way to invalidate one before its expiry is regenerating the underlying storage account access keys — but that breaks every other SAS token and application relying on those same keys, forcing a tradeoff between closing the exposure and causing an outage. Deleting the resource does not invalidate the token itself (a same-named resource created before expiry would again be reachable). Defender for Storage detects and alerts on anomalous access — it does not automatically revoke credentials. And a SAS token's cryptographic validity is independent of the container's public-access level, so reverting to Private does nothing to the token itself.",
       },
     },
+
+    // ── Reading 8: Containment actions once identity compromise is confirmed ─
+    {
+      type: "reading" as const,
+      id: "azure-r8",
+      heading: "Containing a Compromised Azure Identity",
+      content:
+        `Every reading in this room so far has built toward one skill: reading the Azure Activity Log, NSG Flow Logs, and Storage/Key Vault diagnostic events well enough to CONFIRM that a specific identity — a user, a managed identity, or a service principal — has been compromised. But confirming compromise is not the end of the job. Once a SOC analyst has enough evidence to say "this identity is compromised," the next question is immediate and practical: what do you actually DO about it, right now, in Azure?\n\n` +
+        `**Revoke Sessions and Tokens — Not Just the Password**\n\n` +
+        `The single most common containment mistake is resetting a compromised user's password and stopping there. A password reset does NOT invalidate a token or session that Azure AD/Entra ID already issued before the reset — a stolen refresh token, or an already-authenticated browser session, can keep working against Microsoft Graph, Azure Resource Manager, or Outlook Web Access for as long as that token remains valid, completely independent of whether the password changes. To actually cut off an attacker holding a live token, an analyst must explicitly **revoke the user's sessions**. In the Microsoft Entra admin center, this is the "Revoke sessions" action on a user's profile. From PowerShell, the legacy cmdlet is Revoke-AzureADUserAllRefreshToken -ObjectId <user-object-id>, though Microsoft has been retiring the older AzureAD PowerShell module in favor of Microsoft Graph PowerShell — the modern equivalent is Invoke-MgInvalidateUserRefreshToken -UserId <user-object-id>. Either command forces every refresh token issued to that user to be invalidated immediately, meaning any application holding a stolen token is forced to re-authenticate — and re-authentication will now fail once the password has also been reset and any registered MFA method the attacker added has been removed.\n\n` +
+        `**Disable the Account or Kill the Credential**\n\n` +
+        `For a compromised human user, disabling the account outright (in the Entra admin center, or via PowerShell with Set-AzureADUser -ObjectId <user-object-id> -AccountEnabled $false, or the Graph equivalent Update-MgUser -UserId <user-object-id> -AccountEnabled:$false) is often faster and more certain than a password reset alone, especially as an immediate first move while the rest of the investigation continues. For a compromised **service principal**, there is no password to reset in the human sense — the equivalent action is to reset or remove its credential: delete the leaked client secret or certificate from the app registration (or add a new one and revoke the old), so nothing authenticating with the old secret can obtain a new token, regardless of how many systems or scripts had it cached.\n\n` +
+        `**Isolate a Compromised VM Without Destroying It**\n\n` +
+        `If the compromised identity is a managed identity attached to a virtual machine — or if the VM itself shows signs of compromise (unexpected run-command executions, unfamiliar processes, outbound connections to unfamiliar IPs) — the correct network containment move is to apply a **Network Security Group rule** that denies all inbound and outbound traffic except from the forensics team's known IP range, at the highest priority (lowest priority number) so it is evaluated before any existing rule. Critically, do NOT delete or deallocate the VM. Deleting the VM destroys the exact evidence — memory state, running processes, disk contents — the investigation needs, and a deallocated VM loses its RAM contents entirely. Isolating the VM at the network layer stops the attacker from doing further damage or exfiltrating more data while leaving the machine itself intact for forensic imaging.\n\n` +
+        `**Preserve Evidence Before Any Destructive Step**\n\n` +
+        `Before applying any remediation step that could alter or destroy the VM's state — reimaging it, restoring from an old backup, or even rebooting it — take a **disk snapshot** of its OS disk and any attached data disks. A snapshot is a point-in-time, read-only copy that preserves exactly what the disk looked like at the moment of containment, and it can be attached to a separate forensic VM for offline analysis without touching the original, still-isolated machine. Skipping this step is one of the most common and costly incident-response mistakes: an analyst who reimages a compromised VM before snapshotting it has permanently destroyed the disk evidence needed to answer "how did the attacker get in, and what did they touch?"\n\n` +
+        `**The Same Pattern You've Already Learned — Applied to Azure**\n\n` +
+        `This sequence — isolate first, fully understand the scope, THEN eradicate — is the same incident-response pattern taught generally in this platform's Incident Response Methodology room. Here it is applied specifically to Azure: revoke tokens/sessions and disable the identity or kill its credential (stop the attacker from acting further as that identity), isolate the compromised VM at the network layer without deleting it (stop further damage while preserving evidence), snapshot before any destructive remediation (preserve the evidence), and only then move to eradication — removing malicious role assignments, rotating every credential the compromised identity could have touched, and rebuilding from a known-clean image rather than "cleaning" a machine that was already fully controlled by an attacker.`,
+      codeExample:
+        "AZURE IDENTITY COMPROMISE: CONTAINMENT CHECKLIST\n" +
+        "=======================================================\n" +
+        "1. REVOKE SESSIONS/TOKENS (do this FIRST -- a password\n" +
+        "   reset alone does NOT invalidate an already-issued token)\n" +
+        "   Entra admin center: user profile -> \"Revoke sessions\"\n" +
+        "   PowerShell (legacy, being retired):\n" +
+        "     Revoke-AzureADUserAllRefreshToken -ObjectId <user-id>\n" +
+        "   PowerShell (Microsoft Graph, current):\n" +
+        "     Invoke-MgInvalidateUserRefreshToken -UserId <user-id>\n" +
+        "\n" +
+        "2. DISABLE THE ACCOUNT / KILL THE CREDENTIAL\n" +
+        "   Compromised user:\n" +
+        "     Set-AzureADUser -ObjectId <user-id> -AccountEnabled $false\n" +
+        "     (Graph equivalent: Update-MgUser -AccountEnabled:$false)\n" +
+        "   Compromised service principal:\n" +
+        "     Remove/rotate the leaked client secret or certificate\n" +
+        "     on the app registration\n" +
+        "\n" +
+        "3. ISOLATE, DON'T DELETE, A COMPROMISED VM\n" +
+        "   Apply an NSG rule at highest priority:\n" +
+        "     direction: Inbound + Outbound\n" +
+        "     access: Deny\n" +
+        "     sourceAddressPrefix / destinationAddressPrefix: *\n" +
+        "     EXCEPT an explicit Allow rule (lower priority number)\n" +
+        "     for the forensics team's IP range only\n" +
+        "   Do NOT delete or deallocate the VM -- deallocating loses\n" +
+        "   RAM contents, deleting destroys the disk entirely.\n" +
+        "\n" +
+        "4. PRESERVE EVIDENCE BEFORE ANY DESTRUCTIVE STEP\n" +
+        "   Take a disk snapshot of the OS disk + data disks BEFORE\n" +
+        "   reimaging, restoring, or rebooting.\n" +
+        "\n" +
+        "5. ONLY THEN: eradicate -- remove malicious role assignments,\n" +
+        "   rotate every credential the identity could have touched,\n" +
+        "   rebuild from a known-clean image.\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "A SOC analyst resets a compromised user's password in Entra ID but does not separately revoke the user's sessions or refresh tokens. What is the risk?",
+        options: [
+          "None -- a password reset in Entra ID automatically and immediately invalidates every refresh token and active session the user had, so no further action is needed",
+          "A token or session issued to the attacker before the reset can remain valid and continue working against Graph, Azure Resource Manager, or Outlook Web Access, independent of the password change, until it is explicitly revoked",
+          "The risk only applies to service principals, not human users, since human user sessions in Entra ID are always tied directly to the current password and expire the instant it changes",
+          "The account will be automatically disabled by Microsoft Defender for Cloud within minutes of the password reset, so the analyst does not need to take any further containment action",
+        ],
+        answer: 1,
+        explanation:
+          "A password reset alone does not invalidate tokens or sessions already issued before the reset — an attacker holding a stolen refresh token or active session can keep using it until it is explicitly revoked (via 'Revoke sessions' in the Entra admin center, or Invoke-MgInvalidateUserRefreshToken / the legacy Revoke-AzureADUserAllRefreshToken). This applies to human users too, not just service principals, and there is no automatic revocation triggered by a password change alone.",
+      },
+    },
   ],
 };
 

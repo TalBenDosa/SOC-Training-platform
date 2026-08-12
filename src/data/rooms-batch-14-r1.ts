@@ -721,6 +721,78 @@ const awsSecurityRoom = {
         "= automatic CRITICAL severity, page on-call immediately.\n" +
         "=======================================================",
     },
+
+    // ── Reading 7: Containment — the missing final step ─────────────────────
+    {
+      type: "reading" as const,
+      id: "aws-r7",
+      heading: "Containing a Compromised AWS Identity",
+      content:
+        `You have now read CloudTrail events end to end, traced a stolen credential from an IMDS SSRF theft through privilege escalation and a StopLogging call, and confirmed with high confidence that a specific IAM identity is compromised. Every reading in this room up to this point has been about investigation — recognizing WHAT happened. But recognizing compromise is not the end of the job. The moment you can say "this access key is stolen and actively being used by an attacker," a SOC analyst has to act, immediately, before the investigation is even finished. This reading covers the concrete containment steps for a compromised AWS identity or instance — the part of the job that comes right after everything you've already learned.\n\n` +
+        `**Step 1 — Deactivate the Access Key, Don't Delete It**\n\n` +
+        `If the compromised identity is an IAM user with a long-term access key, your very first action should be:\n\n` +
+        `aws iam update-access-key --access-key-id <KEY_ID> --status Inactive --user-name <USER>\n\n` +
+        `This immediately stops the key from authenticating to any AWS API — the attacker's next API call, using that same key, will fail with an InvalidClientTokenId or similar error. Critically, this command DEACTIVATES the key rather than deletes it. Deletion (aws iam delete-access-key) is destructive and irreversible: once a key is deleted, AWS discards the record of which specific key ID performed which historical actions, which can weaken your ability to cleanly attribute every CloudTrail event to that credential during the forensic follow-up. Deactivating first buys you the same protective effect — the key can no longer be used — while preserving your ability to keep investigating with the key ID intact. Deletion comes later, as part of cleanup, once the investigation is complete.\n\n` +
+        `**Step 2 — Freeze the Identity's Permissions**\n\n` +
+        `Deactivating a single access key stops that specific credential, but if the identity has other active credentials (a second access key, an active console session, or MFA-authenticated access), you need to freeze the identity itself. Two common approaches: attach an explicit, highest-precedence deny-all policy directly to the user or role (an inline policy with "Effect": "Deny", "Action": "*", "Resource": "*" overrides every other Allow the identity has, because in IAM an explicit Deny always wins), or detach the identity's existing managed and inline policies entirely so it retains no permissions at all. Either approach effectively freezes the identity in place without deleting it — which matters, because you still need the identity to exist so you can review its policy history and attached permissions as part of the investigation.\n\n` +
+        `**Step 3 — Rotate Credentials Once Contained**\n\n` +
+        `Once the immediate threat is stopped and the investigation has enough evidence, complete the credential rotation: delete the old, now-deactivated access key, issue the legitimate user or service a brand-new key pair, and — if the identity uses console access — force a password reset and, where applicable, force MFA (Multi-Factor Authentication) re-registration so any device the attacker may have paired during the compromise is invalidated. Only rotate after containment and evidence collection are done; rotating too early, before you've captured what you need from the old key's history, can throw away useful investigative context.\n\n` +
+        `**Step 4 — Isolate, Don't Terminate, a Compromised EC2 Instance**\n\n` +
+        `If the compromise involves an EC2 instance (for example, the instance whose IMDS credentials were stolen via SSRF), the instinct to immediately terminate it is understandable but wrong. Terminating an instance destroys volatile evidence — running processes, network connections, and in-memory malware artifacts — that you may need to fully understand how the attacker got in and what else they touched. Instead, isolate the instance by swapping its security group to a dedicated isolation/quarantine security group that denies all inbound and outbound traffic except a narrow allow rule for the forensics team's IP address (to permit remote acquisition and analysis). This stops the instance from being used for further attack activity or lateral movement while keeping it running and preserved for analysis.\n\n` +
+        `**Step 5 — Preserve Evidence Before Any Destructive Action**\n\n` +
+        `Before you isolate, and certainly before you ever terminate or rebuild an EC2 instance, take an EBS (Elastic Block Store) snapshot of its attached volumes. A snapshot captures the exact disk state at that moment, including any malware, dropped files, or modified configuration the attacker left behind — evidence that termination, or even certain in-place remediation steps, can permanently lose. This single step — snapshot first, remediate second — is the difference between having forensic evidence available six weeks into an investigation and having none at all.\n\n` +
+        `**This Is the General IR Pattern, Applied to AWS**\n\n` +
+        `If this sequence — isolate first, fully understand the scope, THEN eradicate and rebuild — sounds familiar, it should: it's the same containment discipline covered in this platform's Incident Response Methodology room, just applied specifically to AWS identities and EC2 instances instead of on-premises endpoints. Deactivating a key instead of deleting it, and isolating an instance instead of terminating it, are both the cloud-specific expression of the same underlying rule: contain the threat without destroying the evidence you'll need to close out the incident properly.`,
+      codeExample:
+        "AWS CONTAINMENT SEQUENCE FOR A COMPROMISED IDENTITY\n" +
+        "=======================================================\n" +
+        "1. DEACTIVATE the key (do NOT delete yet):\n" +
+        "   aws iam update-access-key \\\n" +
+        "     --access-key-id AKIAIOSFODNN7EXAMPLE \\\n" +
+        "     --status Inactive \\\n" +
+        "     --user-name svc-deploy\n" +
+        "\n" +
+        "2. FREEZE remaining permissions:\n" +
+        "   - Attach an explicit deny-all inline policy, OR\n" +
+        "   - Detach all managed/inline policies from the identity\n" +
+        "   (an explicit Deny always overrides any Allow in IAM)\n" +
+        "\n" +
+        "3. ROTATE once contained + evidence captured:\n" +
+        "   aws iam delete-access-key --access-key-id <OLD_KEY_ID> \\\n" +
+        "     --user-name svc-deploy\n" +
+        "   aws iam create-access-key --user-name svc-deploy\n" +
+        "   -> force MFA re-registration if console access exists\n" +
+        "\n" +
+        "4. ISOLATE (not terminate) a compromised EC2 instance:\n" +
+        "   aws ec2 modify-instance-attribute \\\n" +
+        "     --instance-id i-0a1b2c3d4e5f6g7h8 \\\n" +
+        "     --groups sg-isolation0000000\n" +
+        "   (isolation SG: no inbound/outbound except forensics IP)\n" +
+        "\n" +
+        "5. PRESERVE evidence BEFORE any destructive step:\n" +
+        "   aws ec2 create-snapshot \\\n" +
+        "     --volume-id vol-0f1e2d3c4b5a6978 \\\n" +
+        "     --description \"forensic snapshot - pre-remediation\"\n" +
+        "=======================================================\n\n" +
+        "WHY ORDER MATTERS\n" +
+        "=======================================================\n" +
+        "Deactivate before delete  -> key ID stays attributable\n" +
+        "Isolate before terminate  -> volatile evidence survives\n" +
+        "Snapshot before remediate -> disk state survives\n" +
+        "Rotate only after containment + evidence is captured\n" +
+        "=======================================================",
+      checkpoint: {
+        question: "A SOC analyst confirms an IAM user's access key is compromised and actively being used by an attacker. What is the correct first action, and why?",
+        options: [
+          "Delete the access key immediately, since a deleted key can never be used again by anyone",
+          "Deactivate the access key with update-access-key --status Inactive, since deactivation stops its use immediately while preserving the key ID for forensic attribution",
+          "Wait until the full investigation is complete before touching the key, so no evidence is disturbed",
+          "Terminate the EC2 instance associated with the key to remove the attacker's foothold immediately",
+        ],
+        answer: 1,
+        explanation: "Deactivating the key stops it from authenticating just as effectively as deleting it, but preserves the key ID so CloudTrail events can still be cleanly attributed to that exact credential during the ongoing investigation. Deleting it first (option a) is irreversible and can weaken attribution. Waiting for the investigation to finish (option c) leaves an active attacker credential live, which is unacceptable — containment must happen immediately, in parallel with investigation. Terminating an EC2 instance (option d) is a separate action from deactivating a key, and termination itself is the wrong move for an instance because it destroys volatile evidence; isolation, not termination, is the correct instance-level response.",
+      },
+    },
   ],
 };
 

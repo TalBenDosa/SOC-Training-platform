@@ -1469,6 +1469,59 @@ Every modern Windows system includes **Windows Defender Antivirus** (now called 
 For SOC analysts: Windows Defender generates security event logs (Event ID 1116 = malware detected, 1117 = action taken). These feed into SIEM solutions and should be monitored. Attackers frequently attempt to disable Defender before deploying ransomware.`,
       },
       {
+        type: "reading" as const,
+        id: "win-fund-r4",
+        heading: "PowerShell for Defenders, Not Just Attackers",
+        content: `**The Other Side of PowerShell**
+
+You just learned how attackers abuse PowerShell — encoded commands, execution policy bypass, fileless payloads pulled straight from the internet. That's one half of the picture. The other half is this: PowerShell is also one of the most useful tools an analyst has for investigating a Windows endpoint. The exact same shell that runs a malicious download-and-execute one-liner can query event logs, list running processes, and pull evidence for an incident report. Learning to read PowerShell as an attacker technique is only half the job — you also need to know how to use it yourself.
+
+**Why PowerShell Is Different from cmd.exe: Objects, Not Text**
+
+Old-style command-line tools (cmd.exe, Unix shells) pass plain text between commands. If you want to filter or reformat that output, you have to parse strings — brittle, and easy to get wrong. PowerShell is built differently: every cmdlet (PowerShell's term for a built-in command, pronounced "command-let") returns structured **objects**, not text. An object carries real properties — a process object has a Name property, a CPU property, an Id property — and those properties can be filtered, sorted, and selected directly, without any text parsing.
+
+This is what makes a command like this work cleanly:
+
+  Get-Process | Where-Object {$_.CPU -gt 50}
+
+Get-Process returns process objects. The pipe (|) passes those objects — not printed text — into Where-Object, which filters them by the CPU property. $_ refers to "the current object in the pipeline." No regex, no string-splitting. This object pipeline is the single biggest reason PowerShell is more powerful than cmd.exe for both attackers and defenders — it's just as easy to filter for "processes with abnormally high CPU" as it is to filter for "logon failures in the last hour."
+
+**Core Cmdlets Every Analyst Should Know**
+
+- **Get-Process** — Lists every running process on the system, with PID, CPU usage, and memory. Your first stop when you need to see what's actually running right now and spot something that doesn't belong.
+- **Get-Service** — Lists Windows services and their current state (Running, Stopped). Useful for checking whether a security service — or a suspicious new service — is active.
+- **Get-WinEvent** — Queries the Windows Event Log directly from the command line, without opening Event Viewer. This is the cmdlet you'll use constantly during investigations.
+- **Get-ChildItem** — Lists files and folders (PowerShell's equivalent of dir or ls). Useful for checking what's sitting in %TEMP% or %APPDATA% — the same user-writable locations flagged earlier in this room as favorite malware drop sites.
+- **Select-Object** — Narrows a command's output down to specific properties, so you're not staring at a wall of irrelevant fields.
+- **Where-Object** — Filters objects in the pipeline by a condition, exactly like the CPU example above.
+- **Export-Csv** — Writes pipeline output to a CSV file. This is how you turn a live PowerShell query into an artifact you can attach to an incident ticket or hand to a lead analyst.
+
+**A Worked Example: Pulling Failed Logons for a Report**
+
+Suppose you're triaging a possible brute-force attempt and need to show every failed logon (Event ID 4625) from the last hour, saved as evidence:
+
+  Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4625; StartTime=(Get-Date).AddHours(-1)} | Select-Object TimeCreated, Id, Message | Export-Csv -Path C:\\Investigation\\failed_logons.csv -NoTypeInformation
+
+Read it left to right, the way the pipeline actually executes: Get-WinEvent queries the Security log for event ID 4625 (a failed logon) starting one hour before now. -FilterHashtable is the parameter that lets you specify log name, event ID, and time window all in one filter, instead of pulling the entire log and searching through it — which matters on a busy domain controller where the Security log can hold hundreds of thousands of entries. The results — still full event objects — are piped into Select-Object, which keeps only the timestamp, event ID, and message text. Finally, Export-Csv writes that trimmed output to a file, ready to attach to a ticket or share with the incident lead. One line, three cmdlets, and a piece of real evidence.
+
+**The Same Tool, Two Purposes — and Why Context Is the Signal**
+
+Here's the uncomfortable truth this room has now shown you from both sides: an analyst's Get-WinEvent query and an attacker's Invoke-Expression download string are both, technically, "just PowerShell." The binary is the same, it's signed by Microsoft, and it won't trigger antivirus on its own either way. So if the tool itself can't tell you who's using it, what can?
+
+This is exactly why the indicators from the previous reading matter as much as they do. An encoded command (-EncodedCommand), a hidden or minimized window, an execution policy bypass, or PowerShell spawning from winword.exe or excel.exe instead of a logged-in analyst's own session — none of these are about PowerShell being "bad." They're about PowerShell being used in a way that doesn't match how a legitimate administrator or analyst actually works. A defender's Get-WinEvent call runs interactively, from a visible console, under the analyst's own credentials, against a known log. An attacker's PowerShell often runs hidden, spawned from an unrelated parent process, with obfuscated arguments, reaching out to the internet. Same tool. Different context. The context is the signal — not the presence of powershell.exe in your process list.`,
+        checkpoint: {
+          question: "An analyst wants to pull every failed logon (Event ID 4625) from the Security log in the last hour and save it as a CSV for an incident report. Which cmdlet combination correctly accomplishes this?",
+          options: [
+            "Get-Process | Where-Object {$_.Id -eq 4625} | Export-Csv -Path report.csv",
+            "Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4625; StartTime=(Get-Date).AddHours(-1)} | Export-Csv -Path report.csv",
+            "Get-Service -Name 'Security' | Select-Object Id | Export-Csv -Path report.csv",
+            "Get-ChildItem -Path 'C:\\Windows\\System32\\winevt' -Filter '*4625*' | Export-Csv -Path report.csv",
+          ],
+          answer: 1,
+          explanation: "Get-WinEvent with -FilterHashtable is built specifically for querying event logs by LogName, Id, and time range — the correct tool for this task. Get-Process lists running processes, not log entries, and has no Id property matching event IDs. Get-Service lists service states, not security events. Get-ChildItem lists files and folders — searching filenames for '4625' would not find anything, since event data lives inside the .evtx log file, not in file names.",
+        },
+      },
+      {
         type: "question" as const,
         id: "win-fund-q1",
         question:

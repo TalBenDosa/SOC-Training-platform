@@ -708,6 +708,71 @@ const gcpRoom = {
         "HIGH/CRITICAL severity, investigate immediately.\n" +
         "=======================================================",
     },
+
+    // ── Reading 7: Containment actions once compromise is confirmed ─────────
+    {
+      type: "reading" as const,
+      id: "gcp-r7",
+      heading: "Containing a Compromised GCP Identity",
+      content:
+        `Every reading so far in this room has built one skill: reading Cloud Audit Logs closely enough to say, with confidence, "this service account is compromised" or "this user's credentials were stolen." That skill is necessary, but it is not the job. The moment you have confirmed compromise — like the svc-data key theft and self-granted roles/owner from the previous reading — the investigation pauses and containment begins. This reading covers the concrete, hands-on actions a SOC analyst directs (or performs, depending on your organization's IR runbook) the moment a GCP identity is confirmed compromised, using the same real gcloud commands your cloud team would actually run.\n\n` +
+        `**Step 1: Disable the Compromised Key — Never Delete It First**\n\n` +
+        `If the compromise traces back to a service account key (as it does in the svc-data case), the very first action is to disable that specific key: gcloud iam service-accounts keys disable KEY_ID --iam-account=SA_EMAIL. Disabling immediately blocks the key from authenticating anything, which is the goal — but it deliberately stops short of deleting it. This mirrors the exact same discipline you'd apply to a leaked AWS IAM access key: delete is irreversible, and once a key is deleted, GCP no longer retains a record you can directly correlate against, making it far harder to later prove in your incident report exactly which key was used for which malicious API call. A disabled key still exists, still shows up in gcloud iam service-accounts keys list, and can be examined, timestamped, and referenced throughout the rest of the investigation — only after root cause is fully understood and evidence is preserved should the key be deleted for good, usually as part of formal eradication rather than the first containment step.\n\n` +
+        `**Step 2: Freeze the Identity's Permissions by Removing IAM Bindings**\n\n` +
+        `Disabling a key stops that one specific credential, but if the attacker escalated privileges (as in the SetIamPolicy self-grant of roles/owner), the compromised service account itself may still hold dangerous permissions that could be exercised through some other credential you haven't found yet — an attached VM, a second key, an OAuth token. To freeze the identity's actual permissions at the project level, remove its IAM policy binding directly: gcloud projects remove-iam-policy-binding PROJECT_ID --member="serviceAccount:SA_EMAIL" --role="ROLE". Run this for every role the compromised principal holds, starting with the highest-privilege one (roles/owner first). This step is what actually neutralizes the identity's power in GCP, independent of which specific credential the attacker is holding — and it can be done in parallel with, not only after, disabling the key.\n\n` +
+        `**Step 3: Isolate, Don't Delete, a Compromised Compute Engine Instance**\n\n` +
+        `If the compromise chain touched a Compute Engine VM — for example, the SSRF-exploited web-frontend host from the earlier reading — the instinct to shut it down or delete it immediately is understandable, but wrong. Deleting the instance destroys its disk, its memory state, and any chance of understanding how the attacker got in or what else they touched. Instead, isolate it at the network layer: tag the instance (gcloud compute instances add-tags INSTANCE_NAME --tags=quarantined --zone=ZONE), then apply a deny-all VPC firewall rule scoped to that tag (gcloud compute firewall-rules create quarantine-deny-egress --network=VPC_NAME --direction=EGRESS --action=DENY --rules=all --destination-ranges=0.0.0.0/0 --target-tags=quarantined --priority=0, and the same for --direction=INGRESS). Because firewall rules in GCP are evaluated by priority, a priority=0 deny-all rule overrides any looser rule the instance was previously covered by, cutting off both inbound and outbound traffic while leaving the VM itself — and everything on its disk and in its running memory — completely intact for forensics.\n\n` +
+        `**Step 4: Snapshot the Disk Before Anything Destructive Happens**\n\n` +
+        `Isolating an instance stops the bleeding, but it does not preserve evidence on its own — a running VM's disk can still change, and any later remediation step (rebuilding the instance, patching it, restoring from an older image) risks overwriting exactly the data you'd need to reconstruct the attack. Before any such step, take a point-in-time snapshot of the instance's persistent disk: gcloud compute disks snapshot DISK_NAME --snapshot-names=SNAPSHOT_NAME --zone=ZONE. This snapshot becomes the forensic record — it can be mounted read-only on a separate, clean investigation VM for deep analysis without ever touching the (now isolated) original.\n\n` +
+        `**The Pattern This Room Has Been Building Toward**\n\n` +
+        `Notice the order across all four steps: disable/isolate first, preserve evidence, and only THEN move to full eradication (permanent key deletion, instance rebuild, credential rotation for every identity the attacker touched). This is the same isolate-first, understand-fully, then-eradicate sequence taught generally in this platform's Incident Response Methodology room, applied here with GCP-specific tooling — and it is the same disable-don't-delete discipline you'd apply to a leaked AWS access key, just spoken in gcloud instead of the AWS CLI. Reading the audit trail tells you what happened; containment is what you actually do about it, and doing it in the wrong order can cost you the evidence you need to close the incident properly.`,
+      codeExample:
+        "GCP CONTAINMENT COMMANDS -- IN ORDER\n" +
+        "=======================================================\n" +
+        "1. Disable the compromised key (NOT delete)\n" +
+        "   gcloud iam service-accounts keys disable KEY_ID \\\n" +
+        "     --iam-account=SA_EMAIL\n" +
+        "\n" +
+        "2. Freeze permissions -- remove IAM policy binding(s)\n" +
+        "   gcloud projects remove-iam-policy-binding PROJECT_ID \\\n" +
+        "     --member=\"serviceAccount:SA_EMAIL\" \\\n" +
+        "     --role=\"roles/owner\"\n" +
+        "\n" +
+        "3. Isolate a compromised VM -- tag + deny-all firewall\n" +
+        "   gcloud compute instances add-tags INSTANCE_NAME \\\n" +
+        "     --tags=quarantined --zone=ZONE\n" +
+        "\n" +
+        "   gcloud compute firewall-rules create quarantine-deny-egress \\\n" +
+        "     --network=VPC_NAME --direction=EGRESS --action=DENY \\\n" +
+        "     --rules=all --destination-ranges=0.0.0.0/0 \\\n" +
+        "     --target-tags=quarantined --priority=0\n" +
+        "\n" +
+        "4. Preserve evidence -- snapshot the disk BEFORE any\n" +
+        "   destructive remediation step\n" +
+        "   gcloud compute disks snapshot DISK_NAME \\\n" +
+        "     --snapshot-names=SNAPSHOT_NAME --zone=ZONE\n" +
+        "=======================================================\n\n" +
+        "WHY DISABLE, NOT DELETE\n" +
+        "=======================================================\n" +
+        "Disabled key  -> still listable, still referenceable in\n" +
+        "                 the incident report, evidence intact\n" +
+        "Deleted key   -> irreversible, breaks the ability to\n" +
+        "                 prove which key made which API call\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "You've confirmed a GCP service account key was stolen and used to call SetIamPolicy. What is the correct FIRST containment action, and why?",
+        options: [
+          "Delete the service account entirely, so the attacker loses access immediately and permanently",
+          "Disable the specific compromised key with gcloud iam service-accounts keys disable, preserving it for evidence rather than deleting it outright",
+          "Wait until the full attack timeline is reconstructed before taking any action, to avoid tipping off the attacker",
+          "Rotate every service account key in the project at once, without first identifying which one was actually compromised",
+        ],
+        answer: 1,
+        explanation:
+          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation — you can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key or the whole service account (option a) is irreversible and destroys that evidence. Waiting for a full timeline (option c) leaves an active, working credential in the attacker's hands during containment, which defeats the purpose of containment. Rotating every key in the project (option d) is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
+      },
+    },
   ],
 };
 

@@ -447,7 +447,7 @@ const siemFundamentals: Room = {
   difficulty: "intermediate",
   category: "SIEM",
   estimatedMinutes: 50,
-  xp: 145,
+  xp: 170,
   icon: "🔭",
   prerequisites: ["log-management", "log-entry-anatomy"],
   tasks: [
@@ -745,6 +745,81 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
         "This is a False Negative — the most dangerous outcome in security operations. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
       xp: 20,
     } satisfies QuestionTask,
+
+    // ----- Reading 4: writing a basic search query -------------------------
+    {
+      type: "reading",
+      id: "siem-fund-r4",
+      heading: "Writing a Basic Search Query: KQL and SPL",
+      content: `Correlation rules are powerful, but they only catch the patterns someone already thought to write a rule for. The moment you are actually looking at an alert, your job stops being "wait for the SIEM to tell me something" and becomes "ask the SIEM a new question, right now, that nobody pre-built a rule for." An alert names a suspicious IP address, and your first instinct is: did this IP touch any other account? A helpdesk ticket says a laptop is behaving strangely, and you need to know: show me every logon this user had today. No correlation rule exists for either of those — they are one-off questions born out of the specific alert in front of you. This is why every SOC analyst, from day one, has to be able to hand-write a basic search query.
+
+**Two languages, one job**
+
+The two query languages you will meet most often are **KQL** (Kusto Query Language — used by Microsoft Sentinel and Microsoft Defender) and **SPL** (Search Processing Language — used by Splunk). They look different on the page, but they are answering the exact same kind of question. Take a common triage question: "which accounts had a failed Windows logon in the last hour?"
+
+In KQL:
+\`\`\`
+SecurityEvent
+| where EventID == 4625
+| where TimeGenerated > ago(1h)
+| summarize FailCount = count() by Account
+\`\`\`
+
+In SPL:
+\`\`\`
+index=windows EventCode=4625 earliest=-1h
+| stats count by Account
+\`\`\`
+
+Same question, same answer, different syntax. KQL builds the query as a pipeline of separate lines — start with the table (SecurityEvent), narrow it with where, narrow it again by time, then summarize. SPL front-loads its filtering into the base search itself: index=windows picks the data source, EventCode=4625 is the filter condition, and earliest=-1h is the time scope, all on one line, before the pipe hands the filtered results to stats for the count. Splunk analysts and Sentinel analysts are doing identical mental work; they are just typing it differently.
+
+**The shared anatomy: filter, scope, aggregate**
+
+Strip away the vendor syntax and every triage query — in any SIEM you will ever touch — follows the same three-step shape:
+
+1. **Filter** to the events that actually matter (a table/index and a condition — EventID == 4625, or EventCode=4625).
+2. **Scope** to a time range (ago(1h) in KQL, earliest=-1h in SPL). Skip this step and you are searching the entire retention period of your SIEM by accident.
+3. **Aggregate or summarize** into something a human can read in one glance — a count grouped by account, by IP, by host — rather than scrolling through thousands of raw rows one at a time.
+
+Learn this three-step shape once and you can transfer it to any query language a future job throws at you. The keywords change; the shape does not.
+
+**Why scoping matters: query performance**
+
+A SIEM can hold billions of events across every index and every retention day it stores. A query that forgets to specify a time range and forgets to specify an index or table — a bare search for a username, say — forces the SIEM to scan everything, which can mean minutes of wait time on a live investigation, unnecessary load on shared infrastructure other analysts are also querying, and in some cloud-billed SIEMs, real financial cost per gigabyte scanned. The fix is always the same habit: name your index or table first, add a time range immediately, and only then build up your filters and aggregations. A scoped query over the last hour of one index returns in seconds; the same logic run unscoped across all time and all indexes can take the SIEM minutes to finish — an eternity when an incident is actively unfolding.`,
+      checkpoint: {
+        question:
+          "According to the reading, what three-step pattern do both KQL and SPL follow when you write a triage query, regardless of vendor syntax?",
+        options: [
+          "Aggregate first, then scope to a time range, then filter the results",
+          "Filter to the relevant events, scope to a time range, then aggregate or summarize",
+          "Scope to a time range, aggregate the results, then filter by severity",
+          "Filter by severity, aggregate by host, then scope to a time range",
+        ],
+        answer: 1,
+        explanation:
+          "The reading's shared anatomy is filter to what matters, scope the time range, then aggregate or summarize into a readable shape — matching where/EventID then TimeGenerated then summarize in KQL, and the base search terms then earliest= then stats in SPL. The other orderings don't match either language: aggregating before you've filtered or scoped scans (and counts) far more data than necessary, which is exactly the performance problem the reading warns about.",
+      },
+    } satisfies ReadingTask,
+
+    // ----- Query Fill: build the KQL query yourself -------------------------
+    {
+      type: "query_fill",
+      id: "siem-fund-qf1",
+      heading: "Write It Yourself: Count Failed Logons Per Account",
+      language: "kql",
+      context:
+        "The reading just showed you the same triage question answered in KQL and SPL side by side. Now build the KQL version yourself. A shift-lead question just landed in your queue: \"How many failed Windows logons did each account have in the last hour?\" Fill in the blanks to build that query from the SecurityEvent table.",
+      template:
+        "SecurityEvent\n| where EventID == {{eventid}}\n| where TimeGenerated > ago({{window}})\n| summarize {{aggregation}} by Account",
+      blanks: [
+        { id: "eventid", answers: ["4625"], placeholder: "event ID for a failed logon" },
+        { id: "window", answers: ["1h"], placeholder: "time window" },
+        { id: "aggregation", answers: ["FailCount = count()", "count()"], placeholder: "aggregation expression" },
+      ],
+      explanation:
+        "4625 is the Windows Security Event ID for a failed logon attempt — 4624 is its easily-confused twin, a successful logon. ago(1h) scopes TimeGenerated to the last hour, the same relative-time shorthand you saw in the reading (30m, 1h, 24h, 7d all work). summarize ... by Account groups every matching failure row by account and counts them, turning a flat list of raw events into the exact shape a triage answer needs: how many failures per account. This is the identical logic the reading's SPL example reached with stats count by Account — same three steps, different keywords.",
+      xp: 25,
+    } satisfies QueryFillTask,
   ],
 };
 

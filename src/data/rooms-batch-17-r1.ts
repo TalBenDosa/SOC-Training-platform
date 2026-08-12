@@ -419,6 +419,72 @@ const tcpipDeepDiveRoom = {
       },
     },
 
+    // ── Reading 7: Wireshark hands-on ────────────────────────────────────────
+    {
+      type: "reading" as const,
+      id: "tcpip-r7",
+      heading: "Reading a Packet Capture in Wireshark",
+      content:
+        `Everything in the last two readings — flags, conn_state, byte-count shape, retransmissions — is what you reconstruct from *metadata*. The moment you've escalated to a full PCAP, you're looking at the actual bytes, and the tool almost every analyst reaches for to do that is Wireshark. Knowing your way around its interface well enough to move fast under pressure is a distinct skill from understanding TCP theory, and it's the one this reading covers.\n\n` +
+        `**The three panes**\n\n` +
+        `Wireshark's main window is split into three stacked panes, and learning to move between them fluidly is most of what "reading a PCAP efficiently" actually means. The **packet list** (top) shows one row per captured packet, with columns for No. (capture order), Time (offset from capture start, by default), Source and Destination (IP addresses, or MAC/hostname depending on settings), Protocol (the highest-layer protocol Wireshark identified — TCP, HTTP, DNS, TLS, etc.), and Info (a one-line, protocol-aware summary — for a TCP packet this shows the flags set, sequence/ack numbers, and window size right there, without opening the packet at all). The **packet details** pane (middle) shows the fully decoded protocol stack of whichever single packet is selected in the list, as a set of collapsible layers — Frame, Ethernet, IP, TCP, and then whatever application-layer protocol sits on top — each expandable to see every individual field Wireshark parsed out. The **packet bytes** pane (bottom) shows the same packet as raw hex on the left and its ASCII representation on the right; clicking any field in the details pane highlights the exact bytes it came from in both panes simultaneously, which is the fastest way to confirm you're reading the field you think you're reading rather than trusting a label.\n\n` +
+        `**Capture filters vs. display filters — a distinction that trips up beginners constantly**\n\n` +
+        `These are two different mechanisms, applied at two different times, using two different syntaxes, and mixing them up wastes real time during an investigation. A **capture filter** is applied before or during capture and decides what gets written to the capture file in the first place — anything that doesn't match is discarded permanently and is never recoverable from that capture. Capture filters use Berkeley Packet Filter (BPF) syntax, the same syntax tcpdump uses — e.g. \`tcp port 445\` or \`host 10.0.0.5 and tcp port 3389\`. Because a capture filter throws data away at capture time, you set it once, before you start capturing, based on what you already know you need — and if it turns out you needed something it excluded, there is no way to get it back; you have to recapture. A **display filter**, by contrast, is applied after the fact to a capture that already exists in full — it never deletes anything, it only controls which rows the packet list currently shows you. Display filters use Wireshark's own syntax (not BPF), typically field-based comparisons like \`tcp.port == 445 && ip.addr == 10.0.0.5\`, or \`http.request.method == "POST"\`, or \`tcp.flags.syn == 1 && tcp.flags.ack == 0\` to isolate bare SYNs. Because nothing underlying is discarded, you can type a display filter, clear it, and type a completely different one, as many times as you like, without ever losing data — which is exactly why, in practice, the standard workflow is to capture broadly (or with only a light capture filter) and do all your actual narrowing with display filters afterward.\n\n` +
+        `**Follow TCP Stream — the single most useful feature for understanding a session**\n\n` +
+        `Reading a multi-packet conversation one packet at a time is slow and error-prone — you'd be manually stitching together dozens or hundreds of individual segments in your head. Right-click any packet belonging to the conversation you care about, choose Follow, then TCP Stream (the equivalent exists for UDP and HTTP streams too), and Wireshark reassembles the entire conversation, both directions, into one continuous, human-readable view — shown as text by default, with the two directions colored differently, and with a dropdown to switch to hex, C-array, or other renderings. This is how you actually read what a session contained — an HTTP request and its response, a plaintext protocol exchange, the commands sent over an unencrypted shell — without hand-assembling it from the packet list. It also auto-generates the matching display filter (e.g. \`tcp.stream eq 4\`) so you can jump straight back to just those packets in the main view afterward.\n\n` +
+        `**File > Export Objects — pulling transferred files back out of a capture**\n\n` +
+        `If a session captured in the PCAP actually transferred a file — a download over HTTP, a file copied over SMB, an attachment over SMTP — Wireshark can reassemble and extract that file straight out of the capture, without needing the file from anywhere else. File > Export Objects lists the relevant protocol (HTTP, SMB, DICOM, IMF for email, TFTP, and a few others), shows every object Wireshark identified inside the capture with its filename, content type, and size, and lets you save any of them to disk individually or all at once. This is exactly how an analyst recovers a malware payload that was downloaded during an intrusion directly from network evidence — confirming precisely what file left the wire, byte for byte, even if the file no longer exists anywhere else by the time you're investigating.\n\n` +
+        `**A worked example: spotting beaconing by eye in the packet list**\n\n` +
+        `You don't always need Follow TCP Stream or a display filter to notice beaconing — sometimes it's visible just from scrolling the packet list. Sort or scan by Time and Destination: if the same destination IP:port keeps reappearing at a near-constant interval — say, every ~60 seconds, packet after packet, hour after hour — that rhythm is exactly the visual signature of a scheduled check-in. Combined with what you already know from flow analysis (small, consistent byte counts each time), seeing that same pattern confirmed directly in the packet list, with the actual timestamps in front of you, is often the final piece of evidence that turns "I suspect this is a beacon" into "I can show you the exact interval." From there, a display filter like \`ip.addr == <destination> && tcp.flags.syn == 1\` isolates just the connection attempts to that host, making the interval trivially easy to measure packet-by-packet with the Time column.`,
+      codeExample:
+        "WIRESHARK -- CAPTURE FILTER vs. DISPLAY FILTER\n" +
+        "=======================================================\n" +
+        "                CAPTURE FILTER        DISPLAY FILTER\n" +
+        "-------------------------------------------------------\n" +
+        "When applied    Before/during capture  After capture, any time\n" +
+        "Syntax          BPF (tcpdump-style)    Wireshark's own syntax\n" +
+        "Effect          Discards non-matching  Only hides/shows rows;\n" +
+        "                packets permanently -- nothing underlying is\n" +
+        "                cannot be undone       ever deleted\n" +
+        "Example         tcp port 445           tcp.port == 445 &&\n" +
+        "                                        ip.addr == 10.0.0.5\n" +
+        "Can change      No -- must recapture    Yes -- as many times\n" +
+        "after the fact  to get anything missed  as you want, freely\n" +
+        "=======================================================\n\n" +
+        "COMMON DISPLAY FILTER EXAMPLES\n" +
+        "=======================================================\n" +
+        "tcp.port == 445 && ip.addr == 10.0.0.5\n" +
+        "http.request.method == \"POST\"\n" +
+        "tcp.flags.syn == 1 && tcp.flags.ack == 0    (bare SYNs)\n" +
+        "dns.qry.name contains \"evil\"\n" +
+        "=======================================================\n\n" +
+        "WORKFLOW: RIGHT-CLICK PACKET -> FOLLOW -> TCP STREAM\n" +
+        "=======================================================\n" +
+        "Reassembles the full two-way conversation as readable\n" +
+        "text/hex -- generates a matching filter, e.g.:\n" +
+        "    tcp.stream eq 4\n" +
+        "=======================================================\n\n" +
+        "WORKFLOW: FILE > EXPORT OBJECTS > HTTP / SMB / IMF ...\n" +
+        "=======================================================\n" +
+        "Lists every file transferred inside the capture with\n" +
+        "filename, content type, and size -- save any one, or\n" +
+        "all, straight to disk.\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "An analyst has a full packet capture already saved from earlier in the day. They want to narrow the view down to just one suspicious host's traffic, then a few minutes later narrow it differently to look at a different protocol instead — without losing any of the originally captured data. Which filter type should they use, and why?",
+        options: [
+          "A capture filter, because BPF syntax like tcp port 445 is more precise than Wireshark's own filter syntax and will isolate the suspicious host's traffic more reliably",
+          "A display filter, because it only controls which already-captured rows are currently shown, never discards anything, and can be typed, cleared, and retyped as many times as needed after the fact",
+          "A capture filter, because it can be reapplied at any time after capture has finished, exactly like a display filter, so either one works equally well here",
+          "Neither — once a capture is saved, Wireshark's filtering options are locked to whatever filter, if any, was set at the moment the capture was started",
+        ],
+        answer: 1,
+        explanation:
+          "Because the capture already exists and the analyst wants to change what they're looking at repeatedly without losing data, a display filter is the right tool: it only hides/shows rows in an already-recorded capture and can be changed freely, any number of times. A capture filter only applies before or during capture and permanently discards anything that doesn't match — it cannot be applied retroactively to a capture that's already finished, which rules out both capture-filter options. Wireshark's filtering is not locked after capture either; display filters remain fully available on a saved file indefinitely.",
+      },
+    },
+
     // ── Question 1 ────────────────────────────────────────────────────────
     {
       type: "question" as const,

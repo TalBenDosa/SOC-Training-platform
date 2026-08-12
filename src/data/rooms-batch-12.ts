@@ -422,6 +422,50 @@ const rooms = [
           `- What are the concrete action items to prevent recurrence?\n\n` +
           `The final incident report — with its executive summary, technical timeline, IOCs, root cause analysis, and lessons learned — is the primary deliverable from this process. It should be stored securely (incidents may be classified) and accessible to future analysts so that the organization learns from each incident rather than repeating the same mistakes.`,
       },
+      // ── Reading 4 ─────────────────────────────────────────────────────────
+      {
+        type: "reading",
+        id: "rep-read-4",
+        heading: "SOC Metrics in Practice: MTTA, MTTR, Dwell Time, and What 'Good' Looks Like",
+        content:
+          `Picture the dashboard analogy from before, but now zoom into three of the most cited numbers on it: MTTA, MTTR, and dwell time. These three metrics tell very different stories, and mixing them up is one of the most common mistakes new analysts make when reading a report — or a vendor's marketing deck.\n\n` +
+          `**MTTA — Mean Time to Acknowledge**\n\n` +
+          `MTTA measures the gap between two moments: when an alert is generated, and when an analyst actually looks at it — opens it, starts triaging, effectively says "I am on this." The formula is simple:\n\n` +
+          `MTTA = (time the alert was acknowledged) − (time the alert was generated)\n\n` +
+          `A short MTTA means alerts aren't sitting untouched in a queue. A long MTTA is often the first sign of a staffing gap, alert fatigue, or a shift-coverage problem — nobody was actively watching the queue when the alert came in.\n\n` +
+          `**MTTR — Mean Time to Respond (or Resolve — know the difference)**\n\n` +
+          `This is where new analysts get tripped up, because "MTTR" is used to mean two different things depending on which vendor dashboard or which report you're reading:\n\n` +
+          `- Mean Time to Respond: from alert generation until the analyst takes the FIRST containment action (isolating a host, disabling an account, blocking an IP).\n` +
+          `- Mean Time to Resolve: from alert generation until the incident is FULLY closed — remediation complete, ticket closed, root cause documented.\n\n` +
+          `Both are legitimate metrics, but they measure different things and can differ by hours or even days on the very same incident. Whenever you see an MTTR figure in a report, ask which definition is being used before comparing it to another team's number or to an SLA target — comparing a "first action" MTTR against someone else's "fully resolved" MTTR will make one team look far better than it actually is.\n\n` +
+          `**Dwell Time — the hardest number to measure honestly**\n\n` +
+          `Dwell time differs from MTTA and MTTR in an important way: it does not start at the alert. It starts at the attacker's actual first foothold — the moment a phishing attachment was opened, a vulnerable service was exploited, or a stolen credential was first used.\n\n` +
+          `Dwell Time = (time of detection) − (time of the attacker's actual initial compromise)\n\n` +
+          `The honest problem with dwell time is that you usually don't know the true initial-compromise timestamp until well into the investigation — sometimes only during a deep forensic timeline reconstruction, days later, once the team traces the attacker's activity backward through logs that predate the alert itself. Early in an incident, any dwell-time figure you quote is a working estimate, not a fact, and it should be revised as the investigation timeline gets refined.\n\n` +
+          `**Worked Example**\n\n` +
+          `Timeline reconstructed for a single incident:\n\n` +
+          `- 08:02 UTC — user opens a phishing attachment (later confirmed, during investigation, to be the true initial compromise)\n` +
+          `- 09:47 UTC — SIEM correlation rule fires an alert for suspicious lateral movement from that user's workstation\n` +
+          `- 09:52 UTC — the on-shift analyst opens the alert and begins triage\n` +
+          `- 10:20 UTC — the analyst isolates the workstation, containing the threat\n\n` +
+          `From these four timestamps:\n\n` +
+          `- MTTA = 09:52 − 09:47 = 5 minutes\n` +
+          `- MTTR (Respond) = 10:20 − 09:47 = 33 minutes\n` +
+          `- Dwell Time = 09:47 − 08:02 = 1 hour 45 minutes\n\n` +
+          `Notice that the attacker had nearly two hours of unnoticed access before the SIEM ever fired an alert — and that gap, not the analyst's 5-minute acknowledgment time, is usually the number that matters most to leadership, because it's the window the attacker actually had to move laterally, escalate privileges, or exfiltrate data.\n\n` +
+          `**What "Good" Looks Like — Without Fake Precision**\n\n` +
+          `Be skeptical of any single figure presented as "the industry average" for these metrics. Dwell time in particular varies enormously by sector, attacker sophistication, and how mature the organization's detection program is, so a bare number quoted without context tells you almost nothing. As a general rule of thumb, mature SOC programs commonly aim for MTTA measured in minutes rather than hours for Critical-severity alerts, and MTTR targets vary widely depending on incident type, organization size, and which definition of "resolve" is being used. Treat any precise-sounding statistic you encounter in a vendor report or conference talk with healthy skepticism, and always ask exactly what was measured before comparing it to your own numbers.\n\n` +
+          `**Why This Matters for the Reports You'll Write**\n\n` +
+          `These aren't abstract numbers — they're exactly what SLA commitments are built around (recall the P1-acknowledgment target from the earlier reading), and exactly what belongs in a shift handover report for any incident still open at the end of your shift: when it was detected, when it was acknowledged, what's been done so far, and — once known — when the attacker's actual foothold began. A handover that carries those timestamps forward lets the next analyst immediately see how the clock is running against the SLA, instead of having to reconstruct the timeline themselves.`,
+        checkpoint: {
+          question:
+            "An alert is generated at 14:10. An analyst opens and begins triaging it at 14:16. Based on the reading's definition, what is the MTTA for this alert?",
+          options: ["10 minutes", "16 minutes", "6 minutes", "24 minutes"],
+          answer: 2,
+          explanation:
+            "MTTA = time acknowledged − time generated = 14:16 − 14:10 = 6 minutes. The other options confuse MTTA with the raw clock times shown (14:10 and 14:16) or simply pick an unrelated figure — MTTA is always the difference between the two timestamps, not either timestamp on its own.",
+        },
+      },
       // ── Question 1 ────────────────────────────────────────────────────────
       {
         type: "question",

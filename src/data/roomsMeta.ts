@@ -469,6 +469,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "win-fund-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "win-fund-q1",
         "type": "question",
         "xp": 15
@@ -848,7 +853,7 @@ export const ROOMS_META: RoomMeta[] = [
     "difficulty": "intermediate",
     "category": "SIEM",
     "estimatedMinutes": 50,
-    "xp": 145,
+    "xp": 170,
     "icon": "🔭",
     "prerequisites": [
       "log-management",
@@ -895,6 +900,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "siem-fund-q3",
         "type": "question",
         "xp": 20
+      },
+      {
+        "id": "siem-fund-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "siem-fund-qf1",
+        "type": "query_fill",
+        "xp": 25
       }
     ]
   },
@@ -1690,6 +1705,11 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "malware-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "malware-r4",
         "type": "reading",
         "xp": 0
       },
@@ -2802,6 +2822,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "deteng-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "deteng-q1",
         "type": "question",
         "xp": 20
@@ -2920,6 +2945,11 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "rep-read-3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rep-read-4",
         "type": "reading",
         "xp": 0
       },
@@ -3514,6 +3544,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aws-r6",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "aws-r7",
+        "type": "reading",
+        "xp": 0
       }
     ]
   },
@@ -3886,6 +3921,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "gcp-r6",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "gcp-r7",
+        "type": "reading",
+        "xp": 0
       }
     ]
   },
@@ -4129,6 +4169,11 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "azure-r7",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "azure-r8",
+        "type": "reading",
+        "xp": 0
       }
     ]
   },
@@ -4173,6 +4218,11 @@ export const ROOMS_META: RoomMeta[] = [
       },
       {
         "id": "tcpip-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "tcpip-r7",
         "type": "reading",
         "xp": 0
       },
