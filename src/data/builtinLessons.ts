@@ -9,6 +9,9 @@ import pathF from "@/data/pathLessons-f";
 import pathG from "@/data/pathLessons-g";
 import pathH from "@/data/pathLessons-h";
 import pathI from "@/data/pathLessons-i";
+import pathJ from "@/data/pathLessons-j";
+import pathK from "@/data/pathLessons-k";
+import pathL from "@/data/pathLessons-l";
 
 const CORE_LESSONS = [
   {
@@ -476,10 +479,21 @@ export const BUILTIN_LESSONS = [
   pathH[0],             // 10   Cloud security — completes the "where telemetry
                         //      comes from" arc (SIEM → EDR → cloud) and is the
                         //      first lesson where the host isn't yours to image.
-  CORE_LESSONS[0],      // 11   Network protocols in attacks — moved AFTER SIEM so
+  // 11-13 — the three vendor consoles, one lesson each rather than a single
+  // side-by-side comparison: an analyst works in ONE of these day to day, and
+  // each has enough depth (Falcon's IOAs, S1's Storyline/Rollback, MDE's
+  // Advanced Hunting) to be worth its own lesson. They land immediately after
+  // the generic "EDR explained" so the concept precedes the products.
+  pathL[0], pathL[1], pathL[2],
+  pathK[0],             // 14   The Microsoft security stack — right after the
+                        //      vendor consoles, because Defender for Endpoint is
+                        //      one of the five products it disambiguates.
+  CORE_LESSONS[0],      // 12   Network protocols in attacks — moved AFTER SIEM so
                         //      its JA3/SPL query material lands once the student
                         //      knows what a SIEM and a query language are.
-  pathE[0],             // 12   MITRE ATT&CK & the kill chain
+  pathJ[0],             // 13   Firewalls & network defence — directly after the
+                        //      protocol material it filters on.
+  pathE[0],             // 14   MITRE ATT&CK & the kill chain
   pathI[1],             // 13   Threat intelligence — paired straight after ATT&CK,
                         //      which is the framework its TTP material rests on.
   CORE_LESSONS[1],      // 14   Phishing investigation workflow
@@ -497,6 +511,10 @@ export const BUILTIN_LESSONS = [
   // rather than runtime-generated, because a fabricated field or a wrong ATT&CK
   // mapping in attack theory is a falsehood a learner carries into their first job.
   ...ATTACK_TYPE_LESSONS,
+  // AD attacks land after the attack-type series because Kerberoasting,
+  // pass-the-hash and DCSync build directly on the credential-attack and
+  // lateral-movement lessons inside it.
+  pathJ[1],
   // Threat hunting sits after the attack-type series on purpose: hunting is
   // searching for TTPs nothing alerted on, which is only meaningful once the
   // student knows what those attack patterns actually look like.
