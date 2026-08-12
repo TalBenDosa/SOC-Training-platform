@@ -83,6 +83,16 @@ export interface ReadingTask {
   /** Caption shown on the diagram's header bar. Defaults to "Diagram". */
   diagramCaption?: string;
   /**
+   * Optional still figure, for the things a Mermaid `diagram` genuinely cannot
+   * express — an annotated console mockup, a packet/header byte layout, a
+   * log-line anatomy call-out. Prefer `diagram` whenever the content is a flow
+   * or a hierarchy: its labels stay exact, diff in git, and cannot 404.
+   *
+   * `src` is a same-origin path under /public (e.g. "/lesson-images/edr/x.svg").
+   * `alt` is mandatory — see LessonFigure for why.
+   */
+  image?: { src: string; alt: string; caption?: string; credit?: string };
+  /**
    * Optional inline comprehension check shown after the content — a quick,
    * UNGRADED retrieval prompt that turns passive reading into active recall.
    * The student must answer it correctly before the reading can be completed,

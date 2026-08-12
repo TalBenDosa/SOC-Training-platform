@@ -3,6 +3,39 @@
 Written 2026-08-12. Grounded in the current codebase, not in assumptions — every
 "already exists" line below was verified by reading the file named next to it.
 
+---
+
+## STATUS: Phase A is BUILT (2026-08-12). Phase B remains a later decision.
+
+What shipped, and two things this plan got wrong:
+
+- **`image` already existed on ONE side.** `LessonPage.image` in
+  `src/app/api/lessons/[slug]/route.ts` already had exactly the `{src, alt,
+  caption}` shape, and the `/learn/[slug]/[lesson]` reader already rendered it.
+  The modal reader on `/learn` — where the whole 34-lesson curriculum actually
+  displays — did not. That is precisely the reader drift this plan warned about,
+  found in the wild.
+- **Fixed by sharing, not by copying.** Both readers plus the rooms
+  `ReadingPlayer` now render through one `LessonFigure`
+  (`src/components/lessons/LessonFigure.tsx`), so they cannot drift again.
+  `credit` was added to the shape and is mandatory.
+- **Vendor screenshots: decided.** Tal chose our own SVG mockups. No vendor
+  screenshots ship. The EDR figure is explicitly captioned as an illustrative
+  mockup, not a screenshot of any product.
+- **Gate built and negative-tested.** `validate-content.mjs` now resolves every
+  image path against the filesystem and requires alt + credit + a size budget.
+  Verified by deliberately breaking a path and confirming the gate failed, then
+  restoring — a green gate that was never shown to go red proves nothing.
+- **First figures authored**: `public/lesson-images/network/firewall-log-anatomy.svg`
+  (attached to the firewall lesson) and
+  `public/lesson-images/edr/edr-detection-console-mockup.svg` (attached to the
+  Falcon lesson).
+
+Remaining from Phase A: authoring more figures, which is content work to do
+incrementally — the mechanism is done.
+
+---
+
 ## Why this plan exists
 
 The platform currently has **no real image support in lessons**. What looks like

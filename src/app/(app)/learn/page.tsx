@@ -8,6 +8,7 @@ import { fetchPublishedLessons } from "@/lib/content/publicContent";
 import { Search, Clock, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
+import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ interface Lesson {
   difficulty: string;
   kind: "lesson";
   intro: string;
-  sections: { heading: string; content: string; codeExample?: string; imageQuery?: string }[];
+  sections: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage }[];
   keyTakeaways: string[];
   quiz: { question: string; options: { label: string; value: string }[]; answer: string; explanation: string }[];
   references: string[];
@@ -263,13 +264,20 @@ function SectionPageContent({
   lesson, section,
 }: {
   lesson:  Lesson;
-  section: { heading: string; content: string; codeExample?: string; imageQuery?: string };
+  section: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage };
 }) {
   return (
     <div className="space-y-6">
 
-      {/* ── Cover image ────────────────────────────────────────── */}
-      <SectionImage query={section.imageQuery ?? topicImageQuery(lesson, section.heading)} />
+      {/* ── Cover band ─────────────────────────────────────────────
+          SectionImage is a decorative gradient, NOT a picture — it hashes a
+          string into a hue. When the section carries a real authored figure we
+          show that instead, since two banners stacked on one section is noise.
+          The gradient stays as the fallback so the ~30 sections without a
+          figure look exactly as they did before. */}
+      {!section.image && (
+        <SectionImage query={section.imageQuery ?? topicImageQuery(lesson, section.heading)} />
+      )}
 
       {/* ── Section heading ────────────────────────────────────── */}
       <div className="pb-5 border-b border-[#1e2d4a]">
@@ -278,6 +286,12 @@ function SectionPageContent({
         </span>
         <h1 className="text-[22px] font-bold text-white leading-snug">{section.heading}</h1>
       </div>
+
+      {/* ── Authored figure ────────────────────────────────────────
+          Above the body text so the student sees the thing being described
+          before reading the description. Shared with the /learn/[slug]/[lesson]
+          reader via LessonFigure — see that file for why. */}
+      {section.image && <LessonFigure image={section.image} />}
 
       {/* ── Body text ──────────────────────────────────────────── */}
       {renderContent(section.content)}

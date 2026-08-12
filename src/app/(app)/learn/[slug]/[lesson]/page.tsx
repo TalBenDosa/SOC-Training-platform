@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { findLesson, adjacentLessons } from "@/lib/lessons/paths";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
+import { LessonFigure } from "@/components/lessons/LessonFigure";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { shuffleSeeded } from "@/lib/lessons/shuffle";
 import type { GeneratedLesson, LessonPage, LessonQuizQuestion } from "@/app/api/lessons/[slug]/route";
@@ -223,24 +224,10 @@ function LessonPageView({ page }: { page: LessonPage }) {
             </div>
           )
       )}
-      {/* Optional still image (curated lessons only). Same-origin/data/https
-          per CSP; object-contain + max-w so it never breaks the layout. */}
-      {page.image?.src && (
-        <figure className="overflow-hidden rounded-lg border border-border bg-bg">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={page.image.src}
-            alt={page.image.alt ?? ""}
-            loading="lazy"
-            className="mx-auto max-h-[420px] w-full object-contain"
-          />
-          {page.image.caption && (
-            <figcaption className="border-t border-border px-3 py-2 text-center text-[11px] text-slate-400">
-              {page.image.caption}
-            </figcaption>
-          )}
-        </figure>
-      )}
+      {/* Optional still image (curated lessons only). Now rendered through the
+          SHARED LessonFigure so this reader and the /learn modal cannot drift
+          apart the way codeExample once did. */}
+      {page.image?.src && <LessonFigure image={page.image} />}
       {page.keyPoints.length > 0 && (
         <div className="rounded border border-cyber-500/20 bg-cyber-500/5 p-4">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-cyber-300">Key Takeaways</p>

@@ -167,9 +167,58 @@ function checkOptionBalance(where, options, correctIdx, sev = "WARN") {
 // before being handed over. Getting this wrong is precisely what let the
 // original bias hide: a checker that silently returns on an unexpected shape
 // reports success rather than "I could not look".
+/**
+ * Authored figures (section.image / ReadingTask.image).
+ *
+ * A missing image is SILENT in the browser — a broken <img> renders as nothing
+ * much and no gate notices, exactly like the Mermaid problem validate-diagrams
+ * exists to catch. So the path is resolved against the filesystem here, at CI
+ * time, rather than being discovered by a student.
+ *
+ * `alt` is mandatory: an image worth adding is an image worth describing, and
+ * requiring the sentence is what stops a decorative image being added for its
+ * own sake. `credit` is mandatory too — this product is sold to institutions,
+ * so a third-party asset must never ship uncredited. Figures we drew ourselves
+ * satisfy it by saying so.
+ */
+const MAX_IMAGE_BYTES = 500 * 1024;
+function checkImage(where, image) {
+  if (!image) return;
+  if (typeof image.src !== "string" || !image.src.startsWith("/lesson-images/")) {
+    add("ERROR", where, `image src must be a /lesson-images/... path (got ${JSON.stringify(image.src)})`);
+    return;
+  }
+  if (typeof image.alt !== "string" || image.alt.trim().length < 15) {
+    add("ERROR", where, "image needs a descriptive alt (>= 15 chars) — screen readers and authoring discipline");
+  }
+  if (typeof image.credit !== "string" || !image.credit.trim()) {
+    add("ERROR", where, "image needs a credit line (say so explicitly if we authored it)");
+  }
+  const abs = path.join(ROOT, "public", image.src);
+  if (!fs.existsSync(abs)) {
+    add("ERROR", where, `image file not found on disk: public${image.src}`);
+    return;
+  }
+  const bytes = fs.statSync(abs).size;
+  if (bytes > MAX_IMAGE_BYTES) {
+    add("ERROR", where, `image is ${Math.round(bytes / 1024)}KB, over the ${MAX_IMAGE_BYTES / 1024}KB budget`);
+  }
+}
+
+// Room reading tasks may carry a figure too.
+for (const r of ROOMS) {
+  for (const t of r.tasks ?? []) {
+    if (t.type === "reading" && t.image) checkImage(`room/${r.id}/${t.id}[image]`, t.image);
+  }
+}
+
 const lessonSlugs = new Set();
 for (const l of BUILTIN_LESSONS) {
   const at = `lesson/${l.slug}`;
+
+  for (const [i, s] of (l.sections ?? []).entries()) {
+    if (s.image) checkImage(`${at}/section${i + 1}[image]`, s.image);
+  }
   if (lessonSlugs.has(l.slug)) add("ERROR", at, "duplicate lesson slug");
   lessonSlugs.add(l.slug);
 
