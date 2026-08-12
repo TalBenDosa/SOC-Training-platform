@@ -919,8 +919,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Explore Wazuh, the leading open-source SIEM and XDR platform. Learn its architecture, how agents collect data, how decoders and rules work, and how to interpret real Wazuh alerts.",
     "difficulty": "intermediate",
     "category": "SIEM",
-    "estimatedMinutes": 80,
-    "xp": 205,
+    "estimatedMinutes": 55,
+    "xp": 155,
     "icon": "🔐",
     "prerequisites": [
       "siem-fundamentals",
@@ -967,36 +967,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "wazuh-q3",
         "type": "question",
         "xp": 20
-      },
-      {
-        "id": "wazuh-r4",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "wazuh-r5",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "wazuh-r6",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "wazuh-r7",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "wazuh-q4",
-        "type": "question",
-        "xp": 25
-      },
-      {
-        "id": "wazuh-q5",
-        "type": "question",
-        "xp": 25
       }
     ]
   },

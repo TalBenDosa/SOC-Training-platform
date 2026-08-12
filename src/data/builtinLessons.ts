@@ -7,6 +7,8 @@ import pathD from "@/data/pathLessons-d";
 import pathE from "@/data/pathLessons-e";
 import pathF from "@/data/pathLessons-f";
 import pathG from "@/data/pathLessons-g";
+import pathH from "@/data/pathLessons-h";
+import pathI from "@/data/pathLessons-i";
 
 const CORE_LESSONS = [
   {
@@ -471,14 +473,22 @@ export const BUILTIN_LESSONS = [
   CORE_LESSONS[2],      // 5    Windows event logs
   pathC[0], pathC[1],   // 6-7  Authentication/Kerberos/NTLM · Linux for analysts
   pathD[0], pathD[1],   // 8-9  SIEM & triage · EDR explained
-  CORE_LESSONS[0],      // 10   Network protocols in attacks — moved AFTER SIEM so
+  pathH[0],             // 10   Cloud security — completes the "where telemetry
+                        //      comes from" arc (SIEM → EDR → cloud) and is the
+                        //      first lesson where the host isn't yours to image.
+  CORE_LESSONS[0],      // 11   Network protocols in attacks — moved AFTER SIEM so
                         //      its JA3/SPL query material lands once the student
                         //      knows what a SIEM and a query language are.
-  pathE[0],             // 11   MITRE ATT&CK & the kill chain
-  CORE_LESSONS[1],      // 12   Phishing investigation workflow
-  pathE[1],             // 13   Malware triage without reverse engineering
-  pathF[0], pathF[1],   // 14-15 C2 & exfiltration · The analyst mindset
-  pathG[0], pathG[1],   // 16-17 Investigation workflow · Writing the incident report
+  pathE[0],             // 12   MITRE ATT&CK & the kill chain
+  pathI[1],             // 13   Threat intelligence — paired straight after ATT&CK,
+                        //      which is the framework its TTP material rests on.
+  CORE_LESSONS[1],      // 14   Phishing investigation workflow
+  pathE[1],             // 15   Malware triage without reverse engineering
+  pathF[0], pathF[1],   // 16-17 C2 & exfiltration · The analyst mindset
+  pathI[0],             // 18   SOC decision making — mindset teaches how to think,
+                        //      this teaches how to commit to a call under
+                        //      uncertainty, before the full workflow below.
+  pathG[0], pathG[1],   // 19-20 Investigation workflow · Writing the incident report
 
   // 18-23 — the attack-type series. A third organising axis alongside the
   // role-based learning paths and the technology-based rooms: a student asking
@@ -487,6 +497,10 @@ export const BUILTIN_LESSONS = [
   // rather than runtime-generated, because a fabricated field or a wrong ATT&CK
   // mapping in attack theory is a falsehood a learner carries into their first job.
   ...ATTACK_TYPE_LESSONS,
-  // 24 — what to DO with a detection, not just how to spot one.
+  // Threat hunting sits after the attack-type series on purpose: hunting is
+  // searching for TTPs nothing alerted on, which is only meaningful once the
+  // student knows what those attack patterns actually look like.
+  pathH[1],
+  // Last — what to DO with a detection, not just how to spot one.
   ...PLAYBOOK_LESSONS,
 ];

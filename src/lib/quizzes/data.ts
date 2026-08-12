@@ -998,6 +998,10 @@ import { QUIZZES_SECURITY_TOOLS } from "./data-security-tools";
 import { QUIZZES_PROTOCOLS_PORTS } from "./data-protocols-ports";
 import { QUIZZES_SECURITY_MODELS } from "./data-security-models";
 import { QUIZZES_ATTACK_TYPES } from "./data-attack-types";
+import { QUIZZES_HUNTING_DECISIONS } from "./data-hunting-decisions";
+import { QUIZZES_MALWARE_WINDOWS } from "./data-malware-windows";
+import { QUIZZES_LINUX_CLOUD } from "./data-linux-cloud";
+import { QUIZZES_VENDOR_STACKS } from "./data-vendor-stacks";
 
 export const ALL_QUIZZES: Quiz[] = [
   ...QUIZZES,
@@ -1008,6 +1012,13 @@ export const ALL_QUIZZES: Quiz[] = [
   ...QUIZZES_PROTOCOLS_PORTS,
   ...QUIZZES_SECURITY_MODELS,
   ...QUIZZES_ATTACK_TYPES,
+  // Packs closing the gaps found by auditing the platform's quiz catalogue
+  // against the full topic list: hunting, decision-making, malware, Windows
+  // event IDs, Linux, cloud platform/infrastructure, and the vendor consoles.
+  ...QUIZZES_HUNTING_DECISIONS,
+  ...QUIZZES_MALWARE_WINDOWS,
+  ...QUIZZES_LINUX_CLOUD,
+  ...QUIZZES_VENDOR_STACKS,
 ];
 
 export function getQuiz(slug: string): Quiz | undefined {
