@@ -35,7 +35,16 @@ for (const [i, l] of BUILTIN_LESSONS.entries()) {
   const secs = l.sections ?? [];
   const secWords = secs.map(s => words(s.content));
   const allParas = secs.flatMap(s => paras(s.content));
-  const longParas = allParas.filter(p => words(p) > 140).length;
+  // A bulleted/numbered block is NOT a wall of prose — it is the fix for one.
+  // Counting it as a long paragraph made this script report the restructured
+  // lessons as still-dense and would push a later pass into breaking up the
+  // very lists that resolved the problem. Only running prose is measured here.
+  const isListBlock = p => {
+    const lines = String(p).split("\n").map(l => l.trim()).filter(Boolean);
+    const items = lines.filter(l => /^(?:[-*]\s+|\d+[.)]\s+)/.test(l));
+    return items.length > 0 && items.length >= lines.length - 1; // allow one lead-in line
+  };
+  const longParas = allParas.filter(p => !isListBlock(p) && words(p) > 140).length;
   const noAnchor = secs.filter(s => !hasConcrete(s.content) && !hasConcrete(s.codeExample)).map(s => s.heading);
   rows.push({
     n: i + 1,

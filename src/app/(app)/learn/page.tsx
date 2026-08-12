@@ -189,6 +189,34 @@ function renderContent(text: string) {
           );
         }
 
+        // Bulleted / numbered list — with an optional lead-in line above the items.
+        // The route reader (learn/[slug]/[lesson]) has always rendered these; this
+        // branch exists so the modal reader does not silently print literal "- ".
+        const lines = trimmed.split("\n").map(l => l.trim()).filter(Boolean);
+        const firstItem = lines.findIndex(l => /^(?:[-*]\s+|\d+[.)]\s+)/.test(l));
+        if (firstItem !== -1 && lines.slice(firstItem).every(l => /^(?:[-*]\s+|\d+[.)]\s+)/.test(l))) {
+          const leadIn = lines.slice(0, firstItem);
+          const items  = lines.slice(firstItem);
+          const ordered = /^\d+[.)]\s+/.test(items[0]);
+          const ListTag = ordered ? "ol" : "ul";
+          return (
+            <div key={i} className="space-y-2">
+              {leadIn.map((l, li) => (
+                <p key={`lead${li}`} className="text-[14px] text-slate-300 leading-[1.8]">
+                  {renderInline(l, `l${i}-${li}`)}
+                </p>
+              ))}
+              <ListTag className={`space-y-1.5 pl-5 ${ordered ? "list-decimal" : "list-disc"} marker:text-cyan-400/70`}>
+                {items.map((item, ii) => (
+                  <li key={ii} className="text-[14px] text-slate-300 leading-[1.8] pl-1">
+                    {renderInline(item.replace(/^(?:[-*]\s+|\d+[.)]\s+)/, ""), `i${i}-${ii}`)}
+                  </li>
+                ))}
+              </ListTag>
+            </div>
+          );
+        }
+
         // Paragraph — inline **bold** support
         const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
         return (
