@@ -187,7 +187,7 @@ const webApplicationSecurityRoom: Room = {
   difficulty: "beginner",
   category: "Application Security",
   estimatedMinutes: 60,
-  xp: 310,
+  xp: 335,
   icon: "🌐",
   prerequisites: ["networking-protocols"],
   tasks: [
@@ -567,6 +567,74 @@ const webApplicationSecurityRoom: Room = {
       fp_trap:
         "Everything about the surface of this record argues for escalation: a BLOCK action, the SQL injection managed rule group as the terminating rule, and an encoded quote character sitting in a parameter — which is genuinely the first thing real SQL injection looks like. The habit that saves you is decoding the argument string and asking what the value would mean if it were innocent, before asking what it would mean if it were hostile. Real injection needs more than a quote: it needs SQL that does something once the quote has broken out of the string, and none is present here. Escalating every SQLi-signature block without decoding the parameter and checking the source and the Referer is how analysts spend a day on a customer surname — and, worse, how a genuinely broken business function stays broken for weeks because it was filed as an attack instead of as a rule that needs tuning.",
       xp: 30,
+    },
+
+    // ------------------------------------------------------------------
+    // Reading 5 — CSRF
+    // ------------------------------------------------------------------
+    {
+      type: "reading",
+      id: "webapp-r5",
+      heading: "CSRF: When the Browser's Own Trust Becomes the Weapon",
+      content:
+        `Cross-Site Request Forgery, CSRF, is the one attack class in this room that needs no vulnerability in the target site's code at all -- no injection point, no unescaped output, nothing planted anywhere on Larkfield's own pages. It exploits a single fact from Reading 2: the browser attaches cookies to every request it sends to a domain automatically, regardless of which page on screen triggered that request. If a victim is logged into Larkfield's portal in one tab, with a valid session cookie sitting in the browser, and opens a completely unrelated page in another tab, that unrelated page can make the victim's browser send a request to Larkfield -- and the browser will dutifully attach the real session cookie to it, because as far as the browser is concerned, a request to portal.larkfield.com is a request to portal.larkfield.com, no matter which tab asked for it. Think of it as a courier who checks your ID card at your own front door before handing over a package, but never checks who actually rang the doorbell to summon them there in the first place.\n\n` +
+        `**The Attack, Worked Through**\n\n` +
+        `A Larkfield customer is logged into the support portal; their browser is holding a valid, genuine session cookie. They then visit an unrelated site -- perhaps a link from a phishing email, perhaps just an ordinary page carrying a malicious ad -- and that page contains a form the victim never sees, styled to be invisible, with its action pointed at Larkfield's own money-handling endpoint: something equivalent to POST https://portal.larkfield.com/account/transfer with fields amount=5000 and to=attacker. A small script on the malicious page submits that form the instant the page loads, with no click required from the victim at all. The victim's browser builds the request exactly as it would for any legitimate request to that domain, attaches the real session cookie automatically, and sends it. From Larkfield's server's point of view, this is indistinguishable from the customer clicking a genuine transfer button on Larkfield's own site: the session is valid, the user is authenticated, the request is well-formed. Nothing in the request itself says it was not the customer's own idea.\n\n` +
+        `**CSRF vs XSS: The Distinction That Actually Matters**\n\n` +
+        `It is easy to blur CSRF into XSS from Reading 3, and the two get confused constantly, but the mechanism is genuinely opposite. Stored or reflected XSS needs the attacker's script to actually execute inside the vulnerable site's own origin -- it is a code-injection problem, and the payload has to reach the target application's pages before it can do anything. CSRF needs none of that: no script ever runs on portal.larkfield.com, no output is ever injected into a Larkfield page, and the malicious form lives entirely on the attacker's own unrelated site the whole time. What CSRF exploits is not a flaw in what Larkfield renders, but a structural property of how browsers handle cookies -- trust that was never conditional on which page asked for the request in the first place. It is also worth separating from IDOR, from the same room: IDOR is the victim's own authenticated browser, deliberately walking through record identifiers it should not have access to. CSRF is the attacker's page, silently forcing the victim's browser to make a request the victim never intended to send at all. Same broad family -- OWASP retired CSRF as a standalone Top 10 category in 2017 because modern frameworks now default to CSRF protection, but the vulnerability itself still belongs conceptually inside A01:2021 Broken Access Control, the exact category IDOR sits in from Reading 3, because both are failures to confirm that this specific action was actually authorized for this specific request, rather than just trusting that the session is valid.\n\n` +
+        `**The Real Defenses**\n\n` +
+        `A CSRF token is the standard fix: the server embeds a random, unpredictable value in a hidden field or a custom header on every form it renders, and checks that the same value comes back with the submission. An attacker's page, sitting on a different origin, has no way to read that token off Larkfield's page to include it -- the browser's same-origin policy blocks JavaScript on one site from reading the content of a page loaded from another -- so a forged form can send the victim's cookie automatically, but it cannot produce a valid token to go with it. The second defense sits in the cookie itself: the SameSite attribute tells the browser under what conditions to attach a cookie to a cross-site request at all. SameSite=Strict never attaches the cookie to any request that did not originate on the same site, which blocks CSRF outright but can break legitimate cross-site links into the app. SameSite=Lax, the default in every modern browser today, still attaches the cookie to plain top-level navigation -- clicking a genuine link -- but withholds it from the kind of background, auto-submitted POST a CSRF attack relies on, which is why classic CSRF against modern, unmodified browsers is far rarer than it was a decade ago. The third layer is server-side: checking that the Origin or Referer header on a state-changing request actually matches Larkfield's own domain, rejecting anything that does not.\n\n` +
+        `**Reading This in Logs**\n\n` +
+        `This is the part that makes CSRF genuinely hard to hunt for, and it connects straight back to Reading 4's account of what a WAF cannot see. There is no injection signature to match, because there is no injected content -- the request body is ordinary form data, the cookie is completely genuine, and the method, path and parameters are all exactly what a legitimate request to that endpoint would look like. A signature-matching rule group has nothing to fire on. The one field that can still betray it is Origin or Referer: a state-changing POST or PUT to a sensitive endpoint -- a transfer, an email change, a password reset -- arriving with a Referer header pointing at a domain that has no legitimate reason to be sending traffic to Larkfield at all is the tell, not a payload inside the request. A missing or invalid CSRF token on a request that should be carrying one is the second tell, when the application logs that check. Neither of those, on its own, proves anything -- some browsers and privacy tools strip Referer entirely on legitimate requests -- which is exactly why this sits in the same bucket as IDOR from Reading 3: a well-formed, technically valid request where the verdict depends on context the log only partly hands you, not on a pattern a WAF rule can match.`,
+      codeExample:
+        "CSRF: THE ONLY REAL TELL, SEEN ON THE WIRE\n" +
+        "=======================================================\n" +
+        "POST /account/transfer HTTP/1.1\n" +
+        "Host: portal.larkfield.com\n" +
+        "Referer: https://free-prize-wheel.example/spin.html\n" +
+        "Cookie: session=8f2a1c9e...   (the VICTIM's own genuine cookie)\n" +
+        "Content-Type: application/x-www-form-urlencoded\n\n" +
+        "amount=5000&to=attacker\n" +
+        "=======================================================\n" +
+        "Nothing here is malformed. No quote, no script tag, no\n" +
+        "traversal sequence. The cookie is entirely real. The one\n" +
+        "anomaly is the Referer: a state-changing POST to a\n" +
+        "money-transfer endpoint, arriving from a domain that has\n" +
+        "no legitimate reason to be sending traffic to Larkfield\n" +
+        "at all.\n" +
+        "=======================================================\n\n" +
+        "CSRF vs XSS vs IDOR -- WHERE EACH ONE ACTUALLY RUNS\n" +
+        "=======================================================\n" +
+        "XSS    Attacker's script executes ON the target site\n" +
+        "       itself, inside its own origin.\n" +
+        "CSRF   Attacker's page lives on a DIFFERENT origin and\n" +
+        "       never executes anything on the target site --\n" +
+        "       it just rides the victim's browser's own\n" +
+        "       automatic cookie attachment.\n" +
+        "IDOR   The victim's OWN authenticated browser, used\n" +
+        "       deliberately by the logged-in user to walk\n" +
+        "       through record identifiers they should not see.\n" +
+        "=======================================================",
+    },
+
+    // ------------------------------------------------------------------
+    // Question 3 — CSRF vs XSS vs IDOR
+    // ------------------------------------------------------------------
+    {
+      type: "question",
+      id: "webapp-q3",
+      question:
+        "A Larkfield customer, still logged into the support portal in one browser tab, opens a link in another tab to an unrelated raffle site. Moments later your WAF log shows a POST to /account/change-email arriving at the portal, carrying the customer's genuine, valid session cookie, no anti-CSRF token in the body where one is expected, and a Referer header of https://win-a-prize.example/enter.html. What does this pattern indicate, and how does it differ from an IDOR or a stored-XSS attack?",
+      options: [
+        "This is stored XSS: the raffle site's page must have injected a malicious script that ran inside Larkfield's own portal in the victim's browser, silently read the session cookie, and used it to forge the change-email request without the victim noticing anything happen",
+        "This is CSRF: the raffle site auto-submitted a hidden form to Larkfield's endpoint, and because the victim's browser automatically attaches cookies to requests to their target domain regardless of which page triggered the request, the change-email request arrived looking fully authenticated -- with no code ever needing to run on Larkfield's own site at all",
+        "This is IDOR: the customer must have deliberately changed an identifier in the URL or request body themselves to reach another account's email settings, and the WAF cannot detect it because the request is syntactically well-formed and carries no malicious pattern",
+        "This cannot be CSRF, because CSRF fundamentally requires the attacker to have already stolen the victim's actual session cookie in advance and replayed it themselves, and no evidence of any stolen or exfiltrated cookie appears anywhere in this record",
+      ],
+      answer: 1,
+      explanation:
+        "This is the textbook CSRF shape from Reading 5: a genuinely valid session cookie, a well-formed state-changing request, and the one anomaly sitting in the Referer header, which points at a domain with no legitimate business talking to Larkfield at all. It is not stored XSS, because XSS requires the attacker's script to actually execute inside the target site's own origin -- nothing here shows any injected content ever running on portal.larkfield.com, only a request that arrived FROM an unrelated external site. It is not IDOR, because IDOR is the victim's own authenticated browser being used deliberately to alter an identifier it controls; here the request was silently triggered by a page the victim never intentionally interacted with, from a domain the victim never asked to talk to Larkfield. And option d gets the entire mechanism backwards: CSRF's whole premise is that the attacker never needs to steal anything -- the victim's own browser hands over the genuine cookie automatically, which is exactly what makes CSRF dangerous and exactly why a missing or invalid CSRF token, combined with a stray Referer, is the tell rather than the cookie itself.",
+      xp: 25,
     },
 
     // ------------------------------------------------------------------

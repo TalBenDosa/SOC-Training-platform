@@ -688,8 +688,8 @@ const writingIncidentReportRoom: Room = {
     "The investigation is only half the job. This room teaches the other half: writing an incident report that serves two different audiences from one document, extracting IOCs correctly, building a technical timeline a stranger can follow six months later, writing a root cause that names an actual control gap instead of blaming a user, and keeping the whole thing defensible under later scrutiny. Built on a second case — a persistence foothold at Solstice Actuarial Partners — using real Microsoft Defender for Endpoint and Entra ID fields.",
   difficulty: "intermediate",
   category: "Incident Response",
-  estimatedMinutes: 50,
-  xp: 310,
+  estimatedMinutes: 60,
+  xp: 355,
   icon: "📝",
   prerequisites: ["incident-response-methodology"],
   tasks: [
@@ -1037,6 +1037,28 @@ const writingIncidentReportRoom: Room = {
       explanation:
         "This is the same discipline both rooms return to: a scope claim is only as strong as what was actually searched for, and 'identified' honestly reflects that boundary, while 'occurred' claims a fact about the whole environment the investigation never actually verified. A report that overstates its own certainty is less defensible, not more useful — a reviewer who later finds activity the report claimed didn't exist has just found a reason to distrust every other claim in the document too. Confidence is not the same virtue as accuracy in a report meant to be reviewed later. And this distinction matters for every reader of the report, not only outside counsel — an internal remediation team acting on an overstated scope claim can just as easily miss something real.",
       xp: 25,
+    },
+    // -----------------------------------------------------------------------
+    {
+      type: "written_report",
+      id: "doc-wr1",
+      heading: "Write It Yourself: Executive Summary and Root Cause",
+      context:
+        "Every reading in this room has been building toward this. You have the full Solstice Actuarial case: a scheduled task named OneDriveSyncHelper, created on AP-SRV14 under the svc-report service account, running an unsigned binary with SYSTEM privileges at every logon — and a second, verified-benign sign-in you correctly kept out of the report. Now write the two sections a reader is guaranteed to actually read: the Executive Summary and the Root Cause.",
+      prompt:
+        "In your own words, write (1) a 3-6 sentence Executive Summary in plain business/risk language — no ATT&CK IDs, no field names — stating what happened, current status, and impact, and (2) a Root Cause statement that names the actual control gap, not a restatement of what the attacker did and not \"human error.\"",
+      rubricHints: [
+        "The Executive Summary reads as genuinely translated, not a shortened technical sentence — no MITRE IDs, no field names, no jargon a non-technical reader would have to look up",
+        "The Executive Summary states scope, current status, and impact in business terms",
+        "The Root Cause names a specific, fixable control gap — think about what let this succeed (a privilege level, a missing detection), not just what the attacker did",
+        "The Root Cause avoids vague causes like \"human error\" or \"an attacker created a scheduled task\"",
+        "At least one real, specific fact from the case is cited to ground the writing — a hostname, account, task name, or hash, exactly as it appeared in the evidence",
+      ],
+      referenceIocs: ["AP-SRV14", "OneDriveSyncHelper", "svc-report", "d4b8f61a2e9c5073b6a1d8f4c2e7b905a3f6c8d1b4e7a9c2f5d8b1e4a7c9f0d2"],
+      minWords: 60,
+      explanation:
+        "There is no single correct sentence here — this is graded on whether the writing does the two jobs Readings 1 and 5 named. A strong Executive Summary translates rather than shortens: 'a persistence mechanism was found on a server used for Accounts Payable processing; the affected server has been isolated and no confirmed data loss has occurred' does the job a sentence with T1053.005 in it cannot. A strong Root Cause names the actual gap this room's worked example modelled — the svc-report account held broader local privileges than its function required, and no detection existed for scheduled-task creation by service accounts on this server tier — not simply 'a scheduled task was created for persistence,' which only restates the Technical Timeline, and not 'human error,' which names no fixable thing. Citing the real host, task name, account, or hash grounds the writing in the actual case instead of reading as a generic template.",
+      xp: 45,
     },
   ],
 };

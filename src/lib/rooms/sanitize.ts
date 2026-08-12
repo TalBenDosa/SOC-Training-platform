@@ -63,7 +63,10 @@ export type SanitizedRoomTask =
       right: string[];
     })
   // Ordering: items shuffled, correct_order gone.
-  | (Omit<Extract<RoomTask, { type: "ordering" }>, "correct_order" | "explanation">);
+  | (Omit<Extract<RoomTask, { type: "ordering" }>, "correct_order" | "explanation">)
+  // Written report: referenceIocs (the scoring answer key) and explanation
+  // (the post-submit standards note) stay server-only until graded.
+  | (Omit<Extract<RoomTask, { type: "written_report" }>, "referenceIocs" | "explanation">);
 
 export interface SanitizedRoom extends Omit<Room, "tasks"> {
   tasks: SanitizedRoomTask[];
@@ -80,6 +83,7 @@ export type SanitizedAnalystChoiceTask = Extract<SanitizedRoomTask, { type: "ana
 export type SanitizedQueryFillTask = Extract<SanitizedRoomTask, { type: "query_fill" }>;
 export type SanitizedMatchingTask = Extract<SanitizedRoomTask, { type: "matching" }>;
 export type SanitizedOrderingTask = Extract<SanitizedRoomTask, { type: "ordering" }>;
+export type SanitizedWrittenReportTask = Extract<SanitizedRoomTask, { type: "written_report" }>;
 
 function sanitizeTask(task: RoomTask): SanitizedRoomTask {
   switch (task.type) {
@@ -124,6 +128,10 @@ function sanitizeTask(task: RoomTask): SanitizedRoomTask {
     case "ordering": {
       const { correct_order: _order, explanation: _explanation, ...rest } = task;
       return { ...rest, items: shuffled(task.items) };
+    }
+    case "written_report": {
+      const { referenceIocs: _iocs, explanation: _explanation, ...rest } = task;
+      return rest;
     }
   }
 }

@@ -41,6 +41,8 @@ import { roomsBatch26 } from "./rooms-batch-26";
 import { roomsBatch27 } from "./rooms-batch-27";
 import { roomsBatch28 } from "./rooms-batch-28";
 import { roomsBatch29 } from "./rooms-batch-29";
+import { roomsBatch30 } from "./rooms-batch-30";
+import { roomsBatch31 } from "./rooms-batch-31";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -183,7 +185,7 @@ export interface QueryFillTask {
   type: "query_fill";
   id: string;
   heading: string;
-  language: "kql" | "spl";
+  language: "kql" | "spl" | "powershell";
   context: string;          // the investigative question the query answers
   template: string;         // e.g. "SecurityEvent\n| where EventID == {{eventid}}\n| where TargetAccount == {{account}}"
   blanks: { id: string; answers: string[]; placeholder?: string }[];
@@ -191,7 +193,38 @@ export interface QueryFillTask {
   xp: number;
 }
 
-export type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | AnalystChoiceTask | MatchingTask | OrderingTask | QueryFillTask;
+/**
+ * A free-text written deliverable, graded by a deterministic rubric — the one
+ * place in Rooms a student actually WRITES an incident-report paragraph
+ * instead of only recognising correct structure via reading/ordering/matching.
+ * Mirrors the approach the scenario grader (src/app/api/scenarios/[slug]/
+ * grade/route.ts) uses for its free-text report — depth by word count,
+ * evidence by citing the case's own real indicators, a fabrication penalty
+ * for inventing indicators that appear nowhere in the case — reimplemented
+ * here as a fully synchronous Rooms-native rubric (see gradeTask in
+ * src/lib/rooms/grading.ts) rather than reusing that route, since it is
+ * scenario-shaped (quiz + report) where this is Rooms-shaped (one task).
+ *
+ * `referenceIocs` is the case's real indicator list, used server-side only to
+ * score citation and detect fabrication — never sent to the client (see
+ * sanitize.ts). It is not a new leak: every value in it is already visible to
+ * the student through this room's own embedded log_analysis/analyst_choice
+ * events earlier in the same case, and the flag task publishes one directly.
+ */
+export interface WrittenReportTask {
+  type: "written_report";
+  id: string;
+  heading: string;
+  context: string;        // scenario framing — always visible
+  prompt: string;          // the specific deliverable asked for — always visible
+  rubricHints: string[];   // "a strong answer will..." guidance shown WHILE writing, not the answer itself
+  referenceIocs: string[]; // real indicators from the case, for evidence/fabrication scoring — server-only
+  minWords: number;        // word count the depth tier treats as "substantial"
+  explanation: string;     // standards note shown only after submission — server-only pre-submit
+  xp: number;
+}
+
+export type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | AnalystChoiceTask | MatchingTask | OrderingTask | QueryFillTask | WrittenReportTask;
 
 // ---------------------------------------------------------------------------
 // Room type
@@ -246,4 +279,6 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch27), // remote-email-collection, device-registration-persistence
   ...cast(roomsBatch28), // edr-detection-investigation
   ...cast(roomsBatch29), // investigate-alert-workflow, incident-report-writing
+  ...cast(roomsBatch30), // risk-fundamentals
+  ...cast(roomsBatch31), // powershell-for-soc-analyst
 ];

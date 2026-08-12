@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, BookOpen, Shield } from "lucide-react";
+import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, BookOpen, Shield, FileText } from "lucide-react";
 import type {
   SanitizedRoomTask as RoomTask,
   SanitizedReadingTask as ReadingTask,
@@ -14,6 +14,7 @@ import type {
   SanitizedQueryFillTask as QueryFillTask,
   SanitizedMatchingTask as MatchingTask,
   SanitizedOrderingTask as OrderingTask,
+  SanitizedWrittenReportTask as WrittenReportTask,
 } from "@/lib/rooms/sanitize";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
@@ -1576,6 +1577,113 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted }: { roomId: st
   );
 }
 
+function WrittenReportPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: WrittenReportTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+  const [text, setText]         = useState("");
+  const [busy, setBusy]         = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [result, setResult]     = useState<{ score: number; words: number; iocsCited: number; iocsTotal: number; fabricatedCount: number; explanation: string } | null>(null);
+  const [xpEarned, setXpEarned] = useState(0);
+  const [passed, setPassed]     = useState(false);
+
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+
+  async function submit() {
+    setBusy(true);
+    try {
+      const res = await submitTask(roomId, task.id, { text });
+      setResult({
+        score: Number(res.reveal.score) || 0,
+        words: Number(res.reveal.words) || 0,
+        iocsCited: Number(res.reveal.iocsCited) || 0,
+        iocsTotal: Number(res.reveal.iocsTotal) || 0,
+        fabricatedCount: Number(res.reveal.fabricatedCount) || 0,
+        explanation: typeof res.reveal.explanation === "string" ? res.reveal.explanation : "",
+      });
+      setXpEarned(res.xpEarned);
+      setPassed(res.correct);
+      setRevealed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (isCompleted) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-bold text-white">{task.heading}</h2>
+        <div className="inline-flex items-center gap-2 rounded border border-neon-green/40 bg-neon-green/10 px-3 py-1.5 text-sm text-neon-green">
+          <CheckCircle2 className="h-4 w-4" />
+          Already completed — +{task.xp} XP earned
+        </div>
+        <Button variant="primary" size="md" onClick={() => onComplete(0)}>
+          Next Task <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <FileText className="h-5 w-5 text-cyber-300" />
+        <h2 className="text-xl font-bold text-white">{task.heading}</h2>
+      </div>
+      <p className="text-sm text-slate-400 leading-relaxed">{task.context}</p>
+      <p className="text-sm text-white font-medium">{task.prompt}</p>
+
+      {!revealed && (
+        <div className="rounded-lg border border-cyber-500/30 bg-cyber-500/5 p-3 space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-cyber-300">A strong answer will</p>
+          <ul className="text-xs text-slate-300 space-y-0.5 list-disc list-inside">
+            {task.rubricHints.map((hint, i) => <li key={i}>{hint}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {!revealed && (
+        <div className="space-y-2">
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            disabled={busy}
+            rows={10}
+            placeholder="Write your report here…"
+            className="w-full rounded-lg border border-border bg-[#080d14] p-4 font-mono text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyber-500/30 resize-y"
+          />
+          <p className="text-xs text-slate-500">{wordCount} word{wordCount === 1 ? "" : "s"} (aim for {task.minWords}+)</p>
+        </div>
+      )}
+
+      {!revealed && (
+        <Button variant="primary" size="md" disabled={wordCount === 0 || busy} onClick={submit}>
+          Submit Report
+        </Button>
+      )}
+
+      {revealed && result && (
+        <div className={cn("rounded-lg border p-4 text-sm space-y-2",
+          passed ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
+        )}>
+          <p className={cn("font-semibold", passed ? "text-neon-green" : "text-neon-amber")}>
+            {passed ? `Passed — ${result.score}/100, +${xpEarned} XP` : `${result.score}/100 — below the pass bar`}
+          </p>
+          <p className="text-slate-300">
+            {result.words} words · cited {result.iocsCited}/{result.iocsTotal} of the case's real indicators
+            {result.fabricatedCount > 0 && <span className="text-severity-high"> · {result.fabricatedCount} cited indicator{result.fabricatedCount === 1 ? "" : "s"} not found anywhere in this case</span>}
+          </p>
+          <p className="text-slate-300">{result.explanation}</p>
+        </div>
+      )}
+
+      {revealed && (
+        <Button variant={passed ? "primary" : "secondary"} size="md" onClick={() => onComplete(xpEarned)}>
+          Next <ChevronRight className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
 // ─── Main TaskPlayer ────────────────────────────────────────────────────────────
 export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: TaskPlayerProps) {
   // Behavioral telemetry (Phase 1 — see ANALYST_TELEMETRY_PLAN.md): timing is
@@ -1598,6 +1706,7 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
       case "matching":        return <MatchingPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       case "ordering":        return <OrderingPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       case "query_fill":      return <QueryFillPlayer    roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "written_report":  return <WrittenReportPlayer roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
       default:                return null;
     }
   })();

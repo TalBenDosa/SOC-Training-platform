@@ -83,6 +83,7 @@ function TaskIcon({ type, className }: { type: RoomTask["type"]; className?: str
     case "log_analysis": return <Search className={cls} />;
     case "flag":         return <Flag className={cls} />;
     case "query_fill":   return <Terminal className={cls} />;
+    case "written_report": return <FileText className={cls} />;
     default:             return <FileText className={cls} />;
   }
 }

@@ -9,7 +9,7 @@
 
 export interface RoomTaskMeta {
   id: string;
-  type: "reading" | "question" | "log_analysis" | "flag" | "analyst_choice" | "matching" | "ordering" | "query_fill";
+  type: "reading" | "question" | "log_analysis" | "flag" | "analyst_choice" | "matching" | "ordering" | "query_fill" | "written_report";
   /** Max XP this task can award. 0 for reading tasks (non-gradeable). */
   xp: number;
   /** Present only for log_analysis / analyst_choice tasks whose embedded event
@@ -919,8 +919,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "Explore Wazuh, the leading open-source SIEM and XDR platform. Learn its architecture, how agents collect data, how decoders and rules work, and how to interpret real Wazuh alerts.",
     "difficulty": "intermediate",
     "category": "SIEM",
-    "estimatedMinutes": 55,
-    "xp": 155,
+    "estimatedMinutes": 80,
+    "xp": 205,
     "icon": "🔐",
     "prerequisites": [
       "siem-fundamentals",
@@ -967,6 +967,36 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "wazuh-q3",
         "type": "question",
         "xp": 20
+      },
+      {
+        "id": "wazuh-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "wazuh-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "wazuh-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "wazuh-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "wazuh-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "wazuh-q5",
+        "type": "question",
+        "xp": 25
       }
     ]
   },
@@ -6058,7 +6088,7 @@ export const ROOMS_META: RoomMeta[] = [
     "difficulty": "beginner",
     "category": "Application Security",
     "estimatedMinutes": 60,
-    "xp": 310,
+    "xp": 335,
     "icon": "🌐",
     "prerequisites": [
       "networking-protocols"
@@ -6115,6 +6145,16 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "webapp-ac1",
         "type": "analyst_choice",
         "xp": 30
+      },
+      {
+        "id": "webapp-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "webapp-q3",
+        "type": "question",
+        "xp": 25
       },
       {
         "id": "webapp-o1",
@@ -6593,8 +6633,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "The investigation is only half the job. This room teaches the other half: writing an incident report that serves two different audiences from one document, extracting IOCs correctly, building a technical timeline a stranger can follow six months later, writing a root cause that names an actual control gap instead of blaming a user, and keeping the whole thing defensible under later scrutiny. Built on a second case — a persistence foothold at Solstice Actuarial Partners — using real Microsoft Defender for Endpoint and Entra ID fields.",
     "difficulty": "intermediate",
     "category": "Incident Response",
-    "estimatedMinutes": 50,
-    "xp": 310,
+    "estimatedMinutes": 60,
+    "xp": 355,
     "icon": "📝",
     "prerequisites": [
       "incident-response-methodology"
@@ -6674,6 +6714,132 @@ export const ROOMS_META: RoomMeta[] = [
       {
         "id": "doc-q4",
         "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "doc-wr1",
+        "type": "written_report",
+        "xp": 45
+      }
+    ]
+  },
+  {
+    "id": "risk-fundamentals",
+    "title": "Risk Fundamentals — Threat, Vulnerability, and What Actually Gets Prioritised",
+    "description": "Learn the classic Threat x Vulnerability x Impact model that determines real-world risk, why a critical CVSS score does not automatically mean urgent action, how active threat intelligence changes prioritisation, and what Attack Surface and Attack Vector actually mean and how to reduce exposure before any specific vulnerability is even known.",
+    "difficulty": "beginner",
+    "category": "Foundations",
+    "estimatedMinutes": 40,
+    "xp": 180,
+    "icon": "⚖️",
+    "prerequisites": [
+      "intro-cybersecurity"
+    ],
+    "tasks": [
+      {
+        "id": "riskfund-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "riskfund-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "riskfund-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "riskfund-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "riskfund-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "riskfund-ac1",
+        "type": "analyst_choice",
+        "xp": 40,
+        "mitreTechnique": "T1190"
+      },
+      {
+        "id": "riskfund-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "riskfund-f1",
+        "type": "flag",
+        "xp": 30
+      }
+    ]
+  },
+  {
+    "id": "powershell-for-soc-analyst",
+    "title": "PowerShell for the SOC Analyst — The Defender's Side of the Same Tool",
+    "description": "You have already seen PowerShell used against you — encoded commands, execution-policy bypass, winword.exe spawning a payload downloader. This room teaches the other half: the seven cmdlets an analyst actually reaches for during an investigation, how the object pipeline chains them together, and how to turn a live query into evidence you can hand to an incident lead.",
+    "difficulty": "intermediate",
+    "category": "Endpoint Security",
+    "estimatedMinutes": 55,
+    "xp": 245,
+    "icon": "🛡️",
+    "prerequisites": [
+      "windows-fundamentals"
+    ],
+    "tasks": [
+      {
+        "id": "ps-soc-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ps-soc-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ps-soc-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ps-soc-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "ps-soc-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "ps-soc-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "ps-soc-qf1",
+        "type": "query_fill",
+        "xp": 30
+      },
+      {
+        "id": "ps-soc-la1",
+        "type": "log_analysis",
+        "xp": 80
+      },
+      {
+        "id": "ps-soc-match1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "ps-soc-flag1",
+        "type": "flag",
         "xp": 25
       }
     ]

@@ -180,6 +180,64 @@ export function gradeTask(task: RoomTask, submission: any): GradeResult {
       };
     }
 
+    case "written_report": {
+      const text = submission?.text;
+      if (typeof text !== "string") return fail("text (string) is required.");
+      const trimmed = text.trim();
+      const words = trimmed.split(/\s+/).filter(Boolean).length;
+      const lower = trimmed.toLowerCase();
+
+      // Evidence: did they cite the case's own real indicators, or nothing at
+      // all? Checked as substring, same as the scenario grader — a hash,
+      // hostname, task name or account cited anywhere in the prose counts.
+      const iocsTotal = task.referenceIocs.length;
+      const iocsCited = task.referenceIocs.filter(v => lower.includes(v.toLowerCase())).length;
+
+      // Fabrication: IP/hash/email-shaped strings the student typed that are
+      // NOT among this case's real indicators and don't appear anywhere in
+      // the prompt/context either — inventing evidence is worse than citing
+      // none, mirroring the scenario grader's fabrication penalty.
+      const realValues = new Set(task.referenceIocs.map(v => v.toLowerCase()));
+      const claimed = new Set<string>();
+      for (const m of trimmed.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g)) claimed.add(m[0].toLowerCase());
+      for (const m of trimmed.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase());
+      for (const m of trimmed.matchAll(/\b[0-9a-f]{32,64}\b/gi)) claimed.add(m[0].toLowerCase());
+      const fabricated = [...claimed].filter(v => !realValues.has(v));
+
+      // Depth: substance relative to this task's own minWords, not a fixed
+      // constant — a short capstone and a full report shouldn't share a bar.
+      const depthPct = words >= task.minWords * 1.5 ? 1
+        : words >= task.minWords ? 0.8
+        : words >= task.minWords * 0.5 ? 0.4
+        : words > 0 ? 0.1 : 0;
+
+      // Evidence: proportion of real indicators cited, capped hard by any
+      // fabrication — a fabricated indicator caps this near zero regardless
+      // of how many real ones were also cited, same rule the scenario grader
+      // uses.
+      const evidencePct = fabricated.length > 0
+        ? (iocsCited > 0 ? 0.15 : 0)
+        : iocsTotal > 0 ? iocsCited / iocsTotal : 1;
+
+      // Depth is worth 40 of the 100 rubric points, evidence 60 — citing the
+      // case's actual findings matters more here than raw word count, since
+      // this task grades a report ABOUT a specific investigation, not an essay.
+      const score = Math.round(depthPct * 40 + evidencePct * 60);
+      const correct = score >= 60; // matches this platform's incident-report pass bar
+      const xpEarned = Math.round((task.xp * score) / 100);
+
+      return {
+        ok: true,
+        correct,
+        xpEarned,
+        reveal: {
+          score, words, iocsCited, iocsTotal,
+          fabricatedCount: fabricated.length,
+          explanation: task.explanation,
+        },
+      };
+    }
+
     case "ordering": {
       const placed = submission?.placed;
       if (!Array.isArray(placed)) return fail("placed (array of item ids) is required.");
