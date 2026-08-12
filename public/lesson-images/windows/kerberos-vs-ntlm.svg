@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 500" role="img" aria-label="Comparison table of Kerberos versus NTLM authentication: who issues credentials, what crosses the network, mutual encryption, event IDs generated, and why NTLM on a domain-joined host deserves a second look">
+  <title>Kerberos vs NTLM — authentication comparison and why NTLM deserves a second look</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .hot   { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .bad   { fill: #2a1220; stroke: #f87171; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 13px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 12px; font-weight: 700; }
+      .crit  { fill: #f87171; font-size: 13px; font-weight: 700; }
+      .good  { fill: #86efac; font-size: 12px; font-weight: 700; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="500"/>
+  <text class="ui head" x="24" y="30">KERBEROS VS NTLM — WHY THE PROTOCOL FIELD MATTERS</text>
+
+  <!-- comparison table -->
+  <rect class="panel" x="24" y="46" width="892" height="260" rx="6"/>
+  <text class="ui col" x="40" y="68">QUESTION</text>
+  <text class="cyan" x="330" y="68">KERBEROS</text>
+  <text class="warn" x="620" y="68">NTLM</text>
+  <line x1="40" y1="78" x2="900" y2="78" stroke="#1e2d4a" stroke-width="1"/>
+
+  <text class="ui note" x="40" y="102">Who issues the credential?</text>
+  <text class="ui val" x="330" y="102" font-size="12">A ticket-granting service on the</text>
+  <text class="ui val" x="330" y="118" font-size="12">Domain Controller (KDC)</text>
+  <text class="ui val" x="620" y="102" font-size="12">No central issuer — the client and</text>
+  <text class="ui val" x="620" y="118" font-size="12">server negotiate directly</text>
+
+  <line x1="40" y1="132" x2="900" y2="132" stroke="#1e2d4a" stroke-width=".5"/>
+  <text class="ui note" x="40" y="154">What crosses the network?</text>
+  <text class="ui val" x="330" y="154" font-size="12">An encrypted ticket — the password</text>
+  <text class="ui val" x="330" y="170" font-size="12">itself never travels</text>
+  <text class="ui val" x="620" y="154" font-size="12">A challenge and a response computed</text>
+  <text class="ui val" x="620" y="170" font-size="12">from the NTLM hash</text>
+
+  <line x1="40" y1="184" x2="900" y2="184" stroke="#1e2d4a" stroke-width=".5"/>
+  <text class="ui note" x="40" y="206">Mutual authentication?</text>
+  <text class="good" x="330" y="206">Yes — client and server both prove identity</text>
+  <text class="crit" x="620" y="206">No — only the client authenticates to the server</text>
+
+  <line x1="40" y1="220" x2="900" y2="220" stroke="#1e2d4a" stroke-width=".5"/>
+  <text class="ui note" x="40" y="242">Event ID generated</text>
+  <text class="mono val" x="330" y="242">4768 (TGT) / 4769 (service ticket)</text>
+  <text class="mono val" x="620" y="242">4624 with AuthPackage=NTLM, +4776 on DC</text>
+
+  <line x1="40" y1="256" x2="900" y2="256" stroke="#1e2d4a" stroke-width=".5"/>
+  <text class="ui note" x="40" y="278">What proves identity?</text>
+  <text class="ui val" x="330" y="278" font-size="12">A time-limited ticket signed by the KDC</text>
+  <text class="ui val" x="620" y="278" font-size="12">The NTLM hash alone — no plaintext needed</text>
+
+  <!-- pass the hash callout -->
+  <rect class="bad" x="24" y="322" width="892" height="150" rx="6"/>
+  <text class="crit" x="40" y="346">WHY NTLM ON A DOMAIN-JOINED HOST IS WORTH A SECOND LOOK</text>
+  <text class="ui note" x="40" y="370">In a healthy AD domain, Kerberos should be the default for machine-to-machine authentication. Because NTLM only</text>
+  <text class="ui note" x="40" y="388">needs the hash — never the plaintext password — an attacker who steals a hash from LSASS memory (e.g. via Mimikatz)</text>
+  <text class="ui note" x="40" y="406">can authenticate directly with it, no cracking required. This is pass-the-hash (MITRE T1550.002).</text>
+
+  <text class="mono val" x="40" y="436">4624  LogonType=3  AuthenticationPackageName=NTLM  TargetUserName=admin-jsmith  WorkstationName=WKS-4471</text>
+  <text class="ui note" x="40" y="456">Ask: does this account normally use NTLM here? Should this connection have used Kerberos instead? Does the</text>
+  <text class="ui note" x="40" y="472">source workstation match where this user, especially a privileged one, usually authenticates from?</text>
+
+  <text class="ui cap" x="24" y="492">A rise in NTLM where Kerberos was expected does not prove an attack — but it is exactly the pattern pass-the-hash produces.</text>
+</svg>

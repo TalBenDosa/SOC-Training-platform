@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 540" role="img" aria-label="Table of five lateral movement techniques - PsExec over SMB, WMI, WinRM, RDP, and remote scheduled task creation - with the port each one uses, the artifact it leaves on the target, and its MITRE ATT&amp;CK ID">
+  <title>Lateral movement techniques compared by port, target artifact, and ATT&amp;CK ID</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .val   { fill: #e2e8f0; font-size: 11px; }
+      .dim   { fill: #64748b; font-size: 10px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .06em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="540"/>
+  <text class="ui head" x="24" y="28">LATERAL MOVEMENT — SAME GOAL, FIVE DIFFERENT FOOTPRINTS ON THE TARGET</text>
+
+  <!-- table -->
+  <rect class="panel" x="24" y="44" width="892" height="330" rx="6"/>
+  <text class="ui col" x="40" y="66">TECHNIQUE</text>
+  <text class="ui col" x="210" y="66">PORT</text>
+  <text class="ui col" x="340" y="66">ARTIFACT LEFT ON THE TARGET</text>
+  <text class="ui col" x="800" y="66">ATT&amp;CK ID</text>
+  <line x1="40" y1="76" x2="900" y2="76" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Row 1: PsExec -->
+  <text class="cyan" x="40" y="100">PSEXEC (SMB ADMIN SHARE)</text>
+  <text class="val" x="210" y="100">445 (SMB)</text>
+  <text class="mono val" x="340" y="100">ADMIN$ file write (Event 5145), then</text>
+  <text class="mono val" x="340" y="116">service install (Event 7045), often</text>
+  <text class="mono val" x="340" y="132">named PSEXESVC</text>
+  <text class="mono warn" x="800" y="100">T1021.002</text>
+  <line x1="40" y1="146" x2="900" y2="146" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 2: WMI -->
+  <text class="cyan" x="40" y="170">WMI (wmiexec)</text>
+  <text class="val" x="210" y="170">135 + dynamic</text>
+  <text class="val" x="210" y="184">RPC port</text>
+  <text class="mono val" x="340" y="170">WmiPrvSE.exe spawns cmd.exe or</text>
+  <text class="mono val" x="340" y="186">powershell.exe — no service is</text>
+  <text class="mono val" x="340" y="202">created at all</text>
+  <text class="mono warn" x="800" y="170">T1047</text>
+  <line x1="40" y1="216" x2="900" y2="216" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 3: WinRM -->
+  <text class="cyan" x="40" y="240">WINRM (PS REMOTING)</text>
+  <text class="val" x="210" y="240">5985 / 5986</text>
+  <text class="mono val" x="340" y="240">4624 LogonType 3, plus PowerShell</text>
+  <text class="mono val" x="340" y="256">Event 4103/4104 — only if script</text>
+  <text class="mono val" x="340" y="272">block logging is enabled</text>
+  <text class="mono warn" x="800" y="240">T1021.006</text>
+  <line x1="40" y1="286" x2="900" y2="286" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 4: RDP -->
+  <text class="cyan" x="40" y="310">RDP</text>
+  <text class="val" x="210" y="310">3389</text>
+  <text class="mono val" x="340" y="310">4624 LogonType 10 (RemoteInteractive),</text>
+  <text class="mono val" x="340" y="326">plus 4778/4779 session</text>
+  <text class="mono val" x="340" y="342">reconnect/disconnect</text>
+  <text class="mono warn" x="800" y="310">T1021.001</text>
+  <line x1="40" y1="356" x2="900" y2="356" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 5: Scheduled task -->
+  <rect class="panel" x="24" y="392" width="892" height="86" rx="6"/>
+  <text class="cyan" x="40" y="418">REMOTE SCHEDULED TASK</text>
+  <text class="val" x="210" y="418">445 / 135</text>
+  <text class="val" x="210" y="432">(RPC over SMB)</text>
+  <text class="mono val" x="340" y="418">4698 task created (Security log),</text>
+  <text class="mono val" x="340" y="434">106 task registered (Task Scheduler</text>
+  <text class="mono val" x="340" y="450">operational log) — on the target</text>
+  <text class="mono warn" x="800" y="418">T1053.005</text>
+
+  <!-- caption -->
+  <text class="ui cap" x="24" y="500">Port alone never confirms the technique — the process tree and the event that fires next are what actually distinguish them.</text>
+</svg>

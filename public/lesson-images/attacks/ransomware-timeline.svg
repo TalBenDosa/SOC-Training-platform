@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 400" role="img" aria-label="Horizontal timeline of a ransomware intrusion with seven stages - initial access, dwell, credential access, lateral movement, pre-encryption sabotage, encryption, and extortion. The pre-encryption sabotage stage is highlighted in red as the last real detection window, with a callout listing shadow-copy deletion, security-tool tampering, and log clearing as its three highest-fidelity signals">
+  <title>The ransomware timeline and the pre-encryption sabotage detection window</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .bad   { fill: #2a1220; stroke: #f87171; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .val   { fill: #e2e8f0; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .note  { fill: #94a3b8; font-size: 10.5px; }
+      .cyan  { fill: #22d3ee; font-size: 10.5px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .crit  { fill: #f87171; font-size: 13px; font-weight: 700; }
+      .dim   { fill: #64748b; font-size: 9px; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .line  { stroke: #334155; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="400"/>
+  <text class="ui head" x="24" y="28">THE RANSOMWARE TIMELINE — WHERE YOUR LAST REAL CHANCE ACTUALLY IS</text>
+
+  <!-- timeline -->
+  <line class="line" x1="50" y1="90" x2="900" y2="90"/>
+
+  <!-- node 1: Initial access -->
+  <circle cx="50" cy="90" r="5" fill="#22d3ee"/>
+  <text class="cyan" x="50" y="58" text-anchor="middle">INITIAL</text>
+  <text class="cyan" x="50" y="72" text-anchor="middle">ACCESS</text>
+  <text class="note" x="50" y="108" text-anchor="middle">Phishing loader,</text>
+  <text class="note" x="50" y="122" text-anchor="middle">exposed RDP/VPN,</text>
+  <text class="note" x="50" y="136" text-anchor="middle">edge-device CVE</text>
+
+  <!-- node 2: Dwell -->
+  <circle cx="192" cy="90" r="5" fill="#22d3ee"/>
+  <text class="cyan" x="192" y="65" text-anchor="middle">DWELL</text>
+  <text class="note" x="192" y="108" text-anchor="middle">Days to weeks,</text>
+  <text class="note" x="192" y="122" text-anchor="middle">quiet — AD / BloodHound</text>
+  <text class="note" x="192" y="136" text-anchor="middle">style enumeration</text>
+
+  <!-- node 3: Credential access -->
+  <circle cx="333" cy="90" r="5" fill="#22d3ee"/>
+  <text class="cyan" x="333" y="58" text-anchor="middle">CREDENTIAL</text>
+  <text class="cyan" x="333" y="72" text-anchor="middle">ACCESS</text>
+  <text class="note" x="333" y="108" text-anchor="middle">LSASS dump (T1003),</text>
+  <text class="note" x="333" y="122" text-anchor="middle">browser/password-</text>
+  <text class="note" x="333" y="136" text-anchor="middle">store theft (T1555)</text>
+
+  <!-- node 4: Lateral movement -->
+  <circle cx="475" cy="90" r="5" fill="#22d3ee"/>
+  <text class="cyan" x="475" y="58" text-anchor="middle">LATERAL</text>
+  <text class="cyan" x="475" y="72" text-anchor="middle">MOVEMENT</text>
+  <text class="note" x="475" y="108" text-anchor="middle">SMB, RDP, WinRM,</text>
+  <text class="note" x="475" y="122" text-anchor="middle">pass-the-hash toward</text>
+  <text class="note" x="475" y="136" text-anchor="middle">Domain Admin</text>
+
+  <!-- node 5: Pre-encryption sabotage (highlighted) -->
+  <circle cx="617" cy="90" r="7" fill="#f87171"/>
+  <text class="crit" x="617" y="54" text-anchor="middle" font-size="11">PRE-ENCRYPTION</text>
+  <text class="crit" x="617" y="70" text-anchor="middle" font-size="11">SABOTAGE</text>
+  <line x1="617" y1="97" x2="617" y2="175" stroke="#f87171" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+  <!-- node 6: Encryption -->
+  <circle cx="758" cy="90" r="5" fill="#22d3ee"/>
+  <text class="cyan" x="758" y="65" text-anchor="middle">ENCRYPTION</text>
+  <text class="note" x="758" y="108" text-anchor="middle">Services stopped</text>
+  <text class="note" x="758" y="122" text-anchor="middle">(T1489), then mass</text>
+  <text class="note" x="758" y="136" text-anchor="middle">encrypt — minutes</text>
+
+  <!-- node 7: Extortion -->
+  <circle cx="900" cy="90" r="5" fill="#22d3ee"/>
+  <text class="cyan" x="900" y="65" text-anchor="middle">EXTORTION</text>
+  <text class="note" x="900" y="108" text-anchor="middle">Leak-site listing,</text>
+  <text class="note" x="900" y="122" text-anchor="middle">double-extortion</text>
+  <text class="note" x="900" y="136" text-anchor="middle">payment pressure</text>
+
+  <!-- highlighted panel -->
+  <rect class="bad" x="40" y="175" width="860" height="170" rx="8"/>
+  <text class="crit" x="60" y="200">LAST REAL DETECTION WINDOW — AND USUALLY THE LOUDEST STAGE</text>
+
+  <text class="warn" x="60" y="226">Shadow-copy &amp; backup deletion (T1490)</text>
+  <text class="mono val" x="60" y="242">vssadmin delete shadows /all /quiet · Veeam/Commvault repos targeted directly</text>
+
+  <text class="warn" x="60" y="266">Security tooling disabled (T1562.001)</text>
+  <text class="mono val" x="60" y="282">EDR/AV agents stopped or uninstalled across hosts, sometimes via a vulnerable signed driver (BYOVD)</text>
+
+  <text class="warn" x="60" y="306">Audit log cleared (T1070.001)</text>
+  <text class="mono val" x="60" y="322">wevtutil cl Security → Event ID 1102 fires — almost no legitimate process does this at all</text>
+
+  <text class="ui cap" x="60" y="340">Detections tuned to these three signals are close to the last automatable tripwires before a full-fleet outage.</text>
+
+  <text class="ui cap" x="40" y="368">Before this point the intrusion can be genuinely quiet for weeks. After this point, encryption is usually minutes away.</text>
+</svg>

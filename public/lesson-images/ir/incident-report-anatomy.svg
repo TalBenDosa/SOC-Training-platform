@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 640" role="img" aria-label="Mockup of an incident report with its eight sections labelled, each tagged with the audience that reads it, and an example contrasting an executive-summary sentence with a technical timeline row">
+  <title>Anatomy of an incident report — eight sections and who reads each one</title>
+  <defs>
+    <style>
+      .bg     { fill: #0b0f1e; }
+      .panel  { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .row    { fill: #0d1526; stroke: #1e2d4a; stroke-width: 1; }
+      .ui     { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono   { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; }
+      .head   { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col    { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .sec    { fill: #e2e8f0; font-size: 12.5px; font-weight: 700; }
+      .desc   { fill: #94a3b8; font-size: 11px; }
+      .cap    { fill: #64748b; font-size: 10.5px; font-style: italic; }
+      .pillExec { fill: #0e2233; stroke: #22d3ee; stroke-width: 1; }
+      .pillTech { fill: #132a1f; stroke: #86efac; stroke-width: 1; }
+      .pillLegal{ fill: #2a2210; stroke: #fbbf24; stroke-width: 1; }
+      .txtExec  { fill: #7dd3fc; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+      .txtTech  { fill: #86efac; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+      .txtLegal { fill: #fbbf24; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+      .exBox  { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.2; }
+      .txBox  { fill: #0e1b30; stroke: #86efac; stroke-width: 1.2; }
+      .lbl    { fill: #94a3b8; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+      .quote  { fill: #e2e8f0; font-size: 11.5px; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="640"/>
+  <text class="ui head" x="24" y="30">ANATOMY OF AN INCIDENT REPORT</text>
+
+  <!-- table header -->
+  <rect class="panel" x="24" y="44" width="892" height="366" rx="6"/>
+  <text class="ui col" x="40"  y="64">SECTION</text>
+  <text class="ui col" x="196" y="64">WHAT IT CONTAINS</text>
+  <text class="ui col" x="748" y="64">READ BY</text>
+  <line x1="40" y1="72" x2="900" y2="72" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Row 1 -->
+  <rect class="row" x="32" y="80" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="103">Executive Summary</text>
+  <text class="ui desc" x="196" y="103">3-5 plain sentences: what happened, how bad, what's next.</text>
+  <rect class="pillExec" x="748" y="88" width="70" height="18" rx="9"/>
+  <text class="ui txtExec" x="758" y="101">LEADERSHIP</text>
+
+  <!-- Row 2 -->
+  <rect class="row" x="32" y="118" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="141">Incident Overview</text>
+  <text class="ui desc" x="196" y="141">Incident ID, timeframe, detection source, current status.</text>
+  <rect class="pillExec" x="748" y="126" width="70" height="18" rx="9"/>
+  <text class="ui txtExec" x="758" y="139">LEADERSHIP</text>
+  <rect class="pillTech" x="826" y="126" width="60" height="18" rx="9"/>
+  <text class="ui txtTech" x="836" y="139">TECH</text>
+
+  <!-- Row 3 -->
+  <rect class="row" x="32" y="156" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="179">Affected Systems &amp; Data</text>
+  <text class="ui desc" x="196" y="179">Hosts, accounts, data types touched; confirmed vs suspected.</text>
+  <rect class="pillLegal" x="748" y="164" width="55" height="18" rx="9"/>
+  <text class="ui txtLegal" x="756" y="177">LEGAL</text>
+  <rect class="pillExec" x="810" y="164" width="70" height="18" rx="9"/>
+  <text class="ui txtExec" x="820" y="177">LEADERSHIP</text>
+
+  <!-- Row 4 -->
+  <rect class="row" x="32" y="194" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="217">Evidence &amp; Analysis</text>
+  <text class="ui desc" x="196" y="217">Detection logic, validation steps, corroborating signals.</text>
+  <rect class="pillTech" x="748" y="202" width="60" height="18" rx="9"/>
+  <text class="ui txtTech" x="758" y="215">TECH</text>
+
+  <!-- Row 5 -->
+  <rect class="row" x="32" y="232" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="255">Technical Timeline</text>
+  <text class="ui desc" x="196" y="255">UTC rows: time, host, event, evidence, ATT&amp;CK mapping.</text>
+  <rect class="pillTech" x="748" y="240" width="60" height="18" rx="9"/>
+  <text class="ui txtTech" x="758" y="253">TECH</text>
+
+  <!-- Row 6 -->
+  <rect class="row" x="32" y="270" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="293">IOCs</text>
+  <text class="ui desc" x="196" y="293">Hashes, IPs, domains, accounts — tabulated for sweeping.</text>
+  <rect class="pillTech" x="748" y="278" width="60" height="18" rx="9"/>
+  <text class="ui txtTech" x="758" y="291">TECH</text>
+
+  <!-- Row 7 -->
+  <rect class="row" x="32" y="308" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="331">Root Cause</text>
+  <text class="ui desc" x="196" y="331">Initial access vector and the weakness that allowed it.</text>
+  <rect class="pillTech" x="748" y="316" width="60" height="18" rx="9"/>
+  <text class="ui txtTech" x="758" y="329">TECH</text>
+  <rect class="pillExec" x="814" y="316" width="70" height="18" rx="9"/>
+  <text class="ui txtExec" x="824" y="329">LEADERSHIP</text>
+
+  <!-- Row 8 -->
+  <rect class="row" x="32" y="346" width="876" height="36" rx="4"/>
+  <text class="ui sec"  x="40"  y="369">Recommendations</text>
+  <text class="ui desc" x="196" y="369">Prioritized, assignable actions tied to the findings above.</text>
+  <rect class="pillExec" x="748" y="354" width="70" height="18" rx="9"/>
+  <text class="ui txtExec" x="758" y="367">LEADERSHIP</text>
+  <rect class="pillTech" x="826" y="354" width="60" height="18" rx="9"/>
+  <text class="ui txtTech" x="836" y="367">TECH</text>
+
+  <text class="ui cap" x="40" y="400">Every section serves a specific reader — a report missing one leaves that reader unable to act.</text>
+
+  <!-- Same incident, two registers -->
+  <text class="ui head" x="24" y="436">SAME INCIDENT, TWO REGISTERS</text>
+
+  <rect class="exBox" x="24" y="450" width="434" height="150" rx="6"/>
+  <text class="ui lbl" x="38" y="472">EXECUTIVE SUMMARY — plain language</text>
+  <text class="ui quote" x="38" y="498">"An employee laptop was compromised via</text>
+  <text class="ui quote" x="38" y="516">a phishing email. The attacker had access</text>
+  <text class="ui quote" x="38" y="534">for about three hours. Affected credentials</text>
+  <text class="ui quote" x="38" y="552">have been reset and the laptop is isolated.</text>
+  <text class="ui quote" x="38" y="570">No customer data is confirmed accessed."</text>
+
+  <rect class="txBox" x="482" y="450" width="434" height="150" rx="6"/>
+  <text class="ui lbl" x="496" y="472">TECHNICAL TIMELINE ROW — cited fields</text>
+  <text class="mono" x="496" y="498"><tspan fill="#64748b">2026-07-02 11:47:20 UTC</tspan></text>
+  <text class="mono" x="496" y="516"><tspan fill="#e2e8f0">SRV-DB02 (10.4.5.30)</tspan></text>
+  <text class="mono" x="496" y="534"><tspan fill="#e2e8f0">svc_backup network logon from WKS-4471</tspan></text>
+  <text class="mono" x="496" y="552"><tspan fill="#94a3b8">Evidence: Win EID 4624, LogonType 3</tspan></text>
+  <text class="mono" x="496" y="570"><tspan fill="#94a3b8">ATT&amp;CK: T1021.002</tspan></text>
+
+  <text class="ui cap" x="24" y="622">Same fact, two audiences: the executive reads five sentences and decides; the responder reads exact values and acts.</text>
+</svg>

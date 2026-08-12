@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 470" role="img" aria-label="One incident timeline row broken into its five parts — UTC timestamp, host, event description, evidence with source and record ID, and ATT&amp;CK mapping — with a weak version of the same row contrasted against a strong, evidence-backed version">
+  <title>Anatomy of one timeline row — and what turns a claim into evidence</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .lbl   { fill: #22d3ee; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+      .note  { fill: #94a3b8; font-size: 11.5px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .flag  { fill: #fbbf24; }
+      .lead  { stroke: #22d3ee; stroke-width: 1; opacity: .55; }
+      .weakBox   { fill: #1a1220; stroke: #f87171; stroke-width: 1.2; }
+      .strongBox { fill: #0e1b30; stroke: #86efac; stroke-width: 1.2; }
+      .weakLbl   { fill: #f87171; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+      .strongLbl { fill: #86efac; font-size: 11px; font-weight: 700; letter-spacing: .06em; }
+      .quote     { fill: #e2e8f0; font-size: 12px; }
+      .cap    { fill: #64748b; font-size: 10.5px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="470"/>
+  <text class="ui head" x="24" y="30">READING ONE TIMELINE ROW</text>
+
+  <!-- the row itself -->
+  <rect class="panel" x="24" y="46" width="892" height="46" rx="6"/>
+  <text class="mono" x="38" y="75">
+    <tspan class="dim">2026-07-02 11:47:20Z  </tspan><tspan class="val">SRV-DB02</tspan><tspan class="dim">  </tspan><tspan class="val">svc_backup logon &lt;- WKS-4471 (SMB)</tspan><tspan class="dim">  </tspan><tspan class="val">EID 4624 LT=3</tspan><tspan class="dim">  </tspan><tspan class="flag">T1021.002</tspan>
+  </text>
+
+  <!-- leader lines -->
+  <line class="lead" x1="90"  y1="92" x2="90"  y2="118"/>
+  <line class="lead" x1="255" y1="92" x2="255" y2="150"/>
+  <line class="lead" x1="470" y1="92" x2="470" y2="182"/>
+  <line class="lead" x1="700" y1="92" x2="700" y2="214"/>
+  <line class="lead" x1="835" y1="92" x2="835" y2="246"/>
+
+  <text class="ui lbl" x="98" y="122">TIMESTAMP (UTC)</text>
+  <text class="ui note" x="234" y="122">Normalized to one clock before anything else happens.</text>
+
+  <text class="ui lbl" x="263" y="154">HOST</text>
+  <text class="ui note" x="305" y="154">The entity the event happened on — not the entity it happened to.</text>
+
+  <text class="ui lbl" x="478" y="186">EVENT DESCRIPTION</text>
+  <text class="ui note" x="624" y="186">Plain language, but built from field values, not a summary of a feeling.</text>
+
+  <text class="ui lbl" x="708" y="218">EVIDENCE — SOURCE + RECORD ID</text>
+  <text class="ui note" x="24" y="248">This column is what separates a timeline from a guess — anyone should be able to pull the exact same record.</text>
+
+  <text class="ui lbl" x="843" y="250">ATT&amp;CK</text>
+  <text class="ui note" x="700" y="266">Tags the row to a known technique and reveals which phases you have not found evidence for yet.</text>
+
+  <!-- weak vs strong -->
+  <text class="ui head" x="24" y="304">SAME EVENT, WEAK CLAIM VS STRONG EVIDENCE</text>
+
+  <rect class="weakBox" x="24" y="318" width="434" height="130" rx="6"/>
+  <text class="ui weakLbl" x="38" y="340">WEAK — a claim, not evidence</text>
+  <text class="ui quote" x="38" y="364">"The attacker moved laterally to a</text>
+  <text class="ui quote" x="38" y="382">database server."</text>
+  <text class="ui note" x="38" y="410">No host, no account, no timestamp,</text>
+  <text class="ui note" x="38" y="426">no source — nothing here can be checked</text>
+  <text class="ui note" x="38" y="442">or acted on by another analyst.</text>
+
+  <rect class="strongBox" x="482" y="318" width="434" height="130" rx="6"/>
+  <text class="ui strongLbl" x="496" y="340">STRONG — cited and checkable</text>
+  <text class="mono" x="496" y="364" font-size="11.5"><tspan fill="#e2e8f0">svc_backup logon SRV-DB02 &lt;- WKS-4471</tspan></text>
+  <text class="mono" x="496" y="382" font-size="11.5"><tspan fill="#94a3b8">2026-07-02 11:47:20 UTC, EID 4624 LT=3</tspan></text>
+  <text class="ui note" x="496" y="410">Exact host, exact account, exact time,</text>
+  <text class="ui note" x="496" y="426">exact record ID — another analyst can</text>
+  <text class="ui note" x="496" y="442">pull this same log entry and confirm it.</text>
+
+  <text class="ui cap" x="24" y="464">A claim without a citation is an assertion. A claim with a source and record ID is evidence.</text>
+</svg>

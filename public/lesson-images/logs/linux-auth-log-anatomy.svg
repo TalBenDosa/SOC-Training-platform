@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="Three annotated lines from a Linux auth.log: a failed SSH login for an invalid user, a successful SSH login, and a sudo command, with each field labelled">
+  <title>Anatomy of /var/log/auth.log — failed login, successful login, and sudo</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .lbl   { fill: #22d3ee; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .fail  { fill: #f87171; }
+      .ok    { fill: #86efac; }
+      .lead  { stroke: #22d3ee; stroke-width: 1; opacity: .55; }
+      .flag  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="28">READING /var/log/auth.log (DEBIAN/UBUNTU) — /var/log/secure ON RHEL</text>
+
+  <!-- Line 1: failed login, invalid user -->
+  <rect class="panel" x="24" y="42" width="892" height="30" rx="4"/>
+  <text class="mono" x="34" y="62"><tspan class="dim">Jul  4 02:11:03 </tspan><tspan class="val">web01</tspan><tspan class="dim"> sshd[</tspan><tspan class="val">2201</tspan><tspan class="dim">]: </tspan><tspan class="fail">Failed password for invalid user admin</tspan><tspan class="dim"> from </tspan><tspan class="val">203.0.113.9</tspan><tspan class="dim"> port </tspan><tspan class="val">51122</tspan><tspan class="dim"> ssh2</tspan></text>
+
+  <line class="lead" x1="88"  y1="72" x2="88"  y2="100"/>
+  <line class="lead" x1="140" y1="72" x2="140" y2="128"/>
+  <line class="lead" x1="220" y1="72" x2="220" y2="156"/>
+  <line class="lead" x1="465" y1="72" x2="465" y2="184"/>
+  <line class="lead" x1="690" y1="72" x2="690" y2="212"/>
+  <line class="lead" x1="795" y1="72" x2="795" y2="240"/>
+
+  <text class="ui lbl" x="96"  y="104">TIMESTAMP</text>
+  <text class="ui note" x="185" y="104">Syslog time has no year and no timezone by default — normalize before building a timeline.</text>
+
+  <text class="ui lbl" x="148" y="132">HOST</text>
+  <text class="ui note" x="185" y="132">Which machine wrote this line — the hostname, not the attacker's.</text>
+
+  <text class="ui lbl" x="228" y="160">PROCESS[PID]</text>
+  <text class="ui note" x="340" y="160">sshd and its process ID — ties the line to one running daemon instance.</text>
+
+  <text class="ui lbl" x="473" y="188">USERNAME</text>
+  <text class="ui note" x="560" y="188">"invalid user" = this account does not exist on the box — a sign of enumeration, not a real password guess.</text>
+
+  <text class="ui lbl" x="698" y="216">SOURCE IP</text>
+  <text class="ui note" x="770" y="216">Where the attempt came from.</text>
+
+  <text class="ui lbl" x="803" y="244">PORT</text>
+  <text class="ui note" x="24" y="264">The client's ephemeral source port — rarely useful on its own, but a fixed value across many attempts can point to scripted tooling.</text>
+
+  <!-- Line 2: failed login, valid user (brute force) -->
+  <rect class="panel" x="24" y="284" width="892" height="30" rx="4"/>
+  <text class="mono" x="34" y="304"><tspan class="dim">Jul  4 02:12:39 </tspan><tspan class="val">web01</tspan><tspan class="dim"> sshd[</tspan><tspan class="val">2244</tspan><tspan class="dim">]: </tspan><tspan class="fail">Failed password for root</tspan><tspan class="dim"> from </tspan><tspan class="val">203.0.113.9</tspan><tspan class="dim"> port </tspan><tspan class="val">51140</tspan><tspan class="dim"> ssh2</tspan></text>
+  <text class="ui note" x="34" y="330">No "invalid user" here — the account root does exist. This line means a real password was guessed and rejected: brute force, not enumeration.</text>
+
+  <!-- Line 3: successful login -->
+  <rect class="panel" x="24" y="352" width="892" height="30" rx="4"/>
+  <text class="mono" x="34" y="372"><tspan class="dim">Jul  4 02:12:41 </tspan><tspan class="val">web01</tspan><tspan class="dim"> sshd[</tspan><tspan class="val">2244</tspan><tspan class="dim">]: </tspan><tspan class="ok">Accepted password for root</tspan><tspan class="dim"> from </tspan><tspan class="val">203.0.113.9</tspan><tspan class="dim"> port </tspan><tspan class="val">51140</tspan><tspan class="dim"> ssh2</tspan></text>
+  <text class="ui note" x="34" y="398">Two seconds after the failure above, on the same source IP and PID — the guess that finally worked. This is the compromise moment.</text>
+
+  <!-- Line 4: sudo -->
+  <rect class="panel" x="24" y="420" width="892" height="30" rx="4"/>
+  <text class="mono" x="34" y="440"><tspan class="dim">Jul  4 02:14:55 </tspan><tspan class="val">web01</tspan><tspan class="dim"> sudo:   </tspan><tspan class="val">alice</tspan><tspan class="dim"> : TTY=</tspan><tspan class="val">pts/0</tspan><tspan class="dim"> ; PWD=</tspan><tspan class="val">/home/alice</tspan><tspan class="dim"> ; USER=</tspan><tspan class="val">root</tspan><tspan class="dim"> ; COMMAND=</tspan><tspan class="val">/bin/cat /etc/shadow</tspan></text>
+  <text class="ui note" x="34" y="466">The full sudo audit trail: who ran it, from which terminal, in which directory, as whom, and the exact command — here, reading the password hash file.</text>
+
+  <!-- distinguishing box -->
+  <rect class="panel" x="24" y="486" width="892" height="58" rx="6"/>
+  <text class="ui flag" x="38" y="508">WHAT SEPARATES A SUCCESSFUL BRUTE FORCE FROM ROUTINE NOISE</text>
+  <text class="ui note" x="38" y="528">A stream of "Failed password" lines is common and often not a threat by itself. The signal is an "Accepted" line for the SAME source IP</text>
+  <text class="ui note" x="38" y="542">right after a burst of failures against that account — that sequence, not any single line, is what proves the guess eventually succeeded.</text>
+</svg>

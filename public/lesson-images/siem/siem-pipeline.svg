@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="Table of the five stages of a SIEM ingestion pipeline: Collection, Normalization and Parsing, Enrichment, Correlation, and Alert, each showing what goes in, what comes out, and what breaks silently when that stage fails">
+  <title>The SIEM pipeline as five stages, each with its own failure mode</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .row   { fill: #0d1526; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .stage { fill: #7dd3fc; font-size: 13px; font-weight: 700; }
+      .cell  { fill: #cbd5e1; font-size: 11px; }
+      .cellv { fill: #e2e8f0; font-size: 11px; }
+      .warn  { fill: #f87171; font-size: 11px; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .arrow { fill: #22d3ee; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="28">THE SIEM PIPELINE — FIVE STAGES, EACH WITH ITS OWN FAILURE MODE</text>
+
+  <!-- header row -->
+  <text class="ui col" x="34"  y="50">STAGE</text>
+  <text class="ui col" x="180" y="50">WHAT GOES IN</text>
+  <text class="ui col" x="410" y="50">WHAT COMES OUT</text>
+  <text class="ui col" x="640" y="50">WHEN THIS STAGE BREAKS</text>
+
+  <!-- Row 1: Collection -->
+  <rect class="row" x="24" y="60" width="892" height="92" rx="6"/>
+  <text class="ui stage" x="34" y="86">COLLECTION</text>
+  <text class="ui note" x="34" y="106">forwarder / syslog / API / agent</text>
+  <text class="ui cell" x="180" y="86">A raw event leaving the source:</text>
+  <text class="ui cellv" x="180" y="104">firewall syslog line, Windows</text>
+  <text class="ui cellv" x="180" y="120">Event XML, cloud API JSON.</text>
+  <text class="ui cell" x="410" y="86">The same raw event, unmodified,</text>
+  <text class="ui cellv" x="410" y="104">now shipped into the SIEM's</text>
+  <text class="ui cellv" x="410" y="120">ingestion queue.</text>
+  <text class="ui warn" x="640" y="86">A host silently stops shipping</text>
+  <text class="ui warn" x="640" y="104">logs (agent died, credentials</text>
+  <text class="ui warn" x="640" y="120">expired) — no error, just a</text>
+  <text class="ui warn" x="640" y="136">blind spot no rule can ever see.</text>
+
+  <!-- Row 2: Normalization / Parsing -->
+  <rect class="row" x="24" y="160" width="892" height="92" rx="6"/>
+  <text class="ui stage" x="34" y="186">NORMALIZATION</text>
+  <text class="ui stage" x="34" y="202">&amp; PARSING</text>
+  <text class="ui cell" x="180" y="186">The raw string or blob from</text>
+  <text class="ui cellv" x="180" y="204">collection — e.g. a Palo Alto</text>
+  <text class="ui cellv" x="180" y="220">key=value line.</text>
+  <text class="ui cell" x="410" y="186">Discrete fields mapped onto a</text>
+  <text class="ui cellv" x="410" y="204">common schema — source.ip,</text>
+  <text class="ui cellv" x="410" y="220">user.name, event.action (ECS/CIM).</text>
+  <text class="ui warn" x="640" y="186">A broken or outdated parser</text>
+  <text class="ui warn" x="640" y="204">leaves a field empty or in the</text>
+  <text class="ui warn" x="640" y="220">wrong place — the record is</text>
+  <text class="ui warn" x="640" y="236">stored, but a rule filtering on</text>
+  <text class="ui warn" x="640" y="252">that field will never match it.</text>
+
+  <!-- Row 3: Enrichment -->
+  <rect class="row" x="24" y="260" width="892" height="92" rx="6"/>
+  <text class="ui stage" x="34" y="286">ENRICHMENT</text>
+  <text class="ui note" x="34" y="306">asset / user / threat intel</text>
+  <text class="ui cell" x="180" y="286">A normalized event carrying</text>
+  <text class="ui cellv" x="180" y="304">bare identifiers: an IP, a</text>
+  <text class="ui cellv" x="180" y="320">username, a hash.</text>
+  <text class="ui cell" x="410" y="286">The same event with context</text>
+  <text class="ui cellv" x="410" y="304">attached: asset criticality,</text>
+  <text class="ui cellv" x="410" y="320">user role, IP/hash reputation.</text>
+  <text class="ui warn" x="640" y="286">A stale or missing CMDB /</text>
+  <text class="ui warn" x="640" y="304">threat-intel feed means every</text>
+  <text class="ui warn" x="640" y="320">alert looks equally urgent —</text>
+  <text class="ui warn" x="640" y="336">a domain controller and a lab</text>
+  <text class="ui warn" x="640" y="352">VM read the same in the queue.</text>
+
+  <!-- Row 4: Correlation -->
+  <rect class="row" x="24" y="360" width="892" height="92" rx="6"/>
+  <text class="ui stage" x="34" y="386">CORRELATION</text>
+  <text class="ui note" x="34" y="406">joins across sources</text>
+  <text class="ui cell" x="180" y="386">Multiple enriched events that</text>
+  <text class="ui cellv" x="180" y="404">individually look benign —</text>
+  <text class="ui cellv" x="180" y="420">e.g. one failed VPN login.</text>
+  <text class="ui cell" x="410" y="386">A single joined story: failed</text>
+  <text class="ui cellv" x="410" y="404">login, then success from a new</text>
+  <text class="ui cellv" x="410" y="420">country, then a mailbox rule.</text>
+  <text class="ui warn" x="640" y="386">If identity, endpoint, and</text>
+  <text class="ui warn" x="640" y="404">cloud logs are not all in the</text>
+  <text class="ui warn" x="640" y="420">same SIEM, the join can never</text>
+  <text class="ui warn" x="640" y="436">happen — each source looks</text>
+  <text class="ui warn" x="640" y="452">isolated and low-signal alone.</text>
+
+  <!-- Row 5: Alert -->
+  <rect class="row" x="24" y="460" width="892" height="80" rx="6"/>
+  <text class="ui stage" x="34" y="486">ALERT</text>
+  <text class="ui note" x="34" y="506">rule fires</text>
+  <text class="ui cell" x="180" y="486">A correlated or matched result</text>
+  <text class="ui cellv" x="180" y="504">meeting the rule's threshold</text>
+  <text class="ui cellv" x="180" y="520">or logic.</text>
+  <text class="ui cell" x="410" y="486">An alert (or Sentinel incident)</text>
+  <text class="ui cellv" x="410" y="504">in the analyst queue with</text>
+  <text class="ui cellv" x="410" y="520">entities mapped for pivoting.</text>
+  <text class="ui warn" x="640" y="486">A rule with a bad threshold</text>
+  <text class="ui warn" x="640" y="504">either floods the queue with</text>
+  <text class="ui warn" x="640" y="520">noise or sits silent while the</text>
+  <text class="ui warn" x="640" y="536">real activity walks under it.</text>
+
+  <text class="ui cap" x="24" y="554">A query that returns nothing may mean the activity did not happen — or that collection, parsing, or retention failed upstream of it.</text>
+</svg>

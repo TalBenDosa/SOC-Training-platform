@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 480" role="img" aria-label="The same login event shown in three formats side by side: unstructured free text, key-value pairs, and structured JSON">
+  <title>The same log event in three formats: unstructured, key-value, and JSON</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .hot   { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .key   { fill: #fbbf24; }
+      .str   { fill: #86efac; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .arrow { stroke: #334155; stroke-width: 1.5; fill: none; marker-end: url(#a3); }
+    </style>
+    <marker id="a3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="940" height="480"/>
+  <text class="ui head" x="24" y="30">ONE EVENT, THREE FORMATS — RAW VS PARSED, UNSTRUCTURED VS STRUCTURED</text>
+
+  <!-- Unstructured -->
+  <rect class="panel" x="24" y="46" width="280" height="290" rx="6"/>
+  <text class="ui col" x="38" y="68">UNSTRUCTURED (FREE TEXT)</text>
+  <rect class="hot" x="34" y="80" width="260" height="70" rx="4"/>
+  <text class="mono val" x="42" y="100">Jul  4 08:14:22 FIN-WKS-07</text>
+  <text class="mono val" x="42" y="116">User jsmith logged in from</text>
+  <text class="mono val" x="42" y="132">10.4.2.19 (success)</text>
+  <text class="ui note" x="38" y="172">Readable by a human at a glance.</text>
+  <text class="ui note" x="38" y="188">A machine has no idea where the</text>
+  <text class="ui note" x="38" y="204">username ends and the address</text>
+  <text class="ui note" x="38" y="220">begins — it must be taught.</text>
+  <text class="cyan" x="38" y="250">Where it comes from:</text>
+  <text class="ui note" x="38" y="268">Older syslog daemons, appliance</text>
+  <text class="ui note" x="38" y="284">consoles, plain-text app logs.</text>
+  <text class="ui note" x="38" y="308">Fields must be extracted with</text>
+  <text class="ui note" x="38" y="324">regex before you can search on them.</text>
+
+  <path class="arrow" d="M304,190 L340,190"/>
+
+  <!-- Key-value -->
+  <rect class="panel" x="344" y="46" width="280" height="290" rx="6"/>
+  <text class="ui col" x="358" y="68">KEY-VALUE (SEMI-STRUCTURED)</text>
+  <rect class="hot" x="354" y="80" width="260" height="70" rx="4"/>
+  <text class="mono" x="362" y="100"><tspan class="key">time=</tspan><tspan class="val">2026-07-04T08:14:22Z</tspan></text>
+  <text class="mono" x="362" y="116"><tspan class="key">host=</tspan><tspan class="val">FIN-WKS-07 </tspan><tspan class="key">user=</tspan><tspan class="val">jsmith</tspan></text>
+  <text class="mono" x="362" y="132"><tspan class="key">src=</tspan><tspan class="val">10.4.2.19 </tspan><tspan class="key">outcome=</tspan><tspan class="val">success</tspan></text>
+  <text class="ui note" x="358" y="172">Each field is a labeled key=value</text>
+  <text class="ui note" x="358" y="188">pair — easy for a human to scan and</text>
+  <text class="ui note" x="358" y="204">much easier for a machine to split</text>
+  <text class="ui note" x="358" y="220">than free text.</text>
+  <text class="cyan" x="358" y="250">Where it comes from:</text>
+  <text class="ui note" x="358" y="268">Firewalls, EDR agents, most modern</text>
+  <text class="ui note" x="358" y="284">network appliance logs.</text>
+  <text class="ui note" x="358" y="308">Still uses each vendor's own field</text>
+  <text class="ui note" x="358" y="324">names until the SIEM normalizes it.</text>
+
+  <path class="arrow" d="M624,190 L660,190"/>
+
+  <!-- JSON -->
+  <rect class="panel" x="664" y="46" width="252" height="290" rx="6"/>
+  <text class="ui col" x="678" y="68">STRUCTURED (JSON)</text>
+  <rect class="hot" x="674" y="80" width="232" height="86" rx="4"/>
+  <text class="mono" x="682" y="98">{ <tspan class="key">"host"</tspan>: <tspan class="str">"FIN-WKS-07"</tspan>,</text>
+  <text class="mono" x="682" y="114">  <tspan class="key">"user"</tspan>: { <tspan class="key">"name"</tspan>:</text>
+  <text class="mono" x="682" y="130">    <tspan class="str">"jsmith"</tspan> },</text>
+  <text class="mono" x="682" y="146">  <tspan class="key">"source"</tspan>: { <tspan class="key">"ip"</tspan>:</text>
+  <text class="mono" x="682" y="162">    <tspan class="str">"10.4.2.19"</tspan> } }</text>
+  <text class="ui note" x="678" y="188">Fully labeled and nested — a</text>
+  <text class="ui note" x="678" y="204">computer knows exactly where</text>
+  <text class="ui note" x="678" y="220">every value lives, no guessing.</text>
+  <text class="cyan" x="678" y="250">Where it comes from:</text>
+  <text class="ui note" x="678" y="268">Cloud APIs, modern SaaS audit</text>
+  <text class="ui note" x="678" y="284">logs, most SIEM-normalized output.</text>
+  <text class="ui note" x="678" y="308">Ready to index and search the</text>
+  <text class="ui note" x="678" y="324">instant it lands.</text>
+
+  <!-- After normalization -->
+  <rect class="panel" x="24" y="352" width="892" height="106" rx="6"/>
+  <text class="ui col" x="40" y="374">AFTER THE SIEM NORMALIZES ALL THREE, THEY SHARE ONE VOCABULARY</text>
+  <text class="mono val" x="40" y="402">user.name=jsmith   source.ip=10.4.2.19   event.action=user_login   event.outcome=success</text>
+  <text class="ui note" x="40" y="428">Same underlying event, three raw shapes. Parsing is what lets you search across every source with one shared field name —</text>
+  <text class="ui note" x="40" y="444">but when a field looks wrong, pull up the original raw log above to confirm what the machine actually wrote.</text>
+</svg>

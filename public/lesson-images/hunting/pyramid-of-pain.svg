@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="The Pyramid of Pain drawn as a real graduated pyramid with six stacked layers, from hash values at the base up to TTPs at the apex, each layer annotated with how cheaply an attacker can change that indicator and how long a detection built on it survives"><title>Pyramid of Pain — six layers, from cheap-to-change to painful-to-change</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .layerLbl { font-size: 13px; font-weight: 800; }
+      .annTitle { font-size: 10.5px; font-weight: 700; }
+      .annSub   { fill: #94a3b8; font-size: 10px; }
+      .lead  { stroke: #334155; stroke-width: 1; opacity: .6; }
+      .axis  { fill: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .1em; }
+      .cap   { fill: #64748b; font-size: 10.5px; font-style: italic; }
+      .arrow { stroke: #64748b; stroke-width: 1.5; fill: none; marker-end: url(#arrowUp); }
+    </style>
+    <marker id="arrowUp" markerWidth="8" markerHeight="8" refX="4" refY="0" orient="auto">
+      <path d="M0,6 L4,0 L8,6 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="30">THE PYRAMID OF PAIN — WHAT YOU HUNT FOR MATTERS AS MUCH AS HOW</text>
+
+  <!-- attacker-pain axis arrow -->
+  <line class="arrow" x1="20" y1="500" x2="20" y2="145"/>
+  <text class="ui axis" x="12" y="330" transform="rotate(-90 12 330)" text-anchor="middle">ATTACKER PAIN INCREASES</text>
+
+  <!-- Layer 0: Hash Values (base) -->
+  <polygon points="40,500 560,500 530,440 70,440" fill="#0e2233" stroke="#22d3ee" stroke-width="1.2"/>
+  <text class="ui layerLbl" fill="#7dd3fc" x="300" y="476" text-anchor="middle">HASH VALUES</text>
+  <line class="lead" x1="545" y1="470" x2="588" y2="470"/>
+  <text class="ui annTitle" fill="#7dd3fc" x="592" y="466">Cost to attacker: zero — recompile</text>
+  <text class="ui annSub" x="592" y="480">Your detection survives: minutes</text>
+
+  <!-- Layer 1: IP Addresses -->
+  <polygon points="70,440 530,440 500,380 100,380" fill="#0e2a28" stroke="#2dd4bf" stroke-width="1.2"/>
+  <text class="ui layerLbl" fill="#5eead4" x="300" y="416" text-anchor="middle">IP ADDRESSES</text>
+  <line class="lead" x1="515" y1="410" x2="588" y2="410"/>
+  <text class="ui annTitle" fill="#5eead4" x="592" y="406">Cost to attacker: trivial — rotate infra</text>
+  <text class="ui annSub" x="592" y="420">Your detection survives: hours</text>
+
+  <!-- Layer 2: Domain Names -->
+  <polygon points="100,380 500,380 470,320 130,320" fill="#10241c" stroke="#86efac" stroke-width="1.2"/>
+  <text class="ui layerLbl" fill="#86efac" x="300" y="356" text-anchor="middle">DOMAIN NAMES</text>
+  <line class="lead" x1="485" y1="350" x2="588" y2="350"/>
+  <text class="ui annTitle" fill="#86efac" x="592" y="346">Cost to attacker: low — register a new one</text>
+  <text class="ui annSub" x="592" y="360">Your detection survives: days</text>
+
+  <!-- Layer 3: Network / Host Artifacts -->
+  <polygon points="130,320 470,320 440,260 160,260" fill="#2a2410" stroke="#fde68a" stroke-width="1.2"/>
+  <text class="ui layerLbl" fill="#fde68a" x="300" y="296" text-anchor="middle">NETWORK / HOST ARTIFACTS</text>
+  <line class="lead" x1="455" y1="290" x2="588" y2="290"/>
+  <text class="ui annTitle" fill="#fde68a" x="592" y="286">Cost to attacker: moderate — edit tooling</text>
+  <text class="ui annSub" x="592" y="300">Your detection survives: weeks</text>
+
+  <!-- Layer 4: Tools -->
+  <polygon points="160,260 440,260 410,200 190,200" fill="#2a2210" stroke="#fbbf24" stroke-width="1.2"/>
+  <text class="ui layerLbl" fill="#fbbf24" x="300" y="236" text-anchor="middle">TOOLS</text>
+  <line class="lead" x1="425" y1="230" x2="588" y2="230"/>
+  <text class="ui annTitle" fill="#fbbf24" x="592" y="226">Cost to attacker: high — rebuild the toolkit</text>
+  <text class="ui annSub" x="592" y="240">Your detection survives: months</text>
+
+  <!-- Layer 5: TTPs (apex) -->
+  <polygon points="190,200 410,200 380,140 220,140" fill="#2a1013" stroke="#f87171" stroke-width="1.4"/>
+  <text class="ui layerLbl" fill="#f87171" x="300" y="176" text-anchor="middle">TTPs</text>
+  <line class="lead" x1="395" y1="170" x2="588" y2="170"/>
+  <text class="ui annTitle" fill="#f87171" x="592" y="166">Cost to attacker: severe — retrain tradecraft</text>
+  <text class="ui annSub" x="592" y="180">Your detection survives: years — this is what hurts them</text>
+
+  <rect class="panel" x="24" y="516" width="892" height="34" rx="6"/>
+  <text class="ui cap" x="40" y="538">Hunt hypotheses built on behavior (TTPs) survive a malware rebuild. Hunts built on a hash expire the moment it recompiles.</text>
+</svg>

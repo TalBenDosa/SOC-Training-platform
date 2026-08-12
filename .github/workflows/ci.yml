@@ -78,6 +78,13 @@ jobs:
       - name: Validate malware hashes are real
         run: npm run validate:hashes
 
+      # Authored lesson figures. A malformed SVG is SILENT — it renders as
+      # nothing, fails no build, and validate:content only checks the file
+      # exists, not that its contents parse. Same class of invisible failure
+      # validate:diagrams exists to catch for Mermaid.
+      - name: Validate lesson figures parse and are self-contained
+        run: npm run validate:svg
+
       - name: Build
         run: npm run build
         env:
