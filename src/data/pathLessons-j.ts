@@ -159,7 +159,13 @@ const lessons = [
       {
         "heading": "The Escalation Chain: One Account to Domain Admin",
         "content": "Every technique this lesson covers is a link in the same chain, and seeing the whole chain before studying each link individually makes each one easier to place once you get there. An attacker rarely jumps straight from a low-privilege foothold to Domain Admin in one step; they enumerate to find the path, steal a crackable credential, replay that credential to move laterally, abuse legitimate replication rights to steal the domain's cryptographic root of trust, and forge tickets from what they stole. Recognizing where a single alert sits on this chain tells you both what already happened upstream and what to expect the attacker is reaching for next.",
-        "codeExample": "flowchart LR\n  A[\"Low-privilege foothold\"] --> B[\"Enumeration\\nLDAP and BloodHound\"]\n  B --> C[\"Credential theft\\nKerberoasting or AS-REP Roasting\"]\n  C --> D[\"Lateral movement\\nPass-the-Hash or Pass-the-Ticket\"]\n  D --> E[\"DCSync\\nsteal the krbtgt hash\"]\n  E --> F[\"Golden Ticket\\ndomain-wide forged access\"]"
+        "codeExample": "flowchart LR\n  A[\"Low-privilege foothold\"] --> B[\"Enumeration\\nLDAP and BloodHound\"]\n  B --> C[\"Credential theft\\nKerberoasting or AS-REP Roasting\"]\n  C --> D[\"Lateral movement\\nPass-the-Hash or Pass-the-Ticket\"]\n  D --> E[\"DCSync\\nsteal the krbtgt hash\"]\n  E --> F[\"Golden Ticket\\ndomain-wide forged access\"]",
+        "image": {
+          "src": "/lesson-images/windows/ad-escalation-chain.svg",
+          "alt": "Table of the five-stage Active Directory escalation chain - enumeration, Kerberoasting, Pass-the-Hash, DCSync, and Golden Ticket - listing what the attacker gains at each stage, the Event ID or signal it produces (4769 with RC4, LogonType 9, 4662, forged TGT), and the control that stops it.",
+          "caption": "Five checkpoints on one path from a single foothold to domain-wide forged access.",
+          "credit": "Figure authored for this course."
+        }
       },
       {
         "heading": "Enumeration Before Exploitation",

@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="Table matching the seven Cyber Kill Chain stages against their roughly corresponding MITRE ATT&amp;CK tactics, with a note explaining that ATT&amp;CK is not linear and some tactics have no clean Kill Chain equivalent">
+  <title>Cyber Kill Chain stages mapped to MITRE ATT&amp;CK tactics — and where the mapping breaks down</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .val   { fill: #e2e8f0; font-size: 11.5px; }
+      .dim   { fill: #64748b; font-size: 10px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .06em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .crit  { fill: #f87171; font-size: 11px; font-weight: 700; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="28">CYBER KILL CHAIN vs MITRE ATT&amp;CK — RELATED, NOT INTERCHANGEABLE</text>
+
+  <rect class="panel" x="24" y="44" width="892" height="332" rx="6"/>
+  <text class="ui col" x="40" y="66">KILL CHAIN STAGE</text>
+  <text class="ui col" x="270" y="66">ROUGHLY CORRESPONDING ATT&amp;CK TACTIC</text>
+  <text class="ui col" x="640" y="66">MAPPING NOTE</text>
+  <line x1="40" y1="76" x2="900" y2="76" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Row 1 -->
+  <text class="cyan" x="40" y="98">1. Reconnaissance</text>
+  <text class="mono val" x="270" y="98">TA0043 Reconnaissance</text>
+  <text class="note" x="640" y="98">Close 1:1 match</text>
+  <line x1="40" y1="110" x2="900" y2="110" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 2 -->
+  <text class="cyan" x="40" y="132">2. Weaponization</text>
+  <text class="mono val" x="270" y="132">TA0042 Resource Development</text>
+  <text class="note" x="640" y="132">Attacker-side, rarely observed</text>
+  <line x1="40" y1="144" x2="900" y2="144" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 3 -->
+  <text class="cyan" x="40" y="166">3. Delivery</text>
+  <text class="mono val" x="270" y="166">TA0001 Initial Access</text>
+  <text class="note" x="640" y="166">Close match</text>
+  <line x1="40" y1="178" x2="900" y2="178" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 4 -->
+  <text class="cyan" x="40" y="200">4. Exploitation</text>
+  <text class="mono val" x="270" y="200">TA0002 Execution</text>
+  <text class="note" x="640" y="200">Close match</text>
+  <line x1="40" y1="212" x2="900" y2="212" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 5 -->
+  <text class="cyan" x="40" y="234">5. Installation</text>
+  <text class="mono val" x="270" y="234">TA0003 Persistence</text>
+  <text class="note" x="640" y="234">Close match</text>
+  <line x1="40" y1="246" x2="900" y2="246" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 6 -->
+  <text class="cyan" x="40" y="268">6. Command &amp; Control</text>
+  <text class="mono val" x="270" y="268">TA0011 Command and Control</text>
+  <text class="note" x="640" y="268">Close 1:1 match</text>
+  <line x1="40" y1="280" x2="900" y2="280" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 7 -->
+  <text class="cyan" x="40" y="302">7. Actions on Objectives</text>
+  <text class="mono val" x="270" y="302">TA0009 Collection, TA0010</text>
+  <text class="mono val" x="270" y="318">Exfiltration, TA0040 Impact</text>
+  <text class="warn" x="640" y="302">One stage, THREE tactics —</text>
+  <text class="note" x="640" y="318">the chain flattens what ATT&amp;CK splits</text>
+
+  <!-- gap: tactics with no killchain slot -->
+  <rect class="panel" x="24" y="392" width="892" height="70" rx="4"/>
+  <text class="ui crit" x="40" y="414">TACTICS WITH NO CLEAN KILL CHAIN STAGE AT ALL</text>
+  <text class="mono note" x="40" y="434">TA0004 Privilege Escalation · TA0005 Defense Evasion · TA0006 Credential Access ·</text>
+  <text class="mono note" x="40" y="450">TA0007 Discovery · TA0008 Lateral Movement — these recur constantly mid-intrusion,</text>
+
+  <!-- bottom explanation -->
+  <rect class="panel" x="24" y="474" width="892" height="70" rx="6"/>
+  <text class="ui warn" x="40" y="496">WHY THE MAPPING BREAKS DOWN</text>
+  <text class="ui note" x="40" y="516">The Kill Chain is a strict linear sequence of 7 stages; ATT&amp;CK is not linear at all. An attacker cycles through</text>
+  <text class="ui note" x="40" y="532">Discovery, Lateral Movement, and Privilege Escalation repeatedly — there is no single "stage" they belong to.</text>
+
+  <text class="ui cap" x="24" y="556">Use the Kill Chain for the narrative arc of an intrusion; use ATT&amp;CK for the granular, evidence-backed catalog of how each step actually happened.</text>
+</svg>

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 480" role="img" aria-label="Table comparing indicators of compromise and indicators of attack across what they are, a concrete example, how cheap they are for an attacker to change, how long detection built on them survives, and when each is most useful">
+  <title>IOC vs IOA — what each is, how fast it decays, and when each is useful</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .val   { fill: #e2e8f0; font-size: 11px; }
+      .dim   { fill: #64748b; font-size: 10px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .06em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .crit  { fill: #f87171; font-size: 11px; font-weight: 700; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="480"/>
+  <text class="ui head" x="24" y="28">IOC vs IOA — SAME EVIDENCE, VERY DIFFERENT SHELF LIFE</text>
+
+  <rect class="panel" x="24" y="44" width="892" height="320" rx="6"/>
+  <text class="ui col" x="40" y="66">DIMENSION</text>
+  <text class="ui col" x="230" y="66">IOC — INDICATOR OF COMPROMISE</text>
+  <text class="ui col" x="590" y="66">IOA — INDICATOR OF ATTACK</text>
+  <line x1="40" y1="76" x2="900" y2="76" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Row: what it is -->
+  <text class="dim" x="40" y="100">WHAT IT IS</text>
+  <text class="val" x="230" y="100">A static artifact left behind:</text>
+  <text class="val" x="230" y="116">what occurred, at the artifact level</text>
+  <text class="val" x="590" y="100">A behavioral pattern: intent and</text>
+  <text class="val" x="590" y="116">technique, tool-independent</text>
+  <line x1="40" y1="130" x2="900" y2="130" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row: example -->
+  <text class="dim" x="40" y="154">EXAMPLE</text>
+  <text class="mono val" x="230" y="154">SHA256 hash, C2 IP, domain,</text>
+  <text class="mono val" x="230" y="170">a specific registry key</text>
+  <text class="mono val" x="590" y="154">process injection into a trusted</text>
+  <text class="mono val" x="590" y="170">process; obfuscated PowerShell</text>
+  <text class="mono val" x="590" y="186">right after a document opens</text>
+  <line x1="40" y1="200" x2="900" y2="200" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row: cost to change -->
+  <text class="dim" x="40" y="224">COST FOR ATTACKER TO CHANGE</text>
+  <text class="crit" x="230" y="224">Trivial — recompile = new hash,</text>
+  <text class="crit" x="230" y="240">new domain costs minutes + $</text>
+  <text class="val" x="590" y="224">High — means changing the</text>
+  <text class="val" x="590" y="240">underlying goal of the attack itself</text>
+  <line x1="40" y1="254" x2="900" y2="254" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row: shelf life -->
+  <text class="dim" x="40" y="278">SHELF LIFE OF A DETECTION</text>
+  <text class="crit" x="230" y="278">Short — this quarter's blocklist</text>
+  <text class="crit" x="230" y="294">misses next quarter's campaign</text>
+  <text class="val" x="590" y="278">Long — durable across new</text>
+  <text class="val" x="590" y="294">samples the detection never saw</text>
+  <line x1="40" y1="308" x2="900" y2="308" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row: when useful -->
+  <text class="dim" x="40" y="332">WHEN IT IS MOST USEFUL</text>
+  <text class="val" x="230" y="332">Fast, cheap first-pass lookup</text>
+  <text class="val" x="230" y="348">mid-investigation; sweeping</text>
+  <text class="val" x="590" y="332">Standing detection rules; catching</text>
+  <text class="val" x="590" y="348">brand-new malware behaviorally</text>
+
+  <!-- bottom note -->
+  <rect class="panel" x="24" y="378" width="892" height="86" rx="6"/>
+  <text class="ui warn" x="40" y="400">A CLEAN IOC LOOKUP IS NOT AN ALL-CLEAR</text>
+  <text class="ui note" x="40" y="420">A hash that matches nothing on a blocklist only means this specific artifact was not previously catalogued —</text>
+  <text class="ui note" x="40" y="436">it tells you nothing about the behavior around it. Use IOCs for speed; trust IOAs for the actual verdict.</text>
+
+  <text class="ui cap" x="24" y="474">Pyramid of Pain, in one line: hashes and IPs cost an attacker minutes to change — TTPs cost them a redesign.</text>
+</svg>

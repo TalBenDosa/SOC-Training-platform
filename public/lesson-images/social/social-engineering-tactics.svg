@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 540" role="img" aria-label="Table of six social engineering tactics - phishing, vishing, smishing, quishing, MFA fatigue, and help-desk impersonation - showing the delivery channel, the psychological trigger it relies on, and the control that stops it">
+  <title>Six social engineering tactics compared by channel, psychological trigger, and stopping control</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.5px; }
+      .val   { fill: #e2e8f0; font-size: 11px; }
+      .dim   { fill: #64748b; font-size: 10px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .06em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .crit  { fill: #f87171; font-size: 11px; font-weight: 700; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="540"/>
+  <text class="ui head" x="24" y="28">SIX SOCIAL ENGINEERING TACTICS — CHANNEL, TRIGGER, WHAT STOPS THEM</text>
+
+  <rect class="panel" x="24" y="44" width="892" height="432" rx="6"/>
+  <text class="ui col" x="40" y="66">TACTIC</text>
+  <text class="ui col" x="200" y="66">CHANNEL</text>
+  <text class="ui col" x="390" y="66">PSYCHOLOGICAL TRIGGER</text>
+  <text class="ui col" x="620" y="66">CONTROL THAT STOPS IT</text>
+  <line x1="40" y1="76" x2="900" y2="76" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Phishing -->
+  <text class="cyan" x="40" y="98">Phishing</text>
+  <text class="dim" x="40" y="112">T1566</text>
+  <text class="val" x="200" y="98">Email</text>
+  <text class="val" x="390" y="98">Urgency + authority</text>
+  <text class="val" x="390" y="112">(fake sender, deadline)</text>
+  <text class="val" x="620" y="98">Secure email gateway, URL/</text>
+  <text class="val" x="620" y="112">attachment sandboxing, DMARC</text>
+  <line x1="40" y1="126" x2="900" y2="126" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Vishing -->
+  <text class="cyan" x="40" y="148">Vishing</text>
+  <text class="dim" x="40" y="162">voice phishing</text>
+  <text class="val" x="200" y="148">Phone call</text>
+  <text class="val" x="390" y="148">Authority + urgency, no time</text>
+  <text class="val" x="390" y="162">to hang up and verify</text>
+  <text class="val" x="620" y="148">Callback to a number already</text>
+  <text class="val" x="620" y="162">on file, never one caller gives</text>
+  <line x1="40" y1="176" x2="900" y2="176" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Smishing -->
+  <text class="cyan" x="40" y="198">Smishing</text>
+  <text class="dim" x="40" y="212">SMS phishing</text>
+  <text class="val" x="200" y="198">Text message</text>
+  <text class="val" x="390" y="198">Urgency; bypasses corporate</text>
+  <text class="val" x="390" y="212">email security entirely</text>
+  <text class="val" x="620" y="198">Personal-device awareness</text>
+  <text class="val" x="620" y="212">training; MDM on BYOD</text>
+  <line x1="40" y1="226" x2="900" y2="226" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Quishing -->
+  <text class="cyan" x="40" y="248">QR Phishing (Quishing)</text>
+  <text class="dim" x="40" y="262">still T1566, vector changed</text>
+  <text class="val" x="200" y="248">QR code image</text>
+  <text class="val" x="390" y="248">Curiosity + urgency; image</text>
+  <text class="val" x="390" y="262">defeats text-based URL scanners</text>
+  <text class="val" x="620" y="248">User training on scan-then-</text>
+  <text class="val" x="620" y="262">inspect-URL habit; QR-aware DLP</text>
+  <line x1="40" y1="276" x2="900" y2="276" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- MFA fatigue -->
+  <text class="cyan" x="40" y="298">MFA Fatigue</text>
+  <text class="dim" x="40" y="312">T1621, push-bombing</text>
+  <text class="val" x="200" y="298">Push notification</text>
+  <text class="val" x="390" y="298">Manufactured urgency</text>
+  <text class="val" x="390" y="312">("make it stop") — no human to</text>
+  <text class="val" x="390" y="326">question on the other end</text>
+  <text class="val" x="620" y="298">Number-matching MFA,</text>
+  <text class="val" x="620" y="312">rate-limiting push challenges</text>
+  <line x1="40" y1="340" x2="900" y2="340" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Help-desk impersonation -->
+  <text class="cyan" x="40" y="362">Help-Desk Impersonation</text>
+  <text class="dim" x="40" y="376">pretexting for MFA reset</text>
+  <text class="val" x="200" y="362">Phone call to IT</text>
+  <text class="val" x="390" y="362">Reciprocity/helpfulness — abuses</text>
+  <text class="val" x="390" y="376">the help desk's own incentive to</text>
+  <text class="val" x="390" y="390">resolve tickets fast</text>
+  <text class="val" x="620" y="362">Mandatory callback + second-</text>
+  <text class="val" x="620" y="376">channel verification before any</text>
+  <text class="val" x="620" y="390">auth change; staff cover to say no</text>
+
+  <!-- bottom -->
+  <rect class="panel" x="24" y="486" width="892" height="42" rx="6"/>
+  <text class="ui note" x="40" y="510">No technical control here touches the wire — every tactic in this table is a conversation with a human whose job is to help.</text>
+
+  <text class="ui cap" x="24" y="536">Learn the four underlying levers (authority, urgency, reciprocity, fear), not the scam of the week — attackers keep inventing new channels for the same manipulation.</text>
+</svg>
