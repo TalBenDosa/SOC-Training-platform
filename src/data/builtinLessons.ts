@@ -12,6 +12,7 @@ import pathI from "@/data/pathLessons-i";
 import pathJ from "@/data/pathLessons-j";
 import pathK from "@/data/pathLessons-k";
 import pathL from "@/data/pathLessons-l";
+import pathM from "@/data/pathLessons-m";
 
 const CORE_LESSONS = [
   {
@@ -491,7 +492,14 @@ import { PLAYBOOK_LESSONS } from "./playbookLessons";
 export const BUILTIN_LESSONS = [
   pathA[0], pathA[1],   // 1-2  What a SOC is · How computers & networks work
   pathB[0],             // 3    What a log is
-  // 4 — SIEM & triage moved UP (was 8). An explanation-quality audit found that
+  // 4 — Hashing / encryption / certificates. The same explanation-quality audit
+  // found hashes referenced in 25 of the 34 lessons, plus TLS certificates, JA3,
+  // DKIM signatures and the Kerberos RC4-vs-AES distinction — none of which any
+  // lesson ever taught. It sits this early because it has no prerequisites of
+  // its own (no query language, no Windows internals) and because every one of
+  // those later lessons silently assumes it.
+  pathM[0],             // 4    Hashing, encryption & certificates
+  // 5 — SIEM & triage moved UP (was 8). An explanation-quality audit found that
   // the Windows-event-log and Kerberos lessons both lean on non-trivial Splunk
   // SPL (stats/eval/join/mvcount/append) as their worked examples while sitting
   // BEFORE the only lesson that teaches what index=/stats/eval mean. A student
