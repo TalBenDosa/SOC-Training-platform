@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 540" role="img" aria-label="Anatomy of an email header showing the Received chain read bottom up, the From versus Return-Path mismatch, and the SPF DKIM and DMARC authentication results">
+  <title>Email header anatomy — Received chain and authentication results</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .bad   { fill: #1a1220; stroke: #f87171; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .key   { fill: #7dd3fc; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .fail  { fill: #f87171; font-weight: 700; }
+      .pass  { fill: #86efac; font-weight: 700; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .flow  { stroke: #22d3ee; stroke-width: 1.3; fill: none; }
+    </style>
+    <marker id="up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#22d3ee"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="940" height="540"/>
+  <text class="ui head" x="24" y="28">EMAIL HEADER ANATOMY — READ THE RECEIVED CHAIN FROM THE BOTTOM UP</text>
+
+  <!-- received chain -->
+  <rect class="panel" x="24" y="44" width="600" height="196" rx="6"/>
+  <text class="ui col" x="38" y="64">RECEIVED CHAIN</text>
+
+  <text class="mono" x="52" y="90"><tspan class="key">Received: </tspan><tspan class="dim">from </tspan><tspan class="val">inbound.corp.example</tspan><tspan class="dim"> by mbx-07  </tspan><tspan class="dim">(3)</tspan></text>
+  <text class="mono" x="52" y="130"><tspan class="key">Received: </tspan><tspan class="dim">from </tspan><tspan class="val">mx-relay.corp.example</tspan><tspan class="dim"> by inbound  </tspan><tspan class="dim">(2)</tspan></text>
+  <text class="mono" x="52" y="170"><tspan class="key">Received: </tspan><tspan class="dim">from </tspan><tspan class="val">mail.acme-invoices.top</tspan></text>
+  <text class="mono" x="52" y="188"><tspan class="dim">          ([</tspan><tspan class="fail">198.51.100.77</tspan><tspan class="dim">]) by mx-relay  </tspan><tspan class="dim">(1)</tspan></text>
+
+  <path class="flow" marker-end="url(#up)" d="M38 196 L38 86"/>
+  <text class="ui cap" x="38" y="216">Bottom = earliest hop = the true origin. Top = your own mail server.</text>
+  <text class="ui cap" x="38" y="232">The bracketed IP is authoritative; the 'from' name is whatever the sender claimed.</text>
+
+  <!-- auth results -->
+  <rect class="panel" x="640" y="44" width="276" height="196" rx="6"/>
+  <text class="ui col" x="654" y="64">AUTHENTICATION-RESULTS</text>
+  <text class="mono" x="654" y="92"><tspan class="key">spf=</tspan><tspan class="fail">fail</tspan></text>
+  <text class="ui note" x="654" y="110">sending IP not authorised</text>
+  <text class="mono" x="654" y="136"><tspan class="key">dkim=</tspan><tspan class="fail">none</tspan></text>
+  <text class="ui note" x="654" y="154">no signature to verify</text>
+  <text class="mono" x="654" y="180"><tspan class="key">dmarc=</tspan><tspan class="fail">fail</tspan></text>
+  <text class="ui note" x="654" y="198">From-domain does not align</text>
+  <text class="ui cap" x="654" y="224">All three green still proves</text>
+  <text class="ui cap" x="654" y="236">only WHO sent, not INTENT.</text>
+
+  <!-- from vs return-path -->
+  <rect class="bad" x="24" y="256" width="892" height="86" rx="6"/>
+  <text class="ui col" x="38" y="276">THE MISMATCH THE USER NEVER SEES</text>
+  <text class="mono" x="38" y="300"><tspan class="key">From:        </tspan><tspan class="val">"Finance Team" &lt;billing@corp.example&gt;</tspan><tspan class="dim">   &lt;- displayed in the client</tspan></text>
+  <text class="mono" x="38" y="322"><tspan class="key">Return-Path: </tspan><tspan class="fail">&lt;bounce@acme-invoices.top&gt;</tspan><tspan class="dim">            &lt;- what SMTP actually used</tspan></text>
+
+  <!-- other fields -->
+  <rect class="panel" x="24" y="358" width="440" height="120" rx="6"/>
+  <text class="ui col" x="38" y="378">OTHER FIELDS WORTH OPENING</text>
+  <text class="mono" x="38" y="402"><tspan class="key">Message-ID: </tspan><tspan class="val">&lt;7f3a@localhost.localdomain&gt;</tspan></text>
+  <text class="ui note" x="38" y="420">Default kit output — no real MTA generates this.</text>
+  <text class="mono" x="38" y="444"><tspan class="key">X-Mailer:   </tspan><tspan class="val">PHPMailer 6.9.1</tspan></text>
+  <text class="ui note" x="38" y="462">Bulk-send tooling on a "personal" message.</text>
+
+  <!-- the two blind spots -->
+  <rect class="panel" x="480" y="358" width="436" height="120" rx="6"/>
+  <text class="ui col" x="494" y="378">WHERE HEADERS STOP HELPING</text>
+  <text class="ui warn" x="494" y="400">Lookalike domain</text>
+  <text class="ui note" x="494" y="418">The attacker owns acme-invoices.top, so SPF, DKIM</text>
+  <text class="ui note" x="494" y="434">and DMARC can all pass — for THEIR domain.</text>
+  <text class="ui warn" x="494" y="456">Compromised real mailbox</text>
+  <text class="ui note" x="494" y="472">Everything passes, because it genuinely is them.</text>
+
+  <text class="ui note" x="24" y="504">Verdict here: origin IP and Return-Path both point at a domain with no business relationship, and all three</text>
+  <text class="ui note" x="24" y="522">authentication checks failed. That is a spoof — not a lookalike, and not a compromised legitimate sender.</text>
+</svg>

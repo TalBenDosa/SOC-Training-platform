@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 520" role="img" aria-label="Anatomy of Windows Security Event ID 4624 with the LogonType values table">
+  <title>Windows Event ID 4624 — field anatomy and LogonType values</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .hot   { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+      .key   { fill: #94a3b8; }
+      .val   { fill: #e2e8f0; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 11px; font-weight: 600; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .crit  { fill: #f87171; font-size: 11px; font-weight: 600; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="520"/>
+  <text class="ui head" x="24" y="28">EVENT ID 4624 — AN ACCOUNT WAS SUCCESSFULLY LOGGED ON</text>
+
+  <!-- the record -->
+  <rect class="panel" x="24" y="44" width="500" height="290" rx="6"/>
+  <text class="ui col" x="38" y="64">RAW RECORD (TRIMMED)</text>
+
+  <text class="mono" x="38" y="88"><tspan class="key">EventID          </tspan><tspan class="val">4624</tspan></text>
+  <text class="mono" x="38" y="108"><tspan class="key">SubjectUserName  </tspan><tspan class="val">FIN-WKS-014$</tspan></text>
+  <text class="mono" x="38" y="128"><tspan class="key">TargetUserName   </tspan><tspan class="val">d.reyes</tspan></text>
+  <text class="mono" x="38" y="148"><tspan class="key">TargetDomainName </tspan><tspan class="val">CORP</tspan></text>
+
+  <rect class="hot" x="32" y="158" width="484" height="26" rx="4"/>
+  <text class="mono" x="38" y="176"><tspan class="key">LogonType        </tspan><tspan fill="#22d3ee" font-weight="700">3</tspan><tspan class="key">   (network)</tspan></text>
+
+  <text class="mono" x="38" y="204"><tspan class="key">AuthPackageName  </tspan><tspan class="val">NTLM</tspan></text>
+  <text class="mono" x="38" y="224"><tspan class="key">LogonProcessName </tspan><tspan class="val">NtLmSsp</tspan></text>
+  <text class="mono" x="38" y="244"><tspan class="key">WorkstationName  </tspan><tspan class="val">FIN-WKS-022</tspan></text>
+  <text class="mono" x="38" y="264"><tspan class="key">IpAddress        </tspan><tspan class="val">10.14.6.31</tspan></text>
+  <text class="mono" x="38" y="284"><tspan class="key">IpPort           </tspan><tspan class="val">49732</tspan></text>
+  <text class="mono" x="38" y="304"><tspan class="key">ElevatedToken    </tspan><tspan class="val">%%1842  (Yes)</tspan></text>
+  <text class="ui cap" x="38" y="326">4624 means the logon SUCCEEDED. It is not, on its own, a finding.</text>
+
+  <!-- LogonType table -->
+  <rect class="panel" x="540" y="44" width="376" height="290" rx="6"/>
+  <text class="ui col" x="554" y="64">LOGONTYPE — THE FIELD THAT DECIDES YOUR TRIAGE</text>
+
+  <text class="ui col" x="554" y="88">TYPE</text>
+  <text class="ui col" x="600" y="88">MEANS</text>
+  <text class="ui col" x="810" y="88">WATCH</text>
+
+  <text class="mono val" x="558" y="112">2</text>
+  <text class="ui note" x="600" y="112">Interactive — at the keyboard</text>
+
+  <text class="mono val" x="558" y="136">3</text>
+  <text class="ui note" x="600" y="136">Network — share, WMI, remote</text>
+  <text class="ui warn" x="810" y="136">lateral</text>
+
+  <text class="mono val" x="558" y="160">4</text>
+  <text class="ui note" x="600" y="160">Batch — scheduled task</text>
+
+  <text class="mono val" x="558" y="184">5</text>
+  <text class="ui note" x="600" y="184">Service — service start</text>
+
+  <text class="mono val" x="558" y="208">7</text>
+  <text class="ui note" x="600" y="208">Unlock — workstation unlocked</text>
+
+  <text class="mono val" x="558" y="232">9</text>
+  <text class="ui note" x="600" y="232">NewCredentials — runas /netonly</text>
+  <text class="ui warn" x="810" y="232">pth</text>
+
+  <text class="mono val" x="558" y="256">10</text>
+  <text class="ui note" x="600" y="256">RemoteInteractive — RDP</text>
+  <text class="ui warn" x="810" y="256">lateral</text>
+
+  <text class="mono val" x="558" y="280">11</text>
+  <text class="ui note" x="600" y="280">CachedInteractive — offline creds</text>
+
+  <text class="ui cap" x="554" y="312">Same event ID, completely different stories. Read this field first.</text>
+
+  <!-- reading the record -->
+  <rect class="panel" x="24" y="348" width="892" height="152" rx="6"/>
+  <text class="ui col" x="38" y="368">WHAT THIS PARTICULAR RECORD IS TELLING YOU</text>
+
+  <text class="ui cyan" x="38" y="394">LogonType 3 + NTLM + a workstation name that is not this host</text>
+  <text class="ui note" x="38" y="412">One machine authenticating to another over the network. Normal for file shares —</text>
+  <text class="ui note" x="38" y="428">and also the exact shape of lateral movement. The question is whether this pair</text>
+  <text class="ui note" x="38" y="444">of machines has any business talking to each other at all.</text>
+
+  <text class="ui crit" x="490" y="394">NTLM where you expected Kerberos</text>
+  <text class="ui note" x="490" y="412">In a healthy AD domain, Kerberos is the norm. NTLM on a</text>
+  <text class="ui note" x="490" y="428">domain-joined host is worth a second look — it is what</text>
+  <text class="ui note" x="490" y="444">pass-the-hash uses, because a hash satisfies NTLM.</text>
+
+  <text class="ui warn" x="38" y="474">ElevatedToken = Yes</text>
+  <text class="ui note" x="180" y="474">The session carries admin rights. Pair with 4672 (special privileges assigned) on the same LogonId.</text>
+</svg>
