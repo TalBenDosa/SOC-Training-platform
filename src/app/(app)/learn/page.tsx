@@ -61,49 +61,6 @@ function tagsForLesson(l: Lesson): string[] {
   return tags.slice(0, 5);
 }
 
-// ─── Image helpers ────────────────────────────────────────────────────────────
-
-function topicImageQuery(lesson: Lesson, sectionHeading?: string): string {
-  const text = ((lesson.topic ?? "") + " " + (sectionHeading ?? "")).toLowerCase();
-  if (/edr|endpoint.detect|crowdstrike|sentinelone|defender/.test(text)) return "endpoint security threat detection";
-  if (/phish|spear.?phish|email.?attack|bec/.test(text))                 return "phishing email cybersecurity";
-  if (/kerbero|active.?direct|ldap|ntlm|golden.?ticket/.test(text))     return "active directory network authentication";
-  if (/windows|event.?log|sysmon|registry|powershell/.test(text))       return "windows server security monitoring";
-  if (/protocol|tcp|dns|http|smb|network.?traffic/.test(text))          return "network traffic protocol analysis";
-  if (/malware|ransomware|trojan|virus|worm/.test(text))                return "malware cybersecurity threat";
-  if (/cloud|aws|azure|s3|iam|bucket/.test(text))                       return "cloud security data infrastructure";
-  if (/incident.?response|forensic|triage/.test(text))                  return "cybersecurity incident response team";
-  if (/siem|splunk|sentinel|elastic|kql|spl/.test(text))               return "security operations center SIEM";
-  if (/threat.?hunt|threat.?intel|ioc|ttp/.test(text))                 return "threat intelligence cyber";
-  if (/vuln|cve|patch|exploit|zero.?day/.test(text))                    return "vulnerability security patch";
-  if (/social.?engin|pretex/.test(text))                               return "social engineering cyber attack";
-  return "cybersecurity analyst SOC professional";
-}
-
-// Was a live fetch to https://source.unsplash.com — the Unsplash Source API was
-// officially retired in 2022, so this could vanish silently, and the generic
-// stock photos it returned taught nothing. Replaced with a self-contained,
-// theme-keyed gradient banner: zero external requests, never breaks, and the
-// hue is derived from the topic string so related sections read as a set.
-function SectionImage({ query }: { query: string }) {
-  let h = 0;
-  for (let i = 0; i < query.length; i++) h = (h * 31 + query.charCodeAt(i)) & 0xffff;
-  const hue = h % 360;
-  return (
-    <div
-      className="relative rounded-xl overflow-hidden border border-[#1e2d4a] mb-2 h-16"
-      style={{
-        background: `linear-gradient(120deg, hsl(${hue} 55% 14%), hsl(${(hue + 40) % 360} 60% 9%))`,
-      }}
-      aria-hidden="true"
-    >
-      <div
-        className="absolute inset-0 opacity-40"
-        style={{ background: `repeating-linear-gradient(90deg, transparent 0 22px, hsl(${hue} 60% 20% / .25) 22px 23px)` }}
-      />
-    </div>
-  );
-}
 
 // ─── Content Renderer ─────────────────────────────────────────────────────────
 // Visual hierarchy:
@@ -297,16 +254,6 @@ function SectionPageContent({
   return (
     <div className="space-y-6">
 
-      {/* ── Cover band ─────────────────────────────────────────────
-          SectionImage is a decorative gradient, NOT a picture — it hashes a
-          string into a hue. When the section carries a real authored figure we
-          show that instead, since two banners stacked on one section is noise.
-          The gradient stays as the fallback so the ~30 sections without a
-          figure look exactly as they did before. */}
-      {!section.image && (
-        <SectionImage query={section.imageQuery ?? topicImageQuery(lesson, section.heading)} />
-      )}
-
       {/* ── Section heading ────────────────────────────────────── */}
       <div className="pb-5 border-b border-[#1e2d4a]">
         <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
@@ -382,8 +329,8 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
   const section = !isIntro ? lesson.sections[page - 1] : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-[#1e2d4a] bg-[#0b0f1e] shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 sm:p-6">
+      <div className="relative w-full max-w-6xl h-[92vh] flex flex-col rounded-2xl border border-[#1e2d4a] bg-[#0b0f1e] shadow-2xl overflow-hidden">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-[#1e2d4a] px-6 py-4 shrink-0">
@@ -414,8 +361,6 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
           {/* Intro page */}
           {isIntro && (
             <div className="space-y-6">
-              <SectionImage query={topicImageQuery(lesson)} />
-
               {/* H1 — Main topic title */}
               <div className="pb-5 border-b border-[#1e2d4a]">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
