@@ -220,7 +220,29 @@ Without `UPSTASH_REDIS_*`, the limiter is a per-serverless-instance counter (`ra
 | L2 | verbose DB error (student route) | **Fixed** — generic message + server-side log |
 | L3 | backslash open-redirect | **Fixed** — `^/(?![/\\])` guard |
 | L4 | cron non-constant-time compare | **Fixed** — `constantTimeEquals` helper on both cron routes |
-| M4 | CSP `unsafe-inline`/`unsafe-eval` | **Partially fixed** — `connect-src`/`img-src` tightened to a Supabase allowlist (browser-verified). The `script-src` nonce migration is **HELD**: it requires nonce injection through the auth-critical middleware and behaves differently in dev vs prod, so it needs a dedicated staging smoke-test before shipping — not a blind prod change. |
+| M4 | CSP `unsafe-inline`/`unsafe-eval` | **Partially fixed** — `connect-src`/`img-src` tightened to a Supabase allowlist (browser-verified). The `script-src` nonce migration was **implemented and tested in a staging build (`next build` + `next start`), and REVERTED** because it broke the app — see below. |
+
+### M4 nonce — staging test result (2026-08-13)
+
+The full nonce migration was implemented (per-request nonce from middleware,
+`script-src 'self' 'nonce-<rand>' 'strict-dynamic'`, static CSP removed from
+next.config) and tested against a production build served with `next start` —
+the environment that behaves like prod, unlike `next dev`.
+
+**Result: FAIL, cleanly reverted.** The served CSP was correct (nonce present,
+per-request, no `unsafe-inline`/`unsafe-eval`), but **every script was blocked**:
+Next's inline bootstrap scripts carried no `nonce` attribute, so with
+`strict-dynamic` nothing loaded and the page did not hydrate.
+
+**Root cause:** most routes here are **statically prerendered** (`○ Static` in
+the build output). Static HTML is generated at build time and cannot embed a
+per-request nonce, so the runtime nonce never matches the prerendered scripts.
+Next.js's automatic-nonce feature only applies to **dynamically rendered**
+pages. Shipping the nonce therefore requires either forcing dynamic rendering
+across the app (a real performance/architecture change) or a hash-based CSP for
+the static inline scripts — a dedicated task, not a drop-in. The staging test is
+exactly what surfaced this before it could reach production. Deferred with this
+finding recorded for whoever picks it up.
 | L5 | in-memory rate-limit fallback | **Operational** — ensure `UPSTASH_REDIS_REST_URL/TOKEN` are set in production; no code change. |
 | I1–I4 | stale-role window, no FORCE RLS, rank/streak self-writable, override pins | **Accepted residuals** — documented, Low/Info. `rank` remains cosmetically forgeable (self-corrects on the next XP recompute); not worth the guard-trigger ordering risk. |
 
