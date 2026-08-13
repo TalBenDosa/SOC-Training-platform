@@ -38,12 +38,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   const bundle = buildScenarioBySlug(slug);
   if (!bundle) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Everything the learner legitimately needs in order to investigate — and
-  // nothing that tells them the answer.
-  const { narrative: _narrative, learning_objectives: _objectives, ...rest } = bundle;
-
+  // ALLOWLIST, not blacklist. A previous version stripped only `narrative` and
+  // `learning_objectives` and spread `...rest`, which still shipped the three
+  // fields that ARE the answer: `attack_kind` (the grader derives the verdict
+  // from it — grade/route.ts), `iocs` (the exact values the evidence rubric
+  // scores against), and `killchain` (the post-submission debrief), plus
+  // `threat_actor` attribution. An allowlist fails closed: a field added to the
+  // bundle later cannot leak here unless it is deliberately added below.
+  const b = bundle as unknown as Record<string, unknown>;
   return NextResponse.json({
-    ...rest,
+    scenario_id: b.scenario_id,
+    title: b.title,
+    briefing: b.briefing,
+    difficulty: b.difficulty,
+    alerts: b.alerts,
+    events: b.events,
     questions: (bundle.questions ?? []).map(q => ({
       id: q.id,
       prompt: q.prompt,

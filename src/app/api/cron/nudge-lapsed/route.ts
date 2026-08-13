@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
+import { constantTimeEquals } from "@/lib/security/constantTimeEquals";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { lapsedNudgeEmail } from "@/lib/email/templates";
 
@@ -90,7 +91,8 @@ async function run(dry: boolean) {
 async function authorized(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   if (secret) {
-    return req.headers.get("authorization") === `Bearer ${secret}`;
+    // Constant-time compare — a plain === on the secret is a timing side-channel.
+    return constantTimeEquals(req.headers.get("authorization") ?? "", `Bearer ${secret}`);
   }
   const gate = await requireSuperAdmin("superadmin.cron.nudge");
   return !("error" in gate);

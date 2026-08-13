@@ -18,13 +18,19 @@
 // hardening step — until then, injected inline <script> is still permitted, which
 // is why the app ALSO neutralises XSS at the source (HTML-escaping in the
 // markdown renderer, Mermaid securityLevel:"strict"). Defense in depth, both ends.
+// connect-src / img-src are now ALLOWLISTED to the origin + Supabase (was a
+// blanket `https:`, which permitted exfiltration to any HTTPS host). Supabase
+// covers auth, PostgREST and Realtime (wss). Browser image loads are same-origin
+// or Supabase/GitHub avatars (mirrors images.remotePatterns below); data:/blob:
+// cover inline/generated images. LLM calls are all server-side, so the browser
+// never needs a third-party connect origin.
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
+  "img-src 'self' data: blob: https://*.supabase.co https://avatars.githubusercontent.com",
   "font-src 'self' data:",
-  "connect-src 'self' https:",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -46,9 +46,22 @@ function isExpensive(pathname: string): boolean {
 }
 
 function clientIp(req: NextRequest): string {
+  // Derive the rate-limit key from a PLATFORM-TRUSTED source, not a
+  // client-controlled one. On Vercel, `x-real-ip` is set by the platform to the
+  // true edge-observed client IP and cannot be spoofed through the proxy. The
+  // left-most `x-forwarded-for` entry, by contrast, is whatever the client sent
+  // (the platform APPENDS the real hop), so keying on it let an attacker rotate
+  // the header to get a fresh bucket per request — defeating the limiter on the
+  // unauthenticated routes it exists to protect. Prefer x-real-ip; if only XFF
+  // is present, take the RIGHT-most hop (closest to the platform edge).
+  const real = req.headers.get("x-real-ip");
+  if (real) return real.trim();
   const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
+  if (fwd) {
+    const hops = fwd.split(",");
+    return hops[hops.length - 1].trim();
+  }
+  return "unknown";
 }
 
 /**

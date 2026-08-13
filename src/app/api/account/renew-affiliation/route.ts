@@ -39,7 +39,11 @@ export async function POST(req: Request) {
     if (msg.includes("not_an_org_student")) {
       return NextResponse.json({ error: "Only enrolled students renew an affiliation." }, { status: 400 });
     }
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // Any other RPC failure is an internal fault. Log the real cause
+    // server-side; return a generic message so raw Postgres/driver text (schema
+    // names, constraint details) is not disclosed to a student-reachable route.
+    console.error("renew_affiliation failed", { userId: user.id, message: msg });
+    return NextResponse.json({ error: "Something went wrong renewing your affiliation. Please try again." }, { status: 500 });
   }
 
   await logAudit({

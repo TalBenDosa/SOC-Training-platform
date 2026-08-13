@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
+import { constantTimeEquals } from "@/lib/security/constantTimeEquals";
 
 /**
  * Flips organizations whose license window has passed to status='expired'.
@@ -24,8 +25,9 @@ async function run() {
 async function authorized(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   if (secret) {
-    const auth = req.headers.get("authorization");
-    return auth === `Bearer ${secret}`;
+    const auth = req.headers.get("authorization") ?? "";
+    // Constant-time compare — a plain === on the secret is a timing side-channel.
+    return constantTimeEquals(auth, `Bearer ${secret}`);
   }
   const gate = await requireSuperAdmin("superadmin.cron.expire");
   return !("error" in gate);

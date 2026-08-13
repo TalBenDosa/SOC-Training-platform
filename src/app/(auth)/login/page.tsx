@@ -22,7 +22,11 @@ function LoginForm() {
   // here rather than landing on a bare form wondering whether it worked.
   const justRegistered = searchParams.get("registered") === "1";
   const rawNext = searchParams.get("next");
-  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/welcome";
+  // Same-origin relative paths only. Must start with a single "/" and NOT with
+  // "//" (protocol-relative) or "/\" — browsers normalise backslashes to
+  // forward slashes, so "/\evil.com" would otherwise resolve to an external
+  // host. The negative lookahead rejects both.
+  const nextPath = rawNext && /^\/(?![/\\])/.test(rawNext) ? rawNext : "/welcome";
   // ?code= — an access code carried over from signup's "this email already has
   // an account" path. Applied AFTER authentication: the code joins its
   // environment to the signed-in account (multi-environment), then we land on
