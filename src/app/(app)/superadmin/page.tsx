@@ -11,7 +11,8 @@ import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, ShieldCheck, Link2, Copy, Check, CheckCircle2, DollarSign, KeyRound, FileText, ArrowRight } from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, Link2, Copy, Check, CheckCircle2, DollarSign, KeyRound, FileText, ArrowRight, Home, Settings } from "lucide-react";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 const STATUS_STYLE: Record<OrgStatus, string> = {
@@ -46,6 +47,21 @@ export default function SuperAdminPage() {
   }
   const [codes, setCodes] = useState<OrgCodeRow[] | null>(null);
   const [codeBusyOrg, setCodeBusyOrg] = useState<string | null>(null);
+  const [entering, setEntering] = useState<string | null>(null);
+
+  // Enter a client environment: switch the super-admin's active org, refresh the
+  // JWT so the access-token hook restamps the new org claim, then land in that
+  // college's console. Same flow as the sidebar EnvironmentSwitcher.
+  async function enterOrg(id: string) {
+    setEntering(id);
+    const res = await fetch("/api/superadmin/enter-org", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
+    });
+    if (!res.ok) { setEntering(null); setError((await res.json().catch(() => ({})))?.error ?? "Could not enter environment."); return; }
+    const supabase = getSupabaseBrowserClient();
+    await supabase?.auth.refreshSession();
+    window.location.href = "/manage";
+  }
 
   async function loadCodes() {
     const res = await fetch("/api/superadmin/org-codes");
@@ -73,184 +89,146 @@ export default function SuperAdminPage() {
   }
   useEffect(() => { load(); loadCodes(); }, []);
 
+  const codeById: Record<string, OrgCodeRow> = Object.fromEntries((codes ?? []).map(c => [c.id, c]));
+
   return (
     <div>
-      <Topbar title="Organizations" subtitle="Provision and manage college environments" />
+      <Topbar title="Environments" subtitle="Your Main environment, and the colleges beneath it" />
       <div className="container mx-auto max-w-[1100px] px-6 py-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-2 text-sm text-slate-400">
-            <ShieldCheck className="h-4 w-4 text-cyber-300" /> Platform super-admin
-          </p>
-          <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> New organization
-          </Button>
-        </div>
-
         {error && (
           <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
             <AlertTriangle className="h-4 w-4" /> {error}
           </div>
         )}
 
-        {/* Super-admin hub — the consoles the platform owner runs. Customer
-            management IS this page; content management lives at /admin; the
-            global student list at /superadmin/students. Before this row they
-            were disconnected with no link between them. */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="flex items-center gap-3 rounded-xl border border-cyber-500/40 bg-cyber-500/5 px-4 py-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10">
-              <Building2 className="h-5 w-5 text-cyber-300" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-bold text-white">Customer management</p>
-              <p className="text-[11px] text-slate-400">Colleges, seats, codes — you&apos;re here</p>
+        {/* ── ROOT: the Main environment (control tower). Global actions + spend
+            fold in here; each college's own code/actions live on its card. ── */}
+        <div className="flex flex-col items-center">
+          <div className="w-full max-w-[480px] rounded-xl border border-neon-amber/40 bg-neon-amber/5 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neon-amber/30 bg-neon-amber/10">
+                <Home className="h-5 w-5 text-neon-amber" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-white">Main environment</p>
+                <p className="text-[11px] text-neon-amber/80">
+                  Control tower · {orgs?.length ?? 0} {orgs?.length === 1 ? "college" : "colleges"}
+                </p>
+              </div>
+              <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
+                <Plus className="mr-1.5 h-4 w-4" /> New environment
+              </Button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Link href="/superadmin/students" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300">
+                <Users className="h-3.5 w-3.5" /> All students
+              </Link>
+              <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300">
+                <FileText className="h-3.5 w-3.5" /> Content
+              </Link>
+              {spend && (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-[11px] text-slate-400 tabular-nums"
+                  title="AI spend across all tenants, last 30 days"
+                >
+                  <DollarSign className="h-3.5 w-3.5" />
+                  <span className={spend.usd_30d >= spend.cap_30d ? "font-bold text-severity-high" : "text-slate-300"}>{fmtUsd(spend.usd_30d)}</span>
+                  <span>/ {fmtUsd(spend.cap_30d)} · 30d</span>
+                </span>
+              )}
             </div>
           </div>
-          <Link href="/superadmin/students" className="group flex items-center gap-3 rounded-xl border border-border bg-bg-elevated px-4 py-3 transition hover:border-cyber-500/50">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-              <Users className="h-5 w-5 text-cyber-300" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-white">All students</p>
-              <p className="text-[11px] text-slate-400">Every learner, across all colleges</p>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-cyber-300" />
-          </Link>
-          <Link href="/admin" className="group flex items-center gap-3 rounded-xl border border-border bg-bg-elevated px-4 py-3 transition hover:border-cyber-500/50">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-              <FileText className="h-5 w-5 text-cyber-300" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-white">Content management</p>
-              <p className="text-[11px] text-slate-400">Rooms, scenarios, quizzes &amp; lessons</p>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-cyber-300" />
-          </Link>
+          {/* connector: root → bus */}
+          <div className="h-5 w-0.5 bg-neon-amber/50" />
         </div>
 
-        {spend && (
-          <Card>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-                  <DollarSign className="h-4.5 w-4.5 text-cyber-300" />
-                </span>
-                <div>
-                  <p className="text-sm font-bold text-white">AI spend</p>
-                  <p className="text-[11px] text-slate-400">All tenants · estimated from token usage</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-6 tabular-nums">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-400">Last 7 days</p>
-                  <p className="text-lg font-bold text-white">{fmtUsd(spend.usd_7d)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-400">Last 30 days</p>
-                  <p className={`text-lg font-bold ${spend.usd_30d >= spend.cap_30d ? "text-severity-high" : spend.usd_30d >= spend.cap_30d * 0.8 ? "text-neon-amber" : "text-white"}`}>
-                    {fmtUsd(spend.usd_30d)}
-                    <span className="ml-1 text-[11px] font-normal text-slate-400">/ {fmtUsd(spend.cap_30d)} cap</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-            {spend.usd_30d >= spend.cap_30d && (
-              <p className="mt-3 flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-[12px] text-severity-high">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                Monthly cap reached — AI generation is serving deterministic fallbacks. Raise <code className="font-mono">AI_MONTHLY_CAP_USD</code> to resume.
-              </p>
-            )}
-          </Card>
-        )}
-
-        {/* Affiliation codes across every tenant (0028). The spec grants the
-            super-admin sight of ALL codes and cooldown-free generation. */}
-        <Card>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-                <KeyRound className="h-4.5 w-4.5 text-cyber-300" />
-              </span>
-              <div>
-                <p className="text-sm font-bold text-white">Class codes</p>
-                <p className="text-[11px] text-slate-400">Every org&apos;s live affiliation code · 24h validity · generate for any org</p>
-              </div>
-            </div>
+        {/* ── BUS + CHILDREN: the client environments ── */}
+        <div>
+          <div className="mb-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-neon-amber/25" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Client environments</span>
+            <span className="h-px flex-1 bg-neon-amber/25" />
           </div>
-          {codes === null ? (
-            <p className="mt-3 text-sm text-slate-400">Loading codes…</p>
-          ) : codes.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-400">No organizations yet.</p>
+
+          {orgs === null ? (
+            <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+          ) : orgs.length === 0 && !error ? (
+            <Card className="text-center text-sm text-slate-400">
+              No environments yet. Create the first college to get started.
+            </Card>
           ) : (
-            <div className="mt-4 space-y-2">
-              {codes.map(c => (
-                <div key={c.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-2">
-                  <span className="min-w-[140px] flex-1 truncate text-sm font-medium text-slate-100">{c.name}</span>
-                  {c.active_code ? (
-                    <>
-                      <span className="rounded border border-neon-cyan/40 bg-neon-cyan/5 px-2.5 py-1 font-mono text-sm font-bold tracking-[0.2em] text-neon-cyan">
-                        {c.active_code.code}
-                      </span>
-                      <span className="text-[11px] text-slate-400">expires {fmtDate(c.active_code.expires_at)}</span>
-                    </>
-                  ) : (
-                    <span className="text-[11px] text-slate-500">no live code</span>
-                  )}
-                  <Button
-                    variant="outline" size="sm"
-                    disabled={codeBusyOrg === c.id}
-                    onClick={() => generateFor(c.id)}
-                  >
-                    {codeBusyOrg === c.id ? "…" : "Generate"}
-                  </Button>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {orgs.map(o => {
+                const activeCode = codeById[o.id]?.active_code ?? null;
+                return (
+                  <div key={o.id} className="flex flex-col items-center">
+                    {/* connector stub: bus → this child */}
+                    <div className="h-4 w-0.5 bg-neon-amber/40" />
+                    <Card className="w-full">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
+                            <Building2 className="h-4.5 w-4.5 text-cyber-300" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-white">{o.name}</p>
+                            <p className="truncate font-mono text-[11px] text-slate-400">/{o.slug}</p>
+                          </div>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[o.status]}`}>
+                          {o.status}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-4 text-[11px] text-slate-400">
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3.5 w-3.5" /> {o.seats_used}{o.seat_limit > 0 ? ` / ${o.seat_limit}` : " / ∞"}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <CalendarClock className="h-3.5 w-3.5" /> {fmtDate(o.expires_at)}
+                        </span>
+                        {!o.active && <span className="font-bold text-severity-high">LOCKED</span>}
+                      </div>
+
+                      {/* live class code + generate (cooldown-free for super-admin) */}
+                      <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-2.5 py-1.5">
+                        <KeyRound className="h-3.5 w-3.5 shrink-0 text-neon-amber" />
+                        {activeCode ? (
+                          <span className="flex-1 truncate font-mono text-sm font-bold tracking-[0.18em] text-neon-cyan">{activeCode.code}</span>
+                        ) : (
+                          <span className="flex-1 text-[11px] text-slate-500">no live code</span>
+                        )}
+                        <Button variant="outline" size="sm" disabled={codeBusyOrg === o.id} onClick={() => generateFor(o.id)}>
+                          {codeBusyOrg === o.id ? "…" : "Generate"}
+                        </Button>
+                      </div>
+
+                      {/* Enter (primary) switches context into this environment;
+                          the gear opens its settings/provisioning page. */}
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button variant="primary" size="sm" className="flex-1" disabled={entering !== null} onClick={() => enterOrg(o.id)}>
+                          {entering === o.id ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-1.5 h-4 w-4" />}
+                          Enter
+                        </Button>
+                        <Link
+                          href={`/superadmin/orgs/${o.id}`}
+                          aria-label={`${o.name} settings`}
+                          title="Settings & provisioning"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-bg text-slate-400 transition hover:border-cyber-500/50 hover:text-cyber-300"
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Link>
+                      </div>
+                    </Card>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </Card>
+        </div>
 
-        {orgs === null ? (
-          <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
-        ) : orgs.length === 0 && !error ? (
-          <Card className="text-center text-sm text-slate-400">
-            No organizations yet. Create the first college environment to get started.
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {orgs.map(o => (
-              <Link key={o.id} href={`/superadmin/orgs/${o.id}`}>
-                <Card className="h-full transition hover:border-cyber-500/50">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-                        <Building2 className="h-4.5 w-4.5 text-cyber-300" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-white">{o.name}</p>
-                        <p className="truncate font-mono text-[11px] text-slate-400">/{o.slug}</p>
-                      </div>
-                    </div>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLE[o.status]}`}>
-                      {o.status}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex items-center gap-4 text-[11px] text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" /> {o.seats_used}{o.seat_limit > 0 ? ` / ${o.seat_limit}` : " / ∞"} seats
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <CalendarClock className="h-3.5 w-3.5" /> {fmtDate(o.expires_at)}
-                    </span>
-                    {!o.active && <span className="font-bold text-severity-high">LOCKED</span>}
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
+        {creating && <CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load(); }} />}
       </div>
-
-      {creating && <CreateOrgModal onClose={() => setCreating(false)} onCreated={() => { setCreating(false); load(); }} />}
     </div>
   );
 }

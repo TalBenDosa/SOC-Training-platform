@@ -12,10 +12,12 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Users, Trophy, Activity, Target, DoorOpen, Copy, AlertTriangle, Loader2, KeyRound,
-  Power, PowerOff, Trash2, Download, TrendingDown, Building2, ChevronRight,
+  Power, PowerOff, Trash2, Download, TrendingDown, Building2, ChevronRight, Route,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 import type { StudentRow } from "@/app/api/org/analytics/route";
+import { cohortPathProgress, studentPathPercent } from "@/lib/org/pathProgress";
+import { AssignmentsPanel } from "@/components/manage/AssignmentsPanel";
 
 interface OrgLite { id: string; name: string; slug: string; seat_limit: number; status: string; expires_at: string | null }
 type Member = OrgMember & { xp?: number };
@@ -197,6 +199,23 @@ export default function ManagePage() {
     (a.status === "active" ? 0 : 1) - (b.status === "active" ? 0 : 1) || (b.xp ?? 0) - (a.xp ?? 0),
   );
 
+  // Cohort position along the graded path (Foundations → SOC Tier 1 → Advanced),
+  // computed client-side from each student's completed_room_ids + ROOMS_META.
+  const pathProg = cohortPathProgress(students);
+  const overallPathPct = students.length
+    ? Math.round(students.reduce((s, st) => s + studentPathPercent(st.completed_room_ids), 0) / students.length)
+    : 0;
+
+  // Named at-risk students — never started, quiet 14d+, or failing (<60% with
+  // graded work). The class card already COUNTS these; this surfaces WHO.
+  const atRisk = students.filter(s => {
+    if (s.status !== "active") return false;
+    const neverStarted = s.rooms_started === 0 && s.scenarios_completed === 0 && s.sessions === 0;
+    const dormant = s.last_active_at ? Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 : false;
+    const failing = s.task_accuracy !== null && s.tasks_graded > 0 && s.task_accuracy < 60;
+    return neverStarted || dormant || failing;
+  });
+
   return (
     <div>
       <Topbar title={org ? `Manage — ${org.name}` : "Manage class"} subtitle="Your students and their progress" />
@@ -241,6 +260,37 @@ export default function ManagePage() {
               <Stat icon={<Target className="h-4 w-4" />} label="Scenarios" value={String(usage?.scenarios_completed ?? 0)} />
               <Stat icon={<DoorOpen className="h-4 w-4" />} label="Rooms" value={String(usage?.rooms_completed ?? 0)} />
             </div>
+
+            {/* Where the cohort is along the graded path. The three stages are
+                the rooms' own difficulty tiers; each bar is the % of that stage's
+                rooms the class has cleared on average. */}
+            {students.length > 0 && (
+              <Card>
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-white">
+                    <Route className="h-4 w-4 text-cyber-300" /> The cohort along the path
+                  </h2>
+                  <span className="font-mono text-xs text-slate-400">{overallPathPct}% curriculum</span>
+                </div>
+                <div className="space-y-2.5">
+                  {pathProg.map(st => (
+                    <div key={st.stage} className="flex items-center gap-3">
+                      <span className="w-28 shrink-0 text-xs text-slate-300">{st.stage}</span>
+                      <span className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
+                        <span
+                          className={`block h-full ${st.stage === "Foundations" ? "bg-neon-green" : "bg-cyber-500"}`}
+                          style={{ width: `${st.percent}%` }}
+                        />
+                      </span>
+                      <span className="w-16 shrink-0 text-right font-mono text-[11px] text-slate-400">
+                        {st.percent}% <span className="text-slate-600">· {st.roomCount}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-slate-500">Averaged across {students.length} student{students.length === 1 ? "" : "s"}; the trailing number is how many rooms each stage holds.</p>
+              </Card>
+            )}
 
             {/* The class affiliation code (0028) — now the PRIMARY way a
                 student joins, so it leads the column. One live code at a time,
@@ -377,6 +427,34 @@ export default function ManagePage() {
               </Card>
             )}
 
+            {/* WHO needs attention, by name — the class card counts them, this
+                names them and links straight to each drill-down. */}
+            {atRisk.length > 0 && (
+              <Card className="border-neon-amber/30">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-white">
+                  <AlertTriangle className="h-4 w-4 text-neon-amber" /> Students needing attention ({atRisk.length})
+                </h2>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {atRisk.map(s => {
+                    const why = s.rooms_started === 0 && s.scenarios_completed === 0 && s.sessions === 0
+                      ? "not started"
+                      : s.last_active_at && Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000
+                        ? "quiet 14d+"
+                        : "low score";
+                    return (
+                      <Link key={s.user_id} href={`/manage/students/${s.user_id}`}
+                        className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-2.5 py-1.5 text-xs text-slate-200 transition hover:border-neon-amber/50">
+                        <span className="font-medium">{s.display_name || s.handle || s.user_id.slice(0, 8)}</span>
+                        <span className="text-[10px] text-neon-amber">{why}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </Card>
+            )}
+
+            <AssignmentsPanel />
+
             <Card className="overflow-hidden p-0">
               <div className="flex items-center justify-between gap-3 px-4 py-3">
                 <h2 className="text-sm font-bold text-white">Roster ({active.length})</h2>
@@ -396,6 +474,8 @@ export default function ManagePage() {
                         <th className="px-4 py-2.5 font-medium">Student</th>
                         <th className="px-4 py-2.5 font-medium">Email</th>
                         <th className="px-4 py-2.5 font-medium" title="Correct answers across all graded tasks">Score</th>
+                        <th className="px-4 py-2.5 font-medium" title="Share of the graded curriculum completed">Path</th>
+                        <th className="px-4 py-2.5 font-medium" title="Average detection rate on the live dashboard">Detect</th>
                         <th className="px-4 py-2.5 font-medium">XP</th>
                         <th className="px-4 py-2.5 font-medium">Last active</th>
                         <th className="px-4 py-2.5 text-right font-medium">Actions</th>
@@ -419,6 +499,19 @@ export default function ManagePage() {
                             <td className={`px-4 py-2.5 font-mono ${s && s.task_accuracy !== null && s.task_accuracy < 60 ? "text-severity-high" : "text-slate-200"}`}
                               title={s && s.tasks_graded ? `${s.task_accuracy}% correct across ${s.tasks_graded} graded task(s)` : "No graded tasks yet"}>
                               {s && s.task_accuracy !== null ? `${s.task_accuracy}%` : "—"}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {s ? (
+                                <div className="flex items-center gap-2" title={`${s.rooms_completed} rooms completed`}>
+                                  <span className="h-1.5 w-14 overflow-hidden rounded-full bg-bg">
+                                    <span className="block h-full bg-cyber-500" style={{ width: `${studentPathPercent(s.completed_room_ids)}%` }} />
+                                  </span>
+                                  <span className="font-mono text-[11px] text-slate-400">{studentPathPercent(s.completed_room_ids)}%</span>
+                                </div>
+                              ) : <span className="text-slate-600">—</span>}
+                            </td>
+                            <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300" title="Average detection rate on the live dashboard">
+                              {s && s.avg_detect_rate !== null ? `${s.avg_detect_rate}%` : "—"}
                             </td>
                             <td className="px-4 py-2.5 font-mono font-bold text-cyber-300">{(m.xp ?? 0).toLocaleString()}</td>
                             <td className={`px-4 py-2.5 text-[12px] ${!s?.last_active_at ? "text-slate-600" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>
