@@ -221,6 +221,40 @@ Worth protecting, not just fixing:
 Items 1–4 are surgical and safe. Items 5–6 are genuine authoring work and should
 be scoped separately.
 
+### Status — all six closed
+
+| # | Item | Commit |
+|---|---|---|
+| 1 | Lesson #5 orphan terms + SIEM moved earlier | `de5e0b9` |
+| 2 | ATT&CK IDs into the AD lesson | `de5e0b9` |
+| 3 | Factual corrections | `de5e0b9` |
+| 4 | Concrete artifact for social engineering | `de5e0b9` |
+| 5 | Foundational crypto lesson (now curriculum position 4) | `756e0d0` |
+| 6 | Paragraph split + lists across the 10 dense lessons | `a9e5cec` |
+
+Two things surfaced while closing item 6 that were not in the original audit:
+
+- **"0 of 184 sections contain a list" was not an authoring habit.** The modal
+  reader on `/learn` had no list branch at all, so `- item` would have rendered
+  as literal dashes. The renderer was fixed first; the content pass came second.
+  Measured result: 109 long paragraphs across the ten lessons went to 0, with
+  lists in 23 of 40 restructured sections.
+- **`lesson-readability.mjs` was counting a bulleted block as a long
+  paragraph**, so it reported restructured lessons as still dense and would have
+  pushed a later pass into breaking up the very lists that fixed them. It now
+  measures running prose only.
+
+Separately, the "under-modelled everywhere" theme below has been partly
+addressed (`84ee9b1`): the benign twin is now taught for brute force (stale
+cached credentials), password spraying (shared NAT egress), web errors-then-200
+(authorised pentests and scanners) and shadow-copy deletion, and the SSRF
+section now covers IMDSv2. What remains of that theme is the *deliberately
+ambiguous worked case* per judgment lesson, which is still open.
+
+One item is verified only by gates and a production build, not in a browser:
+the list rendering itself. `/learn` sits behind the auth gate, so it needs a
+logged-in pass to confirm bullets render as bullets.
+
 ## Under-modelled everywhere (a theme, not a defect)
 
 Several auditors landed on the same gap independently: worked examples tend to
