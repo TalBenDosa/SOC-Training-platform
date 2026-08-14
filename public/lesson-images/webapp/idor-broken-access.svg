@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="How an IDOR broken-access-control flaw lets a logged-in user read another user's data by changing an ID in the request, because the server authenticates but never checks ownership.">
+  <title>IDOR / Broken Access Control — authenticated, but no ownership check</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;}
+      .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .ok{fill:#0e2018;stroke:#22c55e;stroke-width:1.5;} .bad{fill:#26100f;stroke:#f87171;stroke-width:1.5;}
+      .srv{fill:#0e1b30;stroke:#334155;stroke-width:1.5;}
+      .t{fill:#e2e8f0;font-size:12.5px;font-weight:700;} .s{fill:#94a3b8;font-size:11px;}
+      .green{fill:#86efac;font-size:11px;} .red{fill:#fca5a5;font-size:11px;font-weight:700;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;}
+      .code{fill:#67e8f9;font-size:11.5px;}
+      .flow{stroke:#475569;stroke-width:2;fill:none;marker-end:url(#a);}
+    </style>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="400"/>
+  <text class="ui head" x="30" y="30">IDOR: THE SERVER CHECKS WHO YOU ARE — BUT NOT WHETHER THIS RECORD IS YOURS</text>
+
+  <rect class="ok" x="24" y="52" width="410" height="120" rx="10"/>
+  <text class="ui t" x="40" y="76" style="fill:#86efac">Legitimate request — user #1001</text>
+  <text class="ui mono code" x="40" y="102">GET /api/invoice?id=1001</text>
+  <text class="ui mono s" x="40" y="122">Cookie: session=valid-user-1001</text>
+  <text class="ui green" x="40" y="150">→ 200 OK: their own invoice. Correct.</text>
+
+  <rect class="bad" x="24" y="192" width="410" height="140" rx="10"/>
+  <text class="ui t" x="40" y="216" style="fill:#fca5a5">Same user changes ONE number</text>
+  <text class="ui mono code" x="40" y="242">GET /api/invoice?id=1002</text>
+  <text class="ui mono s" x="40" y="262">Cookie: session=valid-user-1001</text>
+  <text class="ui red" x="40" y="290">→ 200 OK: SOMEONE ELSE'S invoice.</text>
+  <text class="ui s" x="40" y="312">They're logged in (authenticated) — but the</text>
+  <text class="ui s" x="40" y="328">record isn't theirs, and nobody checked.</text>
+
+  <line class="flow" x1="434" y1="112" x2="486" y2="150"/>
+  <line class="flow" x1="434" y1="262" x2="486" y2="224"/>
+
+  <rect class="srv" x="490" y="120" width="200" height="130" rx="10"/>
+  <text class="ui t" x="506" y="146">The server's mistake</text>
+  <text class="ui s" x="506" y="168">✓ Is the session valid?</text>
+  <text class="ui s" x="506" y="186">   (authentication) — YES</text>
+  <text class="ui red" x="506" y="210">✗ Does invoice 1002 belong</text>
+  <text class="ui red" x="506" y="226">   to user 1001? NEVER ASKED</text>
+  <text class="ui s" x="506" y="244">   (authorization) — missing</text>
+
+  <rect class="srv" x="710" y="120" width="226" height="130" rx="10" style="stroke:#22c55e"/>
+  <text class="ui t" x="726" y="146" style="fill:#86efac">What the analyst sees</text>
+  <text class="ui green" x="726" y="168">One session enumerating IDs:</text>
+  <text class="ui green" x="726" y="186">id=1002,1003,1004… all 200 OK.</text>
+  <text class="ui green" x="726" y="204">Sequential access to many objects</text>
+  <text class="ui green" x="726" y="222">from one user = access-control</text>
+  <text class="ui green" x="726" y="240">abuse (OWASP A01 / BOLA).</text>
+
+  <text class="ui s" x="30" y="368">Authentication = "who are you?"  ·  Authorization = "are you allowed THIS?"  — IDOR is a missing authorization check. The fix is server-side ownership validation on every object, never a hidden or guessable ID.</text>
+</svg>

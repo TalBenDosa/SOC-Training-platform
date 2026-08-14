@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="How UEBA builds a behavioural baseline for a user and raises a risk score when their activity deviates from that baseline and from their peer group.">
+  <title>UEBA — scoring behaviour against a personal baseline and a peer group</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .t{fill:#e2e8f0;font-size:12.5px;font-weight:700;} .s{fill:#94a3b8;font-size:11px;} .lab{fill:#64748b;font-size:10px;}
+      .band{fill:#134e4a;opacity:.35;} .base{stroke:#22d3ee;stroke-width:2;fill:none;} .spike{stroke:#f87171;stroke-width:2.5;fill:none;}
+      .red{fill:#fca5a5;font-size:11px;font-weight:700;} .green{fill:#86efac;font-size:11px;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;} .axis{stroke:#334155;stroke-width:1;}
+      .card{fill:#0e1b30;stroke:#334155;stroke-width:1.5;}
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="400"/>
+  <text class="ui head" x="30" y="30">UEBA: NORMAL FOR THIS USER IS THE BASELINE — DEVIATION IS THE ALARM</text>
+
+  <!-- chart -->
+  <text class="ui lab" x="40" y="58">daily data downloaded (GB)</text>
+  <line class="axis" x1="60" y1="70" x2="60" y2="250"/>
+  <line class="axis" x1="60" y1="250" x2="600" y2="250"/>
+  <!-- normal band -->
+  <rect class="band" x="60" y="196" width="470" height="34"/>
+  <text class="ui lab" x="66" y="216">normal band (learned baseline)</text>
+  <!-- baseline line wobbling in band -->
+  <path class="base" d="M60 214 L120 210 L180 218 L240 208 L300 216 L360 212 L420 214 L480 210 L530 216"/>
+  <!-- spike -->
+  <path class="spike" d="M530 216 L560 90 L590 96"/>
+  <circle cx="575" cy="92" r="4" fill="#f87171"/>
+  <text class="ui red" x="470" y="80">2:14 AM: 40 GB pulled</text>
+  <text class="ui red" x="470" y="96">= 30× this user's normal</text>
+  <text class="ui s" x="66" y="270">Mon    Tue    Wed    Thu    Fri    Sat    Sun    Mon</text>
+
+  <!-- how the score builds -->
+  <text class="ui head" x="640" y="58">RISK SCORE = SUM OF DEVIATIONS</text>
+  <rect class="card" x="640" y="70" width="296" height="180" rx="10"/>
+  <text class="ui s" x="656" y="94">+ 30× normal data volume</text>
+  <text class="ui s" x="656" y="116">+ at 2 AM (never active then)</text>
+  <text class="ui s" x="656" y="138">+ to personal cloud storage</text>
+  <text class="ui s" x="656" y="160">+ peers in role never do this</text>
+  <text class="ui s" x="656" y="182">+ resigned 3 days ago (context)</text>
+  <line class="axis" x1="656" y1="196" x2="920" y2="196"/>
+  <text class="ui red" x="656" y="222" style="font-size:14px;font-weight:700">Risk score: 92 / 100 → ALERT</text>
+  <text class="ui s" x="656" y="240">no single rule fired — the SUM did</text>
+
+  <!-- why it matters -->
+  <rect class="card" x="24" y="292" width="912" height="86" rx="10"/>
+  <text class="ui t" x="40" y="316">Why UEBA catches the insider that rules miss</text>
+  <text class="ui green" x="40" y="338">Each action alone is allowed — this user IS permitted to download files. Rules see nothing wrong. UEBA compares behaviour to</text>
+  <text class="ui green" x="40" y="356">this person's OWN history and to their PEER GROUP, so a permitted action done abnormally still scores. Deviation, not permission, is the signal.</text>
+  <text class="ui lab" x="40" y="374">Sources: Microsoft Sentinel UEBA · Splunk UBA · Exabeam · Securonix · Varonis. Insider risk lives in behaviour.score / baseline / deviation fields.</text>
+</svg>

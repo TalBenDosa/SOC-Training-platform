@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="How modern command-and-control hides inside normal-looking encrypted traffic to trusted services, and the signals that still give it away.">
+  <title>Modern C2 hides in plain sight — and the tells that still reveal it</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .old{fill:#26100f;stroke:#f87171;stroke-width:1.5;} .new{fill:#241a06;stroke:#fbbf24;stroke-width:1.5;} .det{fill:#0e2018;stroke:#22c55e;stroke-width:1.5;}
+      .t{fill:#e2e8f0;font-size:12.5px;font-weight:700;} .s{fill:#94a3b8;font-size:11px;} .mo{fill:#67e8f9;font-size:11px;}
+      .red{fill:#fca5a5;font-size:11px;} .gold{fill:#fcd34d;font-size:11px;} .green{fill:#86efac;font-size:11px;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;}
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="400"/>
+  <text class="ui head" x="30" y="30">C2 GOT QUIETER — SO DETECTION MOVED FROM 'WHERE' TO 'HOW IT BEHAVES'</text>
+
+  <rect class="old" x="24" y="48" width="440" height="120" rx="10"/>
+  <text class="ui t" x="40" y="72" style="fill:#fca5a5">Old, loud C2 — easy to block</text>
+  <text class="ui mono s" x="40" y="96">beacon → 185.4.2.9:4444  (raw IP, odd port)</text>
+  <text class="ui s" x="40" y="118">Cleartext or obvious. A firewall rule or a</text>
+  <text class="ui s" x="40" y="136">threat-intel IP block kills it. Attackers moved on.</text>
+  <text class="ui red" x="40" y="158">Detection was easy: bad IP, weird port.</text>
+
+  <rect class="new" x="24" y="184" width="440" height="150" rx="10"/>
+  <text class="ui t" x="40" y="208" style="fill:#fcd34d">Modern, quiet C2 — blends in</text>
+  <text class="ui mono s" x="40" y="232">HTTPS 443 → cdn / api.slack / github / a CDN</text>
+  <text class="ui s" x="40" y="254">• Encrypted (TLS) — payload contents hidden</text>
+  <text class="ui s" x="40" y="272">• To trusted, common destinations (SaaS, cloud)</text>
+  <text class="ui s" x="40" y="290">• Domain fronting: SNI says one host, real host differs</text>
+  <text class="ui s" x="40" y="308">• Frameworks: Cobalt Strike, Sliver, malleable profiles</text>
+  <text class="ui gold" x="40" y="328">Now the destination looks totally normal.</text>
+
+  <text class="ui head" x="500" y="70">…SO YOU HUNT THE BEHAVIOUR, NOT THE ADDRESS</text>
+  <rect class="det" x="500" y="86" width="436" height="60" rx="10"/>
+  <text class="ui green" x="516" y="110" style="font-weight:700">1 · Beacon rhythm</text>
+  <text class="ui s" x="516" y="130">Regular check-ins at an interval, even with jitter, over hours = a machine, not a human.</text>
+
+  <rect class="det" x="500" y="156" width="436" height="60" rx="10"/>
+  <text class="ui green" x="516" y="180" style="font-weight:700">2 · TLS / JA3 fingerprint</text>
+  <text class="ui s" x="516" y="200">The client's TLS handshake (JA3) can match a known C2 tool even when traffic is encrypted.</text>
+
+  <rect class="det" x="500" y="226" width="436" height="60" rx="10"/>
+  <text class="ui green" x="516" y="250" style="font-weight:700">3 · Rarity + byte ratio</text>
+  <text class="ui s" x="516" y="270">First-time/rare destination for this host; steady small out, small in = beacon, not browsing.</text>
+
+  <rect class="det" x="500" y="296" width="436" height="38" rx="10"/>
+  <text class="ui green" x="516" y="320">4 · Correlate — no single signal convicts; the SUM of rhythm + rarity + fingerprint does.</text>
+
+  <text class="ui s" x="30" y="368">The shift: you cannot blocklist HTTPS to a CDN, so C2 detection is about the PATTERN of the conversation — its rhythm, rarity, and fingerprint — not the destination alone.</text>
+</svg>
