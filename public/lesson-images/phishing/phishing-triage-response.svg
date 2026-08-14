@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-label="The phishing triage and response workflow from a user report through examining the three layers of an email to a verdict and the tenant-wide response.">
+  <title>Phishing triage → verdict → response — the end-to-end workflow</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .card{fill:#0e1b30;stroke:#334155;stroke-width:1.5;} .exam{fill:#0e1b30;stroke:#22d3ee;stroke-width:1.5;} .resp{fill:#26100f;stroke:#f87171;stroke-width:1.5;} .ok{fill:#0e2018;stroke:#22c55e;stroke-width:1.5;}
+      .t{fill:#e2e8f0;font-size:12px;font-weight:700;} .s{fill:#94a3b8;font-size:10.5px;} .cy{fill:#67e8f9;font-size:11px;font-weight:700;} .red{fill:#fca5a5;font-size:10.5px;} .green{fill:#86efac;font-size:10.5px;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;}
+      .flow{stroke:#475569;stroke-width:2;fill:none;marker-end:url(#a);}
+    </style>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="420"/>
+  <text class="ui head" x="30" y="30">ONE REPORTED EMAIL → EXAMINE THREE LAYERS → VERDICT → TENANT-WIDE RESPONSE</text>
+
+  <rect class="card" x="24" y="54" width="150" height="80" rx="8"/>
+  <text class="ui t" x="40" y="80">User reports</text>
+  <text class="ui s" x="40" y="100">a suspicious email</text>
+  <text class="ui s" x="40" y="116">(the human sensor)</text>
+
+  <text class="ui cy" x="210" y="70">EXAMINE — never click live; use a safe environment</text>
+  <rect class="exam" x="210" y="80" width="235" height="52" rx="8"/>
+  <text class="ui s" x="224" y="100" style="fill:#e2e8f0;font-weight:700">1 · Headers + auth</text>
+  <text class="ui s" x="224" y="118">SPF/DKIM/DMARC, Reply-To, sender rep</text>
+  <rect class="exam" x="210" y="140" width="235" height="52" rx="8"/>
+  <text class="ui s" x="224" y="160" style="fill:#e2e8f0;font-weight:700">2 · Links</text>
+  <text class="ui s" x="224" y="178">detonate URL in a sandbox → cred page?</text>
+  <rect class="exam" x="210" y="200" width="235" height="52" rx="8"/>
+  <text class="ui s" x="224" y="220" style="fill:#e2e8f0;font-weight:700">3 · Attachment</text>
+  <text class="ui s" x="224" y="238">hash → reputation; detonate in sandbox</text>
+
+  <rect class="card" x="480" y="130" width="150" height="72" rx="8"/>
+  <text class="ui t" x="496" y="156">VERDICT</text>
+  <text class="ui s" x="496" y="176">benign / spam /</text>
+  <text class="ui red" x="496" y="192">malicious phish</text>
+
+  <rect class="resp" x="666" y="60" width="270" height="200" rx="10"/>
+  <text class="ui t red" x="682" y="86">RESPONSE — never just this one inbox</text>
+  <text class="ui s" x="682" y="110">• Block the sender, domain, URL, hash</text>
+  <text class="ui s" x="682" y="130">• PURGE the message from ALL mailboxes</text>
+  <text class="ui s" x="682" y="150">  tenant-wide (others got it too)</text>
+  <text class="ui s" x="682" y="170">• Hunt the campaign: who else received,</text>
+  <text class="ui s" x="682" y="188">  who CLICKED, who entered credentials</text>
+  <text class="ui s" x="682" y="208">• If creds entered → reset + revoke</text>
+  <text class="ui s" x="682" y="226">  sessions; if payload ran → EDR isolate</text>
+  <text class="ui green" x="682" y="248">• Then tune: add the indicators to detection</text>
+
+  <line class="flow" x1="174" y1="94" x2="208" y2="106"/>
+  <line class="flow" x1="445" y1="106" x2="478" y2="150"/>
+  <line class="flow" x1="445" y1="166" x2="478" y2="166"/>
+  <line class="flow" x1="445" y1="226" x2="478" y2="182"/>
+  <line class="flow" x1="630" y1="166" x2="664" y2="160"/>
+
+  <rect class="ok" x="24" y="288" width="912" height="104" rx="10"/>
+  <text class="ui head" x="40" y="314">THE TWO IDEAS THAT MAKE PHISHING RESPONSE WORK</text>
+  <text class="ui s" x="40" y="338">1) <tspan class="green" style="font-weight:700">One report is never one email.</tspan> A phishing email is a campaign — pivot on the sender, subject, URL, and attachment hash across</text>
+  <text class="ui s" x="40" y="356">   the mail logs to find EVERY recipient, and act on all of them. Cleaning one inbox while forty others hold the same lure is a miss.</text>
+  <text class="ui s" x="40" y="378">2) <tspan class="green" style="font-weight:700">The response scales to what happened:</tspan> reported-but-unopened → purge; clicked → check the page; entered creds → account response; payload ran → host response.</text>
+</svg>
