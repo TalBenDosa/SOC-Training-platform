@@ -575,6 +575,7 @@ const CORE_LESSONS = [
 // so the whole list reads as one ordered curriculum, beginner → advanced.
 import { ATTACK_TYPE_LESSONS } from "./attackTypeLessons";
 import { PLAYBOOK_LESSONS } from "./playbookLessons";
+import { NEW_TOPIC_LESSONS } from "./newTopicLessons";
 
 export const BUILTIN_LESSONS = [
   pathA[0], pathA[1],   // 1-2  What a SOC is · How computers & networks work
@@ -651,4 +652,5 @@ export const BUILTIN_LESSONS = [
   pathH[1],
   // Last — what to DO with a detection, not just how to spot one.
   ...PLAYBOOK_LESSONS,
+  ...NEW_TOPIC_LESSONS,
 ];
