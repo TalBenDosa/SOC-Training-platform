@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" role="img" aria-label="How multi-factor authentication breaks the credential-theft attack chain, and how attackers try to defeat MFA itself.">
+  <title>MFA breaks the stolen-credential chain — and how attackers push back</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .box   { fill: #0e1b30; stroke: #334155; stroke-width: 1.5; }
+      .attack{ fill: #26100f; stroke: #f87171; stroke-width: 1.5; }
+      .wall  { fill: #241a06; stroke: #fbbf24; stroke-width: 2.5; }
+      .stop  { fill: #0e2018; stroke: #22c55e; stroke-width: 2; }
+      .t     { fill: #e2e8f0; font-size: 13px; font-weight: 700; }
+      .s     { fill: #94a3b8; font-size: 11px; }
+      .warn  { fill: #fca5a5; font-size: 11px; }
+      .gold  { fill: #fcd34d; font-size: 13px; font-weight: 700; }
+      .green { fill: #86efac; font-size: 12px; font-weight: 700; }
+      .flow  { stroke: #475569; stroke-width: 2; fill: none; marker-end: url(#a); }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .05em; }
+    </style>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="430"/>
+
+  <text class="ui head" x="30" y="32">THE STOLEN-CREDENTIAL CHAIN, AND THE WALL MFA PUTS IN IT</text>
+
+  <!-- attacker has creds -->
+  <rect class="attack" x="30" y="60" width="215" height="120" rx="10"/>
+  <text class="ui t" x="46" y="86" style="fill:#fca5a5">Attacker has the secret</text>
+  <text class="ui s" x="46" y="110">Phished password, an NTLM</text>
+  <text class="ui s" x="46" y="128">hash dumped from LSASS, or</text>
+  <text class="ui s" x="46" y="146">creds from a breach dump.</text>
+  <text class="ui warn" x="46" y="170">"Something you KNOW/HAVE-stolen"</text>
+
+  <line class="flow" x1="245" y1="120" x2="300" y2="120"/>
+
+  <!-- MFA wall -->
+  <rect class="wall" x="300" y="45" width="150" height="150" rx="10"/>
+  <text class="ui gold" x="375" y="100" text-anchor="middle">🔐 MFA</text>
+  <text class="ui gold" x="375" y="122" text-anchor="middle">WALL</text>
+  <text class="ui s" x="375" y="150" text-anchor="middle">Prove a SECOND,</text>
+  <text class="ui s" x="375" y="167" text-anchor="middle">separate factor</text>
+  <text class="ui s" x="375" y="184" text-anchor="middle">you cannot phish.</text>
+
+  <line class="flow" x1="450" y1="120" x2="505" y2="120"/>
+
+  <!-- blocked -->
+  <rect class="stop" x="505" y="60" width="215" height="120" rx="10"/>
+  <text class="ui green" x="521" y="88">Without factor #2 → STOP</text>
+  <text class="ui s" x="521" y="112">The password alone is now</text>
+  <text class="ui s" x="521" y="130">useless. This is why MFA is</text>
+  <text class="ui s" x="521" y="148">the single highest-value</text>
+  <text class="ui s" x="521" y="166">control on any account.</text>
+
+  <!-- the three factors -->
+  <text class="ui head" x="760" y="78">THE THREE FACTOR TYPES</text>
+  <text class="ui s" x="760" y="104">• KNOW — password, PIN</text>
+  <text class="ui s" x="760" y="126">• HAVE — phone app, token,</text>
+  <text class="ui s" x="778" y="142">FIDO2 security key</text>
+  <text class="ui s" x="760" y="164">• ARE — fingerprint, face</text>
+  <text class="ui s" x="760" y="186" style="fill:#64748b">MFA = two of DIFFERENT types</text>
+
+  <!-- attacker's counter-moves -->
+  <text class="ui head" x="30" y="248">…SO ATTACKERS ATTACK THE WALL ITSELF (what you watch for)</text>
+
+  <rect class="box" x="30" y="266" width="290" height="120" rx="10"/>
+  <text class="ui t" x="46" y="292" style="fill:#fca5a5">MFA fatigue / push-bombing</text>
+  <text class="ui s" x="46" y="314">Spam the victim with prompts until</text>
+  <text class="ui s" x="46" y="332">they tap "Approve" to make it stop.</text>
+  <text class="ui mono s" x="46" y="356">Signal: many denies, then 1 approve</text>
+  <text class="ui mono s" x="46" y="372">(ATT&amp;CK T1621)</text>
+
+  <rect class="box" x="335" y="266" width="290" height="120" rx="10"/>
+  <text class="ui t" x="351" y="292" style="fill:#fca5a5">SIM swap / interception</text>
+  <text class="ui s" x="351" y="314">Hijack the phone number to steal</text>
+  <text class="ui s" x="351" y="332">SMS codes — why SMS is the</text>
+  <text class="ui s" x="351" y="356">weakest factor. FIDO2 keys resist</text>
+  <text class="ui s" x="351" y="372">this and phishing entirely.</text>
+
+  <rect class="box" x="640" y="266" width="290" height="120" rx="10"/>
+  <text class="ui t" x="656" y="292" style="fill:#fca5a5">Token theft (bypass, not break)</text>
+  <text class="ui s" x="656" y="314">Steal the session cookie AFTER MFA</text>
+  <text class="ui s" x="656" y="332">succeeded, and replay it — no second</text>
+  <text class="ui s" x="656" y="356">prompt needed. Signal: same session</text>
+  <text class="ui s" x="656" y="372">token from a new device/geo.</text>
+
+  <text class="ui s" x="30" y="414" style="fill:#64748b">Takeaway: MFA turns a stolen password from "game over" into "not enough" — but it is a wall to climb, not a force field. Watch the wall.</text>
+</svg>
