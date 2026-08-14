@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="The SIEM pipeline from log sources through ingestion, normalization, correlation, and alerting to triage and SOAR automation, with one uncollected source shown as a blind spot.">
+  <title>The SIEM pipeline — and the blind spot you cannot query around</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .src{fill:#0e1b30;stroke:#22d3ee;stroke-width:1.5;} .blind{fill:#26100f;stroke:#f87171;stroke-width:1.5;stroke-dasharray:5 4;}
+      .stage{fill:#0e1b30;stroke:#334155;stroke-width:1.5;} .soar{fill:#241a06;stroke:#fbbf24;stroke-width:1.5;} .tri{fill:#0e2018;stroke:#22c55e;stroke-width:1.5;}
+      .t{fill:#e2e8f0;font-size:11.5px;font-weight:700;} .s{fill:#94a3b8;font-size:10px;} .red{fill:#fca5a5;font-size:10px;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;}
+      .flow{stroke:#475569;stroke-width:2;fill:none;marker-end:url(#a);}
+    </style>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="400"/>
+  <text class="ui head" x="30" y="28">THE SIEM PIPELINE: RAW LOGS → SEARCHABLE ALERTS → AUTOMATED FIRST RESPONSE</text>
+
+  <!-- sources -->
+  <text class="ui head" x="30" y="58" style="font-size:10px">SOURCES</text>
+  <rect class="src" x="24" y="66" width="150" height="30" rx="6"/><text class="ui s" x="34" y="86" style="font-weight:700;fill:#e2e8f0">Endpoints / EDR</text>
+  <rect class="src" x="24" y="102" width="150" height="30" rx="6"/><text class="ui s" x="34" y="122" style="font-weight:700;fill:#e2e8f0">Firewall / proxy</text>
+  <rect class="src" x="24" y="138" width="150" height="30" rx="6"/><text class="ui s" x="34" y="158" style="font-weight:700;fill:#e2e8f0">Cloud / identity</text>
+  <rect class="blind" x="24" y="174" width="150" height="34" rx="6"/><text class="ui red" x="34" y="190" style="font-weight:700">VPN appliance</text><text class="ui red" x="34" y="203">NOT collected → blind</text>
+
+  <!-- pipeline stages -->
+  <rect class="stage" x="220" y="96" width="120" height="82" rx="8"/><text class="ui t" x="280" y="128" text-anchor="middle">Ingest</text><text class="ui s" x="280" y="146" text-anchor="middle">collect &amp;</text><text class="ui s" x="280" y="160" text-anchor="middle">forward</text>
+  <rect class="stage" x="360" y="96" width="120" height="82" rx="8"/><text class="ui t" x="420" y="122" text-anchor="middle">Normalize</text><text class="ui s" x="420" y="140" text-anchor="middle">raw → fields</text><text class="ui s" x="420" y="156" text-anchor="middle">(parse/map)</text>
+  <rect class="stage" x="500" y="96" width="130" height="82" rx="8"/><text class="ui t" x="565" y="122" text-anchor="middle">Correlate</text><text class="ui s" x="565" y="140" text-anchor="middle">detection rules</text><text class="ui s" x="565" y="156" text-anchor="middle">+ correlation</text>
+  <rect class="tri" x="650" y="96" width="120" height="82" rx="8"/><text class="ui t" x="710" y="122" text-anchor="middle" style="fill:#86efac">Alert</text><text class="ui s" x="710" y="140" text-anchor="middle">a human</text><text class="ui s" x="710" y="156" text-anchor="middle">triages</text>
+  <rect class="soar" x="790" y="96" width="146" height="82" rx="8"/><text class="ui t" x="863" y="118" text-anchor="middle" style="fill:#fcd34d">SOAR</text><text class="ui s" x="863" y="136" text-anchor="middle">auto-enrich &amp;</text><text class="ui s" x="863" y="152" text-anchor="middle">respond via</text><text class="ui s" x="863" y="168" text-anchor="middle">playbooks</text>
+
+  <line class="flow" x1="174" y1="117" x2="218" y2="130"/>
+  <line class="flow" x1="174" y1="153" x2="218" y2="140"/>
+  <line class="flow" x1="340" y1="137" x2="358" y2="137"/>
+  <line class="flow" x1="480" y1="137" x2="498" y2="137"/>
+  <line class="flow" x1="630" y1="137" x2="648" y2="137"/>
+  <line class="flow" x1="770" y1="137" x2="788" y2="137"/>
+  <!-- blind source has no arrow in -->
+  <text class="ui red" x="182" y="195" style="font-size:9px">✗ no path in</text>
+
+  <!-- two panels -->
+  <rect class="stage" x="24" y="238" width="450" height="138" rx="10"/>
+  <text class="ui head" x="40" y="262">DETECTION-AS-CODE (Sigma)</text>
+  <text class="ui s" x="40" y="286">Rules are written once in a vendor-neutral format (Sigma),</text>
+  <text class="ui s" x="40" y="304">version-controlled in git, reviewed, and tested — then</text>
+  <text class="ui s" x="40" y="322">converted to KQL / SPL / Elastic for your SIEM. You share</text>
+  <text class="ui s" x="40" y="340">and inherit community rules instead of re-writing each.</text>
+  <text class="ui s" x="40" y="360" style="fill:#67e8f9;font-weight:700">Detections become code: portable, reviewed, repeatable.</text>
+
+  <rect class="blind" x="490" y="238" width="446" height="138" rx="10"/>
+  <text class="ui head" x="506" y="262" style="fill:#fca5a5">THE COVERAGE TRUTH</text>
+  <text class="ui s" x="506" y="286">The best rules in the world cannot fire on a log you never</text>
+  <text class="ui s" x="506" y="304">collected. The un-onboarded VPN appliance is a blind spot —</text>
+  <text class="ui red" x="506" y="322">no skill queries around a source that was never ingested.</text>
+  <text class="ui s" x="506" y="344">"You can't detect what you don't collect." A visibility gap</text>
+  <text class="ui s" x="506" y="362">is itself a finding — it names exactly where you are defenceless.</text>
+</svg>

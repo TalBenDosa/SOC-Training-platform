@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-label="How inbound email is checked against SPF, DKIM, and DMARC to detect spoofing, and what happens when the checks pass or fail.">
+  <title>SPF, DKIM, DMARC — the three checks that catch a spoofed sender</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .card{fill:#0e1b30;stroke:#334155;stroke-width:1.5;} .chk{fill:#0e1b30;stroke:#22d3ee;stroke-width:1.5;}
+      .pass{fill:#0e2018;stroke:#22c55e;stroke-width:2;} .fail{fill:#26100f;stroke:#f87171;stroke-width:2;}
+      .t{fill:#e2e8f0;font-size:12px;font-weight:700;} .s{fill:#94a3b8;font-size:10.5px;} .green{fill:#86efac;font-size:11px;} .red{fill:#fca5a5;font-size:11px;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;} .cy{fill:#67e8f9;font-size:11px;font-weight:700;}
+      .flow{stroke:#475569;stroke-width:2;fill:none;marker-end:url(#a);}
+    </style>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#475569"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="420"/>
+  <text class="ui head" x="30" y="30">INBOUND EMAIL RUNS THREE CHECKS BEFORE YOU TRUST THE 'FROM'</text>
+
+  <rect class="card" x="24" y="52" width="150" height="70" rx="8"/>
+  <text class="ui t" x="40" y="78">Inbound email</text>
+  <text class="ui mono s" x="40" y="98">From: ceo@bank.com</text>
+  <text class="ui mono s" x="40" y="113">via IP 185.4.2.9</text>
+
+  <rect class="chk" x="220" y="46" width="216" height="88" rx="8"/>
+  <text class="ui cy" x="236" y="70">1 · SPF</text>
+  <text class="ui s" x="236" y="90">Is the sending IP on bank.com's</text>
+  <text class="ui s" x="236" y="106">published list of allowed senders?</text>
+  <text class="ui s" x="236" y="124" style="fill:#64748b">(DNS TXT record for the domain)</text>
+
+  <rect class="chk" x="220" y="146" width="216" height="88" rx="8"/>
+  <text class="ui cy" x="236" y="170">2 · DKIM</text>
+  <text class="ui s" x="236" y="190">Is the cryptographic signature on</text>
+  <text class="ui s" x="236" y="206">the message valid + unaltered?</text>
+  <text class="ui s" x="236" y="224" style="fill:#64748b">(public key in DNS)</text>
+
+  <rect class="chk" x="220" y="246" width="216" height="96" rx="8"/>
+  <text class="ui cy" x="236" y="270">3 · DMARC</text>
+  <text class="ui s" x="236" y="290">Do SPF/DKIM ALIGN with the visible</text>
+  <text class="ui s" x="236" y="306">From domain — and what policy if not?</text>
+  <text class="ui s" x="236" y="326" style="fill:#64748b">(p=none / quarantine / reject)</text>
+
+  <line class="flow" x1="174" y1="87" x2="218" y2="90"/>
+  <line class="flow" x1="174" y1="97" x2="218" y2="190"/>
+  <line class="flow" x1="174" y1="107" x2="218" y2="292"/>
+
+  <!-- outcomes -->
+  <rect class="pass" x="500" y="70" width="200" height="96" rx="10"/>
+  <text class="ui green" x="516" y="96" style="font-weight:700">ALL PASS + ALIGN</text>
+  <text class="ui s" x="516" y="118">The sender is genuinely who the</text>
+  <text class="ui s" x="516" y="134">From claims. Deliver to inbox.</text>
+  <text class="ui green" x="516" y="156">Identity verified.</text>
+
+  <rect class="fail" x="500" y="200" width="200" height="120" rx="10"/>
+  <text class="ui red" x="516" y="226" style="font-weight:700">DMARC FAIL</text>
+  <text class="ui s" x="516" y="248">IP not authorised / signature bad /</text>
+  <text class="ui s" x="516" y="264">From doesn't align → likely SPOOFED.</text>
+  <text class="ui s" x="516" y="284">Policy decides: quarantine or reject.</text>
+  <text class="ui red" x="516" y="306">This is how 'ceo@bank.com' fakes are caught.</text>
+
+  <rect class="card" x="730" y="70" width="206" height="250" rx="10"/>
+  <text class="ui head" x="746" y="96">FOR THE ANALYST</text>
+  <text class="ui s" x="746" y="120">The email headers record each</text>
+  <text class="ui s" x="746" y="136">result: look for</text>
+  <text class="ui mono s" x="746" y="158" style="fill:#67e8f9">spf=fail</text>
+  <text class="ui mono s" x="746" y="176" style="fill:#67e8f9">dkim=fail</text>
+  <text class="ui mono s" x="746" y="194" style="fill:#67e8f9">dmarc=fail</text>
+  <text class="ui s" x="746" y="218">on a phishing report — strong</text>
+  <text class="ui s" x="746" y="234">evidence of spoofing.</text>
+  <text class="ui s" x="746" y="262" style="fill:#fca5a5">But BEWARE: these check the</text>
+  <text class="ui s" x="746" y="278" style="fill:#fca5a5">DOMAIN, not intent. A real</text>
+  <text class="ui s" x="746" y="294" style="fill:#fca5a5">lookalike domain can PASS all</text>
+  <text class="ui s" x="746" y="310" style="fill:#fca5a5">three — pass is not innocence.</text>
+
+  <text class="ui s" x="30" y="404">SPF = which servers may send  ·  DKIM = a tamper-proof signature  ·  DMARC = tie them to the visible From + set the policy. Together they authenticate the sending DOMAIN.</text>
+</svg>
