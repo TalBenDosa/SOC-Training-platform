@@ -196,6 +196,7 @@ function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }
   const diffCls = DIFF_COLORS[lesson.difficulty] ?? DIFF_COLORS.intermediate;
   const tags     = tagsForLesson(lesson);
   const pages    = lesson.sections.length + 1; // intro + sections
+  const isExpanded = pages >= 8;               // deepened lessons carry extended depth
 
   return (
     <button
@@ -207,9 +208,17 @@ function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }
         <h3 className="text-base font-bold leading-snug line-clamp-3 transition-colors text-white group-hover:text-cyan-100">
           {lesson.title}
         </h3>
-        <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap shrink-0 mt-0.5 ${diffCls}`}>
-          {capitalize(lesson.difficulty)}
-        </span>
+        <div className="flex flex-col items-end gap-1 shrink-0 mt-0.5">
+          <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap ${diffCls}`}>
+            {capitalize(lesson.difficulty)}
+          </span>
+          {isExpanded && (
+            <span className="flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap text-emerald-300">
+              <Layers className="h-3 w-3" />
+              Expanded
+            </span>
+          )}
+        </div>
       </div>
 
       {/* description */}
