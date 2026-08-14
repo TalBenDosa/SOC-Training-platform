@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="What EDR sees on a managed endpoint, how attackers try to blind the sensor, and the blind spots EDR structurally cannot cover.">
+  <title>EDR — what it sees, how attackers blind it, and where it is structurally blind</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .see{fill:#0e2018;stroke:#22c55e;stroke-width:1.5;} .evade{fill:#241a06;stroke:#fbbf24;stroke-width:1.5;} .blind{fill:#26100f;stroke:#f87171;stroke-width:1.5;}
+      .t{fill:#e2e8f0;font-size:12px;font-weight:700;} .s{fill:#94a3b8;font-size:10.5px;}
+      .green{fill:#86efac;font-size:10.5px;} .gold{fill:#fcd34d;font-size:10.5px;} .red{fill:#fca5a5;font-size:10.5px;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;}
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="400"/>
+  <text class="ui head" x="30" y="30">EDR IS POWERFUL ON A MANAGED ENDPOINT — BUT NOT OMNISCIENT</text>
+
+  <rect class="see" x="24" y="48" width="290" height="316" rx="10"/>
+  <text class="ui t green" x="40" y="74" style="font-size:13px">✓ WHAT EDR SEES</text>
+  <text class="ui s" x="40" y="100">On a host where the agent is installed:</text>
+  <text class="ui green" x="40" y="126">• Process creation + full command line</text>
+  <text class="ui green" x="40" y="146">• Parent-child process tree</text>
+  <text class="ui green" x="40" y="166">• File writes / reads / deletes</text>
+  <text class="ui green" x="40" y="186">• Registry changes</text>
+  <text class="ui green" x="40" y="206">• Network connections the host makes</text>
+  <text class="ui green" x="40" y="226">• DLL/module loads, memory access</text>
+  <text class="ui green" x="40" y="246">• Logons on that endpoint</text>
+  <text class="ui s" x="40" y="278">This deep telemetry is why EDR beats</text>
+  <text class="ui s" x="40" y="296">signature antivirus — it records</text>
+  <text class="ui s" x="40" y="314">behaviour, enabling detection AND</text>
+  <text class="ui s" x="40" y="332">investigation after the fact.</text>
+
+  <rect class="evade" x="332" y="48" width="290" height="316" rx="10"/>
+  <text class="ui t gold" x="348" y="74" style="font-size:13px">⚠ HOW ATTACKERS BLIND IT</text>
+  <text class="ui s" x="348" y="100">The sensor is software on a machine</text>
+  <text class="ui s" x="348" y="116">they may control, so they attack it:</text>
+  <text class="ui gold" x="348" y="142">• Tamper / kill the agent (blocked by</text>
+  <text class="ui gold" x="364" y="158">tamper protection — watch for tries)</text>
+  <text class="ui gold" x="348" y="180">• Unhooking: undo the sensor's</text>
+  <text class="ui gold" x="364" y="196">userland hooks to run unseen</text>
+  <text class="ui gold" x="348" y="218">• BYOVD: bring a vulnerable signed</text>
+  <text class="ui gold" x="364" y="234">driver to kill the agent from kernel</text>
+  <text class="ui gold" x="348" y="256">• Run BEFORE the agent loads at boot</text>
+  <text class="ui s" x="348" y="286">The tell is often the attempt itself:</text>
+  <text class="ui s" x="348" y="304">a sensor going offline, a tamper</text>
+  <text class="ui s" x="348" y="322">alert, or a known-vulnerable driver</text>
+  <text class="ui s" x="348" y="340">loading is a high-signal event.</text>
+
+  <rect class="blind" x="640" y="48" width="296" height="316" rx="10"/>
+  <text class="ui t red" x="656" y="74" style="font-size:13px">✗ STRUCTURAL BLIND SPOTS</text>
+  <text class="ui s" x="656" y="100">Places EDR simply isn't:</text>
+  <text class="ui red" x="656" y="126">• Unmanaged devices — no agent, no</text>
+  <text class="ui red" x="672" y="142">telemetry (BYOD, IoT, printers)</text>
+  <text class="ui red" x="656" y="164">• Network-only attacks between hosts</text>
+  <text class="ui red" x="672" y="180">it doesn't cover (needs NDR)</text>
+  <text class="ui red" x="656" y="202">• Cloud / SaaS / identity plane</text>
+  <text class="ui red" x="672" y="218">(needs cloud + identity logs)</text>
+  <text class="ui red" x="656" y="240">• Encrypted payloads it can't inspect</text>
+  <text class="ui red" x="656" y="262">• Firmware / below-the-OS</text>
+  <text class="ui s" x="656" y="292">This is why EDR is one sensor, not</text>
+  <text class="ui s" x="656" y="310">the whole picture — and why XDR</text>
+  <text class="ui s" x="656" y="328">correlates it with network, cloud,</text>
+  <text class="ui s" x="656" y="346">email, and identity telemetry.</text>
+</svg>
