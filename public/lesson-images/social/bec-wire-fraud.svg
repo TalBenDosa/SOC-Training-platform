@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" role="img" aria-label="The flow of a Business Email Compromise wire-fraud attack from reconnaissance to money transfer, and the signals an analyst uses to catch it.">
+  <title>Business Email Compromise (BEC): a malware-free wire-fraud flow</title>
+  <defs>
+    <style>
+      .bg   { fill: #0b0f1e; }
+      .ui   { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .step { fill: #0e1b30; stroke: #334155; stroke-width: 1.5; }
+      .att  { fill: #26100f; stroke: #f87171; stroke-width: 1.5; }
+      .money{ fill: #241a06; stroke: #fbbf24; stroke-width: 2; }
+      .n    { fill: #f87171; font-size: 12px; font-weight: 700; }
+      .t    { fill: #e2e8f0; font-size: 12.5px; font-weight: 700; }
+      .s    { fill: #94a3b8; font-size: 10.5px; }
+      .gold { fill: #fcd34d; font-size: 12px; font-weight: 700; }
+      .det  { fill: #86efac; font-size: 10.5px; }
+      .head { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .05em; }
+      .flow { stroke: #f87171; stroke-width: 2; fill: none; marker-end: url(#a); }
+    </style>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f87171"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="430"/>
+  <text class="ui head" x="30" y="30">BEC: NO MALWARE, NO LINK — JUST A CONVINCING EMAIL AND A WIRE TRANSFER</text>
+
+  <rect class="att" x="24" y="52" width="210" height="128" rx="10"/>
+  <text class="ui n" x="40" y="76">1 · RESEARCH (OSINT)</text>
+  <text class="ui s" x="40" y="98">Attacker learns the CFO's name,</text>
+  <text class="ui s" x="40" y="114">who approves payments, an active</text>
+  <text class="ui s" x="40" y="130">supplier, and the finance rhythm —</text>
+  <text class="ui s" x="40" y="146">from LinkedIn, the website, leaks.</text>
+  <text class="ui s" x="40" y="168" style="fill:#64748b">T1591 · T1598</text>
+
+  <rect class="att" x="258" y="52" width="210" height="128" rx="10"/>
+  <text class="ui n" x="274" y="76">2 · SPOOF / LOOKALIKE</text>
+  <text class="ui s" x="274" y="98">Email that looks like the CEO:</text>
+  <text class="ui mono s" x="274" y="116">ceo@compаny.co  (rn/vv/аdomain)</text>
+  <text class="ui s" x="274" y="134">or a real, hijacked mailbox. The</text>
+  <text class="ui s" x="274" y="150">Reply-To quietly points elsewhere.</text>
+
+  <rect class="att" x="492" y="52" width="210" height="128" rx="10"/>
+  <text class="ui n" x="508" y="76">3 · PRESSURE</text>
+  <text class="ui s" x="508" y="98">"Urgent &amp; confidential — close a</text>
+  <text class="ui s" x="508" y="114">deal today. Don't call, I'm in a</text>
+  <text class="ui s" x="508" y="130">meeting. Wire to this new account."</text>
+  <text class="ui s" x="508" y="150">Authority + urgency + secrecy.</text>
+
+  <rect class="money" x="726" y="52" width="210" height="128" rx="10"/>
+  <text class="ui gold" x="742" y="76">4 · THE TRANSFER</text>
+  <text class="ui s" x="742" y="98">Employee wires funds to the</text>
+  <text class="ui s" x="742" y="114">attacker's "new banking details."</text>
+  <text class="ui s" x="742" y="130">Money is gone within hours,</text>
+  <text class="ui s" x="742" y="146">often overseas. No malware fired.</text>
+  <text class="ui gold" x="742" y="168">FBI IC3: the #1 loss by $</text>
+
+  <line class="flow" x1="234" y1="116" x2="256" y2="116"/>
+  <line class="flow" x1="468" y1="116" x2="490" y2="116"/>
+  <line class="flow" x1="702" y1="116" x2="724" y2="116"/>
+
+  <text class="ui head" x="30" y="230">WHY IT'S HARD — AND WHAT ACTUALLY CATCHES IT</text>
+  <rect class="step" x="24" y="246" width="290" height="150" rx="10"/>
+  <text class="ui t" x="40" y="270">The signals in the email</text>
+  <text class="ui det" x="40" y="292">• Lookalike / cousin domain (compаny)</text>
+  <text class="ui det" x="40" y="310">• Reply-To ≠ From address</text>
+  <text class="ui det" x="40" y="328">• "external sender" on a supposed</text>
+  <text class="ui det" x="40" y="344">   internal exec</text>
+  <text class="ui det" x="40" y="362">• First-time sender / new domain age</text>
+  <text class="ui det" x="40" y="380">• Urgency + secrecy + payment change</text>
+
+  <rect class="step" x="330" y="246" width="290" height="150" rx="10"/>
+  <text class="ui t" x="346" y="270">The variants to know</text>
+  <text class="ui det" x="346" y="292">• CEO fraud — fake exec, urgent wire</text>
+  <text class="ui det" x="346" y="310">• Vendor/invoice fraud (VEC) — "our</text>
+  <text class="ui det" x="346" y="326">   bank changed, pay here now"</text>
+  <text class="ui det" x="346" y="344">• Payroll diversion — change my</text>
+  <text class="ui det" x="346" y="360">   direct-deposit account</text>
+  <text class="ui det" x="346" y="380">• Gift-card scam — smaller, faster</text>
+
+  <rect class="step" x="636" y="246" width="300" height="150" rx="10"/>
+  <text class="ui t" x="652" y="270">The control that beats it</text>
+  <text class="ui det" x="652" y="292">Not a technical fix — a PROCESS:</text>
+  <text class="ui det" x="652" y="312">out-of-band verification. Any change</text>
+  <text class="ui det" x="652" y="330">to banking details or urgent wire is</text>
+  <text class="ui det" x="652" y="348">confirmed by calling a KNOWN number</text>
+  <text class="ui det" x="652" y="366">(never one from the email). Because</text>
+  <text class="ui det" x="652" y="384">there is no malware, the human is the sensor.</text>
+</svg>
