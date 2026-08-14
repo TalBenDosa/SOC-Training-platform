@@ -1964,6 +1964,315 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 34,
   "researchUsed": false,
   "createdAt": "2026-08-14T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-core-protocols-beginners",
+  "slug": "core-protocols-every-analyst-should-know",
+  "title": "Core Protocols Explained: DNS, DHCP, SSH, SMB, SPF & DKIM",
+  "topic": "Networking",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Every action on a network is a conversation, and protocols are the languages those conversations are spoken in. When a laptop joins the office Wi-Fi, opens a website, logs into a server, saves a file to a shared drive, or receives an email, a different protocol is doing the talking behind the scenes. This lesson is a beginner-friendly, plain-language tour of six protocols a SOC analyst meets every single day: DNS, DHCP, SSH, SMB, SPF, and DKIM. For each one you will learn exactly what it does, what its job is, and — most importantly — who does what and when. No prior networking background is assumed; we build every idea from a real-life picture first.",
+  "sections": [
+    {
+      "heading": "What a Protocol Actually Is",
+      "content": "A **protocol** is simply an agreed set of rules for how two computers talk to each other. Think of two people on a phone call. Before any real conversation happens, they both follow an unwritten routine: one says \"Hello?\", the other answers, they take turns, they say \"bye\" at the end. If one person spoke Japanese and the other only French, nothing would work. A protocol is that shared routine and shared language, written down precisely so that any two machines — built by different companies, running different software — can still understand each other perfectly.\n\nTwo ideas will come up again and again, so let us pin them down now.\n\n**Client and server.** In most conversations one side asks and the other answers. The side that starts the request is the **client** (your laptop asking for a web page). The side that waits and responds is the **server** (the machine that holds the web page). The same computer can be a client in one conversation and a server in another.\n\n**Ports.** A single server can run many services at once — email, web, file sharing — all on the same IP address. So how does an incoming request know which service to reach? Through a **port number**, which works like a labelled door on a building. The building is the computer (its IP address); the doors are the ports. Web traffic knocks on one door (port 443), email on another, file sharing on another. Each protocol in this lesson has its own well-known door number, and memorising those numbers is one of the fastest ways to read network logs fluently.\n\nWhy does an analyst care about protocols at all? Because **every protocol leaves a trail**, and **attackers must use protocols too**. An attacker stealing files still speaks the file-sharing protocol; a phisher still sends email that either passes or fails the email-authentication protocols. When you understand the normal, polite version of each conversation, the abnormal version — the intruder — stands out. The rest of this lesson walks through six of those conversations, one at a time.\n\n| Protocol | Its one-line job | Well-known port |\n|----------|------------------|-----------------|\n| DNS | Turn names into IP addresses | 53 |\n| DHCP | Hand out network settings automatically | 67 / 68 |\n| SSH | Log into a remote machine securely | 22 |\n| SMB | Share files and printers (mainly Windows) | 445 |\n| SPF | Say which servers may send your email | (published in DNS) |\n| DKIM | Cryptographically sign an email | (published in DNS) |"
+    },
+    {
+      "heading": "DNS — The Internet's Phonebook",
+      "content": "**DNS** stands for **Domain Name System**, and its job is the simplest to describe: it turns a name you can remember into a number the network can use. Humans like names such as `www.example.com`; computers route traffic using **IP addresses** such as `93.184.216.34`. DNS is the translator between the two. The real-life picture is an old paper phonebook: you know a person's name, you look them up, you get their phone number. DNS is the phonebook of the internet, and it answers on **port 53**.\n\n**What it does.** Before your browser can load a website, it must find out the site's IP address. It asks DNS, \"What is the address for `www.example.com`?\" and DNS answers with an IP. Only then does the actual connection begin. This lookup happens constantly and invisibly — every website, app, and update check triggers DNS first.\n\n**Who does what, and when.** Several players cooperate, in order:\n\n1. **The client (your device)** asks its configured **DNS resolver** — usually run by your company or your internet provider — \"What is the IP for this name?\" This happens the moment you click a link or an app phones home.\n2. **The resolver** does the legwork. If it does not already know the answer (from a recent lookup it **cached**), it asks a chain of servers: a **root server** points it toward the right **TLD server** (the one responsible for `.com`), which points it to the domain's **authoritative server** (the one that officially holds `example.com`'s records).\n3. **The authoritative server** gives the final answer — the IP address.\n4. **The resolver** hands that IP back to your device and remembers it for a while (the record's **TTL**, or time-to-live) so the next lookup is instant.\n\nThe whole round trip usually takes a few milliseconds. The key mental model: your device asks once, and a resolver quietly walks a chain of directories on your behalf.\n\n**Why the SOC cares.** Because DNS runs before almost every connection, it is a goldmine and a target. Malware must look up its **command-and-control** server's name, so suspicious or newly-registered domains in DNS logs are an early warning. Attackers also abuse DNS to smuggle data out in tiny pieces (**DNS tunnelling**), or generate thousands of random-looking domain names (a **DGA**, domain generation algorithm) to stay reachable. An analyst who watches DNS sees intentions before the payload even lands."
+    },
+    {
+      "heading": "DHCP — The Automatic Address Desk",
+      "content": "**DHCP** stands for **Dynamic Host Configuration Protocol**. Its job is to hand a device everything it needs to work on a network the instant it connects — automatically, with no human typing in settings. The real-life picture is a hotel check-in desk: you arrive, the receptionist assigns you a room number, tells you the Wi-Fi password and how to reach the front desk, and gives you the room for a set number of nights. DHCP is that receptionist for computers.\n\n**What it does.** When a laptop joins a network, it does not yet have an IP address or know how to reach the internet. DHCP gives it four essentials: an **IP address** (its identity on the network), a **subnet mask** (which nearby addresses are local), a **default gateway** (the door out to the rest of the network), and one or more **DNS server** addresses (so it can then do the phonebook lookups from the previous section). All of this is leased for a limited time.\n\n**Who does what, and when.** The exchange happens in four quick steps the moment a device connects, often remembered by the word **DORA**:\n\n1. **Discover** — the new device shouts to the whole local network, \"Is there a DHCP server out there? I need settings.\" It has no address yet, so this is a broadcast.\n2. **Offer** — a **DHCP server** replies, \"Here is an address you can use, plus the gateway and DNS.\"\n3. **Request** — the device says, \"Yes please, I will take that offered address.\"\n4. **Acknowledge** — the server confirms, \"It's yours,\" and records the **lease** (which address went to which device, and for how long).\n\nThe server listens on **port 67** and the client on **port 68**. The lease is temporary; before it expires the device renews it, which is why the same laptop might keep one address for days or get a new one after a long weekend.\n\n**Why the SOC cares.** DHCP logs are the map from an **IP address to an actual device** at a moment in time. Alerts usually name an IP, but IPs get reused, so to answer \"which machine was `10.4.2.17` at 2 a.m.?\" you check the DHCP lease records. Analysts also watch for a **rogue DHCP server** — an unauthorised device handing out settings to hijack traffic — and for unexpected devices suddenly requesting leases, which can reveal something new (and unwanted) plugged into the network."
+    },
+    {
+      "heading": "SSH — The Secure Remote Control",
+      "content": "**SSH** stands for **Secure Shell**. Its job is to let a person (or a script) log into and control another computer over the network, with the entire conversation encrypted so no eavesdropper can read it. The real-life picture is a secure remote control for a machine sitting somewhere else — a server in a data centre, a cloud host — as if you were typing directly at its keyboard, except everything travelling between you and it is scrambled. SSH listens on **port 22**.\n\n**What it does.** Administrators use SSH every day to manage servers they will never physically touch: running commands, editing configuration, restarting services, copying files. Crucially, SSH replaced older tools like Telnet precisely because Telnet sent everything — including passwords — as plain readable text. SSH encrypts the whole session, so even someone capturing the traffic sees only gibberish.\n\n**Who does what, and when.** SSH is a classic client/server conversation:\n\n1. **The client** (the admin's laptop) opens a connection to **the server** on port 22 and says, in effect, \"I want to log in.\"\n2. **The two sides agree on encryption.** Before any password or command is sent, they perform a **handshake** that sets up a shared secret, so everything from here on is encrypted.\n3. **The client proves who it is** in one of two ways. Either with a **password**, or — far more securely — with a **key pair**: the client holds a secret **private key**, the server holds the matching **public key**, and the client proves it owns the private key without ever sending it. Key-based login is the professional standard.\n4. **Once authenticated**, the admin gets a shell and works on the remote machine until they log out.\n\nThis typically happens whenever a human or an automated job needs to administer a remote system — often many times a day in any real environment.\n\n**Why the SOC cares.** Because SSH grants full control of a machine, it is a prime target and a prime tool for attackers. A flood of failed logins on port 22 is a **brute-force** attempt to guess a password. An SSH connection from an unusual source — a workstation that never normally administers servers, or a login from a foreign country at 3 a.m. — can signal a compromised account. Attackers also use SSH to **tunnel** through a foothold and reach deeper systems (**pivoting**). Successful and failed SSH logins are among the highest-value events an analyst reviews."
+    },
+    {
+      "heading": "SMB — The Shared Office Filing Cabinet",
+      "content": "**SMB** stands for **Server Message Block**. Its job is to let computers — overwhelmingly Windows computers — share files and printers across a network as if the remote folder were sitting on your own machine. The real-life picture is a shared office filing cabinet: many people, from their own desks, open the same cabinet, read documents, drop new ones in, and send jobs to the shared printer down the hall. SMB is what makes that shared drive (`\\\\FILESERVER\\HR`) appear as just another folder. It runs on **port 445**.\n\n**What it does.** When you open a network drive at work, copy a report to a team folder, or print to the office printer, SMB is carrying that traffic. A server offers **shares** (named folders or printers it is willing to expose), and clients connect to them, subject to permissions that decide who may read or write. The address format `\\\\server\\share` — a **UNC path** — is the SMB way of naming a shared resource.\n\n**Who does what, and when.** \n\n1. **A server** (a file server, or even an ordinary Windows PC) advertises one or more **shares** and enforces **permissions** on them.\n2. **A client** connects to the server on port 445 and says, \"I want to access this share.\"\n3. **The server checks the user's permissions** and, if allowed, lets the client browse, open, edit, or save files, and use printers.\n4. This happens continuously in day-to-day office work — every time someone touches a network folder or a shared printer.\n\n**Why the SOC cares.** SMB is one of the most heavily abused protocols in serious incidents, because file sharing is also, from an attacker's view, a way to move and spread. Once inside, attackers use SMB for **lateral movement** — copying tools onto other machines and running them (the technique behind tools like PsExec). Ransomware uses SMB to reach and encrypt shared drives across the whole company at once. The infamous **WannaCry** outbreak spread through an SMB vulnerability (**EternalBlue**, MS17-010). For that reason, SMB traffic crossing between network zones, or a single machine suddenly connecting to many others on port 445, is a red flag analysts hunt for."
+    },
+    {
+      "heading": "SPF & DKIM — Proving an Email Is Really From Who It Claims",
+      "content": "The last two protocols solve one specific, painful problem: **anyone can put any name in the \"From\" line of an email.** Nothing in basic email stops an attacker from writing `From: ceo@yourcompany.com` on a message they sent themselves. That forgery — **spoofing** — is the engine behind most phishing and **business email compromise (BEC)**. SPF and DKIM are two independent checks that let the receiving mail server ask, \"Is this message really authorised by the domain it claims to come from?\" Both work by publishing information in **DNS** (remember the phonebook), which the receiver looks up.\n\n**SPF — the guest list at the door.** SPF stands for **Sender Policy Framework**. A domain owner publishes, in DNS, a list of the mail servers that are **allowed to send email for that domain**. The real-life picture is a guest list at an event: the doorman checks whether the arriving server's address is on the list.\n\n- **Who does what, and when:** the domain owner sets up the SPF list once. Then, every time a message arrives, the **receiving mail server** looks up the sending domain's SPF record and checks whether the server that actually delivered the message is on the approved list. If not, SPF **fails** — a strong sign of forgery.\n- SPF's limit: it validates the sending **server**, not the message contents, and it can break when mail is forwarded.\n\n**DKIM — the tamper-proof wax seal.** DKIM stands for **DomainKeys Identified Mail**. When a message leaves the real sender, the sending server adds a **digital signature** calculated from the message using a secret **private key**. The matching **public key** is published in DNS. The real-life picture is a wax seal on a letter: it proves both who sealed it and that no one opened and altered it in transit.\n\n- **Who does what, and when:** the sending server **signs** each outgoing message as it leaves. The **receiving server** fetches the sender's public key from DNS and verifies the signature. If it matches, two things are proven: the message genuinely comes from that domain, and it was **not modified** on the way. If someone tampered with it, the seal breaks and DKIM fails.\n\n**How they fit together (and DMARC).** SPF and DKIM are complementary: SPF checks *where the mail came from*, DKIM checks *that the message is authentic and unaltered*. A third policy, **DMARC**, ties them together — it tells receivers what to do when the checks fail (nothing, quarantine to spam, or reject outright) and requires the authenticated domain to **align** with the visible \"From\" address, closing gaps the other two leave open.\n\n**Why the SOC cares.** When you triage a suspicious email, the message **headers** record the SPF, DKIM, and DMARC results. An email claiming to be from your CEO that shows `spf=fail` and `dkim=fail` is very likely spoofed. Reading these three results is one of the first, fastest moves in phishing investigation."
+    }
+  ],
+  "keyTakeaways": [
+    "A protocol is a shared language and rulebook between computers; each has a well-known port (DNS 53, DHCP 67/68, SSH 22, SMB 445) and leaves logs that reveal both normal work and attacker activity.",
+    "DNS turns names into IP addresses (the phonebook), and DHCP hands new devices their IP, gateway, and DNS settings automatically via the four-step DORA exchange.",
+    "SSH gives encrypted remote control of a machine on port 22 (watch for brute force and unusual logins); SMB shares files and printers on port 445 (watch for lateral movement and ransomware spread).",
+    "SPF (a DNS list of servers allowed to send a domain's mail) and DKIM (a DNS-published cryptographic signature proving the message is authentic and unaltered) together — with DMARC's policy — expose spoofed phishing email; their pass/fail results appear in message headers."
+  ],
+  "quiz": [
+    {
+      "question": "A user reports that a website will not load, and you notice their device never received an answer when it tried to translate the site's name into an address. Which protocol is responsible for that name-to-address translation, and on which well-known port does it operate?",
+      "options": [
+        {
+          "label": "DHCP on port 67, because DHCP is what resolves human-friendly website names into the numeric IP addresses that routers actually use to move traffic.",
+          "value": "a"
+        },
+        {
+          "label": "DNS on port 53, because DNS is the phonebook that translates a name like www.example.com into an IP address before any connection can begin.",
+          "value": "b"
+        },
+        {
+          "label": "SMB on port 445, because file-sharing servers are what hold the mapping between website names and their corresponding numeric internet addresses.",
+          "value": "c"
+        },
+        {
+          "label": "SSH on port 22, because the encrypted remote-login service is what performs name lookups securely on behalf of the connecting client device.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "DNS (Domain Name System) is the protocol that translates names into IP addresses, and it operates on port 53; without a DNS answer the browser has no address to connect to. DHCP hands out network settings, not name resolution. SMB shares files and printers on port 445. SSH provides encrypted remote login on port 22. Only DNS does name-to-address translation."
+    },
+    {
+      "question": "A brand-new laptop is plugged into the office network and, within a second, it has an IP address, a default gateway, and DNS servers — with nobody typing anything in. Which protocol did this, and what is the correct order of its four-step exchange?",
+      "options": [
+        {
+          "label": "DHCP, using the DORA order: Discover, then Offer, then Request, then Acknowledge, so the device asks for settings and the server leases them.",
+          "value": "a"
+        },
+        {
+          "label": "DHCP, using the order Offer, Discover, Acknowledge, Request, where the server speaks first and the client confirms the lease afterwards.",
+          "value": "b"
+        },
+        {
+          "label": "DNS, using a Discover and Acknowledge pair, because the phonebook service is what assigns each new device its address and gateway.",
+          "value": "c"
+        },
+        {
+          "label": "SSH, using an encrypted handshake, because remote-control sessions are what configure a new device's address settings when it first joins.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "DHCP automatically supplies IP address, gateway, and DNS settings using the DORA sequence: Discover (client asks), Offer (server proposes), Request (client accepts), Acknowledge (server confirms and records the lease). Option b lists the steps in the wrong order. DNS resolves names and does not assign addresses. SSH is for encrypted remote login, not address configuration."
+    },
+    {
+      "question": "You are triaging an email that claims to come from your company's CEO, but the message headers show spf=fail and dkim=fail. What do these two failing checks tell you, and why does it matter?",
+      "options": [
+        {
+          "label": "It means the recipient's mailbox is full, because SPF and DKIM are storage checks that confirm whether the server has room to accept the incoming message.",
+          "value": "a"
+        },
+        {
+          "label": "It means the message was delayed in transit, because SPF and DKIM measure how long an email took to travel between the sending and receiving mail servers.",
+          "value": "b"
+        },
+        {
+          "label": "It means the sending server was not authorised for the domain and the message's signature did not verify, strongly suggesting the email is spoofed.",
+          "value": "c"
+        },
+        {
+          "label": "It means the email was successfully encrypted end to end, because passing or failing these checks reflects the strength of the message's transport encryption.",
+          "value": "d"
+        }
+      ],
+      "answer": "c",
+      "explanation": "SPF checks whether the sending server is on the domain's authorised list, and DKIM verifies a cryptographic signature proving the message is authentic and unaltered; both failing means the sender was not authorised and the signature did not verify, a strong indicator of spoofing. The other options invent unrelated meanings: SPF/DKIM have nothing to do with mailbox storage, delivery timing, or transport encryption strength."
+    },
+    {
+      "question": "During an incident you see one workstation suddenly making connections to dozens of other machines on port 445 within a few minutes. Which protocol is in use, and why is this pattern suspicious?",
+      "options": [
+        {
+          "label": "SSH, and it is suspicious because encrypted remote logins should only ever occur between two machines and never involve more than a single destination host.",
+          "value": "a"
+        },
+        {
+          "label": "SMB, and it is suspicious because fanning out to many hosts on 445 fits lateral movement or ransomware spreading across shared drives.",
+          "value": "b"
+        },
+        {
+          "label": "DNS, and it is suspicious because the phonebook service normally answers from a single resolver and should never contact many machines at once.",
+          "value": "c"
+        },
+        {
+          "label": "DHCP, and it is suspicious because address leases are always granted by exactly one server and never involve connections to multiple different hosts.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Port 445 is SMB, the Windows file-and-printer sharing protocol; one machine rapidly connecting to many others on 445 matches lateral movement (spreading tools) or ransomware reaching many shared drives at once, which is why it is a hunted red flag. SSH is port 22, DNS is port 53, and DHCP uses 67/68, so none of those match the port seen, making them incorrect."
+    },
+    {
+      "question": "Why did SSH replace older remote-access tools like Telnet as the standard way to administer servers, and on which port does SSH listen?",
+      "options": [
+        {
+          "label": "Because SSH encrypts the entire session including credentials and commands, whereas Telnet sent everything in readable plain text; SSH listens on port 22.",
+          "value": "a"
+        },
+        {
+          "label": "Because SSH automatically assigns IP addresses to the servers it manages, which Telnet could not do; SSH listens on port 67 for those requests.",
+          "value": "b"
+        },
+        {
+          "label": "Because SSH translates server names into addresses far faster than Telnet ever could; SSH listens on port 53 to perform those lookups.",
+          "value": "c"
+        },
+        {
+          "label": "Because SSH shares files between servers more efficiently than Telnet's method; SSH listens on port 445 to move that shared data.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "SSH became the standard because it encrypts the whole session — passwords and commands included — while Telnet transmitted everything as plain readable text that anyone capturing traffic could steal; SSH listens on port 22. The other options wrongly attribute DHCP's address assignment (port 67), DNS's name resolution (port 53), or SMB's file sharing (port 445) to SSH."
+    }
+  ],
+  "references": [
+    "https://www.cloudflare.com/learning/dns/what-is-dns/",
+    "https://datatracker.ietf.org/doc/html/rfc2131",
+    "https://dmarc.org/overview/",
+    "https://attack.mitre.org/techniques/T1021/002/"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-14T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-kerberos-vs-ntlm",
+  "slug": "kerberos-vs-ntlm-explained",
+  "title": "Kerberos vs NTLM: How Windows Authentication Really Works",
+  "topic": "Windows Security",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "In a Windows network, before you can open a file share, read your email, or log into a server, the system has to answer one question: are you really who you say you are? Windows has two protocols for answering that question — the older NTLM and the modern Kerberos — and understanding the difference between them is one of the most useful things a SOC analyst can learn. The two work in completely different ways: NTLM is a direct challenge-and-response between you and a server, while Kerberos hands out signed tickets from a trusted authority. This lesson explains each one in plain language, lines them up side by side, and shows why the choice between them matters so much when you are hunting for attackers.",
+  "sections": [
+    {
+      "heading": "Two Different Ways to Prove Who You Are",
+      "content": "**Authentication** means proving your identity to a computer so it will let you in. On a Windows domain, two protocols do this job, and they take very different approaches.\n\n**NTLM** (NT LAN Manager) is the older of the two. It works as a direct **challenge and response**: the server you are trying to reach challenges you to prove you know your password, and you respond in a way that proves it without sending the password itself. It is a private back-and-forth between just two parties — you and the server.\n\n**Kerberos** is the modern default, used in Active Directory domains since Windows 2000. Instead of proving yourself to every server separately, you prove yourself **once** to a trusted authority, which then gives you signed **tickets** you can present to any service. It is like the difference between showing your ID to every single doorman in a building (NTLM) versus showing your ID once at the front desk, getting a wristband, and flashing the wristband everywhere else (Kerberos).\n\nA useful real-life analogy runs through the whole lesson:\n\n- **NTLM is a bouncer who phones head office.** You tell the bouncer your name; he gives you a puzzle only the real you could solve; you solve it; he calls head office to confirm your answer is right. Head office knows your secret; the bouncer never does.\n- **Kerberos is a trusted ticket office.** You prove yourself once at the ticket office, which stamps you a master pass. Whenever you want to enter a specific attraction, you swap part of that master pass for a ticket to *that* attraction, and the attraction trusts it because it is stamped by the ticket office everyone already trusts.\n\nBoth protocols end with the same result — you are let in or turned away — but *how* they get there shapes their security, their weaknesses, and the traces they leave in your logs. The next two sections open up each conversation step by step."
+    },
+    {
+      "heading": "NTLM — The Challenge and Response",
+      "content": "**NTLM authenticates you through a three-message challenge-response**, and the crucial trick is that your password is never actually sent across the network. Here is the conversation, step by step.\n\n**Who does what, and when:**\n\n1. **Negotiate.** The **client** (your machine) contacts the **server** and says, \"I want to access you, and here is who I am.\" This begins the moment you try to reach a resource that uses NTLM.\n2. **Challenge.** The **server** replies with a random number called a **challenge** (a nonce) — essentially, \"Prove you know the password by doing some maths with this number.\"\n3. **Response.** The **client** takes that challenge and encrypts it using a value derived from the user's password — the **NT hash** — and sends the result back. Because it used the hash, it proved knowledge of the password without ever transmitting the password.\n4. **Verification.** The server usually cannot check the answer itself, because it does not store everyone's password. So it forwards the challenge and the response to a **Domain Controller**, which *does* hold the secret, over the Netlogon channel. The DC does the same maths and confirms whether the response is correct. On the DC this validation is recorded as **Event ID 4776**.\n\nThat is the whole exchange. Notice three important properties:\n\n- **The password hash *is* the credential.** Whatever proves your identity is derived from the hash, and the hash alone is enough to authenticate. This is the root of the **Pass-the-Hash** attack: if an attacker steals your NT hash from memory, they can authenticate as you *without ever knowing your password*, because NTLM never needed the plaintext.\n- **There is no mutual authentication.** The server proves nothing about itself to you. You have no assurance you are talking to the real server, which opens the door to **NTLM relay** attacks, where an attacker sits in the middle and forwards your response to a different server to log in as you.\n- **No trusted third party is built into the exchange** the way Kerberos uses one; the DC is only consulted to check the answer.\n\nNTLM still exists everywhere as a **fallback**, but these weaknesses are exactly why Microsoft moved to Kerberos as the default — and why NTLM traffic is something analysts watch closely."
+    },
+    {
+      "heading": "Kerberos — Tickets from a Trusted Authority",
+      "content": "**Kerberos replaces repeated password proofs with time-limited, signed tickets issued by a trusted third party.** That third party is the **KDC** (Key Distribution Center), a service that runs on every Active Directory **Domain Controller**. The KDC has two halves: the **Authentication Service (AS)** and the **Ticket Granting Service (TGS)**.\n\n**Who does what, and when:**\n\n1. **Log in once (get a TGT).** When you sign in, your machine proves your identity to the **AS**. Instead of a password hash flying to each server, the AS returns a master pass called a **Ticket Granting Ticket (TGT)**, encrypted so only the KDC can later read it. This request is logged as **Event ID 4768**. The clever part: your proof includes a **timestamp** encrypted with your password-derived key, which is why Kerberos requires clocks to be roughly in sync (within about five minutes).\n2. **Ask for a service ticket.** Later, when you want to reach a specific service — say a file server — your machine presents the TGT back to the **TGS** and says, \"Give me a ticket for this service.\" Services are named by a **Service Principal Name (SPN)**. The TGS issues a **service ticket** for that one service. This request is logged as **Event ID 4769**.\n3. **Present the ticket to the service.** Your machine hands the service ticket to the file server. The server trusts it because it is stamped (encrypted) by the KDC that both sides already trust — the server never has to contact the DC to verify you in real time.\n4. **Mutual authentication.** Unlike NTLM, Kerberos can prove the *server's* identity to the client too, so you know you are talking to the real service and not an impostor.\n\nKey properties to hold onto:\n\n- **A trusted third party (the KDC) vouches for everyone**, so services do not need to validate each login against the DC on the spot.\n- **Tickets are time-limited**, which reduces the window an attacker can reuse them.\n- **Mutual authentication** protects against impostor servers.\n\nThe ticket design is powerful, but it creates its own attack surface. **Kerberoasting** abuses the service-ticket step (4769) to crack service-account passwords offline. **Pass-the-Ticket** reuses a stolen ticket. A **Golden Ticket** forges a TGT after an attacker steals the KDC's master key. Each of these leaves distinct traces — which is exactly why analysts learn the ticket flow."
+    },
+    {
+      "heading": "The Key Differences, Side by Side",
+      "content": "Now that you have seen both conversations, the contrasts become clear. The single biggest difference is the **trust model**: NTLM is a private challenge between two machines with the DC merely checking the answer, while Kerberos is built around a **trusted third party (the KDC)** that issues tickets everyone honours.\n\n| Aspect | NTLM | Kerberos |\n|--------|------|----------|\n| Age / status | Older, legacy fallback | Modern default in AD |\n| Core mechanism | Challenge and response | Tickets from a KDC |\n| Trusted third party | Not part of the exchange (DC only verifies) | Central — the KDC issues everything |\n| Mutual authentication | No (server is not verified) | Yes (both sides verified) |\n| Depends on clock sync | No | Yes (timestamps, ~5 min) |\n| Signature attacks | Pass-the-Hash, NTLM relay | Kerberoasting, Pass-the-Ticket, Golden/Silver Ticket |\n| Key DC event IDs | 4776 | 4768 (TGT), 4769 (service ticket) |\n\nA few of these deserve a second look.\n\n**Mutual authentication** is a genuine security upgrade. Because NTLM never proves the server's identity, an attacker can relay your credentials to a different machine. Kerberos closes that gap by verifying both directions.\n\n**Tickets vs the hash.** In NTLM the password-derived hash is effectively the reusable credential, which is why stealing a hash is so damaging. Kerberos hands out tickets that expire, narrowing the reuse window — though a stolen ticket or a forged Golden Ticket is still dangerous.\n\n**Clock dependency.** Kerberos leans on timestamps to stop replay, so a domain with badly skewed clocks will see Kerberos fail and quietly **fall back to NTLM** — an important operational quirk that also has security consequences, as the next section explains."
+    },
+    {
+      "heading": "When Windows Uses Which — and the SOC Angle",
+      "content": "Windows does not let you pick a protocol by hand for everyday logins; it chooses automatically, and knowing the rule helps you read authentication logs.\n\n**Kerberos is used by default when the conditions are right:** the machine is domain-joined, it can reach a Domain Controller, and it connects to the target **by its hostname** (which lets Windows look up the service's SPN). This covers the majority of normal domain activity.\n\n**NTLM is the fallback, used when Kerberos cannot apply**, such as:\n\n- Connecting to a resource **by IP address** instead of hostname (no SPN to look up).\n- **Workgroup** or non-domain machines, and local-account logins.\n- **Legacy systems** or applications that only speak NTLM.\n- Situations where **no Domain Controller is reachable** or clocks are too far out of sync.\n\n**Why this matters to a SOC analyst.** The mix of Kerberos and NTLM in your logs tells a story, and deviations from the normal mix are a hunting opportunity.\n\n- **A spike in Event 4776 (NTLM validation)** can mean a **brute-force / password-spray** against accounts, or **Pass-the-Hash** activity — especially if you see NTLM authentications where that user or system would normally use Kerberos.\n- **NTLM where you expect Kerberos** is itself a red flag. Attackers sometimes force NTLM (for example, by connecting via IP) precisely because it enables relay and pass-the-hash. Seeing an admin account authenticate over NTLM to a server it usually reaches by name deserves a look.\n- **Kerberos events tell their own story.** A single account requesting service tickets (**4769**) for many different services in a short time is a classic **Kerberoasting** pattern. Unusual TGT requests (**4768**), or tickets used from unexpected hosts, can indicate **Pass-the-Ticket** or a forged ticket.\n\nThe practical takeaway: you do not need to memorise every cryptographic detail, but you should know **which protocol should normally appear where**, and treat the *wrong* one showing up — NTLM in a Kerberos world — as a thread worth pulling. That instinct, grounded in understanding how each protocol actually works, is what turns a wall of 4776/4768/4769 events into a readable narrative of who authenticated, how, and whether it makes sense."
+    }
+  ],
+  "keyTakeaways": [
+    "NTLM is an older challenge-response protocol between a client and a server (the DC only verifies the answer, logged as Event 4776); it has no mutual authentication and treats the password hash as the credential, which enables Pass-the-Hash and NTLM relay.",
+    "Kerberos is the modern AD default: you authenticate once to the KDC to get a TGT (Event 4768), then trade it for time-limited service tickets (Event 4769); it adds mutual authentication and a trusted third party but depends on synchronized clocks.",
+    "Windows uses Kerberos by default when domain-joined and connecting by hostname to a reachable DC, and falls back to NTLM for IP-based connections, workgroups, legacy apps, or when no DC is reachable.",
+    "For a SOC analyst, seeing NTLM where Kerberos is expected, an NTLM (4776) spike, or one account requesting many service tickets (4769) are red flags for Pass-the-Hash, password spray, and Kerberoasting respectively."
+  ],
+  "quiz": [
+    {
+      "question": "A junior analyst asks you what fundamentally distinguishes Kerberos from NTLM in how they authenticate a user. What is the single most important structural difference?",
+      "options": [
+        {
+          "label": "NTLM encrypts network traffic while Kerberos leaves it in plain text, which is why Kerberos is considered the older and less secure of the two protocols.",
+          "value": "a"
+        },
+        {
+          "label": "Kerberos relies on a trusted third party (the KDC) that issues time-limited tickets, whereas NTLM is a direct challenge-response between the client and server.",
+          "value": "b"
+        },
+        {
+          "label": "NTLM requires the client and server clocks to be synchronized within five minutes, while Kerberos works regardless of any time difference between them.",
+          "value": "c"
+        },
+        {
+          "label": "Kerberos sends the user's plaintext password to each server it contacts, while NTLM keeps the password entirely on the domain controller at all times.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The core difference is the trust model: Kerberos uses a trusted third party, the KDC, to issue time-limited tickets, while NTLM is a direct challenge-response between client and server with the DC only verifying the answer. Option a reverses reality and is false. Option c has the clock dependency backwards — it is Kerberos, not NTLM, that needs synchronized clocks. Option d is wrong because neither protocol sends the plaintext password to servers."
+    },
+    {
+      "question": "An attacker steals a user's NT hash from a machine's memory and then successfully authenticates to a file server as that user, without ever learning the actual password. Which protocol's design makes this Pass-the-Hash attack possible, and why?",
+      "options": [
+        {
+          "label": "Kerberos, because its service tickets contain the user's plaintext password, which the attacker extracted directly from the file server's memory.",
+          "value": "a"
+        },
+        {
+          "label": "NTLM, because the password-derived hash is effectively the credential, so possessing the hash is enough to authenticate without the plaintext password.",
+          "value": "b"
+        },
+        {
+          "label": "Kerberos, because the KDC issues a new hash to every service, allowing a stolen hash to be replayed against any server in the domain at will.",
+          "value": "c"
+        },
+        {
+          "label": "NTLM, because it transmits the user's plaintext password across the network in every challenge, letting the attacker capture and reuse it.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Pass-the-Hash works against NTLM because the NT hash is effectively the credential: the challenge is answered using the hash, so an attacker holding the hash can authenticate without ever knowing the plaintext password. Option a is wrong because Kerberos tickets do not contain plaintext passwords. Option c misdescribes how the KDC works. Option d is wrong because NTLM specifically avoids sending the plaintext password over the network — that is the whole point of the hash."
+    },
+    {
+      "question": "While reviewing Domain Controller logs you notice a single user account generating a burst of Event ID 4769 (Kerberos service ticket requests) for many different services in a short window. What attack pattern should you most suspect?",
+      "options": [
+        {
+          "label": "NTLM relay, because 4769 records the moment an attacker forwards a captured NTLM response to a second server to authenticate as the victim.",
+          "value": "a"
+        },
+        {
+          "label": "A password spray over NTLM, because 4769 is the event written each time a single password is tried against many different user accounts.",
+          "value": "b"
+        },
+        {
+          "label": "Kerberoasting, because requesting many service tickets lets an attacker extract them and crack the service accounts' passwords offline.",
+          "value": "c"
+        },
+        {
+          "label": "A Golden Ticket forgery, because 4769 is logged only when an attacker creates a forged TGT using the stolen KDC master key.",
+          "value": "d"
+        }
+      ],
+      "answer": "c",
+      "explanation": "A single account requesting many service tickets (Event 4769) is the classic Kerberoasting pattern: the attacker collects service tickets and cracks the service accounts' passwords offline. Option a is wrong because NTLM relay is an NTLM technique, not a Kerberos 4769 event. Option b describes password spray, which is not what 4769 records. Option d is wrong because 4769 logs service-ticket requests, not TGT forgery, which concerns the TGT (4768) flow."
+    },
+    {
+      "question": "In a healthy Active Directory domain, under which condition will Windows normally fall back to NTLM instead of using Kerberos, and why should that catch an analyst's attention?",
+      "options": [
+        {
+          "label": "When a client connects to a resource by its IP address rather than hostname, because no SPN can be looked up; attackers may force this to enable relay or pass-the-hash.",
+          "value": "a"
+        },
+        {
+          "label": "When the client and the domain controller have perfectly synchronized clocks, because matching timestamps disable Kerberos and require the NTLM fallback instead.",
+          "value": "b"
+        },
+        {
+          "label": "When a user logs into a domain-joined machine by hostname with a reachable DC, because that is precisely the scenario Kerberos is unable to handle.",
+          "value": "c"
+        },
+        {
+          "label": "When the domain controller is fully reachable and healthy, because a working DC always forces every authentication onto the NTLM path by design.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "Connecting by IP address instead of hostname means Windows cannot look up the service's SPN, so it falls back to NTLM; attackers sometimes force NTLM this way to enable relay or pass-the-hash, which is why it warrants attention. Option b is backwards — synchronized clocks help Kerberos, not disable it. Option c describes the exact scenario where Kerberos works, not where it fails. Option d is false because a healthy, reachable DC is what enables Kerberos, not NTLM."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows-server/security/kerberos/kerberos-authentication-overview",
+    "https://learn.microsoft.com/en-us/windows/win32/secauthn/microsoft-ntlm",
+    "https://attack.mitre.org/techniques/T1550/002/",
+    "https://attack.mitre.org/techniques/T1558/003/"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-14T00:00:00.000Z"
 }
 ];
 
