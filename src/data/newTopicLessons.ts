@@ -101,6 +101,194 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 40,
   "researchUsed": false,
   "createdAt": "2026-08-14T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-pth-ptt",
+  "slug": "pass-the-hash-and-pass-the-ticket",
+  "title": "Pass-the-Hash and Pass-the-Ticket: Authenticating Without the Password",
+  "topic": "Active Directory Attacks",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "Two of the most important credential-reuse techniques in Windows attacks share one unsettling idea: the attacker never needs to know the actual password. Instead they steal the cryptographic proof of identity — an NTLM hash or a Kerberos ticket — and replay it directly. This lesson explains how Pass-the-Hash and Pass-the-Ticket work, why they make lateral movement so easy, and how you detect and defend against them.",
+  "sections": [
+    {
+      "heading": "The Core Idea: The Hash or Ticket IS the Credential",
+      "content": "The single concept that unlocks both attacks is this: **Windows authentication does not always require your password — it requires proof that you know it, and that proof can be stolen and reused.** Understanding this dissolves the intuition that stealing a password means cracking it.\n\nWhen you log into Windows, the system does not keep your plaintext password lying around; it keeps a **hash** of it (for NTLM authentication) and issues you **Kerberos tickets** (for Kerberos authentication) that prove you already authenticated. These secrets live in the memory of the **LSASS** process. The crucial fact is that both the hash and the ticket function as **password-equivalents**: the authentication protocols accept them as proof of identity *directly*.\n\nSo an attacker who dumps these secrets from LSASS (the credential-theft you met in the Windows-internals lesson) does not need to crack anything. They simply **replay** the stolen hash or ticket, and the target system authenticates them as the victim. This is why the two attacks are grouped under MITRE ATT&CK **T1550 — Use Alternate Authentication Material**: the attacker uses the *material* that stands in for the password, not the password itself.\n\nTwo consequences follow, and they are what make these techniques so dangerous:\n\n- **Cracking is skipped entirely.** Unlike Kerberoasting or offline password cracking, there is no guessing — the secret is used as-is, instantly. A strong, uncrackable password does not help if its hash or ticket is stolen and replayed.\n- **Stealing the secret needs admin on only ONE machine.** Dumping LSASS requires local admin on a single host. From that one foothold, the attacker harvests every credential that has been used on that machine — and replays them to reach everywhere those accounts can go. This is the engine of lateral movement across a domain."
+    },
+    {
+      "heading": "Pass-the-Hash (T1550.002)",
+      "content": "**Pass-the-Hash (PtH)** targets **NTLM authentication.** When Windows authenticates a user over NTLM, it proves knowledge of the password using the **NTLM hash** of that password — not the plaintext. That design choice is the whole vulnerability: if the protocol only ever uses the hash, then possessing the hash is as good as possessing the password.\n\nThe attack is direct. Having dumped a user's NTLM hash from LSASS on a compromised host, the attacker feeds that hash to a tool (Mimikatz, Impacket's tools, or a built-in via `sekurlsa::pth`) that authenticates to a *remote* system — a file share, a management interface, another workstation — presenting the hash as proof. The remote system runs NTLM authentication, the hash validates, and the attacker is **logged in as the victim** without ever knowing or cracking the password.\n\nWhy this is a lateral-movement powerhouse:\n\n- **Local admin passwords are the classic target.** If every machine shares the *same* local administrator password (and therefore the same hash), a single dumped hash unlocks the entire fleet via PtH — which is exactly the problem Microsoft's **LAPS** (unique per-machine local-admin passwords) was built to solve.\n- **Privileged domain accounts are worse.** A domain admin's hash, harvested from any machine they logged into, lets the attacker Pass-the-Hash straight to domain-wide control — which is why tiering (keeping domain-admin logons off ordinary workstations) matters so much.\n\nThe defining detection idea is that PtH produces **NTLM authentication** where you might otherwise expect Kerberos. In a modern, Kerberos-first domain, a burst of NTLM logons — especially between workstations, or to sensitive systems, using privileged accounts — is anomalous, and the domain controller records NTLM credential validation as **Event 4776**. PtH also surfaces as **4624 type 3 (network) logons** followed by **4672 (special privileges)** on the target when a privileged hash is replayed."
+    },
+    {
+      "heading": "Pass-the-Ticket (T1550.003)",
+      "content": "**Pass-the-Ticket (PtT)** is the Kerberos equivalent: instead of a hash, the attacker steals and replays a **Kerberos ticket.** Recall from the authentication lessons that Kerberos issues two kinds of ticket — a **TGT (Ticket-Granting Ticket)**, which proves you authenticated and lets you request service tickets, and **service tickets (TGS)**, which grant access to a specific service. Both live in memory, and both can be stolen.\n\nThe attack: from a compromised host, the attacker extracts a valid ticket from LSASS memory (again with tools like Mimikatz or Rubeus) and **injects it into their own logon session.** From then on, the attacker's session *is* that identity as far as Kerberos is concerned — they present the ticket to services, which honour it because a valid ticket is proof that its holder already authenticated. Steal a **TGT** and the attacker can request service tickets to anything the victim can reach; steal a **service ticket** and they get that specific service directly.\n\nWhy PtT matters alongside PtH:\n\n- **It works where Kerberos is used** — which, in a modern domain, is most of the time. As organisations reduce NTLM to blunt Pass-the-Hash, Pass-the-Ticket becomes the natural successor, because it abuses the protocol that replaced NTLM.\n- **It is the foundation for the elite AD attacks.** The Golden Ticket and Silver Ticket attacks are, at bottom, Pass-the-Ticket with a *forged* ticket rather than a stolen one — so understanding PtT is the prerequisite for those.\n\nA key defensive lever specific to PtT is **ticket lifetime**: tickets expire (a TGT typically after ~10 hours), so a stolen *legitimate* ticket is only useful within its validity window — which is one reason short, well-configured ticket lifetimes limit the damage, and why a forged ticket with an absurdly long lifetime is itself a detection signal."
+    },
+    {
+      "heading": "Detection and Defence",
+      "content": "Because both attacks replay legitimate credentials, they blend into normal authentication — so detection leans on *anomalies* and defence leans on *removing the stealable secret* and *shrinking what it unlocks*.\n\n**Detection signals:**\n\n- **NTLM where Kerberos is expected.** A rise in NTLM authentication (**Event 4776** on the DC), especially by IP, between workstations, or with privileged accounts in a Kerberos-first environment, is a Pass-the-Hash smell.\n- **Anomalous network logons.** **4624 type 3** logons from unusual sources followed by **4672 (special privileges)**, or a privileged account suddenly authenticating to many hosts, point at replayed credentials driving lateral movement.\n- **Ticket anomalies.** For Pass-the-Ticket, tickets with abnormal lifetimes or encryption, or tickets used from a host different from the one that obtained them, are red flags.\n- **The precursor is the loudest signal.** Both attacks require stealing the secret first — so a **process opening LSASS (Sysmon Event ID 10)**, the credential-dumping detection from the Windows lesson, is often your earliest and clearest warning, before any replay happens.\n\n**Defences — remove the secret and limit its reach:**\n\n- **Protect LSASS.** **Credential Guard** isolates secrets in a virtualised container so they cannot be dumped by ordinary means; this attacks the problem at its root by making the hash/ticket unstealable in the first place.\n- **LAPS** gives every machine a unique local-admin password, so one stolen hash unlocks exactly one host instead of the whole fleet.\n- **Administrative tiering** keeps privileged credentials off the machines most likely to be compromised, so a workstation compromise cannot yield a domain-admin hash to pass.\n- **Reduce NTLM and shorten ticket lifetimes**, removing the easy Pass-the-Hash path and limiting how long a stolen ticket is useful.\n\nThe takeaway ties back to the whole credential story: you cannot stop Windows from using hashes and tickets — that is how authentication works — so you defeat Pass-the-Hash and Pass-the-Ticket by making the secret unstealable (Credential Guard), unique (LAPS), and low-value (tiering), while watching for the LSASS access that precedes every replay and the NTLM/logon anomalies that reveal it in progress.",
+      "image": {
+        "src": "/lesson-images/ad/pass-the-hash-ticket.svg",
+        "alt": "A diagram of Pass-the-Hash and Pass-the-Ticket, showing that the hash or ticket is the credential and no plaintext password is needed. Pass-the-Hash (T1550.002): the attacker dumped an NTLM password hash from LSASS and never cracked it; they authenticate to a remote host or share WITH the hash, and NTLM authentication accepts the hash as proof of identity without asking for the plaintext, so they are logged in as the victim. Pass-the-Ticket (T1550.003): the attacker stole a Kerberos ticket (TGT or TGS) from memory and injects it into their own logon session, then presents the ticket to a Kerberos service, which grants access to the ticket's identity because the ticket already proves the holder authenticated, again with no password. Why it matters: stealing the hash or ticket needs only admin on one host (LSASS), cracking is skipped because the secret is replayed as-is, and this is how attackers move laterally across the domain. Detect and defend: NTLM logons where Kerberos is expected (Event 4776, 4624 type 3 plus 4672), protect LSASS with Credential Guard, and use LAPS, tiering, disabling NTLM, and short ticket lifetimes.",
+        "caption": "In Pass-the-Hash and Pass-the-Ticket the stolen hash/ticket IS the credential — replayed directly, no cracking. Defeat it by making the secret unstealable (Credential Guard), unique (LAPS), and low-value (tiering).",
+        "credit": "Figure authored for this course. Techniques per MITRE ATT&CK T1550.002 / T1550.003."
+      }
+    }
+  ],
+  "keyTakeaways": [
+    "Windows authentication accepts the NTLM hash (Pass-the-Hash) or a Kerberos ticket (Pass-the-Ticket) as proof of identity DIRECTLY — both are password-equivalents living in LSASS memory — so an attacker replays the stolen secret without ever cracking a password (MITRE T1550): a strong password doesn't help if its hash/ticket is stolen, and dumping LSASS needs admin on just ONE host to then reach everywhere those accounts go (the engine of lateral movement).",
+    "Pass-the-Hash abuses NTLM (watch for NTLM/4776 where Kerberos is expected, 4624 type-3 + 4672); Pass-the-Ticket abuses Kerberos (watch for ticket-lifetime/host anomalies, and it's the basis of Golden/Silver Ticket); the earliest signal for both is LSASS access (Sysmon Event ID 10) BEFORE the replay — defend by making the secret unstealable (Credential Guard), unique per host (LAPS), and low-value (admin tiering), plus reducing NTLM and shortening ticket lifetimes."
+  ],
+  "quiz": [
+    {
+      "question": "An organisation enforces very strong, uncrackable passwords, yet an attacker who compromised one workstation is authenticating to other machines as a domain administrator without ever knowing or cracking that admin's password. How is this possible, and what technique is in use?",
+      "options": [
+        {
+          "label": "It is impossible, because strong uncrackable passwords make it fundamentally impossible for an attacker to authenticate as another user under any circumstances, so the scenario cannot really be happening",
+          "value": "a"
+        },
+        {
+          "label": "Pass-the-Hash / Pass-the-Ticket (T1550): the attacker dumped the admin's NTLM hash or Kerberos ticket from LSASS on the compromised host and replays it directly — Windows accepts the hash/ticket as proof, so password strength is irrelevant once the secret is stolen",
+          "value": "b"
+        },
+        {
+          "label": "A dictionary attack that succeeded because the admin's password, despite policy, was actually the word 'password', which is the only way to authenticate as another user without their real credentials",
+          "value": "c"
+        },
+        {
+          "label": "The attacker guessed the password through the domain controller's login prompt, which is why account-lockout policy is the single control that would have completely prevented this activity",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Windows accepts the NTLM hash and the Kerberos ticket as direct proof of identity, so an attacker who dumped the admin's hash or ticket from LSASS on the compromised host can replay it (Pass-the-Hash / Pass-the-Ticket, T1550) and authenticate as the admin — no cracking involved, which is why even an uncrackable password does not help. Option a misunderstands that the attack bypasses the password entirely. Option c invents a weak password contradicting the premise. Option d describes online guessing, which is not what is happening — there are no password attempts, just replayed secrets."
+    },
+    {
+      "question": "In a Kerberos-first Windows domain, you observe a spike of NTLM authentications (Event 4776) between workstations using a privileged account, shortly after a process was seen opening lsass.exe on one of those hosts. What does this sequence most likely indicate?",
+      "options": [
+        {
+          "label": "Routine Kerberos operation, because NTLM and Kerberos are the same protocol and a spike in one is simply normal domain authentication that never warrants any investigation at all",
+          "value": "a"
+        },
+        {
+          "label": "Credential theft followed by Pass-the-Hash: the LSASS access dumped a hash, and the subsequent NTLM-where-Kerberos-is-expected logons with a privileged account are the replay driving lateral movement — the LSASS access is the earliest warning",
+          "value": "b"
+        },
+        {
+          "label": "A failed backup job, since LSASS access and NTLM authentication together are the normal signature of backup software and carry no security meaning whatsoever for an analyst",
+          "value": "c"
+        },
+        {
+          "label": "Proof that the domain has switched to NTLM permanently, which is a beneficial security upgrade and explains the spike as an intended and desirable configuration change",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The sequence is textbook: a process opening lsass.exe indicates credential dumping, and the following NTLM authentications (4776) in a Kerberos-first domain — privileged account, workstation-to-workstation — are the Pass-the-Hash replay driving lateral movement. The LSASS access is the earliest and clearest warning, before the replay. Option a falsely equates NTLM and Kerberos and dismisses a real signal. Option c invents a benign backup explanation the pattern does not fit. Option d misframes a Pass-the-Hash indicator as a beneficial upgrade; NTLM is the weaker, older protocol."
+    }
+  ],
+  "references": [
+    "https://attack.mitre.org/techniques/T1550/002/",
+    "https://attack.mitre.org/techniques/T1550/003/",
+    "https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-14T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-malware-types",
+  "slug": "malware-types-field-guide",
+  "title": "Malware Types: A Field Guide for the SOC Analyst",
+  "topic": "Malware",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Virus, worm, trojan, RAT, rootkit, ransomware, infostealer, dropper, loader — the vocabulary of malware can feel like a pile of interchangeable scary words. It is not. Each term describes a malware's PURPOSE, and knowing which is which tells you immediately what a sample is trying to do and what you must check next. This lesson is a field guide organised the way analysts actually think: not by name, but by what the malware is FOR.",
+  "sections": [
+    {
+      "heading": "Why We Categorise Malware by Purpose, Not by Name",
+      "content": "The first thing to unlearn is the idea that these terms are a neat, exclusive taxonomy where every sample is exactly one thing. Real-world malware is almost always **several of these categories at once** — a trojan that drops a loader that installs an infostealer, or a worm that carries ransomware. The words describe *functions*, and one program can perform many.\n\nSo the useful way to think is by **purpose**: what is this malware *for*? Every category answers a different question about a sample:\n\n- **How does it spread?** (virus, worm, trojan)\n- **How does it hide?** (rootkit, fileless, packer)\n- **How does it get onto and stage the system?** (dropper, loader, downloader)\n- **What does it steal or watch?** (spyware, infostealer, keylogger)\n- **How does the attacker control it?** (RAT, bot, backdoor)\n- **What is the attacker's end goal / payoff?** (ransomware, wiper, cryptominer)\n\nThis matters enormously for an analyst, because **the category drives your investigation.** Knowing a sample is an *infostealer* immediately tells you to ask 'what credentials and data left the environment?'. Knowing it is a *worm* tells you to ask 'which other hosts did it spread to?'. Knowing it is a *RAT* tells you to find the command-and-control channel. Knowing it is *ransomware* tells you to scope the encryption and check your backups. The type is not trivia — it is the fastest route to the right next question.\n\nThe rest of this lesson walks the categories. Do not memorise them as isolated definitions; learn them as a set of *lenses* you apply to any sample: 'what does this thing do — how does it spread, hide, deliver, steal, control, and what is its payoff?'"
+    },
+    {
+      "heading": "How It Spreads: Virus, Worm, and Trojan",
+      "content": "The oldest distinctions are about **propagation** — how the malware gets from one place to the next.\n\n- **Virus.** A virus attaches itself to a **host file or program** and requires a **user to run that file** to activate and spread. Like a biological virus, it needs a host and it needs help propagating (a person opening the infected file). Pure classic viruses are rarer today, but the term persists — and the key property to remember is *needs a host + needs user action*.\n- **Worm.** A worm is **self-propagating**: it spreads across a network **on its own**, with no host file and no user needed, typically by exploiting a vulnerability or abusing credentials to copy itself to other machines. This autonomy is what makes worms so dangerous and fast — WannaCry (2017) spread worldwide in hours precisely because its ransomware payload had a worm's self-spreading engine. When you identify worm behaviour, the urgent question is always *how many other hosts already have it?*.\n- **Trojan.** A trojan (from the Trojan Horse) **disguises itself as something the user wants** — a cracked game, a fake invoice, a legitimate-looking installer — to trick the victim into running it. It does not self-spread and does not infect other files; its whole trick is *social*, relying on the user to invite it in. 'Trojan' describes the *delivery disguise*, which is why it so often combines with other categories: a **trojan dropper**, a **banking trojan**, a **RAT delivered as a trojan**.\n\nThe practical distinction to carry: **a virus needs a host file and a user; a worm needs neither and spreads itself; a trojan is a disguise that relies on the user.** These answer the 'how did it get here and how far could it go?' question that opens most malware investigations."
+    },
+    {
+      "heading": "Delivery and Stealth: Droppers, Loaders, Rootkits, and Fileless",
+      "content": "Two more sets of categories describe the *first stage* (getting the real payload onto the system) and *staying hidden* once there.\n\n**Delivery — the malware whose job is to bring more malware:**\n\n- **Dropper.** A dropper **carries the malicious payload inside itself** and writes ('drops') it onto disk, then runs it. It is a self-contained delivery vehicle.\n- **Loader / Downloader.** A loader **fetches the next stage from the internet** and runs it (often in memory). A downloader pulls additional malware. These first-stage tools are what you frequently catch *first* — a maldoc's macro launching a loader — and catching them early can stop the real payload from ever arriving.\n\n**Stealth — the malware whose job is to not be seen:**\n\n- **Rootkit.** A rootkit **hides deep in the system** — often at the kernel level — to conceal the attacker's presence: hiding processes, files, and network connections from the operating system and from security tools. Rootkits are among the hardest malware to detect precisely because they subvert the very tools you would use to find them, which is why detection often relies on external/behavioural signals rather than asking the compromised OS.\n- **Fileless malware.** As the malware-triage lesson covered, fileless malware **runs in memory using trusted built-in tools** and writes no malicious file, evading signature scanning and hash reputation entirely — caught by behaviour, not by a file.\n- **Packers / crypters** obfuscate a malware's code so it looks different on disk and its strings are hidden, defeating simple signature matching (the high-entropy tell from the crypto lesson).\n\nThe analyst takeaway: droppers and loaders are the *first stage* — catching them is your early-intervention opportunity — while rootkits, fileless techniques, and packing are all about **evading detection**, which is why 'the AV is clean' never closes a case on its own."
+    },
+    {
+      "heading": "Theft, Control, and the Payoff",
+      "content": "The final categories describe what the malware ultimately *does for the attacker* — steal, control, or cause impact.\n\n**What it steals or watches:**\n\n- **Spyware** covertly monitors the user — activity, screenshots, browsing.\n- **Infostealer** is the modern powerhouse: it rapidly harvests **credentials, browser cookies and saved passwords, session tokens, and cryptocurrency wallets**, then exfiltrates them. Infostealers feed the criminal economy (stolen credentials are sold), so identifying one means asking *what was taken and which accounts are now exposed?*.\n- **Keylogger** records every keystroke, capturing passwords and messages as they are typed.\n\n**How the attacker controls it:**\n\n- **RAT (Remote Access Trojan)** gives the attacker **full interactive remote control** of the machine — like remote-desktop for the adversary. Finding a RAT means finding its **command-and-control** channel.\n- **Bot** enrols the machine into a **botnet** that takes commands from a central controller (for DDoS, spam, or mining).\n- **Backdoor** provides the attacker **quiet re-entry** — a way back in that survives even if the original infection is cleaned, which is why eradication must hunt for backdoors, not just the obvious payload.\n\n**The payoff — the attacker's end goal:**\n\n- **Ransomware** encrypts data and extorts payment (the ransomware lesson covers its full lifecycle).\n- **Wiper** destroys data outright with no ransom — pure sabotage, often disguised as ransomware.\n- **Cryptominer** hijacks the victim's compute to mine cryptocurrency, stealing electricity and performance rather than data.\n\nThe unifying lesson, and the reason this field guide matters: **real malware combines these categories, so you describe what a sample DOES rather than forcing it into one label** — a trojan dropper that loads an infostealer and installs a backdoor is four categories in one. And each category you identify hands you the next investigation question: infostealer → what data/creds left; worm → which hosts; RAT/backdoor → what C2 and re-entry; ransomware/wiper → scope and recoverability. Naming the type is the fastest way to know what to check and how to respond.",
+      "image": {
+        "src": "/lesson-images/malware/malware-types-by-purpose.svg",
+        "alt": "A field guide to malware types organised by purpose rather than by name. How it spreads: a virus needs a host file plus a user to run it, a worm self-propagates across the network with no host, a trojan is disguised as something the user wants. How it hides: a rootkit hides deep in the kernel to evade detection, fileless malware lives in memory with no file to scan, packers and crypters obfuscate the code. How it delivers: a dropper carries and drops the payload, a loader fetches and runs the next stage, a downloader pulls more malware. What it steals: spyware watches the user, an infostealer grabs passwords, cookies, and wallets, a keylogger records keystrokes. How it controls: a RAT gives full remote control, a bot joins a botnet and takes commands, a backdoor provides quiet re-entry. The payoff or impact: ransomware encrypts and extorts, a wiper destroys data with no ransom, a cryptominer steals compute. Two ideas to carry: the labels overlap and combine, since real malware is usually several of these at once such as a trojan dropper that loads an infostealer, so describe what the sample does rather than hunting one label; and the category tells you what to check next — infostealer means what credentials and data left, worm means which other hosts, RAT means what command and control, ransomware means scope and backups.",
+        "caption": "Malware is categorised by PURPOSE — spread, hide, deliver, steal, control, payoff. Real samples combine several, so describe what it DOES; each category drives the next investigation question.",
+        "credit": "Figure authored for this course."
+      }
+    }
+  ],
+  "keyTakeaways": [
+    "Malware terms describe PURPOSE, not exclusive labels, and real samples combine many at once (a trojan dropper that loads an infostealer and installs a backdoor). Learn them as lenses: how it spreads (virus needs host+user; worm self-propagates; trojan is a user-tricking disguise), how it hides (rootkit=kernel stealth; fileless=in-memory; packer=obfuscation), and how it's delivered (dropper carries the payload; loader/downloader fetches the next stage).",
+    "The rest is theft, control, and payoff: spyware/infostealer/keylogger STEAL (creds, cookies, wallets, keystrokes); RAT/bot/backdoor give the attacker CONTROL and re-entry; ransomware/wiper/cryptominer are the PAYOFF (extort/destroy/steal compute). Naming the category drives your next question — infostealer→what data left, worm→which hosts, RAT/backdoor→what C2 and re-entry, ransomware→scope + backups — so the type is the fastest route to the right investigation and response."
+  ],
+  "quiz": [
+    {
+      "question": "During triage you determine a sample was disguised as a software update the user ran (no self-spreading), which then wrote a second program to disk and executed it; that second program harvested saved browser passwords and cookies and sent them out. Using the purpose-based categories, how would you describe this sample, and why does the description matter more than a single label?",
+      "options": [
+        {
+          "label": "It is simply 'a virus', because all malware is a virus, and forcing every sample into that one category is the standard and correct way analysts classify malicious software",
+          "value": "a"
+        },
+        {
+          "label": "A trojan (disguise, no self-spread) that acts as a dropper (writes + runs a second stage) delivering an infostealer (harvests credentials/cookies) — describing what it DOES across categories tells you the next questions: what creds/data left and which accounts are now exposed",
+          "value": "b"
+        },
+        {
+          "label": "It must be a worm, because any malware that writes a file to disk is by definition self-propagating across the network, which is the single defining property of every type of malware",
+          "value": "c"
+        },
+        {
+          "label": "The categories are irrelevant labels, so the only correct action is to record the file hash and close the case, since what a sample actually does has no bearing on the investigation",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The sample combines categories by purpose: a trojan (disguised as an update, relying on the user, not self-spreading), acting as a dropper (writing and running a second stage), which is an infostealer (harvesting saved passwords and cookies and exfiltrating them). Describing what it does across categories is what drives the investigation — an infostealer means you must determine what credentials and data left and which accounts are now exposed. Option a wrongly collapses everything to 'virus.' Option c misdefines a worm (writing a file is not self-propagation). Option d dismisses the categories that actually direct the response."
+    },
+    {
+      "question": "An analyst confirms a host is infected with a worm. Beyond cleaning the infected host, what is the single most urgent question the 'worm' category should immediately prompt, and why?",
+      "options": [
+        {
+          "label": "What ransom amount is being demanded, because every worm's defining purpose is to encrypt files and extort payment, so the ransom note is always the first thing to locate and analyse",
+          "value": "a"
+        },
+        {
+          "label": "Which other hosts has it already spread to — because a worm self-propagates across the network on its own, so by the time one host is found the infection has very likely reached others that must be found and contained",
+          "value": "b"
+        },
+        {
+          "label": "Nothing further is needed, because a worm cannot spread beyond the single machine it first infects, so cleaning that one host fully resolves the entire incident with no wider scope",
+          "value": "c"
+        },
+        {
+          "label": "What the user clicked to run it, because a worm requires a user to open a host file to propagate, making the user's action the only relevant factor in a worm investigation",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A worm's defining property is that it self-propagates across the network with no host file and no user action, so identifying a worm should immediately raise the scope question: which other hosts has it already reached? By the time you find one infected machine, a worm has likely spread further, and containment depends on finding and isolating the rest. Option a confuses worms with ransomware. Option c is exactly wrong — self-spreading is the whole danger. Option d describes a virus (needs a host file and user), not a worm, which needs neither."
+    }
+  ],
+  "references": [
+    "https://attack.mitre.org/tactics/TA0002/",
+    "https://www.cisa.gov/news-events/news/understanding-hidden-threats-rootkits-and-botnets",
+    "https://attack.mitre.org/software/"
+  ],
+  "xp": 170,
+  "estimatedMinutes": 34,
+  "researchUsed": false,
+  "createdAt": "2026-08-14T00:00:00.000Z"
 }
 ];
 
