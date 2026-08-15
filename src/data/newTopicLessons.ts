@@ -4195,6 +4195,726 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 42,
   "researchUsed": false,
   "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-dhcp-explained",
+  "slug": "dhcp-explained-standalone",
+  "title": "DHCP Explained: How Devices Get Their Network Identity",
+  "topic": "Network Protocols",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "When a laptop connects to a network and simply works — with an IP address, a way to reach the internet, and working name resolution — a protocol called DHCP did that automatically, in under a second, before the user noticed. This lesson is a focused, single-topic deep dive into DHCP: what it is, why it exists, exactly how the four-step exchange works, which ports it uses, what the traffic looks like on the wire, and why the humble DHCP lease log is one of a SOC analyst's most useful tools for answering the question 'which device was that?'",
+  "sections": [
+    {
+      "heading": "What DHCP Is and Why It Exists",
+      "content": "**DHCP** stands for **Dynamic Host Configuration Protocol**. Its single job is to automatically hand a device everything it needs to work on a network the moment it connects — with no human typing settings by hand.\n\nWithout DHCP, every device would need an administrator to manually assign it an IP address and network settings, which is unworkable at any real scale (imagine configuring 5,000 laptops by hand, and reconfiguring every time one moves). DHCP automates this completely.\n\nThe real-life analogy is a **hotel check-in desk**. You arrive with nothing; the receptionist assigns you a room number (your IP address), tells you how to reach the front desk (the gateway) and the hotel directory (DNS), and gives you the room for a set number of nights (the lease). When you leave, the room goes back into the pool for the next guest.\n\nSpecifically, DHCP provides a connecting device with four essentials:\n\n- **An IP address** — the device's identity on the network.\n- **A subnet mask** — which nearby addresses count as local.\n- **A default gateway** — the door out to the rest of the network and the internet.\n- **DNS server addresses** — so the device can then translate names into addresses.\n\nAll of this is handed out on a **lease** — a time-limited assignment. Before the lease expires, the device renews it, which is why a laptop might keep the same address for days, then get a different one after a long absence. Understanding that DHCP is *automatic, temporary, and centrally managed* is the foundation for everything that follows, including why its logs are so valuable to an analyst."
+    },
+    {
+      "heading": "How DHCP Works: The DORA Exchange and Its Ports",
+      "content": "DHCP assigns settings through a four-step conversation that happens the instant a device joins, remembered by the word **DORA**:\n\n1. **Discover** — The new device has no address yet, so it **broadcasts** a message to the whole local network: \"Is there a DHCP server out there? I need settings.\" (A broadcast reaches everyone because the device does not yet know who the server is.)\n2. **Offer** — A **DHCP server** replies: \"Here is an IP address you can use, along with the gateway and DNS.\"\n3. **Request** — The device replies: \"Yes, I'll take that offered address.\" (It broadcasts this so any other DHCP servers know their offers were declined.)\n4. **Acknowledge (ACK)** — The server confirms: \"It's yours,\" and records the **lease** — which address went to which device, and for how long.\n\n**The ports:** DHCP runs over **UDP**, with the **server listening on port 67** and the **client on port 68**. These fixed ports are how the broadcast messages find their way even before the client has an identity.\n\n**Behind the scenes:** the server identifies each device by its **MAC address** (the hardware address of the network card), which is how it can offer a returning device the same IP it had before. The server maintains a **scope** — the pool of addresses it is allowed to hand out — and a **lease table** recording every current assignment. When you understand that the server is keeping a running record of MAC-address-to-IP-address-and-time, you already understand why DHCP logs answer the analyst's key question: which physical device held a given IP at a given moment."
+    },
+    {
+      "heading": "What DHCP Looks Like in Practice",
+      "content": "In everyday life DHCP is invisible — you connect and it just works — but the exchange is very real and observable.\n\n**On the wire**, a packet capture of a device joining shows the DORA sequence clearly: a `DHCP Discover` broadcast from `0.0.0.0` (the device has no address yet) to `255.255.255.255` (everyone), then a `DHCP Offer`, a `DHCP Request`, and a `DHCP ACK`. Seeing these four packets in order is the signature of a successful join.\n\n**On a device**, you can see the result of DHCP with simple commands: `ipconfig /all` on Windows or `ip addr` / `nmcli` on Linux shows the assigned IP, the DHCP server that gave it, the lease times, and the gateway and DNS it received. `ipconfig /release` and `ipconfig /renew` on Windows manually give up and re-request a lease — literally driving the DORA exchange by hand.\n\n**On the server side**, the DHCP server (often the same box that runs DNS, or a dedicated appliance, or the router in a small network) maintains the **lease table**: a list of every active lease showing the IP, the client's MAC address, the hostname, and the lease start and expiry. This table, and the log of lease events over time, is the artifact that matters most to a SOC.\n\nA useful mental picture: every time a device appears, renews, or leaves, the DHCP server writes it down. Over a day, that log is a complete record of *which devices were present on the network and what address each one held at each moment* — a timeline of network membership that exists whether or not anyone is watching."
+    },
+    {
+      "heading": "Why DHCP Matters to a SOC Analyst",
+      "content": "DHCP is not a glamorous protocol, but its logs solve a problem analysts hit constantly, and it has its own small set of abuses to watch.\n\n**The killer use: mapping an IP to a real device.** Security alerts almost always name an **IP address** — \"suspicious activity from 10.4.2.17.\" But IP addresses are handed out temporarily and reused, so `10.4.2.17` might be one laptop this morning and another tomorrow. To answer \"*which actual machine* was `10.4.2.17` at 2:14 a.m.?\", you consult the **DHCP lease log**, which ties that IP to a specific MAC address and hostname at that time. This IP-to-device mapping is a routine, essential pivot in nearly every investigation, and DHCP is where it comes from.\n\n**The abuses to watch:**\n\n- **Rogue DHCP server** — an unauthorised device (planted by an attacker, or a misconfigured router) starts handing out its own settings. Because clients accept the first offer they receive, a rogue server can assign victims a malicious gateway or DNS, routing their traffic through the attacker (a man-in-the-middle position). Multiple DHCP servers offering leases where there should be one is the red flag.\n- **DHCP starvation** — an attacker floods the server with fake Discover requests using spoofed MAC addresses, exhausting the address pool so legitimate devices cannot get a lease (a denial-of-service), sometimes as a setup for a rogue server to take over.\n- **Unexpected new devices** — a lease suddenly requested by an unknown MAC address can reveal something new (and unwanted) plugged into the network.\n\nThe analyst takeaways are twofold. First, **know that the DHCP log is your IP-to-device Rosetta Stone** — reach for it whenever an alert gives you an internal IP and you need to know the real machine behind it. Second, treat **multiple DHCP servers, address-pool exhaustion, and unfamiliar devices** as signals worth investigating. A protocol whose whole purpose is convenience turns out to be one of the quiet foundations of network investigation."
+    }
+  ],
+  "keyTakeaways": [
+    "DHCP (Dynamic Host Configuration Protocol) automatically gives a connecting device its IP address, subnet mask, default gateway, and DNS servers on a time-limited lease, so networks work without manual per-device configuration.",
+    "It assigns settings via the four-step DORA exchange (Discover broadcast, Offer, Request, Acknowledge), running over UDP with the server on port 67 and the client on port 68, identifying devices by MAC address and recording each assignment in a lease table.",
+    "The DHCP lease log is a SOC analyst's key tool for mapping an IP address to the real device (MAC/hostname) that held it at a specific time — an essential pivot since alerts name IPs but IPs are temporary and reused.",
+    "Watch for DHCP abuse: a rogue DHCP server (handing out a malicious gateway/DNS for man-in-the-middle), DHCP starvation (flooding fake requests to exhaust the pool), and unexpected new devices requesting leases."
+  ],
+  "quiz": [
+    {
+      "question": "A security alert reports suspicious outbound traffic from internal IP 10.4.2.17 at 02:14. To identify which physical machine actually held that address at that moment, which data source do you consult, and why is it necessary?",
+      "options": [
+        {
+          "label": "The DNS server cache, because DNS permanently maps every internal IP address to a fixed physical device that never changes over time.",
+          "value": "a"
+        },
+        {
+          "label": "The DHCP lease log, because IP addresses are leased temporarily and reused, so you need the lease record tying that IP to a MAC/hostname at that time.",
+          "value": "b"
+        },
+        {
+          "label": "The firewall allow list, because it stores a permanent one-to-one assignment of every internal IP address to a named employee workstation.",
+          "value": "c"
+        },
+        {
+          "label": "No lookup is needed, because an internal IP address like 10.4.2.17 always belongs to the exact same device on every day of the year.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "DHCP hands out IP addresses on temporary leases and reuses them, so an IP alone does not identify a device across time; the DHCP lease log records which MAC address and hostname held a given IP at a given moment, which is exactly the mapping you need. Option a is wrong because DNS resolves names to IPs and does not permanently bind IPs to physical devices. Option c misdescribes a firewall allow list. Option d is false because leased IPs are reused across different devices."
+    },
+    {
+      "question": "On a network you discover that two different servers are both responding to devices' DHCP Discover broadcasts with Offers, when only one authorised DHCP server should exist. Why is this a security concern?",
+      "options": [
+        {
+          "label": "It is harmless, because clients always ignore every Offer and instead configure their own IP address, gateway, and DNS entirely on their own.",
+          "value": "a"
+        },
+        {
+          "label": "A rogue DHCP server can assign victims a malicious gateway or DNS, since clients accept the first Offer, letting the attacker intercept their traffic.",
+          "value": "b"
+        },
+        {
+          "label": "It simply doubles network speed, because two DHCP servers share the workload of assigning addresses and pose no security risk whatsoever.",
+          "value": "c"
+        },
+        {
+          "label": "It only affects printers, because DHCP Offers are used exclusively to configure printing devices and never assign settings to laptops or servers.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A second, unauthorised DHCP server is a rogue server: because clients accept the first Offer they receive, the attacker can hand victims a malicious default gateway or DNS server and route their traffic through attacker-controlled infrastructure for a man-in-the-middle position. Option a is false because clients do accept DHCP Offers rather than self-configuring. Option c wrongly frames a rogue server as a harmless performance boost. Option d is incorrect because DHCP configures all kinds of devices, not just printers."
+    }
+  ],
+  "references": [
+    "https://datatracker.ietf.org/doc/html/rfc2131",
+    "https://learn.microsoft.com/en-us/windows-server/networking/technologies/dhcp/dhcp-top",
+    "https://attack.mitre.org/techniques/T1557/"
+  ],
+  "xp": 190,
+  "estimatedMinutes": 36,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-ssh-explained",
+  "slug": "ssh-explained-standalone",
+  "title": "SSH Explained: Secure Remote Access and Its Abuse",
+  "topic": "Network Protocols",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Every day, administrators manage thousands of servers they will never physically touch, typing commands into machines in data centres and clouds around the world. The protocol that makes this safe is SSH. This focused lesson covers SSH end to end: what it is and why it replaced older tools, exactly how the encrypted connection and authentication work, the port it uses, what the traffic looks like, how key-based login differs from passwords, and why SSH activity — brute force, unusual logins, and tunnelling — is some of the highest-value data a SOC analyst reviews.",
+  "sections": [
+    {
+      "heading": "What SSH Is and Why It Replaced Telnet",
+      "content": "**SSH** stands for **Secure Shell**. It is a protocol that lets a person or a program securely log into and control another computer over a network, with the entire session **encrypted** so that no eavesdropper can read what is sent.\n\nThe real-life analogy is a **secure remote control** for a machine sitting somewhere else — a server in a data centre, a cloud host — as if you were typing directly at its keyboard, except everything travelling between you and it is scrambled and protected.\n\nSSH exists because of the failures of what came before it. The older tool, **Telnet**, did the same remote-login job but sent everything — including **usernames and passwords** — as plain, readable text across the network. Anyone capturing the traffic could read the credentials directly. SSH was created to fix exactly this: it encrypts the whole session, so even someone intercepting the packets sees only meaningless ciphertext. For this reason, SSH almost entirely replaced Telnet for administration, and finding Telnet still in use is itself a security concern.\n\nWhat administrators actually do over SSH is the daily work of running infrastructure: executing commands, editing configuration files, restarting services, checking logs, and — via related tools like `scp` and `sftp` that run over SSH — copying files securely. It is the primary way Linux and Unix servers (and increasingly network devices and even Windows) are managed remotely. Because SSH grants a real, interactive foothold on a machine, understanding it is essential both for the people who use it legitimately and for the analysts who must spot when someone uses it maliciously."
+    },
+    {
+      "heading": "How SSH Works: Handshake, Keys, and Port 22",
+      "content": "SSH is a **client/server** protocol that listens on **TCP port 22**. The connection is established in a careful sequence that puts encryption in place *before* any secret is ever sent.\n\n1. **Connection and negotiation.** The **client** opens a TCP connection to the **server** on port 22 and the two agree on which encryption algorithms to use.\n2. **Key exchange (the handshake).** Before anything sensitive is transmitted, the two sides perform a cryptographic **key exchange** that establishes a shared secret. From this point on, *everything* — the login attempt, the commands, the output — is encrypted.\n3. **Server authentication.** The client checks the server's **host key** to confirm it is really talking to the intended machine and not an impostor. (This is why you see a 'the authenticity of host … can't be established' prompt the first time you connect.)\n4. **Client authentication.** Only now does the user prove who they are, in one of two ways (below).\n5. **Session.** Once authenticated, the user gets a shell (or runs a command / transfers a file) until they log out.\n\n**The two ways to authenticate** are the crux of SSH security:\n\n- **Password authentication** — the user types a password, sent inside the already-encrypted channel. Simple, but vulnerable to guessing (brute force).\n- **Public-key authentication** — the professional standard. The user holds a secret **private key**; the server holds the matching **public key**. The client proves it possesses the private key *without ever sending it*. This is far stronger than a password and cannot be brute-forced the same way.\n\n**Behind the scenes**, the encryption means that to a network monitor, an SSH session on port 22 looks like an opaque encrypted tunnel — you can see *that* a connection happened, from where, for how long, and how much data moved, but not the commands inside. That property is exactly what makes SSH both secure for admins and attractive to attackers, as the final section explains."
+    },
+    {
+      "heading": "SSH in Practice: Logins, Keys, and Config",
+      "content": "In practice SSH is driven from a command line and shaped by a few key files and behaviours worth recognising.\n\n**Connecting** is as simple as `ssh user@server` — which contacts `server` on port 22 and logs in as `user`. Copying files uses `scp file user@server:/path` or `sftp`, both of which ride on the same encrypted SSH channel.\n\n**Keys in practice.** Public-key authentication relies on a **key pair** generated with `ssh-keygen`, producing a private key (kept secret on the client, often in `~/.ssh/id_rsa` or `id_ed25519`) and a public key. The public key is placed on the server in the user's `~/.ssh/authorized_keys` file — literally a list of the keys allowed to log in as that user. This is powerful and, from a security standpoint, worth watching: **an attacker who adds their own public key to `authorized_keys` gives themselves durable, password-free access** (a common persistence technique).\n\n**Server configuration** lives in `/etc/ssh/sshd_config` and controls the protocol's security posture — whether password login is allowed, whether the powerful `root` account may log in directly (`PermitRootLogin`), and which port SSH listens on. Hardening SSH means disabling root login, preferring keys over passwords, and limiting who can connect.\n\n**On a Linux server, SSH activity is logged** — successful and failed logins appear in authentication logs (such as `/var/log/auth.log` or via `journalctl`), recording the source IP, the username, and whether the attempt succeeded. These logs are the raw material for the SOC detections in the next section. A single line like 'Accepted publickey for admin from 203.0.113.9' or 'Failed password for root from …' carries exactly the who/where/how-succeeded information an analyst needs."
+    },
+    {
+      "heading": "Why SSH Matters to a SOC Analyst",
+      "content": "Because SSH grants full, interactive control of a machine, it is simultaneously an administrator's essential tool and a top target and technique for attackers. SSH events are among the highest-value data a SOC reviews.\n\n**What analysts hunt for:**\n\n- **Brute-force attacks.** A flood of **failed password logins** on port 22 from one source is an attacker guessing credentials — one of the most common events on any internet-facing server. A brute force that suddenly *succeeds* (many failures followed by an 'Accepted password') is a likely compromise.\n- **Logins from unusual sources.** A successful SSH login from an unfamiliar country, at an odd hour, or to a server the source has never administered can signal a compromised account or stolen key. Comparing against normal patterns is key.\n- **Unexpected SSH exposure.** A server whose port 22 is reachable from the whole internet (rather than restricted to admin networks) is an invitation to brute force; SSH open to `0.0.0.0/0` is a classic finding.\n- **SSH tunnelling and pivoting.** SSH can forward other traffic through its encrypted tunnel (port forwarding). Attackers abuse this to **pivot** — reaching deeper internal systems through a compromised foothold, hidden inside the encrypted SSH channel. Unusual or long-lived SSH sessions carrying unexpected traffic are a lead.\n- **New authorized keys and config changes.** As noted, a new entry in `authorized_keys`, or a weakening of `sshd_config`, is a persistence/defence-evasion signal.\n\n**Why it matters so much** is that a successful SSH login is not a minor event — it is someone gaining a command shell on a machine. The stakes make even a single anomalous SSH login worth investigating. The analyst's mindset is to treat SSH authentication logs as a priority feed: baseline who normally connects to what, from where, using which method, and alert on the deviations — the brute force, the foreign login, the newly added key. Master SSH and you can both appreciate why it is the backbone of secure administration and recognise the moment an attacker turns that same power against the network."
+    }
+  ],
+  "keyTakeaways": [
+    "SSH (Secure Shell) provides encrypted remote login and control of a machine over TCP port 22, replacing Telnet, which sent credentials and commands in readable plaintext.",
+    "It establishes encryption via a key-exchange handshake before any secret is sent, verifies the server's host key, then authenticates the user by password (guessable) or, preferably, public-key authentication where the client proves it holds a private key without transmitting it.",
+    "In practice, public keys allowed to log in are listed in ~/.ssh/authorized_keys and server behaviour is set in /etc/ssh/sshd_config; Linux logs SSH logins (source IP, user, success/fail) in auth logs like /var/log/auth.log.",
+    "SOC analysts treat SSH events as high-value: hunt brute-force floods (and brute force that then succeeds), logins from unusual sources, internet-exposed port 22, SSH tunnelling/pivoting, and attacker-added authorized_keys or weakened sshd_config."
+  ],
+  "quiz": [
+    {
+      "question": "Why did SSH replace Telnet as the standard tool for remotely administering servers, and on which port does SSH listen?",
+      "options": [
+        {
+          "label": "SSH encrypts the entire session including credentials and commands, whereas Telnet sent everything as readable plaintext an eavesdropper could capture; SSH uses TCP port 22.",
+          "value": "a"
+        },
+        {
+          "label": "SSH automatically assigns IP addresses to the servers it connects to, which Telnet could not do, and it listens on UDP port 67 to hand out those addresses.",
+          "value": "b"
+        },
+        {
+          "label": "SSH is faster than Telnet because it skips all encryption to save time, and it listens on TCP port 3389 to reach remote desktops more quickly.",
+          "value": "c"
+        },
+        {
+          "label": "SSH and Telnet are equally secure, but SSH became standard only because it uses a more memorable port number, which happens to be TCP port 21.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "SSH replaced Telnet because it encrypts the whole session — credentials and commands included — while Telnet transmitted everything in readable plaintext that anyone capturing traffic could steal; SSH listens on TCP port 22. Option b describes DHCP (port 67), not SSH. Option c is wrong because SSH does not skip encryption and 3389 is RDP. Option d is false because Telnet is insecure and 21 is FTP, not SSH."
+    },
+    {
+      "question": "On an internet-facing Linux server you see hundreds of 'Failed password for root' entries from one IP over a few minutes, followed by a single 'Accepted password for root' from the same IP. What has most likely happened?",
+      "options": [
+        {
+          "label": "A routine backup completed, because backup software authenticates over SSH by deliberately failing hundreds of password attempts before finally succeeding once.",
+          "value": "a"
+        },
+        {
+          "label": "A successful SSH brute-force attack: the attacker guessed the root password after many attempts, and the 'Accepted' entry indicates a likely compromise to investigate.",
+          "value": "b"
+        },
+        {
+          "label": "Nothing of concern, because repeated failed root logins from a single external IP are the normal, expected way administrators log in to production servers.",
+          "value": "c"
+        },
+        {
+          "label": "The server's clock drifted, because time-synchronisation errors are logged by SSH as a burst of failed passwords followed by one accepted password entry.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Many failed password attempts followed by an 'Accepted password' from the same source is the classic signature of a brute-force attack that finally guessed the credentials — here for the powerful root account — indicating a likely compromise that must be investigated. Option a invents backup behaviour that does not exist. Option c wrongly normalises brute-force activity. Option d is false because clock drift is not logged as failed/accepted password attempts."
+    }
+  ],
+  "references": [
+    "https://www.rfc-editor.org/rfc/rfc4251",
+    "https://www.ssh.com/academy/ssh/protocol",
+    "https://attack.mitre.org/techniques/T1021/004/"
+  ],
+  "xp": 190,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-smb-explained",
+  "slug": "smb-explained-standalone",
+  "title": "SMB Explained: Windows File Sharing and Lateral Movement",
+  "topic": "Network Protocols",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "When you open a shared drive at work, save a file to a team folder, or print to the office printer, a protocol called SMB is doing the work — and that same protocol is one of the most heavily abused in serious intrusions. This focused lesson covers SMB thoroughly: what it is and why Windows networks depend on it, how it works and on which ports, what SMB traffic and shares look like in practice, and why lateral movement, ransomware, and famous exploits like EternalBlue all revolve around this single file-sharing protocol.",
+  "sections": [
+    {
+      "heading": "What SMB Is and Why Windows Networks Rely on It",
+      "content": "**SMB** stands for **Server Message Block**. It is the protocol that lets computers — overwhelmingly Windows computers — share **files and printers** across a network, so that a folder sitting on a distant server appears and behaves as if it were on your own machine.\n\nThe real-life analogy is a **shared office filing cabinet**. Many people, each at their own desk, open the same cabinet, read documents, drop new ones in, and send jobs to the shared printer down the hall. SMB is what makes the department's shared drive appear as just another folder on everyone's computer.\n\nSMB is fundamental to how organisations work day to day. It is the machinery behind:\n\n- **Network drives and file shares** — the `\\\\FILESERVER\\HR` folders teams collaborate in.\n- **Shared printers** — sending a document to a printer across the network.\n- **Access to files on servers** — much of what Windows domains do for collaboration.\n\nA server **offers** named folders or printers, called **shares**, and clients connect to them subject to **permissions** that decide who may read or write. The address format `\\\\server\\share` — a **UNC path** (Universal Naming Convention) — is how SMB names a shared resource.\n\nBecause SMB is so central and so trusted, it is enabled and active on essentially every Windows network. That ubiquity is exactly why it is both indispensable to users and irresistible to attackers: file sharing is, from an intruder's point of view, also a ready-made way to *move* files and *reach* other machines. Understanding SMB is therefore understanding both how Windows collaboration works and where some of the most damaging attacks live."
+    },
+    {
+      "heading": "How SMB Works: Shares, Permissions, and Port 445",
+      "content": "SMB is a **client/server** protocol, and modern SMB runs directly over **TCP port 445**. (Older SMB used ports **137–139** together with NetBIOS; you may still see 139 referenced, but 445 is the modern standard.)\n\nThe basic exchange:\n\n1. **A server advertises shares.** A file server — or even an ordinary Windows PC — exposes one or more named **shares** (folders or printers) and enforces **permissions** on them.\n2. **A client connects** to the server on port 445 and requests access to a specific share by its UNC path.\n3. **The server checks the user's permissions** and, if allowed, lets the client browse, open, read, write, or delete files, and use printers.\n4. **The session continues** as the user works with the shared resource.\n\n**Behind the scenes**, two things matter for security. First, SMB access is tied to **authentication** — the user must be someone the server recognises and authorises, which is why SMB is deeply intertwined with Windows authentication (Kerberos/NTLM) and Active Directory. Second, SMB has evolved through versions (SMBv1, v2, v3), and the ancient **SMBv1** is dangerous and should be disabled — it is the version exploited by EternalBlue (below), and modern **SMBv3** adds encryption and stronger protections.\n\n**What it looks like in practice:** users rarely think about SMB directly; they just open `\\\\server\\share` in File Explorer, map a network drive (giving it a letter like `Z:`), or print. Administrators list and manage shares with tools and commands (`net share`, `net use`). On the network, SMB traffic is simply connections on port 445 between clients and servers — normal and constant in an office, which is precisely what lets malicious SMB blend in until you know what abnormal looks like."
+    },
+    {
+      "heading": "SMB in the Real World: Files, Drives, and Admin Shares",
+      "content": "To recognise SMB abuse, it helps to know what *normal* SMB looks like, including some built-in features attackers exploit.\n\n**Everyday SMB** is a workstation connecting to a handful of file servers on port 445 to reach team folders and printers — a stable, predictable pattern. Each user touches the shares their role needs, and the traffic stays between clients and known servers.\n\n**Administrative shares** are a crucial detail. Windows automatically creates hidden shares on every machine, notably **`C$`** (the entire C: drive) and **`ADMIN$`** (the Windows folder), reachable by administrators as `\\\\machine\\C$`. These exist for legitimate remote administration, but they are also exactly what attackers use to copy tools onto other machines and reach their file systems. Access to `C$`/`ADMIN$` across many machines from one source is a strong lateral-movement signal.\n\n**Mapped drives and UNC paths** are the visible face of SMB: the `Z:` drive that is really `\\\\FILESERVER\\Finance`, or a shortcut that opens a network folder. LNK files and Jump Lists (from the forensics track) often record these UNC paths, tying user activity to shared resources.\n\n**Tools that ride on SMB.** The famous **PsExec** and similar administration tools work over SMB: they connect to a remote machine's admin share, copy a program, and start it as a service — legitimate for admins, and a favourite technique for attackers spreading through a network. Recognising that SMB underlies these tools explains why so much lateral movement appears as SMB activity.\n\nThe practical point is that SMB's everyday behaviour is narrow and predictable — a user reaching a few known shares — while its abuse is broad: one machine suddenly touching admin shares on dozens of others. Knowing the normal shape is what makes the abnormal, covered next, jump out."
+    },
+    {
+      "heading": "Why SMB Matters to a SOC Analyst",
+      "content": "SMB is one of the most heavily abused protocols in serious incidents, because the same features that make file sharing useful make it a superb vehicle for spreading and stealing. It deserves close SOC attention.\n\n**The major abuses:**\n\n- **Lateral movement.** Once inside, attackers use SMB to reach other machines — connecting to admin shares (`C$`/`ADMIN$`), copying tools, and executing them (the PsExec pattern). In telemetry this looks like **one machine rapidly connecting to many others on port 445**, often with administrative credentials. This fan-out is one of the most important patterns an analyst can recognise.\n- **Ransomware spread.** Ransomware uses SMB to reach and **encrypt shared drives across the whole organisation at once**, which is why a single infection can paralyse a company. Mass file modification across network shares is a hallmark.\n- **Exploits — EternalBlue / WannaCry.** The infamous **WannaCry** outbreak spread through an SMB vulnerability called **EternalBlue** (MS17-010) in the old **SMBv1** protocol, letting the worm move machine-to-machine automatically. This is the headline reason SMBv1 must be disabled and SMB patched.\n- **Credential and reconnaissance abuse.** Attackers use SMB to enumerate shares and, combined with weak configurations, to harvest or relay credentials (SMB is tied to NTLM authentication, enabling relay attacks).\n\n**What the SOC watches:**\n\n- **SMB traffic crossing network zones** — for example, a workstation reaching servers or other workstations it never normally touches on 445.\n- **One host connecting to many hosts on 445** — the lateral-movement fan-out.\n- **Access to admin shares** (`C$`, `ADMIN$`) from unexpected sources.\n- **Mass file operations** on shares (possible ransomware).\n- **Any SMBv1 traffic**, which should not exist in a hardened environment.\n\nThe analyst mindset is that **SMB is where a lot of an intrusion actually happens** — the moving, the spreading, the encrypting. Normal SMB is quiet and predictable; malicious SMB is a machine reaching where it should not. Learning that contrast turns port-445 telemetry from background noise into one of your best early warnings of an attacker moving through the network."
+    }
+  ],
+  "keyTakeaways": [
+    "SMB (Server Message Block) is the protocol Windows networks use to share files and printers, exposing named shares reached by UNC paths (\\\\server\\share) under permissions; it runs over TCP port 445 (older SMBv1 used 137-139 with NetBIOS and should be disabled).",
+    "SMB access is tied to Windows authentication (Kerberos/NTLM) and Active Directory; Windows auto-creates hidden administrative shares (C$ = whole C: drive, ADMIN$ = Windows folder) for remote admin that attackers heavily abuse.",
+    "SMB is a top intrusion vehicle: lateral movement (one host connecting to many on 445, copying/running tools via admin shares, the PsExec pattern), ransomware spreading to encrypt network shares, and the EternalBlue/WannaCry exploit of SMBv1.",
+    "SOC analysts hunt SMB crossing network zones, one-host-to-many fan-out on 445, access to C$/ADMIN$ from unexpected sources, mass file operations on shares, and any SMBv1 traffic — by contrasting the abnormal with normal, predictable SMB use."
+  ],
+  "quiz": [
+    {
+      "question": "During an incident you observe one workstation making SMB connections (port 445) to dozens of other machines within a few minutes, several reaching their C$ and ADMIN$ shares with administrative credentials. What does this pattern most strongly indicate?",
+      "options": [
+        {
+          "label": "Normal file browsing, because a single user legitimately opens the hidden C$ administrative share on dozens of colleagues' machines during ordinary daily work.",
+          "value": "a"
+        },
+        {
+          "label": "Lateral movement: the attacker is using SMB and admin shares to reach and run tools on many machines, the classic PsExec-style spread through a network.",
+          "value": "b"
+        },
+        {
+          "label": "A DNS misconfiguration, because SMB fan-out on port 445 is the standard symptom of a name-resolution failure rather than any attacker activity.",
+          "value": "c"
+        },
+        {
+          "label": "Routine printing, because sending one document to the office printer requires opening the C$ and ADMIN$ shares on every workstation in the building.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "One host rapidly connecting to many others on port 445, reaching C$/ADMIN$ admin shares with administrative credentials, is the classic lateral-movement fan-out — the PsExec-style pattern of copying and running tools across machines. Option a is wrong because normal users do not open hidden admin shares on dozens of colleagues' machines. Option c misattributes an SMB pattern to DNS. Option d is false because printing does not require admin-share access on every workstation."
+    },
+    {
+      "question": "The WannaCry ransomware spread automatically from machine to machine across networks in 2017. Which protocol and weakness did it exploit, and what is the key hardening lesson?",
+      "options": [
+        {
+          "label": "It exploited SSH on port 22 by brute-forcing passwords, so the lesson is to enforce long passwords and disable root login on every server.",
+          "value": "a"
+        },
+        {
+          "label": "It exploited the EternalBlue vulnerability in the old SMBv1 protocol, so the lesson is to disable SMBv1 and keep SMB patched.",
+          "value": "b"
+        },
+        {
+          "label": "It exploited DHCP starvation on ports 67 and 68, so the lesson is to limit the address pool and monitor for exhausted leases on the network.",
+          "value": "c"
+        },
+        {
+          "label": "It exploited HTTPS on port 443 by breaking TLS encryption, so the lesson is to rotate certificates and disable older cipher suites everywhere.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "WannaCry spread using EternalBlue (MS17-010), a vulnerability in the legacy SMBv1 protocol, which let the worm move machine-to-machine automatically; the hardening lesson is to disable SMBv1 and keep SMB patched. Option a describes SSH brute force, unrelated to WannaCry's propagation. Option c describes a DHCP attack, not the SMB exploit used. Option d wrongly attributes it to breaking TLS on HTTPS."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows-server/storage/file-server/file-server-smb-overview",
+    "https://attack.mitre.org/techniques/T1021/002/",
+    "https://learn.microsoft.com/en-us/security-updates/securitybulletins/2017/ms17-010"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-http-https-explained",
+  "slug": "http-https-explained-standalone",
+  "title": "HTTP and HTTPS Explained: The Web Protocol Analysts Read Most",
+  "topic": "Network Protocols",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "The web runs on HTTP, and no protocol appears more often in a SOC analyst's logs. Every website visit, API call, and — crucially — a huge share of malware's command-and-control traffic is HTTP or its encrypted form, HTTPS. This focused lesson covers the web protocol from the ground up: what HTTP is, how a request and response are structured, the methods and status codes you will read constantly, how HTTPS adds encryption with TLS, what the traffic looks like, and why reading HTTP logs is one of the most important skills an analyst can build.",
+  "sections": [
+    {
+      "heading": "What HTTP Is and How a Request Works",
+      "content": "**HTTP** stands for **HyperText Transfer Protocol**. It is the protocol web browsers and servers use to exchange web pages, data, and files — the foundation of the World Wide Web. Every time you load a page or an app fetches data, HTTP is the conversation carrying it.\n\nHTTP is a **request/response** protocol running over **TCP port 80**. The model is simple: a **client** (your browser) sends a **request** to a **server**, and the server sends back a **response**. The real-life analogy is ordering at a counter: you make a specific request ('I'd like this'), and you get a specific response back ('here it is' — or 'we don't have that').\n\n**An HTTP request** has a recognisable structure:\n\n- A **method** — what action you want (see below).\n- A **URL/path** — which resource, e.g. `/login` or `/products?id=42`.\n- **Headers** — metadata about the request, such as the **User-Agent** (what client is asking — a browser, an app, or a script), the **Host**, cookies, and more.\n- Sometimes a **body** — data being sent, e.g. the contents of a submitted form.\n\n**The methods** you will see most:\n\n- **GET** — retrieve a resource (loading a page). Parameters ride in the URL.\n- **POST** — send data to the server (submitting a login or form). Data rides in the body.\n- **PUT / DELETE** — update or remove a resource (common in APIs).\n\nUnderstanding this anatomy matters because when you read a web log, you are reading exactly these fields — the method, the path, the User-Agent, the source. A request like `GET /admin/../../etc/passwd` or `POST /login` with hundreds of attempts tells a story the moment you can parse its parts. HTTP's simplicity and universality are precisely why it is everywhere in your logs — and why attackers hide inside it."
+    },
+    {
+      "heading": "Status Codes and the Response",
+      "content": "The server's **HTTP response** answers the request, and its most important element for an analyst is the **status code** — a three-digit number that says what happened. Reading status codes fluently is one of the fastest triage skills in web-log analysis.\n\nThe codes are grouped by their first digit:\n\n- **2xx — Success.** **200 OK** is the normal 'here is what you asked for.' A `200` on a sensitive resource means the request succeeded.\n- **3xx — Redirection.** **301/302** send the client elsewhere.\n- **4xx — Client error.** The request was wrong or not allowed. **404 Not Found** (the resource does not exist), **403 Forbidden** (not permitted), **401 Unauthorized** (authentication needed). Bursts of `404`s can be someone probing for hidden pages; bursts of `401/403` can be someone probing access controls.\n- **5xx — Server error.** **500 Internal Server Error** means the server itself failed — often when malformed or malicious input (like an injection attempt) breaks the backend.\n\nAlongside the status code, the response carries **headers** (metadata like content type and cookies) and usually a **body** (the actual page, data, or file).\n\n**Reading a log line** becomes a matter of assembling these: *at this time, this source sent this method to this path with this User-Agent, and got back this status code.* For example, a single IP sending many `POST /login` requests that mostly return `401` and then one `200` tells you a brute force likely succeeded; a burst of `404`s walking through `/admin`, `/backup`, `/wp-login` is reconnaissance; a `500` right after a strange quote character in a parameter hints at an injection attempt reaching the backend. The status code is your first, fastest filter for what deserves a closer look."
+    },
+    {
+      "heading": "HTTPS: Adding Encryption with TLS",
+      "content": "Plain HTTP has a serious problem: everything it sends — including passwords, session cookies, and personal data — travels as **readable text**. Anyone able to capture the traffic can read it. **HTTPS** solves this by adding encryption.\n\n**HTTPS** is simply HTTP running inside an encrypted **TLS** (Transport Layer Security) tunnel, on **TCP port 443**. The 'S' stands for Secure. TLS does three things:\n\n- **Encryption** — the HTTP request and response are scrambled so eavesdroppers see only ciphertext.\n- **Authentication** — a **certificate** proves the server is really who it claims (the padlock in your browser), preventing impostor sites.\n- **Integrity** — data cannot be secretly altered in transit.\n\n**How it starts:** before any HTTP is exchanged, the client and server perform a **TLS handshake** — they agree on encryption and the server presents its certificate, which the client validates (checking it is issued by a trusted authority and matches the site). Only then does the encrypted HTTP conversation flow. (This connects to the certificates concept from the cryptography lesson.)\n\n**What this means for an analyst is critical:** with HTTPS, the *content* of the request and response is encrypted, so a network monitor can no longer read the URL path, headers, or body the way it can with plain HTTP. But — and this is the key insight — the **metadata remains visible**: which client talked to which server, when, for how long, how much data moved, and the destination IP and (often) the domain name via the certificate/SNI. This is why, in an HTTPS world, analysts increasingly rely on **endpoint logs** (where the browser or app records the full URL before encryption) and on **metadata and TLS fingerprinting** rather than reading packet contents. HTTPS protects users' privacy and security — and also lets attackers hide their command-and-control inside encryption, which is exactly the tension the SOC must work within."
+    },
+    {
+      "heading": "Why HTTP/HTTPS Matters to a SOC Analyst",
+      "content": "HTTP and HTTPS are, for most analysts, the single most-read protocol — because the web is where both legitimate activity and a huge amount of attack activity live. Two very different angles matter.\n\n**1. Web attacks against your servers (reading inbound HTTP).** Web server and WAF logs record every request hitting your applications, and attackers' probes appear right there in the method, path, and parameters:\n\n- **Injection and web attacks** — SQL injection, cross-site scripting, path traversal (`../../etc/passwd`), and command injection show up as suspicious payloads in URLs and bodies, often followed by `500` errors or unexpected `200`s.\n- **Reconnaissance** — bursts of `404`s walking through admin paths, or scanning User-Agents (like `sqlmap` or `nikto`), reveal someone mapping your site.\n- **Credential attacks** — many `POST /login` attempts with `401`s indicate brute force or credential stuffing.\n\n(The OWASP Top 10 and web-attack lessons go deeper; the point here is that these attacks are *read in HTTP logs*.)\n\n**2. Malware using the web to communicate (outbound HTTP/HTTPS).** This is often the more important angle. Attackers love HTTP/HTTPS for **command-and-control** and **exfiltration** because it blends in — port 443 traffic is everywhere and usually allowed out through firewalls. Analysts hunt for:\n\n- **Beaconing** — a machine making small, regular HTTP/HTTPS requests to the same external destination on a schedule (malware phoning home).\n- **Suspicious destinations** — connections to newly-registered domains, known-bad hosts, or unusual User-Agents that do not match a real browser.\n- **Data exfiltration** — unusually large outbound POSTs or transfers to unfamiliar servers.\n- **TLS anomalies** — with HTTPS hiding content, analysts use **TLS/JA3 fingerprinting** and certificate oddities to spot malicious tools even without seeing the payload.\n\nThe unifying analyst skill is to read HTTP as a language: parse the method, path, status, and User-Agent for inbound attacks, and watch destination, regularity, and volume for outbound C2. Because so much of both normal work and modern malware speaks HTTP/HTTPS, fluency here — knowing what a benign request looks like versus a probe or a beacon — is one of the highest-leverage capabilities a SOC analyst can develop."
+    }
+  ],
+  "keyTakeaways": [
+    "HTTP (HyperText Transfer Protocol, TCP port 80) is the web's request/response protocol; a request carries a method (GET retrieve, POST send data, PUT/DELETE), a URL/path, headers (like User-Agent), and sometimes a body.",
+    "HTTP responses carry a status code that is the analyst's fastest triage signal: 2xx success (200 OK), 3xx redirect, 4xx client error (404 not found, 403 forbidden, 401 unauthorized), 5xx server error (500, often from malformed/injection input).",
+    "HTTPS is HTTP inside an encrypted TLS tunnel on TCP port 443, adding encryption, certificate-based server authentication, and integrity via a TLS handshake; content becomes unreadable to network monitors but metadata (who/when/how much/destination) stays visible, pushing analysts toward endpoint logs and TLS fingerprinting.",
+    "SOC analysts read HTTP two ways: inbound web logs reveal injection, path traversal, recon (404 bursts, scanner User-Agents), and login brute force; outbound HTTP/HTTPS reveals C2 beaconing, suspicious destinations, exfiltration, and TLS/JA3 anomalies — since malware hides in ubiquitous, firewall-allowed web traffic."
+  ],
+  "quiz": [
+    {
+      "question": "In web server logs you see one external IP send hundreds of GET requests within a minute to paths like /admin, /backup, /wp-login.php, and /phpmyadmin, almost all returning 404 Not Found. What does this pattern indicate?",
+      "options": [
+        {
+          "label": "A successful data exfiltration, because stealing data always appears as a rapid series of GET requests to common admin paths that all return 404 errors.",
+          "value": "a"
+        },
+        {
+          "label": "Reconnaissance: the attacker is probing for hidden or vulnerable pages, and the burst of 404s shows most guessed paths do not exist on the server.",
+          "value": "b"
+        },
+        {
+          "label": "Normal user browsing, because a person loading a single web page legitimately requests hundreds of different admin URLs that return 404 in under a minute.",
+          "value": "c"
+        },
+        {
+          "label": "A TLS handshake failure, because HTTPS certificate errors are recorded in web logs as a rapid sequence of 404 responses to administrative URL paths.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A burst of requests walking through common admin/CMS paths that mostly return 404 is classic reconnaissance — the attacker is guessing for hidden or vulnerable pages, and the 404s show those paths do not exist. Option a wrongly ties this recon pattern to exfiltration, which is outbound and large, not 404-heavy probing. Option c is false because normal browsing does not request hundreds of admin URLs. Option d misattributes a TLS problem to 404 status codes."
+    },
+    {
+      "question": "Your organisation uses HTTPS everywhere, so a network sensor can no longer read the URLs and content of web traffic. Why can analysts still detect malware command-and-control, and what do they rely on?",
+      "options": [
+        {
+          "label": "They cannot detect anything once HTTPS is used, because TLS encryption removes every possible signal, so C2 over port 443 is completely undetectable.",
+          "value": "a"
+        },
+        {
+          "label": "HTTPS hides content but not metadata, so analysts use destination, timing/regularity, data volume, endpoint logs, and TLS/JA3 fingerprinting to spot C2.",
+          "value": "b"
+        },
+        {
+          "label": "HTTPS automatically blocks all malware, so any traffic that reaches port 443 is guaranteed safe and requires no monitoring or investigation at all.",
+          "value": "c"
+        },
+        {
+          "label": "Analysts simply decrypt all TLS traffic instantly without any keys, because HTTPS encryption can be reversed by any network sensor on demand.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "TLS encrypts the content of HTTPS but leaves metadata visible — which client talked to which server, when, how often, how much data, and the destination — so analysts detect C2 through beaconing regularity, suspicious destinations, volume, endpoint logs that see the full URL pre-encryption, and TLS/JA3 fingerprinting. Option a overstates the loss of visibility. Option c falsely claims HTTPS blocks malware. Option d is wrong because TLS cannot be decrypted without keys."
+    }
+  ],
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview",
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status",
+    "https://attack.mitre.org/techniques/T1071/001/"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-smtp-explained",
+  "slug": "smtp-explained-standalone",
+  "title": "SMTP Explained: How Email Travels and Gets Forged",
+  "topic": "Network Protocols",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Email is the number-one delivery vehicle for attacks, so the protocol that moves email — SMTP — is one every SOC analyst should understand in depth. This focused lesson covers SMTP from the ground up: what it is and its one specific job, how a message travels from sender to recipient, the ports involved, what the conversation actually looks like, why email is so easy to forge, and how SMTP knowledge underpins investigating phishing and business email compromise.",
+  "sections": [
+    {
+      "heading": "What SMTP Is and Its One Job",
+      "content": "**SMTP** stands for **Simple Mail Transfer Protocol**. Its single, specific job is to **send** email and relay it between mail servers until it reaches the recipient's mailbox. It is the protocol that pushes a message from the sender toward its destination.\n\nA crucial clarification up front: SMTP is for **sending and relaying**, not for **reading**. When you open your inbox, a different protocol — **IMAP** (or the older **POP3**) — retrieves the stored messages for you. Think of it this way: **SMTP is the postal service that carries and delivers the letter; IMAP/POP3 is you opening your mailbox to read what arrived.** Keeping this split clear avoids a common beginner confusion.\n\nThe real-life analogy runs throughout: SMTP is the **mail-carrier network**. When you send a letter, you hand it to your local post office, which passes it through sorting facilities and other post offices until it reaches the recipient's local branch and their mailbox. SMTP servers play the role of those post offices, handing the message along until it arrives.\n\nSMTP handles the *transfer* — the addressing, the handoffs between servers, and the delivery — for essentially all internet email. Because every phishing email, every malicious attachment, and every business-email-compromise message is *delivered by SMTP*, understanding how it works is directly relevant to the attacks a SOC investigates most. And as the later sections show, one property of SMTP — how easy it is to lie about who sent a message — is the root of a whole category of attacks."
+    },
+    {
+      "heading": "How SMTP Works: The Journey and the Ports",
+      "content": "Sending an email is a relay across several servers, and understanding the journey clarifies both how mail works and where security checks happen.\n\n**The journey:**\n\n1. Your mail client (or webmail) hands the message to your organisation's **outgoing mail server** (submission).\n2. That server looks up the recipient domain's mail server using DNS **MX records** (Mail Exchange records that say 'this server handles mail for example.com').\n3. It connects to the recipient's mail server and **relays** the message via SMTP.\n4. The recipient's server accepts it and places it in the recipient's mailbox, where **IMAP/POP3** will later fetch it for reading.\n\n**The ports:**\n\n- **Port 25** — the classic SMTP port used for **server-to-server** relay between mail servers.\n- **Port 587** — the modern **submission** port, used by mail clients to send outgoing mail, with authentication and encryption (STARTTLS).\n- **Port 465** — SMTP over TLS (SMTPS), another secure submission option.\n\n(For retrieval, remember the companions: **IMAP** on 143/993 and **POP3** on 110/995.)\n\n**What the conversation looks like:** SMTP is a text-based protocol with a small set of commands. A simplified exchange is almost human-readable: the sending server says `HELO`/`EHLO` (hello), then `MAIL FROM:` (who it claims to be sending from), `RCPT TO:` (the recipient), `DATA` (here comes the message), and the message content follows. **Behind the scenes**, this is where a critical security subtlety lives: the `MAIL FROM` (the 'envelope' sender) and the `From:` header the user sees are *separate*, and both are simply stated by the sender — nothing in basic SMTP verifies they are truthful. That design decision, made when the internet was small and trusted, is exactly why email forgery is so easy, as the next section explains."
+    },
+    {
+      "heading": "Why Email Is So Easy to Forge",
+      "content": "The most important thing a SOC analyst must understand about SMTP is that **basic SMTP does nothing to verify who a message really came from.** The sender simply *states* the sender address, and the receiving server, by default, believes it.\n\nThis is the root of **email spoofing**: an attacker can put `From: ceo@yourcompany.com` on a message they sent themselves, and to the recipient it appears to come from the CEO. Nothing in the core protocol stops this — it is the engine behind most **phishing** and **business email compromise (BEC)**. The problem is architectural, not a bug: SMTP was designed for a small, trusting network and never built in sender verification.\n\nBecause of this, three add-on mechanisms were created to *authenticate* email, and analysts must know them (they are published in DNS and connect to the email-security lessons):\n\n- **SPF (Sender Policy Framework)** — the domain owner publishes a list of servers allowed to send mail for the domain; the receiver checks whether the sending server is on that list.\n- **DKIM (DomainKeys Identified Mail)** — the sending server cryptographically **signs** the message; the receiver verifies the signature using a public key in DNS, proving the message is authentic and unaltered.\n- **DMARC** — ties SPF and DKIM together, requires the authenticated domain to align with the visible `From:` address, and tells receivers what to do when checks fail (nothing, quarantine, or reject).\n\nAnother classic weakness is the **open relay** — a misconfigured SMTP server that will relay mail for *anyone*, which spammers and attackers abuse to send mail that appears to come from a legitimate server. Properly configured servers only relay for authenticated users or their own domains.\n\nThe takeaway is that **email trust is not built into SMTP; it is bolted on afterward with SPF, DKIM, and DMARC.** Understanding that the protocol itself is trusting and forgeable is what makes an analyst appropriately skeptical of the 'From' line — and points directly to where the real verification (the authentication results) lives."
+    },
+    {
+      "heading": "Why SMTP Matters to a SOC Analyst",
+      "content": "Since email is the leading way attackers get in, SMTP knowledge is directly applied every time a SOC investigates a suspicious message. Two areas dominate.\n\n**1. Phishing and BEC investigation.** When a suspicious email is reported, understanding SMTP tells you where to look:\n\n- **Read the headers.** Email **headers** record the message's journey through SMTP servers (the `Received:` lines), the envelope and header sender addresses, and — critically — the **SPF, DKIM, and DMARC results**. A message claiming to be from your CEO that shows `spf=fail dkim=fail dmarc=fail` is very likely spoofed. Reading these authentication results is one of the fastest, highest-value moves in phishing triage.\n- **Trace the path.** The `Received:` headers show which servers handled the message and the originating IP, helping you spot mail that did not come from where it claims.\n- **Spot mismatches.** A gap between the friendly display name, the `From:` header, and the actual envelope sender (`MAIL FROM`) is a common spoofing tell.\n\n**2. Detecting malicious mail activity in logs and traffic:**\n\n- **Inbound threats** — phishing waves, malicious attachments, and links arriving via SMTP (mail-gateway logs record senders, subjects, and verdicts).\n- **Outbound abuse** — a compromised internal account or server suddenly **sending** large volumes of mail can indicate it is being used for spam, phishing, or exfiltration; unusual outbound SMTP is a signal.\n- **Exfiltration over email** — attackers sometimes steal data by emailing it out; large or unusual outbound messages to external domains are worth watching.\n- **Open relay abuse and spoofing** — traffic patterns and authentication failures reveal servers being abused or domains being impersonated.\n\nThe analyst mindset is to treat **SMTP headers as the evidence trail of an email**, and the **SPF/DKIM/DMARC results as the verdict on whether the sender is genuine**. Because SMTP itself is trusting and forgeable, the analyst's job is to apply the verification the protocol lacks — reading the journey and the authentication results to separate a real message from a convincing forgery. That skill, grounded in how SMTP actually moves and labels mail, is central to defending the channel attackers use most."
+    }
+  ],
+  "keyTakeaways": [
+    "SMTP (Simple Mail Transfer Protocol) has one job — sending and relaying email between mail servers — while reading mail is done by IMAP (143/993) or POP3 (110/995); SMTP is the postal service, IMAP/POP3 is opening your mailbox.",
+    "Email travels by the sender's server looking up the recipient domain's DNS MX record and relaying via SMTP; ports are 25 (server-to-server relay), 587 (authenticated submission with STARTTLS), and 465 (SMTPS).",
+    "Basic SMTP does not verify the sender — the envelope MAIL FROM and the visible From: header are simply stated and believed — which makes spoofing easy and is the root of phishing and BEC; trust is bolted on afterward with SPF (allowed servers), DKIM (cryptographic signature), and DMARC (alignment + policy), all published in DNS.",
+    "SOC analysts apply SMTP knowledge to phishing/BEC triage by reading email headers (Received: path, envelope vs From: sender, and especially SPF/DKIM/DMARC results, where fail = likely spoofed) and by watching for malicious inbound mail, unusual outbound SMTP (compromised account/exfiltration), and open-relay abuse."
+  ],
+  "quiz": [
+    {
+      "question": "A user reports an email that appears to come from the company CEO requesting an urgent wire transfer. Which SMTP-related evidence best helps you determine whether the sender address was forged?",
+      "options": [
+        {
+          "label": "The DHCP lease table, because it records which mail server was authorised to send on behalf of the CEO's domain at the time the message was sent.",
+          "value": "a"
+        },
+        {
+          "label": "The email headers, especially the SPF, DKIM, and DMARC authentication results, since failures strongly indicate the From address was spoofed.",
+          "value": "b"
+        },
+        {
+          "label": "The recipient's IMAP folder size, because a forged sender always causes the mailbox to grow at an abnormal rate that reveals the spoofing attempt.",
+          "value": "c"
+        },
+        {
+          "label": "Nothing can tell you, because SMTP cryptographically guarantees every From address is genuine, so a displayed CEO address is always authentic.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Because basic SMTP does not verify the sender, the way to judge authenticity is the email headers — the Received path, the envelope-vs-From addresses, and especially the SPF/DKIM/DMARC results, where failures strongly indicate spoofing. Option a misuses DHCP, which has nothing to do with mail authorisation. Option c invents a mailbox-size signal that does not exist. Option d is the opposite of the truth: SMTP does not guarantee the From address is genuine, which is exactly why spoofing works."
+    },
+    {
+      "question": "Why is email spoofing fundamentally easy, and what mechanisms were added to address it?",
+      "options": [
+        {
+          "label": "Because basic SMTP simply believes the sender address it is told; SPF, DKIM, and DMARC were added (published in DNS) to authenticate senders afterward.",
+          "value": "a"
+        },
+        {
+          "label": "Because SMTP encrypts every message so strongly that receivers cannot check the sender; TLS 1.3 was added later to finally allow sender verification.",
+          "value": "b"
+        },
+        {
+          "label": "Because email is delivered over port 3389, which has no authentication; moving email to port 22 was the fix that eliminated all spoofing.",
+          "value": "c"
+        },
+        {
+          "label": "Because spoofing requires stealing the sender's password first; enforcing longer passwords was the mechanism created to make forgery impossible.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "Spoofing is easy because basic SMTP was designed for a trusting network and simply accepts the sender address it is given without verification; SPF (allowed sending servers), DKIM (cryptographic signature), and DMARC (alignment and policy) were added and published in DNS to authenticate senders after the fact. Option b is wrong because encryption is not why spoofing works. Option c invents wrong ports (email is not on 3389/22). Option d is false because spoofing needs no password — the attacker just states a false From address."
+    }
+  ],
+  "references": [
+    "https://datatracker.ietf.org/doc/html/rfc5321",
+    "https://dmarc.org/overview/",
+    "https://attack.mitre.org/techniques/T1566/"
+  ],
+  "xp": 190,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-ftp-explained",
+  "slug": "ftp-explained-standalone",
+  "title": "FTP Explained: File Transfer, Plaintext Risk, and Exfiltration",
+  "topic": "Network Protocols",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "FTP is one of the oldest protocols still in use, built for a single purpose: moving files between computers. It is simple, common on older systems, and — in its classic form — dangerously insecure, which makes it both a hygiene concern and a data-exfiltration channel a SOC should watch. This focused lesson covers FTP end to end: what it is and why it exists, how its unusual two-channel design and ports work, why classic FTP sends everything in plaintext, the secure alternatives, and why FTP activity matters to an analyst.",
+  "sections": [
+    {
+      "heading": "What FTP Is and Why It Exists",
+      "content": "**FTP** stands for **File Transfer Protocol**. Its single job is exactly what the name says: to **transfer files** between a client and a server over a network — uploading and downloading files, listing directories, and managing files on a remote system.\n\nFTP is one of the internet's original protocols, predating the web, and it was built when file transfer was a core need and security was not yet a concern. The real-life analogy is a **loading dock between two warehouses**: a dedicated channel whose whole purpose is moving crates (files) back and forth in bulk, in both directions.\n\nEven today FTP shows up in specific places: legacy systems, some website management, automated transfers between business systems, and older internal tools. You connect with a dedicated FTP client (or command-line `ftp`), authenticate with a username and password, and then issue commands to `put` (upload) and `get` (download) files, or list directories.\n\nA notable feature is **anonymous FTP** — servers configured to allow anyone to connect with a generic 'anonymous' login, historically used for public file downloads. Convenient, but a security consideration, since it grants access without real authentication.\n\nWhy an analyst should care from the start: FTP's age means it carries a fundamental security weakness (covered shortly), and its purpose — moving files in bulk — makes it a natural channel for **data exfiltration**. Understanding FTP is partly about recognising a legacy protocol that often should be replaced, and partly about knowing why its presence, especially outbound, deserves a second look."
+    },
+    {
+      "heading": "How FTP Works: Two Channels and Its Ports",
+      "content": "FTP has an unusual design that sets it apart from most protocols: it uses **two separate connections** at once — one for commands, one for the actual file data.\n\n- **The control channel (port 21)** carries the **commands and responses** — logging in, listing directories, and requesting transfers. This connection stays open for the whole session.\n- **The data channel** carries the **actual file contents** during a transfer.\n\nThis split is why FTP has two **modes**, a detail that matters for firewalls and troubleshooting:\n\n- **Active mode** — the *server* opens the data connection back to the client (traditionally from port **20**). This often causes problems with client-side firewalls, because the firewall sees an unexpected inbound connection.\n- **Passive mode** — the *client* opens the data connection to the server (on a port the server specifies), which works better through firewalls and is the common default today.\n\n**The ports to remember:** FTP uses **TCP port 21** for the control channel (the one you will most associate with FTP) and **port 20** for active-mode data, with passive mode using ephemeral ports.\n\n**What the conversation looks like:** like SMTP, FTP is text-based and fairly readable. After connecting to port 21, the client sends commands such as `USER` (username), `PASS` (password), `LIST` (list files), `RETR` (retrieve/download), and `STOR` (store/upload), and the server replies with numeric status codes. **Behind the scenes**, here is the critical part: in classic FTP, this entire exchange — *including the `USER` and `PASS` commands carrying the username and password* — travels as plain, unencrypted text. That design choice, fine in FTP's trusting early era, is the source of its biggest security problem, which the next section addresses."
+    },
+    {
+      "heading": "The Plaintext Problem and Secure Alternatives",
+      "content": "The defining security fact about classic FTP is that **it sends everything in plaintext — including credentials.** The username and password used to log in, and the contents of every file transferred, travel unencrypted across the network. Anyone able to capture the traffic (recall the Wireshark lesson) can read the login and the data directly.\n\nThis is a serious weakness. In a packet capture of a plain FTP session, an analyst — or an attacker — can literally see `USER admin` and `PASS Summer2026!` in the clear, along with the files. For this reason, **plain FTP should not be used over untrusted networks**, and finding it in use is a hygiene finding worth flagging, much like discovering Telnet.\n\nBecause of this, secure alternatives exist, and it is important to keep them straight because their names are confusingly similar:\n\n- **FTPS (FTP Secure)** — this is FTP with **TLS encryption** added, wrapping the classic FTP protocol in the same kind of encryption HTTPS uses. It still uses FTP's two-channel design.\n- **SFTP (SSH File Transfer Protocol)** — despite the similar name, this is **not FTP at all**. It is a completely different protocol that runs **over SSH** (port 22), inheriting SSH's encryption and authentication. SFTP is the common modern choice for secure file transfer.\n\nThe key distinction for an analyst: **FTPS = FTP + TLS; SFTP = file transfer over SSH.** They both solve the plaintext problem, but they are different technologies on different ports.\n\nThe practical guidance is that legitimate environments should be using FTPS or SFTP, not plain FTP. So when plain FTP (port 21, unencrypted) appears — especially with credentials visible or reaching external destinations — it is both a security-hygiene concern and, as the next section covers, a potential exfiltration channel worth investigating."
+    },
+    {
+      "heading": "Why FTP Matters to a SOC Analyst",
+      "content": "FTP matters to a SOC for two connected reasons: it is a security weakness when present, and its file-moving purpose makes it a natural exfiltration path.\n\n**As a weakness and hygiene finding:**\n\n- **Plaintext credentials.** Plain FTP exposes usernames and passwords to anyone capturing traffic. Its presence on the network, especially crossing untrusted links, is worth flagging — attackers who sniff or capture FTP traffic can harvest working credentials.\n- **Anonymous and weakly-secured FTP servers.** An anonymous or poorly-configured FTP server can expose files to anyone, and attackers scan the internet for such servers to steal data or host malware.\n\n**As an exfiltration and attack channel:**\n\n- **Data exfiltration.** Because FTP exists to move files in bulk, attackers use it to **upload stolen data** out of a network to a server they control. **Unusual outbound FTP** — an internal machine connecting out to an unfamiliar FTP server, or transferring large volumes — is a classic exfiltration signal. This is the primary reason to watch FTP.\n- **Malware distribution and tooling.** Attackers sometimes host malware on FTP servers or use FTP to pull additional tools onto a compromised host.\n- **Legacy exposure.** Old FTP servers with known vulnerabilities are targets in their own right.\n\n**What the SOC watches:**\n\n- **Outbound FTP to external or unfamiliar servers**, particularly large transfers — the exfiltration pattern.\n- **Plain FTP (port 21, unencrypted) in use at all**, as a hygiene and credential-exposure concern.\n- **Anonymous FTP access** and connections to known-bad FTP hosts.\n- **Credentials visible in captured FTP traffic**, confirming exposure.\n\nThe analyst mindset is that FTP is a legacy, often-insecure protocol whose very purpose — bulk file movement — aligns with what an attacker wants to do with your data. Seeing plain FTP is a prompt to ask 'why is this still here?', and seeing outbound FTP to an unknown destination is a prompt to ask 'is data leaving?'. Both questions, grounded in how FTP actually works, make this old protocol a meaningful part of a SOC's attention."
+    }
+  ],
+  "keyTakeaways": [
+    "FTP (File Transfer Protocol) exists solely to transfer files between a client and server; it is a legacy protocol still found on older systems, sometimes allowing anonymous (unauthenticated) access.",
+    "FTP uniquely uses two connections — a control channel on TCP port 21 (commands like USER/PASS/LIST/RETR/STOR) and a separate data channel (port 20 in active mode, ephemeral ports in passive mode) — with passive mode working better through firewalls.",
+    "Classic FTP sends everything, including the username and password, in plaintext, so it is readable in a packet capture and should be replaced; the secure alternatives are FTPS (FTP + TLS) and the differently-named SFTP (file transfer over SSH on port 22).",
+    "SOC analysts treat FTP as both a hygiene finding (plaintext credentials, anonymous/weak servers) and, most importantly, an exfiltration channel — watching for unusual/large outbound FTP to unfamiliar servers, plain FTP in use, and credentials visible in captured traffic."
+  ],
+  "quiz": [
+    {
+      "question": "An analyst captures network traffic and, in a plain FTP session on port 21, can directly read 'USER backupadmin' and 'PASS Wint3r2026!'. Why is this possible, and what does it imply?",
+      "options": [
+        {
+          "label": "It is impossible; FTP always encrypts credentials, so the analyst must have misread an unrelated HTTPS session that happened to use port 21.",
+          "value": "a"
+        },
+        {
+          "label": "Classic FTP sends the login and file data in plaintext, so credentials are readable in captured traffic — a serious exposure that argues for FTPS or SFTP.",
+          "value": "b"
+        },
+        {
+          "label": "The credentials are only visible because the analyst has the decryption key; without it, plain FTP traffic is fully encrypted and unreadable.",
+          "value": "c"
+        },
+        {
+          "label": "This proves the FTP server is secure, because a properly configured server deliberately displays credentials in the clear to confirm they were received.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Classic FTP transmits everything — including the USER and PASS commands and the file contents — as unencrypted plaintext, so anyone capturing the traffic can read the credentials directly; this is a serious exposure and the reason to use FTPS (FTP + TLS) or SFTP (over SSH) instead. Option a is wrong because plain FTP does not encrypt credentials. Option c is false because no key is involved in reading plaintext. Option d absurdly reframes a vulnerability as a feature."
+    },
+    {
+      "question": "During an investigation you notice an internal workstation making an outbound FTP connection to an unfamiliar external server and transferring several gigabytes of data. Why is this a high-priority finding?",
+      "options": [
+        {
+          "label": "It is routine, because workstations normally back up several gigabytes to random external FTP servers over plaintext port 21 as part of standard operations.",
+          "value": "a"
+        },
+        {
+          "label": "FTP's purpose is bulk file transfer, so a large outbound FTP transfer to an unfamiliar server is a classic data-exfiltration pattern worth investigating.",
+          "value": "b"
+        },
+        {
+          "label": "It only indicates a DNS problem, because outbound FTP transfers are the standard symptom of a failed name-resolution lookup on the workstation.",
+          "value": "c"
+        },
+        {
+          "label": "It confirms the workstation is patched, because only fully updated machines are permitted to open outbound FTP connections to external servers.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "FTP exists to move files in bulk, so an internal machine sending several gigabytes over outbound FTP to an unfamiliar external server matches the classic data-exfiltration pattern and warrants immediate investigation. Option a wrongly normalises large transfers to random external FTP servers. Option c misattributes the behaviour to DNS. Option d invents a patching implication unrelated to the observation."
+    }
+  ],
+  "references": [
+    "https://datatracker.ietf.org/doc/html/rfc959",
+    "https://attack.mitre.org/techniques/T1048/",
+    "https://www.ssh.com/academy/ssh/sftp-ssh-file-transfer-protocol"
+  ],
+  "xp": 190,
+  "estimatedMinutes": 36,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-rdp-explained",
+  "slug": "rdp-explained-standalone",
+  "title": "RDP Explained: Remote Desktop, Brute Force, and Ransomware Entry",
+  "topic": "Network Protocols",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "RDP gives you the full graphical desktop of a Windows machine from anywhere — an enormously useful tool, and one of the most common ways ransomware gangs break into organisations. This focused lesson covers RDP thoroughly: what it is and why it is used, how it works and on which port, what RDP activity looks like, and why an exposed RDP port is one of the most dangerous things a SOC can find on the internet — the entry point behind a large share of real-world breaches.",
+  "sections": [
+    {
+      "heading": "What RDP Is and Why It Is Used",
+      "content": "**RDP** stands for **Remote Desktop Protocol**. It is Microsoft's protocol for connecting to and controlling the full **graphical desktop** of a Windows machine over a network — you see the remote computer's screen, and your keyboard and mouse control it, as if you were sitting in front of it.\n\nThe contrast with SSH is useful: where SSH gives a **text command-line** to a remote machine (mostly Linux), RDP gives a **full graphical desktop** (Windows). The real-life analogy is a **remote control that shows you the actual screen** — not just a text prompt, but the entire Windows desktop, windows, and applications, mirrored to you and responsive to your input.\n\nRDP is used constantly and legitimately:\n\n- **Remote administration** — IT staff managing Windows servers and desktops without walking to them.\n- **Remote work** — employees connecting to their office PC or a virtual desktop from home.\n- **Servers and jump boxes** — administering Windows servers in data centres and clouds.\n\nYou connect using a **Remote Desktop client** (the built-in `mstsc.exe` on Windows, or clients on other platforms), enter the target machine's address, and authenticate with a Windows username and password. Once connected, you have an interactive desktop session on that machine.\n\nWhy an analyst must take RDP seriously from the outset: because RDP hands over **full interactive control of a Windows machine**, a compromised RDP session is not a small foothold — it is an attacker sitting at the desktop with the user's privileges. That high value, combined with how often RDP is carelessly exposed to the internet, makes it one of the most consequential protocols in modern intrusions, as the rest of this lesson shows."
+    },
+    {
+      "heading": "How RDP Works and Its Port",
+      "content": "RDP is a **client/server** protocol that listens on **TCP port 3389** (it can also use UDP 3389 for performance). Port 3389 is the single most important number to associate with RDP, because its exposure is at the heart of RDP's security story.\n\n**The basic flow:**\n\n1. The **RDP client** connects to the target Windows machine on port 3389.\n2. The two negotiate the session, including **encryption** (modern RDP encrypts the session, and can use TLS).\n3. The user **authenticates** with Windows credentials, ideally protected by **Network Level Authentication (NLA)**, which requires authentication *before* a full session is established (an important hardening feature).\n4. Once authenticated, the server streams the **graphical desktop** to the client, and the client sends keyboard and mouse input back — a continuous, interactive session.\n\n**What it looks like in practice:** the user runs the Remote Desktop client, types the machine's name or IP, logs in, and sees the remote desktop appear in a window. Behind the scenes, RDP efficiently transmits screen updates one way and input the other, along with optional features like shared clipboard and drive redirection (which themselves carry security considerations).\n\n**Behind the scenes for security:** two settings dominate RDP's safety. First, **whether port 3389 is exposed to the internet** — an RDP port reachable from anywhere is an open invitation. Second, **whether NLA is enforced and strong authentication (and MFA) is required** — without these, RDP is protected only by a password that can be guessed. RDP sessions and logons are recorded in **Windows event logs** (logon events, and Terminal Services / Remote Desktop specific logs), which is where the SOC detections in the final section come from. Understanding that RDP = full desktop control over port 3389, gated only by Windows authentication, is what makes its risks clear."
+    },
+    {
+      "heading": "Why Exposed RDP Is So Dangerous",
+      "content": "If there is one practical security lesson about RDP, it is this: **RDP exposed to the internet is one of the most dangerous misconfigurations there is, and it is a leading entry point for ransomware.**\n\nWhy is it so dangerous? Because an internet-facing port 3389, protected only by a password, is a direct door into full desktop control of a Windows machine. Attackers know this, so they **continuously scan the entire internet for open port 3389** and then attack what they find. Two techniques dominate:\n\n- **Brute force and credential stuffing.** Attackers hammer exposed RDP with username/password guesses — millions of attempts across the internet daily. Weak or reused passwords fall quickly, and a successful login gives the attacker an interactive desktop session with the victim's privileges. A great many ransomware incidents begin exactly this way: brute-forced or purchased RDP credentials.\n- **Exploits — BlueKeep.** RDP has had serious vulnerabilities, most famously **BlueKeep (CVE-2019-0708)**, a 'wormable' flaw that allowed remote code execution against unpatched systems without any credentials. This is why patching RDP and restricting its exposure is critical.\n\nOnce inside via RDP, an attacker has a strong foothold: a real desktop session from which to disable defences, steal credentials, move laterally (including via RDP to other internal machines), and ultimately deploy ransomware across the environment.\n\n**The defensive lessons** follow directly:\n\n- **Never expose RDP directly to the internet.** Put it behind a **VPN**, a bastion/jump host, or a Remote Desktop Gateway, so port 3389 is not reachable from anywhere.\n- **Enforce NLA and strong authentication, ideally MFA**, so a guessed password alone is not enough.\n- **Patch RDP** to close known vulnerabilities like BlueKeep.\n- **Lock out and alert** on repeated failed logons.\n\nUnderstanding that exposed RDP + weak authentication = ransomware's favourite front door is one of the most operationally valuable things an analyst can know."
+    },
+    {
+      "heading": "Why RDP Matters to a SOC Analyst",
+      "content": "Because RDP is both a critical admin tool and a top intrusion vector, RDP activity is high-value data the SOC watches closely — and it maps to specific, recognisable log patterns.\n\n**What analysts hunt for:**\n\n- **RDP brute force.** A flood of **failed logon attempts** against RDP — in Windows logs, many **Event ID 4625** (failed logon) entries, often with logon type **10** (RemoteInteractive) or **3**, from one or many sources — indicates password guessing. A brute force that then **succeeds** (a **4624** successful logon of type 10 after many 4625s) is a likely compromise demanding immediate investigation.\n- **Internet-exposed 3389.** Discovering that port 3389 is reachable from the internet is a critical finding in itself; analysts and vulnerability scans flag exposed RDP as a priority to close.\n- **Successful RDP logons from unusual sources.** A RemoteInteractive logon from an unfamiliar country, at an odd hour, or to a server that is not normally administered that way, can signal stolen credentials — even if the login 'succeeded,' the *context* is the red flag.\n- **Lateral movement via RDP.** Attackers use RDP to hop between internal machines. One internal host initiating RDP to many others, or RDP sessions between machines that normally never connect, is a lateral-movement signal.\n- **Related indicators** — new local accounts created after an RDP logon, defences disabled during an RDP session, or RDP connections immediately preceding ransomware activity.\n\n**Where the data comes from:** Windows **Security event logs** (4624/4625 with logon type 10), **Remote Desktop / Terminal Services operational logs** (which record session connect/disconnect and the source), and **firewall/network logs** (connections on port 3389, especially inbound from the internet).\n\nThe analyst mindset is that **an RDP logon is a high-stakes event** — someone taking interactive control of a Windows desktop — so RDP authentication deserves priority attention. Baseline who normally uses RDP, to which machines, from where; then alert on the deviations: the brute force, the successful login after many failures, the foreign source, the internal fan-out. Combined with the hard rule that RDP should never face the internet unprotected, this makes RDP monitoring one of the most impactful things a SOC does to stop ransomware before it starts."
+    }
+  ],
+  "keyTakeaways": [
+    "RDP (Remote Desktop Protocol) is Microsoft's protocol for controlling the full graphical desktop of a Windows machine over TCP port 3389 — where SSH gives a text shell (mostly Linux), RDP gives an interactive Windows desktop with the user's privileges.",
+    "An RDP session negotiates encryption, authenticates with Windows credentials (ideally protected by Network Level Authentication / NLA and MFA), then streams the desktop to the client while sending input back; its safety hinges on whether port 3389 is exposed and whether strong authentication is enforced.",
+    "RDP exposed to the internet is a leading ransomware entry point: attackers constantly scan for open 3389 and use brute force / credential stuffing (and exploits like BlueKeep, CVE-2019-0708); defend by never exposing RDP directly (use a VPN/jump host/RD Gateway), enforcing NLA + MFA, and patching.",
+    "SOC analysts hunt RDP brute force (many Event ID 4625 failed logons, logon type 10, and a 4624 success after them = likely compromise), internet-exposed 3389, successful logons from unusual sources, and RDP-based lateral movement — using Windows Security logs, Terminal Services logs, and firewall data on port 3389."
+  ],
+  "quiz": [
+    {
+      "question": "In Windows Security logs on an internet-reachable server you find hundreds of Event ID 4625 (failed logon) entries with logon type 10 from many IPs, followed by one Event ID 4624 (successful logon) type 10 from a foreign IP. What does this indicate and why does it matter?",
+      "options": [
+        {
+          "label": "A normal software update, because Windows Update authenticates by generating hundreds of failed RemoteInteractive logons before one succeeds from an overseas server.",
+          "value": "a"
+        },
+        {
+          "label": "A successful RDP brute-force: many failed remote logons then a success (type 10) signals an attacker gained an interactive desktop session — a likely compromise and common ransomware entry.",
+          "value": "b"
+        },
+        {
+          "label": "A DNS cache error, because failed and successful RemoteInteractive logon events are the standard way Windows records name-resolution problems on a server.",
+          "value": "c"
+        },
+        {
+          "label": "Nothing important, because logon type 10 events are informational only and never indicate remote access or any kind of attacker activity on the machine.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Logon type 10 is RemoteInteractive (RDP); many 4625 failures followed by a 4624 success from a foreign IP is the signature of a successful RDP brute-force, giving the attacker an interactive desktop session — a likely compromise and one of the most common ransomware entry points, demanding immediate investigation. Option a invents update behaviour. Option c misattributes logon events to DNS. Option d wrongly dismisses type-10 logons, which specifically indicate remote desktop access."
+    },
+    {
+      "question": "A vulnerability scan reports that a Windows server has TCP port 3389 open to the entire internet. Why is this considered a critical finding, and what is the correct remediation?",
+      "options": [
+        {
+          "label": "It is minor, because port 3389 only allows read-only screen viewing and can never give an attacker interactive control or a path to deploy ransomware.",
+          "value": "a"
+        },
+        {
+          "label": "Exposed RDP is a top ransomware entry point via brute force and exploits like BlueKeep; put RDP behind a VPN/jump host, enforce NLA + MFA, and patch.",
+          "value": "b"
+        },
+        {
+          "label": "It is expected, because best practice is to expose RDP directly to the internet so administrators worldwide can always reach the server without a VPN.",
+          "value": "c"
+        },
+        {
+          "label": "The fix is simply to change the RDP password monthly, since an internet-exposed 3389 poses no risk as long as the password is rotated on a schedule.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "An internet-exposed port 3389 is a critical finding because attackers constantly scan for open RDP and break in via brute force/credential stuffing or exploits like BlueKeep, making it a leading ransomware entry point; the correct remediation is to remove direct exposure (VPN, jump host, or RD Gateway), enforce NLA and MFA, and patch. Option a wrongly claims RDP is read-only. Option c states the opposite of best practice. Option d is insufficient because exposure itself — not just password age — is the core risk."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows-server/remote/remote-desktop-services/clients/remote-desktop-protocol",
+    "https://attack.mitre.org/techniques/T1021/001/",
+    "https://learn.microsoft.com/en-us/security-updates/securitybulletins/2019/cve-2019-0708"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-osi-vs-tcp-ip",
+  "slug": "osi-model-vs-tcp-ip-explained",
+  "title": "The OSI Model vs TCP/IP: How Networking Is Layered",
+  "topic": "Networking Fundamentals",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Networking looks impossibly complex until you see the one idea that organises all of it: layers. The OSI model and the TCP/IP model are two ways of dividing network communication into stacked layers, each doing one job and handing off to the next. This focused lesson explains both models from scratch: why layering exists, what each of the OSI model's seven layers does, how the four-layer TCP/IP model maps onto it and why TCP/IP is what the internet actually runs on, and how thinking in layers gives a SOC analyst a mental map for every protocol, attack, and log source.",
+  "sections": [
+    {
+      "heading": "Why Networking Is Built in Layers",
+      "content": "Getting data from one computer to another across the world involves an enormous amount of work: turning information into signals on a wire or radio, addressing it, routing it across many networks, making sure nothing is lost, and finally presenting it as a web page or email. Trying to think about all of that at once is overwhelming. The solution, and the single most important idea in networking, is to **divide the work into layers**, where each layer handles one specific job and relies on the layer below it.\n\nThe real-life analogy is **sending a letter through the postal system**. You write the letter (the content) and put it in an envelope with an address. You do not personally drive it across the country — you hand it to the post office, which sorts it, passes it to transport, which moves it, and so on. Each stage does its own job and trusts the others to do theirs. You never think about the trucks; the trucks never read your letter. Networking works the same way: each layer wraps the data with the information its job needs and hands it down, and on the other side each layer unwraps its part and hands it up.\n\nThis wrapping is called **encapsulation**. As data moves down the layers to be sent, each layer adds its own **header** (its addressing and control information) around the data from the layer above — like putting a letter in an envelope, then the envelope in a mailbag, then the mailbag on a truck. On the receiving side, each layer removes its header and passes the rest up. The names change as it goes: at the transport layer it is a **segment**, at the network layer a **packet**, at the data-link layer a **frame**, and on the wire, **bits**.\n\nLayering brings two big benefits. **Modularity** — each layer can change independently (Wi-Fi replaced Ethernet cables without rewriting the web). And **a shared vocabulary** — engineers and analysts can say 'that is a Layer 3 problem' or 'a Layer 7 attack' and be precisely understood. Two standard layer models exist, OSI and TCP/IP, and the rest of this lesson explains both."
+    },
+    {
+      "heading": "The Seven Layers of the OSI Model",
+      "content": "The **OSI model** — **Open Systems Interconnection** — is a **conceptual reference model**, created by the ISO standards body, that divides networking into **seven layers**. It is not the exact system the internet runs on (that is TCP/IP, next section), but it is the universal teaching and troubleshooting framework, and its layer numbers are used everywhere in security.\n\nFrom the bottom up:\n\n- **Layer 1 — Physical.** The actual transmission of raw **bits** as signals: cables, radio waves, voltages, fibre light. Example: Ethernet cabling, Wi-Fi radio.\n- **Layer 2 — Data Link.** Moves data between two directly-connected devices on the same local network, using hardware **MAC addresses**, packaged as **frames**. Example: Ethernet switches, the MAC address on your network card.\n- **Layer 3 — Network.** Handles **addressing and routing** across different networks — getting a **packet** from any network to any other. This is where **IP addresses** live. Example: IP, routers.\n- **Layer 4 — Transport.** Manages end-to-end delivery between programs, including reliability and **ports**. This is **TCP** (reliable, ordered) and **UDP** (fast, no guarantee). Example: TCP port 443, UDP port 53.\n- **Layer 5 — Session.** Establishes, manages, and ends **sessions** (ongoing conversations) between applications.\n- **Layer 6 — Presentation.** Handles **data format, encryption, and encoding** — translating data into a form the application understands. Example: TLS encryption, character encoding.\n- **Layer 7 — Application.** The layer closest to the user, where the actual applications and their protocols live. Example: HTTP, DNS, SMTP, SSH — the protocols from the other lessons.\n\nA classic mnemonic for Layers 1-7 is 'Please Do Not Throw Sausage Pizza Away' (Physical, Data Link, Network, Transport, Session, Presentation, Application).\n\nThe key thing to absorb is *what each layer is responsible for*, because it lets you place any technology precisely: a MAC address is Layer 2, an IP address is Layer 3, a port is Layer 4, and a web request is Layer 7. That placement, as the final section shows, is exactly how an analyst reasons about where an attack or a control operates."
+    },
+    {
+      "heading": "The TCP/IP Model and How It Maps to OSI",
+      "content": "While OSI is the seven-layer *teaching* model, the internet actually runs on the **TCP/IP model** — a more practical framework with **four layers**, named after its two most important protocols (TCP and IP). Understanding both, and how they line up, is what lets you move between the theory everyone teaches and the reality everything runs on.\n\nThe **four TCP/IP layers**, bottom up:\n\n- **Link (Network Access)** — physically getting data onto the local network. Combines OSI Layers 1-2.\n- **Internet** — addressing and routing across networks with **IP**. Maps to OSI Layer 3.\n- **Transport** — end-to-end delivery with **TCP/UDP** and ports. Maps to OSI Layer 4.\n- **Application** — the protocols applications use (HTTP, DNS, SMTP, SSH). Combines OSI Layers 5-7.\n\nHere is the mapping side by side:\n\n| TCP/IP layer | OSI layer(s) | Examples |\n|--------------|--------------|----------|\n| Application | 5 Session + 6 Presentation + 7 Application | HTTP, DNS, SMTP, SSH, TLS |\n| Transport | 4 Transport | TCP, UDP (ports) |\n| Internet | 3 Network | IP, routing |\n| Link | 1 Physical + 2 Data Link | Ethernet, Wi-Fi, MAC |\n\n**The core differences:**\n\n- **Number of layers.** OSI has 7; TCP/IP has 4. TCP/IP bundles OSI's top three (Session, Presentation, Application) into one Application layer, and OSI's bottom two into one Link layer.\n- **Purpose.** OSI is a *conceptual reference model* — a standard for teaching, designing, and troubleshooting. TCP/IP is a *practical, implemented model* — the actual protocol suite the internet was built on and uses.\n- **Which came to dominate.** TCP/IP won in practice because it was implemented and deployed first and worked; OSI won in the classroom as the clearer conceptual map.\n\nThe practical reconciliation analysts use every day: **speak in OSI layer numbers, but know the internet runs on TCP/IP.** When someone says 'a Layer 7 firewall' or 'a Layer 3 route,' they are using OSI numbers to describe TCP/IP reality. Both models describe the same journey of data; OSI just slices it into finer conceptual pieces. Being fluent in both — and in how they map — is basic networking literacy for a SOC."
+    },
+    {
+      "heading": "Why Layered Thinking Matters to a SOC Analyst",
+      "content": "Layer models are not just theory for an analyst — they are a **mental map** that organises every protocol, attack, control, and log source into a coherent picture. Once you think in layers, security stops being a jumble of technologies and becomes a structured stack.\n\n**Layers place every protocol you have learned.** The other lessons snap directly onto the model: MAC addresses and switches are **Layer 2**; IP addresses, routing, and firewalls filtering by IP are **Layer 3**; TCP/UDP and port-based filtering are **Layer 4**; and HTTP, DNS, SMTP, SSH, and RDP are **Layer 7**. When you see a protocol, knowing its layer tells you immediately what it does and what talks to it.\n\n**Layers classify attacks and controls.** Security operates at every layer, and naming the layer sharpens your thinking:\n\n- **Layer 3/4 attacks and defences** — IP-based attacks, port scanning, and network firewalls that allow/deny by IP and port operate down here. A volumetric DDoS is often a Layer 3/4 flood.\n- **Layer 7 attacks and defences** — SQL injection, XSS, and application-layer exploits live at Layer 7, which is why you need a **Layer 7 (application) firewall / WAF** to inspect the actual HTTP content, not just IPs and ports. A 'Layer 7 DDoS' targets the application itself.\n- **Defense in depth** — good security places controls at *multiple* layers (network firewall at 3/4, WAF at 7, encryption at 6, endpoint controls above), so a failure at one layer is caught at another.\n\n**Layers map your telemetry.** Different log sources see different layers: firewall and flow logs mostly show Layer 3/4 (IPs, ports, bytes); a packet capture lets you drill from Layer 2 up to Layer 7; web and application logs show Layer 7 detail. Knowing which layer a data source sees tells you what questions it can answer — and where you have blind spots.\n\n**Layers guide troubleshooting and investigation.** The classic method is to reason layer by layer: is this a physical/link problem, a routing (Layer 3) problem, a port/transport (Layer 4) problem, or an application (Layer 7) problem? The same discipline helps in an investigation — locating where in the stack an attack is operating focuses your response.\n\nThe overarching payoff is that **the layer model turns networking and security into a map you can navigate.** When an alert arrives, silently asking 'which layer is this?' immediately narrows what is happening, which tools see it, and what control should have caught it. That structured, layered instinct — built on knowing OSI's seven layers, TCP/IP's four, and how they map — is one of the most quietly powerful thinking tools a SOC analyst has."
+    }
+  ],
+  "keyTakeaways": [
+    "Networking is divided into layers so each handles one job and hands off to the next; data is encapsulated (each layer wraps the layer above with its own header) and named per layer — segment (transport), packet (network), frame (data link), bits (physical).",
+    "The OSI model is a 7-layer conceptual reference: 1 Physical, 2 Data Link (MAC/frames), 3 Network (IP/routing/packets), 4 Transport (TCP/UDP/ports), 5 Session, 6 Presentation (encryption/encoding), 7 Application (HTTP/DNS/SMTP/SSH).",
+    "The TCP/IP model is the practical 4-layer model the internet runs on — Link (=OSI 1-2), Internet (=OSI 3, IP), Transport (=OSI 4, TCP/UDP), Application (=OSI 5-7); OSI is the teaching/troubleshooting map, TCP/IP is the implemented reality, and analysts speak in OSI layer numbers about TCP/IP.",
+    "Layered thinking is an analyst's mental map: it places every protocol by layer (MAC=L2, IP=L3, ports=L4, HTTP/DNS=L7), classifies attacks and controls (network firewall at L3/4 vs WAF at L7), maps which telemetry sees which layer, and structures troubleshooting and defense in depth."
+  ],
+  "quiz": [
+    {
+      "question": "An analyst says a web application firewall (WAF) is needed because a network firewall that filters only by IP address and port cannot stop a SQL injection attack. Using the layer model, why is this correct?",
+      "options": [
+        {
+          "label": "SQL injection is a Layer 1 physical-cabling attack, so only a WAF that inspects electrical signals on the wire can detect and block it.",
+          "value": "a"
+        },
+        {
+          "label": "A network firewall works at Layer 3/4 (IP and port), but SQL injection is a Layer 7 application attack hidden in HTTP content that only a Layer 7 WAF can inspect.",
+          "value": "b"
+        },
+        {
+          "label": "SQL injection operates at Layer 4 (ports), so the network firewall already blocks it and the WAF is redundant and provides no additional protection.",
+          "value": "c"
+        },
+        {
+          "label": "A WAF and a network firewall both operate only at Layer 3, so they are interchangeable and either one alone fully stops SQL injection attacks.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A network firewall operates at Layer 3/4, allowing or denying by IP address and port, so it cannot see the malicious payload inside an HTTP request; SQL injection is a Layer 7 (application) attack, so you need a Layer 7 WAF that inspects the actual application content. Option a wrongly places SQL injection at the physical layer. Option c incorrectly claims a port-based firewall stops an application-layer attack. Option d is wrong because a WAF operates at Layer 7, not Layer 3, and they are not interchangeable."
+    },
+    {
+      "question": "What is the most accurate description of the relationship between the OSI model and the TCP/IP model?",
+      "options": [
+        {
+          "label": "They are competing protocols, and a network must be configured to use either OSI or TCP/IP but can never use concepts from both at the same time.",
+          "value": "a"
+        },
+        {
+          "label": "OSI is a 7-layer conceptual reference model for teaching/troubleshooting, while TCP/IP is the practical 4-layer model the internet actually runs on; their layers map onto each other.",
+          "value": "b"
+        },
+        {
+          "label": "TCP/IP has seven layers and OSI has four, and TCP/IP is only a teaching model while OSI is the protocol suite that the modern internet is actually built on.",
+          "value": "c"
+        },
+        {
+          "label": "They are identical in every respect, with the same number of layers and the same names, so the two terms are fully interchangeable with no differences at all.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "OSI is a 7-layer conceptual reference model used for teaching and troubleshooting, while TCP/IP is the practical 4-layer model actually implemented and run by the internet; their layers map onto each other (TCP/IP Application = OSI 5-7, Link = OSI 1-2). Option a is wrong because OSI is a model, not a competing protocol you choose instead of TCP/IP. Option c reverses their layer counts and roles. Option d is false because they differ in layer count and purpose."
+    }
+  ],
+  "references": [
+    "https://www.cloudflare.com/learning/ddos/glossary/open-systems-interconnection-model-osi/",
+    "https://www.rfc-editor.org/rfc/rfc1122",
+    "https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview"
+  ],
+  "xp": 190,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
 }
 ];
 
