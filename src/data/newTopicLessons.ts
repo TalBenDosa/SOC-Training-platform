@@ -3835,6 +3835,366 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 40,
   "researchUsed": false,
   "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-windows-forensic-artifacts",
+  "slug": "windows-forensic-artifacts",
+  "title": "Windows Forensic Artifacts: Proving What Happened on a Machine",
+  "topic": "Windows Forensics",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "When you need to prove that a specific program ran on a Windows machine, or that a file existed, or which folders someone opened — even after the attacker tried to cover their tracks — you turn to forensic artifacts. These are the traces Windows leaves behind as a side effect of normal operation: little records scattered across the file system and registry that, read together, reconstruct what happened. This lesson introduces the artifacts a SOC analyst and incident responder rely on most: what each one proves, where it lives, and how they combine to tell the story of an intrusion when logs and EDR fall short.",
+  "sections": [
+    {
+      "heading": "Why Forensic Artifacts Matter",
+      "content": "A **forensic artifact** is a trace that Windows creates automatically as it runs — not a security log someone chose to enable, but a byproduct of the operating system doing its job. Windows constantly records small facts to make itself faster and more convenient: which programs you have run (so it can pre-load them), which files you opened recently (so it can show them in a jump list), which folders you browsed (so it remembers your view settings). Each of these conveniences leaves a durable record, and those records are gold for an investigator.\n\nWhy do these matter so much when we already have event logs and EDR? Three reasons:\n\n- **They survive when other evidence does not.** An attacker may clear the Security event log or operate on a machine with no EDR agent. But forensic artifacts are numerous, scattered, and often unknown to the attacker, so they frequently remain even after deliberate log-clearing.\n- **They prove things logs may not capture.** Without specific auditing enabled, Windows may not log that a particular program executed — but the **Prefetch** artifact records it anyway. Artifacts fill the gaps in your logging coverage.\n- **They defeat anti-forensics.** Attackers try to hide, but they rarely know *every* place Windows recorded them. An artifact they forgot to wipe can expose the whole operation.\n\nArtifacts answer specific investigative questions, and it helps to think of them by the question they answer:\n\n- *Did this program run?* → execution artifacts (Prefetch, Amcache, Shimcache).\n- *Did this file exist, and when?* → the file system's Master File Table (MFT).\n- *What files did the user open?* → LNK files and Jump Lists.\n- *Which folders did they browse?* → ShellBags.\n\nThe reason artifacts are so powerful in combination is that no single one tells the whole story, but together they corroborate each other: Prefetch says a tool ran, the MFT shows when its file appeared, a LNK file shows the user opened a document, ShellBags show they browsed to a sensitive folder. This lesson walks through the key artifacts by category so you know what each proves — and, just as importantly, what it does *not* prove."
+    },
+    {
+      "heading": "Execution Artifacts — Proving a Program Ran",
+      "content": "The most-asked forensic question is \"did this program execute on the machine?\" Windows keeps several records that help answer it, each with different strengths and an important catch about what it really proves.\n\n**Prefetch.** To make applications launch faster, Windows creates a small file in `C:\\Windows\\Prefetch\\` for programs that run — named like `PROGRAM.EXE-XXXXXXXX.pf`. This artifact is strong **evidence of execution**: it typically records the program's name, **how many times it has run**, and the **last run time(s)** (recent Windows versions keep the last several run times). If you see `MIMIKATZ.EXE-...pf`, that tool ran on this machine. (Note: Prefetch is enabled by default on Windows workstations but often disabled on servers.)\n\n**Amcache.** The `Amcache.hve` registry hive records information about programs that have been present and run, including **file paths and SHA-1 hashes** and timestamps. The hash is especially useful — it lets you tie an executed file to threat intelligence even if the file itself is gone.\n\n**Shimcache (AppCompatCache).** Stored in the SYSTEM registry hive, Shimcache tracks executables the system encountered, recording the **file path, size, and last-modified time**. A crucial subtlety: Shimcache indicates a program was *present/registered* by the compatibility system, which does **not** by itself guarantee it was executed. Treat it as evidence of presence and a timeline data point, corroborated by other artifacts.\n\nThe key discipline with execution artifacts is knowing **exactly what each proves**:\n\n| Artifact | Proves | Bonus data |\n|----------|--------|-----------|\n| Prefetch | Execution (strong) | Run count, last run times |\n| Amcache | Presence/execution | SHA-1 hash, path, time |\n| Shimcache | Presence (not guaranteed execution) | Path, size, modified time |\n\nBecause each has caveats, analysts **correlate** them. Prefetch plus an Amcache entry with a known-malicious hash is a far stronger case than either alone. And when an attacker deletes their tool, these artifacts can still prove it was there and ran — which is exactly why execution artifacts are the first place a responder looks to establish what the intruder actually did."
+    },
+    {
+      "heading": "File and Activity Artifacts — Files, Folders, and Access",
+      "content": "Beyond execution, investigators need to know what *files* existed and what a *user* did. A second family of artifacts answers these.\n\n**The Master File Table (MFT).** On an NTFS file system, the **`$MFT`** is a master index containing a record for **every file and folder** on the volume — its name, size, location, and timestamps. This makes the MFT foundational for two reasons. First, it can reveal files that were **deleted**, because their records often persist until overwritten. Second, it is the backbone of timeline analysis (next lesson), because each entry carries timestamps.\n\nThose timestamps deserve a note. NTFS tracks a set often abbreviated **MACB** — **M**odified, **A**ccessed, **C**hanged (MFT record change), and **B**orn (created). Two different structures store them (`$STANDARD_INFORMATION` and `$FILE_NAME`), and comparing the two can expose **timestomping** — an anti-forensic trick where an attacker backdates a file's timestamps to blend in. When the two timestamp sets disagree in tell-tale ways, tampering is likely.\n\n**LNK files (shortcuts).** Windows creates `.lnk` shortcut files when a user opens documents, and these are rich: a LNK records the **target file's path**, its **timestamps**, and volume information — even if the original file or the removable drive it lived on is long gone. A LNK pointing at `E:\\stolen_data.xlsx` is evidence the user opened that file from a drive `E:`.\n\n**Jump Lists.** The recently-accessed items you see when right-clicking an app on the taskbar are stored as **Jump List** artifacts, recording which files a user opened with which application — another view of user file access.\n\n**ShellBags.** Stored in the registry, **ShellBags** record folders the user **browsed in Explorer**, including their view settings. Their forensic value is proving that a user navigated to a specific folder — even a folder on a network share or removable device that no longer exists. If an insider claims they never opened a sensitive folder, ShellBags may say otherwise.\n\nRead together, this family reconstructs user activity: the MFT shows a file existed and when, a LNK and Jump List show it was opened, and ShellBags show the folders the user explored to get there. Combined with the execution artifacts, you can narrate not just *what ran* but *what a person touched* — the difference between knowing malware executed and understanding the human actions around it."
+    },
+    {
+      "heading": "Using Artifacts in an Investigation",
+      "content": "Individual artifacts are clues; an investigation is what happens when you assemble them into a coherent, corroborated account. A few principles make that assembly reliable.\n\n**Corroborate, never rely on one artifact.** Every artifact has caveats — Shimcache may not prove execution, timestamps can be stomped, Prefetch may be off on servers. The professional habit is to build each conclusion from **multiple independent artifacts** that agree. \"The tool ran\" becomes solid when Prefetch shows execution, Amcache shows the hash, and the MFT shows when the file appeared. One artifact is a lead; three that agree is a finding.\n\n**Let artifacts fill your visibility gaps.** In a mature environment you have EDR and rich logs, and artifacts are backup and confirmation. But on an unmanaged machine, or after an attacker cleared logs, artifacts may be your *primary* evidence. Knowing they exist changes what you can prove: even with the Security log wiped, Prefetch, Amcache, the MFT, and ShellBags may still reconstruct the intrusion.\n\n**Watch for anti-forensics.** Sophisticated attackers try to erase or manipulate artifacts — deleting Prefetch files, clearing logs, timestomping. But covering *every* trace is hard, and the *attempt* itself is evidence. Missing Prefetch on a machine that should have it, or timestamp anomalies between `$STANDARD_INFORMATION` and `$FILE_NAME`, are signs someone tried to hide. MITRE ATT&CK tracks this as **Indicator Removal** (including timestomping), and a good analyst treats the absence of expected artifacts as suspicious rather than reassuring.\n\n**How the tools fit.** Analysts rarely read raw hives and `$MFT` by hand; they use forensic tooling (from suites like Autopsy to Eric Zimmerman's focused tools) to parse each artifact into readable output. The concepts in this lesson are what let you *interpret* that output — knowing that a Prefetch entry means execution, that a ShellBag means folder access, that a `$FILE_NAME`/`$STANDARD_INFORMATION` mismatch means possible timestomping.\n\nThe overarching mindset is that **Windows is always writing down what it does**, usually for convenience rather than security, and an investigator's craft is knowing where those notes are kept and what each one honestly proves. Master the artifact map and you can reconstruct an intrusion from the traces an attacker never knew they left — which is exactly the Tier-2 skill that turns \"something happened\" into a documented, defensible account of what happened."
+    }
+  ],
+  "keyTakeaways": [
+    "Forensic artifacts are traces Windows creates automatically for its own convenience (not security logs); they survive log-clearing, fill logging gaps, and defeat anti-forensics because attackers rarely know every place they were recorded.",
+    "Execution artifacts answer 'did this run?': Prefetch (strong evidence of execution + run count/last-run times), Amcache (path + SHA-1 hash), and Shimcache/AppCompatCache (presence, but NOT guaranteed execution) — correlate them rather than trusting one.",
+    "File/activity artifacts: the MFT ($MFT) records every file with MACB timestamps (and can reveal deleted files + expose timestomping via $STANDARD_INFORMATION vs $FILE_NAME); LNK files and Jump Lists show files a user opened; ShellBags show folders browsed in Explorer.",
+    "Investigate by corroborating multiple independent artifacts, using them as primary evidence when logs/EDR are absent, and treating missing-but-expected artifacts or timestamp anomalies as anti-forensics (MITRE Indicator Removal) — a lead is one artifact, a finding is several that agree."
+  ],
+  "quiz": [
+    {
+      "question": "During an investigation the attacker cleared the Windows Security event log, so you cannot confirm from logs that their tool ran. You find MIMIKATZ.EXE-A1B2C3D4.pf in C:\\Windows\\Prefetch with a run count of 3 and recent run times. What can you conclude, and why?",
+      "options": [
+        {
+          "label": "Nothing, because once the Security event log is cleared there is no remaining way on Windows to prove that any particular program was ever executed.",
+          "value": "a"
+        },
+        {
+          "label": "The Prefetch artifact is strong evidence the tool executed (with a run count and last-run times), surviving the log-clearing the attacker performed.",
+          "value": "b"
+        },
+        {
+          "label": "Only that the file existed on disk, because Prefetch records the presence of files but can never indicate whether a program was actually run.",
+          "value": "c"
+        },
+        {
+          "label": "That the tool was blocked, because a Prefetch file is created by antivirus specifically to record executables it prevented from running on the host.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Prefetch is a byproduct Windows creates to speed up launching programs, so a .pf file with a run count and last-run times is strong evidence the tool executed — and because it is a separate artifact from the Security log, it survives the attacker clearing that log. Option a is wrong because artifacts like Prefetch remain after log-clearing. Option c confuses Prefetch (execution) with presence-only artifacts like Shimcache. Option d invents an antivirus origin; Prefetch is created by Windows for performance, not by AV to log blocks."
+    },
+    {
+      "question": "Why do experienced forensic analysts treat Shimcache (AppCompatCache) differently from Prefetch when trying to prove a program executed?",
+      "options": [
+        {
+          "label": "Shimcache indicates a program was present/registered by the compatibility system, which does not by itself guarantee execution, so it needs corroboration.",
+          "value": "a"
+        },
+        {
+          "label": "Shimcache is stored only in memory and disappears at shutdown, so unlike Prefetch it can never be recovered during a post-incident investigation.",
+          "value": "b"
+        },
+        {
+          "label": "Shimcache records the full contents of every executed file, making it so large that analysts avoid it in favour of the smaller Prefetch artifact.",
+          "value": "c"
+        },
+        {
+          "label": "Shimcache is created only by third-party antivirus tools, so its presence depends entirely on which security product happened to be installed.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "Shimcache (AppCompatCache) records executables the compatibility system encountered — path, size, last-modified time — which shows presence/registration but does not by itself prove the program actually ran, so analysts corroborate it with execution artifacts like Prefetch or Amcache. Option b is wrong because Shimcache lives in the SYSTEM registry hive and is recoverable. Option c is false; it stores metadata, not file contents. Option d is wrong because Shimcache is a native Windows artifact, not an AV product."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/fileio/master-file-table",
+    "https://attack.mitre.org/techniques/T1070/006/",
+    "https://www.sans.org/posters/windows-forensic-analysis/"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 42,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-memory-forensics-volatility",
+  "slug": "memory-forensics-with-volatility",
+  "title": "Memory Forensics with Volatility",
+  "topic": "Digital Forensics",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "Some of the most important evidence in a modern intrusion never touches the disk. Malware that runs only in memory, code injected into a trusted process, the live network connections to a command-and-control server, even decrypted data and credentials — all of it lives in RAM and vanishes the moment the machine powers off. Memory forensics is the discipline of capturing and analysing that volatile evidence, and Volatility is the tool that made it accessible. This lesson explains why memory matters, how a memory image is captured, and how Volatility's plugins reveal the things disk analysis alone would miss.",
+  "sections": [
+    {
+      "heading": "Why Memory Is the Richest Evidence",
+      "content": "A computer's **RAM (memory)** holds the live, working state of everything currently happening on the machine: every running process, the code it is executing, its open network connections, and the data it is actively using. Unlike the disk, which stores things persistently, memory is **volatile** — its contents exist only while the machine is powered on and are lost the instant it shuts down or reboots. That fragility is exactly why memory is so valuable: it captures a moment of *live* activity that no static disk image can.\n\nConsider what an investigator can find in memory that may exist **nowhere on disk**:\n\n- **Running processes**, including malicious ones — and, crucially, processes an attacker tried to *hide* from the normal process list.\n- **Injected code** — malware that ran inside a legitimate process (recall DLL/process injection) leaves its code in that process's memory, not as a file.\n- **Fileless malware** — attacks that live entirely in memory, using PowerShell or scripts, that traditional file scanning cannot see because there is no file.\n- **Live network connections** — the active connections to a C2 server at the moment of capture.\n- **Decrypted data and credentials** — passwords, keys, and data that are encrypted on disk but must be decrypted in memory to be used.\n- **Command history and injected commands** — what was actually run.\n\nThis is why the **order of volatility** — a core forensic principle — says to collect the most fleeting evidence *first*: memory before disk, because a reboot destroys memory while the disk survives. If you power a suspicious machine off before capturing RAM, you may permanently lose the only evidence of a fileless or injected attack.\n\nMemory forensics therefore closes a gap that disk forensics and even some logging cannot: it catches the attacks that deliberately avoid the disk. As intruders increasingly go **fileless** and **inject** into trusted processes specifically to evade file-based defences, the ability to capture and read memory has moved from a niche skill to an essential Tier-2 capability. The rest of this lesson covers how you get a memory image and how Volatility turns that raw dump into answers."
+    },
+    {
+      "heading": "Capturing a Memory Image",
+      "content": "Before you can analyse memory, you have to **capture** it — create a copy of the machine's RAM as a file, called a **memory image** or **memory dump**. How you do this matters, because the act of capturing must disturb the evidence as little as possible.\n\n**Acquisition tools.** On a live Windows machine, dedicated tools read physical memory and write it to a file. Common ones include **WinPmem**, **DumpIt**, **FTK Imager**, and **Magnet RAM Capture**. They produce a raw image (often several gigabytes, matching the machine's RAM size) that you then analyse offline.\n\n**Virtual machines make it easy.** If the target is a VM, its memory can often be captured simply by taking a **snapshot** or saving its state — the hypervisor writes the VM's RAM to a file you can analyse directly. This is one reason virtualised environments are convenient for both incident response and training.\n\n**The golden rule: capture memory first, and capture it live.** Two principles follow from the order of volatility:\n\n- **Do not power off first.** Shutting down or rebooting destroys memory. If you suspect a fileless or injected attack, capture RAM *before* anything else touches the machine.\n- **Minimise your footprint.** The capture tool itself runs in memory and changes a little of it. Analysts accept this small, unavoidable disturbance and document it, choosing trusted tools that alter as little as possible.\n\n**Preserve it properly.** As with all evidence, a memory image should be handled under **chain of custody** — hashed on capture, stored securely, and analysed on a *copy* — so the findings stand up to scrutiny (this connects to the evidence-collection lesson).\n\nOnce you have a sound image, the machine's live state is frozen in a file you can examine repeatedly without further risk. The image is just raw bytes, though — a multi-gigabyte block of memory with no obvious structure. Turning it into meaningful answers (which processes were running, what was injected, what connected out) requires a tool that understands the operating system's memory layout. That tool, for most of the industry, is Volatility."
+    },
+    {
+      "heading": "Volatility and Its Core Plugins",
+      "content": "**Volatility** is the leading open-source **memory-forensics framework**. It takes a raw memory image and, using knowledge of how operating systems organise memory, reconstructs the machine's state at the moment of capture. You drive it with **plugins**, each of which answers a specific question about the image. (The modern version is **Volatility 3**; you may also encounter Volatility 2 and its slightly different command style.)\n\nA handful of plugins cover most investigations, and they map neatly to the evidence types from the first section:\n\n- **`pslist` / `pstree`** — list the running processes, `pstree` showing them as a **parent-child tree** (the process-lineage concept applied to memory). Your starting point for \"what was running?\"\n- **`psscan`** — scans memory for process structures directly, which can reveal **hidden or terminated processes** that `pslist` misses — a key way to find malware that unlinked itself from the normal list.\n- **`netscan` / `netstat`** — recover **network connections and listening ports**, exposing live C2 connections and their remote addresses.\n- **`malfind`** — hunts for signs of **injected code** — memory regions that are executable but not backed by a file on disk, the fingerprint of process injection and many fileless techniques. One of the most valuable plugins for catching stealthy malware.\n- **`dlllist` / `ldrmodules`** — the DLLs loaded in a process, useful for spotting injected or unlinked modules.\n- **`cmdline`** — the command-line arguments each process was launched with, revealing what was actually run.\n- **`handles`, `hivelist`, `filescan`** — open handles, registry hives present in memory, and file objects — for deeper pivoting.\n\nThe analytical pattern is to **start broad and drill in**. Run `pstree` to see the process landscape and spot anything odd — a process with a suspicious name, an unusual parent, or one that should not exist. Cross-check with `psscan` to catch hidden processes. Point `malfind` at a suspect process to confirm injected code. Use `netscan` to see if it was talking to an external server, and `cmdline` to see how it was launched. In a few plugin runs you move from a raw image to a concrete finding: *this process, injected with code, was connecting to this IP, launched by this command.*\n\nThat is the power of memory forensics — Volatility turns an opaque block of RAM into the same kind of readable story you would get from EDR, but for a machine that had no EDR, or for the fileless activity EDR itself might have missed."
+    },
+    {
+      "heading": "Reading a Memory Image in an Investigation",
+      "content": "Knowing the plugins is the mechanics; using them to answer real questions is the skill. Memory forensics shines in a specific set of investigative situations, and recognising them tells you when to reach for it.\n\n**When memory forensics is the right tool:**\n\n- **Suspected fileless or in-memory malware** — when EDR or AV found little on disk but the machine behaves as if compromised, memory may hold the only evidence.\n- **Suspected process injection** — `malfind` is purpose-built to find code injected into trusted processes, which is invisible to file scanning.\n- **Hidden processes or rootkit-like behaviour** — `psscan` can surface processes deliberately removed from the normal list.\n- **Confirming live C2** — `netscan` captures the actual connections at the moment of capture, tying an infection to its operator.\n- **Recovering volatile secrets** — decrypted data, keys, or command history that exist only in RAM.\n\n**A worked flow.** Suppose an alert suggests a compromise but disk scans are clean. You capture memory, then: `pstree` shows a `svchost.exe` with an unusual parent (a red flag from the process lesson); `psscan` confirms a second, hidden process; `malfind` reports an executable, non-file-backed memory region inside a normal process — injected code; `netscan` shows that process connected to an external IP; `cmdline` reveals a suspicious launch command. Each plugin corroborates the last, and together they prove a fileless, injected intrusion that never left a clear trace on disk.\n\n**Combine memory with everything else.** Memory forensics is most powerful as one layer of a broader investigation. The injected-code finding from `malfind` pairs with the **Windows artifacts** (did the loader run? Prefetch/Amcache), the **timeline** (when did this happen?), and network data (was the C2 IP seen in firewall logs?). Memory answers \"what was live at this instant\"; the other sources answer \"how did it get here and what did it do over time.\"\n\n**Keep the limits in mind.** A memory image is a **single snapshot in time** — it shows the moment of capture, not history, so activity that ended before capture may be gone. And memory analysis is technical and version-sensitive. But within its niche — catching the stealthy, disk-avoiding attacks that define modern intrusions — nothing else substitutes for it. For a Tier-2 analyst, the essential takeaway is to **capture RAM early (before powering off), because that fleeting evidence is often the only proof of the very attacks designed to leave none.**"
+    }
+  ],
+  "keyTakeaways": [
+    "RAM is volatile but holds the richest live evidence — running (and hidden) processes, injected code, fileless malware, active C2 connections, and decrypted credentials — much of which exists nowhere on disk, so the order of volatility says capture memory before disk and never power off a suspect machine first.",
+    "A memory image/dump is captured live with tools like WinPmem, DumpIt, FTK Imager, or (for VMs) a snapshot; capture with minimal footprint, hash it, and analyse a copy under chain of custody.",
+    "Volatility is the open-source memory-forensics framework driven by plugins: pslist/pstree (processes), psscan (hidden/terminated), netscan (connections), malfind (injected code), dlllist, and cmdline — start broad (pstree) then drill into a suspect process.",
+    "Reach for memory forensics for fileless malware, process injection, hidden processes, and confirming live C2; corroborate its findings with Windows artifacts, timeline, and network data, remembering an image is a single snapshot in time, not history."
+  ],
+  "quiz": [
+    {
+      "question": "An EDR alert suggests a workstation is compromised, but a full disk scan finds nothing malicious. You suspect fileless malware or code injected into a legitimate process. Why is capturing and analysing memory the right next step, and what must you avoid?",
+      "options": [
+        {
+          "label": "Memory analysis is pointless here; you should immediately reboot the machine to clear the infection, since fileless malware cannot survive a restart anyway.",
+          "value": "a"
+        },
+        {
+          "label": "Fileless/injected code lives in RAM and often not on disk, so capture memory before powering off — a reboot would destroy the only evidence of the attack.",
+          "value": "b"
+        },
+        {
+          "label": "You should power the machine off first to preserve the disk, then capture memory afterward from the powered-down drive using a standard imaging tool.",
+          "value": "c"
+        },
+        {
+          "label": "Memory holds no evidence of injected code, so the clean disk scan already proves the alert was a false positive and no further action is needed.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Fileless and injected malware runs in RAM and frequently leaves nothing on disk, so a clean disk scan does not clear the machine; you capture memory while it is still powered on because the order of volatility means a reboot destroys that fleeting evidence. Option a is dangerous — rebooting destroys the very evidence and does not guarantee removal. Option c is impossible, since a powered-off drive holds no RAM. Option d wrongly treats a clean disk scan as proof of no compromise."
+    },
+    {
+      "question": "You have a memory image and want to find code that was injected into a legitimate process (a common fileless technique). Which Volatility plugin is purpose-built for this, and what does it look for?",
+      "options": [
+        {
+          "label": "The cmdline plugin, which lists command-line arguments and therefore directly displays the full source code of any injected payload in the process.",
+          "value": "a"
+        },
+        {
+          "label": "The malfind plugin, which flags memory regions that are executable but not backed by a file on disk — the fingerprint of injected code.",
+          "value": "b"
+        },
+        {
+          "label": "The pslist plugin, which lists visible processes and is guaranteed to include every hidden or injected process running on the system at capture time.",
+          "value": "c"
+        },
+        {
+          "label": "The hivelist plugin, which enumerates registry hives in memory and is the standard way to detect code injected into a running process's address space.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "malfind is designed to hunt for injected code: it flags memory regions that are executable yet not backed by a file on disk, which is the signature of process injection and many fileless techniques. Option a is wrong because cmdline shows launch arguments, not injected code. Option c is wrong because pslist shows visible processes and can miss hidden ones (psscan is used for those), and it does not identify injection. Option d is wrong because hivelist enumerates registry hives, unrelated to detecting injection."
+    }
+  ],
+  "references": [
+    "https://volatility3.readthedocs.io/en/latest/",
+    "https://attack.mitre.org/techniques/T1055/",
+    "https://www.sans.org/posters/hunt-evil/"
+  ],
+  "xp": 220,
+  "estimatedMinutes": 42,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-timeline-analysis-super-timelines",
+  "slug": "timeline-analysis-and-super-timelines",
+  "title": "Timeline Analysis and Super-Timelines",
+  "topic": "Digital Forensics",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "An intrusion is a sequence of events in time: the phishing email arrived, the document was opened, a tool ran, credentials were stolen, another machine was reached. Scattered across logs and artifacts, those events are just isolated facts — but ordered on a single timeline, they become a story you can read. Timeline analysis is the discipline of arranging evidence chronologically to reconstruct exactly what happened, in what order, and it is one of the most powerful techniques a Tier-2 investigator has. This lesson explains how timelines work, the timestamps behind them, how super-timelines combine every source, and how attackers try to break them.",
+  "sections": [
+    {
+      "heading": "Why the Order of Events Is the Investigation",
+      "content": "At its core, investigating an incident means answering questions of **sequence**: What happened first? What did it lead to? What was the very first malicious action (**patient zero**), and how far did the attacker get (the **blast radius**)? These are fundamentally questions about *time*, and the technique for answering them is **timeline analysis** — placing evidence in chronological order so the sequence of an attack becomes visible.\n\nThink of it like a detective assembling a case. Individual clues — a fingerprint here, a receipt there, a witness statement — mean little in isolation. Arranged on a timeline, they reveal a narrative: the suspect was *here* at 9, bought *this* at 9:30, was seen *there* at 10. Digital evidence works the same way. A single log entry says a program ran; a single artifact says a file appeared. But ordered together, they show that a phishing email arrived at 14:02, the attachment was opened at 14:05, PowerShell ran at 14:05, a tool was downloaded at 14:06, and a connection to an external server opened at 14:07 — a coherent attack chain.\n\nTimeline analysis delivers three things no single piece of evidence can:\n\n- **Causality and sequence.** Seeing that event B always follows event A reveals how the attack unfolded and what caused what.\n- **Scope.** Following the timeline forward shows every machine and account the attacker touched — the blast radius you must contain.\n- **Root cause.** Following it backward leads to the initial access — the patient-zero action you must fix so it cannot happen again.\n\nThis is why timeline analysis sits at the heart of incident response. The messy reality of an investigation is dozens of data sources — event logs, forensic artifacts, EDR telemetry, firewall logs — each holding a fragment. The investigator's job is to weave those fragments into one ordered narrative. Do it well and the incident explains itself: you can point to the first click, trace each step, and show where it ended. The rest of this lesson covers the raw material of timelines (timestamps), the technique for combining every source (super-timelines), and the ways attackers try to corrupt the record."
+    },
+    {
+      "heading": "Timestamps — The Raw Material of Timelines",
+      "content": "Every timeline is built from **timestamps**, and using them correctly requires understanding a few things that trip up beginners.\n\n**The MACB times.** On Windows/NTFS, each file carries a set of timestamps often abbreviated **MACB**:\n\n- **M — Modified**: when the file's *content* last changed.\n- **A — Accessed**: when it was last read/accessed (note: access-time updates are sometimes disabled for performance, so this is not always reliable).\n- **C — Changed**: when the file's **MFT record** (metadata) last changed — distinct from content modification.\n- **B — Born (Created)**: when the file was created on the volume.\n\nReading these together tells a rich story: a file *created* at one time but *modified* earlier than its creation is suspicious; a tool whose *created* time matches the moment of intrusion places it in the attack.\n\n**Two places store the times.** NTFS keeps timestamps in two structures — **`$STANDARD_INFORMATION`** (the ones most tools and users see and that programs can change) and **`$FILE_NAME`** (harder for normal software to alter). This duplication is a gift to investigators, as the anti-forensics section will show.\n\n**Time zones and UTC — the classic pitfall.** Timestamps mean nothing without knowing their **time zone**. Different sources record time differently: some in local time, some in **UTC** (Coordinated Universal Time). If you build a timeline mixing local-time and UTC events without normalising them, the order will be wrong and your reconstruction will be false. The professional discipline is to **convert everything to a single reference (usually UTC)** before ordering it, so events from a firewall, a Windows log, and a cloud service line up correctly. A one-hour time-zone error can make the effect appear to precede the cause.\n\n**Clock accuracy matters too.** Machines whose clocks drift, or that are not synchronised (via NTP), produce timestamps that are subtly wrong, which is why enterprises synchronise clocks and why you note any known skew when correlating across systems.\n\nGet timestamps right — the MACB meaning, the two NTFS structures, and above all consistent time zones — and your timeline is trustworthy. Get them wrong, and a beautifully detailed timeline can tell a confidently incorrect story. This rigor is exactly what separates a reliable reconstruction from a misleading one."
+    },
+    {
+      "heading": "Super-Timelines — Combining Every Source",
+      "content": "A basic timeline might use one source, such as file-system timestamps. But a real intrusion leaves evidence across *many* sources, and the most powerful technique combines them all into a single, unified chronology called a **super-timeline**.\n\nA **super-timeline** merges timestamped events from every available artifact and log — file-system MACB times, event logs, Prefetch and Amcache execution times, registry key modification times, browser history, and more — into one massive, ordered list. The value is that it puts *all* the evidence side by side in time, so you can see, in one view, that a registry Run key was created (persistence) two seconds after a program executed (from Prefetch) one minute after a suspicious logon (from the event log). No single source shows that chain; the super-timeline does.\n\n**The tooling: Plaso / log2timeline.** The standard open-source engine for building super-timelines is **Plaso**, whose main tool is **`log2timeline`**. It automatically parses a disk image (or set of artifacts), extracts timestamps from dozens of artifact types, and outputs a combined timeline — typically a large CSV-like file. Analysts then load that output into a viewer such as **Timeline Explorer** to sort, filter, and search it. The workflow is: `log2timeline` **extracts and normalises** every timestamped event, then the analyst **filters and reads** the result around the times of interest.\n\n**The challenge: volume.** A super-timeline can contain *millions* of entries, because it captures every timestamped event on a system, most of them benign. This is both its strength (nothing is missed) and its difficulty (the signal is buried). The essential technique is to **anchor and window**: start from a known event — a pivot point such as the time an alert fired or a malicious file was created — and examine the timeline in a tight window around it (say, the minutes before and after). In that window, the attacker's actions cluster together, and the surrounding benign noise thins out. From one confirmed bad event, you expand outward, following the chain in both directions.\n\nThe payoff is a complete, evidence-backed reconstruction: with a super-timeline anchored on a pivot, you can often narrate an entire intrusion minute by minute, citing the exact artifact behind each step. This is the Tier-2 skill that turns a pile of disparate evidence into a single, defensible story — and it is precisely why super-timelines are a staple of serious incident response, even though building and reading them takes discipline."
+    },
+    {
+      "heading": "Anti-Forensics and Reading Timelines Critically",
+      "content": "Attackers know that timelines expose them, so sophisticated intruders try to **corrupt the temporal record**. A skilled analyst therefore reads a timeline critically, alert to signs of tampering — and, importantly, treats the tampering itself as evidence.\n\n**Timestomping.** The most common time-based anti-forensic technique is **timestomping** — deliberately altering a file's timestamps to hide it, usually by backdating the malicious file to look old and legitimate (matching, say, the timestamps of normal system files). If an attacker's tool appears to have been created years ago, a naive timeline places it far from the intrusion and it escapes notice. MITRE ATT&CK tracks this as **Indicator Removal: Timestomp**.\n\n**How timestomping is caught.** This is where the two NTFS timestamp structures from earlier become decisive. Most timestomping tools alter the easily-changed **`$STANDARD_INFORMATION`** times but not the harder-to-modify **`$FILE_NAME`** times. When those two sets **disagree** — for example, `$STANDARD_INFORMATION` says the file is from 2019 but `$FILE_NAME` shows it appeared last Tuesday — that mismatch is a strong signal of tampering. The very attempt to hide becomes a flag pointing right at the malicious file.\n\n**Other manipulations.** Attackers also **clear logs** (removing event-log entries that would appear on the timeline), **delete artifacts**, and try to blend their activity into busy periods. As with all anti-forensics, covering *every* source is extremely hard, so gaps and inconsistencies appear: a suspicious absence of logs during a window when other artifacts show activity, or execution artifacts with no corresponding log entries.\n\n**Reading critically means:**\n\n- **Corroborate across sources.** A single timestamp can lie; multiple independent artifacts agreeing on a time are trustworthy. If Prefetch, the MFT `$FILE_NAME` time, and an event log all point to the same moment, that moment is solid even if one `$STANDARD_INFORMATION` time was stomped.\n- **Treat anomalies as leads.** A timestamp mismatch, a gap in logs, or an artifact that contradicts the expected order is not an inconvenience — it is often the thread that reveals the attacker's attempt to hide.\n- **Anchor on the hard-to-fake.** Prefer timestamps and artifacts that are difficult to alter, and be cautious with easily-modified ones.\n\nThe overarching lesson is that a timeline is powerful but not infallible: it reflects the records the system kept, and those records can be manipulated. A strong Tier-2 analyst builds the timeline rigorously — normalised time zones, multiple sources, a clear pivot — and then reads it with healthy suspicion, knowing that the places where the timeline *does not make sense* are frequently where the attacker tried hardest to disappear."
+    }
+  ],
+  "keyTakeaways": [
+    "Timeline analysis arranges evidence chronologically to answer questions of sequence — patient zero (root cause, by tracing backward) and blast radius (scope, by tracing forward) — turning isolated log entries and artifacts into a readable attack narrative.",
+    "Timelines are built from timestamps: the MACB set (Modified/Accessed/Changed/Born), stored in two NTFS structures ($STANDARD_INFORMATION, easily changed, and $FILE_NAME, harder to alter); always normalise every source to one time zone (usually UTC) or the order will be wrong.",
+    "A super-timeline merges every timestamped source (file system, event logs, Prefetch/Amcache, registry, browser) into one chronology — built with Plaso/log2timeline and read in a viewer like Timeline Explorer; because it holds millions of entries, anchor on a pivot event and examine a tight window around it.",
+    "Attackers timestomp (backdating files, MITRE Indicator Removal) and clear logs, but timestomping is caught when $STANDARD_INFORMATION and $FILE_NAME disagree; read timelines critically — corroborate across sources, treat gaps/mismatches as leads, and anchor on hard-to-fake artifacts."
+  ],
+  "quiz": [
+    {
+      "question": "You are building a timeline from a Windows event log (recorded in local time, UTC+2) and a cloud service log (recorded in UTC). Why must you normalise these before ordering events, and what goes wrong if you do not?",
+      "options": [
+        {
+          "label": "Normalisation is unnecessary, because all digital timestamps are automatically stored in the same universal format regardless of the source that produced them.",
+          "value": "a"
+        },
+        {
+          "label": "Without converting both to one reference like UTC, events will be mis-ordered, so an effect can appear to precede its cause and the reconstruction becomes false.",
+          "value": "b"
+        },
+        {
+          "label": "You only need to normalise if the two logs are more than 24 hours apart; within the same day, mixing local time and UTC has no effect on event ordering.",
+          "value": "c"
+        },
+        {
+          "label": "Normalisation matters only for the display colours in the timeline tool and never changes the actual chronological order the events are placed in.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Timestamps are meaningless without their time zone, so mixing local-time (UTC+2) and UTC events without normalising will mis-order them — a two-hour offset can make an effect appear before its cause and produce a confidently wrong reconstruction; the fix is converting everything to one reference, usually UTC. Option a is false because sources record time differently (local vs UTC). Option c is wrong because even a small offset mis-orders events within a day. Option d trivialises normalisation, which directly affects ordering, not just display."
+    },
+    {
+      "question": "A suspected malicious executable shows a creation timestamp of 2019 in $STANDARD_INFORMATION, but its $FILE_NAME timestamp shows it appeared last week. What does this discrepancy most likely indicate?",
+      "options": [
+        {
+          "label": "A normal Windows update, because the operating system routinely rewrites $STANDARD_INFORMATION to a date years in the past whenever it patches a file.",
+          "value": "a"
+        },
+        {
+          "label": "Timestomping: the attacker backdated the easily-changed $STANDARD_INFORMATION times but not the harder-to-alter $FILE_NAME times, exposing the tampering.",
+          "value": "b"
+        },
+        {
+          "label": "A corrupted disk, because the only way the two NTFS timestamp structures can ever differ is physical damage to the drive storing the file.",
+          "value": "c"
+        },
+        {
+          "label": "Nothing suspicious, because $STANDARD_INFORMATION and $FILE_NAME are copies that Windows keeps perfectly identical, so any tool reading them made an error.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Most timestomping tools alter the easily-changed $STANDARD_INFORMATION timestamps but not the harder-to-modify $FILE_NAME ones, so a 2019 $STANDARD_INFORMATION time against a last-week $FILE_NAME time is a classic signature of backdating (MITRE Indicator Removal: Timestomp). Option a invents update behaviour that does not backdate files years into the past. Option c is wrong because the two structures legitimately differ by design and mismatch here signals tampering, not disk damage. Option d is false because the two are distinct structures, not kept identical."
+    }
+  ],
+  "references": [
+    "https://plaso.readthedocs.io/en/latest/",
+    "https://attack.mitre.org/techniques/T1070/006/",
+    "https://www.sans.org/posters/windows-forensic-analysis/"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 42,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-yara-rules",
+  "slug": "yara-rules-writing-detection-signatures",
+  "title": "YARA Rules: Writing Detection Signatures",
+  "topic": "Malware Analysis",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "When researchers find a new piece of malware, they need a way to answer a bigger question: where else is this, or anything like it, hiding? YARA is the tool that answers it. Often called the pattern-matching swiss army knife for malware researchers, YARA lets you describe what a malware family looks like — the strings and byte patterns inside it — as a rule, then scan thousands of files, processes, or memory images for anything matching. This lesson explains what YARA is, how a rule is structured, how to write one that catches variants without drowning in false positives, and how a SOC uses YARA to hunt across the whole environment.",
+  "sections": [
+    {
+      "heading": "What YARA Is and Why It Exists",
+      "content": "**YARA** is a tool for **identifying and classifying files (or memory, or processes) by matching them against patterns you define in rules.** Its own tagline calls it \"the pattern-matching swiss army knife for malware researchers,\" and that captures the idea: you describe the characteristics of a piece of malware — distinctive text strings, unique byte sequences — and YARA scans a target to see whether those characteristics are present.\n\nThe problem YARA solves is one every analyst hits. You investigate one infection and identify the malware. But is it on other machines? Are there variants of it in your file storage? Did it appear in a memory image? Checking each file by hand is impossible. YARA lets you **encode what the malware looks like once, then scan everywhere for it automatically.**\n\nContrast this with a plain **file hash**. A hash (like SHA-256) identifies *one exact file* — change a single byte and the hash is completely different, so hash-matching misses even trivially modified variants. YARA is more flexible: because a rule matches on *content patterns* rather than an exact whole-file fingerprint, one good rule can catch a whole *family* of related samples, including new variants the attacker tweaked to change the hash. That generalisation is YARA's core strength.\n\nYARA is used throughout the security industry:\n\n- **Malware research and classification** — grouping samples into families.\n- **Threat intelligence** — vendors and CERTs publish YARA rules so others can detect a threat.\n- **Incident response and hunting** — scanning an environment for known-bad patterns.\n- **Inside security products** — EDRs, sandboxes, and scanners run YARA rules under the hood.\n\nBecause rules are just text, they are **shareable**: when a threat-intel report describes a new campaign, it often includes YARA rules you can run immediately against your own estate. For a Tier-2 analyst, YARA is both a way to *consume* others' detections and to *create* your own from what you find. The rest of this lesson shows how a rule is built and how to write one well."
+    },
+    {
+      "heading": "The Anatomy of a YARA Rule",
+      "content": "A YARA rule is a small block of text with a fixed, readable structure. Once you can read the three parts, you can understand almost any rule you encounter. Here is a simple example:\n\n```\nrule Suspicious_Downloader\n{\n    meta:\n        author = \"analyst\"\n        description = \"Detects sample downloader strings\"\n        date = \"2026-08-15\"\n\n    strings:\n        $a = \"http://evil-c2.example/gate.php\"\n        $b = \"InternetOpenUrlA\"\n        $c = { 6A 40 68 00 30 00 00 }   // a hex byte pattern\n\n    condition:\n        $a or ($b and $c)\n}\n```\n\nThe rule has three sections:\n\n- **`meta`** — documentation about the rule: author, description, date, references, threat name. It does not affect matching; it exists so humans (and tooling) understand what the rule is for. Good `meta` is a mark of a professional rule.\n- **`strings`** — the patterns to look for, each given a name starting with `$`. YARA supports three kinds:\n  - **Text strings** — literal text, like a URL or a distinctive message (`$a` above).\n  - **Hexadecimal strings** — raw byte sequences, useful for matching code or binary structures (`$c` above), and they can include wildcards.\n  - **Regular expressions** — for flexible pattern matching when a fixed string is too rigid.\n  Text strings can carry modifiers such as `nocase` (case-insensitive), `wide` (for Unicode/UTF-16 text, common in Windows), and `ascii`.\n- **`condition`** — the logic that decides a match, referencing the named strings. This is the brain of the rule. It can be simple (`$a`) or combine strings with Boolean logic (`$a or ($b and $c)`), counts (`2 of ($a, $b, $c)`, or `all of them`, `any of them`), file-size checks (`filesize < 200KB`), and location tests.\n\nReading the example: the rule matches if the C2 URL string is present, **or** if both the API name and the byte pattern appear together. That \"or\" plus the grouped \"and\" is typical — it lets one rule catch a sample by its most obvious marker while still catching stealthier variants by a combination of weaker signals.\n\nThe `condition` is where rule-writing skill lives, because it controls the trade-off at the heart of every signature: match too loosely and you get false positives; match too tightly and you miss variants. The next section is about getting that balance right."
+    },
+    {
+      "heading": "Writing Rules That Work — Specific but Not Brittle",
+      "content": "Anyone can write a YARA rule; writing a *good* one is a craft, and it comes down to a single tension: a rule must be **specific enough to avoid false positives** yet **general enough to catch variants.** Lean too far either way and the rule fails in practice.\n\n**The two failure modes:**\n\n- **Too broad (false positives).** A rule keyed on a common string — say, a Windows API name like `CreateProcessA` that appears in thousands of legitimate programs — will match everywhere. In a SOC, a noisy rule is worse than no rule, because it buries analysts in false alarms and trains them to ignore it.\n- **Too narrow (brittle, misses variants).** A rule that depends on one hyper-specific detail — the exact C2 URL, or a string the attacker can trivially change — breaks the moment the attacker tweaks that detail. It then catches only the one sample you already had, adding little over a hash.\n\n**Principles for good rules:**\n\n- **Anchor on what is hard for the attacker to change.** Distinctive internal strings, unusual constant values, or code byte-patterns that are structural to the malware are more durable than an easily-swapped URL or filename. Prefer patterns tied to the malware's *function*, not its cosmetics.\n- **Combine multiple weaker indicators.** Rather than one string, require a *combination* (`2 of them`, or `$a and $b`). Each individual string might appear in benign files, but the combination is rare — this raises specificity without becoming brittle.\n- **Use `filesize` and context to constrain.** Bounding the file size or file type cuts false positives cheaply.\n- **Document in `meta` and test both ways.** State what the rule targets, then test it against **known malicious** samples (does it catch them?) *and* a corpus of **known-good** files (does it stay quiet?). A rule you have not tested against clean files is a false-positive incident waiting to happen.\n- **Avoid over-fitting to one sample.** If every string in your rule comes from a single file, you have essentially written a fancy hash. Aim to capture the *family*.\n\nThe mental model is a dial between precision and coverage. You tune the `condition` — how many indicators must match, how they combine, what size window — until the rule reliably fires on the malware family and stays silent on everything else. That tuning, validated against real good and bad samples, is exactly the detection-engineering judgement that separates a rule that helps a SOC from one that floods it."
+    },
+    {
+      "heading": "Using YARA in the SOC",
+      "content": "With rules understood, the payoff is what YARA lets a SOC *do*: turn knowledge about a threat into action across the entire environment. A few workflows recur.\n\n**Hunting across the estate.** When you learn about a threat — from your own investigation or a threat-intel report — you can scan broadly for it. YARA runs against **files** (a directory, a drive, uploaded samples), and, importantly, against **running processes and memory images**, which lets it catch the fileless and injected malware that memory forensics surfaces. Point a rule at every endpoint's suspicious directories, or at a memory dump, and YARA answers \"is this threat here?\" at scale.\n\n**Consuming shared intelligence.** Threat-intel reports, CERT advisories, and vendors routinely publish YARA rules for new campaigns. Because rules are portable text, you can take a rule from a report about a fresh malware family and immediately scan your environment for it — one of the fastest ways to check exposure to a newly-disclosed threat. This is YARA as a *consumption* format for detection.\n\n**Feeding products and pipelines.** YARA is built into many tools — sandboxes classify detonated samples with it, EDRs and scanners run rule sets, and automated pipelines tag files. A rule you write can be deployed into these to provide ongoing, automated detection, not just a one-time scan.\n\n**Retrohunting.** Some platforms let you run a new rule against a *historical* archive of samples — \"retrohunting\" — to discover whether a newly-understood threat was present in the past, before you had a rule for it. This turns a fresh rule into a look backward in time.\n\n**Where YARA fits among your tools.** YARA is a **content-pattern** detector — it excels at recognising known-bad *patterns* in files and memory. It complements, rather than replaces, the other techniques in this track: **network** analysis (Wireshark) sees traffic, **memory** forensics (Volatility) reconstructs live state, **timeline** analysis orders events, and **YARA** answers \"does this content match a known threat?\" A common combined move: memory forensics finds injected code, you extract its distinctive strings, write a YARA rule from them, and scan every other endpoint's memory to find every machine carrying the same implant.\n\nThe takeaway for a Tier-2 analyst is that YARA converts a single discovery into **scalable detection**. Learn what one threat looks like, express it as a rule, and you can ask — across thousands of files, processes, and memory images, and even backward through history — \"where else is this?\" That leverage, from one sample to environment-wide hunting, is why YARA is a staple of modern detection and response."
+    }
+  ],
+  "keyTakeaways": [
+    "YARA identifies and classifies files, processes, and memory by matching content patterns you define in rules; unlike a file hash (which matches one exact file), one good rule can catch a whole malware family including tweaked variants — and rules are shareable text.",
+    "A rule has three parts: meta (documentation — author/description/threat, no effect on matching), strings (named $patterns: text, hex byte sequences with wildcards, or regex, with modifiers like nocase/wide), and condition (the Boolean logic — $a or ($b and $c), '2 of them', filesize checks).",
+    "Good rules balance specific-enough-to-avoid-false-positives against general-enough-to-catch-variants: anchor on hard-to-change internal strings/byte patterns, combine multiple weaker indicators, constrain with filesize, document in meta, and test against BOTH known-bad and known-good samples.",
+    "In the SOC, YARA scales one discovery into environment-wide detection: hunt across files and memory/processes, consume rules from threat-intel reports, feed sandboxes/EDR pipelines, and retrohunt history — complementing Wireshark (traffic), Volatility (memory), and timeline analysis (sequence)."
+  ],
+  "quiz": [
+    {
+      "question": "Why can a single well-written YARA rule detect many variants of a malware family, whereas a SHA-256 file hash cannot?",
+      "options": [
+        {
+          "label": "A YARA rule matches on content patterns (strings and byte sequences), so it still fires on variants, while a hash identifies one exact file and changes completely if a single byte differs.",
+          "value": "a"
+        },
+        {
+          "label": "A YARA rule and a file hash work identically, but YARA rules are simply computed faster, which is the only practical advantage YARA offers over hashing.",
+          "value": "b"
+        },
+        {
+          "label": "A SHA-256 hash matches any file in the same malware family automatically, so YARA is only needed when the malware has no hash value at all.",
+          "value": "c"
+        },
+        {
+          "label": "A YARA rule works by storing the full original malware sample inside the rule, so it can only ever match that one identical file and nothing else.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "A YARA rule matches on content patterns — distinctive strings and byte sequences — so it can catch related variants that share those patterns, whereas a SHA-256 hash fingerprints one exact file and changes entirely if even a single byte is altered, missing trivially modified variants. Option b is wrong because they do not work identically; the difference is pattern-matching vs exact-file matching. Option c is false because a hash matches only one exact file, not a family. Option d misdescribes YARA, which stores patterns, not the whole sample."
+    },
+    {
+      "question": "An analyst writes a YARA rule whose only string is the Windows API name \"CreateProcessA\", which appears in thousands of legitimate programs. What is the likely problem, and what is the better approach?",
+      "options": [
+        {
+          "label": "The rule is too narrow and will miss variants; the fix is to remove the condition section entirely so the rule matches every file it scans.",
+          "value": "a"
+        },
+        {
+          "label": "The rule is too broad and will cause many false positives; combine multiple distinctive indicators and anchor on patterns hard for the attacker to change.",
+          "value": "b"
+        },
+        {
+          "label": "The rule is perfectly tuned, because matching a common API name guarantees it will detect the malware family without ever flagging any benign software.",
+          "value": "c"
+        },
+        {
+          "label": "The problem is only performance; the rule is accurate but slow, so the fix is simply to run it on fewer files rather than changing its logic at all.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Keying a rule on a common API name that appears in thousands of legitimate programs makes it too broad, producing many false positives that bury analysts; the better approach is to combine multiple distinctive indicators and anchor on patterns the attacker cannot easily change, tuning specificity without becoming brittle. Option a misdiagnoses it as too narrow and suggests removing the condition, which would match everything. Option c is wrong because a common string flags benign software. Option d misframes a false-positive (accuracy) problem as merely performance."
+    }
+  ],
+  "references": [
+    "https://yara.readthedocs.io/en/stable/writingrules.html",
+    "https://github.com/VirusTotal/yara",
+    "https://attack.mitre.org/techniques/T1059/"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 42,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
 }
 ];
 
