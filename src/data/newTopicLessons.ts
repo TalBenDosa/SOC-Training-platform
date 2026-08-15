@@ -2989,6 +2989,128 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 40,
   "researchUsed": false,
   "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-active-directory-and-domain-controllers",
+  "slug": "active-directory-and-domain-controllers-explained",
+  "title": "Active Directory & Domain Controllers: The Complete Foundation",
+  "topic": "Active Directory",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Walk into almost any organisation running Windows and you will find Active Directory at its centre. It decides who every employee is, what they are allowed to touch, and which computer belongs to whom — for tens of thousands of people at once. And running that entire system is a special kind of server called the Domain Controller. For a SOC analyst this is not optional background knowledge: Active Directory is the single most valuable target in most enterprises, and nearly every serious intrusion ends with an attacker trying to own it. This lesson builds the whole picture from the ground up — what AD is, what a Domain Controller does, how the structure and objects fit together, the protocols that make it work, and why it is the crown jewel a SOC must protect.",
+  "sections": [
+    {
+      "heading": "What Active Directory Is",
+      "content": "**Active Directory (AD)** is Microsoft's **directory service**: a central database that stores information about every user, computer, group, and resource in an organisation, and that handles logging people in and deciding what they can access. If a company has 5,000 employees and 3,000 computers, Active Directory is the one system that knows all of them, holds everyone's account, and answers the question \"is this person who they claim to be, and are they allowed to do this?\"\n\nThe cleanest real-life analogy is a **giant, secure company directory combined with a master key system**. A phone directory lists everyone in the organisation with their details; Active Directory does that for digital identities, but it also *controls the locks* — it decides which keys (permissions) each person holds and checks their identity every time they try to open a door.\n\nActive Directory does three big jobs, and holding these apart makes everything else clearer:\n\n- **Authentication** — proving *who you are*. When you log into your work laptop with your username and password, Active Directory verifies you.\n- **Authorization** — deciding *what you can do*. Once it knows who you are, AD (together with the resources you reach) determines which files, servers, and applications you may use, based on your group memberships.\n- **Directory / management** — being the *single source of truth*. It stores all the accounts and settings centrally, so an admin can create one account, reset one password, or disable one user, and it takes effect everywhere at once.\n\nThat last point is why organisations love AD and why attackers covet it. **Centralisation is powerful in both directions.** For administrators, one place to manage everyone is enormously efficient. For an attacker, that same one place, if compromised, is the keys to the entire kingdom — control Active Directory and you potentially control every account and every computer that trusts it. The rest of this lesson unpacks how that central system is built and run, starting with the server that actually holds it: the Domain Controller."
+    },
+    {
+      "heading": "The Domain Controller — the Server That Runs AD",
+      "content": "A **Domain Controller (DC)** is a server that runs Active Directory and does the actual work of authenticating users and answering directory requests. Active Directory is the *service and database*; the Domain Controller is the *machine that hosts and runs it*. When people say \"the DC,\" they mean the beating heart of the Windows network.\n\n**What a Domain Controller does, minute to minute:**\n\n- **Authenticates logons.** Every time a user or computer signs into the domain, a Domain Controller verifies the credentials. It hosts the **Kerberos KDC** (Key Distribution Center), the service that issues the tickets used for authentication.\n- **Answers directory queries.** Applications and computers constantly ask the DC questions — \"what groups is this user in?\", \"where is this printer?\" — over the directory protocol LDAP.\n- **Enforces policy.** It distributes the security and configuration rules (Group Policy) that govern users and machines.\n- **Holds the database.** Every DC stores a copy of the AD database in a file called **`NTDS.dit`**.\n\nThat database file deserves special attention, because it is why the DC is the ultimate prize. **`NTDS.dit` contains every object in the domain — and critically, the password hashes of every account, including the administrators.** An attacker who can read this file, or trick a DC into handing over its contents, effectively obtains the credentials to the entire organisation. This is exactly what attacks like **DCSync** and **NTDS dumping** aim for, and it is why \"compromise a Domain Controller\" is functionally the same as \"compromise the whole domain.\"\n\nOrganisations run **more than one Domain Controller** for reliability — if one fails, others keep authenticating users — and the DCs keep each other's copies of the database in sync through **replication** (covered later). A DC also shares a special folder called **SYSVOL** over the network, which holds Group Policy files that every domain computer reads.\n\nThe security takeaway is stark and worth memorising: **the Domain Controller is Tier 0** — the most privileged, most protected asset class in the environment. Anything that can run code on a DC, or that holds Domain Admin rights, can rewrite the rules for everyone. Protecting DCs, and watching everything that touches them, is central SOC work."
+    },
+    {
+      "heading": "The Structure — Domains, Trees, Forests, and OUs",
+      "content": "Active Directory is organised into a deliberate hierarchy, and learning the four building blocks lets you read how any Windows environment is laid out.\n\n**Domain.** A **domain** is the core administrative and security grouping — a collection of users, computers, and resources that share one Active Directory database and one set of policies, identified by a name like `corp.example.com`. Most small and mid-size organisations are a single domain. Think of it as one self-contained community with its own membership list and rules.\n\n**Tree.** A **tree** is one or more domains that share a contiguous naming space — for example `example.com` with a child domain `sales.example.com` beneath it. Trees model organisations that want related but separately managed sub-domains.\n\n**Forest.** A **forest** is the outermost container: one or more trees that share a common schema (the definition of what object types exist), configuration, and a global catalog. Crucially, **the forest — not the domain — is the real security boundary of Active Directory.** Everything inside a forest implicitly trusts everything else in it at a deep level, so from a defender's viewpoint the forest is the unit you must consider compromised together. Large enterprises may run multiple domains in one forest, or even multiple forests connected by trusts.\n\n**Organisational Unit (OU).** Inside a domain, **OUs** are containers used to organise objects and apply management to them. An OU might hold all the accounts in the Finance department, or all the laptops in the London office. OUs matter for two practical reasons: **Group Policy** is applied to OUs (so you can push settings to just the machines in one OU), and **administrative control can be delegated** at the OU level (letting a regional admin manage only their own OU).\n\n| Level | What it is | Analogy |\n|-------|-----------|---------|\n| Forest | The whole environment; the security boundary | The entire corporation |\n| Tree | Domains sharing a namespace | A division and its sub-divisions |\n| Domain | One database + policy set | A single company site |\n| OU | A container inside a domain | A department or office folder |\n\nFor a SOC analyst, this structure is not trivia. It tells you the **blast radius**: because the forest is the trust boundary, a Domain Admin in one domain can often be leveraged toward Enterprise Admin across the whole forest, and an attacker who owns any domain's DC has a path to the rest. Knowing whether you face one domain or a multi-domain forest shapes how far you assume an intrusion can reach."
+    },
+    {
+      "heading": "The Objects Inside — Users, Groups, Computers, and SIDs",
+      "content": "Active Directory is a database, and the records it holds are called **objects**. Four kinds matter most to an analyst.\n\n**Users.** A **user object** is a person's account: their username, password (stored as a hash), group memberships, and attributes. There are also **service accounts** — user objects used by applications and services rather than people. Service accounts are a favourite attacker target because they often have strong privileges and passwords that rarely change (the weakness behind **Kerberoasting**).\n\n**Computers.** Every machine joined to the domain has a **computer object** and its own account, which is how the computer itself authenticates to the domain.\n\n**Groups.** A **group** bundles users (or computers) together so permissions can be granted to many accounts at once. Instead of giving 200 people access to a share individually, you put them in a group and grant the group. Groups come in two types — **security groups** (used to assign permissions) and **distribution groups** (used only for email lists) — and have different **scopes** (domain-local, global, universal) that control where they can be used.\n\nSome groups are extraordinarily powerful, and every analyst must know them by name:\n\n- **Domain Admins** — full control over the domain. Membership here is effectively the keys to that domain.\n- **Enterprise Admins** — control across the entire forest.\n- **Administrators** and **Schema Admins** — other highly privileged groups.\n\nBecause these groups are so powerful, **any change to their membership is a high-value security event.** An account being added to Domain Admins (Windows Event **4728/4732**) is one of the first things an attacker does after gaining a foothold, and one of the first things a SOC should alert on.\n\n**SIDs.** Every object has a unique identifier called a **SID (Security Identifier)** — a string like `S-1-5-21-…` that Windows actually uses internally to identify accounts (the human-readable name is just for us). The tail end of a SID, the **RID (Relative Identifier)**, marks well-known privileged accounts; for example, a SID ending in **`-512`** is the Domain Admins group, and **`-500`** is the built-in Administrator. Understanding SIDs matters because attacks like **Golden Tickets** forge them and **SID History** abuse hides privilege inside them — so when you read AD logs, you are often reading SIDs, and recognising the privileged ones tells you instantly how serious an event is."
+    },
+    {
+      "heading": "How It All Works — LDAP, Kerberos, GPO, and Replication",
+      "content": "Active Directory is made of moving parts that communicate over specific protocols. You do not need to implement them, but recognising each — and its port — lets you read what a Windows network is doing.\n\n**LDAP — asking the directory questions.** **LDAP (Lightweight Directory Access Protocol)** is how computers and applications *query and update* Active Directory: \"list the members of this group,\" \"find this user's email.\" It runs on **port 389** (or **636** for the encrypted version). LDAP is also how attackers *enumerate* AD — tools like **BloodHound** issue LDAP queries to map every user, group, and permission relationship, hunting for a path to Domain Admin.\n\n**Kerberos — proving identity.** **Kerberos** (port **88**) is the default authentication protocol. When you log in, a Domain Controller's KDC issues you a **ticket-granting ticket**, which you then exchange for tickets to specific services. (Its counterpart, the older **NTLM**, is the fallback.) Kerberos is why Domain Controllers are so central — they *are* the ticket authority — and it is the mechanism abused by **Kerberoasting**, **Pass-the-Ticket**, and **Golden Ticket** attacks.\n\n**DNS — finding the Domain Controllers.** Active Directory depends completely on **DNS**. Clients locate their Domain Controllers by looking up special DNS **SRV records**. If DNS is broken, AD stops working — which is why DCs usually run DNS themselves.\n\n**Group Policy (GPO) — pushing rules everywhere.** A **Group Policy Object (GPO)** is a bundle of configuration and security settings — password rules, software restrictions, drive mappings — that AD applies automatically to the users and computers in the OUs it is linked to. GPO files live in the DC's **SYSVOL** share and are pulled by every domain machine at logon and periodic refresh. GPO is a double-edged sword: it is how admins enforce security at scale, and it is a powerful attacker tool, because someone who can edit a widely-linked GPO can push malicious settings or code to thousands of machines at once.\n\n**Replication — keeping the DCs in sync.** Because an organisation runs multiple Domain Controllers, they must agree on the data. **Replication** is the automatic process by which every DC copies changes to the others, so a password changed on one DC is known to all of them within minutes. AD uses **multi-master** replication (a change can be made on any DC), which is great for resilience — but it is also what the **DCSync** attack impersonates, pretending to be a DC asking for replication data in order to steal password hashes without ever touching `NTDS.dit` directly.\n\nSeen together, these protocols are the anatomy of the Windows network: LDAP is how you ask, Kerberos is how you prove yourself, DNS is how you find the DCs, GPO is how rules are enforced, and replication is how the DCs stay consistent. Nearly every AD attack is an abuse of one of these normal mechanisms."
+    },
+    {
+      "heading": "Why AD Is the Crown Jewel — the SOC Angle",
+      "content": "Now the pieces come together into the single most important idea for a defender: **in a Windows enterprise, Active Directory is the crown jewel, and the Domain Controller is where the crown is kept.** Almost every significant intrusion — ransomware, espionage, insider abuse — converges on the same goal: gain control of Active Directory, because that grants control of everything that trusts it. Understanding AD is therefore not a Windows-admin nicety; it is the map of where attackers are trying to go.\n\n**The attacker's journey through AD** follows a recognisable arc, and each stage has a detection:\n\n1. **Initial foothold** on some ordinary workstation (often via phishing).\n2. **Enumeration** — mapping the domain with LDAP-based tools like BloodHound to find a path to privilege.\n3. **Credential theft and escalation** — Kerberoasting service accounts, dumping credentials, Pass-the-Hash — to climb toward Domain Admin.\n4. **Domain dominance** — reaching a Domain Controller and extracting `NTDS.dit` (or performing DCSync) to obtain every credential, and establishing durable persistence like a Golden Ticket.\n\n**The events a SOC watches** map onto this journey. A short set of Windows Security Event IDs carries most of the signal:\n\n- **4624 / 4625** — successful / failed logons.\n- **4768 / 4769** — Kerberos ticket-granting-ticket and service-ticket requests (spikes of 4769 suggest Kerberoasting).\n- **4776** — NTLM authentication validation (spikes suggest brute force or Pass-the-Hash).\n- **4720** — a user account was created.\n- **4728 / 4732** — a member was added to a privileged (global / local) group, such as Domain Admins.\n- **4662 / 5136** — directory object access and modification (used to spot DCSync and tampering).\n\n**The defensive model** built on this understanding is **tiering**: classify assets by privilege, with **Tier 0** being the Domain Controllers, Domain Admin accounts, and anything that can control them. The cardinal rule is to never let Tier 0 credentials be exposed on lower-tier machines, because an attacker who steals a Domain Admin's hash from an ordinary laptop has just skipped the entire journey above. Alongside tiering, defenders protect DCs fiercely, alert on privileged-group changes and DC-targeting activity, and deploy tools like **Microsoft Defender for Identity (MDI)** that watch AD specifically for these techniques.\n\nThe one sentence to carry out of this lesson: **whoever controls the Domain Controller controls the domain — so a SOC's job is to make reaching it as hard, and as loud, as possible.** Everything you will learn about specific AD attacks builds on this foundation of what Active Directory is and why it sits at the centre of the fight."
+    }
+  ],
+  "keyTakeaways": [
+    "Active Directory is Microsoft's directory service — the central database and system that authenticates users, authorizes access, and manages all accounts/computers/resources; its centralisation is powerful for admins and, if compromised, for attackers.",
+    "A Domain Controller (DC) is the server that runs AD, hosts the Kerberos KDC, and stores the AD database NTDS.dit — which holds every account's password hash, making a DC compromise equivalent to owning the whole domain (Tier 0).",
+    "AD is structured as forest > tree > domain > OU (the forest, not the domain, is the security/trust boundary), and holds objects — users, service accounts, computers, groups (Domain Admins/Enterprise Admins are the crown-jewel groups), each with a unique SID whose RID marks privilege (e.g. -512 Domain Admins, -500 Administrator).",
+    "AD runs on LDAP (389/636 queries, abused by BloodHound), Kerberos (88 auth), DNS (SRV records locate DCs), GPO (policy pushed via SYSVOL), and multi-master replication (impersonated by DCSync); SOC defence centres on tiering (never expose Tier 0 creds), protecting DCs, and alerting on key events (4624/4625, 4768/4769, 4776, 4720, 4728/4732, 4662/5136)."
+  ],
+  "quiz": [
+    {
+      "question": "An attacker gains the ability to read the NTDS.dit file from a Domain Controller. Why is this considered a full domain compromise, and what makes the Domain Controller such a high-value target?",
+      "options": [
+        {
+          "label": "It is not serious, because NTDS.dit only stores printer and network-share locations, so the attacker gains nothing beyond a directory of office resources.",
+          "value": "a"
+        },
+        {
+          "label": "NTDS.dit contains every object in the domain including all account password hashes, so reading it hands the attacker credentials to the entire organisation.",
+          "value": "b"
+        },
+        {
+          "label": "It only affects a single user, because each Domain Controller stores just the one administrator account that happens to be logged in at that moment.",
+          "value": "c"
+        },
+        {
+          "label": "The risk is purely about disk space, because NTDS.dit is a large file and copying it merely slows the Domain Controller down temporarily.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "NTDS.dit is the AD database file on a Domain Controller and contains every object in the domain, including the password hashes of all accounts up to the administrators, so obtaining it gives an attacker credentials to the whole organisation — which is why the DC is Tier 0 and its compromise equals domain compromise. Option a wrongly trivialises the file's contents. Option c is false because the DC holds the entire domain database, not one account. Option d ignores the actual credential exposure."
+    },
+    {
+      "question": "In Active Directory, which statement about the forest and domain structure is correct, and why does it matter to a SOC analyst assessing the blast radius of an intrusion?",
+      "options": [
+        {
+          "label": "Each Organisational Unit (OU) is a separate security boundary, so an attacker who compromises one OU can never affect users or computers in any other OU.",
+          "value": "a"
+        },
+        {
+          "label": "The forest is the true security boundary; everything inside it trusts each other deeply, so the analyst must treat the whole forest as potentially compromised together.",
+          "value": "b"
+        },
+        {
+          "label": "The individual domain is the outermost boundary, so a compromise can never spread from one domain to another domain within the same forest under any circumstances.",
+          "value": "c"
+        },
+        {
+          "label": "Trees are the top-level security boundary, so multiple forests inside a tree are fully isolated from one another and share no trust of any kind.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The forest — not the domain, OU, or tree — is Active Directory's real security boundary; everything inside a forest trusts each other at a deep level, so an analyst must consider the whole forest at risk together and recognise that owning one domain's DC creates a path across the forest. Option a is wrong because OUs organise objects and apply policy but are not security boundaries. Options c and d invert the hierarchy: the domain is not the outermost boundary, and forests are the top-level container, not trees."
+    },
+    {
+      "question": "You are building detections for early-stage Active Directory attacks. Which pair of observations best matches its likely technique?",
+      "options": [
+        {
+          "label": "A spike of Kerberos service-ticket requests (Event 4769) suggests Kerberoasting, and an account suddenly added to Domain Admins (Event 4728/4732) suggests privilege escalation or persistence.",
+          "value": "a"
+        },
+        {
+          "label": "A spike of Event 4769 means the DNS server crashed, and an Event 4728 means a user simply changed their own display name in their profile settings.",
+          "value": "b"
+        },
+        {
+          "label": "A spike of Event 4769 indicates a printer was installed, and Event 4732 shows that Group Policy successfully refreshed on a workstation as scheduled.",
+          "value": "c"
+        },
+        {
+          "label": "Both Event 4769 and Event 4728 only ever occur during routine backups, so neither is useful for detecting any Active Directory attack technique.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "A burst of Kerberos service-ticket requests (4769) is the classic Kerberoasting signature, since the attacker collects service tickets to crack offline, and adding an account to a privileged group like Domain Admins (4728/4732) is a hallmark of escalation or persistence — both are high-value AD detections. The other options misattribute these events to DNS crashes, display-name changes, printer installs, GPO refreshes, or backups, none of which is what these Security Event IDs record."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/get-started/virtual-dc/active-directory-domain-services-overview",
+    "https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/plan/security-best-practices/best-practices-for-securing-active-directory",
+    "https://attack.mitre.org/techniques/T1003/006/",
+    "https://learn.microsoft.com/en-us/defender-for-identity/what-is"
+  ],
+  "xp": 220,
+  "estimatedMinutes": 44,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
 }
 ];
 
