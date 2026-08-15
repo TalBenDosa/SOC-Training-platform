@@ -3741,6 +3741,100 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 40,
   "researchUsed": false,
   "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-pcap-wireshark-for-beginners",
+  "slug": "network-traffic-analysis-pcap-wireshark",
+  "title": "Network Traffic Analysis with PCAP & Wireshark: A Beginner's Guide",
+  "topic": "Network Security",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "Logs tell you what a system decided to record. A packet capture tells you what actually crossed the wire — the raw conversation between two computers, exactly as it happened. For a SOC analyst, being able to open a capture and read it is like a detective being able to replay the security-camera footage instead of relying on witness statements. This beginner lesson introduces packet captures from scratch: what a packet and a PCAP are, how to read a captured packet in Wireshark, how filtering lets you find the one conversation that matters among millions, and what suspicious traffic actually looks like.",
+  "sections": [
+    {
+      "heading": "What a Packet and a PCAP Are",
+      "content": "Everything that travels across a network moves in small chunks called **packets**. When your computer loads a web page, sends an email, or talks to a server, that data is broken into many packets, each sent individually and reassembled at the other end. A **packet** is the basic unit of network communication — a small bundle carrying a piece of data plus addressing information (where it came from, where it is going, and which protocol it speaks).\n\nA **PCAP** — short for **packet capture** — is a recording of those packets, saved to a file. Just as a video recorder captures frames of what happened in a room, a packet capture records the packets that crossed a network link. The files usually end in `.pcap` or the newer `.pcapng`, and each one holds a slice of network history you can replay and examine packet by packet, long after the traffic itself is gone.\n\n**The tools.** The classic tool for viewing and analysing captures is **Wireshark**, a free graphical program that opens a PCAP and lets you explore every packet visually. Its command-line relatives are **tcpdump** (widely used on Linux to capture and display packets) and **tshark** (Wireshark's command-line version). Analysts use the CLI tools to *capture* traffic on a server and Wireshark to *analyse* the result in depth.\n\n**Where captures come from.** To capture traffic you have to be able to *see* it. That happens in a few ways: capturing directly on a host (recording that one machine's own traffic), or capturing at a network chokepoint using a **SPAN/mirror port** on a switch or a network **TAP** that copies traffic to a monitoring sensor. In a SOC you most often *receive* a capture — from an IDS/IPS sensor, a full-packet-capture appliance, or an incident responder — and your job is to read it.\n\nThe reason captures are so valuable is that they are **ground truth**. A firewall log says \"a connection to this IP was allowed\"; the packet capture shows you the *actual content and behaviour* of that connection — what was said, how often, and whether it looks like a browser, a file transfer, or malware phoning home. When logs are ambiguous, the packets settle the question."
+    },
+    {
+      "heading": "Wireshark and the Anatomy of a Captured Packet",
+      "content": "Open a capture in Wireshark and the window is divided into **three panes**, each a different zoom level on the same data. Learning what they show is the foundation of packet analysis.\n\n**1. The packet list (top).** A scrolling table with one row per packet. Its columns summarise each packet at a glance:\n\n- **No.** — the packet's number in the capture.\n- **Time** — when it was captured (relative to the start).\n- **Source** and **Destination** — the IP addresses talking.\n- **Protocol** — the highest-level protocol Wireshark recognised (HTTP, DNS, TCP, TLS…).\n- **Length** — the packet's size in bytes.\n- **Info** — a plain-language summary of what the packet is doing.\n\nThis is where you skim for the interesting traffic. Wireshark also **colour-codes** rows by type, so anomalies and errors stand out.\n\n**2. The packet details (middle).** Click one packet and this pane expands it into its **layers**, which you can unfold like nested folders. This reflects how networking really works: each packet is wrapped in layers, from the physical frame up to the application data:\n\n- **Frame / Ethernet** — the lowest layer, with hardware (MAC) addresses.\n- **IP** — the source and destination IP addresses (which machines).\n- **TCP or UDP** — the ports (which service) and, for TCP, connection flags.\n- **Application** — the actual content: the HTTP request, the DNS query, the TLS handshake.\n\nReading these layers top-to-bottom answers *who* (IP), *what service* (port/protocol), and *what was said* (application data) for that one packet.\n\n**3. The packet bytes (bottom).** The raw packet in hexadecimal and ASCII — the actual bytes on the wire. Beginners rarely need this, but it is where you can see raw content, including, alarmingly, plaintext data in unencrypted protocols.\n\nThe mental model to build: the **list** is your index, the **details** decode one packet into its layers, and the **bytes** are the ground truth underneath. Most analysis lives in the list and details panes — skim the list to find candidates, then drill into details to understand exactly what a packet is."
+    },
+    {
+      "heading": "Filtering: Finding the Needle in Millions of Packets",
+      "content": "A few minutes of network traffic can be *millions* of packets. Nobody reads them all — the essential skill is **filtering**, telling Wireshark to show only the packets you care about. There are two kinds of filter, and confusing them is a classic beginner mistake.\n\n**Capture filters** decide which packets are *recorded in the first place*. They are set before capturing and use a syntax called BPF (for example `host 10.0.0.5` to record only traffic to/from that IP). Because they discard everything else permanently, they are used to keep captures small — but you can never get back what you did not capture.\n\n**Display filters** decide which of the *already-captured* packets are *shown*. They do not delete anything; they just hide the noise so you can focus, and you change them freely as your investigation moves. This is the filter you will use constantly, typed into the bar at the top of Wireshark. Its syntax is different from capture filters and worth learning, because a handful of expressions cover most work:\n\n- `ip.addr == 10.0.0.5` — packets to or from that IP.\n- `tcp.port == 443` — traffic on port 443 (HTTPS).\n- `http` — only HTTP packets; `dns` — only DNS; `tls` — only TLS.\n- `ip.src == 10.0.0.5 && dns` — combine conditions with `&&` (and), `||` (or), `!` (not).\n- `tcp.flags.syn == 1 && tcp.flags.ack == 0` — connection-opening SYN packets (useful for spotting scans).\n\nThe workflow is to start broad and narrow down. See something odd from one IP? Filter to `ip.addr == <that IP>` to isolate its whole conversation. Suspect DNS abuse? Filter to `dns` and scan the queries. Each filter strips away the irrelevant, so the meaningful traffic rises to the top.\n\nThe key distinction to remember: **capture filters limit what you keep; display filters limit what you see.** For analysis in the SOC, you are almost always working with display filters on a capture someone already collected — so mastering the display-filter bar is the single most practical Wireshark skill a beginner can build."
+    },
+    {
+      "heading": "Following the Conversation and Reading Statistics",
+      "content": "Individual packets are pieces of a larger conversation. Two Wireshark features let you step back and see the whole exchange rather than one packet at a time.\n\n**Follow the stream.** Right-click a TCP packet and choose **Follow > TCP Stream**, and Wireshark reassembles every packet of that conversation into a single, readable view — showing the full back-and-forth between the two machines in order, with each side colour-coded. This is enormously powerful: instead of piecing together a request and response from scattered packets, you see the entire dialogue at once. For unencrypted protocols, this can reveal a complete HTTP request and the server's reply, the commands sent over a plaintext session, or — a serious finding — **credentials sent in the clear**. (For encrypted traffic like TLS/HTTPS, the stream shows scrambled content, so you rely on metadata: who talked to whom, when, and how much.)\n\n**The Statistics menu.** Rather than reading packets, sometimes you want the shape of the traffic. Wireshark's **Statistics** menu summarises a capture in ways that surface anomalies fast:\n\n- **Protocol Hierarchy** — what protocols make up the capture and in what proportion. An unexpected protocol, or a surprising amount of one, is a lead.\n- **Conversations** — every pair of machines that talked, with packet and byte counts. This instantly shows *who talked to whom the most* — a single internal host exchanging a large volume with an unfamiliar external IP jumps out here.\n- **Endpoints** — every individual address seen, so you can spot an unexpected participant.\n\nThese views turn a capture into a summary you can reason about. A common investigation move: open **Conversations**, sort by bytes, and notice one internal machine sending an unusually large amount of data to an external address — then filter to that conversation and **Follow the stream** to see what it was.\n\nThe pattern to internalise is **zoom out, then zoom in**. Statistics and Conversations give you the big picture and point at the suspicious pair; Follow-Stream and the details pane let you drill into exactly what that pair was doing. Beginners who learn this rhythm — summarise, spot the outlier, isolate it, read it — can get real answers out of a capture without drowning in individual packets."
+    },
+    {
+      "heading": "What a SOC Analyst Hunts for in a Capture",
+      "content": "Knowing the tool is only half the job; the other half is knowing *what suspicious traffic looks like*. A handful of patterns come up again and again, and each has a recognisable shape in a capture.\n\n**Command-and-control (C2) beaconing.** Malware that has infected a machine \"phones home\" to its operator on a schedule. In a capture this shows up as a machine making **small, regular, repeating connections** to the same external destination — every 30 seconds, every 5 minutes — with almost machine-like regularity. Human web browsing is bursty and varied; beaconing is metronomic. Wireshark's I/O graphs and the Conversations view help you spot the rhythm.\n\n**Data exfiltration.** Stolen data leaving the network appears as an **unusually large outbound transfer** — an internal host uploading far more than it downloads, to an external or unfamiliar destination. Sorting Conversations by bytes and watching the outbound direction is the fastest way to catch it.\n\n**Plaintext credentials and sensitive data.** Older or misconfigured protocols (FTP, Telnet, plain HTTP) send data unencrypted. Following such a stream can reveal usernames, passwords, or confidential content in the clear — both a finding about the attack and a hygiene problem to report.\n\n**DNS abuse.** DNS should be small lookups. Attackers abuse it for **tunnelling** (smuggling data inside DNS queries) and for reaching malicious domains. Filter to `dns` and watch for oddly long, random-looking domain names, a flood of queries to one domain, or lookups of known-bad domains.\n\n**Scanning and reconnaissance.** An attacker mapping the network generates **many connection attempts across many ports or hosts** — in a capture, a burst of SYN packets (`tcp.flags.syn == 1`) fanning out, often with few completed connections.\n\n**Unusual protocols or ports.** Traffic on ports that should not carry it, or a protocol appearing where it does not belong, is worth a look — attackers often use non-standard ports to evade simple controls.\n\nThe unifying method is the same one that runs through all of network analysis: **know what normal looks like, and hunt the deviation.** A capture is most powerful when combined with your other sources — a firewall log flags a connection, and the capture tells you it was beaconing; an EDR alert names a process, and the capture shows the data it sent. As a beginner, you do not need to catch everything at once. Start by opening a capture, filtering to one suspicious host, following its stream, and asking a single question: *does this conversation look like a human doing normal work, or like a machine doing something it should not?* That question, backed by the tools in this lesson, is the heart of network traffic analysis."
+    }
+  ],
+  "keyTakeaways": [
+    "A packet is the basic unit of network data, and a PCAP (.pcap/.pcapng) is a recorded file of packets — ground truth about what actually crossed the wire, viewed in Wireshark (GUI) or captured with tcpdump/tshark (CLI); analysts usually receive a capture from a sensor or responder and read it.",
+    "Wireshark's three panes are the packet list (one row per packet: No./Time/Source/Destination/Protocol/Length/Info), the packet details (the packet unfolded into layers — Frame/Ethernet, IP, TCP/UDP, Application), and the raw bytes.",
+    "Filtering is the core skill: capture filters (BPF) limit what is recorded, while display filters limit what is shown (ip.addr==, tcp.port==443, http, dns, combined with && || !) — in the SOC you mostly use display filters on a capture someone already collected.",
+    "Zoom out then in: use Statistics > Conversations/Protocol Hierarchy to find the outlier pair, then Follow > TCP Stream to read the whole conversation; hunt for C2 beaconing (small regular repeats), large outbound exfil, plaintext credentials, DNS tunnelling, and scan bursts — always by comparing against normal."
+  ],
+  "quiz": [
+    {
+      "question": "You are analysing a packet capture and want to see only the traffic to and from the host 10.0.0.5 that is already recorded in the file, without deleting any other packets. Which type of filter do you use, and why?",
+      "options": [
+        {
+          "label": "A capture filter, because capture filters are applied after recording to temporarily hide packets you do not currently want to look at in the file.",
+          "value": "a"
+        },
+        {
+          "label": "A display filter such as ip.addr == 10.0.0.5, because display filters hide the other already-captured packets without deleting them, and can be changed freely.",
+          "value": "b"
+        },
+        {
+          "label": "A capture filter such as host 10.0.0.5, because it is the only way to view specific traffic and it leaves all other packets fully visible in the capture.",
+          "value": "c"
+        },
+        {
+          "label": "Neither, because Wireshark cannot limit which packets are shown once a capture file has already been opened for analysis by the user.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A display filter (e.g. ip.addr == 10.0.0.5) limits which already-captured packets are shown without deleting anything and can be changed freely as the investigation moves — the right tool for analysing an existing capture. Option a reverses the definitions: capture filters are applied before/during recording, not after. Option c is wrong because a capture filter would have discarded other packets at capture time, and here the file already exists. Option d is false because filtering shown packets is a core Wireshark feature."
+    },
+    {
+      "question": "In a capture you notice an internal workstation making a small connection to the same external IP address every 60 seconds, very regularly, over a long period. What does this pattern most likely indicate?",
+      "options": [
+        {
+          "label": "Normal web browsing, because a person loading web pages naturally produces small, perfectly regular connections to one address once every 60 seconds.",
+          "value": "a"
+        },
+        {
+          "label": "Command-and-control beaconing, because infected malware phones home on a schedule, producing small, metronomic, repeating connections unlike bursty human traffic.",
+          "value": "b"
+        },
+        {
+          "label": "A large data-exfiltration transfer, because stolen data always leaves the network as tiny 60-second connections rather than as a single large outbound upload.",
+          "value": "c"
+        },
+        {
+          "label": "A port scan, because scanning a network is defined by one repeated connection to a single external IP address at a steady one-minute interval.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Small, highly regular, repeating connections to the same external destination are the classic signature of C2 beaconing — malware phoning home on a schedule, which is metronomic unlike the bursty, varied pattern of human browsing. Option a is wrong because real browsing is irregular and bursty. Option c misdescribes exfiltration, which appears as a large outbound transfer, not tiny periodic beacons. Option d is wrong because scanning fans out across many ports/hosts, not one address on a steady interval."
+    }
+  ],
+  "references": [
+    "https://www.wireshark.org/docs/wsug_html_chunked/",
+    "https://wiki.wireshark.org/DisplayFilters",
+    "https://www.tcpdump.org/manpages/tcpdump.1.html"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
 }
 ];
 
