@@ -2273,6 +2273,362 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 38,
   "researchUsed": false,
   "createdAt": "2026-08-14T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-cloud-fundamentals-aws-azure",
+  "slug": "cloud-security-fundamentals-aws-azure",
+  "title": "Cloud Security Fundamentals: AWS & Azure for the SOC Analyst",
+  "topic": "Cloud Security",
+  "difficulty": "beginner",
+  "kind": "lesson",
+  "intro": "More and more of the systems a SOC defends no longer live in a server room down the hall — they live in someone else's data centre, rented by the minute, reached over the internet, and configured entirely through software. That is the cloud, and it changes what an analyst watches and how. This beginner lesson builds the mental model from the ground up: what the cloud actually is, the two giants (AWS and Azure) and a plain-language map of their vocabulary, the three ways people interact with the cloud, the shared-responsibility line that decides what is yours to secure, and the data sources a SOC relies on to see what is happening.",
+  "sections": [
+    {
+      "heading": "What 'the Cloud' Really Means",
+      "content": "**The cloud** is simply someone else's computers that you rent over the internet instead of buying and running your own. A company like Amazon or Microsoft builds enormous data centres full of servers, storage, and networking, then lets customers use slices of that capacity on demand and pay only for what they use. Instead of waiting weeks to buy and install a physical server, an engineer creates one in the cloud in seconds with a few clicks or a command.\n\nThree properties make the cloud different from the traditional server room, and each matters to a defender:\n\n- **On-demand and elastic.** Resources appear and disappear in seconds. A single mistaken command can create — or delete — a hundred servers. Speed cuts both ways.\n- **Everything is software-defined.** There are no cables to plug in. Networks, firewalls, disks, and permissions are all created and changed through configuration. This means a misconfiguration, not a broken wire, is the typical cause of a cloud breach.\n- **Reachable over the internet.** Cloud resources are managed through internet-facing control interfaces, so identity and access control become the real perimeter. If an attacker steals the right credential, they do not need to breach a firewall — they just log in.\n\nThe cloud is usually described in service models. **IaaS** (Infrastructure as a Service) rents raw building blocks like virtual machines and disks. **PaaS** (Platform as a Service) rents a ready-made platform to run applications without managing the underlying servers. **SaaS** (Software as a Service) is a finished application you just use, like a web-based email or CRM. Most of what a SOC analyst investigates in AWS and Azure sits in the IaaS and PaaS layers, where the customer still controls configuration and therefore still owns much of the security.\n\nThe headline shift for a defender is this: in the traditional world you watched packets and hosts; in the cloud you increasingly watch **identities and API calls**. Someone using stolen credentials to spin up servers or read a storage bucket looks, at the network level, like perfectly normal traffic to a cloud provider. The evidence lives in the cloud's own activity logs, which later sections unpack."
+    },
+    {
+      "heading": "AWS and Azure — A Vocabulary Map",
+      "content": "The two dominant clouds are **Amazon Web Services (AWS)** and **Microsoft Azure**. (Google Cloud is the third major player.) They do the same kinds of things but use different names, and one of the fastest ways to become comfortable is to learn the translation table, because an alert or log will speak one dialect or the other.\n\nFirst, the container that holds everything:\n\n- In **AWS**, the top-level container is an **account**, and large organisations group many accounts under **AWS Organizations**.\n- In **Azure**, resources live in a **subscription**, subscriptions sit under **management groups**, and the identity system is **Microsoft Entra ID** (formerly Azure Active Directory).\n\nNow the core service types, side by side:\n\n| What it does | AWS name | Azure name |\n|--------------|----------|------------|\n| Identity & access | IAM | Entra ID + Azure RBAC |\n| Virtual machine (compute) | EC2 | Virtual Machines |\n| Object storage | S3 | Blob Storage |\n| Virtual network | VPC | Virtual Network (VNet) |\n| Cloud firewall | Security Groups | Network Security Groups (NSG) |\n| Serverless function | Lambda | Azure Functions |\n| Management activity log | CloudTrail | Azure Activity Log |\n| Managed threat detection | GuardDuty | Microsoft Defender for Cloud |\n\nYou do not need to memorise every service, but you should recognise these anchors, because they name the places attackers go and the logs you read. When an alert says an **EC2 instance** was launched or an **S3 bucket** was made public, you are in AWS; when it mentions a **VM**, a **Blob container**, or an **Entra sign-in**, you are in Azure.\n\nA further useful distinction is **regions** and **availability zones**. Cloud providers run data centres in many geographic **regions** (such as `us-east-1` in AWS or `West Europe` in Azure), each divided into isolated **availability zones**. Region matters for investigations: activity in a region your company never uses is itself suspicious, and attackers sometimes create resources in unused regions precisely to avoid notice."
+    },
+    {
+      "heading": "Three Ways People Touch the Cloud",
+      "content": "Everything that happens in AWS or Azure happens through one of three interfaces, and — this is the key insight for an analyst — **they all funnel down to the same underlying API calls**, which is what makes cloud activity so loggable.\n\n1. **The web console.** A point-and-click website where a human logs in and manages resources visually. Convenient for people, and console logins are a prime authentication event to monitor (especially the powerful **root** or **Global Administrator** account).\n2. **The command-line interface (CLI) and SDKs.** Tools like the `aws` command or Azure's `az` command let engineers and scripts drive the cloud with typed commands or code. Automation lives here, and so do many attacker tools, because scripting is faster than clicking.\n3. **The API directly.** Underneath the console and the CLI, every action is really a call to the provider's **API** — a defined request such as \"create this VM\" or \"read this object.\" The console and CLI are just friendlier wrappers around these calls.\n\nBecause all three collapse into API calls, the provider can record **every action as a log entry**: who made the call, which action, on what resource, from which IP, and whether it succeeded. That recording is the single most important fact about cloud security monitoring. Whether an attacker clicked in the console or ran a script, the provider's activity log (CloudTrail or Azure Activity Log) captures the API call underneath.\n\nThis also reframes what \"access\" means in the cloud. Traditionally, reaching a server meant being on the network. In the cloud, the interfaces are internet-facing, so the thing that gates access is the **credential and its permissions**, not network location. An engineer in a coffee shop and an attacker on another continent hit the very same API endpoint; what separates them is whether they hold a valid credential and what that credential is allowed to do. This is why identity is called the new perimeter, and why the next lesson focuses on cloud authentication and the keys that unlock it."
+    },
+    {
+      "heading": "Who Secures What — and Where the SOC Looks",
+      "content": "Cloud security rests on one foundational idea: the **shared responsibility model**. The provider and the customer each own part of security, and confusion about the line is a leading cause of breaches.\n\n- **The provider secures the cloud itself** — the physical data centres, the hardware, the hypervisor that runs virtual machines, and the managed services' underlying infrastructure. This is \"security *of* the cloud.\"\n- **The customer secures what they put in the cloud** — their data, their configurations, their identities and permissions, their network rules, and their application code. This is \"security *in* the cloud.\"\n\nThe practical consequence: when an S3 bucket is left public, an access key is leaked, or a firewall rule is opened to the whole internet, **the provider will not stop it and did nothing wrong** — those are customer-side configuration choices. They are exactly the failures a SOC must catch. No provider control will alert you that your own team misconfigured your own resource; that detection is yours to build.\n\nSo where does a cloud SOC actually look? A handful of data sources carry most of the signal:\n\n- **Management/activity logs** — AWS **CloudTrail** and the **Azure Activity Log** record the API calls that create, change, and delete resources. This is the backbone of cloud detection.\n- **Identity logs** — Entra **sign-in** and **audit** logs (and AWS IAM/console sign-in events) show who authenticated, from where, and whether risk was detected.\n- **Network and flow logs** — VPC flow logs / NSG flow logs show connections in and out.\n- **Storage and data-access logs** — records of who read or wrote to buckets and blobs.\n- **Managed detection services** — **GuardDuty** and **Defender for Cloud** raise ready-made findings you then confirm in the raw logs.\n\nThe analyst's cloud mindset is a shift in attention: away from \"what packet crossed the wire\" and toward \"which identity made which API call, from where, and should they have.\" The remaining cloud lessons drill into the specific pieces — the credentials that authenticate those calls, the audit logs that record them, and the storage and network settings that most often go wrong."
+    }
+  ],
+  "keyTakeaways": [
+    "The cloud is rented, software-defined, internet-reachable computing where misconfiguration (not broken hardware) causes most breaches, so analysts increasingly watch identities and API calls rather than packets and hosts.",
+    "AWS and Azure do the same things with different names (account/subscription, IAM/Entra, EC2/VM, S3/Blob, Security Groups/NSG, CloudTrail/Azure Activity Log); learning the map lets you read either dialect.",
+    "Console, CLI, and direct API all collapse into the same loggable API calls, which is why the provider can record every action — who, what, where, and success or failure.",
+    "Under shared responsibility the provider secures the cloud while the customer secures their data, config, identities, and network rules; public buckets, leaked keys, and open firewall rules are customer-side failures the SOC must catch in CloudTrail, Azure Activity, and identity logs."
+  ],
+  "quiz": [
+    {
+      "question": "A new analyst assumes that because a company's servers run in AWS, Amazon is responsible for making sure none of the company's storage buckets are accidentally left open to the public internet. Why is this assumption wrong?",
+      "options": [
+        {
+          "label": "Amazon does secure bucket permissions for customers, so the analyst is actually correct and no internal monitoring for public buckets is ever needed.",
+          "value": "a"
+        },
+        {
+          "label": "Under shared responsibility the provider secures the infrastructure, but the customer owns their data and configuration, so a public bucket is the customer's failure to catch.",
+          "value": "b"
+        },
+        {
+          "label": "Bucket permissions are set by the hardware layer that Amazon controls, so any public exposure is automatically a physical data-centre problem.",
+          "value": "c"
+        },
+        {
+          "label": "Storage permissions are handled entirely by the network firewall, which the provider configures, so customers never influence whether a bucket is public.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The shared responsibility model splits duties: the provider secures the cloud infrastructure (hardware, hypervisor, managed-service backbone), while the customer secures their data, configuration, identities, and access rules. A public storage bucket is a customer-side configuration choice, so it is the SOC's job to detect it. Option a is dangerously false. Options c and d misattribute a configuration setting to hardware or provider-run firewalls, which is not how storage permissions work."
+    },
+    {
+      "question": "Why can a cloud provider record essentially every management action a user takes — whether that user clicked in the web console, typed an aws CLI command, or called the API from a script?",
+      "options": [
+        {
+          "label": "Because the console, CLI, and scripts all ultimately perform the same underlying API calls, which the provider logs as who did what, where, and with what result.",
+          "value": "a"
+        },
+        {
+          "label": "Because the provider installs a monitoring agent on every analyst's personal laptop that records their screen and keystrokes during any cloud session.",
+          "value": "b"
+        },
+        {
+          "label": "Because only the web console produces logs, so organisations simply forbid the CLI and API to guarantee that all activity is fully captured.",
+          "value": "c"
+        },
+        {
+          "label": "Because cloud actions are recorded solely at the network packet level, so the provider reconstructs each action by reassembling raw traffic after the fact.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "The console and CLI are friendly wrappers around the provider's API, so every action collapses into an API call that services like CloudTrail and Azure Activity Log record, capturing the identity, action, resource, source IP, and outcome. Option b invents laptop surveillance that does not exist. Option c is false because the CLI and API are logged too, not forbidden. Option d is wrong because cloud auditing is built on API-call records, not packet reassembly."
+    }
+  ],
+  "references": [
+    "https://docs.aws.amazon.com/whitepapers/latest/aws-overview/introduction.html",
+    "https://learn.microsoft.com/en-us/azure/security/fundamentals/shared-responsibility",
+    "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/considerations/fundamental-concepts"
+  ],
+  "xp": 200,
+  "estimatedMinutes": 38,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-cloud-authentication-access-keys",
+  "slug": "cloud-authentication-and-access-keys",
+  "title": "Cloud Authentication & Access Keys",
+  "topic": "Cloud Security",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "In the cloud, a credential is the keys to the kingdom. There is no building to walk into and no cable to unplug — if you hold a valid credential with the right permissions, you can create, read, or destroy resources from anywhere on earth. That makes cloud authentication, and especially the long-lived access keys that so often leak, one of the most important topics a SOC analyst can master. This lesson explains how cloud identities prove who they are, the difference between long-lived and temporary credentials, why leaked access keys cause so many breaches, the role MFA plays, and how an analyst detects credential abuse.",
+  "sections": [
+    {
+      "heading": "How Cloud Identities Prove Who They Are",
+      "content": "Cloud authentication answers the question \"who is making this request?\" before any permission is even checked. There are two broad kinds of identity, and telling them apart is the foundation for everything else.\n\n**Human identities** are people: an engineer signing into the AWS console, an admin logging into the Azure portal. They typically authenticate with a **username and password**, ideally backed by **multi-factor authentication (MFA)**, and increasingly through **single sign-on (SSO)** so one corporate login grants access to the cloud.\n\n**Machine (workload) identities** are programs: an application, a virtual machine, or a script that needs to call the cloud without a human present. These cannot type a password, so they authenticate with a **key** or a **token** — a secret string the provider issues and recognises.\n\nThe crucial split, which recurs throughout this lesson, is **long-lived versus temporary** credentials.\n\n- **Long-lived credentials** are static secrets that keep working until someone manually revokes them. The classic example is an **AWS access key**, a pair made of an **access key ID** (a public-ish identifier beginning with `AKIA`) and a **secret access key** (the actual secret). In Azure, the analogue is a **service principal** with a **client secret** or certificate. These are convenient but dangerous: if stolen, they work for the thief exactly as they worked for the owner, indefinitely.\n- **Temporary credentials** are short-lived. In AWS the **Security Token Service (STS)** issues time-limited keys (their IDs begin with `ASIA`) that expire in minutes to hours. Azure and the others issue similar short-lived **tokens**. Because they expire, a stolen temporary credential has a small window of usefulness.\n\nA related best-practice pattern ties these together: instead of handing a workload a permanent key, you attach a **role** (an identity a resource can assume) and let the platform hand it fresh temporary credentials automatically. An EC2 instance or Azure VM with a **managed identity** gets rotating credentials it never stores on disk. The security lesson is simple and consistent: prefer temporary, prefer platform-managed, and treat every long-lived key as a liability to minimise."
+    },
+    {
+      "heading": "Access Keys — The Credential That Leaks",
+      "content": "If one credential type dominates cloud breach stories, it is the **long-lived access key**. Understanding why requires seeing both its convenience and its danger.\n\nAn access key is a static secret that a developer can paste into a script, a configuration file, or an environment variable so their code can call the cloud. That convenience is exactly the problem: static secrets end up in places they should never be.\n\n**Where access keys leak:**\n\n- **Source code committed to Git**, especially public **GitHub** repositories, where automated bots scan for `AKIA` strings within seconds of a push.\n- **CI/CD logs and build output** that accidentally print the secret.\n- **Laptops, shared drives, and chat messages** where a key was pasted \"just for now.\"\n- **Container images and configuration files** baked with credentials inside.\n\nOnce a key leaks, the attack is trivial: the thief configures their own tools with the stolen key and immediately has whatever permissions the key's owner had. There is no password to guess and no MFA prompt in the way, because the key *is* the proof of identity. This is why the very first minutes after a public leak matter — attackers and their bots often begin using a leaked key within minutes.\n\nWhat attackers do with a stolen key follows a familiar arc: they **enumerate** what the key can do, look for a path to **escalate privileges**, then pursue their goal — reading data, launching resources (often crypto-mining), or establishing persistence by creating new users and keys of their own.\n\n**Defending access keys** comes down to a short, strict playbook:\n\n- **Prefer roles and temporary credentials** over long-lived keys wherever possible, and use managed identities for workloads.\n- **Rotate** any keys that must exist, and delete unused ones.\n- **Scope them tightly** with least privilege, so a leaked key is far less damaging.\n- **Never commit keys to source control**; scan repositories and CI logs for secrets.\n- **Monitor key usage** so first use from a new location stands out.\n\nThe mental model to carry: an access key is a password that never changes, works from anywhere, and is often written down. Treat it accordingly."
+    },
+    {
+      "heading": "MFA — Adding a Second Proof",
+      "content": "**Multi-factor authentication (MFA)** requires a second proof of identity beyond the password, and in the cloud it is one of the highest-value controls a SOC can champion. The idea is to combine factors from different categories: **something you know** (a password), **something you have** (a phone app or hardware key), and **something you are** (a fingerprint or face). Requiring two means a stolen password alone is no longer enough.\n\nIn practice, cloud MFA usually means that after entering a password, the user must approve a prompt in an **authenticator app**, enter a rotating **one-time code**, or tap a **hardware security key**. For the most powerful identities — the AWS **root** account and Azure **Global Administrator** — MFA is not optional in any mature environment; those accounts can undo every other control, so they must be protected the most.\n\nBut MFA has an important boundary that analysts must understand: **it protects interactive sign-ins, not static keys or tokens.** An AWS access key or an Azure client secret authenticates without any MFA prompt, because it is a machine credential. So MFA on a human's console login does nothing to protect a leaked programmatic key. This is precisely why leaked access keys are so dangerous and why reducing long-lived keys matters even in an MFA-everywhere environment.\n\nAttackers have also learned to attack MFA itself, and these techniques show up in identity logs:\n\n- **MFA fatigue (prompt bombing):** flooding a user with approval prompts until they tap \"approve\" out of annoyance. In logs this looks like many MFA challenges in quick succession, mostly denied, then one approval.\n- **Adversary-in-the-middle (AiTM) phishing:** proxying the real login page to steal the post-MFA session token, then replaying it — bypassing the prompt entirely.\n- **SIM swapping** to intercept SMS codes, which is why app-based or hardware MFA is preferred over SMS.\n\nThe takeaways for a SOC: push for MFA on all human identities and especially privileged ones; recognise that MFA does not cover programmatic credentials; and watch for the signatures of MFA abuse — bursts of prompts, sudden new MFA method registrations (a common attacker persistence step), and token reuse from unexpected locations."
+    },
+    {
+      "heading": "Detecting Credential Abuse",
+      "content": "Because credentials are the cloud's real perimeter, detecting their misuse is central SOC work. The good news is that authentication and API activity are richly logged; the skill is knowing the patterns that betray a stolen credential.\n\n**Build a baseline first.** For each identity — human or machine — normal behaviour has a shape: the source IPs and countries it uses, the times it is active, the API actions it calls, and the regions it touches. Detection is largely about deviation from that shape.\n\n**High-value signals to hunt:**\n\n- **First use of a key from a new location.** An access key that has only ever been called from your CI system in one region suddenly making calls from a foreign residential or hosting IP is a classic leaked-key indicator. Correlate the source IP and User-Agent against the key's history.\n- **Impossible travel and unfamiliar sign-in properties** on human accounts — authentication from two distant places too close in time, or a new device/country combination — point to account takeover.\n- **Enumeration bursts.** A credential suddenly calling many descriptive/list actions (listing users, buckets, permissions) in a short window is often an attacker mapping what they can do right after gaining access.\n- **Sensitive identity actions.** Creating new users or access keys (`CreateUser`, `CreateAccessKey`), attaching powerful policies, or registering a new MFA method — especially from an unusual source — signals an attacker establishing durable access.\n- **MFA anomalies.** A rapid series of denied MFA prompts followed by an approval (MFA fatigue), or a sign-in that should have required MFA succeeding with only a single factor.\n- **Use of anonymising infrastructure** — Tor exit nodes or anonymising VPNs — for cloud authentication.\n\n**Confirm by correlation, not by a single alert.** A key used from a new IP might be an engineer travelling; the same key then enumerating IAM and creating a new user is almost certainly compromise. Managed services help surface leads: AWS **GuardDuty** raises findings like credential exfiltration and anomalous behaviour, and **Entra ID Protection** scores risky sign-ins and risky users. Treat these as starting points, then verify in the raw CloudTrail, Azure Activity, and sign-in logs.\n\n**Respond in proportion.** For a confirmed compromised credential: **revoke or deactivate the key** (or force a password reset and revoke sessions/tokens for a human), rotate related secrets, review what the credential accessed, and hunt for persistence such as newly created users, keys, or MFA methods. The discipline mirrors the rest of SOC work: baseline, alert on deviation, confirm by correlation, then contain decisively."
+    }
+  ],
+  "keyTakeaways": [
+    "Cloud identities are human (password + MFA + SSO) or machine (keys/tokens); the critical split is long-lived credentials like AWS access keys (AKIA) and Azure client secrets versus temporary, auto-expiring credentials from STS/managed identities.",
+    "Long-lived access keys are the credential that leaks — into Git, CI logs, laptops, and images — and because the key itself is the proof of identity, a thief needs no password and faces no MFA, so prefer roles/temporary credentials, rotate, scope tightly, and never commit keys.",
+    "MFA is a high-value control for human sign-ins (mandatory for root/Global Admin) but does NOT protect programmatic keys or tokens; watch for MFA fatigue, AiTM token theft, and new MFA-method registration as attacker signatures.",
+    "Detect credential abuse by baselining each identity and alerting on deviation: first key use from a new location, impossible travel, enumeration bursts, sensitive IAM actions, and anonymised sources — then confirm by correlation and revoke on confirmation."
+  ],
+  "quiz": [
+    {
+      "question": "A developer accidentally commits an AWS access key (an AKIA key ID plus its secret) to a public GitHub repository. Within minutes, the key is used from an unfamiliar foreign IP to list IAM users and create a new access key. Why did MFA on the developer's console login fail to prevent this?",
+      "options": [
+        {
+          "label": "MFA failed only because the developer had disabled it that morning; with MFA enabled, the leaked access key would have required a second factor to work.",
+          "value": "a"
+        },
+        {
+          "label": "MFA protects interactive human sign-ins, but a programmatic access key authenticates on its own with no MFA prompt, so the key itself was enough for the attacker.",
+          "value": "b"
+        },
+        {
+          "label": "MFA would have blocked the attack, but GitHub stripped the MFA requirement from the key when the repository was made public to the internet.",
+          "value": "c"
+        },
+        {
+          "label": "MFA did prevent the attack; the observed activity must be the developer themselves, because a leaked key can never be used without the account password.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "MFA secures interactive sign-ins, but an access key is a machine credential that authenticates without any MFA prompt — the key is itself the proof of identity — so a leaked key works for a thief exactly as it did for the owner. Option a is wrong because MFA on the console does not gate programmatic key use regardless of whether it was enabled. Option c invents GitHub behaviour that does not exist. Option d wrongly assumes a key needs the password, which it does not."
+    },
+    {
+      "question": "Your organisation wants to reduce the risk that a compromised credential gives an attacker durable, wide-ranging cloud access. Which approach most directly addresses the core weakness of long-lived access keys?",
+      "options": [
+        {
+          "label": "Print all access keys to a secured document each month so administrators can review which ones exist and confirm they are still needed.",
+          "value": "a"
+        },
+        {
+          "label": "Give every workload broad wildcard permissions so fewer distinct keys are required and the overall configuration stays simpler to manage.",
+          "value": "b"
+        },
+        {
+          "label": "Replace long-lived keys with roles and temporary, auto-expiring credentials (managed identities) wherever possible, and tightly scope any keys that remain.",
+          "value": "c"
+        },
+        {
+          "label": "Disable MFA on human accounts so that authentication is consistent between people and machine identities across the whole environment.",
+          "value": "d"
+        }
+      ],
+      "answer": "c",
+      "explanation": "The core weakness of a long-lived key is that it works indefinitely from anywhere once stolen; replacing it with roles and temporary, auto-expiring credentials shrinks the window of usefulness, and least-privilege scoping limits the damage of any key that must remain. Option a does nothing to reduce the keys' danger. Option b increases risk by widening permissions. Option d weakens security by removing MFA, making human credential theft easier."
+    }
+  ],
+  "references": [
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html",
+    "https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp.html",
+    "https://learn.microsoft.com/en-us/entra/identity/authentication/concept-mfa-howitworks"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-cloud-audit-logs-cloudtrail-azure-activity",
+  "slug": "cloud-audit-logs-cloudtrail-azure-activity",
+  "title": "Cloud Audit Logs: CloudTrail, Azure Activity & API Activity",
+  "topic": "Cloud Security",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "If cloud actions are API calls, then the log of those API calls is the SOC's primary window into what happened. AWS CloudTrail and the Azure Activity Log record who did what, when, from where, and whether it worked — the raw material of nearly every cloud investigation. This lesson explains the management plane versus the data plane, the anatomy of a CloudTrail event and its Azure equivalent, the fields that matter most, and the specific patterns an analyst hunts for, including the tell-tale sign of an attacker trying to blind you by disabling logging.",
+  "sections": [
+    {
+      "heading": "The Management Plane vs the Data Plane",
+      "content": "To read cloud logs well, you first need a distinction that trips up many beginners: the difference between the **management plane** (also called the control plane) and the **data plane**.\n\n- The **management plane** is where you *manage resources*: creating a virtual machine, changing a permission, opening a firewall rule, deleting a storage bucket. These are administrative API calls about the infrastructure itself.\n- The **data plane** is where you *use the data inside* those resources: reading an individual object from a bucket, querying rows in a database, invoking a function. These are operations on the contents.\n\nThe reason this matters is that the two are logged differently and often separately. **Management-plane activity is logged comprehensively by default** — AWS **CloudTrail** and the **Azure Activity Log** capture management events automatically. **Data-plane activity is far higher volume and frequently must be turned on explicitly** (for example, S3 object-level data events or storage access logs), and it can be costly, so many organisations do not capture all of it.\n\nFor a SOC, the practical implications are large:\n\n- Most detections start in the **management plane**, because that is where an attacker's structural moves appear — creating users, escalating privileges, changing network rules, disabling security. And it is on by default, so the evidence is usually there.\n- **Data-plane visibility is a coverage decision.** If you need to prove *which specific files* an attacker read from a bucket, you need object-level data logging enabled *before* the incident. Part of a mature cloud SOC's job is ensuring the right data events are captured for sensitive resources.\n\nA simple analogy: the management plane is the record of who was handed keys, changed the locks, or opened doors in a building; the data plane is the record of which specific documents were taken out of which cabinet. The first is always kept; the second only if you installed the extra cameras. Knowing which plane your evidence lives in — and whether it was even being recorded — shapes every cloud investigation."
+    },
+    {
+      "heading": "Anatomy of a CloudTrail Event",
+      "content": "**AWS CloudTrail** records management-plane API calls as structured events, and learning to read one is a core analyst skill. Every event answers the same journalistic questions — who, what, when, where, and with what result — through a consistent set of fields.\n\nThe fields that carry the most investigative weight:\n\n- **eventName** — the API action that was called, such as `RunInstances` (launch a VM), `CreateAccessKey`, `PutBucketPolicy`, or `StopLogging`. This is *what happened*.\n- **eventSource** — the service the call went to, like `iam.amazonaws.com` or `s3.amazonaws.com`.\n- **userIdentity** — *who* made the call: the identity type (IAM user, assumed role, root), the principal, and often the access key ID used. This is where you confirm which credential acted.\n- **sourceIPAddress** — the IP the call came from. Comparing this against an identity's baseline is one of the fastest anomaly checks.\n- **userAgent** — the tool used, which can reveal a CLI, an SDK, or a known attacker toolkit rather than the expected console.\n- **awsRegion** — where the action occurred; activity in an unused region is inherently suspicious.\n- **eventTime** — when, in UTC.\n- **errorCode / errorMessage** — present when the call was *denied* or failed, for example `AccessDenied`. A burst of these from one identity often marks an attacker probing the edges of what a stolen credential can do.\n\nReading an event is a matter of assembling these into a sentence: *\"At this time, this identity, from this IP, using this tool, called this action on this service in this region, and it succeeded or was denied.\"* Once you can narrate an event that way, you can spot the one that does not belong.\n\nAzure records the same idea in the **Azure Activity Log**, with matching concepts under different names: the **Operation name** (the action), the **Caller** (who), the **Caller IP address**, the **Status** (success/failure), the **Event category** (Administrative, Security, and so on), the **Resource**, and the **timestamp**. Azure sign-in and identity events live alongside in the **Entra** sign-in and audit logs. Whether you are reading AWS or Azure, the analytic move is identical: identify the actor, the action, the origin, and the outcome, then ask whether that combination makes sense for that identity."
+    },
+    {
+      "heading": "Hunting Patterns in the Activity Log",
+      "content": "With the fields in hand, detection becomes a matter of recognising patterns that betray misuse. The following are among the highest-value hunts across CloudTrail and Azure Activity.\n\n**Reconnaissance / enumeration.** Right after gaining access, attackers map their new environment. Watch for a single identity issuing many **List** and **Describe** actions (`ListUsers`, `ListBuckets`, `GetAccountAuthorizationDetails`) in a short window, especially paired with **AccessDenied** errors as they probe boundaries.\n\n**Privilege escalation and persistence.** These are rare, high-impact actions that deserve alerts on their own: `CreateUser`, `CreateAccessKey`, `AttachUserPolicy`, `PutUserPolicy`, `UpdateAssumeRolePolicy`, or in Azure adding a principal to **Owner** or **User Access Administrator**. A low-privilege identity suddenly attaching administrator permissions to itself is a screaming indicator.\n\n**Anomalous origin.** Any management call from an **unusual source IP, country, or region**, or with a **User-Agent** that does not match the identity's norm. A role that only ever acted from inside a workload now calling APIs from an external IP is a strong sign of stolen credentials (for example, credentials pulled from an instance via SSRF).\n\n**Resource actions that fit an attack goal.** `RunInstances` in an unused region (often crypto-mining), mass deletion of resources or backups, snapshot creation and sharing to an external account (a data-exfiltration path), or changes to storage and firewall exposure (covered in the storage and security-group lesson).\n\n**Suspicious authentication.** Correlate the activity log with identity logs: **impossible travel**, **unfamiliar sign-in properties**, use of **anonymising IPs**, and **console logins by the root or Global Admin account**, which should be exceedingly rare.\n\nThe unifying method is **baseline then deviation**. For each identity you learn the normal source IPs, regions, actions, and hours; then you alert when reality departs from that shape. A single deviation may be benign — an engineer travelling, a new automation — so the confirming move is **correlation**: the same identity showing several signals together (new IP, then enumeration, then a new user created) turns a maybe into a near-certainty. Managed detections like **GuardDuty** and **Defender for Cloud** encode many of these patterns for you and are excellent leads, but you confirm and scope the incident in the raw activity log itself."
+    },
+    {
+      "heading": "When the Attacker Attacks the Logs",
+      "content": "A sophisticated intruder knows the activity log is what will expose them, so a classic move is to **blind the defender by tampering with logging itself**. Recognising this is one of the most important instincts a cloud analyst can develop, because it inverts the usual signal: here, the *absence* of logs, or the act of disabling them, is the alarm.\n\nIn AWS, the key event is **`StopLogging`** on CloudTrail — an explicit API call to turn a trail off. Related tampering includes **`DeleteTrail`**, **`UpdateTrail`** (to weaken what is captured or redirect where logs go), and disabling or deleting the log storage. In Azure, the equivalents are actions that disable diagnostic settings, delete or modify **Log Analytics** workspaces, or turn off **Defender for Cloud** protections. MITRE ATT&CK tracks this behaviour under **Impair Defenses: Disable or Modify Cloud Logs**.\n\nWhy attackers do it is straightforward: with logging off, their subsequent actions — data theft, resource creation, lateral movement — leave no management-plane trail. The window between disabling logging and getting caught is their cover.\n\nThe crucial defensive design turns this against them: **`StopLogging` and its kin are themselves recorded**, and the act of disabling logging is exactly the kind of rare, high-severity event a SOC should alert on immediately. So the detections you build are:\n\n- **Alert on any attempt to stop, delete, or modify logging** — `StopLogging`, `DeleteTrail`, diagnostic-setting changes — as a top-priority signal, regardless of who did it.\n- **Alert on unexpected gaps** in the log stream; a trail that goes silent when it normally is not is suspicious.\n- **Protect the logs' integrity by design:** deliver CloudTrail to a separate, access-restricted account or an immutable store, enable logging in **all regions**, and ensure the accounts that could disable logging are tightly limited and closely watched.\n\nThe broader principle, echoing the on-prem world's protection of Windows event logs, is that **your telemetry is itself a target**. A mature cloud SOC does not just read the logs; it monitors the health and integrity of the logging pipeline, so that an attacker's attempt to go dark becomes the very event that lights them up."
+    }
+  ],
+  "keyTakeaways": [
+    "The management (control) plane logs administrative API calls — creating, changing, deleting resources — and is captured by default in CloudTrail and Azure Activity Log; the data plane logs use of the contents (reading an object, querying data), is higher-volume, and often must be explicitly enabled.",
+    "A CloudTrail event answers who/what/where/outcome via eventName, eventSource, userIdentity (and access key), sourceIPAddress, userAgent, awsRegion, eventTime, and errorCode; Azure Activity Log mirrors this with Operation, Caller, Caller IP, Status, and category.",
+    "Hunt by baselining each identity then alerting on deviation: enumeration bursts (List/Describe + AccessDenied), privilege/persistence actions (CreateUser/CreateAccessKey/AttachUserPolicy), anomalous origin, resource actions fitting an attack goal, and suspicious sign-ins — confirming by correlation.",
+    "Attackers disable logging to go dark (AWS StopLogging/DeleteTrail/UpdateTrail; Azure diagnostic-setting changes — MITRE Impair Defenses), but those actions are themselves logged, so alert on any attempt to stop/modify logging and protect log integrity with immutable, multi-region, isolated storage."
+  ],
+  "quiz": [
+    {
+      "question": "During an investigation you find a CloudTrail event with eventName 'StopLogging' called by an IAM user shortly after that user was seen enumerating permissions. Why is this StopLogging event so significant, and what is the intended effect for the attacker?",
+      "options": [
+        {
+          "label": "It is insignificant routine maintenance, because CloudTrail must be stopped and restarted daily, so this event can safely be ignored during triage.",
+          "value": "a"
+        },
+        {
+          "label": "It shows the attacker disabling CloudTrail to blind the SOC so their later actions leave no management-plane trail; the disabling itself is a top-priority alert.",
+          "value": "b"
+        },
+        {
+          "label": "It means CloudTrail automatically encrypted itself for safety, so all subsequent events are simply stored in a stronger format that analysts cannot read.",
+          "value": "c"
+        },
+        {
+          "label": "It proves the account is fully secure, because only a legitimate administrator performing an approved audit is ever able to call the StopLogging action.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "StopLogging turns off CloudTrail so the attacker's subsequent management-plane actions leave no trail — a classic Impair Defenses move — and because the disabling action is itself recorded, it should be a top-priority alert. Option a invents a daily-restart requirement that does not exist. Option c fabricates self-encryption. Option d is false: many identities could call StopLogging if over-permissioned, and the context (enumeration first) points to abuse, not a routine audit."
+    },
+    {
+      "question": "You want to determine exactly which individual objects an attacker read out of an S3 bucket during an incident last week, but you can only find management-plane records of bucket policy changes. What is the most likely reason, and what does it teach about cloud logging?",
+      "options": [
+        {
+          "label": "Object reads are management-plane events that CloudTrail always captures, so the data must have been deleted by the attacker to hide the reads.",
+          "value": "a"
+        },
+        {
+          "label": "Reading individual objects is data-plane activity, which is high-volume and often must be enabled beforehand, so without it that visibility was never recorded.",
+          "value": "b"
+        },
+        {
+          "label": "S3 never logs any access at all, so the only way to know which objects were read is to ask the attacker or reconstruct it from network packets.",
+          "value": "c"
+        },
+        {
+          "label": "The management-plane log automatically includes every object read, so the missing records simply mean the incident never actually involved that bucket.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Reading individual objects is data-plane activity, which is far higher volume than management events and frequently must be explicitly enabled (S3 object-level data events); if it was not turned on before the incident, that visibility does not exist. This teaches that data-plane coverage is a decision to make in advance for sensitive resources. Options a and d wrongly claim object reads are management-plane events. Option c overstates the gap — S3 data events can be logged when enabled."
+    }
+  ],
+  "references": [
+    "https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-user-guide.html",
+    "https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log",
+    "https://attack.mitre.org/techniques/T1562/008/"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-cloud-storage-permissions-security-groups",
+  "slug": "cloud-storage-permissions-and-security-groups",
+  "title": "Cloud Exposure: Storage Permissions & Security Groups",
+  "topic": "Cloud Security",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "Two of the most common and most damaging cloud mistakes share a single root cause: a setting that should have been private was left open to the internet. A storage bucket exposed to the public has spilled billions of records across the industry, and a firewall rule opened to the whole world invites attackers straight to a server's door. This lesson covers the two exposure surfaces every cloud SOC watches — storage permissions and security groups — how they are supposed to work, how they go wrong, and how an analyst detects and responds to dangerous exposure.",
+  "sections": [
+    {
+      "heading": "How Cloud Storage Permissions Work",
+      "content": "Cloud **object storage** — AWS **S3** and Azure **Blob Storage** — holds files (called **objects** or **blobs**) inside containers (S3 **buckets** or Azure **containers**). It is cheap, effectively limitless, and reachable over the internet, which is exactly why a permission mistake here is so consequential: the data is one setting away from being globally readable.\n\nAccess to storage is controlled by several layered mechanisms, and understanding the layers explains how exposure happens:\n\n- **Private by default.** New buckets and containers are private; only the owning account can access them until someone grants more.\n- **Resource policies (bucket policies)** are JSON rules attached to the bucket that say who may do what. A policy that grants read to **everyone** (in AWS, the special principal `\"*\"` or the `AllUsers` group) makes the bucket public.\n- **ACLs (access control lists)** are an older, per-object or per-bucket grant mechanism that can also open access, sometimes surprisingly.\n- **Guardrails** like AWS **Block Public Access** and Azure's storage-account public-access settings are account- or bucket-level switches designed to prevent public exposure regardless of individual policies. When enabled they are a strong safety net; when disabled, the other settings can expose data.\n- **Pre-signed URLs / SAS tokens** grant temporary, scoped access to a specific object without making the whole bucket public — the correct way to share a single file.\n\nExposure happens when these layers combine to allow anonymous access: a bucket policy or ACL grants `AllUsers` read, and Block Public Access is off. The result is that **anyone on the internet, with no credential at all, can list and download the contents.** Countless breaches — customer records, backups, internal documents — have come not from a clever exploit but from exactly this misconfiguration. The data was not stolen through a broken lock; the door was simply left open, and a scanner walking the internet found it.\n\nThe defensive baseline is straightforward: keep buckets private, keep **Block Public Access** (or the Azure equivalent) enabled, share individual files with **pre-signed URLs / SAS tokens** rather than public settings, and apply least privilege to who can even change these settings."
+    },
+    {
+      "heading": "Security Groups — The Cloud Firewall",
+      "content": "Where storage permissions control access to *data*, **security groups** control network access to *resources* like virtual machines. A **security group** in AWS (and a **Network Security Group, or NSG**, in Azure) is a virtual firewall wrapped around a resource, defining which network traffic may reach it and, sometimes, leave it.\n\nThe core mechanics:\n\n- A security group holds **rules** that permit traffic based on **protocol**, **port**, and **source** (or destination). For example, \"allow TCP port 443 from anywhere\" lets the world reach a web server, while \"allow TCP port 22 from the office IP only\" restricts SSH to your network.\n- AWS security groups are **stateful** (if you allow a request in, the reply is automatically allowed out) and contain **only allow rules** — anything not explicitly allowed is denied. Azure NSGs use both allow and deny rules with priorities.\n- The critical, dangerous value is the source **`0.0.0.0/0`**, which means **the entire internet**. A rule allowing a port from `0.0.0.0/0` exposes that service to every attacker and scanner on earth.\n\nThe classic misconfiguration is opening a **management or database port to the whole internet**:\n\n- **SSH (port 22)** or **RDP (port 3389)** open to `0.0.0.0/0` invites brute-force and exploitation of the remote-access service; automated bots find such hosts within minutes.\n- **Database ports** — for example MySQL `3306`, MS SQL `1433`, MongoDB `27017`, Redis `6379`, Elasticsearch `9200` — exposed to the internet have led to enormous data breaches and ransom attacks, because many databases historically shipped with weak or no authentication.\n\nThe principle behind safe security groups is **least exposure**: open only the specific ports that must be reachable, from the **narrowest possible source** (a specific IP range, not the world), and keep administrative access behind a VPN, bastion host, or an identity-aware access service rather than exposing it directly. Egress (outbound) rules matter too — restricting where a compromised host can send data limits exfiltration. A security group is, in effect, the answer to \"who on the network is allowed to knock on this resource's door,\" and every `0.0.0.0/0` on a sensitive port answers \"everyone.\""
+    },
+    {
+      "heading": "Detecting Dangerous Exposure",
+      "content": "Because exposure is a *configuration* problem, detection blends two approaches: catching a bad state that already exists (**posture**), and catching the *moment* it is created (**change events**). A strong cloud SOC does both.\n\n**Posture detection — find what is already exposed.** Continuously assess configuration against safe baselines:\n\n- **Public storage:** buckets or containers with policies/ACLs granting anonymous or `AllUsers` access, or with Block Public Access disabled.\n- **Open security groups:** rules allowing sensitive ports (22, 3389, database ports) from `0.0.0.0/0`.\n\nCloud-native tools do much of this automatically. AWS **Config**, **Trusted Advisor**, **Security Hub**, and **Macie** (for sensitive data in S3), and Azure **Defender for Cloud**'s secure-score and recommendations, flag public buckets and overly open security groups. **GuardDuty** and Defender can also alert when a resource is *accessed* from the internet in suspicious ways. These are excellent, but they only help if someone acts on the findings — unactioned posture alerts are a common gap.\n\n**Change detection — catch the moment of exposure.** In the activity log (from the previous lesson), specific API calls signal that exposure was just introduced or widened:\n\n- **Storage:** `PutBucketPolicy`, `PutBucketAcl`, `PutBucketPublicAccessBlock` (especially turning it *off*), and the Azure equivalents changing container public access.\n- **Network:** `AuthorizeSecurityGroupIngress` (adding an inbound rule), particularly one whose source is `0.0.0.0/0` on a sensitive port; in Azure, NSG rule changes.\n\nAlerting on these change events — *who* opened *what*, from *where* — lets you catch a mistake or an attacker in the act, rather than discovering the open door days later. Correlate with identity: a rule opening RDP to the world, created by an unfamiliar identity from a foreign IP, is very different from a documented change by your platform team.\n\n**Respond by closing and confirming.** When you find dangerous exposure: **make the bucket private / re-enable Block Public Access**, or **remove the over-broad security-group rule and replace it with a scoped source**. Then assess impact — if a bucket was public, determine what data it held and for how long, and check access logs (if enabled) for who reached it; if a port was open, hunt the host for signs of compromise such as brute-force success or unexpected processes. Finally, feed the fix back into prevention: enable the guardrail (Block Public Access, an SCP or Azure Policy forbidding `0.0.0.0/0` on admin ports) so the same mistake cannot recur, and pair every guardrail with an alert on attempts to violate it."
+    }
+  ],
+  "keyTakeaways": [
+    "Cloud object storage (S3 buckets / Azure Blob containers) is private by default but can be exposed to the entire internet by a bucket policy or ACL granting AllUsers/anonymous access with Block Public Access off — the root cause of countless data-spill breaches.",
+    "Security groups (AWS) and NSGs (Azure) are the cloud firewall; the dangerous value is source 0.0.0.0/0 (the whole internet), and opening SSH (22), RDP (3389), or database ports (3306/1433/27017/6379/9200) to it invites brute-force and mass breaches.",
+    "Detect exposure two ways: posture tools (AWS Config/Security Hub/Macie, Azure Defender for Cloud) find what is already open, and activity-log change events (PutBucketPolicy, PutBucketPublicAccessBlock off, AuthorizeSecurityGroupIngress from 0.0.0.0/0) catch the moment exposure is created.",
+    "Defend with least exposure: keep storage private with Block Public Access enabled and share via pre-signed URLs/SAS tokens; open only necessary ports from the narrowest source, keep admin access behind VPN/bastion; and enforce guardrails (SCP/Azure Policy) with alerts on violations."
+  ],
+  "quiz": [
+    {
+      "question": "A security review finds an S3 bucket containing customer records that anyone on the internet can list and download without any credentials. Which combination of settings most directly produces this dangerous public exposure?",
+      "options": [
+        {
+          "label": "The bucket is in an unused AWS region, which automatically makes all objects readable by anonymous users across the public internet by default.",
+          "value": "a"
+        },
+        {
+          "label": "A bucket policy or ACL grants read to everyone (AllUsers / principal *) while Block Public Access is disabled, so anonymous internet users can access it.",
+          "value": "b"
+        },
+        {
+          "label": "The bucket uses pre-signed URLs, which by design make every object permanently and publicly downloadable to anyone who visits the storage endpoint.",
+          "value": "c"
+        },
+        {
+          "label": "The bucket owner enabled Block Public Access, which in AWS is the setting that grants the AllUsers group full read access to the contents.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Public exposure happens when a bucket policy or ACL grants read to everyone (AllUsers / the * principal) and the Block Public Access guardrail is off, letting anonymous internet users list and download objects. Option a is wrong because region does not control public access. Option c misdescribes pre-signed URLs, which grant temporary, scoped access to a single object rather than making everything public. Option d inverts reality — Block Public Access prevents public exposure, it does not grant it."
+    },
+    {
+      "question": "In the activity log you see an AuthorizeSecurityGroupIngress call adding an inbound rule that allows TCP port 3389 from 0.0.0.0/0, made by an unfamiliar identity from a foreign IP. Why is this a high-priority finding?",
+      "options": [
+        {
+          "label": "It is low priority, because 0.0.0.0/0 restricts access to a single trusted address and port 3389 is only ever used for encrypted internal backups.",
+          "value": "a"
+        },
+        {
+          "label": "It exposes RDP to the entire internet, inviting brute-force and exploitation, and the unfamiliar actor and origin suggest an attacker opening a way in.",
+          "value": "b"
+        },
+        {
+          "label": "It simply enables outbound web browsing from the host, so the only concern is potential data usage costs rather than any security exposure at all.",
+          "value": "c"
+        },
+        {
+          "label": "It automatically closes port 3389 to the internet, so the finding is merely a routine hardening action that needs no further investigation by the SOC.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Source 0.0.0.0/0 means the entire internet, and port 3389 is RDP; opening RDP to the world invites brute-force and exploitation, while the unfamiliar identity and foreign origin suggest an attacker creating an entry point — a high-priority finding. Option a misstates 0.0.0.0/0 as a single address and 3389 as backups. Option c wrongly frames an inbound RDP rule as outbound browsing. Option d reverses the effect: the rule opens the port, it does not close it."
+    }
+  ],
+  "references": [
+    "https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html",
+    "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html",
+    "https://learn.microsoft.com/en-us/azure/virtual-network/network-security-groups-overview"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
 }
 ];
 
