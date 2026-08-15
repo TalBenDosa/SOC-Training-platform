@@ -2629,6 +2629,366 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 40,
   "researchUsed": false,
   "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-defender-for-office-365-safe-links-attachments",
+  "slug": "defender-for-office-365-safe-links-attachments",
+  "title": "Defender for Office 365: Safe Links & Safe Attachments",
+  "topic": "Microsoft Security",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "Email is still the number-one way attackers get in, so the layer that inspects email before it reaches a user is one of the most important defences a Microsoft shop runs. Microsoft Defender for Office 365 (MDO) is that layer. It adds active protections on top of basic spam filtering: it detonates attachments in a sandbox, rewrites and re-checks links at the moment a user clicks, guards against impersonation, and can even reach into mailboxes to pull malicious mail back out after delivery. This lesson explains what MDO does, how Safe Attachments and Safe Links work, and how a SOC analyst reads the alerts and logs they produce.",
+  "sections": [
+    {
+      "heading": "What Defender for Office 365 Protects Against",
+      "content": "**Microsoft Defender for Office 365 (MDO)** is the email and collaboration security layer of Microsoft's stack. It protects **Exchange Online** email, and also **SharePoint**, **OneDrive**, and **Teams**, against the threats that basic anti-spam misses. Think of ordinary spam filtering as a bouncer who turns away obviously unwanted mail; MDO is the specialist team behind the bouncer that actually opens suspicious packages and follows suspicious links to see what they really do.\n\nThe threats MDO is built to stop map directly to how real attacks arrive:\n\n- **Malicious attachments** — a document or file that carries malware or a macro that downloads it. Signature-based scanning misses brand-new (zero-day) files, so MDO *detonates* them.\n- **Malicious URLs** — a link that leads to a credential-harvesting page or a malware download. Attackers often make the link benign at send time and weaponise it later, so MDO checks links *at click time*.\n- **Phishing and impersonation** — mail pretending to be a trusted brand, your own domain, or a specific executive (a lead-in to business email compromise).\n- **Post-delivery threats** — mail that looked clean on arrival but is later found malicious; MDO can retroactively remove it.\n\nMDO comes in two plans. **Plan 1** provides the real-time preventive controls — Safe Attachments, Safe Links, and anti-phishing. **Plan 2** adds the investigation and hunting tools — Threat Explorer, automated investigation and response, attack simulation training, and campaign views — that a SOC leans on.\n\nThe two flagship features, and the ones you must understand in depth, are **Safe Attachments** and **Safe Links**. Together they close the exact gap that signature filtering leaves open: the *unknown* attachment and the *time-delayed* link. The next two sections open each one up."
+    },
+    {
+      "heading": "Safe Attachments — Detonating the Unknown",
+      "content": "**Safe Attachments protects against malicious files by opening them in a secure, isolated environment before the recipient can — a technique called detonation or sandboxing.** The core problem it solves is the **zero-day** or never-before-seen file: traditional antivirus recognises known-bad files by signature, but an attacker who creates a brand-new malicious document has no signature yet, so signature scanning waves it through.\n\n**How it works, step by step:**\n\n1. An email arrives with an attachment. Ordinary anti-malware scanning runs first and catches known threats.\n2. If the file is unknown, Safe Attachments **opens it in a sandbox** — a disposable virtual machine isolated from the real network — and *watches what it does*. Does it try to download more code, modify the system, or reach out to a suspicious server? This behavioural analysis, called **detonation**, judges the file by its actions rather than its signature.\n3. Based on the verdict, the mail is delivered, blocked, or the attachment is stripped.\n\nBecause detonation takes a little time, MDO offers **Dynamic Delivery**: the email body is delivered immediately with a placeholder while the attachment finishes detonating in the background, so users are not left waiting. Safe Attachments policies can be set to **Block**, **Monitor**, or **Dynamic Delivery** modes, and equivalent protection covers files in **SharePoint, OneDrive, and Teams**.\n\n**Who does what, and when:** the *administrator* configures Safe Attachments policies once. Then, *every time* an email with an unknown attachment arrives (or a file lands in SharePoint/OneDrive/Teams), *MDO* detonates it and renders a verdict before — or, with Dynamic Delivery, in parallel with — delivery.\n\n**Why the SOC cares:** Safe Attachments verdicts are a rich signal. A detonation that flags a file as malicious tells you not just that a bad attachment was sent, but often *what it tried to do*, which helps you gauge intent and scope. In the logs (covered later), attachment verdicts appear in the email telemetry, and a wave of the same malicious attachment across many mailboxes is a campaign you should hunt and, if needed, purge."
+    },
+    {
+      "heading": "Safe Links — Checking the Link at Click Time",
+      "content": "**Safe Links protects against malicious URLs by checking them at the moment a user clicks, not just when the mail arrives.** This timing is the whole point. Attackers routinely send a link that points to a harmless page at delivery — so it passes inspection — and then swap the page for a phishing or malware site hours later, after the mail is safely in the inbox. A one-time scan at delivery cannot catch this **time-of-click** trick; Safe Links can.\n\n**How it works, step by step:**\n\n1. When mail is processed, MDO **rewrites** the URLs in the message so they point through a Microsoft checking service (you may notice links routed via a `safelinks.protection.outlook.com` address). The original destination is preserved inside.\n2. **At the moment the user clicks**, the click goes to Microsoft's service first, which checks the *current* reputation and verdict of the real destination in real time.\n3. If the destination is now known-malicious, the user sees a **warning/block page** instead of the harmful site. If it is safe, they are forwarded on transparently.\n\nSafe Links also covers URLs in **Teams** and in **Office apps**, and it works together with Safe Attachments (a link that leads to a file can trigger detonation). Administrators tune Safe Links policies — for example, whether to let users click through warnings.\n\n**Who does what, and when:** the *administrator* enables Safe Links policies. *MDO* rewrites links as mail is delivered. Then, *each time a user clicks*, the checking service evaluates the live destination and allows, warns, or blocks.\n\n**Why the SOC cares:** Safe Links generates one of the most valuable signals in phishing investigations — the **URL click event**. It records *who clicked what, and when, and what the verdict was*. If ten users received a phishing link but the logs show only two actually clicked — and one clicked *through* a warning — you instantly know who to prioritise for password resets and follow-up. This click-level visibility, combined with anti-phishing controls and **Zero-hour Auto Purge (ZAP)** — which retroactively removes mail later found malicious — is what turns MDO from a filter into an investigation tool."
+    },
+    {
+      "heading": "Reading MDO Alerts and Logs",
+      "content": "For a SOC analyst, MDO's value is the telemetry it produces, surfaced both as **alerts** in the Microsoft Defender portal and as **queryable events** in Advanced Hunting.\n\n**Alerts and the portal experience.** MDO raises alerts for events like a detected malware attachment, a user clicking a malicious URL, or a detected impersonation. These flow into the unified **Microsoft Defender portal** (security.microsoft.com) and correlate into **incidents** alongside endpoint and identity signals (covered in the Defender XDR lesson). With Plan 2, **Threat Explorer** lets you search all email by sender, subject, URL, or attachment and see delivery status and verdicts — invaluable for scoping a phishing campaign quickly.\n\n**The hunting tables.** In Advanced Hunting (its own lesson), MDO exposes a family of email tables that every analyst should recognise:\n\n- **EmailEvents** — one row per message: sender, recipient, subject, and the delivery action and threat verdicts.\n- **EmailAttachmentInfo** — details of attachments, including detonation results.\n- **EmailUrlInfo** — the URLs contained in messages.\n- **UrlClickEvents** — the Safe Links click records: who clicked, when, and whether it was allowed or blocked.\n\nA typical phishing investigation stitches these together: start from an alert or a reported message, use **EmailEvents** to find every recipient of the same campaign, check **EmailAttachmentInfo**/**EmailUrlInfo** for the malicious payload, and pivot to **UrlClickEvents** to see who actually clicked. That last step separates *received* from *engaged* and drives your response priorities.\n\n**Response actions.** From the portal you can take direct action: **soft-delete or purge** malicious messages from all mailboxes (manually or via **ZAP**), **submit** messages to Microsoft for re-analysis, and, when integrated with the rest of Defender, trigger endpoint or identity responses for users who clicked. The workflow to internalise is: *alert or report → scope the campaign in Threat Explorer/EmailEvents → confirm the payload → identify who clicked in UrlClickEvents → purge the mail and remediate the affected users.* That loop — from a single suspicious email to full campaign containment — is exactly what MDO is designed to make fast."
+    }
+  ],
+  "keyTakeaways": [
+    "Defender for Office 365 (MDO) protects Exchange email plus SharePoint/OneDrive/Teams against malicious attachments, malicious URLs, impersonation/phishing, and post-delivery threats — going beyond signature-based spam filtering.",
+    "Safe Attachments detonates unknown files in an isolated sandbox and judges them by behaviour (catching zero-day files signatures miss), with Dynamic Delivery sending the body immediately while the attachment finishes detonating.",
+    "Safe Links rewrites URLs and checks them at time-of-click, defeating the trick of a link that is benign at delivery and weaponised later; it produces the high-value UrlClickEvents record of who clicked what and when.",
+    "Analysts investigate in the Defender portal (alerts, incidents, Threat Explorer) and Advanced Hunting tables (EmailEvents, EmailAttachmentInfo, EmailUrlInfo, UrlClickEvents), then contain with purge/ZAP — moving from one reported email to full campaign scoping and remediation."
+  ],
+  "quiz": [
+    {
+      "question": "A phishing email contains a link that pointed to a harmless page when it was delivered on Monday, but the attacker replaced that page with a credential-harvesting site on Tuesday. How does Safe Links protect a user who clicks the link on Tuesday, and why does a one-time delivery scan fail here?",
+      "options": [
+        {
+          "label": "Safe Links deletes every email that contains any URL on arrival, so the malicious message was already removed before the user could ever click it.",
+          "value": "a"
+        },
+        {
+          "label": "Safe Links rewrites the URL and checks the live destination at click time, so it catches the now-malicious site that a one-time delivery-time scan would have missed.",
+          "value": "b"
+        },
+        {
+          "label": "Safe Links permanently blocks the user's browser from opening any external website, which is why no phishing page can ever load after an email is received.",
+          "value": "c"
+        },
+        {
+          "label": "Safe Links scans the link only once when the mail arrives, so on Tuesday it relies entirely on the user noticing the page looks suspicious before entering credentials.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Safe Links rewrites URLs so a click is checked against the destination's live reputation at click time, which catches a link that was benign at delivery but weaponised later — exactly the time-of-click trick a single delivery-time scan cannot stop. Option a is wrong because Safe Links does not delete all mail containing URLs. Option c invents a total browser block that does not exist. Option d describes the very failure mode Safe Links is designed to overcome, not how it works."
+    },
+    {
+      "question": "During a phishing investigation you confirm 40 users received the same malicious link. Which Microsoft Defender for Office 365 data source best tells you which of those users actually clicked it, so you can prioritise password resets?",
+      "options": [
+        {
+          "label": "The DeviceProcessEvents table, because it records every process launched on endpoints and therefore lists which users opened the phishing email in Outlook.",
+          "value": "a"
+        },
+        {
+          "label": "The UrlClickEvents table, because Safe Links records who clicked which URL and when, and whether the click was allowed or blocked.",
+          "value": "b"
+        },
+        {
+          "label": "The Azure Activity Log, because it captures all management-plane API calls and therefore includes every email link a user chose to open.",
+          "value": "c"
+        },
+        {
+          "label": "The Safe Attachments detonation report, because sandbox analysis of the attachment reveals the full list of recipients who later clicked the message's link.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "UrlClickEvents is the Safe Links click record: it captures who clicked which URL, when, and the verdict, which is exactly what you need to separate users who merely received the link from those who engaged with it. DeviceProcessEvents tracks endpoint processes, not email clicks. The Azure Activity Log records cloud management API calls, not email link clicks. Safe Attachments detonates files and does not track who clicked a link."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/defender-office-365/mdo-about",
+    "https://learn.microsoft.com/en-us/defender-office-365/safe-attachments-about",
+    "https://learn.microsoft.com/en-us/defender-office-365/safe-links-about"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-defender-xdr-alerts-incidents-timeline",
+  "slug": "defender-xdr-alerts-incidents-device-timeline",
+  "title": "Microsoft Defender XDR: Alerts, Incidents & Device Timeline",
+  "topic": "Microsoft Security",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "A single attack rarely trips just one sensor. The same intrusion might raise an endpoint alert when malware runs, an identity alert when a stolen account signs in, and an email alert for the phishing message that started it. Microsoft Defender XDR exists to stitch those separate signals into one coherent story. This lesson explains how the unified Defender portal turns raw alerts into correlated incidents, how to read an incident's attack story, and how the device timeline lets you reconstruct exactly what happened on a machine — the core triage skills for anyone working in a Microsoft environment.",
+  "sections": [
+    {
+      "heading": "One Portal, Many Sensors",
+      "content": "**Microsoft Defender XDR** (extended detection and response) is the umbrella that brings Microsoft's individual security products together into a single investigation experience at **security.microsoft.com**, the **Microsoft Defender portal**. The word *extended* is the key idea: instead of each product having its own separate console and its own separate alerts, XDR correlates signals *across* them.\n\nThe main sensors feeding into it are:\n\n- **Microsoft Defender for Endpoint (MDE)** — the EDR on laptops and servers; sees processes, files, network connections, and registry changes.\n- **Microsoft Defender for Office 365 (MDO)** — email and collaboration; sees phishing, malicious attachments, and link clicks.\n- **Microsoft Defender for Identity (MDI)** — on-premises Active Directory signals; sees credential attacks like Kerberoasting and lateral movement.\n- **Microsoft Defender for Cloud Apps (MDCA)** — cloud app activity and shadow IT.\n- **Microsoft Entra ID Protection** — risky sign-ins and risky users.\n\nEach sensor watches a different slice of the environment. On their own, they produce a flood of individual alerts that an analyst would otherwise triage one by one, with no built-in sense of which belong together. XDR's job is to change that: it treats the whole estate as one system and asks, \"which of these alerts are actually the same attack?\"\n\nThe practical payoff is enormous. An analyst working in the unified portal sees a phishing email, the endpoint it detonated on, and the account that was subsequently misused as parts of *one* case, not three disconnected tickets. That is the difference between drowning in alerts and understanding an attack. The next sections break down the two building blocks of that experience — the **alert** (a single detection) and the **incident** (the correlated story) — and then the **device timeline** that lets you zoom all the way in on one machine."
+    },
+    {
+      "heading": "Alerts — A Single Detection",
+      "content": "An **alert** is the atomic unit of detection: one signal that something suspicious or malicious happened. When MDE sees a known-bad process launch, when MDO detonates a malicious attachment, or when Identity Protection scores a sign-in as high risk, each raises an alert.\n\nEvery alert carries a consistent set of information an analyst reads to triage it:\n\n- **Title and category** — what was detected and where it fits (for example, a category aligned to a MITRE ATT&CK tactic like *Credential Access* or *Lateral Movement*).\n- **Severity** — Informational, Low, Medium, or High — a first cut at how urgent it is.\n- **Status** — New, In Progress, or Resolved, and a **classification** (true positive, false positive, benign) that the analyst sets when closing it.\n- **The entities involved** — the device, user, file, IP, or mailbox the alert concerns. These entities are what let alerts be linked together.\n- **The detection source** — which Defender product raised it.\n\nThe critical thing to understand is that **an alert is a fragment, not the whole picture.** A single \"suspicious PowerShell\" alert might be an admin script or the middle of a live intrusion — the alert alone cannot tell you. Triaging alerts purely one at a time is how analysts burn out and miss real attacks: high alert volume plus no correlation means the important signal hides in the noise.\n\nThis is exactly the problem incidents solve. Because each alert names its **entities** (this device, that user, this file hash), Defender can notice when many alerts share entities or fit a known attack sequence and group them. So while you *can* look at the raw alert queue, the modern Defender workflow is to work at the **incident** level, where those fragments are already assembled into something you can reason about. The next section explains how that assembly works and what an incident gives you that a pile of alerts never could."
+    },
+    {
+      "heading": "Incidents — The Correlated Attack Story",
+      "content": "An **incident** is a collection of related alerts that Defender has automatically grouped because they appear to be part of the **same attack**. This is the heart of XDR and the level at which real investigation happens.\n\n**How correlation works.** Defender links alerts that share **entities** (the same device, user, file, or IP) or that fit a recognised **attack sequence** across products. So a phishing email (MDO alert), the malware it dropped when opened (MDE alert), and the account misuse that followed (Identity alert) collapse into a single incident, because they are connected by the user and device involved. Instead of three tickets in three consoles, the analyst gets one case that already tells the story end to end.\n\n**What an incident gives you:**\n\n- **The attack story / graph** — a visual and narrative map of what happened, in what order, across email, endpoint, and identity. This is often the fastest way to grasp scope.\n- **All involved assets** — every device, user, and mailbox touched, so you can see how far the attack spread.\n- **Consolidated evidence and entities** — the files, processes, IPs, and URLs gathered from all the member alerts in one place.\n- **A severity for the whole incident**, aggregated from its alerts, so the queue can be prioritised as *cases*, not fragments.\n\n**The triage workflow.** A mature Defender SOC works the **incident queue**, not the raw alert firehose. For each incident you: read the attack story to understand what happened; check the scope (which users and devices); confirm whether it is a true positive; contain (isolate a device, disable or reset an account, purge mail); and classify and close, feeding the outcome back to improve detections. Automated investigation and response (AIR) can even perform some of these steps for you and attach its findings to the incident.\n\nThe mental shift to make is this: **alerts are evidence; the incident is the case.** Working at the incident level is what lets one analyst understand a multi-stage, multi-product attack quickly — and it is only possible because each underlying alert named its entities clearly enough to be correlated. When you need to go deeper on one machine within that case, you drop into the device timeline."
+    },
+    {
+      "heading": "Device Timeline — Reconstructing What Happened on a Machine",
+      "content": "When an incident points at a specific device, the **device timeline** in Microsoft Defender for Endpoint lets you reconstruct, in chronological order, exactly what that machine did. It is the microscope you reach for after the incident graph has shown you *which* device to examine.\n\n**What the timeline shows.** For a given device, MDE continuously records rich behavioural telemetry and presents it as a time-ordered stream of events:\n\n- **Process events** — what programs ran, their command lines, and crucially their **parent-child relationships** (which process launched which).\n- **File events** — files created, modified, or deleted.\n- **Network events** — connections the device made and to where.\n- **Registry and logon events** — configuration changes and sign-ins.\n\nBecause these are laid out on a single timeline, you can start from a known bad moment — say, the instant an alert fired — and scroll **backwards** to see what led up to it and **forwards** to see what followed. This is how you answer the questions that matter in an investigation: *How did this get here? What did it do next? Did it spread?*\n\n**A worked pattern.** Suppose an incident flags a malicious file on a laptop. In the timeline you find the moment the file was written, then walk back to see the **process tree**: a Word document spawned PowerShell, which downloaded and ran the file. That parent-child chain reveals the *initial access* (a malicious document, i.e. phishing) and the *execution* method — far more than the single \"malicious file\" alert told you. Walking forward, you see whether the file then made network connections or touched other files, revealing command-and-control or further activity.\n\n**Why it matters for the SOC.** The timeline is where root-cause analysis actually happens. The incident tells you *that* a device was involved and roughly how; the timeline tells you the precise *sequence* — the patient-zero action, the execution chain, and the blast radius. It also feeds your response: knowing exactly what ran and what it touched tells you whether isolating the device is enough or whether you must hunt the same pattern on other machines (a job for Advanced Hunting, the next lesson). In short: incidents give you the story, and the device timeline gives you the frame-by-frame proof."
+    }
+  ],
+  "keyTakeaways": [
+    "Microsoft Defender XDR unifies signals from MDE (endpoint), MDO (email), MDI (identity/AD), MDCA (cloud apps), and Entra ID Protection into one portal (security.microsoft.com), correlating across products rather than siloing alerts.",
+    "An alert is a single detection (title, severity, status, entities, source) and is only a fragment; triaging alerts one at a time in isolation is how real attacks hide in the noise.",
+    "An incident automatically groups related alerts that share entities or fit an attack sequence into one case, providing the attack story/graph, all involved assets, and consolidated evidence — so mature SOCs work the incident queue, not the raw alert firehose.",
+    "The MDE device timeline reconstructs a machine's events chronologically (process trees, file/network/registry/logon), letting you walk backward to root cause and forward to blast radius — turning a single alert into a full execution chain."
+  ],
+  "quiz": [
+    {
+      "question": "In Microsoft Defender XDR, what fundamentally distinguishes an 'incident' from an 'alert', and why does working at the incident level matter for a SOC analyst?",
+      "options": [
+        {
+          "label": "An incident is a lower-severity version of an alert, so analysts work the alert queue first and only review incidents when they have spare time between cases.",
+          "value": "a"
+        },
+        {
+          "label": "An incident is a collection of related alerts auto-grouped as one attack, giving the correlated story and scope that individual alert fragments cannot provide on their own.",
+          "value": "b"
+        },
+        {
+          "label": "An incident is a single detection from one product, while an alert always spans several products, so alerts are the broader and more useful unit to triage.",
+          "value": "c"
+        },
+        {
+          "label": "An incident and an alert are identical in Defender; the two words are interchangeable labels for the same object shown in different parts of the portal.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "An incident is a set of related alerts that Defender automatically correlates (by shared entities or attack sequence) into one case, providing the end-to-end attack story and scope that isolated alerts cannot, which is why mature SOCs triage at the incident level. Option a inverts severity and workflow. Option c reverses the definitions — the alert is the single detection, not the incident. Option d is false because the two are distinct objects."
+    },
+    {
+      "question": "An incident flags a malicious executable on a laptop. You open the device timeline and want to determine how the file got there. Which capability of the timeline most directly reveals the root cause?",
+      "options": [
+        {
+          "label": "The alert severity score, because a High rating on the timeline automatically identifies which phishing email delivered the file to the device.",
+          "value": "a"
+        },
+        {
+          "label": "The chronological process tree showing parent-child relationships, letting you walk back to see, for example, a Word document spawning PowerShell that fetched the file.",
+          "value": "b"
+        },
+        {
+          "label": "The incident's aggregated severity, because summing the severities of all member alerts pinpoints the exact process that first wrote the malicious file to disk.",
+          "value": "c"
+        },
+        {
+          "label": "The list of other devices in the incident, because comparing device names alone reveals which machine originally created and distributed the executable.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The device timeline records events chronologically with process parent-child relationships, so you can walk backward from the malicious file to the process tree that produced it — for example a Word document spawning PowerShell that downloaded it — revealing initial access and execution. Option a is wrong because a severity score does not identify a delivery email. Options c and d describe aggregated severity and device lists, which do not reconstruct the on-device execution chain that the timeline's process tree provides."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/defender-xdr/microsoft-365-defender",
+    "https://learn.microsoft.com/en-us/defender-xdr/incidents-overview",
+    "https://learn.microsoft.com/en-us/defender-endpoint/investigate-machines"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-advanced-hunting-kql-defender",
+  "slug": "advanced-hunting-with-kql-in-defender",
+  "title": "Advanced Hunting with KQL in Microsoft Defender",
+  "topic": "Microsoft Security",
+  "difficulty": "advanced",
+  "kind": "lesson",
+  "intro": "Alerts and incidents tell you about things Defender already decided are suspicious. But some of the most important SOC work is proactive: forming a hypothesis about how an attacker might operate and searching the raw telemetry to see whether it is happening — before any alert fires. In Microsoft Defender, that proactive search is called Advanced Hunting, and it is powered by a query language called KQL. This lesson introduces Advanced Hunting, teaches enough KQL to read and write real queries, tours the schema tables an analyst uses daily, and shows how a good hunting query becomes a permanent custom detection.",
+  "sections": [
+    {
+      "heading": "What Advanced Hunting Is",
+      "content": "**Advanced Hunting** is a query-based tool in the Microsoft Defender portal that lets you search across the **raw telemetry** collected from endpoints, email, identities, and cloud apps — typically the last **30 days** of events. Where an alert is Defender telling *you* something is wrong, Advanced Hunting is *you* asking Defender a precise question and getting back every matching event.\n\nThe distinction between **reactive** and **proactive** work is the heart of it:\n\n- **Reactive**: you respond to alerts and incidents that the platform generated. Essential, but by definition limited to what the built-in detections catch.\n- **Proactive (hunting)**: you start from a hypothesis — \"an attacker in our environment would probably run `whoami` right after landing,\" or \"they might use a renamed copy of a system tool\" — and you query the telemetry directly to test it. Hunting finds the things detections missed.\n\nAdvanced Hunting is where a hypothesis meets evidence. Because it queries the same underlying data that feeds alerts, you can look for faint patterns that never crossed an alert threshold: a single unusual process, a rare parent-child relationship, one user's odd sign-in pattern. It is also how you **scope an incident** — once you know an attacker's technique from one machine, you hunt the same pattern everywhere to find every affected host.\n\nThe tool is built on **KQL — Kusto Query Language** — a read-only language designed for fast searching and filtering of huge event tables. KQL is approachable: you can do useful work with a handful of operators, and it reads almost like a sentence. The next section teaches enough to be productive, and the one after tours the tables you will query. The payoff is real analyst power: the ability to answer, in seconds, questions the built-in detections were never written to ask."
+    },
+    {
+      "heading": "Enough KQL to Be Dangerous",
+      "content": "**KQL (Kusto Query Language)** reads top-to-bottom as a pipeline: you name a table, then pass its rows through a series of operators separated by the pipe character `|`, each one transforming the data. You do not need to master it all; a few operators cover most hunting.\n\n**The core operators:**\n\n- **`where`** — filter to the rows you care about. `where FileName == \"powershell.exe\"` keeps only PowerShell events.\n- **`project`** — choose which columns to show, like selecting fields. `project Timestamp, DeviceName, FileName`.\n- **`summarize`** — aggregate: count, group, find min/max. `summarize count() by DeviceName` gives a per-device tally.\n- **`sort` / `top`** — order results, or take the most extreme. `top 10 by Timestamp`.\n- **`join`** — combine two tables on a shared column, so you can, for example, link a process event to the sign-in that preceded it.\n\nA real query stacks these. Read this one as a sentence:\n\n```\nDeviceProcessEvents\n| where Timestamp > ago(24h)\n| where FileName == \"powershell.exe\"\n| where ProcessCommandLine contains \"-enc\"\n| project Timestamp, DeviceName, AccountName, ProcessCommandLine\n| sort by Timestamp desc\n```\n\nIt says: *from process events, in the last 24 hours, find PowerShell runs whose command line contains `-enc` (encoded commands, a common attacker tell), show me the time, device, account, and full command line, newest first.* The helper `ago(24h)` means \"24 hours ago,\" and time filters like this belong near the top of nearly every query because they make it fast.\n\nTwo habits make hunting effective. First, **filter early and narrowly** — put your most selective `where` clauses first so the query scans less data. Second, **project only what you need**, so results are readable. From here, the same handful of operators — `where`, `project`, `summarize`, `join` — will carry you through the overwhelming majority of real hunts. The skill that remains is knowing *which table* holds the data you want, which is the next section."
+    },
+    {
+      "heading": "The Schema — Knowing Which Table to Query",
+      "content": "Advanced Hunting organises telemetry into **schema tables**, each holding one kind of event. Knowing which table answers which question is the difference between hunting fluently and staring at a blank query box. The tables group naturally by sensor.\n\n**Endpoint (from Defender for Endpoint):**\n\n- **DeviceProcessEvents** — processes that ran, with command lines and parent-child links. The workhorse for execution and living-off-the-land hunts.\n- **DeviceNetworkEvents** — network connections a device made (useful for C2 and exfil).\n- **DeviceFileEvents** — file create/modify/delete.\n- **DeviceLogonEvents** — sign-ins to devices.\n- **DeviceRegistryEvents** — registry changes (persistence).\n\n**Email (from Defender for Office 365):**\n\n- **EmailEvents** — one row per message (sender, recipient, verdicts, delivery action).\n- **EmailAttachmentInfo** / **EmailUrlInfo** — attachments and URLs in messages.\n- **UrlClickEvents** — Safe Links click records (who clicked what, when).\n\n**Identity (from Defender for Identity / Entra):**\n\n- **IdentityLogonEvents** — authentication activity across AD and cloud.\n- **IdentityDirectoryEvents** / **IdentityQueryEvents** — directory changes and reconnaissance queries (for example, BloodHound-style enumeration).\n\n**Cloud apps and alerts:**\n\n- **CloudAppEvents** — activity in connected cloud apps.\n- **AlertInfo** / **AlertEvidence** — the alerts themselves and the entities tied to them, so you can pivot from a hunt to related alerts.\n\nThe practical skill is **mapping a question to a table**. \"Did anyone run a suspicious PowerShell command?\" → **DeviceProcessEvents**. \"Who clicked this phishing link?\" → **UrlClickEvents**. \"Was there unusual directory reconnaissance?\" → **IdentityQueryEvents**. \"Which devices connected to this malicious IP?\" → **DeviceNetworkEvents**.\n\nThe real power comes from **joining across tables**, because that mirrors how attacks actually cross domains. A single query can link an **EmailEvents** row (the phishing mail) to a **UrlClickEvents** row (the user clicked) to a **DeviceProcessEvents** row (something ran on their machine moments later) — reconstructing the whole initial-access chain from three sensors at once. That cross-domain pivot, expressed in a few lines of KQL, is what makes Advanced Hunting far more than a log search."
+    },
+    {
+      "heading": "From Hunt to Custom Detection",
+      "content": "A hunting query's life does not have to end when you close the tab. One of the most valuable things a SOC does is turn a good hunt into a **custom detection rule** — a saved query that Defender runs automatically on a schedule and that raises an alert (and can trigger response) whenever it finds a match. This is how a one-time discovery becomes permanent, automated coverage.\n\n**The workflow:**\n\n1. **Hunt** — write and refine a KQL query until it reliably surfaces the malicious pattern you care about, with few false positives.\n2. **Tune** — make sure the results are clean. A detection that fires constantly on benign activity is worse than none, because it trains analysts to ignore it. Add `where` clauses that exclude known-good behaviour.\n3. **Create the custom detection** — save the query as a rule, set how often it runs, choose the alert severity and title, and map the **entities** (device, user, file) the rule returns so the resulting alerts correlate into incidents properly.\n4. **Add response actions** — optionally, have the rule automatically isolate a device, run an antivirus scan, or mark a user as compromised when it fires.\n\nThe result is a feedback loop that steadily improves the SOC: analysts hunt for what the built-in detections miss, and the best hunts graduate into custom detections that catch the same thing automatically next time — freeing analysts to hunt for the *next* gap. This is **detection engineering** in miniature, and Advanced Hunting is the workbench where it happens.\n\nA few principles keep it healthy. **Ground hunts in real techniques** — MITRE ATT&CK is an excellent source of hypotheses, since each technique suggests a concrete query (\"how would I see T1059 PowerShell execution in DeviceProcessEvents?\"). **Prefer robust logic over brittle string matches** — hunting for a behaviour (a system tool spawning from an unusual parent) generalises better than matching one malware's exact filename. And **document what a detection is meant to catch**, so the next analyst understands why an alert fired. Done well, the hunt-to-detection loop is what turns a reactive alert-triage team into a proactive one that closes its own blind spots."
+    }
+  ],
+  "keyTakeaways": [
+    "Advanced Hunting is a query-based tool over ~30 days of raw Defender telemetry (endpoint, email, identity, cloud) for proactive, hypothesis-driven hunting — finding what built-in detections miss and scoping incidents across all hosts.",
+    "KQL reads as a pipeline (table | operator | operator); the core operators where (filter), project (choose columns), summarize (aggregate), sort/top, and join cover most hunts — filter early and narrowly, project only what you need.",
+    "Knowing which schema table answers which question is essential: DeviceProcessEvents (execution), DeviceNetworkEvents (C2/exfil), EmailEvents/UrlClickEvents (phishing/clicks), IdentityLogonEvents/IdentityQueryEvents (auth/recon), AlertInfo/AlertEvidence — and joining tables reconstructs cross-domain attack chains.",
+    "A well-tuned hunt should graduate into a custom detection rule that runs automatically, raises correlated alerts, and can trigger response — closing the hunt-to-detection loop; ground hunts in MITRE ATT&CK and prefer behavioural logic over brittle string matches."
+  ],
+  "quiz": [
+    {
+      "question": "What is the essential difference between responding to Defender alerts and using Advanced Hunting, and why does hunting add value a purely alert-driven SOC lacks?",
+      "options": [
+        {
+          "label": "Advanced Hunting only re-displays existing alerts in a table, so it adds convenience but cannot surface anything the built-in detections did not already flag.",
+          "value": "a"
+        },
+        {
+          "label": "Advanced Hunting lets you query raw telemetry to test your own hypotheses, finding faint patterns that never crossed an alert threshold — proactive rather than reactive work.",
+          "value": "b"
+        },
+        {
+          "label": "Advanced Hunting automatically resolves every alert without analyst input, so its value is eliminating triage rather than discovering any new malicious activity.",
+          "value": "c"
+        },
+        {
+          "label": "Advanced Hunting can only search data older than one year, so its sole purpose is long-term compliance archiving rather than active threat detection.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Advanced Hunting queries the raw telemetry directly so you can test your own hypotheses and surface faint patterns that never triggered an alert — proactive hunting that finds what built-in detections miss, unlike purely reactive alert triage. Option a is wrong because hunting searches raw events, not just existing alerts. Option c invents auto-resolution that does not exist. Option d misstates the retention (typically ~30 days) and purpose."
+    },
+    {
+      "question": "You have refined a KQL query that reliably detects a specific malicious PowerShell pattern with very few false positives. What is the best next step to get lasting value from it, and what must you be careful about?",
+      "options": [
+        {
+          "label": "Run the query manually once each morning forever, because Defender cannot save or schedule hunting queries and there is no way to automate a detection.",
+          "value": "a"
+        },
+        {
+          "label": "Save it as a scheduled custom detection rule so it raises correlated alerts automatically, being careful to tune out benign matches so it does not become noisy.",
+          "value": "b"
+        },
+        {
+          "label": "Broaden the query to match as many processes as possible before saving it, since a detection that fires on more events is always more useful to the SOC.",
+          "value": "c"
+        },
+        {
+          "label": "Delete the query after the current investigation, because hunting logic should never be reused and each incident requires writing detections entirely from scratch.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "A well-tuned hunt should graduate into a scheduled custom detection rule that automatically raises correlated alerts (and can trigger response), with careful tuning so it does not fire on benign activity — a noisy detection trains analysts to ignore it. Option a is wrong because Defender does support saved, scheduled custom detections. Option c is dangerous advice, since over-broad detections create alert fatigue. Option d discards reusable value that the hunt-to-detection loop is designed to capture."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-overview",
+    "https://learn.microsoft.com/en-us/kusto/query/",
+    "https://learn.microsoft.com/en-us/defender-xdr/custom-detections-overview"
+  ],
+  "xp": 220,
+  "estimatedMinutes": 42,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-microsoft-365-and-graph-for-security",
+  "slug": "microsoft-365-and-graph-for-security",
+  "title": "Microsoft 365 & Microsoft Graph for Security",
+  "topic": "Microsoft Security",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "For most organisations, the crown jewels now live in Microsoft 365: the email, the documents, the chats, the identities. That makes M365 both the thing a SOC most needs to protect and one of the richest sources of investigation data available. Underneath the familiar apps sits a single audit trail and a single API — Microsoft Graph — that together let an analyst see and act on almost everything. This lesson explains what Microsoft 365 is, why it is such a target, how the unified audit log records activity across it, and how Microsoft Graph and its Security API tie the whole picture together.",
+  "sections": [
+    {
+      "heading": "What Microsoft 365 Is — and Why It's a Target",
+      "content": "**Microsoft 365 (M365)** is Microsoft's cloud productivity suite — the collection of services most organisations run their daily work on. The pieces a SOC cares about most are:\n\n- **Exchange Online** — email and calendars.\n- **SharePoint Online** — document libraries and intranet sites.\n- **OneDrive** — personal cloud file storage.\n- **Microsoft Teams** — chat, meetings, and collaboration.\n- **Microsoft Entra ID** — the identity service that everyone signs into (covered in its own lessons).\n\nBecause a modern company runs on these, M365 is where the valuable data *and* the valuable identities live. That concentration is exactly what makes it a prime target. An attacker who compromises a single M365 account potentially gains the user's email, their files in OneDrive and SharePoint, and their Teams conversations — and can use the trusted account to phish colleagues from the inside.\n\nThe attacks that dominate M365 incidents follow from this:\n\n- **Account takeover** via phishing, password spray, or token theft — the entry point for most of the rest.\n- **Business email compromise (BEC)** — using a real, trusted mailbox to defraud or phish others.\n- **Malicious inbox rules** — an attacker who owns a mailbox often creates a hidden rule to auto-forward or delete mail, maintaining stealthy access to the conversation.\n- **OAuth consent phishing** — tricking a user into granting a malicious app standing access to their mailbox and files (covered in its own lesson).\n- **Data exfiltration** — mass-downloading from SharePoint/OneDrive.\n\nThe defender's problem is that all this activity happens in the cloud, over legitimate protocols, often from a valid (if stolen) session. There are no packets on your wire to inspect. The evidence lives in M365's own records — which is why the **unified audit log** and **Microsoft Graph**, the subjects of the next sections, are the analyst's essential windows into what is really happening across the suite."
+    },
+    {
+      "heading": "The Unified Audit Log — One Trail Across M365",
+      "content": "The **unified audit log** is Microsoft 365's single, consolidated record of activity across all its workloads. Rather than hunting through separate logs for Exchange, SharePoint, OneDrive, Teams, and Entra, an analyst can search **one** trail that captures user and admin actions everywhere in the tenant. It is part of Microsoft **Purview** and is the backbone of most M365 investigations.\n\n**What it records.** Nearly every meaningful action becomes an audit event: a user signing in, reading or sharing a file, sending mail, creating an inbox rule, an admin changing a permission, a mailbox being accessed by someone other than its owner. Each event captures the familiar journalistic fields — **who** (the user or app), **what** (the operation), **when** (a UTC timestamp), **where from** (the client IP), and the **target** the action touched.\n\n**Operations an analyst hunts for** illustrate its power:\n\n- **New-InboxRule / Set-InboxRule** — creation of mail rules, a top signal of a compromised mailbox (attackers auto-forward or hide replies).\n- **Add-MailboxPermission / mailbox access by a non-owner** — someone reading a mailbox that is not theirs.\n- **File and sharing operations** in SharePoint/OneDrive — mass access or external sharing that can indicate exfiltration.\n- **Consent to application / Add service principal** — the fingerprints of OAuth consent phishing.\n- **UserLoggedIn and sign-in anomalies** — correlated with Entra sign-in logs for impossible travel and risky sign-ins.\n\n**Two practical cautions.** First, **audit logging must be enabled and retained** — the depth and length of retention depend on licensing, and if the data was not captured before an incident, it is not there afterward. Confirming audit coverage is part of readiness. Second, the unified audit log is broad but has its own schema and quirks; for high-volume endpoint or email *behavioural* detail, analysts also use Advanced Hunting. The two are complementary: the unified audit log is the wide, tenant-spanning record of *actions taken*, and it is usually the first place to reconstruct what a compromised M365 account did — who logged in, what they touched, and what persistence (like an inbox rule) they left behind."
+    },
+    {
+      "heading": "Microsoft Graph — One API for Everything",
+      "content": "**Microsoft Graph** is the single, unified API (application programming interface) that provides programmatic access to almost all of Microsoft 365. If the console is how a human clicks through M365, Graph is how *code* reads and changes it. Its single endpoint, `graph.microsoft.com`, reaches mail, files, calendars, users, groups, devices, and security data alike.\n\n**Why this matters to a SOC** cuts two ways, and an analyst must hold both.\n\n**Graph is a powerful tool for defenders.** Because one API reaches everything, you can automate investigation and response: pull a user's recent sign-ins, list the inbox rules on a mailbox, enumerate the apps a user has consented to, gather the files shared externally — all programmatically, and all consistently. Security tooling, SOAR playbooks, and scripts lean on Graph to gather evidence and take action at scale, far faster than clicking through portals.\n\n**Graph is also a target and a technique for attackers.** The same reach that helps defenders helps intruders. This is the deep connection to **OAuth consent phishing**: when an attacker tricks a user into consenting to a malicious app, the permissions that app requests — `Mail.Read`, `Files.Read.All`, `offline_access` — are **Graph permissions (scopes)**. The malicious app then calls Microsoft Graph to read the victim's mail and files, using tokens rather than a password. So understanding Graph is understanding *what* a consented app can actually do to a mailbox.\n\n**Permissions and identity.** Graph access is governed by **scopes** (the specific permissions granted, like `User.Read` or `Mail.ReadWrite`) and by whether an app acts as a signed-in user (delegated) or on its own (application permissions). For an analyst, reviewing which apps hold which Graph permissions in a tenant is a core hunting task — an unfamiliar app with broad mail and file scopes is exactly the artefact left behind by a consent-phishing attack. In short: Graph is the connective tissue of M365, the automation surface defenders use, and the access surface attackers abuse — which is why it deserves a place in every analyst's mental model."
+    },
+    {
+      "heading": "The Graph Security API and Pulling It Together",
+      "content": "Beyond reaching mail and files, Microsoft Graph exposes a dedicated **Graph Security API** that unifies *security* data and actions across Microsoft's products and partners. It is the programmatic counterpart to the Defender portal: a single, normalised way to read and manage security signals.\n\n**What it provides:**\n\n- **Unified alerts and incidents** — a common schema for security alerts (and incidents) drawn from Microsoft Defender products and integrated third parties, so tools can consume them consistently rather than learning each product's format.\n- **A path to automation and orchestration** — SIEM and SOAR platforms use the Security API to ingest alerts, enrich them, and drive response, making it a backbone for integrating M365 security into a broader SOC.\n- **Related security data** — such as secure-score information and threat intelligence indicators, reachable through the same API surface.\n\n**How the pieces fit together** is the real takeaway of this lesson. Picture a single M365 account-takeover investigation:\n\n1. An **Entra sign-in** risk (impossible travel) and an **MDO** phishing alert surface in the **Defender portal**, correlated into one **incident**.\n2. You reconstruct what the attacker did using the **unified audit log** — the sign-in, the files touched, and a malicious **inbox rule** they created for persistence.\n3. You check the mailbox and discover the attacker also used **OAuth consent** to grant a rogue app **Graph** permissions, giving it standing mailbox access independent of the password.\n4. Your automation, built on the **Graph Security API** and Graph itself, pulls the evidence together and can execute response — revoke the app's consent and tokens, remove the inbox rule, force a reset.\n\nThat single storyline touches every topic in this lesson — M365 as the target, the unified audit log as the record, Graph as the access surface, and the Graph Security API as the connective automation layer — and shows why they are taught together. For an analyst in a Microsoft environment, fluency here is what turns a scatter of portals and logs into one coherent, actionable picture of an attack."
+    }
+  ],
+  "keyTakeaways": [
+    "Microsoft 365 (Exchange, SharePoint, OneDrive, Teams, plus Entra ID) holds an organisation's data and identities, making it a prime target for account takeover, BEC, malicious inbox rules, OAuth consent phishing, and data exfiltration — all happening in the cloud with no packets to inspect.",
+    "The unified audit log (part of Purview) is M365's single trail of who/what/when/where across all workloads; analysts hunt operations like New-InboxRule, non-owner mailbox access, external sharing, and app-consent events — but it must be enabled and retained before an incident.",
+    "Microsoft Graph is the one API (graph.microsoft.com) reaching all of M365; it is both a defender's automation surface and an attacker's access surface — the Mail.Read/Files.Read.All/offline_access scopes in OAuth consent phishing are Graph permissions a malicious app uses to read mail and files via tokens.",
+    "The Graph Security API unifies alerts/incidents and drives SIEM/SOAR automation; a single M365 takeover investigation ties it all together — Defender incident, unified-audit-log reconstruction, a rogue Graph-consented app, and Graph-based response (revoke consent/tokens, remove rule, reset)."
+  ],
+  "quiz": [
+    {
+      "question": "During an M365 account-takeover investigation, which data source is the best first place to reconstruct what the compromised user's account actually did across email, files, and settings — for example, discovering a malicious inbox rule left for persistence?",
+      "options": [
+        {
+          "label": "The DeviceRegistryEvents table, because M365 mailbox rules and file shares are stored as Windows registry keys on the user's endpoint device.",
+          "value": "a"
+        },
+        {
+          "label": "The Microsoft 365 unified audit log, because it is the single trail of who did what across Exchange, SharePoint, OneDrive, and Teams, including inbox-rule creation.",
+          "value": "b"
+        },
+        {
+          "label": "The AWS CloudTrail log, because it records the management-plane API calls for all Microsoft 365 workloads in the organisation's tenant.",
+          "value": "c"
+        },
+        {
+          "label": "The Safe Attachments detonation report, because sandbox analysis of email attachments also lists every inbox rule and file-sharing action the account performed.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The unified audit log is M365's consolidated record of user and admin actions across all workloads, capturing operations like New-InboxRule, so it is the natural first place to reconstruct what a compromised account did. Option a is wrong because M365 cloud actions are not stored as endpoint registry keys. Option c is wrong because CloudTrail is AWS, not Microsoft 365. Option d misdescribes Safe Attachments, which detonates files and does not log inbox rules or sharing actions."
+    },
+    {
+      "question": "In an OAuth consent phishing attack, a victim is tricked into approving a malicious app that requests Mail.Read, Files.Read.All, and offline_access. What is the connection to Microsoft Graph, and why does it make the attack dangerous?",
+      "options": [
+        {
+          "label": "Those are Microsoft Graph permission scopes, so the app calls Graph with tokens to read the victim's mail and files without needing the password, surviving a reset.",
+          "value": "a"
+        },
+        {
+          "label": "Those permissions apply only to the attacker's own tenant, so Microsoft Graph prevents the app from ever reaching the victim's mailbox or stored files.",
+          "value": "b"
+        },
+        {
+          "label": "Microsoft Graph is unrelated to email, so the requested scopes can only affect the victim's calendar availability and never their actual mail or documents.",
+          "value": "c"
+        },
+        {
+          "label": "The scopes force the victim to re-enter their password on every Graph call, which is why the attack is easily detected and blocked by standard MFA prompts.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "Mail.Read, Files.Read.All, and offline_access are Microsoft Graph permission scopes, so the consented app calls graph.microsoft.com with tokens to read the victim's mail and files without the password — and because it uses tokens, the access survives a password reset. Option b is wrong because the granted scopes apply to the victim's data. Option c falsely claims Graph is unrelated to email. Option d is wrong because token-based Graph access does not re-prompt for a password or MFA."
+    }
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/purview/audit-solutions-overview",
+    "https://learn.microsoft.com/en-us/graph/overview",
+    "https://learn.microsoft.com/en-us/graph/security-concept-overview"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 40,
+  "researchUsed": false,
+  "createdAt": "2026-08-15T00:00:00.000Z"
 }
 ];
 
