@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/nav/Sidebar";
 import { MotionProvider } from "@/components/MotionProvider";
 import { EarnMoment } from "@/components/EarnMoment";
 import { SyncStatus } from "@/components/system/SyncStatus";
+import { ReportProblem } from "@/components/feedback/ReportProblem";
 import { affiliationExpired } from "@/lib/org/affiliationGate";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <EarnMoment />
       {/* Silent unless a write actually failed — see syncState.ts */}
       <SyncStatus />
+      {/* Global technical-bug reporter — floats on every app page */}
+      <ReportProblem />
     </MotionProvider>
   );
 }
