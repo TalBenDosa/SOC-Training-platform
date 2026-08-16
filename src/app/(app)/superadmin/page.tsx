@@ -12,7 +12,7 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, Link2, Copy, Check, CheckCircle2, DollarSign, KeyRound, FileText, ArrowRight, Home, Settings } from "lucide-react";
+import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, Link2, Copy, Check, CheckCircle2, DollarSign, KeyRound, FileText, ArrowRight, Home, Settings, Inbox } from "lucide-react";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 const STATUS_STYLE: Record<OrgStatus, string> = {
@@ -39,6 +39,7 @@ export default function SuperAdminPage() {
   const [spend, setSpend] = useState<AiSpend | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [newReports, setNewReports] = useState(0);
 
   // affiliation codes across all orgs (0028)
   interface OrgCodeRow {
@@ -87,7 +88,11 @@ export default function SuperAdminPage() {
     setOrgs(body.orgs);
     setSpend(body.ai_spend ?? null);
   }
-  useEffect(() => { load(); loadCodes(); }, []);
+  async function loadReports() {
+    const res = await fetch("/api/feedback?status=new");
+    if (res.ok) { const d = await res.json().catch(() => ({})); setNewReports((d.items ?? []).length); }
+  }
+  useEffect(() => { load(); loadCodes(); loadReports(); }, []);
 
   const codeById: Record<string, OrgCodeRow> = Object.fromEntries((codes ?? []).map(c => [c.id, c]));
 
@@ -125,6 +130,12 @@ export default function SuperAdminPage() {
               </Link>
               <Link href="/admin" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300">
                 <FileText className="h-3.5 w-3.5" /> Content
+              </Link>
+              <Link href="/superadmin/feedback" className="inline-flex items-center gap-1.5 rounded-md border border-border bg-bg px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-neon-amber/50 hover:text-neon-amber" title="Content and technical reports from every environment">
+                <Inbox className="h-3.5 w-3.5" /> Reports
+                {newReports > 0 && (
+                  <span className="ml-0.5 inline-flex min-w-[16px] items-center justify-center rounded-full bg-neon-amber/20 px-1 text-[10px] font-bold text-neon-amber tabular-nums">{newReports}</span>
+                )}
               </Link>
               {spend && (
                 <span

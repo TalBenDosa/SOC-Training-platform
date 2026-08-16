@@ -53,7 +53,7 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   const user = await getAuthedUser();
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-  if (user.role !== "admin") return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  if (user.role !== "admin" && !user.isPlatformAdmin) return NextResponse.json({ error: "Admin access required." }, { status: 403 });
 
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
@@ -76,7 +76,7 @@ export async function GET(req: Request) {
 export async function PATCH(req: Request) {
   const user = await getAuthedUser();
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-  if (user.role !== "admin") return NextResponse.json({ error: "Admin access required." }, { status: 403 });
+  if (user.role !== "admin" && !user.isPlatformAdmin) return NextResponse.json({ error: "Admin access required." }, { status: 403 });
 
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
