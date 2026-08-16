@@ -225,11 +225,16 @@ const NEW_TOPIC_LESSONS = [
         "caption": "Malware is categorised by PURPOSE — spread, hide, deliver, steal, control, payoff. Real samples combine several, so describe what it DOES; each category drives the next investigation question.",
         "credit": "Figure authored for this course."
       }
+    },
+    {
+      "heading": "What the Malware Type Tells You to Do",
+      "content": "Categorising malware is not an academic exercise — the type is a **decision aid**. When an antivirus or EDR alert names what it found, that label tells you what the threat is trying to accomplish, and that sets your triage priority and your very next action. Reading the type is how you turn a detection into a response.\n\n### The type drives the response\n\nEach purpose implies a different first move:\n\n- **Ransomware / wiper** — highest urgency. Isolate the host immediately before encryption spreads to shared drives, and check that backups are intact and offline.\n- **Infostealer** — assume the credentials, cookies, and tokens on that host were taken. Scope which accounts and secrets were exposed and force resets.\n- **RAT / backdoor** — the attacker may have interactive, hands-on-keyboard control. Hunt for the command-and-control connection and any persistence, and expect the intrusion to be live.\n- **Worm** — assume spread. Immediately check whether other hosts show the same indicators.\n- **Dropper / loader** — the file you caught is only stage one. Find and analyse the second-stage payload it fetched or wrote.\n- **Rootkit** — assume deep, hidden persistence; consider memory forensics, and often a rebuild is the safest path.\n- **Cryptominer** — lower data-theft risk, but it still confirms a foothold and resource abuse, so find how it got in.\n\n### Priority and first action at a glance\n\n| Malware type | Triage priority | Analyst's first move |\n| --- | --- | --- |\n| Ransomware / wiper | Critical | Isolate host, protect backups |\n| Infostealer | High | Scope and reset exposed credentials |\n| RAT / backdoor | High | Hunt C2 and persistence |\n| Worm | High | Check other hosts for spread |\n| Dropper / loader | Medium-High | Find the second-stage payload |\n| Rootkit | High | Memory forensics; consider rebuild |\n| Cryptominer | Medium | Confirm foothold, find entry vector |\n\n### The label is a hint, not gospel\n\nOne caution ties back to the start of this lesson: vendor detection names are a *starting point*, not the final word. Generic labels like `Trojan.Generic` or `Malware.Heuristic` tell you little, and a single sample often spans categories (a trojan that drops a loader that installs an infostealer). So let the type orient your first move, then confirm by what the sample actually **did** — the behaviour, not just the name. Even a rough type read is enough to set urgency and direction, which is exactly why this field guide is a working tool rather than trivia: it turns the question \"what did we catch?\" into \"what do I do about it, right now?\""
     }
   ],
   "keyTakeaways": [
     "Malware terms describe PURPOSE, not exclusive labels, and real samples combine many at once (a trojan dropper that loads an infostealer and installs a backdoor). Learn them as lenses: how it spreads (virus needs host+user; worm self-propagates; trojan is a user-tricking disguise), how it hides (rootkit=kernel stealth; fileless=in-memory; packer=obfuscation), and how it's delivered (dropper carries the payload; loader/downloader fetches the next stage).",
-    "The rest is theft, control, and payoff: spyware/infostealer/keylogger STEAL (creds, cookies, wallets, keystrokes); RAT/bot/backdoor give the attacker CONTROL and re-entry; ransomware/wiper/cryptominer are the PAYOFF (extort/destroy/steal compute). Naming the category drives your next question — infostealer→what data left, worm→which hosts, RAT/backdoor→what C2 and re-entry, ransomware→scope + backups — so the type is the fastest route to the right investigation and response."
+    "The rest is theft, control, and payoff: spyware/infostealer/keylogger STEAL (creds, cookies, wallets, keystrokes); RAT/bot/backdoor give the attacker CONTROL and re-entry; ransomware/wiper/cryptominer are the PAYOFF (extort/destroy/steal compute). Naming the category drives your next question — infostealer→what data left, worm→which hosts, RAT/backdoor→what C2 and re-entry, ransomware→scope + backups — so the type is the fastest route to the right investigation and response.",
+    "Reading the malware type sets triage priority and first action: ransomware/wiper is critical (isolate the host, protect backups), infostealer means reset exposed credentials, RAT/backdoor means hunt C2 and persistence, worm means check other hosts for spread, and dropper/loader means find the second stage — while treating the vendor label as a hint to confirm by behaviour."
   ],
   "quiz": [
     {
@@ -284,8 +289,8 @@ const NEW_TOPIC_LESSONS = [
     "https://www.cisa.gov/news-events/news/understanding-hidden-threats-rootkits-and-botnets",
     "https://attack.mitre.org/software/"
   ],
-  "xp": 170,
-  "estimatedMinutes": 34,
+  "xp": 190,
+  "estimatedMinutes": 40,
   "researchUsed": false,
   "createdAt": "2026-08-14T00:00:00.000Z"
 },
