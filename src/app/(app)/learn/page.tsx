@@ -83,18 +83,52 @@ function parseMarkdownTable(block: string): { headers: string[]; rows: string[][
 }
 
 function renderInline(text: string, keyBase: string | number) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
-    part.startsWith("**") && part.endsWith("**")
-      ? <strong key={`${keyBase}-${j}`} className="text-white font-semibold">{part.slice(2, -2)}</strong>
-      : <span key={`${keyBase}-${j}`}>{part}</span>
+  // Handles **bold**, *italic* and `inline code` in running text, table cells and list items.
+  // The **bold** alternative is listed first so it wins over the single-* italic rule.
+  return text.split(/(\*\*[^*]+\*\*|\*[^*\n]+\*|`[^`]+`)/g).map((part, j) => {
+    if (part.startsWith("**") && part.endsWith("**"))
+      return <strong key={`${keyBase}-${j}`} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
+    if (part.length > 1 && part.startsWith("`") && part.endsWith("`"))
+      return <code key={`${keyBase}-${j}`} className="rounded bg-[#111a2e] px-1.5 py-0.5 font-mono text-[12.5px] text-cyan-300">{part.slice(1, -1)}</code>;
+    if (part.length > 2 && part.startsWith("*") && part.endsWith("*"))
+      return <em key={`${keyBase}-${j}`} className="italic text-slate-200">{part.slice(1, -1)}</em>;
+    return <span key={`${keyBase}-${j}`}>{part}</span>;
+  });
+}
+
+// One fenced ```code``` block → a scrollable <pre>. Mermaid fences render as diagrams.
+function renderFencedCode(lang: string, body: string, key: string) {
+  const code = body.replace(/\n+$/, "");
+  if (lang === "mermaid" || isMermaidSource(code)) return <MermaidDiagram key={key} chart={code} />;
+  return (
+    <pre key={key} className="overflow-x-auto rounded-lg border border-[#1e2d4a] bg-[#0b1120] p-3 font-mono text-[12.5px] leading-relaxed text-neon-green">
+      <code>{code}</code>
+    </pre>
   );
 }
 
 function renderContent(text: string) {
+  // First peel off fenced code blocks so their inner blank lines / pipes survive
+  // the \n\n paragraph split below. Text between fences is rendered as normal blocks.
+  const segments: React.ReactNode[] = [];
+  const fenceRe = /```(\w*)\n([\s\S]*?)```/g;
+  let last = 0, m: RegExpExecArray | null, seg = 0;
+  while ((m = fenceRe.exec(text)) !== null) {
+    if (m.index > last) segments.push(<div key={`t${seg}`} className="space-y-4">{renderTextBlocks(text.slice(last, m.index), `t${seg}`)}</div>);
+    segments.push(renderFencedCode(m[1], m[2], `c${seg}`));
+    last = m.index + m[0].length;
+    seg++;
+  }
+  if (last < text.length) segments.push(<div key={`t${seg}`} className="space-y-4">{renderTextBlocks(text.slice(last), `t${seg}`)}</div>);
+  return <div className="space-y-4">{segments}</div>;
+}
+
+function renderTextBlocks(text: string, keyPrefix: string) {
   const blocks = text.split(/\n\n+/);
   return (
-    <div className="space-y-4">
-      {blocks.map((block, i) => {
+    <>
+      {blocks.map((block, bi) => {
+        const i = `${keyPrefix}-${bi}`;
         const trimmed = block.trim();
         if (!trimmed) return null;
 
@@ -174,19 +208,14 @@ function renderContent(text: string) {
           );
         }
 
-        // Paragraph — inline **bold** support
-        const parts = trimmed.split(/(\*\*[^*]+\*\*)/g);
+        // Paragraph — inline **bold** and `code` support
         return (
           <p key={i} className="text-[14px] text-slate-300 leading-[1.8]">
-            {parts.map((part, j) =>
-              part.startsWith("**") && part.endsWith("**")
-                ? <strong key={j} className="text-white font-semibold">{part.slice(2, -2)}</strong>
-                : part
-            )}
+            {renderInline(trimmed, i)}
           </p>
         );
       })}
-    </div>
+    </>
   );
 }
 
