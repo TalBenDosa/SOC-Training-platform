@@ -52,6 +52,19 @@ import { buildFakeBrowserUpdateScenario }        from "@/lib/sim/scenario-packs/
 import { buildTrojanizedInstallerKeyloggerScenario } from "@/lib/sim/scenario-packs/trojanizedInstallerKeylogger";
 import { buildGwsPhishingAttachmentScenario }    from "@/lib/sim/scenario-packs/gwsPhishingAttachment";
 import { buildBundledCryptominerScenario }       from "@/lib/sim/scenario-packs/bundledCryptominer";
+// Second foundation batch (six more source-light edr+firewall packs). Even after
+// the first batch, the easy pool per company sat right at RECENT_N=8, so a
+// student who played daily could still meet a repeat within a working week.
+// These six lift every company's foundation pool clear of the anti-repeat window
+// and add genuinely different initial-access tradecraft (SEO-poisoned installer,
+// ISO/MotW smuggling, drive-by miner, ClickFix fake-CAPTCHA, clipboard clipper,
+// scheduled-task persistence) so consecutive easy sessions feel distinct.
+import { buildSeoPoisonedInstallerScenario }     from "@/lib/sim/scenario-packs/seoPoisonedInstaller";
+import { buildIsoContainerSmugglingScenario }    from "@/lib/sim/scenario-packs/isoContainerSmuggling";
+import { buildDriveByBrowserMinerScenario }      from "@/lib/sim/scenario-packs/driveByBrowserMiner";
+import { buildClickFixFakeCaptchaScenario }      from "@/lib/sim/scenario-packs/clickFixFakeCaptcha";
+import { buildClipboardClipperScenario }         from "@/lib/sim/scenario-packs/clipboardClipper";
+import { buildScheduledTaskPersistenceScenario } from "@/lib/sim/scenario-packs/scheduledTaskPersistence";
 import { COMPANY_PROFILES, COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -120,6 +133,12 @@ const _fakeBrowserUpdate    = buildFakeBrowserUpdateScenario();
 const _trojanizedKeylogger  = buildTrojanizedInstallerKeyloggerScenario();
 const _gwsPhishAttachment   = buildGwsPhishingAttachmentScenario();
 const _bundledCryptominer   = buildBundledCryptominerScenario();
+const _seoPoisonedInstaller    = buildSeoPoisonedInstallerScenario();
+const _isoContainerSmuggling   = buildIsoContainerSmugglingScenario();
+const _driveByBrowserMiner     = buildDriveByBrowserMinerScenario();
+const _clickFixFakeCaptcha     = buildClickFixFakeCaptchaScenario();
+const _clipboardClipper        = buildClipboardClipperScenario();
+const _scheduledTaskPersistence = buildScheduledTaskPersistenceScenario();
 
 /** Scenario info still needed by the Start-Training modal on the dashboard page */
 export const SCENARIO_INFO = {
@@ -205,6 +224,13 @@ const GENERIC_STORIES: AttackStory[] = [
   story("fake-browser-update", _fakeBrowserUpdate,   "foundation"),
   story("trojanized-keylogger", _trojanizedKeylogger, "foundation"),
   story("bundled-cryptominer", _bundledCryptominer,  "foundation"),
+  // Second foundation batch — source-light (edr+firewall), fits every company.
+  story("seo-poisoned-installer",  _seoPoisonedInstaller,    "foundation"),
+  story("iso-container-smuggling", _isoContainerSmuggling,   "foundation"),
+  story("drive-by-browser-miner",  _driveByBrowserMiner,     "foundation"),
+  story("clickfix-fake-captcha",   _clickFixFakeCaptcha,     "foundation"),
+  story("clipboard-clipper",       _clipboardClipper,        "foundation"),
+  story("scheduled-task-persistence", _scheduledTaskPersistence, "foundation"),
 
   // core — contained identity/AD attacks that need correlating a few events
   story("impossible-travel-basic", _impossibleTravelBasic, "core", ["nexacorp", "medcore", "globallogis", "rocketstack", "quantumbank"]),

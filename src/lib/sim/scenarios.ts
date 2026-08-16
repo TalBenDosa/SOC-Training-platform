@@ -17,6 +17,12 @@ import { buildFakeBrowserUpdateScenario }    from "./scenario-packs/fakeBrowserU
 import { buildTrojanizedInstallerKeyloggerScenario } from "./scenario-packs/trojanizedInstallerKeylogger";
 import { buildGwsPhishingAttachmentScenario } from "./scenario-packs/gwsPhishingAttachment";
 import { buildBundledCryptominerScenario }   from "./scenario-packs/bundledCryptominer";
+import { buildSeoPoisonedInstallerScenario }     from "./scenario-packs/seoPoisonedInstaller";
+import { buildIsoContainerSmugglingScenario }    from "./scenario-packs/isoContainerSmuggling";
+import { buildDriveByBrowserMinerScenario }      from "./scenario-packs/driveByBrowserMiner";
+import { buildClickFixFakeCaptchaScenario }      from "./scenario-packs/clickFixFakeCaptcha";
+import { buildClipboardClipperScenario }         from "./scenario-packs/clipboardClipper";
+import { buildScheduledTaskPersistenceScenario } from "./scenario-packs/scheduledTaskPersistence";
 import { buildRogueAdminAccountScenario }   from "./scenario-packs/rogueAdminAccount";
 import { buildImpossibleTravelBasicScenario } from "./scenario-packs/impossibleTravelBasic";
 import { buildSoftwareInstallFalsePositiveScenario } from "./scenario-packs/softwareInstallFalsePositive";
@@ -3336,6 +3342,36 @@ export const SCENARIOS = [
     difficulty: "beginner", attack_kind: "resource_hijacking",
     threat_actor: "Freeware bundler (cryptomining monetisation)", build: withAlerts(buildBundledCryptominerScenario),
     summary: "Nothing was stolen, no account was touched, and it is still a real incident. Grading severity by 'what did they take' files this as low and leaves it mining for weeks." },
+  { slug: "seo-poisoned-installer",
+    title: "Sponsored Result — SEO-Poisoned PuTTY Download",
+    difficulty: "beginner", attack_kind: "user_execution",
+    threat_actor: "Commodity SEO-poisoning operator", build: withAlerts(buildSeoPoisonedInstallerScenario),
+    summary: "An admin searched for a tool she installs all the time and clicked the top result. The domain was registered last week — and by the time Defender flagged it, the browser-saved credentials were already gone." },
+  { slug: "iso-container-smuggling",
+    title: "Invoice.iso — Mark-of-the-Web Bypass via a Mounted Image",
+    difficulty: "beginner", attack_kind: "defense_evasion",
+    threat_actor: "Commodity malware distributor", build: withAlerts(buildIsoContainerSmugglingScenario),
+    summary: "The firewall only logged the .iso because it is not on the block list. Double-clicking it mounts a drive whose contents never inherit Mark-of-the-Web — so SmartScreen never gets a say." },
+  { slug: "drive-by-browser-miner",
+    title: "Slow Fan — Drive-by Cryptominer on a Trusted Converter",
+    difficulty: "beginner", attack_kind: "resource_hijacking",
+    threat_actor: "Malvertising / drive-by miner operator", build: withAlerts(buildDriveByBrowserMinerScenario),
+    summary: "A site he uses most weeks pulled a malicious ad that ran a miner right in the browser tab. No file was downloaded, nothing was installed — and the CPU has been pinned since he opened it." },
+  { slug: "clickfix-fake-captcha",
+    title: "Fake CAPTCHA — 'Paste This to Verify You're Human'",
+    difficulty: "beginner", attack_kind: "user_execution",
+    threat_actor: "ClickFix social-engineering operator", build: withAlerts(buildClickFixFakeCaptchaScenario),
+    summary: "The 'verification' step told her to press Win+R and paste — and she did. The command she never saw was already on her clipboard, put there by the page." },
+  { slug: "clipboard-clipper",
+    title: "Wrong Wallet — Clipboard-Hijacking Crypto Utility",
+    difficulty: "beginner", attack_kind: "input_capture",
+    threat_actor: "Commodity clipper-malware operator", build: withAlerts(buildClipboardClipperScenario),
+    summary: "The utility works exactly as advertised. It also watches the clipboard, and quietly swaps any wallet address you copy for the attacker's before you paste it." },
+  { slug: "scheduled-task-persistence",
+    title: "Speed-Boost Script — Persistence via a Scheduled Task",
+    difficulty: "beginner", attack_kind: "persistence",
+    threat_actor: "Commodity loader operator", build: withAlerts(buildScheduledTaskPersistenceScenario),
+    summary: "One PowerShell script promising a faster VPN. Its real job was a single schtasks command — so that even after a reboot and an AV sweep, it runs again every logon." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
