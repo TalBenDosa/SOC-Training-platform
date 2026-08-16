@@ -29,6 +29,17 @@ function MarkdownBlock({ text }: { text: string }) {
   const html = text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
+    // GFM tables → <table>. Runs after HTML-escaping so cell content is safe;
+    // the tags emitted here are our own whitelisted markup. A block is a run of
+    // lines that start and end with "|", whose 2nd line is a "| --- |" separator.
+    .replace(/(?:^\|.*\|[ \t]*\n?)+/gm, (block: string) => {
+      const lines = block.trim().split("\n");
+      if (lines.length < 2 || !/^\|[ \t:|\-]+\|[ \t]*$/.test(lines[1])) return block;
+      const cells = (r: string) => r.trim().replace(/^\|/, "").replace(/\|[ \t]*$/, "").split("|").map(c => c.trim());
+      const th = cells(lines[0]).map(c => `<th class="border border-[#1e2d4a] bg-[#0f1830] px-3 py-1.5 text-left font-semibold text-cyan-200">${c}</th>`).join("");
+      const rows = lines.slice(2).map(r => `<tr>${cells(r).map(c => `<td class="border border-[#1e2d4a] px-3 py-1.5 align-top text-slate-300">${c}</td>`).join("")}</tr>`).join("");
+      return `<table class="my-4 w-full border-collapse text-sm"><thead><tr>${th}</tr></thead><tbody>${rows}</tbody></table>`;
+    })
     .replace(/^### (.+)$/gm, '<h3 class="mt-5 mb-2 text-base font-bold text-white">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 class="mt-6 mb-3 text-lg font-bold text-white">$1</h2>')
     .replace(/^# (.+)$/gm, '<h1 class="mt-6 mb-3 text-xl font-bold text-white">$1</h1>')
@@ -38,7 +49,7 @@ function MarkdownBlock({ text }: { text: string }) {
     .replace(/^- (.+)$/gm, '<li class="ml-4 list-disc text-slate-300 my-1">$1</li>')
     .replace(/(<li[^>]*>.*<\/li>\n?)+/g, m => `<ul class="my-3 space-y-1">${m}</ul>`)
     .replace(/\n\n/g, '</p><p class="my-3 text-slate-300 leading-relaxed">')
-    .replace(/^(?!<[hbuclp])/, '<p class="my-3 text-slate-300 leading-relaxed">')
+    .replace(/^(?!<[hbuclpt])/, '<p class="my-3 text-slate-300 leading-relaxed">')
     .replace(/$(?<![>])/, '</p>');
   return (
     <div
