@@ -4920,6 +4920,194 @@ const NEW_TOPIC_LESSONS = [
   "estimatedMinutes": 38,
   "researchUsed": false,
   "createdAt": "2026-08-15T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-splunk-for-soc-analysts",
+  "slug": "splunk-for-soc-analysts",
+  "title": "Splunk for SOC Analysts: Searching, SPL, and Notable Events",
+  "topic": "SIEM",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "Splunk is one of the most widely deployed SIEMs in the world, and for a huge number of SOC analysts it is the single tool they live in all day. It ingests machine data from everywhere — Windows and Linux logs, firewalls, cloud, EDR — and lets you search all of it with one query language, SPL. This lesson is a hands-on tour for an analyst: what Splunk is and how a search actually works, SPL step by step, the commands you use every shift, real SOC queries you can read and adapt, and how a search becomes a saved alert or a Notable Event in Enterprise Security.",
+  "sections": [
+    {
+      "heading": "What Splunk Is and How a Search Works",
+      "content": "**Splunk** is a platform that collects machine data (logs, events, metrics) from across an environment, stores it, and makes it searchable. Used as a **SIEM**, it becomes the place a SOC centralises its telemetry and hunts through it. The mental model: everything gets shipped into Splunk, and you ask questions of all of it from one search bar.\n\n### Index, source, and sourcetype\n\nData in Splunk lives in **indexes** (think of them as named buckets — `index=windows`, `index=firewall`, `index=main`). Every event also carries a **source** (where it came from, e.g. a file path) and a **sourcetype** (the *kind* of data, e.g. `WinEventLog:Security`, `pan:traffic`, `linux_secure`). Scoping a search to the right index and sourcetype is the first thing you do, because it makes the search fast and precise.\n\n### The search bar and the time picker\n\nYou type a query into the **search bar** and choose a **time range** from the time picker (Last 24 hours, Last 15 minutes, a custom window). Time range matters enormously: the same query over 'all time' can be slow and noisy, while the same query over 'last 60 minutes' is fast and focused. Always set the window to the incident you are investigating.\n\n### Fields\n\nSplunk extracts **fields** from events — named values like `user`, `src_ip`, `EventCode`, `action`. You filter on them with `field=value` (`EventCode=4625`, `action=blocked`). Good field usage is what turns a keyword search into a precise question. A bare keyword search (`failed`) finds every event containing that word; `EventCode=4625` finds exactly the failed-logon events.\n\nThe payoff of this model is that **one language searches everything**. Whether the data came from a domain controller, a Palo Alto firewall, or CrowdStrike, once it is indexed you query it the same way — which is exactly why analysts spend their day in the Splunk search bar."
+    },
+    {
+      "heading": "SPL Step by Step: The Pipe",
+      "content": "**SPL — the Search Processing Language** — is how you ask Splunk questions, and its single most important idea is the **pipe** (`|`). A search reads left to right: you start by *retrieving* events, then pass them through a chain of commands, each one transforming the results before handing them to the next — exactly like the Unix pipe.\n\n### The shape of every search\n\nA search has two halves:\n\n1. **The base search** (before the first pipe) — retrieves raw events, scoped by index/sourcetype and field filters. This is the only part that reads the index, so keep it as specific as possible.\n2. **The pipeline** (each `| command`) — filters, groups, calculates, and formats what the base search returned.\n\nRead this query as a sentence:\n\n```\nindex=windows sourcetype=WinEventLog:Security EventCode=4625\n| stats count by user, src_ip\n| where count > 20\n| sort - count\n```\n\nIt says: *from the Windows Security log, get failed-logon events (4625); count them grouped by user and source IP; keep only pairs with more than 20 failures; sort most-failures first.* Each pipe stage narrows or reshapes the data.\n\n### Why order matters\n\nBecause each stage feeds the next, **order changes everything**. Filtering early (in the base search) means less data flows down the pipeline and the search is fast; filtering late means Splunk hauls everything first and trims after, which is slow. The professional habit is *filter early, transform late* — put your most selective conditions in the base search, and use `stats`/`eval`/`sort` afterward on the smaller result set.\n\nOnce you can read a pipeline as a left-to-right sentence, almost any SPL query becomes legible — you just follow the data from the base search through each transformation to the final table."
+    },
+    {
+      "heading": "The SPL Commands You Use Every Shift",
+      "content": "You do not need all of SPL; a dozen commands cover the overwhelming majority of SOC work. Learn these and you can read and write real searches.\n\n| Command | What it does |\n|---------|--------------|\n| `search` / `where` | Filter events (`where` allows expressions and comparisons) |\n| `stats` | Aggregate: `count`, `sum`, `values`, `dc` (distinct count) `by` fields |\n| `table` | Show only the columns you name, in order |\n| `sort` | Order results (`sort - count` = descending) |\n| `dedup` | Remove duplicate rows by a field |\n| `top` / `rare` | The most / least common values of a field |\n| `eval` | Create or transform a field (`eval hour=strftime(_time,\"%H\")`) |\n| `rex` | Extract a new field from raw text with a regex |\n| `timechart` | Aggregate over time for a trend/graph |\n| `lookup` | Enrich events against a table (e.g. asset owner, threat-intel list) |\n| `rename` / `fields` | Rename columns / keep or drop fields |\n\n### A worked example\n\nPutting a few together to find the top external destinations a host talked to:\n\n```\nindex=firewall sourcetype=pan:traffic src_ip=10.14.22.108 action=allowed\n| stats sum(bytes_out) as bytes_out, dc(dest_ip) as distinct_dests by dest_ip\n| sort - bytes_out\n| head 10\n```\n\nThis retrieves allowed outbound traffic from one host, sums the bytes sent per destination, and shows the ten largest — the shape you would use to spot data exfiltration.\n\n### Two habits that make you fast\n\nFirst, **`stats` is your workhorse** — most investigations end in a `stats count by ...` that turns thousands of raw events into a short, ranked table you can actually reason about. Second, **`timechart` answers 'when'** — pivoting the same data over time instantly reveals beaconing (a flat, regular line) versus normal bursty activity. Master `stats` and `timechart` and you can answer most SOC questions."
+    },
+    {
+      "heading": "Common SOC Searches You Can Read and Adapt",
+      "content": "Here are searches for the situations a Tier-1/Tier-2 analyst hits constantly. Read each as a base search plus a pipeline, and adapt the index/field names to your environment.\n\n### Brute force that then succeeded\n\n```\nindex=windows EventCode=4625\n| stats count as failures, values(_time) as times by user, src_ip\n| where failures > 20\n```\n\nThen pivot: check whether the same `user`+`src_ip` produced a **4624** (successful logon) shortly after — a brute force that *succeeded* is a likely compromise.\n\n### Suspicious process ancestry\n\n```\nindex=edr sourcetype=Sysmon EventCode=1 ParentImage=\"*\\\\WINWORD.EXE\" Image=\"*\\\\powershell.exe\"\n| table _time, host, User, ParentImage, Image, CommandLine\n```\n\nWord spawning PowerShell — the classic malicious-macro signature — surfaced directly.\n\n### Beaconing to a destination\n\n```\nindex=firewall dest_ip=203.0.113.44\n| timechart span=1m count\n```\n\nA metronomic, flat line (the same small count every minute) is beaconing; human traffic is bursty and irregular.\n\n### Rare, first-seen values\n\n```\nindex=proxy\n| rare limit=20 dest_domain\n```\n\nThe least-common domains a host reached are often the interesting ones — newly-registered C2 rather than the top-visited business sites.\n\nThe unifying pattern across all of these is **retrieve narrowly, then `stats`/`timechart`/`rare` to expose the anomaly**. You are almost never reading raw events one by one; you are aggregating thousands of them into a small table where the outlier stands out. That is the core SPL skill, and every query above is a variation on it."
+    },
+    {
+      "heading": "From Search to Detection: Alerts, Dashboards & Enterprise Security",
+      "content": "A search you run by hand is useful once; the real power of Splunk in a SOC is turning good searches into *automatic* detection and shared views.\n\n### Saved searches and alerts\n\nAny SPL search can be **saved** and scheduled to run on a timer (say, every 5 minutes). When you attach a **condition** — 'alert if results > 0', or 'if failures > 50' — it becomes a **scheduled alert** that fires and can email the team, create a ticket, or trigger an action. This is how a hunt you did once becomes a standing detection: you write the query, confirm it is precise, then save it as an alert so it catches the same thing automatically next time.\n\n### Dashboards\n\nSaved searches also power **dashboards** — panels of charts and tables (built from `timechart`, `stats`, etc.) that give a live, at-a-glance view: failed logons over time, top talkers, blocked connections by country. Analysts open a dashboard at the start of a shift to see the state of the environment before diving into individual alerts.\n\n### Splunk Enterprise Security and Notable Events\n\nMany SOCs run **Splunk Enterprise Security (ES)**, a premium app that layers a security workflow on top of Splunk. Its core concepts:\n\n- **Correlation searches** — pre-built and custom SPL searches that run continuously to detect threats.\n- **Notable Events** — when a correlation search fires, it creates a **Notable Event**: a triageable alert in the ES **Incident Review** queue, with a severity, an owner, and a status (new/in-progress/resolved). This is the ES analyst's alert inbox.\n- **Risk-Based Alerting (RBA)** — attributes risk to users/hosts across many low-level signals, so an entity accumulating risk raises a notable even when no single event would.\n\nThe workflow ties together everything in this lesson: raw data is indexed, correlation searches (written in SPL) run against it, matches become Notable Events an analyst triages in Incident Review, and the analyst pivots *back into ad-hoc SPL searches* to investigate — reading the pipeline, aggregating with `stats`, checking `timechart` for beaconing. Splunk is, in the end, one search language wrapped in a detection-and-triage workflow, and fluency in SPL is what makes an analyst effective in all of it."
+    }
+  ],
+  "keyTakeaways": [
+    "Splunk centralises machine data into indexes (with source/sourcetype) and lets you search everything with one language; always scope by index/sourcetype and set a tight time range, and filter on extracted fields (field=value) rather than bare keywords.",
+    "SPL is built on the pipe (|): a base search retrieves events, then each | command filters/aggregates/formats — read left to right as a sentence, and filter early (in the base search) for speed.",
+    "A dozen commands cover most SOC work — search/where, stats (the workhorse), table, sort, dedup, top/rare, eval, rex, timechart, lookup — with stats turning thousands of events into a ranked table and timechart exposing beaconing.",
+    "Good searches become detection: save+schedule them as alerts, build dashboards from timechart/stats, and in Splunk Enterprise Security correlation searches raise Notable Events (an Incident Review queue) plus Risk-Based Alerting — then analysts pivot back into ad-hoc SPL to investigate."
+  ],
+  "quiz": [
+    {
+      "question": "You want to find, in the Windows Security log, source IPs that produced more than 20 failed logons. Which SPL query correctly expresses this, and why is its ordering efficient?",
+      "options": [
+        {
+          "label": "index=windows EventCode=4625 | stats count by src_ip | where count > 20 — it filters to 4625 in the base search first, then aggregates and thresholds the smaller result set.",
+          "value": "a"
+        },
+        {
+          "label": "index=windows | stats count by src_ip | where EventCode=4625 — it aggregates all Windows events first and applies the EventCode filter at the very end for accuracy.",
+          "value": "b"
+        },
+        {
+          "label": "count > 20 | src_ip | EventCode=4625 index=windows — SPL reads right to left, so the index and event filter must come last in the pipeline.",
+          "value": "c"
+        },
+        {
+          "label": "index=windows EventCode=4625 timechart count — timechart is required to count failed logons per source IP because stats cannot group by a field.",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "The correct, efficient query filters to EventCode=4625 in the base search (so only failed logons are retrieved), then uses stats count by src_ip and where count > 20 on that smaller set — filter early, transform late. Option b is wrong because you cannot filter on EventCode after stats has aggregated it away, and aggregating all events first is slow. Option c reverses SPL's left-to-right order. Option d is wrong because stats can group by a field, and timechart is for trends over time, not per-IP counts."
+    },
+    {
+      "question": "In Splunk Enterprise Security, what is a 'Notable Event' and how does it fit the SOC workflow?",
+      "options": [
+        {
+          "label": "A raw log line stored in an index, which analysts read one at a time because Enterprise Security disables aggregation commands like stats.",
+          "value": "a"
+        },
+        {
+          "label": "A triageable alert created when a correlation search fires, appearing in the Incident Review queue with a severity, owner, and status for an analyst to work.",
+          "value": "b"
+        },
+        {
+          "label": "A dashboard panel that can only display data and never generates any alert, so it plays no role in detection or triage.",
+          "value": "c"
+        },
+        {
+          "label": "A saved search that runs once manually and cannot be scheduled, so it never produces automatic detections in a SOC.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "In Splunk Enterprise Security a correlation search (written in SPL) runs continuously and, on a match, creates a Notable Event — a triageable alert in the Incident Review queue with a severity, owner, and status, which is the ES analyst's inbox. Option a wrongly describes it as a raw log and falsely claims stats is disabled. Option c confuses it with a dashboard panel. Option d is wrong because notable-generating correlation searches are scheduled and automatic."
+    }
+  ],
+  "references": [
+    "https://docs.splunk.com/Documentation/Splunk/latest/SearchReference/WhatsInThisManual",
+    "https://docs.splunk.com/Documentation/Splunk/latest/Search/Aboutthesearchlanguage",
+    "https://docs.splunk.com/Documentation/ES/latest/User/Howurworkswithnotableevents"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 42,
+  "researchUsed": false,
+  "createdAt": "2026-08-16T00:00:00.000Z"
+},
+{
+  "id": "topic-lesson-ibm-qradar-for-soc-analysts",
+  "slug": "ibm-qradar-for-soc-analysts",
+  "title": "IBM QRadar for SOC Analysts: Offenses, AQL, and Log Activity",
+  "topic": "SIEM",
+  "difficulty": "intermediate",
+  "kind": "lesson",
+  "intro": "IBM QRadar is one of the enterprise SIEMs a SOC analyst is most likely to sit in front of, and it works quite differently from a search-bar tool like Splunk. QRadar's whole design revolves around one idea: it correlates raw events into prioritised Offenses so analysts investigate incidents, not individual logs. This lesson is a hands-on tour: what QRadar is and how it normalises data, the tabs you work in, its query language AQL step by step with real queries, and how Offenses and their Magnitude drive the triage workflow.",
+  "sections": [
+    {
+      "heading": "What QRadar Is: Events, Flows, and Normalisation",
+      "content": "**IBM QRadar** is a SIEM that collects security data, normalises it, correlates it with rules, and surfaces the results as prioritised **Offenses**. Its defining trait is that it does the first pass of correlation *for* you — rather than handing you a raw search bar, it groups related activity into incidents to investigate.\n\n### Events and flows\n\nQRadar ingests two kinds of data, and knowing the difference matters:\n\n- **Events** — log records from devices: a Windows logon, a firewall deny, an EDR alert. Each event is a discrete thing that happened.\n- **Flows** — network conversation records (who talked to whom, how much, for how long), from network taps or NetFlow. Flows give visibility even where no device logged the activity.\n\nEvents live under the **Log Activity** tab; flows under **Network Activity**. Having both is what lets QRadar correlate 'this logon' with 'this network conversation'.\n\n### DSMs and normalisation\n\nRaw logs arrive in dozens of vendor formats. QRadar's **DSMs (Device Support Modules)** parse each vendor's format and **normalise** it into a common schema — so a username is `username`, a source address is `sourceip`, and an event category is a **QID** (QRadar Identifier) regardless of whether it came from Cisco, Palo Alto, or Windows. This normalisation is what makes one query language work across every source.\n\n### The architecture, briefly\n\nA QRadar deployment has a **Console** (the UI and correlation brain), **Event Processors** and **Flow Processors** (that collect and store data), and the **Ariel** database (where events and flows are stored and queried). You do not administer these as an analyst, but the terms appear in the UI, and knowing that events/flows are stored in **Ariel** explains why the query language is called AQL. The takeaway: QRadar takes messy multi-vendor data, normalises it via DSMs, stores it in Ariel, and correlates it into Offenses — which is the workflow the rest of this lesson follows."
+    },
+    {
+      "heading": "The Interface: Log Activity, Network Activity, and Offenses",
+      "content": "QRadar's UI is organised into **tabs**, and an analyst spends the day moving between three of them.\n\n### Offenses — where you start\n\nThe **Offenses** tab is the analyst's queue. An Offense is QRadar's correlated incident: a set of related events/flows that its rules decided are worth attention, with a **Magnitude** (priority), an **offense type**, and lists of **sources** (attackers), **destinations** (targets), and the contributing events. You work Offenses top-down by Magnitude — highest first. This is the opposite of a search-first tool: your day begins with QRadar's own prioritised incidents, not a blank query.\n\n### Log Activity — the events\n\nThe **Log Activity** tab shows the raw, normalised **events** in near-real-time, and it is where you drill in. Two features make it fast:\n\n- **Quick Filter** — a free-text search box (Lucene-style) for fast keyword filtering across events.\n- **Right-click to filter** — click any value (an IP, a username) and add it to the filter, or pivot to related data. This click-driven filtering is how analysts narrow from thousands of events to the relevant handful without writing a query.\n\nYou can also switch Log Activity to run an **AQL** query directly (next section) for precise, aggregated questions.\n\n### Network Activity — the flows\n\nThe **Network Activity** tab is the same idea for **flows** — network conversations — letting you see traffic volume and peers even when no log exists.\n\n### Dashboards and saved searches\n\nThe **Dashboard** tab holds live widgets, and any Log/Network Activity search can be **saved** and reused or turned into a dashboard item. The core loop for an analyst is: **open an Offense → pivot into Log Activity to see its events → filter (quick-filter, right-click, or AQL) to understand what happened → decide.** Recognising which tab answers which question is the first QRadar skill."
+    },
+    {
+      "heading": "AQL Step by Step",
+      "content": "**AQL — the Ariel Query Language** — is QRadar's query language for events and flows, and it looks like **SQL**, which makes it approachable if you have seen a database query. You run it from the Log Activity (or Network Activity) search, and it answers precise, aggregated questions the click-filters cannot.\n\n### The shape of an AQL query\n\n```\nSELECT sourceip, username, COUNT(*) AS failures\nFROM events\nWHERE qid = 5000023\nGROUP BY sourceip, username\nHAVING failures > 20\nORDER BY failures DESC\nLAST 1 HOURS\n```\n\nRead it like SQL with one QRadar twist — the **time window** is a clause at the end:\n\n- **`SELECT`** — the fields (and aggregates) to return.\n- **`FROM events`** (or `FROM flows`) — which Ariel dataset.\n- **`WHERE`** — the filter conditions.\n- **`GROUP BY` / `HAVING`** — aggregate and threshold, exactly like SQL.\n- **`ORDER BY`** — sort.\n- **`LAST 1 HOURS`** — the time range. This trailing time clause is distinctive to AQL and is required to bound the search.\n\n### The fields and helper functions you need\n\nBecause data is normalised, you query common fields: `sourceip`, `destinationip`, `sourceport`, `destinationport`, `username`, `eventcount`, `magnitude`, `starttime`. Two helper functions come up constantly because QRadar stores some things as numeric IDs:\n\n- **`QIDNAME(qid)`** — turns the numeric event id (QID) into its human name (e.g. 'Failed Login').\n- **`LOGSOURCENAME(logsourceid)`** — turns the numeric log-source id into the device name.\n\nSo a readable version of a failed-logon hunt is:\n\n```\nSELECT LOGSOURCENAME(logsourceid) AS device, sourceip, username, COUNT(*) AS failures\nFROM events\nWHERE QIDNAME(qid) ILIKE '%failed%login%'\nGROUP BY sourceip, username\nORDER BY failures DESC\nLAST 24 HOURS\n```\n\nThe key mental model: **AQL is SQL over normalised security data, with a trailing time window and QIDNAME/LOGSOURCENAME to decode the numeric ids.** Once that clicks, you can read and write real QRadar queries."
+    },
+    {
+      "heading": "Common SOC AQL Queries and Fields",
+      "content": "Here are AQL queries for everyday SOC questions, plus the fields that make them work.\n\n### Everyday queries\n\n**Top talkers (possible exfiltration):**\n\n```\nSELECT sourceip, destinationip, SUM(sourcebytes) AS bytes_out\nFROM flows\nWHERE sourceip = '10.14.22.108'\nGROUP BY destinationip\nORDER BY bytes_out DESC\nLAST 24 HOURS\n```\n\n**Authentication activity for one user:**\n\n```\nSELECT starttime, sourceip, QIDNAME(qid) AS event, LOGSOURCENAME(logsourceid) AS device\nFROM events\nWHERE username = 'j.smith'\nORDER BY starttime DESC\nLAST 7 DAYS\n```\n\n**Denied connections to a suspect IP:**\n\n```\nSELECT sourceip, destinationip, destinationport, COUNT(*) AS hits\nFROM events\nWHERE destinationip = '203.0.113.44'\nGROUP BY sourceip, destinationport\nLAST 6 HOURS\n```\n\n### The fields you will use most\n\n| Field / function | What it holds |\n|------------------|---------------|\n| `sourceip` / `destinationip` | The IP addresses involved |\n| `sourceport` / `destinationport` | The ports (service) |\n| `username` | The normalised user |\n| `qid` / `QIDNAME(qid)` | The event id / its human name |\n| `logsourceid` / `LOGSOURCENAME()` | The device that logged it |\n| `magnitude` | The event's calculated importance |\n| `starttime` | When the event occurred |\n| `sourcebytes` / `destinationbytes` | Bytes in a flow (for exfil) |\n\n### The habit that makes AQL fast\n\nAs with any SIEM query, **filter and bound tightly**: a specific `WHERE`, a specific field, and the smallest sensible `LAST N` window. AQL over 'LAST 30 DAYS' with no `WHERE` is slow and noisy; the same query scoped to one IP over 'LAST 6 HOURS' returns instantly. And when you have a query that reliably finds something bad, it becomes the seed of a **rule** (next section) so QRadar catches it automatically."
+    },
+    {
+      "heading": "Offenses and Magnitude: How QRadar Correlates and You Triage",
+      "content": "The feature that defines QRadar is the **Offense**, and understanding how one is born and prioritised is the heart of using the tool.\n\n### From events to an Offense\n\nQRadar runs **rules** (in the Rule Engine) continuously against incoming events and flows. A rule is a condition — 'more than 20 failed logins from one source in 10 minutes, followed by a success', 'communication with a known-bad IP', 'a new admin account created'. When a rule's conditions are met, QRadar **creates or updates an Offense**, attaching the contributing events, the **sources** (attackers) and **destinations** (targets), and a category. Instead of you correlating raw logs by hand, the rules do the first pass and hand you an incident.\n\n### Magnitude — how Offenses are prioritised\n\nEvery Offense carries a **Magnitude**, QRadar's priority score, computed from three components:\n\n- **Severity** — how damaging the activity would be.\n- **Credibility** — how confident QRadar is that it is real (a single source vs corroborated).\n- **Relevance** — how important the affected asset is (a domain controller vs a test box).\n\nMagnitude combines these so analysts can **work the queue top-down** — highest Magnitude first — instead of treating every alert equally. Tuning severity/credibility/relevance (for example, marking your critical servers high-relevance) is how a SOC makes Magnitude reflect real business risk.\n\n### The analyst's triage loop\n\nPutting the whole lesson together, a QRadar shift looks like this:\n\n1. **Open the Offenses tab**, sorted by Magnitude — start with the most urgent.\n2. **Open an Offense** to see its summary: what rule fired, the sources and destinations, and the timeline.\n3. **Pivot into Log Activity / Network Activity** on the offending IPs/users — use quick-filter, right-click, or an **AQL** query to see exactly what happened and gather scope.\n4. **Decide**: escalate, contain, or close as a false positive — and set the Offense's status/owner.\n5. If it revealed a gap, **turn the AQL into a rule** so QRadar catches it next time.\n\nThe defining difference from a search-first SIEM is this: QRadar starts you at *correlated, prioritised incidents* (Offenses ranked by Magnitude) and lets you drill down into the raw events with AQL — rather than starting you at an empty search bar. Master the Offense-to-AQL loop and you can work a QRadar SOC queue effectively."
+    }
+  ],
+  "keyTakeaways": [
+    "QRadar is a SIEM that ingests events (device logs, under Log Activity) and flows (network conversations, under Network Activity), normalises multi-vendor data via DSMs into a common schema (sourceip, username, QID), stores it in the Ariel database, and correlates it into Offenses.",
+    "Analysts work three tabs: Offenses (the prioritised incident queue you start from), Log Activity (raw normalised events — quick-filter and right-click to pivot, or run AQL), and Network Activity (flows); the core loop is open an Offense → drill into events → decide.",
+    "AQL is SQL over normalised data with a trailing time window: SELECT ... FROM events/flows WHERE ... GROUP BY ... ORDER BY ... LAST N HOURS, using QIDNAME(qid) and LOGSOURCENAME(logsourceid) to decode numeric ids — always filter tightly and bound the time range.",
+    "Rules correlate events/flows into Offenses, each scored by Magnitude = severity × credibility × relevance, so analysts work the queue top-down by Magnitude; the workflow is Offense → pivot with AQL → decide → turn good queries into rules."
+  ],
+  "quiz": [
+    {
+      "question": "What most fundamentally distinguishes how a SOC analyst starts their day in QRadar versus a search-bar SIEM, and why?",
+      "options": [
+        {
+          "label": "In QRadar you must write an AQL query before seeing any data, because QRadar has no correlation engine and never groups related events together.",
+          "value": "a"
+        },
+        {
+          "label": "QRadar starts you at prioritised Offenses — correlated incidents its rules already built and scored by Magnitude — rather than at an empty search bar, so you triage incidents first.",
+          "value": "b"
+        },
+        {
+          "label": "QRadar only stores network flows and no device logs, so an analyst can never investigate a Windows logon or a firewall event within the tool.",
+          "value": "c"
+        },
+        {
+          "label": "QRadar disables all filtering and drill-down, so once an Offense opens the analyst cannot narrow down to the specific events that caused it.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "QRadar's defining trait is that its rules correlate raw events/flows into Offenses scored by Magnitude, so the analyst starts at a prioritised incident queue and drills down — the opposite of a search-first tool that starts you at a blank query. Option a is wrong because QRadar's whole point is its correlation engine, and you can browse Log Activity without AQL. Option c is false because QRadar ingests both events (logs) and flows. Option d is wrong because Log Activity supports quick-filter, right-click, and AQL drill-down."
+    },
+    {
+      "question": "An Offense in QRadar has a high Magnitude. What does Magnitude represent, and how should it shape your triage?",
+      "options": [
+        {
+          "label": "The number of raw bytes in the offense's network flows, so you should investigate whichever offense transferred the most data regardless of its risk.",
+          "value": "a"
+        },
+        {
+          "label": "A priority score computed from severity, credibility, and relevance, so you work the Offense queue top-down by Magnitude, most urgent first.",
+          "value": "b"
+        },
+        {
+          "label": "The alphabetical order of the rule name that created it, so Magnitude simply determines where the offense appears in the list, not its importance.",
+          "value": "c"
+        },
+        {
+          "label": "The number of days the offense has been open, so a high Magnitude only means the offense is old and can safely be closed without review.",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "Magnitude is QRadar's priority score, combining severity (potential damage), credibility (confidence it is real), and relevance (importance of the affected asset), so analysts work the Offense queue top-down by Magnitude to hit the most urgent incidents first. Option a wrongly equates it with flow bytes. Option c invents an alphabetical scheme. Option d is dangerously wrong — high Magnitude signals urgency, not age or a reason to auto-close."
+    }
+  ],
+  "references": [
+    "https://www.ibm.com/docs/en/qradar-common?topic=overview-qradar-siem",
+    "https://www.ibm.com/docs/en/qsip/latest?topic=queries-ariel-query-language",
+    "https://www.ibm.com/docs/en/qsip/latest?topic=investigations-offenses"
+  ],
+  "xp": 210,
+  "estimatedMinutes": 42,
+  "researchUsed": false,
+  "createdAt": "2026-08-16T00:00:00.000Z"
 }
 ];
 
