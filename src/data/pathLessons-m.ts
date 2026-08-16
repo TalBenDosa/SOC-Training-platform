@@ -136,7 +136,7 @@ const lessons = [
         "explanation": "The browser checks name match, validity dates, chain to a trusted root, and revocation status — all properties of the connection and the binding, not of the operator's intentions. Domain-validated certificates are free and automatic, so a phishing domain registered minutes ago has a perfectly valid one. Options b and c both credit certificate authorities with content or business vetting they do not perform for standard certificates. Option d is wrong because certificate validity is unrelated to domain age or reputation."
       },
       {
-        "question": "During triage you find a PowerShell command line containing a long base64 string passed to the -enc parameter. What is the correct conclusion and next step?",
+        "question": "During triage you find a PowerShell command line containing a long base64 string passed to the -enc <base64 blob>. What is the correct conclusion and next step?",
         "options": [
           {
             "label": "It is encoded rather than encrypted, so no key is involved and you should decode it immediately to read the actual command",
