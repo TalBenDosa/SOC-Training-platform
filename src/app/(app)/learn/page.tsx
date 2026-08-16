@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 import { fetchPublishedLessons } from "@/lib/content/publicContent";
-import { Search, Clock, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen } from "lucide-react";
+import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
@@ -240,10 +240,6 @@ function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }
       {/* stats */}
       <div className="flex items-center gap-4 text-[12px] text-slate-400 border-t border-[#1e2d4a] pt-3">
         <span className="flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" />
-          {lesson.estimatedMinutes} min
-        </span>
-        <span className="flex items-center gap-1.5">
           <FileText className="h-3.5 w-3.5" />
           {pages} pages
         </span>
@@ -350,7 +346,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
             <div className="min-w-0">
               <h2 className="text-sm font-bold text-white truncate">{lesson.title}</h2>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Page {page + 1} of {totalPages} · {lesson.estimatedMinutes} min read
+                Page {page + 1} of {totalPages}
               </p>
             </div>
           </div>
