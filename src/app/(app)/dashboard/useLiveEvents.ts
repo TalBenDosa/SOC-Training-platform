@@ -9,6 +9,7 @@ import {
 import type { WorldState, GeneratedEvent } from "@/lib/sim/engine";
 import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
+import { withRebasedTime } from "@/lib/sim/rebaseTime";
 
 export interface ActiveIncident {
   id: string;
@@ -200,6 +201,9 @@ function severityBase(sev: string): number {
     default:              return 1;
   }
 }
+
+// Raw-timestamp rebasing helpers live in src/lib/sim/rebaseTime.ts (standalone,
+// no React) so scripts/validate-runtime-feed can exercise them in CI.
 
 function buildRuleId(event: TelemetryEvent, index: number): string {
   // 1. MITRE technique map
@@ -1022,7 +1026,7 @@ export function useLiveEvents({
       }
       setEvents(
         initial.map((e, i) =>
-          enrichWithFidelity({ ...e, ts: new Date(now - (14 - i) * 60_000).toISOString() }, i)
+          enrichWithFidelity(withRebasedTime(e, new Date(now - (14 - i) * 60_000).toISOString()), i)
         ).reverse()
       );
       return;
@@ -1040,7 +1044,7 @@ export function useLiveEvents({
     domainUsersRef.current = extractDomainUsers(pool);
     setEvents(
       initial.map((e, i) =>
-        enrichWithFidelity({ ...e, ts: new Date(now - (14 - i) * 60_000).toISOString() }, i)
+        enrichWithFidelity(withRebasedTime(e, new Date(now - (14 - i) * 60_000).toISOString()), i)
       ).reverse()
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1143,7 +1147,7 @@ export function useLiveEvents({
           newRaw.push(generatedToTelemetry(g, globalIdx.current + i));
         }
         globalIdx.current += newRaw.length;
-        const enriched = newRaw.map(e => enrichWithFidelity({ ...e, ts: new Date().toISOString() }, globalIdx.current++));
+        const enriched = newRaw.map(e => enrichWithFidelity(withRebasedTime(e, new Date().toISOString()), globalIdx.current++));
         const batchIds  = new Set(enriched.map(e => e.id));
         setNewIds(batchIds);
         setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
@@ -1169,7 +1173,7 @@ export function useLiveEvents({
         }
         if (!chosen) chosen = nextFromDeck();
         if (!chosen) chosen = pool[Math.floor(Math.random() * pool.length)];
-        newRaw.push({ ...chosen, ts: new Date().toISOString(), id: `${chosen.id}_${Date.now()}_${i}` });
+        newRaw.push({ ...withRebasedTime(chosen, new Date().toISOString()), id: `${chosen.id}_${Date.now()}_${i}` });
       }
 
       const enriched = newRaw.map(e => enrichWithFidelity(e, globalIdx.current++));
@@ -1214,8 +1218,7 @@ export function useLiveEvents({
     const n = Math.min(s.events.length - cursor, 2 + (Math.random() < 0.5 ? 1 : 0)); // 2-3 events
     const now = Date.now();
     const slice = s.events.slice(cursor, cursor + n).map((e, i) => ({
-      ...e,
-      ts: new Date(now + i * 4_000).toISOString(),
+      ...withRebasedTime(e, new Date(now + i * 4_000).toISOString()),
       id: `atk_${e.id}_${now}_${i}`,
     }));
     storyCursorRef.current = cursor + n;
@@ -1383,7 +1386,7 @@ export function useLiveEvents({
     buildDeck(srcShuffled);
     const now = Date.now();
     setEvents(srcShuffled.slice(0, 15).map((e, i) =>
-      enrichWithFidelity({ ...e, ts: new Date(now - (14 - i) * 60_000).toISOString() }, i)
+      enrichWithFidelity(withRebasedTime(e, new Date(now - (14 - i) * 60_000).toISOString()), i)
     ).reverse());
     setSessionXp(0);
     setActiveIncident(null);

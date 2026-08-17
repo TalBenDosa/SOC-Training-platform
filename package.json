@@ -22,6 +22,7 @@
     "validate:diagrams": "tsx scripts/validate-diagrams.mjs",
     "validate:svg": "tsx scripts/validate-svg.mjs",
     "validate:hashes": "node scripts/validate-malware-hashes.mjs",
+    "validate:feed": "tsx scripts/validate-runtime-feed.mjs",
     "audit:scenarios": "tsx scripts/audit-scenarios.mjs",
     "audit:deps": "node scripts/audit-gate.mjs",
     "test": "vitest run",
