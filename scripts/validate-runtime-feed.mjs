@@ -110,7 +110,21 @@ const EMAIL_RE = /([a-z0-9._%+-]+)@([a-z0-9.-]+\.[a-z]{2,})/gi;
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CHECK 2 — ASSET_INVENTORY (per company)
+// Bind hostname→src_ip ONLY for HOST TELEMETRY, where src_ip is the reporting
+// host's own address (endpoint process/file/registry events from edr/sysmon/av).
+// For auth/identity/network/security-tool events the src_ip is a REMOTE client or
+// subject — a DC legitimately logs many source IPs on its 4624/4768 logon records,
+// and forcing those to the DC's own IP would destroy the "where did this logon
+// come from" evidence. So those event types are excluded from the binding.
 // ══════════════════════════════════════════════════════════════════════════════
+const PEER_SRC_SOURCES = new Set(["ad","okta","iam","o365","gws","cloudtrail","cloud_azure",
+  "mfa","firewall","vpn","proxy","waf","dns","dhcp","nac","email_gateway","exchange",
+  "sharepoint","teams","dlp","siem","ueba","threat_intel","db_monitor","soar","ids"]);
+const bindsHostIp = e => {
+  const et = e.event_type || "";
+  if (/^(auth_|mfa_|account_|role_|group_|cloud_|email_|vpn_|dlp_|dns_|data_|privilege_|ueba_|risk_)/.test(et)) return false;
+  return !PEER_SRC_SOURCES.has(e.source);
+};
 for (const companyId of Object.keys(TENANT_DOMAINS)) {
   const pool = companyPool(companyId);
   if (!pool.length) continue;
@@ -119,16 +133,16 @@ for (const companyId of Object.keys(TENANT_DOMAINS)) {
   for (const e of pool) {
     const host = e.hostname;
     const ip = e.src_ip;
-    if (!host || !ip || !isPrivateIp(ip)) continue;
+    if (!host || !ip || !isPrivateIp(ip) || !bindsHostIp(e)) continue;
     if (!hostToIps.has(host)) hostToIps.set(host, new Set());
     hostToIps.get(host).add(ip);
     if (!ipToHosts.has(ip)) ipToHosts.set(ip, new Set());
     ipToHosts.get(ip).add(host);
   }
   for (const [host, ips] of hostToIps) if (ips.size > 1)
-    warn("ASSET_INVENTORY", `[${companyId}] host ${host} has ${ips.size} private IPs: ${[...ips].join(", ")}`);
+    err("ASSET_INVENTORY", `[${companyId}] host ${host} has ${ips.size} private IPs: ${[...ips].join(", ")}`);
   for (const [ip, hosts] of ipToHosts) if (hosts.size > 1)
-    warn("ASSET_INVENTORY", `[${companyId}] private IP ${ip} is shared by ${hosts.size} hosts: ${[...hosts].join(", ")}`);
+    err("ASSET_INVENTORY", `[${companyId}] private IP ${ip} is shared by ${hosts.size} hosts: ${[...hosts].join(", ")}`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -147,7 +161,7 @@ for (const companyId of Object.keys(TENANT_DOMAINS)) {
     }
   }
   for (const [dom, count] of foreign)
-    warn("TENANT_PURITY", `[${companyId}] pool carries ${count} event(s) with foreign tenant domain @${dom} (own is @${own})`);
+    err("TENANT_PURITY", `[${companyId}] pool carries ${count} event(s) with foreign tenant domain @${dom} (own is @${own})`);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
