@@ -23,7 +23,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const web = { hostname: "WEB-SHOP-01", ip: "10.40.12.21", site: "shop.cryotech.com" };
+  const web = { hostname: "WEB-SHOP-01", ip: "10.40.12.21", site: "shop.nexacorp.com" };
   const db = { hostname: "SQL-SHOP-02", ip: "10.40.12.55", database: "ShopDB" };
   const albIp = "10.40.12.9";
 
@@ -65,7 +65,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "winlog.event_id": "4672",
         "winlog.channel": "Security",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.computer_name": "WEB-SHOP-01.cryotech.com",
+        "winlog.computer_name": "WEB-SHOP-01.nexacorp.com",
         "winlog.record_id": "8841207",
         "winlog.event_data.SubjectUserSid": "S-1-5-82-1274839021-3315088842-4194903328-2971184652-1108255477",
         "winlog.event_data.SubjectUserName": "ShopPortal",
@@ -99,10 +99,10 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       mitre_tactic: "Reconnaissance",
       network: { url: `https://${web.site}/.git/config`, domain: web.site, method: "GET", status: 404, user_agent: uaPython },
       description:
-        "IIS access record for shop.cryotech.com, representative of 214 requests in 96 seconds against paths that do not exist on the site — all 404, User-Agent python-requests.",
+        "IIS access record for shop.nexacorp.com, representative of 214 requests in 96 seconds against paths that do not exist on the site — all 404, User-Agent python-requests.",
       raw: {
         TimeGenerated: "2026-03-17T09:00:00.412Z",
-        Computer: "WEB-SHOP-01.cryotech.com",
+        Computer: "WEB-SHOP-01.nexacorp.com",
         sSiteName: "SHOPPORTAL",
         sComputerName: "WEB-SHOP-01",
         sIP: "10.40.12.21",
@@ -112,7 +112,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         csUriQuery: "-",
         csUserName: "-",
         cIP: albIp,
-        csHost: "shop.cryotech.com",
+        csHost: "shop.nexacorp.com",
         csUserAgent: uaPython,
         csReferer: "-",
         scStatus: "404",
@@ -141,7 +141,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       severity: "low",
       expected_verdict: "fp",
       fp_explanation:
-        "64.39.106.131 is inside the Qualys cloud scanner range that Cryotech whitelisted for its quarterly PCI ASV external scan (change record CHG-2026-0311, window 09:00–11:00 UTC on 17 Mar). The scanner fires the whole SQLi payload catalogue at every parameter it finds and the WAF blocks all of it — high volume, uniform payloads, a single source IP that never rotates, and a self-identifying User-Agent. It is scanning noise, not exploitation.",
+        "64.39.106.131 is inside the Qualys cloud scanner range that NexaCorp whitelisted for its quarterly PCI ASV external scan (change record CHG-2026-0311, window 09:00–11:00 UTC on 17 Mar). The scanner fires the whole SQLi payload catalogue at every parameter it finds and the WAF blocks all of it — high volume, uniform payloads, a single source IP that never rotates, and a self-identifying User-Agent. It is scanning noise, not exploitation.",
       network: { url: `https://${web.site}/products/search.aspx`, domain: web.site, method: "GET", status: 403, user_agent: uaQualys },
       description:
         "AWS WAF blocked a SQL injection payload from 64.39.106.131. Representative of a sustained burst from this single address across many parameters and paths.",
@@ -175,7 +175,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "httpRequest.httpVersion": "HTTP/1.1",
         "httpRequest.requestId": "1-67d84a08-2f19c4b76d0e5a3819bb4c72",
         "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.cryotech.com",
+        "httpRequest.headers[0].value": "shop.nexacorp.com",
         "httpRequest.headers[1].name": "User-Agent",
         "httpRequest.headers[1].value": uaQualys,
         "labels[0].name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments",
@@ -229,7 +229,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "httpRequest.httpVersion": "HTTP/1.1",
         "httpRequest.requestId": "1-67d84be4-91af35d2c7043b6e2d18aa50",
         "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.cryotech.com",
+        "httpRequest.headers[0].value": "shop.nexacorp.com",
         "httpRequest.headers[1].name": "User-Agent",
         "httpRequest.headers[1].value": uaPython,
         "labels[0].name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments",
@@ -283,7 +283,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "httpRequest.httpVersion": "HTTP/1.1",
         "httpRequest.requestId": "1-67d84d10-58c2ba9147ef30d16a7c2298",
         "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.cryotech.com",
+        "httpRequest.headers[0].value": "shop.nexacorp.com",
         "httpRequest.headers[1].name": "User-Agent",
         "httpRequest.headers[1].value": uaPython,
         "labels[0].name": "awswaf:managed:aws:sql-database:SQLi_QueryArguments",
@@ -340,7 +340,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "httpRequest.httpVersion": "HTTP/1.1",
         "httpRequest.requestId": "1-67d85058-3ea71c9f4d206b8853fa1107",
         "httpRequest.headers[0].name": "Host",
-        "httpRequest.headers[0].value": "shop.cryotech.com",
+        "httpRequest.headers[0].value": "shop.nexacorp.com",
         "httpRequest.headers[1].name": "User-Agent",
         "httpRequest.headers[1].value": uaChrome,
         "httpRequest.headers[2].name": "Content-Type",
@@ -370,7 +370,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "IIS answered the inventory lookup POST with 200, returning 3,312,486 bytes in 11,284 ms. The cIP recorded on the request is 10.40.12.9.",
       raw: {
         TimeGenerated: "2026-03-17T09:38:11.284Z",
-        Computer: "WEB-SHOP-01.cryotech.com",
+        Computer: "WEB-SHOP-01.nexacorp.com",
         sSiteName: "SHOPPORTAL",
         sComputerName: "WEB-SHOP-01",
         sIP: "10.40.12.21",
@@ -380,7 +380,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         csUriQuery: "-",
         csUserName: "-",
         cIP: albIp,
-        csHost: "shop.cryotech.com",
+        csHost: "shop.nexacorp.com",
         csUserAgent: uaChrome,
         csReferer: "-",
         scStatus: "200",
@@ -499,7 +499,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "A POST to /admin/content/upload.ashx was accepted with 201. Its query string carries a key parameter, target assets/js/vendor and name bootstrap.bundle.aspx.",
       raw: {
         TimeGenerated: "2026-03-17T09:47:00.905Z",
-        Computer: "WEB-SHOP-01.cryotech.com",
+        Computer: "WEB-SHOP-01.nexacorp.com",
         sSiteName: "SHOPPORTAL",
         sComputerName: "WEB-SHOP-01",
         sIP: "10.40.12.21",
@@ -510,7 +510,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
           "key=d0f4a1c8-7b23-4e19-9a56-cc81e0b47f3d&target=assets%2fjs%2fvendor&name=bootstrap.bundle.aspx",
         csUserName: "-",
         cIP: albIp,
-        csHost: "shop.cryotech.com",
+        csHost: "shop.nexacorp.com",
         csUserAgent: uaChrome,
         csReferer: "-",
         scStatus: "201",
@@ -546,7 +546,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "Defender for Endpoint recorded w3wp.exe, running as IIS APPPOOL\\ShopPortal, creating bootstrap.bundle.aspx in the site's JavaScript vendor directory.",
       raw: {
         Timestamp: "2026-03-17T09:47:01.133Z",
-        DeviceName: "web-shop-01.cryotech.com",
+        DeviceName: "web-shop-01.nexacorp.com",
         DeviceId: "a9f4c21b7d08e3561ca4907fb2e8d3170c95a4e2",
         ActionType: "FileCreated",
         FileName: "bootstrap.bundle.aspx",
@@ -590,7 +590,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "w3wp.exe spawned cmd.exe on WEB-SHOP-01, running whoami /priv, hostname and ipconfig /all in a single chained command line.",
       raw: {
         Timestamp: "2026-03-17T09:52:00.740Z",
-        DeviceName: "web-shop-01.cryotech.com",
+        DeviceName: "web-shop-01.nexacorp.com",
         DeviceId: "a9f4c21b7d08e3561ca4907fb2e8d3170c95a4e2",
         ActionType: "ProcessCreated",
         FileName: "cmd.exe",
@@ -637,7 +637,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "srv.exe, run from the site's vendor asset folder by the app pool account, spawned a child cmd.exe running as NT AUTHORITY\\SYSTEM at System integrity.",
       raw: {
         Timestamp: "2026-03-17T09:58:00.318Z",
-        DeviceName: "web-shop-01.cryotech.com",
+        DeviceName: "web-shop-01.nexacorp.com",
         DeviceId: "a9f4c21b7d08e3561ca4907fb2e8d3170c95a4e2",
         ActionType: "ProcessCreated",
         FileName: "cmd.exe",
@@ -682,7 +682,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         "curl.exe running as SYSTEM POSTed C:\\Windows\\Temp\\ib.dat to https://cdn-shopassets.link/u (194.26.29.114) — 3,312,486 bytes out, 214 in.",
       raw: {
         Timestamp: "2026-03-17T10:04:00.552Z",
-        DeviceName: "web-shop-01.cryotech.com",
+        DeviceName: "web-shop-01.nexacorp.com",
         DeviceId: "a9f4c21b7d08e3561ca4907fb2e8d3170c95a4e2",
         ActionType: "ConnectionSuccess",
         LocalIP: "10.40.12.21",
@@ -822,8 +822,8 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     title: "SQL Injection → Web Shell → Server Compromise",
     threat_actor: "TA-BRASSVINE (opportunistic web exploitation crew)",
     attack_kind: "web_exploitation",
-    briefing: "Two alerts for shop.cryotech.com are queued: a burst of blocked SQL injection attempts against the site this morning, and a Defender for Endpoint detection on WEB-SHOP-01 at 09:52 involving the IIS worker process. The quarterly PCI ASV scan is also running today.",
-    narrative: `Cryotech's storefront, shop.cryotech.com, runs on IIS on WEB-SHOP-01 behind an ALB with an AWS WAF web ACL and the AWS managed rule sets enabled. On Tuesday 17 March the SOC's WAF dashboard looks healthy: dozens of SQL injection attempts, all blocked, 403 across the board. Some of them are the authorized quarterly PCI ASV scan; some of them are not.
+    briefing: "Two alerts for shop.nexacorp.com are queued: a burst of blocked SQL injection attempts against the site this morning, and a Defender for Endpoint detection on WEB-SHOP-01 at 09:52 involving the IIS worker process. The quarterly PCI ASV scan is also running today.",
+    narrative: `NexaCorp's storefront, shop.nexacorp.com, runs on IIS on WEB-SHOP-01 behind an ALB with an AWS WAF web ACL and the AWS managed rule sets enabled. On Tuesday 17 March the SOC's WAF dashboard looks healthy: dozens of SQL injection attempts, all blocked, 403 across the board. Some of them are the authorized quarterly PCI ASV scan; some of them are not.
 
 At 09:38 a single POST to an inventory lookup API — 12,438 bytes of JSON, an ordinary browser User-Agent, a source address that had not appeared before — is allowed through. IIS answers it with 200 and 3.3 MB. Nine minutes later a file called bootstrap.bundle.aspx appears in the site's JavaScript vendor folder, written there by the IIS worker process itself. By 10:04 something running as SYSTEM is uploading data to an external host.
 

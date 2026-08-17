@@ -202,9 +202,11 @@ const GENERIC_STORIES: AttackStory[] = [
   story("bec",               _bec,             "advanced"),
   story("ransomware",        _ransomware,      "advanced"),
   story("oauth",             _oauth,           "advanced"),
-  story("cryptomining",      _cryptomining,    "advanced"),
+  // AWS-native (GitHub secret leak → S3 exfil) — rocketstack is the cloud-native
+  // estate whose identities these carry; keeps the feed tenant-pure.
+  story("cryptomining",      _cryptomining,    "advanced", ["rocketstack"]),
   story("dcsync",            _dcsync,          "advanced"),
-  story("supply-chain",      _supplyChain,     "advanced"),
+  story("supply-chain",      _supplyChain,     "advanced", ["rocketstack"]),
   story("mfa-fatigue",       _mfaFatigue,      "advanced"),
   story("asrep-roasting",    _asrepRoasting,   "advanced"),
   story("ntlm-relay",        _ntlmRelay,       "advanced"),

@@ -274,7 +274,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const victim   = { hostname: "WS-FIN-2847", email: "j.smith@cryotech.com",   ip: "10.10.20.47" };
+  const victim   = { hostname: "WS-FIN-2847", email: "j.smith@nexacorp.com",   ip: "10.10.20.47" };
   const c2Domain = "c2-cdn-update-fb76.xyz";
   const c2Ip     = "185.134.140.139";
   const attackerIp = "91.108.56.122";
@@ -297,12 +297,12 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         // Subject (the process requesting logon — SYSTEM on interactive logons)
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectUserName": "WS-FIN-2847$",
-        "winlog.event_data.SubjectDomainName": "CRYOTECH",
+        "winlog.event_data.SubjectDomainName": "NEXACORP",
         "winlog.event_data.SubjectLogonId": "0x3E7",
         // New Logon (the account that was logged on)
         "winlog.event_data.TargetUserSid": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         "winlog.event_data.TargetUserName": "jsmith",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetLogonId": "0x8F4A21",
         "winlog.event_data.LogonGuid": "{A1B2C3D4-E5F6-A1B2-C3D4-E5F6A1B2C3D4}",
         // Logon type and process
@@ -325,8 +325,8 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "event.action": "logged-in",
         "event.outcome": "success",
         "event.created": "2026-05-08T09:42:00.000Z",
-        "user.name": "CRYOTECH\\jsmith",
-        "user.domain": "CRYOTECH",
+        "user.name": "NEXACORP\\jsmith",
+        "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         "host.name": "WS-FIN-2847",
         "source.ip": "10.10.20.47",
@@ -343,8 +343,8 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       description: "j.smith received an email with a macro-enabled Word attachment (Invoice_Q3_Final.docm) from a domain registered 6 days ago. SPF, DKIM, and DMARC all failed.",
       raw: {
         "event.action": "EmailDelivered", "event.outcome": "success",
-        "email.from.address": "support@cryotech-vendor.xyz",
-        "email.to.address": "j.smith@cryotech.com",
+        "email.from.address": "support@nexacorp-vendor.xyz",
+        "email.to.address": "j.smith@nexacorp.com",
         "email.subject": "Invoice Q3 Final — Action Required",
         "email.attachment.name": "Invoice_Q3_Final.docm",
         "email.direction": "inbound",
@@ -366,7 +366,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "event.action": "MacroEnabled", "event.outcome": "success",
         "file.name": "Invoice_Q3_Final.docm", "file.extension": ".docm",
         "process.name": "WINWORD.EXE",
-        "user.name": "CRYOTECH\\jsmith", "host.name": "WS-FIN-2847",
+        "user.name": "NEXACORP\\jsmith", "host.name": "WS-FIN-2847",
         "macro.warning.dismissed": "true", "action_result": "macro_executed",
       },
     },
@@ -379,7 +379,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       process: {
         name: "powershell.exe", pid: 5512, parent_name: "WINWORD.EXE", parent_pid: 4128,
         cmdline: "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBFAFgAIAAoAG4AZQB3AC4tV2ViQ2xpZW50KS5Eb3dubG9hZFN0cmluZw==",
-        user: "CRYOTECH\\jsmith", integrity: "medium",
+        user: "NEXACORP\\jsmith", integrity: "medium",
       },
       raw: {
         // CrowdStrike Falcon — detection metadata
@@ -427,7 +427,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "process.grandparent.pid": "3280",
         "process.grandparent.executable": "\\Device\\HarddiskVolume3\\Windows\\explorer.exe",
         // User
-        "user.name": "CRYOTECH\\jsmith",
+        "user.name": "NEXACORP\\jsmith",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
@@ -519,7 +519,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "process.command_line": "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBFAFgAIAAoAG4AZQB3AC4tV2ViQ2xpZW50KS5Eb3dubG9hZFN0cmluZw==",
         "process.hash.sha256": "de96a6e69944335375dc1ac238336066889d9ffc7d73628ef4fe1b1848474f30",
         // User
-        "user.name": "CRYOTECH\\jsmith",
+        "user.name": "NEXACORP\\jsmith",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
@@ -549,7 +549,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "winlog.event_data.TargetObject": "HKU\\S-1-5-21-3421479547-3897544621-1789562108-1103\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\WindowsUpdater",
         "winlog.event_data.Details": "rundll32.exe C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost32.dll,DllMain",
-        "winlog.event_data.User": "CRYOTECH\\jsmith",
+        "winlog.event_data.User": "NEXACORP\\jsmith",
       },
     },
     {
@@ -584,7 +584,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       process: {
         name: "computerdefaults.exe", pid: 5980, parent_name: "powershell.exe", parent_pid: 5512,
         cmdline: "computerdefaults.exe",
-        user: "CRYOTECH\\jsmith", integrity: "high",
+        user: "NEXACORP\\jsmith", integrity: "high",
       },
       description: "computerdefaults.exe started at High integrity with the beacon's PowerShell process as its parent, and no consent prompt was recorded.",
       raw: {
@@ -596,7 +596,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.event_data.CommandLine": "computerdefaults.exe",
         "winlog.event_data.ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "winlog.event_data.ParentProcessId": "5512",
-        "winlog.event_data.User": "CRYOTECH\\jsmith",
+        "winlog.event_data.User": "NEXACORP\\jsmith",
         "winlog.event_data.IntegrityLevel": "High",
         "winlog.event_data.Company": "Microsoft Corporation",
       },
@@ -609,7 +609,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       process: {
         name: "rundll32.exe", pid: 6244, parent_name: "computerdefaults.exe", parent_pid: 5980,
         cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin full",
-        user: "CRYOTECH\\jsmith", integrity: "high",
+        user: "NEXACORP\\jsmith", integrity: "high",
       },
       file: { path: "C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin" },
       description: "CrowdStrike detected rundll32.exe on WS-FIN-2847 using comsvcs.dll MiniDump to write lsass.exe memory to debug.bin.",
@@ -684,7 +684,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "file.created": "2026-05-08T10:05:01.231Z",
         "file.type": "memory_dump",
         // User
-        "user.name": "CRYOTECH\\jsmith",
+        "user.name": "NEXACORP\\jsmith",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
@@ -714,7 +714,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.channel": "Security",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.TargetUserName": victim.email.split("@")[0],
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         "winlog.event_data.ServiceName": "krbtgt",
         "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-502",
@@ -738,7 +738,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.LogonType": "3",
         "winlog.event_data.TargetUserName": victim.email.split("@")[0],
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.LogonProcessName": "Kerberos",
         "winlog.event_data.AuthenticationPackageName": "Kerberos",
         "winlog.event_data.WorkstationName": victim.hostname,
@@ -775,7 +775,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "azure.signinlogs.is_interactive": "true",
         "azure.signinlogs.tenant_id": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
         "azure.signinlogs.user_id": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
-        "azure.signinlogs.user_principal_name": "j.smith@cryotech.com",
+        "azure.signinlogs.user_principal_name": "j.smith@nexacorp.com",
         "azure.signinlogs.user_display_name": "James Smith",
         "azure.signinlogs.user_type": "Member",
         "azure.signinlogs.device_detail.browser": "python-requests/2.28.0",
@@ -791,7 +791,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "event.action": "UserLoggedIn",
         "event.outcome": "success",
         "event.created": "2026-05-08T10:17:00.000Z",
-        "user.email": "j.smith@cryotech.com",
+        "user.email": "j.smith@nexacorp.com",
         "source.ip": "91.108.56.122",
         "source.geo.country_name": "Netherlands",
         "source.geo.city_name": "Amsterdam",
@@ -815,7 +815,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "data.office365.Operation": "New-InboxRule",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
         "data.office365.Workload": "Exchange",
-        "data.office365.UserId": "j.smith@cryotech.com",
+        "data.office365.UserId": "j.smith@nexacorp.com",
         "data.office365.UserKey": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
         "data.office365.UserType": "0",
         "data.office365.ResultStatus": "True",
@@ -833,7 +833,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         // ECS fields
         "event.action": "New-InboxRule",
         "event.outcome": "success",
-        "user.email": "j.smith@cryotech.com",
+        "user.email": "j.smith@nexacorp.com",
         "source.ip": attackerIp,
       },
     },
@@ -861,7 +861,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "crowdstrike.FileName": "credentials",
         "crowdstrike.FilePath": "C:\\Users\\jsmith\\.aws\\",
         "crowdstrike.process_name": "rundll32.exe",
-        "crowdstrike.UserName": "CRYOTECH\\jsmith",
+        "crowdstrike.UserName": "NEXACORP\\jsmith",
         "file.path": "C:\\Users\\jsmith\\.aws\\credentials",
         "file.size": 217,
         "event.action": "FileOpenInfo",
@@ -906,7 +906,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "aws.cloudtrail.userIdentity.type": "IAMUser",
         "aws.cloudtrail.userIdentity.userName": "jsmith-analytics",
         "aws.cloudtrail.userIdentity.accessKeyId": "AKIA4XJ9PQ2M7RVTLB3D",
-        "aws.s3.bucket.name": "cryotech-crm-exports",
+        "aws.s3.bucket.name": "nexacorp-crm-exports",
         "storage.object.name": "exports/customer-financial-data-2026.zip",
         "network.bytes_out": "184000000",
         "cloud.provider": "aws", "cloud.region": "eu-west-1",
@@ -1002,7 +1002,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       raw: {
         "data.office365.Operation": "Set user risk level",
         "data.office365.Workload": "AzureActiveDirectory",
-        "data.office365.UserId": "it-security@cryotech.com",
+        "data.office365.UserId": "it-security@nexacorp.com",
         "data.office365.ObjectId": victim.email,
         "data.office365.ResultStatus": "Success",
         "azure.auditlogs.category": "UserManagement",
@@ -1024,7 +1024,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { type: "ip",      value: attackerIp,                      reputation: "malicious",  tags: ["attacker", "netherlands"] },
     { type: "ip",      value: "91.108.56.199",                 reputation: "malicious",  tags: ["phishing-sender"] },
     { type: "sha256",  value: dllHash,                         reputation: "malicious",  tags: ["dropper", "dll", "stage1"] },
-    { type: "email",   value: "support@cryotech-vendor.xyz",   reputation: "malicious",  tags: ["phishing", "sender"] },
+    { type: "email",   value: "support@nexacorp-vendor.xyz",   reputation: "malicious",  tags: ["phishing", "sender"] },
     { type: "url",     value: `https://${c2Domain}/beacon`,    reputation: "malicious",  tags: ["c2", "beacon"] },
     { type: "user",    value: victim.email,                    reputation: "suspicious", tags: ["victim", "compromised"] },
     { type: "host",    value: victim.hostname,                 reputation: "unknown", tags: ["patient-zero"] },
@@ -1085,7 +1085,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     threat_actor: "TA-COBALTSPIDER (financially motivated)",
     attack_kind: "phishing_to_exfil",
     briefing: "CrowdStrike raised a high-severity detection on WS-FIN-2847 (j.smith) at 10:00. Twenty minutes later Entra ID Identity Protection flagged the same user's account as High Risk. Both alerts are sitting unassigned in the queue.",
-    narrative: `At 09:47, a finance analyst at Cryotech Industries received what appeared to be a routine vendor invoice. The macro-enabled Word attachment bypassed email security via a misconfigured transport rule. Twenty seconds after clicking "Enable Content", Office spawned a hidden PowerShell process loading a Cobalt Strike beacon. Within 90 seconds the host was beaconing to a 3-day-old domain, dropping a DLL into %TEMP%, and writing a Run key for persistence. Eighteen minutes in, LSASS was dumped using a built-in Windows DLL — no external tools. Thirty-five minutes later, the stolen credentials authenticated from the Netherlands, a hidden inbox rule silently rerouted financial emails, and 184MB of customer PII was pulled from S3. Your job: trace the full kill chain, identify the persistence mechanism, and determine what containment actions would have stopped the exfiltration.`,
+    narrative: `At 09:47, a finance analyst at NexaCorp Industries received what appeared to be a routine vendor invoice. The macro-enabled Word attachment bypassed email security via a misconfigured transport rule. Twenty seconds after clicking "Enable Content", Office spawned a hidden PowerShell process loading a Cobalt Strike beacon. Within 90 seconds the host was beaconing to a 3-day-old domain, dropping a DLL into %TEMP%, and writing a Run key for persistence. Eighteen minutes in, LSASS was dumped using a built-in Windows DLL — no external tools. Thirty-five minutes later, the stolen credentials authenticated from the Netherlands, a hidden inbox rule silently rerouted financial emails, and 184MB of customer PII was pulled from S3. Your job: trace the full kill chain, identify the persistence mechanism, and determine what containment actions would have stopped the exfiltration.`,
     learning_objectives: [
       "Identify spearphishing delivery and recognize SPF/DKIM/DMARC bypass techniques",
       "Trace the Office macro → PowerShell → C2 execution chain using process trees",
@@ -1106,7 +1106,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const victim      = { hostname: "LAPTOP-FIN-04", email: "l.harris@cryotech.com", ip: "10.10.30.21" };
+  const victim      = { hostname: "LAPTOP-FIN-04", email: "l.harris@nexacorp.com", ip: "10.10.30.21" };
   const attackerIp  = "91.108.56.122";
   const sprayIp     = "158.131.159.30";
 
@@ -1116,7 +1116,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
       source: "ad", vendor: "Windows Security", event_type: "auth_failure",
       src_ip: sprayIp,
       severity: "high", mitre_technique: "T1110.003",
-      description: `47 failed logins across 14 different Cryotech accounts arrived from the same IP (${sprayIp}) within 4 minutes.`,
+      description: `47 failed logins across 14 different NexaCorp accounts arrived from the same IP (${sprayIp}) within 4 minutes.`,
       raw: {
         // Windows Security Event 4625 — Failed Logon (representative entry for spray aggregate)
         "winlog.event_id": "4625",
@@ -1130,7 +1130,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "winlog.event_data.SubjectDomainName": "-",
         // Target (representative account from the spray)
         "winlog.event_data.TargetUserName": "l.harris",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         // Failure reason
         "winlog.event_data.Status": "0xC000006D",
         "winlog.event_data.SubStatus": "0xC000006A",
@@ -1158,7 +1158,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     {
       id: "evt_02_lockout_1", ts: T(1 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_failure",
-      user_email: "a.nelson@cryotech.com", src_ip: sprayIp,
+      user_email: "a.nelson@nexacorp.com", src_ip: sprayIp,
       severity: "medium",
       description: `Account a.nelson was locked out after 5 failed password attempts from ${sprayIp}.`,
       raw: {
@@ -1171,11 +1171,11 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // Subject (SYSTEM on DC)
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectUserName": "DC01$",
-        "winlog.event_data.SubjectDomainName": "CRYOTECH",
+        "winlog.event_data.SubjectDomainName": "NEXACORP",
         "winlog.event_data.SubjectLogonId": "0x3E7",
         // Target account that was locked out
         "winlog.event_data.TargetUserName": "a.nelson",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1104",
         // Machine that triggered the lockout
         "winlog.event_data.CallerComputerName": "\\\\158.131.159.30",
@@ -1185,7 +1185,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "event.outcome": "failure",
         "event.created": "2026-05-08T08:01:00.000Z",
         "user.name": "a.nelson",
-        "user.domain": "CRYOTECH",
+        "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1104",
         "host.name": "DC01",
         "source.ip": sprayIp,
@@ -1196,7 +1196,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     {
       id: "evt_03_lockout_2", ts: T(2 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_failure",
-      user_email: "r.garcia@cryotech.com", src_ip: sprayIp,
+      user_email: "r.garcia@nexacorp.com", src_ip: sprayIp,
       severity: "medium",
       description: `Account r.garcia was also locked out from ${sprayIp}, minutes after a.nelson.`,
       raw: {
@@ -1209,11 +1209,11 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // Subject (SYSTEM on DC)
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectUserName": "DC01$",
-        "winlog.event_data.SubjectDomainName": "CRYOTECH",
+        "winlog.event_data.SubjectDomainName": "NEXACORP",
         "winlog.event_data.SubjectLogonId": "0x3E7",
         // Target account that was locked out
         "winlog.event_data.TargetUserName": "r.garcia",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1106",
         // Machine that triggered the lockout
         "winlog.event_data.CallerComputerName": "\\\\158.131.159.30",
@@ -1223,7 +1223,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "event.outcome": "failure",
         "event.created": "2026-05-08T08:02:00.000Z",
         "user.name": "r.garcia",
-        "user.domain": "CRYOTECH",
+        "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1106",
         "host.name": "DC01",
         "source.ip": sprayIp,
@@ -1250,7 +1250,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "azure.signinlogs.risk_state": "atRisk",
         "azure.signinlogs.is_interactive": "true",
         "azure.signinlogs.tenant_id": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
-        "azure.signinlogs.user_principal_name": "l.harris@cryotech.com",
+        "azure.signinlogs.user_principal_name": "l.harris@nexacorp.com",
         "azure.signinlogs.user_display_name": "Laura Harris",
         "azure.signinlogs.user_type": "Member",
         "azure.signinlogs.device_detail.browser": "Chrome 124.0.0",
@@ -1264,7 +1264,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "event.action": "UserLoggedIn",
         "event.outcome": "success",
         "event.created": "2026-05-08T08:12:00.000Z",
-        "user.email": "l.harris@cryotech.com",
+        "user.email": "l.harris@nexacorp.com",
         "source.ip": attackerIp,
         "source.geo.country_name": "Netherlands",
         "authentication.status": "success",
@@ -1289,7 +1289,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "data.office365.Operation": "New-InboxRule",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
         "data.office365.Workload": "Exchange",
-        "data.office365.UserId": "l.harris@cryotech.com",
+        "data.office365.UserId": "l.harris@nexacorp.com",
         "data.office365.UserKey": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
         "data.office365.UserType": "0",
         "data.office365.ResultStatus": "True",
@@ -1307,7 +1307,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // ECS fields
         "event.action": "New-InboxRule",
         "event.outcome": "success",
-        "user.email": "l.harris@cryotech.com",
+        "user.email": "l.harris@nexacorp.com",
         "source.ip": attackerIp,
       },
     },
@@ -1325,8 +1325,8 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "data.office365.Operation": "MailItemsAccessed",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
         "data.office365.Workload": "Exchange",
-        "data.office365.UserId": "l.harris@cryotech.com",
-        "data.office365.MailboxOwnerUPN": "l.harris@cryotech.com",
+        "data.office365.UserId": "l.harris@nexacorp.com",
+        "data.office365.MailboxOwnerUPN": "l.harris@nexacorp.com",
         "data.office365.MailboxOwnerSid": "S-1-5-21-3421479547-3897544621-1789562108-1201",
         "data.office365.ResultStatus": "Succeeded",
         "data.office365.ClientIP": attackerIp,
@@ -1345,7 +1345,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // ECS fields
         "event.action": "MailItemsAccessed",
         "event.outcome": "success",
-        "user.email": "l.harris@cryotech.com",
+        "user.email": "l.harris@nexacorp.com",
         "source.ip": attackerIp,
         "application.name": "Outlook Web App",
         "session.duration_seconds": "112",
@@ -1365,8 +1365,8 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "data.office365.Operation": "Set-Mailbox",
         "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
         "data.office365.Workload": "Exchange",
-        "data.office365.UserId": "l.harris@cryotech.com",
-        "data.office365.ObjectId": "l.harris@cryotech.com",
+        "data.office365.UserId": "l.harris@nexacorp.com",
+        "data.office365.ObjectId": "l.harris@nexacorp.com",
         "data.office365.ResultStatus": "True",
         "data.office365.ClientIP": attackerIp,
         "data.office365.SessionId": "e5f6a1b2-c3d4-e5f6-a1b2-c3d4e5f6a1b2",
@@ -1380,7 +1380,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         // ECS fields
         "event.action": "Set-Mailbox",
         "event.outcome": "success",
-        "user.email": "l.harris@cryotech.com",
+        "user.email": "l.harris@nexacorp.com",
         "source.ip": attackerIp,
         "email.forwarding_address": "l.harris.backup@gmail.com",
         "email.deliver_and_forward": "true",
@@ -1399,14 +1399,14 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "data.office365.CreationTime": "2026-05-08T08:25:00Z",
         "data.office365.Operation": "Send",
         "data.office365.Workload": "Exchange",
-        "data.office365.UserId": "l.harris@cryotech.com",
+        "data.office365.UserId": "l.harris@nexacorp.com",
         "data.office365.ResultStatus": "True",
         "data.office365.ClientIP": attackerIp,
         // Email fields
         "email.message_id": "<CABcD3f7e2a1b9c8d4e5f6a7b8c9d0e1f2a3b4c5@mail.outlook.com>",
-        "email.from.address": "l.harris@cryotech.com",
+        "email.from.address": "l.harris@nexacorp.com",
         "email.from.display_name": "Laura Harris",
-        "email.to.address": "p.johnson@cryotech.com",
+        "email.to.address": "p.johnson@nexacorp.com",
         "email.subject": "RE: Apex Supplies — Urgent payment update",
         "email.direction": "outbound",
         "email.size_bytes": "4217",
@@ -1420,7 +1420,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     {
       id: "evt_09_mfa_fatigue", ts: T(30 * MIN),
       source: "o365", vendor: "Microsoft Entra ID", event_type: "mfa_denied",
-      user_email: "p.johnson@cryotech.com", src_ip: sprayIp,
+      user_email: "p.johnson@nexacorp.com", src_ip: sprayIp,
       severity: "high", mitre_technique: "T1621",
       description: "p.johnson (CFO) received 8 MFA push notifications in 5 minutes from the same spray IP and denied all of them, then reported it to IT.",
       raw: {
@@ -1436,7 +1436,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "azure.signinlogs.risk_state": "atRisk",
         "azure.signinlogs.is_interactive": "true",
         "azure.signinlogs.tenant_id": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
-        "azure.signinlogs.user_principal_name": "p.johnson@cryotech.com",
+        "azure.signinlogs.user_principal_name": "p.johnson@nexacorp.com",
         "azure.signinlogs.user_display_name": "Patricia Johnson",
         "azure.signinlogs.user_type": "Member",
         "azure.signinlogs.location.city": "Amsterdam",
@@ -1448,7 +1448,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "authentication.mfa": "push",
         "authentication.status": "failure",
         "authentication.factor": "push_notification",
-        "user.email": "p.johnson@cryotech.com",
+        "user.email": "p.johnson@nexacorp.com",
         "source.ip": sprayIp,
         // Representative record — Entra ID writes one sign-in log entry per
         // attempt; the 8-push/5-minute total (see description) is a SIEM-side
@@ -1466,7 +1466,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "url.full": "https://gmail.com", "url.domain": "gmail.com",
         "url.category": "Webmail - Personal",
         "http.request.method": "GET",
-        "user.email": "l.harris@cryotech.com",
+        "user.email": "l.harris@nexacorp.com",
         "host.name": "LAPTOP-FIN-04",
         "source.ip": "10.10.30.21",
         "network.bytes_out": "12430",
@@ -1493,7 +1493,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "winlog.event_data.KeyLength": "0",
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.TargetUserName": "l.harris",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "event.action": "logged-in", "event.outcome": "success",
         "source.ip": victim.ip,
         "host.name": victim.hostname,
@@ -1507,13 +1507,13 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
       event_type: "net_connection", severity: "high",
       mitre_technique: "T1110.003",
       src_ip: sprayIp, dst_ip: "10.10.1.15", dst_port: 443,
-      description: `The firewall logged 47 inbound HTTPS connections from ${sprayIp} to the ADFS extranet proxy (adfs.cryotech.com) in 4 minutes.`,
+      description: `The firewall logged 47 inbound HTTPS connections from ${sprayIp} to the ADFS extranet proxy (adfs.nexacorp.com) in 4 minutes.`,
       raw: {
         "event.action": "allow",
         "source.ip": sprayIp,
         "destination.ip": "10.10.1.15",
         "destination.port": "443",
-        "destination.host": "adfs.cryotech.com",
+        "destination.host": "adfs.nexacorp.com",
         "pan.app": "ms-adfs",
         "pan.action": "allow",
         "pan.rule": "ALLOW-INBOUND-ADFS",
@@ -1610,7 +1610,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
     title: "Password Spray → BEC Mailbox Rule",
     threat_actor: "TA-VOIDPELICAN (Business Email Compromise operator)",
     attack_kind: "identity_bec",
-    briefing: "Entra ID flagged 47 failed sign-ins against Cryotech accounts from a single external address just after 08:00, and a.nelson and r.garcia both locked out. At 08:26 CFO p.johnson called the help desk to report unexpected prompts on his phone.",
+    briefing: "Entra ID flagged 47 failed sign-ins against NexaCorp accounts from a single external address just after 08:00, and a.nelson and r.garcia both locked out. At 08:26 CFO p.johnson called the help desk to report unexpected prompts on his phone.",
     narrative: `Over a 4-minute window at 08:00, 47 authentication failures hit Finance and Executive accounts from a single Dutch IP — deliberately staying under the 5-attempt lockout threshold on most accounts. At 08:12, l.harris accepted an MFA push at 02:12 local time. Six minutes later the attacker had created a hidden inbox rule intercepting all wire/invoice/payment emails, scraped 340 emails to profile payment workflows, and enabled forwarding to a personal gmail address. At 08:25 a fraudulent $247K wire transfer request landed in the CFO's inbox. The CFO also received 8 MFA push notifications in 5 minutes — a fatigue attack to compromise the payment approver too. Your job: reconstruct the attack chain, separate what HIDES the fraud from what OUTLIVES the session, and determine why revoking the session isn't enough.`,
     learning_objectives: [
       "Identify password spraying by recognizing below-threshold multi-account failure patterns",
@@ -1632,8 +1632,8 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const zero    = { hostname: "WS-FIN-1193", email: "c.martin@cryotech.com",  ip: "10.10.20.33" };
-  const server  = { hostname: "FS-CORP-01",  email: "svc-backup@cryotech.com", ip: "10.10.10.12" };
+  const zero    = { hostname: "WS-FIN-1193", email: "c.martin@nexacorp.com",  ip: "10.10.20.33" };
+  const server  = { hostname: "FS-CORP-01",  email: "svc-backup@nexacorp.com", ip: "10.10.10.12" };
   const c2Ip    = "185.220.101.45";
   const c2Dom   = "cobalt-cdn-updates.xyz";
   const rswHash = makeSha256("lockbit3_ransom_payload");
@@ -1656,7 +1656,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       // what goes in the report, and it is now discoverable.
       id: "evt_00_da_session", ts: T(-14 * 60 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: zero.hostname, user_email: "da-backup@cryotech.com",
+      hostname: zero.hostname, user_email: "da-backup@nexacorp.com",
       severity: "informational",
       description: "da-backup opened a Remote Desktop session on WS-FIN-1193 the previous afternoon and signed out 41 minutes later.",
       raw: {
@@ -1664,7 +1664,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.channel": "Security",
         "winlog.computer_name": "WS-FIN-1193",
         "winlog.event_data.TargetUserName": "da-backup",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.LogonType": "10",
         "winlog.event_data.LogonProcessName": "User32 ",
         "winlog.event_data.AuthenticationPackageName": "Negotiate",
@@ -1693,12 +1693,12 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         // Subject (SYSTEM on interactive logon)
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectUserName": "WS-FIN-1193$",
-        "winlog.event_data.SubjectDomainName": "CRYOTECH",
+        "winlog.event_data.SubjectDomainName": "NEXACORP",
         "winlog.event_data.SubjectLogonId": "0x3E7",
         // New Logon
         "winlog.event_data.TargetUserSid": "S-1-5-21-3421479547-3897544621-1789562108-1205",
         "winlog.event_data.TargetUserName": "cmartin",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetLogonId": "0x7A1B33",
         "winlog.event_data.LogonGuid": "{B2C3D4E5-F6A1-B2C3-D4E5-F6A1B2C3D4E5}",
         // Logon type and process
@@ -1721,8 +1721,8 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "event.action": "logged-in",
         "event.outcome": "success",
         "event.created": "2026-05-06T02:45:00.000Z",
-        "user.name": "CRYOTECH\\cmartin",
-        "user.domain": "CRYOTECH",
+        "user.name": "NEXACORP\\cmartin",
+        "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1205",
         "host.name": "WS-FIN-1193",
         "source.ip": "10.10.20.33",
@@ -1739,8 +1739,8 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       description: "c.martin received an email with a macro-enabled Word attachment (Salary_Adjustment_Notice.docm) from a domain registered 2 days ago. SPF and DKIM both failed.",
       raw: {
         "event.action": "EmailDelivered", "event.outcome": "success",
-        "email.from.address": "payroll@cryotech-updates.net",
-        "email.to.address": "c.martin@cryotech.com",
+        "email.from.address": "payroll@nexacorp-updates.net",
+        "email.to.address": "c.martin@nexacorp.com",
         "email.subject": "Salary Adjustment Notice — Immediate Review Required",
         "email.attachment.name": "Salary_Adjustment_Notice.docm",
         "email.direction": "inbound",
@@ -1760,14 +1760,14 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       process: {
         name: "powershell.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 2244,
         cmdline: "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0AA==",
-        user: "CRYOTECH\\cmartin", integrity: "medium",
+        user: "NEXACORP\\cmartin", integrity: "medium",
       },
       raw: {
         "event.action": "process_created",
         "process.name": "powershell.exe", "process.pid": "7741",
         "process.command_line": "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0AA==",
         "process.parent.name": "WINWORD.EXE", "process.parent.pid": "2244",
-        "user.name": "CRYOTECH\\cmartin", "host.name": "WS-FIN-1193",
+        "user.name": "NEXACORP\\cmartin", "host.name": "WS-FIN-1193",
         "process.integrity": "medium",
       },
     },
@@ -1813,7 +1813,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "winlog.event_data.TargetObject": "HKU\\S-1-5-21-3421479547-3897544621-1789562108-1205\\Software\\Classes\\ms-settings\\Shell\\Open\\command\\DelegateExecute",
         "winlog.event_data.Details": "",
-        "winlog.event_data.User": "CRYOTECH\\cmartin",
+        "winlog.event_data.User": "NEXACORP\\cmartin",
       },
     },
     {
@@ -1824,7 +1824,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       process: {
         name: "fodhelper.exe", pid: 6120, parent_name: "powershell.exe", parent_pid: 7741,
         cmdline: "fodhelper.exe",
-        user: "CRYOTECH\\cmartin", integrity: "high",
+        user: "NEXACORP\\cmartin", integrity: "high",
       },
       description: "fodhelper.exe started at High integrity on WS-FIN-1193 with powershell.exe as its parent, one minute after the registry write.",
       raw: {
@@ -1839,7 +1839,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.event_data.ParentProcessGuid": "{f1e2d3c4-b5a6-a1b2-0001-c3d4e5f60001}",
         "winlog.event_data.ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "winlog.event_data.ParentProcessId": "7741",
-        "winlog.event_data.User": "CRYOTECH\\cmartin",
+        "winlog.event_data.User": "NEXACORP\\cmartin",
         "winlog.event_data.IntegrityLevel": "High",
         "winlog.event_data.OriginalFileName": "FODHELPER.EXE",
         "winlog.event_data.Company": "Microsoft Corporation",
@@ -1853,7 +1853,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       process: {
         name: "rundll32.exe", pid: 9914, parent_name: "fodhelper.exe", parent_pid: 6120,
         cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Windows\\Temp\\mem.dmp full",
-        user: "CRYOTECH\\cmartin", integrity: "high",
+        user: "NEXACORP\\cmartin", integrity: "high",
       },
       file: { path: "C:\\Windows\\Temp\\mem.dmp" },
       description: "CrowdStrike detected rundll32.exe on WS-FIN-1193 using comsvcs.dll to dump lsass.exe memory to mem.dmp.",
@@ -1889,7 +1889,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         // Output file (the credential dump)
         "file.path": "C:\\Windows\\Temp\\mem.dmp",
         "file.type": "memory_dump",
-        "user.name": "CRYOTECH\\cmartin",
+        "user.name": "NEXACORP\\cmartin",
         "host.name": "WS-FIN-1193",
       },
     },
@@ -1904,7 +1904,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.channel": "Security",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.TargetUserName": "da-backup",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1108",
         "winlog.event_data.ServiceName": "krbtgt",
         "winlog.event_data.TicketOptions": "0x40810010",
@@ -1918,7 +1918,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     {
       id: "evt_04c_domain_admin_logon", ts: T(93 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: "DC-CORP-01", user_email: "da-backup@cryotech.com",
+      hostname: "DC-CORP-01", user_email: "da-backup@nexacorp.com",
       severity: "critical", mitre_technique: "T1078",
       description: "Domain admin account da-backup authenticated to DC-CORP-01 via a network logon (Type 3) originating from WS-FIN-1193.",
       raw: {
@@ -1927,7 +1927,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.LogonType": "3",
         "winlog.event_data.TargetUserName": "da-backup",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.LogonProcessName": "NtLmSsp",
         "winlog.event_data.AuthenticationPackageName": "NTLM",
         "winlog.event_data.WorkstationName": zero.hostname,
@@ -2044,7 +2044,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     {
       id: "evt_08b_audit_clear", ts: T(121 * MIN + 5_000),
       source: "ad", vendor: "Windows Security", event_type: "audit_log_cleared",
-      hostname: "FS-CORP-01", user_email: "svc-backup@cryotech.com",
+      hostname: "FS-CORP-01", user_email: "svc-backup@nexacorp.com",
       severity: "high", mitre_technique: "T1070.001",
       description: "Windows recorded Event 1102 on FS-CORP-01 — the Security audit log was cleared.",
       raw: {
@@ -2052,7 +2052,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.channel": "Security",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.event_data.SubjectUserName": "FS-CORP-01$",
-        "winlog.event_data.SubjectDomainName": "CRYOTECH",
+        "winlog.event_data.SubjectDomainName": "NEXACORP",
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectLogonId": "0x3e4a2",
       },
@@ -2122,7 +2122,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "event.action": "FileAccessed",
         "file.path": "\\\\FS-CORP-01\\Finance\\Budget_Q2_2026.xlsx",
         "file.name": "Budget_Q2_2026.xlsx",
-        "user.name": "CRYOTECH\\cmartin",
+        "user.name": "NEXACORP\\cmartin",
         "host.name": zero.hostname,
         "source.ip": zero.ip,
         "event.outcome": "success",
@@ -2205,7 +2205,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     { type: "ip",     value: c2Ip,                            reputation: "malicious",  tags: ["c2"] },
     { type: "sha256", value: rswHash,                         reputation: "malicious",  tags: ["lockbit3", "ransomware"] },
     { type: "sha256", value: psxHash,                         reputation: "suspicious", tags: ["psexec", "lateral"] },
-    { type: "email",  value: "payroll@cryotech-updates.net",  reputation: "malicious",  tags: ["phishing"] },
+    { type: "email",  value: "payroll@nexacorp-updates.net",  reputation: "malicious",  tags: ["phishing"] },
     { type: "host",   value: zero.hostname,                   reputation: "unknown", tags: ["patient-zero"] },
     { type: "host",   value: server.hostname,                 reputation: "unknown", tags: ["encrypted", "lateral-target"] },
     { type: "user",   value: zero.email,                      reputation: "suspicious", tags: ["victim"] },
@@ -2300,7 +2300,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
   const MIN = 60_000;
   const HR  = 60 * MIN;
 
-  const victim     = { hostname: "MBP-SCHEN-01", email: "s.chen@cryotech.com",  ip: "10.10.50.18" };
+  const victim     = { hostname: "MBP-SCHEN-01", email: "s.chen@nexacorp.com",  ip: "10.10.50.18" };
   const sprayIp    = "91.108.56.199";
   const sessionIp  = "185.220.101.88";
   const appId      = "3a7f8b2c-d491-4e6a-9f3b-1c5d8e7a2b4f";
@@ -2372,7 +2372,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "azure.signinlogs.risk_state": "atRisk",
         "azure.signinlogs.is_interactive": "true",
         "azure.signinlogs.tenant_id": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
-        "azure.signinlogs.user_principal_name": "s.chen@cryotech.com",
+        "azure.signinlogs.user_principal_name": "s.chen@nexacorp.com",
         "azure.signinlogs.user_display_name": "Sarah Chen",
         "azure.signinlogs.user_type": "Member",
         "azure.signinlogs.device_detail.browser": "Chrome 124.0.0",
@@ -2386,7 +2386,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "event.action": "UserLoggedIn",
         "event.outcome": "success",
         "event.created": "2026-05-06T02:40:00.000Z",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "user.title": "Senior Product Engineer",
         "source.ip": sprayIp,
         "source.geo.country_name": "Germany",
@@ -2411,7 +2411,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "data.office365.CreationTime": "2026-05-06T02:45:00Z",
         "data.office365.Operation": "Add application",
         "data.office365.Workload": "AzureActiveDirectory",
-        "data.office365.UserId": "s.chen@cryotech.com",
+        "data.office365.UserId": "s.chen@nexacorp.com",
         "data.office365.ResultStatus": "Success",
         "data.office365.ClientIP": sprayIp,
         // Entra ID Audit Log fields
@@ -2432,7 +2432,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         // ECS fields
         "event.action": "Add application",
         "event.outcome": "success",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "source.ip": sprayIp,
         "application.name": "MicrosoftSecurityUpdate",
         "application.id": appId,
@@ -2452,7 +2452,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "data.office365.CreationTime": "2026-05-06T02:46:00Z",
         "data.office365.Operation": "Consent to application",
         "data.office365.Workload": "AzureActiveDirectory",
-        "data.office365.UserId": "s.chen@cryotech.com",
+        "data.office365.UserId": "s.chen@nexacorp.com",
         "data.office365.ResultStatus": "Success",
         "data.office365.ClientIP": sprayIp,
         // Entra ID Audit Log fields
@@ -2470,7 +2470,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         // ECS fields
         "event.action": "Consent to application",
         "event.outcome": "success",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "source.ip": sprayIp,
         "application.id": appId,
         "application.name": "MicrosoftSecurityUpdate",
@@ -2485,7 +2485,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       description: `The MicrosoftSecurityUpdate app read 187 emails from s.chen's inbox via Graph API using an OAuth access token, from ${sessionIp}.`,
       raw: {
         "event.action": "MailItemsAccessed", "event.outcome": "success",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "source.ip": sessionIp,
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         // Representative record — MailItemsAccessed is written per sync/bind
@@ -2508,22 +2508,22 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "data.office365.CreationTime": "2026-05-06T09:00:00Z",
         "data.office365.Operation": "Reset user password",
         "data.office365.Workload": "AzureActiveDirectory",
-        "data.office365.UserId": "it-helpdesk@cryotech.com",
-        "data.office365.ObjectId": "s.chen@cryotech.com",
+        "data.office365.UserId": "it-helpdesk@nexacorp.com",
+        "data.office365.ObjectId": "s.chen@nexacorp.com",
         "data.office365.ResultStatus": "Success",
         "data.office365.ClientIP": "10.10.1.5",
         // Entra ID Audit Log fields
         "azure.auditlogs.category": "UserManagement",
-        "azure.auditlogs.initiated_by": "it-helpdesk@cryotech.com",
-        "azure.auditlogs.target_user.upn": "s.chen@cryotech.com",
+        "azure.auditlogs.initiated_by": "it-helpdesk@nexacorp.com",
+        "azure.auditlogs.target_user.upn": "s.chen@nexacorp.com",
         // Helpdesk context
         "helpdesk.ticket": "INC-4821",
         "helpdesk.reason": "User reported suspicious sign-in activity",
         // ECS fields
         "event.action": "Reset user password",
         "event.outcome": "success",
-        "target.user.email": "s.chen@cryotech.com",
-        "user.email": "it-helpdesk@cryotech.com",
+        "target.user.email": "s.chen@nexacorp.com",
+        "user.email": "it-helpdesk@nexacorp.com",
         "source.ip": "10.10.1.5",
         "oauth.consent_revoked": "false",
       },
@@ -2536,7 +2536,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       description: "The MicrosoftSecurityUpdate app read 143 more emails from s.chen's inbox via Graph API, 2.5 hours after the password reset.",
       raw: {
         "event.action": "MailItemsAccessed", "event.outcome": "success",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "source.ip": sessionIp,
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         // Representative record — the 143-item total (see description) is a
@@ -2554,7 +2554,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       network: { bytes_out: 27_100_000 },
       raw: {
         "event.action": "FileDownloaded", "event.outcome": "success",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "source.ip": sessionIp,
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         "file.name": "RoadmapQ4-Confidential.pptx",
@@ -2576,11 +2576,11 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         // 89-file / 340MB total (see description) is a SIEM-side aggregate
         // across many records, not a count field on any single one.
         "event.action": "FileDownloaded", "event.outcome": "success",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "source.ip": sessionIp,
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         "file.name": "Q3-Compensation-Review.xlsx",
-        "cloud.resource.name": "/personal/s_chen_cryotech_com/Documents",
+        "cloud.resource.name": "/personal/s_chen_nexacorp_com/Documents",
         "storage.classification": "Confidential",
         "file.size": "3820000",
         "network.bytes_out": "3820000",
@@ -2599,7 +2599,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       raw: {
         "event.action": "AlertGenerated",
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
-        "user.email": "s.chen@cryotech.com",
+        "user.email": "s.chen@nexacorp.com",
         "SuspiciousOAuthConsent": "true",
         // Named after what the product actually flagged — the token was
         // never revoked, not an inference about "compromise" the raw record
@@ -2767,7 +2767,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const insider = { hostname: "WS-FIN-4421", email: "m.torres@cryotech.com", ip: "10.10.20.91" };
+  const insider = { hostname: "WS-FIN-4421", email: "m.torres@nexacorp.com", ip: "10.10.20.91" };
   const usbSerial = "SanDisk-A3F7B2C1";
 
   const events: TelemetryEvent[] = [
@@ -2794,7 +2794,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "workday.worker_email": insider.email,
         "workday.termination_date": "2026-05-13",
         "workday.termination_reason_category": "Voluntary",
-        "workday.initiated_by": "hr.operations@cryotech.com",
+        "workday.initiated_by": "hr.operations@nexacorp.com",
         "workday.notice_period_active": "true",
         "workday.access_revocation_scheduled": "2026-05-13T18:00:00Z",
         "event.action": "Worker_Termination_Initiated",
@@ -2817,12 +2817,12 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         // Subject (SYSTEM on interactive logon)
         "winlog.event_data.SubjectUserSid": "S-1-5-18",
         "winlog.event_data.SubjectUserName": "WS-FIN-4421$",
-        "winlog.event_data.SubjectDomainName": "CRYOTECH",
+        "winlog.event_data.SubjectDomainName": "NEXACORP",
         "winlog.event_data.SubjectLogonId": "0x3E7",
         // New Logon
         "winlog.event_data.TargetUserSid": "S-1-5-21-3421479547-3897544621-1789562108-1309",
         "winlog.event_data.TargetUserName": "mtorres",
-        "winlog.event_data.TargetDomainName": "CRYOTECH",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetLogonId": "0x9C3E47",
         "winlog.event_data.LogonGuid": "{C3D4E5F6-A1B2-C3D4-E5F6-A1B2C3D4E5F6}",
         // Logon type and process
@@ -2845,10 +2845,10 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "event.action": "logged-in",
         "event.outcome": "success",
         "event.created": "2026-05-06T13:00:00.000Z",
-        "user.name": "CRYOTECH\\mtorres",
-        "user.email": "m.torres@cryotech.com",
+        "user.name": "NEXACORP\\mtorres",
+        "user.email": "m.torres@nexacorp.com",
         "user.title": "Finance Analyst",
-        "user.domain": "CRYOTECH",
+        "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1309",
         "host.name": "WS-FIN-4421",
         "source.ip": "10.10.20.91",
@@ -2869,9 +2869,9 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         // 12-file total (see description) is a SIEM-side aggregate across
         // many records, not a count field on any single one.
         "event.action": "FileDownloaded", "event.outcome": "success",
-        "user.email": "m.torres@cryotech.com",
+        "user.email": "m.torres@nexacorp.com",
         "source.ip": "10.10.20.91",
-        "cloud.resource.name": "cryotech.sharepoint.com/sites/Finance",
+        "cloud.resource.name": "nexacorp.sharepoint.com/sites/Finance",
         "data.office365.SourceFileName": "Q2-Vendor-Payments.xlsx",
         "cloud.provider": "Microsoft365",
       },
@@ -2884,7 +2884,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       description: "Microsoft Purview DLP fired Finance-PII-Bulk-Download after m.torres downloaded 47 sensitive Finance files (18.2MB) in 15 minutes; policy action was notify-only.",
       raw: {
         "event.action": "DLP_PolicyTriggered", "event.outcome": "success",
-        "user.email": "m.torres@cryotech.com",
+        "user.email": "m.torres@nexacorp.com",
         "source.ip": "10.10.20.91",
         "policy.name": "Finance-PII-Bulk-Download",
         "policy.rule": "BulkAccessToSensitiveContent",
@@ -2908,7 +2908,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "crowdstrike.detection.technique_id": "T1052.001",
         "event.action": "RemovableMediaConnected",
         "host.name": "WS-FIN-4421",
-        "user.name": "CRYOTECH\\mtorres",
+        "user.name": "NEXACORP\\mtorres",
         "usb.device.name": "SanDisk MY_USB",
         "usb.device.serial": usbSerial,
         "usb.vendor": "SanDisk",
@@ -2933,7 +2933,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "crowdstrike.detection.technique_id": "T1052.001",
         "event.action": "FileCopiedToRemovableMedia",
         "host.name": "WS-FIN-4421",
-        "user.name": "CRYOTECH\\mtorres",
+        "user.name": "NEXACORP\\mtorres",
         "file.directory": "C:\\Users\\mtorres\\Downloads\\",
         "usb.destination": "E:\\Finance_Backup\\",
         "file.name": "Employee_Salary_Master_2026.xlsx",
@@ -2951,7 +2951,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       description: "Zscaler blocked a 9.8MB upload attempt from WS-FIN-4421 to a personal Google Cloud Storage bucket.",
       raw: {
         "event.action": "http_request_blocked", "event.outcome": "failure",
-        "user.email": "m.torres@cryotech.com",
+        "user.email": "m.torres@nexacorp.com",
         "source.ip": "10.10.20.91", "host.name": "WS-FIN-4421",
         "url.full": "https://www.googleapis.com/upload/storage/v1/b/personal-backup-m/o",
         "url.domain": "www.googleapis.com",
@@ -2972,7 +2972,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       description: "m.torres emailed 3 payroll and bonus files (4.2MB) to a personal Gmail address — DLP logged and notified but did not block the send.",
       raw: {
         "event.action": "EmailSent", "event.outcome": "success",
-        "email.from.address": "m.torres@cryotech.com",
+        "email.from.address": "m.torres@nexacorp.com",
         "email.to.address": "m.torres.backup@gmail.com",
         "email.subject": "FW: Finance Reports Q2",
         "email.direction": "outbound",
@@ -2993,10 +2993,10 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       description: "m.torres, a Finance Analyst, accessed Restricted HR documents (compensation bands, layoff planning) on the HR SharePoint site.",
       raw: {
         "event.action": "FileAccessed", "event.outcome": "success",
-        "user.email": "m.torres@cryotech.com",
+        "user.email": "m.torres@nexacorp.com",
         "user.title": "Finance Analyst",
         "source.ip": "10.10.20.91",
-        "cloud.resource.name": "cryotech.sharepoint.com/sites/HR",
+        "cloud.resource.name": "nexacorp.sharepoint.com/sites/HR",
         "data.classification": "HRConfidential, Restricted",
         "iam.permission": "read",
       },
@@ -3009,7 +3009,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       description: "m.torres browsed Indeed, LinkedIn Jobs, and Glassdoor from WS-FIN-4421 during work hours.",
       raw: {
         "event.action": "http_request", "event.outcome": "success",
-        "user.email": "m.torres@cryotech.com",
+        "user.email": "m.torres@nexacorp.com",
         "source.ip": "10.10.20.91", "host.name": "WS-FIN-4421",
         "url.domain": "indeed.com",
         "url.category": "Job Search",
@@ -3028,7 +3028,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         // System and only appears at boot.
         "logon.type": "2",
         "winlog.event_data.TargetLogonId": "0x9C3E47",
-        "user.name": "CRYOTECH\\mtorres",
+        "user.name": "NEXACORP\\mtorres",
         "host.name": "WS-FIN-4421", "source.ip": "10.10.20.91",
         // The USB fields that used to sit here moved to the device-control
         // record below. A Windows Security 4634 carries no removable-media
@@ -3044,7 +3044,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       description: "The removable volume was disconnected from WS-FIN-4421 at 15:58.",
       raw: {
         "crowdstrike.event_simpleName": "RemovableMediaVolumeUnmounted",
-        "crowdstrike.UserName": "CRYOTECH\\mtorres",
+        "crowdstrike.UserName": "NEXACORP\\mtorres",
         "device.serial_number": usbSerial,
         "device.mount_point": "E:\\",
         "device_control.policy_action": "monitor_only",
@@ -3064,7 +3064,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "event.action": "FileAccessed",
         "user.email": insider.email,
         "source.ip": insider.ip,
-        "cloud.resource.name": "cryotech.sharepoint.com/sites/Finance",
+        "cloud.resource.name": "nexacorp.sharepoint.com/sites/Finance",
         // Representative record — the 11-files-per-day baseline (see
         // description) is a SIEM-side aggregate across a day of FileAccessed
         // records, not a count field on any single one.
@@ -3114,7 +3114,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       raw: {
         "event.action": "PrintJobSubmitted",
         "host.name": insider.hostname,
-        "user.name": "CRYOTECH\\mtorres",
+        "user.name": "NEXACORP\\mtorres",
         "printer.name": "HP-FIN-FLOOR2",
         "printer.share": "\\\\PRINT-SRV-01\\HP-FIN-FLOOR2",
         "print.job_count": "3",
@@ -5334,7 +5334,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       source: "sysmon", vendor: "Microsoft Sysmon", event_type: "dns_query",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1041", mitre_tactic: "Exfiltration",
-      description: `WS-ENG-3301 sent a DNS query whose base64-encoded subdomain decodes to admin@cryotech.com.`,
+      description: `WS-ENG-3301 sent a DNS query whose base64-encoded subdomain decodes to admin@nexacorp.com.`,
       dns: { query: `YWRtaW5AY3J5b3RlY2guY29t.data.${c2Domain}`, query_type: "A", response: "NXDOMAIN", rcode: "NOERROR" },
       raw: {
         "event.code": "22",
@@ -5511,7 +5511,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       },
       {
         id: "dns_q3_encoding",
-        prompt: "In evt_dns_05_exfil_start the label YWRtaW5AY3J5b3RlY2guY29t decodes to admin@cryotech.com. Why must the attacker chunk a file across hundreds of such queries instead of sending it in one?",
+        prompt: "In evt_dns_05_exfil_start the label YWRtaW5AY3J5b3RlY2guY29t decodes to admin@nexacorp.com. Why must the attacker chunk a file across hundreds of such queries instead of sending it in one?",
         kind: "single",
         options: [
           { value: "label_63_bytes", label: "A single DNS label is capped at 63 bytes, so one query carries well under 64 bytes" },

@@ -164,6 +164,40 @@ for (const companyId of Object.keys(TENANT_DOMAINS)) {
     err("TENANT_PURITY", `[${companyId}] pool carries ${count} event(s) with foreign tenant domain @${dom} (own is @${own})`);
 }
 
+// ── CHECK 3b — TENANT_PURITY for injected STORY events ────────────────────────
+// A story is injected into a company's live feed. Its identities must match the
+// company it can appear for: an allowlisted story may use its company's domain;
+// a generic (no-allowlist) story appears for EVERY company, so it must be
+// nexacorp-based (the platform's base convention — the victim-swap localises it).
+// FICTIONAL companies that are not real tenants (e.g. "cryotech") must never
+// appear in any feed. Only INTERNAL-actor identity fields are checked (user_email
+// + winlog domain forms); attacker senders / external partners are skipped.
+const FORBIDDEN_FICTIONAL = /@?cryotech(-updates)?\.(com|io|net)\b|\bCRYOTECH\b/i;
+for (const story of ATTACK_STORIES) {
+  const allowed = new Set(
+    story.companies && story.companies.length
+      ? story.companies.map(c => TENANT_DOMAINS[c]).filter(Boolean)
+      : [TENANT_DOMAINS.nexacorp],
+  );
+  const hits = new Map(); // domain/marker -> count
+  for (const e of story.events ?? []) {
+    // internal-actor identity only: user_email + winlog TargetDomainName-style forms
+    const idFields = [e.user_email];
+    for (const [k, v] of Object.entries(e.raw ?? {})) {
+      if (typeof v === "string" && /DomainName$|UserPrincipalName$|userPrincipalName$|\.user\b|user_email/i.test(k)) idFields.push(v);
+    }
+    const hay = idFields.filter(Boolean).join(" ");
+    if (FORBIDDEN_FICTIONAL.test(hay)) hits.set("cryotech (fictional)", (hits.get("cryotech (fictional)") ?? 0) + 1);
+    for (const m of hay.matchAll(EMAIL_RE)) {
+      const dom = m[2].toLowerCase();
+      if (ALL_TENANT_DOMAINS.has(dom) && !allowed.has(dom)) hits.set(`@${dom}`, (hits.get(`@${dom}`) ?? 0) + 1);
+    }
+  }
+  const scope = story.companies?.length ? `[${story.companies.join(",")}]` : "[generic → all companies]";
+  for (const [dom, count] of hits)
+    err("TENANT_PURITY", `story "${story.id}" ${scope} carries ${count} internal identity/ies from ${dom} (allowed: ${[...allowed].join(", ") || "nexacorp.com"})`);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CHECK 4 — SEVERITY→LEVEL monotonicity of the base map (informational)
 // ══════════════════════════════════════════════════════════════════════════════

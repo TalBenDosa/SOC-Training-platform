@@ -31,8 +31,8 @@ export function buildEsxiRansomwareScenario(
 
   const attackerIp = "45.132.192.77";
   const tunnelIp = "10.99.8.44";
-  const vcenter = { host: "vcsa-01.cryotech.local", ip: "10.20.5.20" };
-  const esxi = { host: "esx-prod-03.cryotech.local", ip: "10.20.5.33" };
+  const vcenter = { host: "vcsa-01.nexacorp.local", ip: "10.20.5.20" };
+  const esxi = { host: "esx-prod-03.nexacorp.local", ip: "10.20.5.33" };
   const datastore = "DS-PROD-01";
   const elfHash = makeSha256("akira_esxi_elf_encryptor_v3");
 
@@ -45,7 +45,7 @@ export function buildEsxiRansomwareScenario(
       vendor: "FortiGate",
       event_type: "vpn_login",
       hostname: "FG-EDGE-01",
-      user_email: "r.okonkwo@cryotech.com",
+      user_email: "r.okonkwo@nexacorp.com",
       src_ip: attackerIp,
       dst_ip: "198.51.100.10",
       dst_port: 443,
@@ -68,7 +68,7 @@ export function buildEsxiRansomwareScenario(
         "data.tunnelid": "1876543210",
         "data.user": "r.okonkwo",
         "data.group": "VPN-Contractors",
-        "data.authproto": "LDAP(CRYOTECH-DC)",
+        "data.authproto": "LDAP(NEXACORP-DC)",
         "data.remip": attackerIp,
         "data.tunnelip": tunnelIp,
         "data.dst_host": "N/A",
@@ -94,7 +94,7 @@ export function buildEsxiRansomwareScenario(
       vendor: "FortiGate",
       event_type: "net_connection",
       hostname: "FG-EDGE-01",
-      user_email: "r.okonkwo@cryotech.com",
+      user_email: "r.okonkwo@nexacorp.com",
       src_ip: tunnelIp,
       dst_ip: vcenter.ip,
       dst_port: 443,
@@ -271,7 +271,7 @@ export function buildEsxiRansomwareScenario(
         "vsphere.event.host.name": esxi.host,
         "vsphere.event.host.moref": "host-1043",
         "vsphere.event.computeResource.name": "PROD-CLUSTER-A",
-        "vsphere.event.datacenter.name": "CRYOTECH-DC",
+        "vsphere.event.datacenter.name": "NEXACORP-DC",
         "vsphere.event.userName": "VSPHERE.LOCAL\\svc-monitor",
         "vsphere.event.fullFormattedMessage": "SSH access has been enabled.",
         "esxi.service.key": "TSM-SSH",
@@ -283,7 +283,7 @@ export function buildEsxiRansomwareScenario(
         "syslog.program": "vobd",
         "syslog.pid": "2098431",
         "event.original":
-          "2026-06-13T22:09:03.771Z esx-prod-03.cryotech.local vobd[2098431]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
+          "2026-06-13T22:09:03.771Z esx-prod-03.nexacorp.local vobd[2098431]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
       },
     },
 
@@ -321,7 +321,7 @@ export function buildEsxiRansomwareScenario(
         "syslog.program": "vobd",
         "syslog.pid": "2098431",
         "event.original":
-          "2026-06-13T22:11:38.204Z esx-prod-03.cryotech.local vobd[2098431]: [GenericCorrelator] [esx.audit.net.firewall.config.changed] Firewall configuration has changed. Operation 'set' for rule set sshServer succeeded.",
+          "2026-06-13T22:11:38.204Z esx-prod-03.nexacorp.local vobd[2098431]: [GenericCorrelator] [esx.audit.net.firewall.config.changed] Firewall configuration has changed. Operation 'set' for rule set sshServer succeeded.",
       },
     },
 
@@ -347,7 +347,7 @@ export function buildEsxiRansomwareScenario(
         "vsphere.event.host.moref": "host-1043",
         "vsphere.event.userName": "VSPHERE.LOCAL\\svc-monitor",
         "vsphere.event.fullFormattedMessage":
-          "Password was changed for account root on host esx-prod-03.cryotech.local.",
+          "Password was changed for account root on host esx-prod-03.nexacorp.local.",
         "esxi.account.name": "root",
         "esxi.account.id": "0",
         "esxi.account.initiator": "vpxuser",
@@ -356,7 +356,7 @@ export function buildEsxiRansomwareScenario(
         "syslog.program": "vobd",
         "syslog.pid": "2098431",
         "event.original":
-          "2026-06-13T22:14:07.660Z esx-prod-03.cryotech.local vobd[2098431]: [GenericCorrelator] [esx.audit.account.password.updated] Password was changed for account root on host esx-prod-03.cryotech.local.",
+          "2026-06-13T22:14:07.660Z esx-prod-03.nexacorp.local vobd[2098431]: [GenericCorrelator] [esx.audit.account.password.updated] Password was changed for account root on host esx-prod-03.nexacorp.local.",
       },
     },
 
@@ -368,7 +368,7 @@ export function buildEsxiRansomwareScenario(
       vendor: "VMware ESXi",
       event_type: "ssh_login",
       hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
+      user_email: "root@esx-prod-03.nexacorp.local",
       src_ip: tunnelIp,
       dst_ip: esxi.ip,
       dst_port: 22,
@@ -387,7 +387,7 @@ export function buildEsxiRansomwareScenario(
         "syslog.message":
           "Accepted keyboard-interactive/pam for root from 10.99.8.44 port 51022 ssh2",
         "event.original":
-          "2026-06-13T22:17:04Z esx-prod-03.cryotech.local sshd[2098700]: Accepted keyboard-interactive/pam for root from 10.99.8.44 port 51022 ssh2",
+          "2026-06-13T22:17:04Z esx-prod-03.nexacorp.local sshd[2098700]: Accepted keyboard-interactive/pam for root from 10.99.8.44 port 51022 ssh2",
         "vsphere.event.eventTypeId": "esx.audit.ssh.session.opened",
         "vsphere.event.fullFormattedMessage":
           "SSH session was opened for 'root@10.99.8.44'.",
@@ -407,7 +407,7 @@ export function buildEsxiRansomwareScenario(
       vendor: "VMware ESXi",
       event_type: "privileged_operation",
       hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
+      user_email: "root@esx-prod-03.nexacorp.local",
       src_ip: tunnelIp,
       severity: "critical",
       mitre_technique: "T1489",
@@ -422,7 +422,7 @@ export function buildEsxiRansomwareScenario(
         "syslog.message":
           "[root]: for v in $(vim-cmd vmsvc/getallvms | awk 'NR>1{print $1}'); do vim-cmd vmsvc/power.off $v; done",
         "event.original":
-          "2026-06-13T22:21:11Z esx-prod-03.cryotech.local shell[2098754]: [root]: for v in $(vim-cmd vmsvc/getallvms | awk 'NR>1{print $1}'); do vim-cmd vmsvc/power.off $v; done",
+          "2026-06-13T22:21:11Z esx-prod-03.nexacorp.local shell[2098754]: [root]: for v in $(vim-cmd vmsvc/getallvms | awk 'NR>1{print $1}'); do vim-cmd vmsvc/power.off $v; done",
         "user.name": "root",
         "process.working_directory": "/tmp",
       },
@@ -452,9 +452,9 @@ export function buildEsxiRansomwareScenario(
         "vsphere.event.vm.moref": "vm-2041",
         "vsphere.event.host.name": esxi.host,
         "vsphere.event.computeResource.name": "PROD-CLUSTER-A",
-        "vsphere.event.datacenter.name": "CRYOTECH-DC",
+        "vsphere.event.datacenter.name": "NEXACORP-DC",
         "vsphere.event.fullFormattedMessage":
-          "SQL-PROD-02 on esx-prod-03.cryotech.local in CRYOTECH-DC is powered off",
+          "SQL-PROD-02 on esx-prod-03.nexacorp.local in NEXACORP-DC is powered off",
         "log.file.path": "/var/log/vmware/vpxd/vpxd.log",
         "syslog.hostname": vcenter.host,
         "syslog.program": "vpxd",
@@ -499,7 +499,7 @@ export function buildEsxiRansomwareScenario(
       vendor: "VMware ESXi",
       event_type: "privileged_operation",
       hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
+      user_email: "root@esx-prod-03.nexacorp.local",
       src_ip: tunnelIp,
       severity: "critical",
       mitre_technique: "T1486",
@@ -520,7 +520,7 @@ export function buildEsxiRansomwareScenario(
         "syslog.message":
           "[root]: chmod +x /tmp/.x/encryptor; /tmp/.x/encryptor -p /vmfs/volumes/DS-PROD-01 -n 20 -t 32",
         "event.original":
-          "2026-06-13T22:32:26Z esx-prod-03.cryotech.local shell[2098754]: [root]: chmod +x /tmp/.x/encryptor; /tmp/.x/encryptor -p /vmfs/volumes/DS-PROD-01 -n 20 -t 32",
+          "2026-06-13T22:32:26Z esx-prod-03.nexacorp.local shell[2098754]: [root]: chmod +x /tmp/.x/encryptor; /tmp/.x/encryptor -p /vmfs/volumes/DS-PROD-01 -n 20 -t 32",
         "user.name": "root",
         "process.working_directory": "/tmp/.x",
       },
@@ -534,7 +534,7 @@ export function buildEsxiRansomwareScenario(
       vendor: "VMware ESXi",
       event_type: "file_create",
       hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
+      user_email: "root@esx-prod-03.nexacorp.local",
       src_ip: tunnelIp,
       severity: "critical",
       mitre_technique: "T1486",
@@ -554,7 +554,7 @@ export function buildEsxiRansomwareScenario(
         "syslog.message":
           "[root]: for d in /vmfs/volumes/DS-PROD-01/*/; do cp /tmp/.x/akira_readme.txt \"$d\"; done",
         "event.original":
-          "2026-06-13T22:36:48Z esx-prod-03.cryotech.local shell[2098754]: [root]: for d in /vmfs/volumes/DS-PROD-01/*/; do cp /tmp/.x/akira_readme.txt \"$d\"; done",
+          "2026-06-13T22:36:48Z esx-prod-03.nexacorp.local shell[2098754]: [root]: for d in /vmfs/volumes/DS-PROD-01/*/; do cp /tmp/.x/akira_readme.txt \"$d\"; done",
         "user.name": "root",
         "process.working_directory": "/tmp/.x",
       },
@@ -586,7 +586,7 @@ export function buildEsxiRansomwareScenario(
     },
     {
       type: "user",
-      value: "r.okonkwo@cryotech.com",
+      value: "r.okonkwo@nexacorp.com",
       reputation: "suspicious",
       tags: ["contractor", "vpn"],
     },
