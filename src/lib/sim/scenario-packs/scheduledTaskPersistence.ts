@@ -366,31 +366,37 @@ export function buildScheduledTaskPersistenceScenario(
     //    Sysmon telemetry above.
     // ---------------------------------------------------------------------
     {
+      // Vendor changed from "Microsoft Sysmon" — Sysmon is a passive ETW
+      // logger with no detection/correlation capability of its own and no
+      // "detection" namespace. This is a Sentinel analytics-rule alert built
+      // on top of the Sysmon feed, so the raw fields now match the SIEM
+      // correlation-alert pattern used elsewhere in this platform rather
+      // than an invented Sysmon field namespace.
       id: "evt_stp_08_detection",
       ts: T(21 * HOUR + 9 * MIN),
-      source: "edr",
-      vendor: "Microsoft Sysmon",
+      source: "siem",
+      vendor: "Microsoft Sentinel",
       event_type: "edr_alert",
       hostname: host.hostname,
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      mitre_technique: "T1053.005",
       description:
         "A SIEM detection rule built on the Sysmon feed fired on WS-7742: a script-spawned PowerShell process registered a Scheduled Task, and the task's target binary was observed launching from svchost.exe at the following logon.",
       raw: {
-        "sysmon.detection.rule_name": "Scheduled Task Persistence via Script-Spawned PowerShell",
-        "sysmon.detection.severity": "High",
-        "sysmon.detection.description":
+        "event.action": "correlation-alert",
+        "event.outcome": "alerted",
+        "alert.name": "Scheduled Task Persistence via Script-Spawned PowerShell",
+        "alert.description":
           "schtasks.exe was spawned by powershell.exe, itself running a script downloaded minutes earlier, and registered a logon-triggered task. The task's target binary later executed as a child of svchost.exe (Schedule service), confirming the persistence mechanism is active.",
-        "sysmon.detection.mitre_tactic": "Persistence",
-        "sysmon.detection.mitre_technique": "Scheduled Task/Job: Scheduled Task",
-        "sysmon.detection.mitre_technique_id": "T1053.005",
-        "sysmon.detection.related_events": ["evt_stp_04_scheduled_task", "evt_stp_07_relaunch_at_logon"],
-        "sysmon.detection.process_tree": "explorer.exe > powershell.exe > schtasks.exe | svchost.exe > netfix_agent.exe",
-        "host.name": host.hostname,
+        "alert.severity": "High",
+        "alert.rule.name": "Scheduled Task Persistence via Script-Spawned PowerShell",
+        "ExtendedProperties.Query": "SysmonEvent1 | join SysmonEvent1 on ParentProcessGuid",
+        "ExtendedProperties.Trigger Process": "schtasks.exe (parent powershell.exe)",
+        "ExtendedProperties.Relaunch Process": "netfix_agent.exe (parent svchost.exe)",
+        "host.hostname": host.hostname,
         "user.name": `NEXACORP\\${victim.sam}`,
-        "event.action": "alert",
-        "event.outcome": "detected",
       },
     },
   ];

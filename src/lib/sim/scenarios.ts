@@ -416,7 +416,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "process.parent.name": "WINWORD.EXE",
         "process.parent.executable": "\\Device\\HarddiskVolume3\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
         "process.parent.command_line": "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" \"C:\\Users\\jsmith\\Downloads\\Invoice_Q3_Final.docm\"",
-        "process.parent.hash.sha256": "3b4c9f2a1d8e7f6c5b4a3d2e1f0c9b8a7d6e5f4c3b2a1d0e9f8c7b6a5d4e3f2",
+        "process.parent.hash.sha256": "3b4c9f2a1d8e7f6c5b4a3d2e1f0c9b8a7d6e5f4c3b2a1d0e9f8c7b6a5d4e3f20",
         // Grandparent — explorer.exe
         "process.grandparent.name": "explorer.exe",
         "process.grandparent.pid": "3280",
@@ -1329,12 +1329,14 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "data.office365.ExternalAccess": "false",
         "data.office365.ClientInfoString": "Client=OWA;Action=ViaProxy;ProxyUpstreamProtocol=EWS",
         "data.office365.IsThrottled": "false",
-        // Mail access detail fields
-        "mail.access_method": "Sync",
-        "mail.items_accessed": "340",
-        "mail.folders_accessed": "Inbox, Sent Items, Drafts",
-        "mail.access_type": "Bind",
-        "mail.time_window_seconds": "112",
+        // MailItemsAccessed aggregates when the access is a Sync operation —
+        // this is the real Microsoft behavior for reducing audit record
+        // volume, and OperationCount is the actual field it uses to carry
+        // the aggregate (matches the "Bind" vs "Sync" distinction: only Sync
+        // batches, so this record must not also claim access_type Bind).
+        "data.office365.OperationProperties.MailAccessType": "Sync",
+        "data.office365.OperationCount": "340",
+        "data.office365.Folders.Path": "\\Inbox, \\Sent Items, \\Drafts",
         // ECS fields
         "event.action": "MailItemsAccessed",
         "event.outcome": "success",
@@ -1443,8 +1445,9 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
         "authentication.factor": "push_notification",
         "user.email": "p.johnson@cryotech.com",
         "source.ip": sprayIp,
-        "mfa.push_count": "8",
-        "mfa.window_minutes": "5",
+        // Representative record — Entra ID writes one sign-in log entry per
+        // attempt; the 8-push/5-minute total (see description) is a SIEM-side
+        // aggregate across many records, not a field on any single one.
       },
     },
     {
@@ -2480,7 +2483,10 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "user.email": "s.chen@cryotech.com",
         "source.ip": sessionIp,
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
-        "mail.items_accessed": "187", "mail.folder": "Inbox",
+        // Representative record — MailItemsAccessed is written per sync/bind
+        // operation; the 187-item total (see description) is a SIEM-side
+        // aggregate across many records, not a count field on this one.
+        "mail.folder": "Inbox",
         "authentication.method": "OAuth2",
       },
     },
@@ -2528,7 +2534,9 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "user.email": "s.chen@cryotech.com",
         "source.ip": sessionIp,
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
-        "mail.items_accessed": "143",
+        // Representative record — the 143-item total (see description) is a
+        // SIEM-side aggregate across many MailItemsAccessed records.
+        "mail.folder": "Inbox",
         "authentication.method": "OAuth2",
       },
     },
@@ -2559,27 +2567,41 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
       description: "89 files (340MB, including 12 marked Confidential and 4 Restricted) were bulk-downloaded from s.chen's OneDrive in 8 minutes via the same app.",
       network: { bytes_out: 340_000_000 },
       raw: {
-        "event.action": "BulkFileDownloaded", "event.outcome": "success",
+        // Representative record — FileDownloaded is written per file; the
+        // 89-file / 340MB total (see description) is a SIEM-side aggregate
+        // across many records, not a count field on any single one.
+        "event.action": "FileDownloaded", "event.outcome": "success",
         "user.email": "s.chen@cryotech.com",
         "source.ip": sessionIp,
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
-        "file.count": "89", "files.confidential": "12", "files.restricted": "4",
-        "network.bytes_out": "340000000",
+        "file.name": "Q3-Compensation-Review.xlsx",
+        "cloud.resource.name": "/personal/s_chen_cryotech_com/Documents",
+        "storage.classification": "Confidential",
+        "file.size": "3820000",
+        "network.bytes_out": "3820000",
       },
     },
     {
+      // Vendor changed from "Microsoft 365 Unified Audit Log" — a raw audit
+      // trail does not itself produce an anomaly finding. This is a Sentinel
+      // analytics-rule alert on the OAuth app's activity pattern, which is
+      // the product that actually emits event_type "ueba_anomaly" here.
       id: "evt_10_app_still_active", ts: T(16 * HR),
-      source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "ueba_anomaly",
+      source: "siem", vendor: "Microsoft Sentinel", event_type: "ueba_anomaly",
       user_email: victim.email,
       severity: "high",
       description: "Microsoft 365 Security reported the MicrosoftSecurityUpdate app as still active, with 330 emails and 89 files accessed to date.",
       raw: {
-        "event.action": "OAuth_AnomalyDetected",
+        "event.action": "AlertGenerated",
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
         "user.email": "s.chen@cryotech.com",
-        "alert.name": "Unusual ISP for cloud app access",
-        "alert.description": "OAuth application active 16h after compromise, 9h after password reset",
-        "mail.total_accessed": "330", "file.count": "89",
+        "SuspiciousOAuthConsent": "true",
+        // Named after what the product actually flagged — the token was
+        // never revoked, not an inference about "compromise" the raw record
+        // itself cannot make.
+        "alert.name": "OAuth app with mail/file access remains active — token not revoked",
+        "alert.description": "Application MicrosoftSecurityUpdate continues to call Microsoft Graph with the consented Mail.ReadWrite and Files.ReadWrite.All scopes; the OAuth grant has not been revoked.",
+        "alert.status": "open",
       },
     },
 
@@ -2838,12 +2860,15 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       severity: "medium", mitre_technique: "T1530",
       description: "m.torres downloaded 12 files from the Finance SharePoint site in 3 minutes.",
       raw: {
+        // Representative record — FileDownloaded is written per file; the
+        // 12-file total (see description) is a SIEM-side aggregate across
+        // many records, not a count field on any single one.
         "event.action": "FileDownloaded", "event.outcome": "success",
         "user.email": "m.torres@cryotech.com",
         "source.ip": "10.10.20.91",
         "cloud.resource.name": "cryotech.sharepoint.com/sites/Finance",
+        "data.office365.SourceFileName": "Q2-Vendor-Payments.xlsx",
         "cloud.provider": "Microsoft365",
-        "file.count": "12", "session.duration_seconds": "180",
       },
     },
     {
@@ -2885,7 +2910,9 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "usb.action": "mounted",
         "removable_media.type": "USB Flash Drive",
         "usb.mount_point": "E:\\",
-        "file.count": "47",
+        // The mount event only records the mount — the 47 files copied
+        // afterward (see description) are the separate FileWrittenToRemovableMedia
+        // records that follow, not a field the mount event itself carries.
       },
     },
     {
@@ -2904,7 +2931,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "user.name": "CRYOTECH\\mtorres",
         "file.directory": "C:\\Users\\mtorres\\Downloads\\",
         "usb.destination": "E:\\Finance_Backup\\",
-        "file.count": "8",
+        "file.name": "Employee_Salary_Master_2026.xlsx",
         "file.classification": "HRConfidential",
         "usb.device.serial": usbSerial,
       },
@@ -3033,7 +3060,9 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
         "user.email": insider.email,
         "source.ip": insider.ip,
         "cloud.resource.name": "cryotech.sharepoint.com/sites/Finance",
-        "file.count": "11",
+        // Representative record — the 11-files-per-day baseline (see
+        // description) is a SIEM-side aggregate across a day of FileAccessed
+        // records, not a count field on any single one.
         "session.duration_seconds": "28800",
         "event.outcome": "success",
       },
@@ -3542,10 +3571,10 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
         "data.office365.ObjectId":         "https://nexacorp.sharepoint.com/sites/Engineering/Shared Documents",
         "data.office365.SiteUrl":          "https://nexacorp.sharepoint.com/sites/Engineering",
         "data.office365.UserType":         "0",
-        "sharepoint.files_downloaded":     "847",
-        "sharepoint.bytes_total":          "2348000000",
-        "sharepoint.download_duration_sec":"312",
-        "sharepoint.avg_file_size_kb":     "2767",
+        "data.office365.SourceFileName":   "PCB-Rev4-Schematics.pdf",
+        // Representative record — FileDownloaded is written per file; the
+        // 847-file / 2.3GB total (see description) is a SIEM-side aggregate
+        // across many records, not a count field on any single one.
         "GeoLocation.country_name":        "Nigeria",
         "GeoLocation.city_name":           "Lagos",
         "GeoLocation.location.lat":        6.5244,
@@ -7489,18 +7518,20 @@ export function buildSupplyChainScenario(scenarioId = "supply-chain-2026"): Scen
       severity: "critical", mitre_technique: "T1530",
       description: "847 GetObject calls against rocketstack-prod-backups over 3 minutes transferred 2.3GB, including PostgreSQL dumps, customer PII CSV exports, and source code archives.",
       cloud: { provider: "aws", service: "s3", api_call: "GetObject", region: "eu-west-1", resource: "rocketstack-prod-backups" },
+      network: { bytes_out: 2_467_500_000 },
       raw: {
+        // Representative record — CloudTrail writes one GetObject event per
+        // call; the 847-object / 2.3GB total (see description) is a SIEM-side
+        // aggregate across many records, not a count field on any single one.
         "aws.cloudtrail.eventName": "GetObject",
         "aws.cloudtrail.eventSource": "s3.amazonaws.com",
         "aws.cloudtrail.awsRegion": "eu-west-1",
         "aws.cloudtrail.sourceIPAddress": attacker.relayIp,
         "aws.cloudtrail.userIdentity.type": "AssumedRole",
         "aws.cloudtrail.userIdentity.arn": `arn:aws:sts::${victim.awsAccount}:assumed-role/rocketstack-prod-deploy/devops-ci`,
-        "aws.cloudtrail.request_parameters": "{\"bucketName\": \"rocketstack-prod-backups\"}",
+        "aws.cloudtrail.request_parameters": "{\"bucketName\": \"rocketstack-prod-backups\", \"key\": \"backups/2026-06-14/pg_dump_prod.sql.gz\"}",
         "aws.cloudtrail.s3.bucket_name": "rocketstack-prod-backups",
-        "aws.cloudtrail.s3.bytes_transferred": 2467500000,
-        "aws.cloudtrail.s3.object_count": 847,
-        "aws.cloudtrail.s3.duration_seconds": 180,
+        "aws.cloudtrail.responseElements.contentLength": 2913400,
         "event.outcome": "success",
         "cloud.provider": "aws",
         "GeoLocation.country_name": "Singapore",
@@ -7659,7 +7690,9 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
         "data.okta.client.geographicalContext.city": "Moscow",
         "data.okta.client.userAgent.rawUserAgent": "python-requests/2.31.0",
         "data.okta.target[0].displayName": "Jennifer Chen",
-        "data.okta.debugContext.debugData.loginFailureCount": 47,
+        // Representative record — Okta writes one user.session.start event per
+        // attempt. The 47-failure total (see description) is a SIEM-side
+        // aggregate, not a field any single Okta System Log record carries.
         "data.okta.displayMessage": "User login to Okta failed",
       },
     },
@@ -7699,7 +7732,9 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
         "data.okta.client.ipAddress": "91.108.4.33",
         "data.okta.client.geographicalContext.country": "Russia",
         "data.okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH",
-        "data.okta.debugContext.debugData.pushDenialCount": 12,
+        // Representative record — one user.mfa.okta_verify.push_response event
+        // per push. The 12-rejection total (see description) is aggregated
+        // across records, not a field on any single one.
         "data.okta.displayMessage": "MFA push notification denied",
       },
     },
@@ -7719,9 +7754,10 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
         "data.okta.client.geographicalContext.city": "Moscow",
         "data.okta.client.userAgent.rawUserAgent": "Okta Verify/4.11.0 iOS/17.2",
         "data.okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH",
-        "data.okta.debugContext.debugData.pushSentCount": 60,
+        // Representative record for the accepted push — the 60-notification
+        // total (see description) is a SIEM-side count across many individual
+        // push_response records, not a field this one record carries.
         "data.okta.debugContext.debugData.pushApprovedAt": "2026-06-15T01:32:17Z",
-        "data.okta.debugContext.debugData.sessionDurationMinutes": 11,
         "data.okta.displayMessage": "MFA push notification approved",
       },
     },
@@ -7762,7 +7798,9 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
         "data.office365.ClientIPAddress": "91.108.4.33",
         "data.office365.Workload": "Exchange",
         "data.office365.MailboxOwnerUPN": "j.chen@nexacorp.com",
-        "data.office365.OperationCount": 3847,
+        // Representative record — MailItemsAccessed is written per sync/bind
+        // operation; the 3,847-item total (see description) is a SIEM-side
+        // aggregate across many records, not a count field on this one.
         "GeoLocation.country_name": "Russia",
       },
     },
@@ -7779,8 +7817,10 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
         "data.office365.Workload": "SharePoint",
         "data.office365.ClientIPAddress": "91.108.4.33",
         "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/Finance",
-        "data.office365.DownloadCount": 847,
-        "data.office365.TotalSizeBytes": 2341887242,
+        "data.office365.SourceFileName": "Q1-2026-Financials.xlsx",
+        // Representative record — FileDownloaded is written per file; the
+        // 847-file / 2.3GB total (see description) is a SIEM-side aggregate
+        // across many records, not a count field on this one.
         "GeoLocation.country_name": "Russia",
       },
     },
@@ -9050,7 +9090,8 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
         "data.office365.AppId": APP_ID,
         "data.office365.ClientIPAddress": "40.99.8.12",
         "data.office365.Workload": "Exchange",
-        "data.office365.OperationCount": 1247,
+        // Representative record — the 1,247-item total (see description) is
+        // a SIEM-side aggregate across many MailItemsAccessed records.
         "data.office365.AccessedItems[0].InternetMessageId": "<msg-batch-01@nexacorp.com>",
       },
     },
@@ -9108,7 +9149,9 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
         "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/Finance",
         "data.office365.ObjectId": "https://nexacorp.sharepoint.com/sites/Finance/Documents",
         "data.office365.ItemType": "File",
-        "data.office365.AccessCount": 312,
+        // Representative record — FileAccessed is written per file; the
+        // 312-file total (see description) is a SIEM-side aggregate across
+        // many records, not a count field on this one.
       },
     },
     {
