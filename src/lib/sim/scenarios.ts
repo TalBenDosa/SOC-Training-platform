@@ -1656,7 +1656,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       // what goes in the report, and it is now discoverable.
       id: "evt_00_da_session", ts: T(-14 * 60 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: zero.hostname, user_email: "da-backup@nexacorp.com",
+      hostname: zero.hostname, user_email: "da-backup@cryotech.com",
       severity: "informational",
       description: "da-backup opened a Remote Desktop session on WS-FIN-1193 the previous afternoon and signed out 41 minutes later.",
       raw: {
@@ -1664,7 +1664,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "winlog.channel": "Security",
         "winlog.computer_name": "WS-FIN-1193",
         "winlog.event_data.TargetUserName": "da-backup",
-        "winlog.event_data.TargetDomainName": "NEXACORP",
+        "winlog.event_data.TargetDomainName": "CRYOTECH",
         "winlog.event_data.LogonType": "10",
         "winlog.event_data.LogonProcessName": "User32 ",
         "winlog.event_data.AuthenticationPackageName": "Negotiate",
@@ -2652,7 +2652,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         "email.direction": "inbound",
         "source.ip": "91.108.56.207",
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
-        "email.links": ["https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=3a7f8b2c-d491-4e6a-9f3b-1c5d8e7a2b4f&scope=Mail.ReadWrite+Files.ReadWrite.All"],
+        "email.links": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=3a7f8b2c-d491-4e6a-9f3b-1c5d8e7a2b4f&scope=Mail.ReadWrite+Files.ReadWrite.All",
         "url.malicious_detected": "false",
         "data.office365.SafeLinks.Bypassed": "true",
         "action_result": "delivered",
@@ -2901,7 +2901,7 @@ export function buildInsiderThreatScenario(scenarioId = "insider-threat-2026"): 
       severity: "critical", mitre_technique: "T1052.001",
       description: `A SanDisk USB drive (serial ${usbSerial}) was connected to WS-FIN-4421, and 47 files were copied to it within 23 seconds of mounting.`,
       raw: {
-        "crowdstrike.event_simpleName": "RemovableMediaConnectedEvent",
+        "crowdstrike.event_simpleName": "RemovableMediaConnected",
         "crowdstrike.detection.description": "Removable storage volume mounted.",
         "crowdstrike.detection.scenario": "removable_media_bulk_copy",
         "crowdstrike.detection.technique": "Exfiltration over USB Device",
@@ -6113,7 +6113,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         answer: "regsvr_to_mshta_to_ps",
         xp: 100,
         explanation:
-          "mshta's record names regsvr32.exe (PID 5512) as its initiating process, and its command line launches hidden PowerShell; wmic, bitsadmin, rundll32 and schtasks all then record powershell.exe PID 6200 as initiator. That is the chain. 'cmd_parents_everything' holds only for the first two steps — and even there they are two different cmd PIDs (4420 and 5500); from wmic onward the initiator is PowerShell, not cmd. 'certutil_spawned_regsvr' asserts a link the data denies: regsvr32's parent PID is 5500, not certutil's 4440, and sharing a host is not a parent-child relationship. 'schtasks_started_chain' is chronologically impossible — schtasks runs at T+20, twenty minutes after certutil, and a process cannot parent events that happened before it existed.",
+          "mshta's record names regsvr32.exe (PID 5512) as its initiating process, and its command line launches hidden PowerShell; wmic, bitsadmin, rundll32 and schtasks all then record powershell.exe PID 6200 as initiator. That is the chain. 'cmd_parents_everything' holds only for the first two steps — cmd.exe PID 4420 is the recorded parent of both certutil and regsvr32; from mshta onward the initiator is regsvr32, then PowerShell, not cmd. 'certutil_spawned_regsvr' asserts a link the data denies: regsvr32's parent PID is 4420 (cmd.exe), the same parent certutil has — not certutil's own PID 4440 — and sharing a host is not a parent-child relationship. 'schtasks_started_chain' is chronologically impossible — schtasks runs at T+20, twenty minutes after certutil, and a process cannot parent events that happened before it existed.",
       },
       {
         id: "lol_q4_persistence",
@@ -6429,7 +6429,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
     // ── T+16min: GuardDuty CryptoCurrency:EC2/BitcoinTool.B!DNS ─────────────
     {
       id: "evt_cm_08_guardduty", ts: T(16 * MIN),
-      source: "ueba", vendor: "AWS GuardDuty",
+      source: "siem", vendor: "AWS GuardDuty",
       event_type: "ueba_anomaly",
       severity: "critical", mitre_technique: "T1496", mitre_tactic: "Impact",
       dst_ip: attackerIp,
@@ -6469,7 +6469,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
     // ── T+20min: AWS Cost Anomaly Detection — $47k in 6 hours ────────────────
     {
       id: "evt_cm_09_billing", ts: T(20 * MIN),
-      source: "ueba", vendor: "AWS Cost Anomaly Detection",
+      source: "siem", vendor: "AWS Cost Anomaly Detection",
       event_type: "ueba_anomaly",
       severity: "critical", mitre_technique: "T1496", mitre_tactic: "Impact",
       description: "AWS Cost Anomaly Detection flagged a $47,320 spend spike over 6 hours against an $800/day baseline, attributed to p3.8xlarge usage in us-east-1 and eu-west-1.",
@@ -7702,7 +7702,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_01_spray",
       ts: T(0),
-      source: "iam", vendor: "Okta",
+      source: "okta", vendor: "Okta",
       event_type: "auth_failure", severity: "medium", mitre_technique: "T1110.003",
       hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "j.chen's Okta account recorded 47 consecutive authentication failures from a Moscow, Russia IP within 12 minutes, using a python-requests user agent.",
@@ -7726,7 +7726,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_02_auth_success",
       ts: T(1 * MIN + 17_000),
-      source: "iam", vendor: "Okta",
+      source: "okta", vendor: "Okta",
       event_type: "auth_success", severity: "high", mitre_technique: "T1078.004",
       hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "The 48th login attempt from the same Russian IP succeeded on password, triggering an MFA push to j.chen's phone.",
@@ -7746,7 +7746,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_03_push_rejected",
       ts: T(6 * MIN + 17_000),
-      source: "iam", vendor: "Okta",
+      source: "okta", vendor: "Okta",
       event_type: "mfa_denied", severity: "high", mitre_technique: "T1621",
       hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "j.chen denied 12 consecutive MFA push notifications over 6 minutes, all tied to the same Russian IP login attempt.",
@@ -7768,7 +7768,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_04_push_accepted",
       ts: T(12 * MIN + 17_000),
-      source: "iam", vendor: "Okta",
+      source: "okta", vendor: "Okta",
       event_type: "auth_success", severity: "critical", mitre_technique: "T1621",
       hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "j.chen approved an MFA push at 01:32 local time, the 60th notification sent over 11 minutes from the same Russian IP.",
@@ -7791,7 +7791,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_05_device_enroll",
       ts: T(12 * MIN + 44_000),
-      source: "iam", vendor: "Okta",
+      source: "okta", vendor: "Okta",
       event_type: "account_modify", severity: "critical", mitre_technique: "T1098.001",
       hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "An unmanaged Windows device, DESKTOP-MOSCOW-99, was enrolled to j.chen's Okta account 27 seconds after the MFA push was approved.",
@@ -7854,7 +7854,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     {
       id: "mfa_08_api_token",
       ts: T(20 * MIN),
-      source: "iam", vendor: "Okta",
+      source: "okta", vendor: "Okta",
       event_type: "cloud_api_call", severity: "high", mitre_technique: "T1098.001",
       hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
       description: "An Okta API token named j.chen-api-token-2026 was created with no expiration date, from the same Russian IP.",
@@ -8128,7 +8128,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     {
       id: "asrep_06_kerberos_network",
       ts: T(2 * MIN + 5_000),
-      source: "proxy", vendor: "Corelight (Zeek)",
+      source: "ids", vendor: "Corelight (Zeek)",
       event_type: "net_connection", severity: "medium", mitre_technique: "T1558.004",
       hostname: "WS-DEV-09", src_ip: "10.0.1.45", dst_ip: "10.0.0.5", dst_port: 88,
       description: "Zeek logged 3 rapid Kerberos AS requests (UDP/88, RC4-HMAC) from WS-DEV-09 to DC01 within seconds of each other.",
@@ -8411,7 +8411,7 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
       // What the victim actually leaves is an SMB session to the poisoner.
       id: "ntlm_03_victim_smb_session",
       ts: T(5_000),
-      source: "firewall", vendor: "Corelight (Zeek)",
+      source: "ids", vendor: "Corelight (Zeek)",
       event_type: "net_connection", severity: "medium", mitre_technique: "T1557.001",
       hostname: "WS-FIN-03", user_email: "l.nguyen@nexacorp.com", src_ip: "10.0.1.31",
       description: "WS-FIN-03 opened an SMB session to 10.0.1.45 on port 445, three seconds after receiving the LLMNR answer.",
@@ -9243,6 +9243,20 @@ export function buildOAuthConsentPhishingScenario(scenarioId = "oauth-consent-gr
       hostname: "sentinel.nexacorp.com", user_email: "j.chen@nexacorp.com",
       description: "Microsoft Sentinel UEBA raised the Productivity Suite Pro service principal's risk score from 8 to 91.",
       raw: {
+        "event.action": "BehaviorAnomalyDetected",
+        "event.outcome": "alerted",
+        "user.email": "j.chen@nexacorp.com",
+        "SuspiciousOAuthConsent": "true",
+        "behavior.name": "oauth_app_risk_escalation",
+        "behavior.score": "91",          // new composite risk score (0-100)
+        "anomaly.score": "88",           // 0-100 UEBA composite confidence
+        "ActionUncommonlyPerformedByUser": "true",
+        "ExtendedProperties.Contributing Behavior 1": "AllPrincipals (tenant-wide) consent requested from an unverified publisher",
+        "ExtendedProperties.Contributing Behavior 2": "Mail.ReadWrite + Files.ReadWrite.All granted to a newly-registered application",
+        "ExtendedProperties.Contributing Behavior 3": "DLP policy match on confidential document access by the application",
+        "ExtendedProperties.Contributing Behavior 4": "Sign-in source IP 40.99.8.12 has no prior history for this tenant",
+        "application.id": APP_ID,
+        "application.name": "Productivity Suite Pro",
       },
     },
     {

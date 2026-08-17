@@ -1303,21 +1303,21 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   // ════════════════════════════════════════════════════════════════
   {
     id: "mc_az_001", ts: "2026-05-10T07:30:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    source: "cloud_azure", event_type: "cloud_api_call", severity: "informational",
     vendor: "Azure Monitor", user_email: "k.devries@medcorehealth.org", src_ip: "192.168.10.5",
     description: "k.devries read secret emr-db-password from kv-medcore-prod",
     raw: { "azure.activitylogs.operationName": "Microsoft.KeyVault/vaults/secrets/read", "azure.resource.group": "rg-medcore-prod", "azure.activitylogs.resultType": "Succeeded", "azure.activitylogs.identity.claims.upn": "k.devries@medcorehealth.org", "action_result": "allowed" },
   },
   {
     id: "mc_az_002", ts: "2026-05-10T08:00:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    source: "cloud_azure", event_type: "cloud_api_call", severity: "informational",
     vendor: "Azure Monitor",
     description: "Azure Backup job SQL-MedCore-DB01 completed",
     raw: { "azure.activitylogs.operationName": "Microsoft.RecoveryServices/vaults/backupJobs/read", "azure.activitylogs.resultType": "Succeeded", "azure.backup_size_gb": "42.1", "action_result": "allowed" },
   },
   {
     id: "mc_az_003", ts: "2026-05-10T09:48:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "medium",
+    source: "cloud_azure", event_type: "cloud_api_call", severity: "medium",
     vendor: "Microsoft Entra ID", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
     description: "dr.vandijk's account queried the full Azure AD user directory — unusual for a clinical account",
     mitre_technique: "T1087.002",
@@ -1325,7 +1325,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "mc_az_004", ts: "2026-05-10T11:00:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "informational",
+    source: "cloud_azure", event_type: "cloud_api_call", severity: "informational",
     vendor: "Azure Monitor", user_email: "k.devries@medcorehealth.org",
     description: "k.devries ran compliance scan on Azure Policy (NEN7510)",
     raw: { "azure.activitylogs.operationName": "Microsoft.PolicyInsights/policyStates/summarize", "azure.compliance_rate": "98%", "azure.activitylogs.resultType": "Succeeded", "action_result": "allowed" },
@@ -1635,7 +1635,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   {
     id: "mc_emr_001", ts: "2026-05-10T07:20:00.000Z",
     source: "db_monitor", event_type: "db_query", severity: "informational",
-    vendor: "Epiq EMR Audit Log", user_email: "n.smits@medcorehealth.org", src_ip: "192.168.10.45",
+    vendor: "Epic EMR Audit Log", user_email: "n.smits@medcorehealth.org", src_ip: "192.168.10.45",
     user_title: "Clinical Nurse",
     hostname: "WS-MED-045",
     description: "n.smits opened patient record P-18847 in Epiq EMR (Cardiology ward)",
@@ -1648,7 +1648,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   {
     id: "mc_emr_002", ts: "2026-05-10T08:10:00.000Z",
     source: "db_monitor", event_type: "db_query", severity: "informational",
-    vendor: "Epiq EMR Audit Log", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
+    vendor: "Epic EMR Audit Log", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
     user_title: "Cardiologist",
     hostname: "WS-MED-022",
     description: "dr.vandijk reviewed lab results for patients P-18847 and P-19203 in Epiq EMR",
@@ -1660,7 +1660,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   {
     id: "mc_emr_003", ts: "2026-05-10T10:42:00.000Z",
     source: "db_monitor", event_type: "db_query", severity: "informational",
-    vendor: "Epiq EMR Audit Log", user_email: "p.hoekstra@medcorehealth.org", src_ip: "192.168.10.67",
+    vendor: "Epic EMR Audit Log", user_email: "p.hoekstra@medcorehealth.org", src_ip: "192.168.10.67",
     hostname: "WS-MED-067",
     description: "p.hoekstra updated medication chart for patient P-18847 in Epiq EMR",
     raw: {
@@ -1672,7 +1672,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   {
     id: "mc_emr_004", ts: "2026-05-10T14:22:00.000Z",
     source: "db_monitor", event_type: "db_query", severity: "informational",
-    vendor: "Epiq EMR Audit Log", user_email: "l.jansen@medcorehealth.org", src_ip: "192.168.10.55",
+    vendor: "Epic EMR Audit Log", user_email: "l.jansen@medcorehealth.org", src_ip: "192.168.10.55",
     user_title: "Cardiologist",
     hostname: "WS-MED-055",
     description: "l.jansen filed discharge summary for patient P-19100 in Epiq EMR",
@@ -2200,7 +2200,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "gl_bf_03", ts: "2026-05-10T09:15:00.000Z",
-    source: "sysmon", event_type: "linux_execve", severity: "high",
+    source: "linux_audit", event_type: "linux_execve", severity: "high",
     vendor: "Linux auditd", hostname: "SRV-GL-LINUX01", src_ip: "45.142.212.100",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     description: "fail2ban banned 45.142.212.100 in the sshd jail on SRV-GL-LINUX01 for 600 seconds",
@@ -2381,7 +2381,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
   // ── CyberArk PAM ─────────────────────────────────────────────────────────
   {
     id: "qb_ca_001", ts: "2026-05-10T10:00:00.000Z",
-    source: "okta", event_type: "auth_success", severity: "informational",
+    source: "iam", event_type: "auth_success", severity: "informational",
     vendor: "CyberArk PAM", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     user_title: "IT Security",
     hostname: "SRV-QB-ADMIN01",
@@ -2864,7 +2864,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
       "action_result": "allowed" },
   },
   {
-    id: "nx_a2", ts: "2026-05-10T09:21:00Z", source: "ad", event_type: "auth_success",
+    id: "nx_a2", ts: "2026-05-10T09:21:00Z", source: "o365", event_type: "auth_success",
     severity: "medium", vendor: "Microsoft Entra ID", user_email: "c.thornton@nexacorp.com", src_ip: "91.108.4.22",
     description: "c.thornton signed in successfully from Amsterdam, Netherlands (91.108.4.22)",
     mitre_technique: "T1078",
@@ -2883,14 +2883,14 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
       "action_result": "allowed" },
   },
   {
-    id: "nx_a3", ts: "2026-05-10T09:25:00Z", source: "o365", event_type: "email_sent",
+    id: "nx_a3", ts: "2026-05-10T09:25:00Z", source: "o365", event_type: "account_modify",
     severity: "high", vendor: "Microsoft 365 Unified Audit Log", user_email: "c.thornton@nexacorp.com",
-    description: "c.thornton created inbox rule SyncRule01 forwarding wire and payment mail to attacker88@proton.me",
+    description: "c.thornton created inbox rule SyncRule01 auto-forwarding mail matching wire/transfer/payment keywords to an external address (d.rennik88@proton.me)",
     mitre_technique: "T1114.003",
-    raw: { "data.office365.Operation": "New-InboxRule", "data.office365.Parameters": "ForwardTo=attacker88@proton.me; SubjectContainsWords=wire,transfer,payment", "data.office365.ClientIP": "91.108.4.22", "action_result": "allowed" },
+    raw: { "data.office365.Operation": "New-InboxRule", "data.office365.Parameters": "ForwardTo=d.rennik88@proton.me; SubjectContainsWords=wire,transfer,payment", "data.office365.ClientIP": "91.108.4.22", "action_result": "allowed" },
   },
   {
-    id: "nx_a4", ts: "2026-05-10T09:38:00Z", source: "cloudtrail", event_type: "cloud_api_call",
+    id: "nx_a4", ts: "2026-05-10T09:38:00Z", source: "cloud_azure", event_type: "cloud_api_call",
     severity: "critical", vendor: "Azure Monitor", user_email: "c.thornton@nexacorp.com", src_ip: "91.108.4.22",
     description: "c.thornton listed 12 secrets from kv-nexacorp-prod",
     mitre_technique: "T1552.001",
@@ -3111,7 +3111,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     raw: { "s1.event_type": "FILE_CREATION", "file.destination": "F:\\", "usb.vendor": "SanDisk", "usb.serial": "7A2F-CC01", "s1.action": "detect_only", "action_result": "allowed" },
   },
   {
-    id: "mc_b3", ts: "2026-05-10T11:30:00Z", source: "cloudtrail", event_type: "cloud_api_call",
+    id: "mc_b3", ts: "2026-05-10T11:30:00Z", source: "cloud_azure", event_type: "cloud_api_call",
     severity: "high", vendor: "Microsoft Entra ID", user_email: "n.smits@medcorehealth.org", src_ip: "192.168.10.45",
     description: "n.smits's account queried the full Azure AD directory, returning all 3,800 staff records in a single call",
     mitre_technique: "T1087.002",
@@ -3725,7 +3725,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
   {
-    id: "qb_b1", ts: "2026-05-10T11:00:00Z", source: "okta", event_type: "auth_success",
+    id: "qb_b1", ts: "2026-05-10T11:00:00Z", source: "iam", event_type: "auth_success",
     severity: "medium", vendor: "CyberArk PAM", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     description: "l.brunner checked out svc-db-admin from CyberArk vault (no change ticket)",
     mitre_technique: "T1078.002",

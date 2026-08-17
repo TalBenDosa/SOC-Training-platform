@@ -11969,8 +11969,8 @@
       "prefixes": []
     },
     "epiq-emr-audit-log": {
-      "label": "Epiq EMR Audit Log",
-      "aliases": [],
+      "label": "Epic EMR Audit Log",
+      "aliases": ["Epiq EMR Audit Log"],
       "exactFields": [
         "action_result",
         "emr.access_reason",

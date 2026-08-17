@@ -499,7 +499,7 @@ export function buildIsoContainerSmugglingScenario(
       answer: "gap",
       xp: 50,
       explanation:
-        "FortiWeb's category database can only classify domains it has crawled or received threat-intel on; brand-new attacker infrastructure routinely starts life Uncategorized, and many organisations leave that bucket on passthrough because blocking it wholesale breaks too many legitimate new sites. The log itself proves TLS visibility was fine — full URL, filename, and byte counts are present — so (c) is contradicted by the evidence. (b) assumes a specific policy stance the log doesn't state, and (d) inverts what 'Uncategorized' actually means: it's an absence of classification, not a positive verdict.",
+        "FortiGuard's category database can only classify domains it has crawled or received threat-intel on; brand-new attacker infrastructure routinely starts life Uncategorized, and many organisations leave that bucket on passthrough because blocking it wholesale breaks too many legitimate new sites. The log itself proves TLS visibility was fine — full URL, filename, and byte counts are present — so (c) is contradicted by the evidence. (b) assumes a specific policy stance the log doesn't state, and (d) inverts what 'Uncategorized' actually means: it's an absence of classification, not a positive verdict.",
     },
     {
       id: "q3",

@@ -1238,13 +1238,15 @@ function genEDR(world: WorldState): GeneratedEvent {
   const hostname = user.hostname;
   const roll = world.rng.next();
 
-  const edrVendor = world.meta.edr === "crowdstrike"
+  const isCrowdStrike = world.meta.edr === "crowdstrike";
+  const edrVendor = isCrowdStrike
     ? "CrowdStrike Falcon"
     : "Microsoft Defender for Endpoint";
-  const source = world.meta.edr === "crowdstrike" ? "edr" : "av";
+  const source = isCrowdStrike ? "edr" : "av";
 
   // Clean scan — 50%
   if (roll < 0.50) {
+    const scanDurationSec = world.rng.range(180, 1800);
     return {
       id: nextId(world, "edr"),
       ts: ts(world),
@@ -1256,17 +1258,31 @@ function genEDR(world: WorldState): GeneratedEvent {
       user_email: user.email,
       user_title: user.title,
       description: `Scheduled AV scan completed on ${hostname} — no threats detected`,
-      raw: {
-        "av.scan_type": "scheduled",
-        "av.result": "clean",
-        "av.threat_name": "",
-        "av.action": "no_action_needed",
-        "av.scanned_files": String(world.rng.range(120000, 450000)),
-        "av.scan_duration_sec": String(world.rng.range(180, 1800)),
-        "host.name": hostname,
-        "user.name": user.id,
-        "action_result": "clean",
-      },
+      raw: isCrowdStrike
+        ? {
+            // CrowdStrike Falcon — sensor heartbeat / on-sensor ML scan summary
+            "crowdstrike.event_simpleName": "AgentOnlineEvent",
+            "crowdstrike.aid": world.rng.hex(32),
+            "crowdstrike.SensorId": world.rng.hex(32),
+            "crowdstrike.ComputerName": hostname,
+            "scan.type": "scheduled",
+            "scan.result": "clean",
+            "scan.duration": String(scanDurationSec),
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "clean",
+          }
+        : {
+            // Microsoft Defender AV — Event ID 1001 (scan completed)
+            "windefend.scan.type": "Full",
+            "windefend.scan.parameters": "Scheduled scan",
+            "windefend.scan.state": "Completed",
+            "windefend.signature.version": "1.411.74.0",
+            "windefend.engine.version": "1.1.24050.5",
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "clean",
+          },
     };
   }
 
@@ -1279,6 +1295,7 @@ function genEDR(world: WorldState): GeneratedEvent {
     ];
     const pua = world.rng.choice(puas);
     const sha = world.rng.sha256();
+    const filePath = `C:\\Users\\${user.id}\\Downloads\\${pua.file}`;
     return {
       id: nextId(world, "edr"),
       ts: ts(world),
@@ -1290,23 +1307,49 @@ function genEDR(world: WorldState): GeneratedEvent {
       user_email: user.email,
       user_title: user.title,
       file: {
-        path: `C:\\Users\\${user.id}\\Downloads\\${pua.file}`,
+        path: filePath,
         sha256: sha,
         size: world.rng.range(524288, 10485760),
         extension: "exe",
       },
       description: `PUA detected and quarantined on ${hostname}: ${pua.name} in Downloads folder`,
-      raw: {
-        "av.threat_name": pua.name,
-        "av.threat_type": "PUA",
-        "av.action": "quarantine",
-        "av.file_path": `C:\\Users\\${user.id}\\Downloads\\${pua.file}`,
-        "av.sha256": sha,
-        "av.detection_source": "realtime",
-        "host.name": hostname,
-        "user.name": user.id,
-        "action_result": "quarantined",
-      },
+      raw: isCrowdStrike
+        ? {
+            // CrowdStrike Falcon — DetectionSummaryEvent
+            "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+            "crowdstrike.DetectName": pua.name,
+            "crowdstrike.DetectDescription": `${pua.name} detected in Downloads folder`,
+            "crowdstrike.PatternDispositionDescription": "Quarantined",
+            "crowdstrike.SeverityName": "Low",
+            "crowdstrike.FileName": pua.file,
+            "crowdstrike.FilePath": filePath,
+            "crowdstrike.SHA256HashData": sha,
+            "crowdstrike.ComputerName": hostname,
+            "crowdstrike.UserName": user.id,
+            "malware.name": pua.name,
+            "malware.category": "PUA",
+            "quarantine.status": "quarantined",
+            "remediation.action": "quarantine",
+            "action_result": "quarantined",
+          }
+        : {
+            // Microsoft Defender AV — Event ID 1117 (action taken)
+            "windefend.threat.name": pua.name,
+            "windefend.threat.id": String(world.rng.range(2000000000, 2199999999)),
+            "windefend.threat.category": "PUA",
+            "windefend.threat.severity": "Low",
+            "windefend.action.name": "Quarantine",
+            "windefend.action.id": "3",
+            "windefend.detection.source": "Real-Time Protection",
+            "windefend.detection.type": "Concrete",
+            "windefend.path": filePath,
+            "windefend.process.name": "MsMpEng.exe",
+            "windefend.signature.version": "1.411.74.0",
+            "windefend.engine.version": "1.1.24050.5",
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "quarantined",
+          },
     };
   }
 
@@ -1330,15 +1373,31 @@ function genEDR(world: WorldState): GeneratedEvent {
       user_title: user.title,
       network: { domain: site.domain },
       description: `Network protection blocked access to ${site.domain} (${site.category}) on ${hostname}`,
-      raw: {
-        "av.network_protection.action": "block",
-        "av.network_protection.url": `https://${site.domain}`,
-        "av.network_protection.category": site.category,
-        "av.network_protection.reason": "policy_violation",
-        "host.name": hostname,
-        "user.name": user.id,
-        "action_result": "blocked",
-      },
+      raw: isCrowdStrike
+        ? {
+            // CrowdStrike Falcon — DetectionSummaryEvent (policy-category network block)
+            "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+            "crowdstrike.DetectName": "Malicious Category — Policy Violation",
+            "crowdstrike.DetectDescription": `Network access to ${site.domain} blocked by policy (${site.category})`,
+            "crowdstrike.PatternDispositionDescription": "Blocked, Prevention",
+            "crowdstrike.SeverityName": "Low",
+            "crowdstrike.ComputerName": hostname,
+            "crowdstrike.UserName": user.id,
+            "malware.category": site.category,
+            "remediation.action": "blocked",
+            "destination.domain": site.domain,
+            "action_result": "blocked",
+          }
+        : {
+            // Microsoft Defender AV — Network Protection (Event ID 1125/1126)
+            "windefend.np.action": "Block",
+            "windefend.np.url": `https://${site.domain}`,
+            "windefend.np.category": site.category,
+            "windefend.np.severity": "Informational",
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "blocked",
+          },
     };
   }
 
@@ -1354,15 +1413,30 @@ function genEDR(world: WorldState): GeneratedEvent {
     user_email: user.email,
     user_title: user.title,
     description: `Tamper protection triggered on ${hostname} — attempt to disable AV service blocked`,
-    raw: {
-      "av.tamper_protection.action": "blocked",
-      "av.tamper_protection.target_service": "WinDefend",
-      "av.tamper_protection.caller_process": "cmd.exe",
-      "av.tamper_protection.reason": "Attempted service stop via sc.exe",
-      "host.name": hostname,
-      "user.name": user.id,
-      "action_result": "blocked",
-    },
+    raw: isCrowdStrike
+      ? {
+          // CrowdStrike Falcon — DetectionSummaryEvent (sensor tampering)
+          "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+          "crowdstrike.DetectName": "Falcon Sensor Tampering",
+          "crowdstrike.DetectDescription": "Attempt to stop the Falcon sensor service via sc.exe was blocked",
+          "crowdstrike.PatternDispositionDescription": "Blocked, Prevention",
+          "crowdstrike.SeverityName": "Low",
+          "crowdstrike.ContextProcessName": "cmd.exe",
+          "crowdstrike.ComputerName": hostname,
+          "crowdstrike.UserName": user.id,
+          "remediation.action": "blocked",
+          "action_result": "blocked",
+        }
+      : {
+          // Microsoft Defender AV — Tamper Protection (Event ID 5013)
+          "windefend.tamper.action": "Blocked",
+          "windefend.tamper.target_service": "WinDefend",
+          "windefend.tamper.caller_process": "cmd.exe",
+          "windefend.tamper.reason": "Attempted service stop via sc.exe",
+          "host.name": hostname,
+          "user.name": user.id,
+          "action_result": "blocked",
+        },
   };
 }
 
@@ -1478,7 +1552,7 @@ function genCloud(world: WorldState): GeneratedEvent {
     return {
       id: nextId(world, "cloud"),
       ts: ts(world),
-      source: "cloudtrail",
+      source: "iam",
       vendor: "HashiCorp Vault",
       event_type: "cloud_api_call",
       severity: "informational",

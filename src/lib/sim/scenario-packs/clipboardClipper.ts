@@ -308,7 +308,7 @@ export function buildClipboardClipperScenario(
         hash: { sha256: clipperHash },
       },
       raw: {
-        "s1.event_type": "PROCESS_CREATION",
+        "s1.event_type": "Indicators",
         "s1.detection.classification": "Suspicious Activity",
         "s1.detection.classification_source": "Behavioral Engine",
         "s1.indicator.category": "Collection",

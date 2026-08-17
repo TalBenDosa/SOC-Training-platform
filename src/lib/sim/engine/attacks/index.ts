@@ -126,7 +126,7 @@ const playbookPhishingBEC: AttackPlaybook = {
         const ev: GeneratedEvent = {
           id: eid("phish_email"),
           source: "email_gateway",
-          vendor: "Microsoft Defender for Endpoint",
+          vendor: "Microsoft Defender for Office 365",
           event_type: "email_received",
           severity: "medium",
           mitre_technique: "T1566.001",
@@ -473,21 +473,57 @@ const playbookPhishingBEC: AttackPlaybook = {
             user: `${adDomain}\\${victim.id}`,
           },
           raw: withCorr(
-            {
-              "event.code": "10",
-              "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-              "winlog.provider_name": "Microsoft-Windows-Sysmon",
-              "winlog.computer_name": victim.hostname,
-              "winlog.event_data.SourceImage":
-                "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-              "winlog.event_data.TargetImage": "C:\\Windows\\System32\\lsass.exe",
-              "winlog.event_data.GrantedAccess": "0x1FFFFF",
-              "winlog.event_data.CallTrace":
-                "C:\\Windows\\SYSTEM32\\ntdll.dll+9a2ab|C:\\Windows\\System32\\KERNELBASE.dll+2b09e|C:\\Windows\\System32\\comsvcs.dll+15a37",
-              "winlog.event_data.SourceProcessId": String(psPid),
-              "winlog.event_data.TargetProcessId": "700",
-              "winlog.event_data.User": `${adDomain}\\${victim.id}`,
-            },
+            world.meta.edr === "crowdstrike"
+              ? {
+                  // CrowdStrike Falcon — process-access sensor event (crowdstrike.* namespace)
+                  "crowdstrike.event_simpleName": "ProcessRollup2",
+                  "crowdstrike.ContextProcessName": "powershell.exe",
+                  "crowdstrike.ContextProcessId_decimal": String(psPid),
+                  "crowdstrike.TargetProcessName": "lsass.exe",
+                  "crowdstrike.ImageFileName":
+                    "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
+                  "crowdstrike.TargetProcessId_decimal": "700",
+                  "crowdstrike.GrantedAccess": "0x1fffff",
+                  "crowdstrike.OperationType": "PROCESS_ACCESS",
+                  "crowdstrike.UserName": `${adDomain}\\${victim.id}`,
+                  "crowdstrike.ComputerName": victim.hostname,
+                }
+              : world.meta.edr === "MDE"
+              ? {
+                  // Microsoft Defender for Endpoint — DeviceEvents (mde.* namespace)
+                  "mde.ActionType": "LsassProcessMemoryDumped",
+                  "mde.DeviceName": victim.hostname,
+                  "mde.DeviceId": world.rng.hex(32),
+                  "mde.ReportId": String(world.rng.range(100000, 999999)),
+                  "mde.InitiatingProcessFileName": "powershell.exe",
+                  "mde.InitiatingProcessCommandLine":
+                    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                  "mde.AccountName": victim.id,
+                  "process.name": "powershell.exe",
+                  "process.pid": String(psPid),
+                  "process.executable":
+                    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                  "file.name": "lsass.exe",
+                  "file.path": "C:\\Windows\\System32\\lsass.exe",
+                  "user.name": `${adDomain}\\${victim.id}`,
+                  "host.name": victim.hostname,
+                }
+              : {
+                  // Sysmon fallback (Event ID 10 — ProcessAccess)
+                  "event.code": "10",
+                  "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+                  "winlog.provider_name": "Microsoft-Windows-Sysmon",
+                  "winlog.computer_name": victim.hostname,
+                  "winlog.event_data.SourceImage":
+                    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                  "winlog.event_data.TargetImage": "C:\\Windows\\System32\\lsass.exe",
+                  "winlog.event_data.GrantedAccess": "0x1FFFFF",
+                  "winlog.event_data.CallTrace":
+                    "C:\\Windows\\SYSTEM32\\ntdll.dll+9a2ab|C:\\Windows\\System32\\KERNELBASE.dll+2b09e|C:\\Windows\\System32\\comsvcs.dll+15a37",
+                  "winlog.event_data.SourceProcessId": String(psPid),
+                  "winlog.event_data.TargetProcessId": "700",
+                  "winlog.event_data.User": `${adDomain}\\${victim.id}`,
+                },
             world
           ),
         };
@@ -880,23 +916,58 @@ const playbookRansomware: AttackPlaybook = {
             hash: { sha256: dropperHash },
           },
           raw: withCorr(
-            {
-              "event.code": "1",
-              "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-              "winlog.provider_name": "Microsoft-Windows-Sysmon",
-              "winlog.computer_name": victim.hostname,
-              "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
-              "winlog.event_data.CommandLine": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
-              "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
-              "winlog.event_data.ParentProcessId": "2400",
-              "winlog.event_data.ProcessId": String(dropperPid),
-              "winlog.event_data.User": `${adDomain}\\${victim.id}`,
-              "winlog.event_data.IntegrityLevel": "Medium",
-              "winlog.event_data.Hashes": `SHA256=${dropperHash}`,
-              "winlog.event_data.LogonId": session.logonId,
-              "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
-              "file.signed": "false",
-            },
+            world.meta.edr === "crowdstrike"
+              ? {
+                  // CrowdStrike Falcon — ProcessRollup2 sensor event (crowdstrike.* namespace)
+                  "crowdstrike.event_simpleName": "ProcessRollup2",
+                  "crowdstrike.ContextProcessName": "cmd.exe",
+                  "crowdstrike.CommandLine": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
+                  "crowdstrike.ParentProcessName": "explorer.exe",
+                  "crowdstrike.TargetProcessId_decimal": String(dropperPid),
+                  "crowdstrike.UserName": `${adDomain}\\${victim.id}`,
+                  "crowdstrike.ComputerName": victim.hostname,
+                  "crowdstrike.FilePath": "C:\\Windows\\System32\\cmd.exe",
+                  "crowdstrike.SHA256HashData": dropperHash,
+                }
+              : world.meta.edr === "MDE"
+              ? {
+                  // Microsoft Defender for Endpoint — DeviceProcessEvents (mde.* namespace)
+                  "mde.ActionType": "ProcessCreated",
+                  "mde.DeviceName": victim.hostname,
+                  "mde.DeviceId": world.rng.hex(32),
+                  "mde.ReportId": String(world.rng.range(100000, 999999)),
+                  "mde.AccountName": victim.id,
+                  "mde.InitiatingProcessFileName": "explorer.exe",
+                  "process.name": "cmd.exe",
+                  "process.pid": String(dropperPid),
+                  "process.executable": "C:\\Windows\\System32\\cmd.exe",
+                  "process.command_line": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
+                  "process.parent.name": "explorer.exe",
+                  "process.parent.pid": "2400",
+                  "process.hash.sha256": dropperHash,
+                  "user.name": `${adDomain}\\${victim.id}`,
+                  "host.name": victim.hostname,
+                  "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
+                  "file.signature.status": "unsigned",
+                }
+              : {
+                  // Sysmon fallback (Event ID 1 — ProcessCreate)
+                  "event.code": "1",
+                  "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+                  "winlog.provider_name": "Microsoft-Windows-Sysmon",
+                  "winlog.computer_name": victim.hostname,
+                  "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
+                  "winlog.event_data.CommandLine": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
+                  "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
+                  "winlog.event_data.ParentProcessId": "2400",
+                  "winlog.event_data.ProcessId": String(dropperPid),
+                  "winlog.event_data.User": `${adDomain}\\${victim.id}`,
+                  "winlog.event_data.IntegrityLevel": "Medium",
+                  "winlog.event_data.Hashes": `SHA256=${dropperHash}`,
+                  "winlog.event_data.LogonId": session.logonId,
+                  "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
+                  "file.signed": "false",
+                },
             world
           ),
         };
@@ -1076,17 +1147,37 @@ const playbookRansomware: AttackPlaybook = {
             path: `C:\\Users\\${victim.id}\\Documents\\`,
           },
           raw: withCorr(
-            {
-              "crowdstrike.FileName": "DECRYPT_FILES.txt",
-              "crowdstrike.FilePath": `C:\\Users\\${victim.id}\\Documents\\`,
-              "crowdstrike.ContextProcessName": "svchost32.exe",
-              "crowdstrike.OperationType": "WRITE",
-              "crowdstrike.ContextProcessId_decimal": String(dropperPid),
-              "data.files_encrypted": filesEncrypted,
-              "data.file_extension_changed_to": ".locked",
-              "data.ransom_note_dropped": "true",
-              "data.ransom_note_path": `C:\\Users\\${victim.id}\\Desktop\\DECRYPT_FILES.txt`,
-            },
+            (() => {
+              const commonEncryptionFields = {
+                "data.files_encrypted": filesEncrypted,
+                "data.file_extension_changed_to": ".locked",
+                "data.ransom_note_dropped": "true",
+                "data.ransom_note_path": `C:\\Users\\${victim.id}\\Desktop\\DECRYPT_FILES.txt`,
+              };
+              if (world.meta.edr === "crowdstrike") {
+                // CrowdStrike Falcon — file-write sensor event (crowdstrike.* namespace)
+                return {
+                  "crowdstrike.FileName": "DECRYPT_FILES.txt",
+                  "crowdstrike.FilePath": `C:\\Users\\${victim.id}\\Documents\\`,
+                  "crowdstrike.ContextProcessName": "svchost32.exe",
+                  "crowdstrike.OperationType": "WRITE",
+                  "crowdstrike.ContextProcessId_decimal": String(dropperPid),
+                  ...commonEncryptionFields,
+                };
+              }
+              // Microsoft Defender for Endpoint (and default) — DeviceFileEvents (mde.* namespace)
+              return {
+                "mde.ActionType": "FileModified",
+                "mde.DeviceName": victim.hostname,
+                "mde.DeviceId": world.rng.hex(32),
+                "mde.ReportId": String(world.rng.range(100000, 999999)),
+                "mde.InitiatingProcessFileName": "svchost32.exe",
+                "file.name": "DECRYPT_FILES.txt",
+                "file.path": `C:\\Users\\${victim.id}\\Documents\\`,
+                "file.extension": "txt",
+                ...commonEncryptionFields,
+              };
+            })(),
             world
           ),
         };

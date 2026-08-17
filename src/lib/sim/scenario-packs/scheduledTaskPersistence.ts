@@ -105,7 +105,7 @@ export function buildScheduledTaskPersistenceScenario(
     {
       id: "evt_stp_02_script_run",
       ts: T(3 * MIN + 18_000),
-      source: "edr",
+      source: "sysmon",
       vendor: "Microsoft Sysmon",
       event_type: "process_create",
       hostname: host.hostname,
@@ -155,7 +155,7 @@ export function buildScheduledTaskPersistenceScenario(
     {
       id: "evt_stp_03_payload_written",
       ts: T(3 * MIN + 24_000),
-      source: "edr",
+      source: "sysmon",
       vendor: "Microsoft Sysmon",
       event_type: "file_create",
       hostname: host.hostname,
@@ -194,7 +194,7 @@ export function buildScheduledTaskPersistenceScenario(
     {
       id: "evt_stp_04_scheduled_task",
       ts: T(3 * MIN + 29_000),
-      source: "edr",
+      source: "sysmon",
       vendor: "Microsoft Sysmon",
       event_type: "scheduled_task",
       hostname: host.hostname,
@@ -245,7 +245,7 @@ export function buildScheduledTaskPersistenceScenario(
     {
       id: "evt_stp_05_dns_query",
       ts: T(3 * MIN + 41_000),
-      source: "edr",
+      source: "sysmon",
       vendor: "Microsoft Sysmon",
       event_type: "dns_query",
       hostname: host.hostname,
@@ -319,7 +319,7 @@ export function buildScheduledTaskPersistenceScenario(
     {
       id: "evt_stp_07_relaunch_at_logon",
       ts: T(21 * HOUR + 6 * MIN),
-      source: "edr",
+      source: "sysmon",
       vendor: "Microsoft Sysmon",
       event_type: "process_create",
       hostname: host.hostname,
