@@ -40,15 +40,15 @@ const scheduledTaskEvent: TelemetryEvent = {
   description:
     "A new scheduled task was registered on a finance workstation outside normal business hours. This is the Windows Security log record (Event ID 4698) matching the task an analyst had already found live on the host while sweeping it with Get-ScheduledTask.",
   raw: {
-    EventID: "4698",
-    Channel: "Security",
-    Computer: "CORP-FIN-014.corp.local",
-    SubjectUserSid: "S-1-5-21-2839104451-1699999903-129877423-1147",
-    SubjectUserName: "j.alvarez",
-    SubjectDomainName: "CORP",
-    SubjectLogonId: "0x3a9f21",
-    TaskName: "\\Microsoft\\Windows\\WindowsUpdate\\SystemHealthCheck",
-    TaskContent:
+    "winlog.event_id": "4698",
+    "winlog.channel": "Security",
+    "winlog.computer_name": "CORP-FIN-014.corp.local",
+    "winlog.event_data.SubjectUserSid": "S-1-5-21-2839104451-1699999903-129877423-1147",
+    "winlog.event_data.SubjectUserName": "j.alvarez",
+    "winlog.event_data.SubjectDomainName": "CORP",
+    "winlog.event_data.SubjectLogonId": "0x3a9f21",
+    "winlog.event_data.TaskName": "\\Microsoft\\Windows\\WindowsUpdate\\SystemHealthCheck",
+    "winlog.event_data.TaskContent":
       '<Task version="1.4"><RegistrationInfo><Author>CORP\\j.alvarez</Author></RegistrationInfo><Principals><Principal id="Author"><UserId>S-1-5-21-2839104451-1699999903-129877423-1147</UserId><RunLevel>HighestAvailable</RunLevel></Principal></Principals><Triggers><TimeTrigger><StartBoundary>2026-08-11T23:47:00</StartBoundary></TimeTrigger></Triggers><Actions Context="Author"><Exec><Command>C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe</Command><Arguments>-WindowStyle Hidden -NoProfile -Command "IEX (Get-Content \'C:\\Users\\Public\\upd.ps1\' -Raw)"</Arguments></Exec></Actions></Task>',
     timestamp: "2026-08-11T23:47:03Z",
   },
