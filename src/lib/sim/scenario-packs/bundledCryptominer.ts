@@ -338,27 +338,31 @@ export function buildBundledCryptominerScenario(
       ts: T(15 * HOUR + 8 * MIN),
       source: "edr",
       vendor: "CrowdStrike Falcon",
-      event_type: "process_access",
+      event_type: "edr_alert",
       hostname: host.hostname,
       user_email: victim.email,
       src_ip: host.ip,
-      severity: "medium",
+      severity: "high",
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
       description:
-        "Host performance telemetry for LAP-1806 shows sustained 71% CPU attributed to svchost_helper.exe across a 15-hour window, including overnight.",
+        "Falcon raised a Resource Hijacking detection on LAP-1806: svchost_helper.exe has run continuously since it launched the previous evening — through the night — holding a persistent mining-pool connection, a resource profile consistent with cryptomining.",
       raw: {
-        "crowdstrike.event_simpleName": "ResourceUtilization",
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "crowdstrike.detection.name": "CryptocurrencyMining",
+        "crowdstrike.detection.description":
+          "svchost_helper.exe (PID 11020) has run uninterrupted for roughly 15 hours, spanning overnight, and maintains a stratum connection to eu1.pool-relay-mining.com. The sustained, off-hours execution with a mining-pool session is consistent with unauthorised cryptocurrency mining.",
+        "crowdstrike.detection.tactic": "Impact",
+        "crowdstrike.detection.tactic_id": "TA0040",
+        "crowdstrike.detection.technique": "Resource Hijacking",
+        "crowdstrike.detection.technique_id": "T1496",
+        "crowdstrike.detection.severity": "High",
+        "crowdstrike.detection.confidence": "90",
         "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
-        "crowdstrike.metrics.window_start": T(10 * MIN),
-        "crowdstrike.metrics.window_end": T(15 * HOUR + 8 * MIN),
-        "crowdstrike.metrics.cpu_percent_avg": "71",
-        "crowdstrike.metrics.cpu_percent_peak": "78",
-        "crowdstrike.metrics.top_process": "svchost_helper.exe",
-        "crowdstrike.metrics.top_process_pid": "11020",
-        "crowdstrike.metrics.baseline_cpu_percent_avg_prior_7d": "9",
-        "crowdstrike.metrics.thermal_throttle_events": "34",
-        "event.action": "resource_utilization",
+        "event.action": "detection",
+        "process.name": "svchost_helper.exe",
+        "process.pid": "11020",
+        "process.executable": "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
         "host.name": host.hostname,
         "user.name": `NEXACORP\\${victim.sam}`,
       },
@@ -530,7 +534,7 @@ export function buildBundledCryptominerScenario(
       answer: "real_impact",
       xp: 60,
       explanation:
-        "MITRE puts Resource Hijacking under Impact for a reason: the harm is that the organisation's compute is being spent for someone else's profit, here at 71% CPU sustained for fifteen hours on a machine Finance also uses for month-end close. There is a second, larger point. Something unsigned achieved execution and persistence on a corporate endpoint through a route nobody controlled — the same route delivers ransomware just as easily, and the miner is the visible symptom of an invisible gap. Option (b) is the grading error this scenario exists to correct. Option (c) invents evidence rather than reporting its absence. Option (d) hands a live persistence mechanism to the service desk as a slowness ticket.",
+        "MITRE puts Resource Hijacking under Impact for a reason: the harm is that the organisation's compute is being spent for someone else's profit, here with the miner tuned to 70% of CPU threads and running through the night on a machine Finance also uses for month-end close. There is a second, larger point. Something unsigned achieved execution and persistence on a corporate endpoint through a route nobody controlled — the same route delivers ransomware just as easily, and the miner is the visible symptom of an invisible gap. Option (b) is the grading error this scenario exists to correct. Option (c) invents evidence rather than reporting its absence. Option (d) hands a live persistence mechanism to the service desk as a slowness ticket.",
     },
     {
       id: "q4",
@@ -563,7 +567,7 @@ Forty seconds into the install, a second binary was written: C:\\Users\\o.mizrah
 
 At 18:02 it started. Its command line names exactly what it is: stratum+tcp://eu1.pool-relay-mining.com:3333, a wallet identifier, and --cpu-max-threads-hint=70. The firewall let the connection out under the default outbound rule as pan.app "unknown-tcp", and that session stayed open for eleven hours.
 
-Falcon's host telemetry shows the result: 71% average CPU across fifteen hours, against a seven-day baseline of 9%, with 34 thermal throttle events. The laptop mined all night on a desk in an empty office.
+The service-desk symptoms follow directly from that command line: --cpu-max-threads-hint=70 pins most of the CPU, so the fans run constantly and the battery drains by lunchtime. The session never closed and the process never idled — the laptop mined all night on a desk in an empty office, which is exactly what Falcon's Resource Hijacking detection flagged.
 
 Nothing was stolen. One account was involved and only for its local session, and no data was touched outside baseline. The detection is still "Detection, No Action" — Falcon has been watching it run since 09:12 this morning, and the scheduled task is still registered.`,
     learning_objectives: [
@@ -583,7 +587,7 @@ Nothing was stolen. One account was involved and only for its local session, and
       { ts: T(4 * MIN + 45_000), phase: "Persistence", action: "Scheduled task WinHostSync registered at logon with a 5-minute delay (T1053.005)" },
       { ts: T(10 * MIN), phase: "Impact", action: "Miner starts with pool and wallet arguments (T1496)" },
       { ts: T(10 * MIN + 6_000), phase: "Impact", action: `11-hour TCP/3333 session to ${pool}, allowed as unknown-tcp` },
-      { ts: T(15 * HOUR + 8 * MIN), phase: "Impact", action: "71% sustained CPU over 15 hours against a 9% baseline" },
+      { ts: T(15 * HOUR + 8 * MIN), phase: "Impact", action: "Miner runs uninterrupted overnight — sustained high CPU from --cpu-max-threads-hint=70" },
       { ts: T(15 * HOUR + 20 * MIN), phase: "Detection", action: "Falcon raises a High detection — detect only, nothing contained" },
     ],
     questions,
