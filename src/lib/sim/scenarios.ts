@@ -26,6 +26,11 @@ import { buildScheduledTaskPersistenceScenario } from "./scenario-packs/schedule
 import { buildRogueAdminAccountScenario }   from "./scenario-packs/rogueAdminAccount";
 import { buildImpossibleTravelBasicScenario } from "./scenario-packs/impossibleTravelBasic";
 import { buildSoftwareInstallFalsePositiveScenario } from "./scenario-packs/softwareInstallFalsePositive";
+// P0 attack-coverage additions (docs/live-feed-attack-coverage-review.md)
+import { buildInfostealerSessionTheftScenario } from "./scenario-packs/infostealerSessionTheft";
+import { buildEdgeVpnCveExploitScenario }        from "./scenario-packs/edgeVpnCveExploit";
+import { buildExfilFirstExtortionScenario }      from "./scenario-packs/exfilFirstExtortion";
+import { buildHelpdeskMfaResetScenario }         from "./scenario-packs/helpdeskMfaReset";
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
@@ -3401,6 +3406,28 @@ export const SCENARIOS = [
     difficulty: "beginner", attack_kind: "persistence",
     threat_actor: "Commodity loader operator", build: withAlerts(buildScheduledTaskPersistenceScenario),
     summary: "One PowerShell script promising a faster VPN. Its real job was a single schtasks command — so that even after a reboot and an AV sweep, it runs again every logon." },
+
+  // ── P0 attack-coverage additions (docs/live-feed-attack-coverage-review.md) ──
+  { slug: "infostealer-session-theft",
+    title: "Free Converter, Stolen Session — Infostealer Cookie Theft & Replay",
+    difficulty: "intermediate", attack_kind: "credential_access",
+    threat_actor: "Commodity infostealer distributor (Lumma/StealC-style MaaS)", build: withAlerts(buildInfostealerSessionTheftScenario),
+    summary: "A free PDF converter that never installs anything, but copies Chrome's saved-password and cookie databases and ships them out. Five minutes later her session is replayed from Moscow — no password, no MFA prompt, because the stolen cookie already satisfied it." },
+  { slug: "helpdesk-mfa-reset",
+    title: "Help Desk MFA Reset — Social Engineering Account Takeover",
+    difficulty: "intermediate", attack_kind: "valid_accounts",
+    threat_actor: "Scattered-Spider-style ATO operator (help-desk social engineering)", build: withAlerts(buildHelpdeskMfaResetScenario),
+    summary: "A phone call to the service desk, a reset MFA, and a new authenticator enrolled from an IP the employee has never used — while her real session is still active elsewhere. The ticket that 'fixed' an access problem is the breach." },
+  { slug: "edge-vpn-cve-exploit",
+    title: "Edge Appliance Exploitation — SSL-VPN Pre-Auth RCE to Internal Foothold",
+    difficulty: "advanced", attack_kind: "exploit_public_facing",
+    threat_actor: "Opportunistic access broker (mass edge-appliance exploitation)", build: withAlerts(buildEdgeVpnCveExploitScenario),
+    summary: "A pre-auth request to an unusual admin path on the SSL-VPN appliance returns 200 with no credentials. Minutes later a backdoor is on the appliance, the config and its password hashes are gone, and a 'valid' VPN login lands on an internal jump host. The initial access is the appliance itself." },
+  { slug: "exfil-first-extortion",
+    title: "Exfiltration-First Extortion — Ransomware Without an Encryptor",
+    difficulty: "advanced", attack_kind: "exfiltration",
+    threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style — no encryptor deployed)", build: withAlerts(buildExfilFirstExtortionScenario),
+    summary: "Mass file reads, a 7-Zip archive, and a sustained upload to a cloud-storage host — then a demand. Nothing is encrypted and no ransom note lands on disk, which is exactly why grading this by 'what did they break' misses that it is a ransomware-class incident." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────

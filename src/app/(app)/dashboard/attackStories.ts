@@ -65,6 +65,17 @@ import { buildDriveByBrowserMinerScenario }      from "@/lib/sim/scenario-packs/
 import { buildClickFixFakeCaptchaScenario }      from "@/lib/sim/scenario-packs/clickFixFakeCaptcha";
 import { buildClipboardClipperScenario }         from "@/lib/sim/scenario-packs/clipboardClipper";
 import { buildScheduledTaskPersistenceScenario } from "@/lib/sim/scenario-packs/scheduledTaskPersistence";
+// P0 attack-coverage additions (docs/live-feed-attack-coverage-review.md). These
+// close the biggest gaps DBIR/CISA flag versus what the feed taught: infostealer
+// cookie theft + session replay (the #1 real credential source), edge-appliance
+// pre-auth exploitation (dominant ransomware entry), exfil-only "no-encryptor"
+// extortion (modern double-extortion reality), and help-desk MFA-reset account
+// takeover (Scattered Spider). They also lift the thin core/advanced pools clear
+// of the RECENT_N=8 anti-repeat window for the M365/Okta estates.
+import { buildInfostealerSessionTheftScenario }  from "@/lib/sim/scenario-packs/infostealerSessionTheft";
+import { buildEdgeVpnCveExploitScenario }        from "@/lib/sim/scenario-packs/edgeVpnCveExploit";
+import { buildExfilFirstExtortionScenario }      from "@/lib/sim/scenario-packs/exfilFirstExtortion";
+import { buildHelpdeskMfaResetScenario }         from "@/lib/sim/scenario-packs/helpdeskMfaReset";
 import { COMPANY_PROFILES, COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -139,6 +150,11 @@ const _driveByBrowserMiner     = buildDriveByBrowserMinerScenario();
 const _clickFixFakeCaptcha     = buildClickFixFakeCaptchaScenario();
 const _clipboardClipper        = buildClipboardClipperScenario();
 const _scheduledTaskPersistence = buildScheduledTaskPersistenceScenario();
+// P0 additions (see import note above)
+const _infostealerSessionTheft = buildInfostealerSessionTheftScenario();
+const _edgeVpnCveExploit        = buildEdgeVpnCveExploitScenario();
+const _exfilFirstExtortion      = buildExfilFirstExtortionScenario();
+const _helpdeskMfaReset         = buildHelpdeskMfaResetScenario();
 
 /** Scenario info still needed by the Start-Training modal on the dashboard page */
 export const SCENARIO_INFO = {
@@ -241,6 +257,29 @@ const GENERIC_STORIES: AttackStory[] = [
   story("webshell-rce",      _webShellRce,           "advanced", ["rocketstack", "quantumbank", "nexacorp"]),
   story("linux-cryptominer", _linuxCryptominer,      "advanced", ["globallogis", "rocketstack"]),
   story("aitm-token-theft",  _aitmTokenTheft,        "advanced", ["nexacorp", "medcore", "globallogis"]),
+
+  // ── P0 attack-coverage additions (docs/live-feed-attack-coverage-review.md) ──
+  // Grouped by tier. All four are Entra/M365-native except edge-vpn, which is a
+  // source-light appliance→internal-host chain that fits every estate.
+
+  // core — infostealer cookie theft then session replay bypassing MFA (the #1
+  // real-world credential source). Needs Entra sign-in logs to show the replay,
+  // so it is offered to the three M365 estates only.
+  story("infostealer-session-theft", _infostealerSessionTheft, "core", ["nexacorp", "medcore", "globallogis"]),
+
+  // core — help-desk social engineering → MFA reset → new-device logon
+  // (Scattered Spider). ServiceNow ticket + Entra auth/audit, M365 estates only.
+  story("helpdesk-mfa-reset", _helpdeskMfaReset,     "core", ["nexacorp", "medcore", "globallogis"]),
+
+  // advanced — pre-auth exploitation of an internet-facing SSL-VPN appliance as
+  // initial access, then a pivot to an internal Windows host. Source-light
+  // (firewall/vpn + edr + siem), so every company can draw it.
+  story("edge-vpn-cve-exploit", _edgeVpnCveExploit,  "advanced"),
+
+  // advanced — exfil-only "no-encryptor" double extortion: mass staging →
+  // archive → cloud egress with T1486 deliberately absent. Needs a DLP surface
+  // (Purview), so it is offered to the three M365 estates.
+  story("exfil-first-extortion", _exfilFirstExtortion, "advanced", ["nexacorp", "medcore", "globallogis"]),
 ];
 
 // ── Company-specific chains ────────────────────────────────────────────────────
