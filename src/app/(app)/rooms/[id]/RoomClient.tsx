@@ -226,12 +226,18 @@ export function RoomClient({ room }: RoomClientProps) {
   const totalTasks     = room.tasks.length;
   const currentTask    = room.tasks[currentTaskIndex];
 
-  // If the current task is a flag, check if the immediately preceding task was a log_analysis
-  // and surface its event so FlagPlayer can keep the log visible.
-  const prevTask = currentTaskIndex > 0 ? room.tasks[currentTaskIndex - 1] : undefined;
-  const prevLogEvent = currentTask.type === "flag" && prevTask?.type === "log_analysis"
-    ? prevTask.event
-    : undefined;
+  // If the current task is a flag, surface the NEAREST preceding task that carries a
+  // log event (log_analysis or analyst_choice) so FlagPlayer keeps that log visible.
+  // Flag prompts routinely ask the student to read a field from a log, and the flag is
+  // often not the task immediately after its log_analysis (a reading/question/matching
+  // step can sit between) — walking back finds the log the flag actually refers to.
+  let prevLogEvent;
+  if (currentTask.type === "flag") {
+    for (let i = currentTaskIndex - 1; i >= 0; i--) {
+      const t = room.tasks[i];
+      if (t.type === "log_analysis" || t.type === "analyst_choice") { prevLogEvent = t.event; break; }
+    }
+  }
 
   if (!mounted) return null;
 
