@@ -100,7 +100,7 @@ const larkfieldWafEvent: TelemetryEvent = {
     "AWS WAF record for the request reviewed in Log Analysis 1, matched by URI, method and a timestamp one second apart.",
   raw: {
     formatVersion: 1,
-    timestamp: 1747691045000,
+    timestamp: 1779227045000,
     webaclId: "arn:aws:wafv2:eu-west-1:702844913065:regional/webacl/larkfield-shop-prod/9c41b7d2-05fe-4a63-8b17-2ad9e5c31f40",
     terminatingRuleId: "NONE",
     terminatingRuleType: "REGULAR",
@@ -152,7 +152,7 @@ const larkfieldSearchBlockEvent: TelemetryEvent = {
     "AWS WAF blocked a request to the staff customer-lookup page. The managed SQL injection rule group was the terminating rule.",
   raw: {
     formatVersion: 1,
-    timestamp: 1747832932000,
+    timestamp: 1779368932000,
     webaclId: "arn:aws:wafv2:eu-west-1:702844913065:regional/webacl/larkfield-shop-prod/9c41b7d2-05fe-4a63-8b17-2ad9e5c31f40",
     terminatingRuleId: "AWS-AWSManagedRulesSQLiRuleSet",
     terminatingRuleType: "MANAGED_RULE_GROUP",

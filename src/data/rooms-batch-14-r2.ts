@@ -566,9 +566,9 @@ const analystMindsetRoom = {
       type: "flag" as const,
       id: "mind-flag1",
       prompt:
-        "Look back at the PowerShell download log analysis event above (the IT technician running patch-agent.ps1). The 'data.context' field explains what made this activity verifiable rather than just plausible-sounding. Enter the exact GitHub organization name (the part before the slash) referenced in the process.command_line field that ties this activity to the company's own infrastructure.",
+        "Look back at the PowerShell download log analysis event above (the IT technician running patch-agent.ps1). The 'data.context' field explains what made this activity verifiable rather than just plausible-sounding. Enter the exact GitHub organization name (the part before the slash) referenced in the crowdstrike.CommandLine field that ties this activity to the company's own infrastructure.",
       answer: "nexacorp-it",
-      hint: "Look at the URL in process.command_line — it follows the pattern github.com/ORGANIZATION/repository-name. The organization name comes right after 'raw.githubusercontent.com/'.",
+      hint: "Look at the URL in crowdstrike.CommandLine — it follows the pattern github.com/ORGANIZATION/repository-name. The organization name comes right after 'raw.githubusercontent.com/'.",
       xp: 30,
     },
   ],

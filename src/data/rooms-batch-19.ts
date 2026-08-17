@@ -562,14 +562,15 @@ const shadowCopyEvent: TelemetryEvent = {
   description:
     "vssadmin.exe deleted the oldest shadow copy on volume D: of FS-BACKUP-02 as part of the nightly retention job, launched from the Veeam agent service.",
   raw: {
-    "event.code": "1",
-    "winlog.provider_name": "Microsoft-Windows-Sysmon",
-    "winlog.event_data.Image": "C:\\Windows\\System32\\vssadmin.exe",
-    "winlog.event_data.ParentImage": "C:\\Program Files\\Veeam\\Endpoint Backup\\VeeamAgentSvc.exe",
-    "winlog.event_data.CommandLine": "vssadmin.exe delete shadows /for=D: /oldest",
-    "winlog.event_data.User": "SOLVIX\\svc-veeam-backup",
-    "winlog.event_data.IntegrityLevel": "System",
-    "winlog.event_id": 1,
+    "crowdstrike.event_simpleName": "ProcessRollup2",
+    "crowdstrike.aid": "8f2c6e1d4a3b4f9e9c7d2b5a1e6f8c30",
+    "crowdstrike.ComputerName": "FS-BACKUP-02",
+    "crowdstrike.ContextProcessName": "vssadmin.exe",
+    "crowdstrike.FileName": "vssadmin.exe",
+    "crowdstrike.FilePath": "C:\\Windows\\System32\\vssadmin.exe",
+    "crowdstrike.ParentProcessName": "VeeamAgentSvc.exe",
+    "crowdstrike.CommandLine": "vssadmin.exe delete shadows /for=D: /oldest",
+    "crowdstrike.UserName": "SOLVIX\\svc-veeam-backup",
   },
 };
 

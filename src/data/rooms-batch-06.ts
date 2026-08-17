@@ -1051,7 +1051,7 @@ Based on your analysis:
           "crowdstrike.UserName": "CORP\\j.smith",
           "crowdstrike.HostName": "LAPTOP-JSMITH",
           "crowdstrike.LocalIP": "10.0.1.55",
-          "crowdstrike.SHA256HashData": "a1b2c3d4e5f6789abcdef0123456789abcdef0123456789abcdef0123456789ab",
+          "crowdstrike.SHA256HashData": "505e6a45917684bf24f4603e189a29713c196e734821c6df2b104e7147d53ff0",
           "crowdstrike.FalconHostLink": "https://falcon.crowdstrike.com/activity/detections/detail/8f3c1a92",
         },
       } satisfies TelemetryEvent,

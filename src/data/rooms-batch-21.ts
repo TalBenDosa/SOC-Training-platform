@@ -38,7 +38,7 @@ const zeekConnEvent: TelemetryEvent = {
   // that is a real property of this data source, not an omission for the
   // exercise. uid below is a per-connection flow identifier, not a username.
   raw: {
-    ts: 1770800062.481,
+    ts: 1770801262.481,
     uid: "CHhAvVGS1DHFjwGM9",
     "id.orig_h": "10.40.6.118",
     "id.orig_p": 51422,

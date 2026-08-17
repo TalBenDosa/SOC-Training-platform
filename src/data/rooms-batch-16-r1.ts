@@ -65,7 +65,7 @@ const nsgRdpExposureEvent: TelemetryEvent = {
     "azure.activitylogs.identity.claims.appid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
     "azure.activitylogs.identity.authorization.evidence.principalType": "ManagedIdentity",
     "azure.activitylogs.caller": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "azure.activitylogs.callerIpAddress": "10.40.2.15",
+    "azure.activitylogs.callerIpAddress": "203.0.113.44",
     "azure.activitylogs.properties.requestbody": "{\"properties\":{\"direction\":\"Inbound\",\"access\":\"Allow\",\"protocol\":\"Tcp\",\"sourcePortRange\":\"*\",\"destinationPortRange\":\"3389\",\"sourceAddressPrefix\":\"*\",\"destinationAddressPrefix\":\"10.40.2.15\",\"priority\":100}}",
     "azure.nsgflowlogs.rule": "allow-rdp-temp",
     "azure.nsgflowlogs.mac": "00-0D-3A-1F-4C-2B",

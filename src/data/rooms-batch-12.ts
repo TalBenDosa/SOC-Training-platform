@@ -545,7 +545,7 @@ const rooms = [
               "192.168.1.100",
               "payload.ps1",
               "beacon_x64.dll",
-              "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "sha256:f7b63c44b8e2b9971038b203697077bd8efb008c439bc08d79ca702884769afd",
             ],
             "ticket.actions_taken": [
               "Host isolated from network at 09:31 UTC",
@@ -1132,7 +1132,7 @@ const rooms = [
               "maze-ransomware.exe",
               "185.220.101.47",
               "beacon_x64.dll",
-              "sha256:a87ff679a2f3e71d9181a67b7542122c",
+              "sha256:1cdaef0f9aa0119f255bb61080ca2d875a2847f27ca55bb1d32b2a89334cae40",
             ],
             "escalation.actions_taken_by_tier1": [
               "Alert acknowledged at 09:14 UTC",

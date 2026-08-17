@@ -590,7 +590,7 @@ The key insight: the platform does not matter as much as the hypothesis and the 
           "crowdstrike.ParentProcessName": "cmd.exe",
           "crowdstrike.UserName": "CORP\\j.smith",
           "crowdstrike.HostName": "LAPTOP-JSMITH",
-          "crowdstrike.SHA256": "abc123def456abc123def456abc123def456abc123def456abc123def456ab12",
+          "crowdstrike.SHA256": "4cf5dc08b46013844c4fea30389c492ad9f704dd3fe1f3ab7ccd1148e767bd55",
         },
       } satisfies TelemetryEvent,
       questions: [

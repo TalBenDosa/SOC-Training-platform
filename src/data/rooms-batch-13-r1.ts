@@ -19,7 +19,7 @@ const dnsExfilEvent: TelemetryEvent = {
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
     "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
     "winlog.event_data.QueryName": "aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net",
-    "winlog.event_data.QueryResults": "NXDOMAIN",
+    "winlog.event_data.QueryResults": "",
     "winlog.event_data.QueryStatus": "NXDOMAIN",
     "winlog.event_data.User": "NEXACORP\\m.cohen",
     "winlog.event_data.ProcessId": "7412",

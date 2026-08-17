@@ -32,7 +32,6 @@ const dlpUsbEvent: TelemetryEvent = {
     "data.office365.RemovableMedia.SerialNumber": "4C531001551122117402",
     "data.office365.RemovableMedia.VolumeLabel": "SANDISK32",
     "data.office365.ActionTaken": "Blocked",
-    "data.office365.PolicyDetails.Rules.SensitiveInformationTypeName": "U.S. Social Security Number",
     "action_result": "blocked",
   },
 };

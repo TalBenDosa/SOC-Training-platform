@@ -30,7 +30,7 @@ const exposedKeyS3ExfilEvent: TelemetryEvent = {
     "aws.cloudtrail.responseElements": null,
     "aws.cloudtrail.errorCode": "",
     "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.request_id": "8F2A1B3C4D5E6F70",
+    "aws.cloudtrail.requestID": "8F2A1B3C4D5E6F70",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": false,
     "aws.cloudtrail.readOnly": true,
@@ -61,18 +61,18 @@ const imdsPrivEscEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
     "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890",
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
-    "aws.cloudtrail.user_identity.session_context.session_issuer.type": "Role",
-    "aws.cloudtrail.user_identity.session_context.session_issuer.arn": "arn:aws:iam::482915007733:role/ec2-webapp-role",
+    "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.type": "Role",
+    "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.arn": "arn:aws:iam::482915007733:role/ec2-webapp-role",
     "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
     "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::482915007733:policy/ec2-webapp-policy",
-    "aws.cloudtrail.request_parameters.setAsDefault": true,
-    "aws.cloudtrail.request_parameters.policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}",
+    "aws.cloudtrail.requestParameters.setAsDefault": true,
+    "aws.cloudtrail.requestParameters.policyDocument": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":\"*\",\"Resource\":\"*\"}]}",
     "aws.cloudtrail.responseElements.policyVersion.versionId": "v7",
     "aws.cloudtrail.responseElements.policyVersion.isDefaultVersion": true,
     "aws.cloudtrail.errorCode": "",
     "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.request_id": "3C9D8E7F6A5B4C31",
+    "aws.cloudtrail.requestID": "3C9D8E7F6A5B4C31",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": false,
@@ -103,11 +103,11 @@ const getCallerIdentityEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.sourceIPAddress": "10.20.4.15",
     "aws.cloudtrail.userAgent": "aws-sdk-go/1.44.0 (go1.20.3; linux; amd64) exec-env/AWS_ECS_FARGATE",
-    "aws.cloudtrail.request_parameters": {},
+    "aws.cloudtrail.requestParameters": {},
     "aws.cloudtrail.responseElements": null,
     "aws.cloudtrail.errorCode": "",
     "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.request_id": "1A2B3C4D5E6F7081",
+    "aws.cloudtrail.requestID": "1A2B3C4D5E6F7081",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": true,
@@ -140,11 +140,11 @@ const cloudTrailDisabledEvent: TelemetryEvent = {
     "aws.cloudtrail.userIdentity.accountId": "482915007733",
     "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
     "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
-    "aws.cloudtrail.request_parameters.name": "nexacorp-primary-trail",
+    "aws.cloudtrail.requestParameters.name": "nexacorp-primary-trail",
     "aws.cloudtrail.responseElements": null,
     "aws.cloudtrail.errorCode": "",
     "aws.cloudtrail.errorMessage": "",
-    "aws.cloudtrail.request_id": "7E6D5C4B3A291807",
+    "aws.cloudtrail.requestID": "7E6D5C4B3A291807",
     "aws.cloudtrail.eventType": "AwsApiCall",
     "aws.cloudtrail.managementEvent": true,
     "aws.cloudtrail.readOnly": false,
@@ -228,7 +228,7 @@ const awsSecurityRoom = {
         `**What CloudTrail Records**\n\n` +
         `Nearly every action taken in an AWS account — whether performed by a human through the web console, a script using the AWS CLI (Command Line Interface), or an application using the AWS SDK — generates an **API call**, and CloudTrail logs it as an **event**. This includes: logging in, creating a user, changing a permission, launching a server, downloading a file from S3, deleting a database, and thousands of other actions.\n\n` +
         `Each CloudTrail event captures the same core questions a detective would ask:\n\n` +
-        `- **Who** did it — the identity (IAM user, role, or root account) via aws.cloudtrail.user_identity fields\n` +
+        `- **Who** did it — the identity (IAM user, role, or root account) via aws.cloudtrail.userIdentity fields\n` +
         `- **What** they did — the specific API action, via aws.cloudtrail.eventName (e.g. GetObject, CreateUser, RunInstances)\n` +
         `- **Where** they did it from — aws.cloudtrail.sourceIPAddress\n` +
         `- **When** it happened — the event timestamp\n` +
@@ -679,9 +679,9 @@ const awsSecurityRoom = {
       type: "flag" as const,
       id: "aws-f1",
       prompt:
-        "Review the event above where the CloudTrail logging trail was stopped shortly before crypto-mining EC2 instances were expected to launch. What is the exact value of the aws.cloudtrail.request_parameters.name field — i.e. the name of the trail that was disabled? Enter it exactly as shown.",
+        "Review the event above where the CloudTrail logging trail was stopped shortly before crypto-mining EC2 instances were expected to launch. What is the exact value of the aws.cloudtrail.requestParameters.name field — i.e. the name of the trail that was disabled? Enter it exactly as shown.",
       answer: "nexacorp-primary-trail",
-      hint: "Look inside the raw block of the StopLogging event for the request_parameters.name field — this identifies which specific CloudTrail trail the attacker disabled.",
+      hint: "Look inside the raw block of the StopLogging event for the requestParameters.name field — this identifies which specific CloudTrail trail the attacker disabled.",
       xp: 25,
     },
 

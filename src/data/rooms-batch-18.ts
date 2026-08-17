@@ -596,7 +596,6 @@ const fodhelperEvent: TelemetryEvent = {
     "winlog.event_data.User": "MERIDIAN\\d.oyelaran",
     "winlog.event_data.ParentUser": "MERIDIAN\\d.oyelaran",
     "winlog.event_data.CurrentDirectory": "C:\\Windows\\System32\\",
-    "explorer_integrity_this_session": "Medium",
   },
 };
 
@@ -631,7 +630,7 @@ const uacConsentEvent: TelemetryEvent = {
     "winlog.event_data.ParentImage": "C:\\Windows\\System32\\consent.exe",
     "winlog.event_data.IntegrityLevel": "High",
     "winlog.event_data.User": "MERIDIAN\\r.chukwu",
-    "winlog.event_data.Hashes": "SHA256=91AE...C302",
+    "winlog.event_data.Hashes": "SHA256=91AE7C40B6F1D82A5E3C9F0847B2D6A1E4C8F35907A2B6D1E4F8C0A3B5D7E2C1",
     "winlog.event_data.Signed": "true",
     "winlog.event_data.Signature": "Meridian Trust IT Deployment CA",
   },
@@ -993,9 +992,9 @@ const privescRoom: Room = {
       type: "flag",
       id: "privesc-f1",
       prompt:
-        "Look at the fodhelper log analysis event. What integrity level was recorded for explorer.exe in this same session (the explorer_integrity_this_session field)? Enter it exactly as shown.",
+        "Look at Log Analysis 1's first question. What integrity level does the question stem say this session's own explorer.exe was running at (the process that would have launched fodhelper.exe)? Enter it exactly as shown.",
       answer: "Medium",
-      hint: "Look at the explorer_integrity_this_session field in the raw log — compare it to the IntegrityLevel of the cmd.exe process created via fodhelper.exe.",
+      hint: "It's stated in the first question's stem, contrasted with the High integrity level recorded for the cmd.exe process created via fodhelper.exe.",
       xp: 25,
     },
     {
@@ -1085,7 +1084,7 @@ const legitUpdaterAutorunEvent: TelemetryEvent = {
     "winlog.event_data.Details": "C:\\Program Files\\Meridian VPN Client\\vpntray.exe",
     "winlog.event_data.Image": "C:\\Program Files\\Meridian VPN Client\\MeridianVPNClient.exe",
     "winlog.event_data.User": "MERIDIAN\\l.abara",
-    "winlog.event_data.Hashes": "SHA256=7B21...F09A",
+    "winlog.event_data.Hashes": "SHA256=7B21E9C4A0F5D83B6C1A9E2F7048B3D6A5C9E1F04872B6D3A1E5C8F09A4D7B21",
     "winlog.event_data.Signed": "true",
     "winlog.event_data.Signature": "Meridian Trust IT Deployment CA",
   },

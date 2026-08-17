@@ -36,8 +36,8 @@ const tlsBeaconEvent: TelemetryEvent = {
     "ssl.server_name": "cdn-assets-static.net",
     "ssl.ja3": "e7d705a3286e19ea42f587b344ee6865",
     "ssl.ja3s": "a0e9f5d64349fb13191bc781f81f42e1",
-    "ssl.cert_chain_issuer": "CN=cdn-assets-static.net",
-    "ssl.cert_chain_subject": "CN=cdn-assets-static.net",
+    "ssl.issuer": "CN=cdn-assets-static.net",
+    "ssl.subject": "CN=cdn-assets-static.net",
     "ssl.validation_status": "self signed certificate",
     duration: 0.891,
     orig_bytes: 216,
@@ -469,7 +469,7 @@ const tlsRoom = {
       questions: [
         {
           question:
-            "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.cert_chain_issuer and ssl.cert_chain_subject both 'CN=cdn-assets-static.net'. Combined with the 96-sessions-in-96-minutes timing pattern stated above, what does this combination suggest?",
+            "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.issuer and ssl.subject both 'CN=cdn-assets-static.net'. Combined with the 96-sessions-in-96-minutes timing pattern stated above, what does this combination suggest?",
           options: [
             "This is routine CDN asset-loading traffic — CDN domains are always trustworthy regardless of certificate details, and any TLS session presenting even a generic CDN-sounding server name should never be scrutinized further for certificate validity or session-timing patterns",
             "A self-signed certificate on a destination presenting itself with a generic CDN-style name, combined with 96 sessions repeating at a tightly consistent ~60-second interval (a standard deviation of only 5.1 seconds around that average), matches the beacon-timing and certificate-anomaly patterns described in this room's detection checklist far more closely than ordinary asset-loading traffic, which would not repeat at such a fixed interval",

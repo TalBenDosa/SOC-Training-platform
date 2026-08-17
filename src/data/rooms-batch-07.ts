@@ -775,14 +775,14 @@ SentinelOne detects Cobalt Strike through:
           user: "CORP\\j.smith",
           hash: {
             sha256:
-              "3c4f8a1b2e5d6c7890abcdef1234567890abcdef1234567890abcdef12345678",
+              "3c4f8a1b91e75ecf5428c162730330b3301a706a83823a483ceaed9305427cfc",
           },
         },
         file: {
           name: "chrome_update.exe",
           path: "C:\\Users\\j.smith\\AppData\\Local\\Temp\\chrome_update.exe",
           sha256:
-            "3c4f8a1b2e5d6c7890abcdef1234567890abcdef1234567890abcdef12345678",
+            "3c4f8a1b91e75ecf5428c162730330b3301a706a83823a483ceaed9305427cfc",
           size: 1048576,
           extension: ".exe",
         },
@@ -794,7 +794,7 @@ SentinelOne detects Cobalt Strike through:
           "s1.processPath":
             "C:\\Users\\j.smith\\AppData\\Local\\Temp\\chrome_update.exe",
           "s1.sha256":
-            "3c4f8a1b2e5d6c7890abcdef1234567890abcdef1234567890abcdef12345678",
+            "3c4f8a1b91e75ecf5428c162730330b3301a706a83823a483ceaed9305427cfc",
           "s1.fileCount_renamed": "15847",
           "s1.extensionAdded": ".lockbit",
           "s1.storylineId": "0x1A2B3C4D",
@@ -981,7 +981,7 @@ Every file has a **cryptographic hash** — a unique mathematical fingerprint ca
 
 - **MD5 (Message Digest 5):** 32 hexadecimal characters. Fast to calculate. Example: \`a1b2c3d4e5f6789012345678\`. No longer considered cryptographically secure (collisions possible), but still widely used for malware tracking.
 - **SHA-1 (Secure Hash Algorithm 1):** 40 characters. Also deprecated for security purposes.
-- **SHA-256:** 64 characters. The **preferred standard** for malware analysis. Computationally infeasible to forge. Example: \`5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b\`
+- **SHA-256:** 64 characters. The **preferred standard** for malware analysis. Computationally infeasible to forge. Example: \`5a6b7c8d86782f4f2a04749d369a8c2531f82bcb25e9b8bf36e552c161e641a4\`
 
 Why do hashes matter? Once you have a SHA-256 hash, you can:
 - Look it up on **VirusTotal** — paste the hash and see if any of 70+ antivirus engines recognise it as malicious
@@ -1232,8 +1232,8 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
           name: "Invoice_2025_06.exe",
           path: "C:\\Users\\j.smith\\Downloads\\Invoice_2025_06.exe",
           sha256:
-            "5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
-          md5: "a1b2c3d4e5f6789012345678",
+            "5a6b7c8d86782f4f2a04749d369a8c2531f82bcb25e9b8bf36e552c161e641a4",
+          md5: "a9dc4004efb5cd5cd343345bc9f7f25e",
           size: 245760,
         },
         process: {
@@ -1248,8 +1248,8 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
           "data.ms365.FilePath":
             "C:\\Users\\j.smith\\Downloads\\Invoice_2025_06.exe",
           "data.ms365.SHA256":
-            "5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
-          "data.ms365.MD5": "a1b2c3d4e5f6789012345678",
+            "5a6b7c8d86782f4f2a04749d369a8c2531f82bcb25e9b8bf36e552c161e641a4",
+          "data.ms365.MD5": "a9dc4004efb5cd5cd343345bc9f7f25e",
           "data.ms365.FileSize": "245760",
           "data.ms365.OriginalFileName": "Invoice_2025_06.exe",
           "data.ms365.CompanyName": "",
