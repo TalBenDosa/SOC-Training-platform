@@ -1927,7 +1927,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "52.28.41.8", dst_port: 443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from SRV-GL-WMS01 to SAP cloud API — allowed",
-    raw: { "cisco.ftd.action": "permitted", "cisco.ftd.rule_name": "WMS-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" },
   },
   {
     id: "gl_fw_002", ts: "2026-05-10T09:45:00.000Z",
@@ -1935,7 +1935,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "185.220.101.33", dst_ip: "10.50.1.1", dst_port: 80,
     protocol: "tcp",
     description: "Inbound HTTP connection from TOR exit node 185.220.101.33 to 10.50.1.1 — blocked by firewall",
-    raw: { "cisco.ftd.action": "denied", "cisco.ftd.security_intelligence_category": "TOR-Anonymous", "firewall.action": "block", "action_result": "blocked" },
+    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "TOR-Anonymous", "firewall.action": "block", "action_result": "blocked" },
   },
   // ── VPN (Cisco AnyConnect) ────────────────────────────────────────────────
   {
@@ -2025,7 +2025,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "10.50.5.20", dst_ip: "52.28.41.8", dst_port: 8443,
     protocol: "tcp",
     description: "Outbound HTTPS connection from SRV-GL-ERP01 to SAP S/4HANA cloud connector — allowed",
-    raw: { "cisco.ftd.action": "permitted", "cisco.ftd.rule_name": "ERP-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "ERP-outbound", "cisco.ftd.application_protocol": "sap-cloud", "firewall.action": "allow", "action_result": "allowed" },
   },
   {
     id: "gl_fw_005", ts: "2026-05-10T15:00:00.000Z",
@@ -2033,7 +2033,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Cisco Firepower", src_ip: "91.195.240.126", dst_ip: "10.50.1.1", dst_port: 23,
     protocol: "tcp",
     description: "Inbound Telnet scan from 91.195.240.126 to 10.50.1.1 — blocked, legacy protocol probe",
-    raw: { "cisco.ftd.action": "denied", "cisco.ftd.security_intelligence_category": "Scanner", "firewall.action": "block", "action_result": "blocked", "source.geo.country_name": "China" },
+    raw: { "cisco.ftd.action": "Block", "cisco.ftd.security_intelligence_category": "Scanner", "firewall.action": "block", "action_result": "blocked", "source.geo.country_name": "China" },
   },
   // ── Sysmon — additional events ────────────────────────────────────────────
   {
@@ -2067,7 +2067,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     protocol: "tcp", expected_verdict: "fp",
     fp_explanation: "SRV-GL-WMS01 connects to a logistics partner (DHL DE) via FTP every morning at 06:30 to exchange shipping manifests. The FTP session is to a whitelisted partner IP (DHL's EDI gateway) and was added to the firewall allowlist under change CHG-GL-120. The large upload is daily shipment data — expected for a logistics operator.",
     description: "FTP connection from SRV-GL-WMS01 to DHL EDI gateway — daily shipping manifest transfer",
-    raw: { "cisco.ftd.action": "permitted", "cisco.ftd.rule_name": "WMS-FTP-Partner", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "52428800", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.rule_name": "WMS-FTP-Partner", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "52428800", "firewall.action": "allow", "action_result": "allowed" },
   },
   {
     id: "gl_fp_002", ts: "2026-05-10T10:00:00.000Z",
@@ -2283,7 +2283,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1048", mitre_tactic: "Exfiltration",
     description: "SRV-GL-APP02 sent 2.1 GB of customer data over SFTP to an external IP after hours",
     raw: {
-      "cisco.ftd.action": "permit", "cisco.ftd.application_protocol": "sftp",
+      "cisco.ftd.action": "Allow", "cisco.ftd.application_protocol": "sftp",
       "source.ip": "10.20.1.45", "destination.ip": "93.184.216.119",
       "destination.port": "22", "cisco.ftd.initiator_bytes": "2254857216",
       "cisco.ftd.connection_duration": "820", "source.geo.country_iso_code": "DE",
@@ -2458,7 +2458,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     user_title: "Quantitative Analyst",
     network: { url: "https://bankersassociation.ch/regulations/2026", method: "GET", status: 200, bytes_in: 14200 },
     description: "Outbound HTTPS connection from WKS-QB-044 to bankersassociation.ch — allowed, industry association",
-    raw: { "zscaler.action": "allowed", "zscaler.category": "Banking/Finance", "zscaler.dlp_scan": "no_violation", "action_result": "allowed", "session.blocked": "false" },
+    raw: { "zscaler.action": "Allowed", "zscaler.category": "Banking/Finance", "zscaler.dlp_scan": "no_violation", "action_result": "allowed", "session.blocked": "false" },
   },
   {
     id: "qb_zs_002", ts: "2026-05-10T11:15:00.000Z",
@@ -2467,7 +2467,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     user_title: "Operations Manager",
     network: { url: "https://file-sharing-site.biz/download/doc.zip", method: "GET", status: 403 },
     description: "p.meier attempted upload to file-sharing-site.biz — blocked by DLP policy, uncategorised site",
-    raw: { "zscaler.action": "blocked", "zscaler.category": "Uncategorized", "zscaler.dlp_scan": "blocked", "action_result": "blocked", "session.blocked": "true", "policy.name": "DLP-Block-FileSharing" },
+    raw: { "zscaler.action": "Blocked", "zscaler.category": "Uncategorized", "zscaler.dlp_scan": "blocked", "action_result": "blocked", "session.blocked": "true", "policy.name": "DLP-Block-FileSharing" },
   },
   // ── False Positive Training Events ────────────────────────────────────────
   {
@@ -3146,7 +3146,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     hostname: "SRV-MEDCORE-DC01",
     description: "p.hoekstra authenticated to domain controller SRV-MEDCORE-DC01 and requested access to the PACS imaging server",
     mitre_technique: "T1550.002",
-    raw: { "winlog.event_id": "4769", "winlog.event_data.ServiceName": "pacs-service/SRV-MEDCORE-PACS01", "winlog.event_data.AuthenticationPackageName": "NTLM", "winlog.event_data.LogonType": "3", "action_result": "allowed" },
+    raw: { "winlog.event_id": "4769", "winlog.event_data.TargetUserName": "p.hoekstra@MEDCORE.NL", "winlog.event_data.ServiceName": "pacs-service/SRV-MEDCORE-PACS01", "winlog.event_data.TicketOptions": "0x40810000", "winlog.event_data.TicketEncryptionType": "0x17", "winlog.event_data.Status": "0x0", "winlog.event_data.IpAddress": "::ffff:192.168.10.67", "action_result": "allowed" },
   },
   {
     id: "mc_c4", ts: "2026-05-10T13:35:00Z", source: "edr", event_type: "process_create",
@@ -3569,7 +3569,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "195.123.226.33", dst_port: 21,
     description: "142MB FTP data transfer from SRV-GL-WMS01 to external server 195.123.226.33 — large outbound transfer on legacy protocol",
     mitre_technique: "T1048.003",
-    raw: { "cisco.ftd.action": "permitted", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "148897792", "cisco.ftd.rule_name": "default-outbound", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.application_protocol": "ftp", "cisco.ftd.initiator_bytes": "148897792", "cisco.ftd.rule_name": "default-outbound", "firewall.action": "allow", "action_result": "allowed" },
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
   {
@@ -3601,7 +3601,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Cisco Firepower", src_ip: "10.50.5.10", dst_ip: "88.198.12.44", dst_port: 443,
     description: "SRV-GL-WMS01 sent 890 MB over TLS to 88.198.12.44, an address with no prior traffic from this host",
     mitre_technique: "T1041",
-    raw: { "cisco.ftd.action": "permitted", "cisco.ftd.initiator_bytes": "933397504", "cisco.ftd.application_protocol": "ssl", "cisco.ftd.rule_name": "default-outbound", "firewall.action": "allow", "action_result": "allowed" },
+    raw: { "cisco.ftd.action": "Allow", "cisco.ftd.initiator_bytes": "933397504", "cisco.ftd.application_protocol": "ssl", "cisco.ftd.rule_name": "default-outbound", "firewall.action": "allow", "action_result": "allowed" },
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {
@@ -3744,7 +3744,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Zscaler Internet Access", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     description: "l.brunner attempted upload of trading-positions-may2026.pdf to transfer.sh — blocked by DLP, PCI data violation",
     mitre_technique: "T1567",
-    raw: { "zscaler.action": "blocked", "zscaler.dlp_scan": "pci_violation", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Credit Card Number (4812 matches)", "session.blocked": "true", "action_result": "blocked" },
+    raw: { "zscaler.action": "Blocked", "zscaler.dlp_scan": "pci_violation", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Credit Card Number (4812 matches)", "session.blocked": "true", "action_result": "blocked" },
   },
   {
     id: "qb_b4", ts: "2026-05-10T11:32:00Z", source: "edr", event_type: "process_create",
@@ -3767,14 +3767,14 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Zscaler Internet Access", user_email: "a.keller@quantumbank.ch", src_ip: "188.166.44.12",
     description: "The hijacked Amsterdam session pulled 10,000 client trading positions from the orders API",
     mitre_technique: "T1213",
-    raw: { "zscaler.action": "allowed", "zscaler.category": "Financial-Services", "network.url": "/api/v2/orders?account=QB-ALL&limit=10000", "network.records_returned": "10000", "action_result": "allowed" },
+    raw: { "zscaler.action": "Allowed", "zscaler.category": "Financial-Services", "network.url": "/api/v2/orders?account=QB-ALL&limit=10000", "network.records_returned": "10000", "action_result": "allowed" },
   },
   {
     id: "qb_c3", ts: "2026-05-10T13:45:00Z", source: "proxy", event_type: "http_request",
     severity: "high", vendor: "Zscaler Internet Access", user_email: "a.keller@quantumbank.ch", src_ip: "188.166.44.12",
     description: "The hijacked Amsterdam session placed 847 sell orders worth CHF 28 million through the trading API",
     mitre_technique: "T1078",
-    raw: { "zscaler.action": "allowed", "network.url": "/api/v2/orders/batch", "http.method": "POST", "orders.count": "847", "orders.value_chf": "28000000", "orders.sector": "Energy", "action_result": "allowed" },
+    raw: { "zscaler.action": "Allowed", "network.url": "/api/v2/orders/batch", "http.method": "POST", "orders.count": "847", "orders.value_chf": "28000000", "orders.sector": "Energy", "action_result": "allowed" },
   },
   {
     id: "qb_c4", ts: "2026-05-10T13:52:00Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -3825,7 +3825,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     user_email: "h.weber@quantumbank.ch",
     description: "A POST to /swift/api/v3/transfers for EUR 4.2 million was submitted as h.weber from 5.188.210.100",
     mitre_technique: "T1657", mitre_tactic: "Impact",
-    raw: { "zscaler.action": "allowed", "network.url": "/swift/api/v3/transfers",
+    raw: { "zscaler.action": "Allowed", "network.url": "/swift/api/v3/transfers",
            "http.method": "POST", "swift.transfer_amount_eur": "4200000",
            "swift.beneficiary": "BPKOPLPW", "swift.reference": "FX-2026-99123",
            "source.ip": "5.188.210.100",
