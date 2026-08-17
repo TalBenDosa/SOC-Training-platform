@@ -174,7 +174,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "FortiGate", src_ip: "91.220.163.14", dst_ip: "172.16.14.5", dst_port: 22,
     protocol: "tcp",
     description: "Inbound SSH connection attempt from 91.220.163.14 to 172.16.14.5 denied by policy 1",
-    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000021", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "SSH", "data.srccountry": "Netherlands", "data.sentbyte": "0", "data.rcvdbyte": "64", "firewall.action": "block", "action_result": "blocked" },
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "SSH", "data.srccountry": "Netherlands", "data.sentbyte": "0", "data.rcvdbyte": "64", "firewall.action": "block", "action_result": "blocked" },
   },
   // ── DNS ───────────────────────────────────────────────────────────────────
   {
@@ -306,7 +306,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "FortiGate", src_ip: "45.83.66.131", dst_ip: "172.16.14.5", dst_port: 3389,
     protocol: "tcp",
     description: "Inbound RDP connection attempt from 45.83.66.131 to 172.16.14.5 — denied by policy 1",
-    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000021", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "RDP", "data.srccountry": "Germany", "data.sentbyte": "0", "data.rcvdbyte": "60", "firewall.action": "block", "action_result": "blocked" },
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "RDP", "data.srccountry": "Germany", "data.sentbyte": "0", "data.rcvdbyte": "60", "firewall.action": "block", "action_result": "blocked" },
   },
   // ── DNS — additional query events ─────────────────────────────────────────
   {
@@ -2407,7 +2407,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     src_ip: "10.100.1.33",
     description: "PDF attachment opened in Acrobat Reader on WKS-QB-033",
     process: { name: "AcroRd32.exe", pid: 3800, parent_name: "OUTLOOK.EXE", parent_pid: 2900, user: "e.steiner", integrity: "low" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.SandboxVerdict": "true", "file.signed": "true", "action_result": "allowed" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.SandboxVerdict": "clean", "file.signed": "true", "action_result": "allowed" },
   },
   {
     id: "qb_cs_003", ts: "2026-05-10T10:45:00.000Z",

@@ -248,8 +248,8 @@ const edgeCaseRoom = {
     "An advanced room built for analysts who already know the textbook attacks and now need to see the ones that don't look like attacks at all. Every scenario here was chosen because it routinely slips past experienced SOC teams: a malicious package that installs itself through a trusted build process, an insider who never crosses a DLP threshold, a third-party script that turns a checkout page into a skimmer, a SaaS app nobody approved, an admin tool abused in a way that looks exactly like admin work, an OAuth consent screen that never touches malware, a geographically 'impossible' login that is actually a VPN hop, and a password-reset form quietly used to map your entire user directory. For each case you will learn why it is missed and exactly which field or behavioral tell breaks the disguise.",
   difficulty: "advanced" as const,
   category: "Threat Detection",
-  estimatedMinutes: 80,
-  xp: 360,
+  estimatedMinutes: 90,
+  xp: 420,
   icon: "🕵️",
   prerequisites: ["investigation-methodology", "alert-triage"],
   tasks: [
@@ -676,6 +676,38 @@ const edgeCaseRoom = {
         "This should be treated as a true positive requiring immediate remediation, despite the complete absence of malware, phishing infrastructure, or credential compromise indicators. The combination of three factors makes this a confirmed illicit consent grant rather than routine SaaS adoption: the requested scope includes offline_access alongside Mail.Read and Contacts.Read, which grants the application indefinite, silent, ongoing access to the mailbox with no further user interaction ever required; the application ('Quick Doc Viewer') is a generic-sounding, low-utility-value app with no plausible legitimate need for persistent mail and contacts access; and the consent occurred from an IP/geography (Latvia) with no prior association with this user. Remediation requires revoking the application's access in Azure AD (Enterprise Applications), rotating any credentials or data the app may have already accessed, and reviewing the mailbox for signs of data access (Graph API call logs against this app's client ID) during the window it held the token.",
       fp_trap:
         "Because this event uses the exact same Operation name ('Consent to application.') and the exact same schema as the thousands of legitimate, benign SaaS-connection consents your users perform routinely, it is easy to pattern-match it to 'normal noise' and auto-close without reading the scope list. The trap is treating event TYPE as sufficient context — the same event type covers both a user connecting their calendar app and a user handing an attacker persistent mailbox access. You must read the actual requested scopes and app metadata every time, not just recognize the event name.",
+      xp: 30,
+    },
+
+    // ── Analyst Choice 3: LOLBin regsvr32 that is actually legit admin work ─
+    {
+      type: "analyst_choice" as const,
+      id: "edge-ac3",
+      heading: "Verdict: Squiblydoo Attack or Legitimate Admin Deployment?",
+      scenario:
+        "EDR fires a medium-severity alert on SRV-APP-0044: regsvr32.exe registered a DLL outside the scheduled maintenance window. The technique maps to T1218.010 (Signed Binary Proxy Execution), a documented Defense Evasion technique. regsvr32 is a well-known LOLBin used in the Squiblydoo attack chain. Before escalating this as an intrusion, review every field in the event — not just the alert title.",
+      event: lolbinEvent,
+      correct_verdict: "false_positive",
+      explanation:
+        "This is legitimate administrative work, not Squiblydoo abuse. The command line registers a local file path (C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll), not a remote scriptlet fetched over the network — and network.connection_made is false, meaning no outbound call followed execution at all, which is the single clearest technical distinction between real regsvr32/scrobj.dll abuse and routine local DLL registration. The file is signed, with file.publisher showing 'NexaCorp Internal Engineering' — an internal, known publisher, not an unsigned or externally-sourced binary. The process was launched from a batch script (deploy_report_engine.bat) under an open change-management ticket, CHG0041823, and change_management.minutes_early shows the command ran only 5 minutes before its approved window opened — not outside it in any meaningful sense, just an administrator starting slightly early. Every one of these facts is independently checkable in the raw event; none of them require trusting the analyst's gut. The correct action is to close this as a false positive, but log the 5-minute early-start deviation back to the change-management process as a minor process note, since consistently starting outside approved windows is worth flagging to the change board even when the activity itself is benign.",
+      fp_trap:
+        "regsvr32.exe is one of the most well-known LOLBins in the MITRE ATT&CK framework, and T1218.010 on an alert is exactly the kind of label that pushes a junior analyst straight to escalation without reading further — 'regsvr32 fired, technique matches a real attack technique, escalate now.' That instinct treats the BINARY as the signal, when the reading in this room already established that the signal is never which binary ran, it's what the binary was told to do and what happened immediately afterward. A local, signed, version-controlled DLL path with no outbound connection and a matching change ticket is the textbook legitimate use of the exact same tool attackers abuse — same binary, same MITRE technique ID, completely different intent, and the raw fields prove it without requiring any assumption.",
+      xp: 30,
+    },
+
+    // ── Analyst Choice 4: password-reset enumeration with no WAF hit ────────
+    {
+      type: "analyst_choice" as const,
+      id: "edge-ac4",
+      heading: "Verdict: Routine Password-Reset Traffic or Directory Enumeration?",
+      scenario:
+        "Cloudflare WAF logged 212 requests to the password-reset endpoint from a single source IP over a short window. cf.threat_score is a low 18, waf.rule_triggered is none, waf.observed_requests_per_min (42) sits well under the configured rate_limit_threshold_per_min (100), and every single request returned HTTP 200. Nothing here tripped a signature, and the traffic never exceeded the rate limit. Decide whether this deserves escalation.",
+      event: passwordResetAbuseEvent,
+      correct_verdict: "true_positive",
+      explanation:
+        "This is a true positive: a business-logic account-enumeration attack (T1589.002) that was specifically engineered to stay under every threshold-based control in front of it. The tell is not in any single request, since each one is individually well-formed and returns a normal-looking 200 — it is in the pattern across the batch. app.unique_emails_attempted (212) submitted sequentially from one source, combined with app.response_time_variance_ms showing user_exists averaging 812ms against user_not_exists averaging 94ms, means the response timing itself leaks which of those 212 email addresses correspond to real accounts, regardless of the HTTP status code being identical across all of them. The user-agent (python-requests/2.31.0) confirms this traffic is scripted rather than a real user's browser. The low cf.threat_score and the absence of a triggered WAF rule are exactly what this room's reading predicted: signature and rate-based defenses were never designed to see a business-logic side channel, because no individual request is malformed or rate-abusive enough to cross their thresholds. The correct action is to escalate: block the source IP, alert the application owner to add response-time normalization (e.g., always perform a dummy hash lookup even on the not-found path) and a per-source velocity limit specifically on the reset endpoint's business outcome (not just raw request count), and check whether any of the 212 confirmed-valid accounts were subsequently targeted for credential stuffing or spray.",
+      fp_trap:
+        "A low threat_score, zero WAF rule hits, and a request rate under the configured limit reads, at a glance, like a fully clean event — three separate controls all said 'nothing to see here,' which makes it tempting to close this without ever opening the app.* fields. The trap is trusting network/WAF-layer verdicts for an attack that was never a network-layer attack in the first place. This room's reading was explicit that business-logic abuse exploits an application functioning exactly as designed, so the WAF, rate limiter, and bot score can all legitimately report 'normal' while the application's own response-timing side channel is actively leaking your user directory. The only place this attack is visible is in the business-outcome fields (unique emails attempted, response-time variance) — never in the WAF verdict fields.",
       xp: 30,
     },
 

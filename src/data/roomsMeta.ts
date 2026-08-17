@@ -3649,8 +3649,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "An advanced room built for analysts who already know the textbook attacks and now need to see the ones that don't look like attacks at all. Every scenario here was chosen because it routinely slips past experienced SOC teams: a malicious package that installs itself through a trusted build process, an insider who never crosses a DLP threshold, a third-party script that turns a checkout page into a skimmer, a SaaS app nobody approved, an admin tool abused in a way that looks exactly like admin work, an OAuth consent screen that never touches malware, a geographically 'impossible' login that is actually a VPN hop, and a password-reset form quietly used to map your entire user directory. For each case you will learn why it is missed and exactly which field or behavioral tell breaks the disguise.",
     "difficulty": "advanced",
     "category": "Threat Detection",
-    "estimatedMinutes": 80,
-    "xp": 360,
+    "estimatedMinutes": 90,
+    "xp": 420,
     "icon": "🕵️",
     "prerequisites": [
       "investigation-methodology",
@@ -3724,6 +3724,18 @@ export const ROOMS_META: RoomMeta[] = [
         "type": "analyst_choice",
         "xp": 30,
         "mitreTechnique": "T1528"
+      },
+      {
+        "id": "edge-ac3",
+        "type": "analyst_choice",
+        "xp": 30,
+        "mitreTechnique": "T1218.010"
+      },
+      {
+        "id": "edge-ac4",
+        "type": "analyst_choice",
+        "xp": 30,
+        "mitreTechnique": "T1589.002"
       },
       {
         "id": "edge-m1",

@@ -3989,7 +3989,7 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
       { id: "q1", prompt: "What made this USB drive suspicious even before anything was executed?", kind: "single",
         options: [
           { value: "tag",  label: "It had no company asset tag and had never been seen on this host before" },
-          { value: "size", label: "The copied file was only 340KB — far smaller than a genuine backup utility installer" },
+          { value: "size", label: "The copied file was only 240KB — far smaller than a genuine backup utility installer" },
           { value: "user", label: "m.levi works in Operations and has no documented business need for a backup tool" },
         ],
         answer: "tag", xp: 40,
