@@ -10,11 +10,21 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
  */
 export async function GET() {
   const user = await getAuthedUser();
-  if (!user || !user.orgId) return NextResponse.json({ name: null, branding: {} });
+  if (!user || !user.orgId) return NextResponse.json({ name: null, branding: {}, all_rooms_unlocked: false });
 
   const admin = getSupabaseAdminClient();
-  if (!admin) return NextResponse.json({ name: user.orgName ?? null, branding: {} });
+  if (!admin) return NextResponse.json({ name: user.orgName ?? null, branding: {}, all_rooms_unlocked: false });
 
-  const { data } = await admin.from("organizations").select("name, branding").eq("id", user.orgId).maybeSingle();
-  return NextResponse.json({ name: data?.name ?? user.orgName ?? null, branding: data?.branding ?? {} });
+  const { data } = await admin
+    .from("organizations")
+    .select("name, branding, all_rooms_unlocked")
+    .eq("id", user.orgId)
+    .maybeSingle();
+  return NextResponse.json({
+    name: data?.name ?? user.orgName ?? null,
+    branding: data?.branding ?? {},
+    // Per-org gate bypass (migration 0036). Default false so normal prerequisite
+    // gating applies; true only for orgs a super-admin has opted in.
+    all_rooms_unlocked: data?.all_rooms_unlocked === true,
+  });
 }

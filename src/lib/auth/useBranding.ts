@@ -12,9 +12,12 @@ export interface Branding {
   name: string | null;
   color: string | null;
   logoUrl: string | null;
+  /** Per-org gate bypass (migration 0036): when true, every Learning Room is
+   *  unlocked for this org's members regardless of prerequisites. */
+  allRoomsUnlocked: boolean;
 }
 
-const EMPTY: Branding = { name: null, color: null, logoUrl: null };
+const EMPTY: Branding = { name: null, color: null, logoUrl: null, allRoomsUnlocked: false };
 
 export function useBranding(): Branding {
   const { user } = useAuth();
@@ -28,7 +31,7 @@ export function useBranding(): Branding {
       .then(d => {
         if (cancelled || !d) return;
         const color = typeof d.branding?.color === "string" ? d.branding.color : null;
-        setBranding({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null });
+        setBranding({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, allRoomsUnlocked: d.all_rooms_unlocked === true });
         if (color) document.documentElement.style.setProperty("--org-accent", color);
       })
       .catch(() => {});

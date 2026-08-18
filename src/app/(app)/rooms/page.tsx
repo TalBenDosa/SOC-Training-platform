@@ -8,6 +8,7 @@ import { ROOMS_META } from "@/data/roomsMeta";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { isRoomLocked, recommendNextRoom } from "@/lib/rooms/recommend";
 import { AssignedWork } from "@/components/assignments/AssignedWork";
+import { useBranding } from "@/lib/auth/useBranding";
 import { BookOpen } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ type Category = typeof CATEGORIES[number];
 // ─── Page ──────────────────────────────────────────────────────────────────────
 export default function RoomsPage() {
   const router   = useRouter();
+  const { allRoomsUnlocked } = useBranding();
   const [progress, setProgress] = useState<AllProgress>({});
   const [filter, setFilter]     = useState<Category>("All");
 
@@ -39,7 +41,9 @@ export default function RoomsPage() {
   // Prerequisite gating + "recommended next" now come from the SHARED
   // src/lib/rooms/recommend.ts, so the rooms list and the Room-Complete screen
   // can never disagree about what is locked or what to do next.
-  const isLocked = (roomId: string) => isRoomLocked(roomId, progress);
+  // Per-org override (migration 0036): an org opted into all_rooms_unlocked sees
+  // every room open regardless of prerequisites — for eval/pilot cohorts.
+  const isLocked = (roomId: string) => allRoomsUnlocked ? false : isRoomLocked(roomId, progress);
 
   const filtered = ROOMS_META.filter(r => filter === "All" || r.category === filter);
 
