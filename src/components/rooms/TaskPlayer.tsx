@@ -335,6 +335,24 @@ function RichContent({ content }: { content: string }) {
     <div className="space-y-5">
       {blocks.map((block, i) => {
         const trimmed = block.trim();
+        // Horizontal rule: a line of --- / *** / ___ (markdown authors use it as
+        // a section divider). Without this it printed literally as "---".
+        if (/^([-*_])\1{2,}$/.test(trimmed)) {
+          return <hr key={i} className="border-cyber-500/15" />;
+        }
+        // ATX heading: #, ##, ### … on its own line. Previously unhandled, so a
+        // "## Heading" fell through to the paragraph branch and showed the raw
+        // "##". Render it as a styled heading, sized by level.
+        const atx = /^(#{1,6})\s+(.+)$/.exec(trimmed);
+        if (atx && !trimmed.includes("\n")) {
+          const level = atx[1].length;
+          const size = level <= 1 ? "text-2xl" : level === 2 ? "text-lg" : "text-base";
+          return (
+            <h3 key={i} className={cn(size, "font-bold text-cyber-300 mt-6 first:mt-0 border-b border-cyber-500/20 pb-2")}>
+              {renderInline(atx[2])}
+            </h3>
+          );
+        }
         if (/^\*\*[^*]+\*\*$/.test(trimmed)) {
           return (
             <h3 key={i} className="text-lg font-bold text-cyber-300 mt-6 first:mt-0 border-b border-cyber-500/20 pb-2">
