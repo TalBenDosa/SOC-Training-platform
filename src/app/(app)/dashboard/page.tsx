@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { useLiveEvents } from "./useLiveEvents";
 import type { LiveEvent } from "./useLiveEvents";
 import { EventFeed } from "./EventFeed";
-import { addTotalXp, getClearedCompanies, addClearedCompany, setLastSession } from "@/lib/storage/progress";
+import { getClearedCompanies, addClearedCompany, setLastSession, getRoomProgress } from "@/lib/storage/progress";
+import Link from "next/link";
 import { WorkflowGuide } from "./WorkflowGuide";
 import { BENIGN_EVENTS } from "./benignEvents";
 import { SiemStats } from "./SiemStats";
@@ -25,7 +26,7 @@ import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import {
-  AlertTriangle, BookOpen, Building2, Cpu, FileText, Filter, LogOut, Pause, Play,
+  AlertTriangle, BookOpen, Building2, Cpu, FileText, Filter, GraduationCap, LogOut, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
@@ -281,6 +282,13 @@ function getSourcesForCompany(id: string): { value: string; label: string }[] {
 
 export default function DashboardPage() {
   // ── All state up-front ────────────────────────────────────────────────────
+  // Readiness signal (PM audit F6): the dashboard is self-paced and stays open,
+  // but a learner who has cleared 0 rooms is about to read real production logs
+  // with no scaffolding. We show a soft, dismissible "start with the basics"
+  // banner — not a lock (the freedom to explore early is intentional). `ready`
+  // defaults to true so the banner never flashes before we've read progress.
+  const [roomReady,           setRoomReady]           = useState(true);
+  const [readinessDismissed,  setReadinessDismissed]  = useState(true);
   const [showTrainingModal,   setShowTrainingModal]   = useState(false);
   const [showWelcome,         setShowWelcome]         = useState(false);
   const [showCompanySelector, setShowCompanySelector] = useState(false);
@@ -446,16 +454,38 @@ export default function DashboardPage() {
     }
   }, [live.activeIncident]);
 
-  // ── Persist session XP to localStorage (cumulative across sessions) ───────
+  // ── Mark dashboard activity (for streak + last-session), but do NOT feed the
+  //    rank pool ─────────────────────────────────────────────────────────────
+  // PM audit F3: the dashboard is the one ungated surface, so its practice XP
+  // must not move Rank/level (which the B2B leaderboard reads). The session is
+  // still recorded — appendDashboardSession() in useLiveEvents persists it for
+  // history, stats, and the streak; migration 0035 keeps that XP out of
+  // profiles.xp server-side. We only stamp last-session here so the optimistic
+  // local rank stays in agreement with the server-authoritative total.
   const prevSessionXpRef = useRef(0);
   useEffect(() => {
     const delta = live.sessionXp - prevSessionXpRef.current;
     if (delta > 0 && typeof window !== "undefined") {
-      addTotalXp(delta);
       setLastSession(new Date().toISOString());
     }
     prevSessionXpRef.current = live.sessionXp;
   }, [live.sessionXp]);
+
+  // ── Readiness (F6): has this learner cleared any room yet? ─────────────────
+  useEffect(() => {
+    try {
+      const rp = getRoomProgress() as Record<string, { completedAt?: string }>;
+      const anyDone = Object.values(rp).some(r => !!r.completedAt);
+      setRoomReady(anyDone);
+    } catch { setRoomReady(true); /* fail open — never nag on corrupt data */ }
+    if (typeof window !== "undefined") {
+      setReadinessDismissed(localStorage.getItem("soc:dashboard-readiness-dismissed") === "1");
+    }
+  }, []);
+  const dismissReadiness = () => {
+    setReadinessDismissed(true);
+    try { localStorage.setItem("soc:dashboard-readiness-dismissed", "1"); } catch { /* ignore */ }
+  };
 
   // ── On mount: restore saved company + pick the opening modal ──────────────
   // The feed stays IDLE — no story is armed and nothing streams until the
@@ -779,6 +809,29 @@ export default function DashboardPage() {
       />
 
       <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6">
+
+        {/* Readiness signal (F6) — soft, dismissible, non-blocking. Shown only to
+            a learner who has cleared 0 rooms: the live feed is real production
+            telemetry with no scaffolding, so we point them at the graded path
+            first without locking them out. */}
+        {!roomReady && !readinessDismissed && (
+          <div className="flex items-start gap-3 rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-4 py-3">
+            <GraduationCap className="mt-0.5 h-5 w-5 shrink-0 text-cyber-300" />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-white">New here? Start with the fundamentals.</p>
+              <p className="mt-0.5 text-slate-400">
+                This is a live feed of real production logs — no hints. You&apos;ll get far more out of it
+                after a few graded rooms build the basics. You can still explore now.
+              </p>
+              <Link href="/rooms" className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-cyber-300 hover:text-cyber-200">
+                <BookOpen className="h-3.5 w-3.5" /> Go to Learning Rooms
+              </Link>
+            </div>
+            <button onClick={dismissReadiness} aria-label="Dismiss" className="shrink-0 rounded p-1 text-slate-500 hover:text-slate-300">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
 
         {/* Session status bar — one compact row instead of the old KPI grid + XP banner */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-bg-elevated px-5 py-3">

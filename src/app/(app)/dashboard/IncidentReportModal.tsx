@@ -81,6 +81,7 @@ export function IncidentReportModal({
   const draft = loadDraft();
 
   const [phase,   setPhase]   = useState<Phase>("form");
+  const [error,   setError]   = useState<string | null>(null);
   const [summary, setSummary] = useState(draft?.summary ?? "");
   const [result,  setResult]  = useState<IncidentReportResponse | null>(null);
   const [passed,  setPassed]  = useState(false);
@@ -128,6 +129,7 @@ export function IncidentReportModal({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    setError(null);
     setPhase("grading");
     const submittedSummary = effectiveSummary;
 
@@ -144,27 +146,20 @@ export function IncidentReportModal({
         }),
       });
 
+      if (!res.ok) throw new Error(`Grader returned ${res.status}`);
       const data: IncidentReportResponse = await res.json();
       setResult(data);
       setPassed(data.passed);
       if (data.passed) { onPassed(); localStorage.removeItem(draftKey); }
       setPhase("result");
     } catch {
-      // Fallback: simple pass if they wrote something substantial
-      const fallback: IncidentReportResponse = {
-        score: submittedSummary.length > 80 ? 65 : 30,
-        passed: submittedSummary.length > 80,
-        feedback: submittedSummary.length > 80
-          ? "Report submitted. Good effort — keep practicing to improve specificity."
-          : "Report too short. Add more detail about the attack and recommended action.",
-        strengths: submittedSummary.length > 80 ? ["Submitted a report with some content."] : [],
-        gaps: ["Add specific IOC values, attack name, and recommended response."],
-      };
-      setResult(fallback);
-      setPassed(fallback.passed);
-      if (fallback.passed) localStorage.removeItem(draftKey);
-      if (fallback.passed) onPassed();
-      setPhase("result");
+      // NEVER fail-open. A network/grader failure must not award a pass — that
+      // would let a junk report of sufficient length "secure the company". The
+      // server always returns a deterministic heuristic grade even when the LLM
+      // is down, so reaching here means the request itself failed. Send the
+      // analyst back to the form with a retry prompt; their draft is preserved.
+      setError("Couldn't reach the grader. Your report is saved below — please try submitting again.");
+      setPhase("form");
     }
   };
 
@@ -199,6 +194,11 @@ export function IncidentReportModal({
           {/* ── FORM phase ── */}
           {phase === "form" && (
             <>
+              {error && (
+                <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2.5 text-sm text-severity-high" role="alert">
+                  {error}
+                </div>
+              )}
               {/* Instructions */}
               <div className="rounded border border-neon-amber/20 bg-neon-amber/5 px-3 py-2.5">
                 <p className="text-[10px] text-neon-amber font-semibold uppercase tracking-wider mb-1">What to include</p>

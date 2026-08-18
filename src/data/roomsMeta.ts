@@ -6825,5 +6825,103 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       }
     ]
+  },
+  {
+    "id": "commodity-initial-access",
+    "title": "Modern Commodity Initial-Access Techniques (2024–2026)",
+    "description": "Five ways attackers get their first foothold without a malicious document macro and often without a classic file download at all: a fake CAPTCHA that pastes its own command (ClickFix), a bundled utility that silently swaps cryptocurrency wallet addresses (clipboard clipper), a sponsored search result leading to a fake installer (SEO poisoning), a downloaded ISO that slips past the Mark-of-the-Web warning, and a compromised web page that mines cryptocurrency inside a browser tab. Learn to recognise each one, the exact MITRE ATT&CK techniques behind them, and the terms — Mark-of-the-Web, fileless execution, loader, WebAssembly, Stratum relay — that no one can guess from context alone.",
+    "difficulty": "beginner",
+    "category": "Threat Detection",
+    "estimatedMinutes": 55,
+    "xp": 375,
+    "icon": "🪤",
+    "prerequisites": [
+      "intro-cybersecurity",
+      "malware-types"
+    ],
+    "tasks": [
+      {
+        "id": "mcia-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mcia-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mcia-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "mcia-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mcia-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "mcia-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mcia-la1",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1105"
+      },
+      {
+        "id": "mcia-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mcia-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "mcia-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mcia-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "mcia-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "mcia-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "mcia-la2",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1496"
+      },
+      {
+        "id": "mcia-f1",
+        "type": "flag",
+        "xp": 20
+      },
+      {
+        "id": "mcia-q4",
+        "type": "question",
+        "xp": 30
+      }
+    ]
   }
 ];

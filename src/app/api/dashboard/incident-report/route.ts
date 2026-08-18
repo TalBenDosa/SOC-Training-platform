@@ -230,7 +230,14 @@ Write feedback explaining the computed result above. If the trainee named the wr
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const body: IncidentReportRequest = await req.json();
+  let body: IncidentReportRequest;
+  try {
+    body = await req.json();
+  } catch {
+    // Malformed body → clean 400 JSON, not an unhandled 500. The client treats
+    // any non-ok response as a failure and re-prompts; it never fail-opens.
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
 
   if (!body.summary?.trim()) {
     return NextResponse.json({

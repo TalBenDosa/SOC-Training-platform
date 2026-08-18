@@ -43,6 +43,7 @@ import { roomsBatch28 } from "./rooms-batch-28";
 import { roomsBatch29 } from "./rooms-batch-29";
 import { roomsBatch30 } from "./rooms-batch-30";
 import { roomsBatch31 } from "./rooms-batch-31";
+import { roomsBatch32 } from "./rooms-batch-32";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -291,4 +292,5 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch29), // investigate-alert-workflow, incident-report-writing
   ...cast(roomsBatch30), // risk-fundamentals
   ...cast(roomsBatch31), // powershell-for-soc-analyst
+  ...cast(roomsBatch32), // commodity-initial-access
 ];

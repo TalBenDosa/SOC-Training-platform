@@ -620,6 +620,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
   const [answers, setAnswers]     = useState<(number | null)[]>(Array(task.questions.length).fill(null));
   const [revealed, setRevealed]   = useState<boolean[]>(Array(task.questions.length).fill(false));
   const [confirmed, setConfirmed] = useState<boolean[]>(Array(task.questions.length).fill(false));
+  const [busy, setBusy]           = useState<boolean[]>(Array(task.questions.length).fill(false));
   const [totalXp, setTotalXp]     = useState(0);
   const [results, setResults]     = useState<Record<number, { correct: boolean; answer: number; explanation: string }>>({});
 
@@ -655,19 +656,27 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
 
   async function confirmAnswer(i: number) {
     const selected = answers[i];
-    if (selected === null) return;
-    const result = await submitTask(roomId, task.id, { questionIndex: i, selectedIndex: selected });
-    setResults(prev => ({
-      ...prev,
-      [i]: {
-        correct: result.correct,
-        answer: typeof result.reveal.answer === "number" ? result.reveal.answer : selected,
-        explanation: typeof result.reveal.explanation === "string" ? result.reveal.explanation : "",
-      },
-    }));
-    setRevealed(prev  => prev.map((v, idx) => idx === i ? true : v));
-    setConfirmed(prev => prev.map((v, idx) => idx === i ? true : v));
-    setTotalXp(prev => prev + result.xpEarned);
+    // Guard against double-submit: a second click while the first request is
+    // in flight would grade (and award XP for) the same question twice — this
+    // XP is server-authoritative, so it inflates profiles.xp, not just the UI.
+    if (selected === null || confirmed[i] || busy[i]) return;
+    setBusy(prev => prev.map((v, idx) => idx === i ? true : v));
+    try {
+      const result = await submitTask(roomId, task.id, { questionIndex: i, selectedIndex: selected });
+      setResults(prev => ({
+        ...prev,
+        [i]: {
+          correct: result.correct,
+          answer: typeof result.reveal.answer === "number" ? result.reveal.answer : selected,
+          explanation: typeof result.reveal.explanation === "string" ? result.reveal.explanation : "",
+        },
+      }));
+      setRevealed(prev  => prev.map((v, idx) => idx === i ? true : v));
+      setConfirmed(prev => prev.map((v, idx) => idx === i ? true : v));
+      setTotalXp(prev => prev + result.xpEarned);
+    } finally {
+      setBusy(prev => prev.map((v, idx) => idx === i ? false : v));
+    }
   }
 
   return (
@@ -721,7 +730,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
                 ))}
               </div>
               {!confirmed[i] && (
-                <Button variant="secondary" size="sm" disabled={answers[i] === null}
+                <Button variant="secondary" size="sm" disabled={answers[i] === null || busy[i]}
                   onClick={() => confirmAnswer(i)}>
                   Confirm
                 </Button>

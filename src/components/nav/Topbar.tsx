@@ -13,15 +13,20 @@
 // than none — it told a student they were a Tier 2 analyst before they had
 // triaged a single alert. It now reflects real XP against the ladder in
 // lib/progression/ranks.ts, and updates the moment XP is awarded.
+import Link from "next/link";
+import { Flame } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useBranding } from "@/lib/auth/useBranding";
 import { useRank } from "@/lib/progression/useRank";
+import { useStreak } from "@/lib/progression/useStreak";
 import { initialFor } from "@/lib/progression/ranks";
+import { cn } from "@/lib/utils";
 
 export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: string; actions?: React.ReactNode }) {
   const { user } = useAuth();
   const { rank, next, progress, ready } = useRank();
+  const { streak, atRisk, ready: streakReady } = useStreak();
   const branding = useBranding();
 
   const displayName = useDisplayName();
@@ -67,6 +72,28 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
             </span>
           )}
           {actions}
+          {/* Streak flame — the strongest come-back-tomorrow cue, now visible on
+              every screen (previously buried in /progress). Amber + pulse when
+              the streak is alive but has no activity yet today: one tap opens
+              /progress where the freeze offer lives. Hidden at streak 0, where a
+              flame would read as a scold rather than a reward. */}
+          {streakReady && streak > 0 && (
+            <Link
+              href="/progress"
+              title={atRisk
+                ? `${streak}-day streak — at risk! Train today to keep it alive.`
+                : `${streak}-day streak — keep it going!`}
+              className={cn(
+                "flex items-center gap-1 rounded-md border px-2 py-1.5 transition-colors",
+                atRisk
+                  ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber animate-pulse"
+                  : "border-border bg-bg-elevated text-orange-400 hover:border-orange-400/40",
+              )}
+            >
+              <Flame className="h-4 w-4" fill={atRisk ? "none" : "currentColor"} />
+              <span className="text-xs font-bold tabular-nums">{streak}</span>
+            </Link>
+          )}
           <span
             className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-1.5"
             title={tooltip}
