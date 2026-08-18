@@ -19,7 +19,11 @@ const rooms = [
     // prerequisite, so a learner could hit password-spray/Kerberos monitoring
     // without the identity foundations. (identity-basics itself only needs
     // intro-cybersecurity, so this adds no deep lock.)
-    prerequisites: ["windows-event-logs", "identity-basics"],
+    // active-directory (batch-03) teaches domain controllers, Kerberos, NTDS.dit
+    // and the LSASS/DCSync ground this room's Kerberoasting/DCSync monitoring
+    // assumes — added as a prerequisite so the learner meets the AD mechanics
+    // before being asked to DETECT attacks against them (expert-review P1).
+    prerequisites: ["windows-event-logs", "identity-basics", "active-directory"],
     tasks: [
       // ── Reading 1 ──────────────────────────────────────────────
       {

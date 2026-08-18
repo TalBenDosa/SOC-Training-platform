@@ -2599,7 +2599,8 @@ export const ROOMS_META: RoomMeta[] = [
     "icon": "🔑",
     "prerequisites": [
       "windows-event-logs",
-      "identity-basics"
+      "identity-basics",
+      "active-directory"
     ],
     "tasks": [
       {
@@ -3105,7 +3106,8 @@ export const ROOMS_META: RoomMeta[] = [
     "xp": 165,
     "icon": "📡",
     "prerequisites": [
-      "networking-fundamentals"
+      "networking-fundamentals",
+      "networking-protocols"
     ],
     "tasks": [
       {
@@ -6921,6 +6923,314 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "mcia-q4",
         "type": "question",
         "xp": 30
+      }
+    ]
+  },
+  {
+    "id": "ransomware-full-lifecycle",
+    "title": "Ransomware: Full Attack Lifecycle — From Initial Access to Extortion",
+    "description": "Follow one ransomware intrusion end to end: how the affiliate gets in (phishing, edge-device exploitation, RDP brute force), what they do once inside (execution, persistence, AD discovery, LSASS/DCSync credential access, PsExec/WMI/RDP lateral movement, shadow-copy deletion, disabling EDR, clearing logs), the 2025 exfiltration-first double-extortion model that moves stolen data out before a single file is encrypted, and finally fleet-wide encryption and the extortion note — with the specific detection point and containment action a SOC analyst owns at every single stage, not just at the moment the ransom note appears.",
+    "difficulty": "advanced",
+    "category": "Incident Response",
+    "estimatedMinutes": 105,
+    "xp": 620,
+    "icon": "🔒",
+    "prerequisites": [
+      "active-directory",
+      "endpoint-security-fundamentals",
+      "persistence-mechanisms"
+    ],
+    "tasks": [
+      {
+        "id": "rw-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "rw-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-la1",
+        "type": "log_analysis",
+        "xp": 135,
+        "mitreTechnique": "T1003.001"
+      },
+      {
+        "id": "rw-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "rw-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "rw-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "rw-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-la2",
+        "type": "log_analysis",
+        "xp": 135,
+        "mitreTechnique": "T1567.002"
+      },
+      {
+        "id": "rw-ac1",
+        "type": "analyst_choice",
+        "xp": 35,
+        "mitreTechnique": "T1567.002"
+      },
+      {
+        "id": "rw-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rw-la3",
+        "type": "log_analysis",
+        "xp": 100,
+        "mitreTechnique": "T1486"
+      },
+      {
+        "id": "rw-q3",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "rw-f1",
+        "type": "flag",
+        "xp": 25
+      }
+    ]
+  },
+  {
+    "id": "bec-investigation",
+    "title": "Business Email Compromise (BEC): End-to-End Investigation",
+    "description": "Walk a real Business Email Compromise case from account takeover to a fraudulent wire transfer and back to full analyst response — the single costliest reported category of cybercrime, and one that runs almost entirely without malware. Covers the four BEC vectors (account takeover, lookalike domains, thread hijacking, vendor email compromise), how to read Entra ID sign-in logs for token replay and impossible travel (isInteractive, incomingTokenType, conditionalAccessStatus, riskLevelDuringSignIn, deviceDetail), the inbox-rule concealment techniques attackers build specifically to hide wire-fraud threads, timeline reconstruction, and the full response — technical containment, financial recall, scoping, and reporting.",
+    "difficulty": "intermediate",
+    "category": "Identity",
+    "estimatedMinutes": 65,
+    "xp": 400,
+    "icon": "💸",
+    "prerequisites": [
+      "phishing-analysis",
+      "remote-email-collection"
+    ],
+    "tasks": [
+      {
+        "id": "bec-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "bec-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "bec-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "bec-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "bec-la1",
+        "type": "log_analysis",
+        "xp": 95,
+        "mitreTechnique": "T1078.004"
+      },
+      {
+        "id": "bec-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "bec-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "bec-la2",
+        "type": "log_analysis",
+        "xp": 95,
+        "mitreTechnique": "T1114.003"
+      },
+      {
+        "id": "bec-m1",
+        "type": "matching",
+        "xp": 30
+      },
+      {
+        "id": "bec-ac1",
+        "type": "analyst_choice",
+        "xp": 30,
+        "mitreTechnique": "T1114.003"
+      },
+      {
+        "id": "bec-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "bec-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "bec-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "bec-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "bec-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "bec-f1",
+        "type": "flag",
+        "xp": 20
+      }
+    ]
+  },
+  {
+    "id": "sigma-yara-rule-authoring",
+    "title": "Writing Detection Rules: Sigma & YARA Authoring",
+    "description": "Detection Engineering Fundamentals taught you to read a complete Sigma rule. Malware Analysis Fundamentals taught you to read a YARA rule. Neither one handed you a blank page. This room does: the field modifiers and multi-block quantifiers Sigma rules actually need, how a rule you write compiles into a real KQL query, YARA's sharper string and condition operators, and the specific-vs-brittle discipline of tuning a rule so it survives the next variant of an attack without flooding the queue on everything else.",
+    "difficulty": "advanced",
+    "category": "SIEM",
+    "estimatedMinutes": 70,
+    "xp": 400,
+    "icon": "🛠️",
+    "prerequisites": [
+      "detection-engineering",
+      "malware-analysis-fundamentals"
+    ],
+    "tasks": [
+      {
+        "id": "sigyara-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "sigyara-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "sigyara-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "sigyara-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "sigyara-qf1",
+        "type": "query_fill",
+        "xp": 30
+      },
+      {
+        "id": "sigyara-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "sigyara-qf2",
+        "type": "query_fill",
+        "xp": 30
+      },
+      {
+        "id": "sigyara-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "sigyara-o1",
+        "type": "ordering",
+        "xp": 30
+      },
+      {
+        "id": "sigyara-ac1",
+        "type": "analyst_choice",
+        "xp": 35,
+        "mitreTechnique": "T1059.001"
+      },
+      {
+        "id": "sigyara-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "sigyara-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "sigyara-qf3",
+        "type": "query_fill",
+        "xp": 30
+      },
+      {
+        "id": "sigyara-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "sigyara-la1",
+        "type": "log_analysis",
+        "xp": 140,
+        "mitreTechnique": "T1003.001"
+      },
+      {
+        "id": "sigyara-f1",
+        "type": "flag",
+        "xp": 20
       }
     ]
   }

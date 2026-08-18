@@ -44,6 +44,9 @@ import { roomsBatch29 } from "./rooms-batch-29";
 import { roomsBatch30 } from "./rooms-batch-30";
 import { roomsBatch31 } from "./rooms-batch-31";
 import { roomsBatch32 } from "./rooms-batch-32";
+import { roomsBatch33 } from "./rooms-batch-33";
+import { roomsBatch34 } from "./rooms-batch-34";
+import { roomsBatch35 } from "./rooms-batch-35";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -293,4 +296,7 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch30), // risk-fundamentals
   ...cast(roomsBatch31), // powershell-for-soc-analyst
   ...cast(roomsBatch32), // commodity-initial-access
+  ...cast(roomsBatch33), // ransomware-full-lifecycle
+  ...cast(roomsBatch34), // bec-investigation
+  ...cast(roomsBatch35), // sigma-yara-rule-authoring
 ];

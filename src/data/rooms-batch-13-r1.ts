@@ -37,7 +37,10 @@ const protocolsMasterclass = {
   estimatedMinutes: 75,
   xp: 165,
   icon: "📡",
-  prerequisites: ["networking-fundamentals"],
+  // networking-protocols (batch-02) introduces the protocols + ports this deep
+  // dive builds on; it was skipped, letting a learner reach the masterclass
+  // without the intro-level protocol grounding (expert-review P2).
+  prerequisites: ["networking-fundamentals", "networking-protocols"],
   tasks: [
     // ── Reading 1 ─────────────────────────────────────────────────────────────
     {
