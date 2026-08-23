@@ -96,7 +96,14 @@ function isPublicApi(pathname: string): boolean {
  * separately in refreshSupabaseSession(), and every admin route calls
  * requireAdmin(), which fails closed when there is no auth backend.
  */
-async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null }> {
+// Bound the auth call so a slow provider yields a fast, retriable 503 rather
+// than hanging the Edge middleware into a 504 (MIDDLEWARE_INVOCATION_TIMEOUT).
+const API_AUTH_TIMEOUT = Symbol("api-auth-timeout");
+function withApiAuthTimeout<T>(p: Promise<T>, ms = 4000): Promise<T | typeof API_AUTH_TIMEOUT> {
+  return Promise.race([p, new Promise<typeof API_AUTH_TIMEOUT>(r => setTimeout(() => r(API_AUTH_TIMEOUT), ms))]);
+}
+
+async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null; timedOut?: boolean }> {
   if (!isSupabaseConfigured) return { authed: true, orgId: null };
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
     cookies: {
@@ -104,12 +111,14 @@ async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: s
       setAll() { /* read-only probe — no cookie writes on the API path */ },
     },
   });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { authed: false, orgId: null };
+  const userResult = await withApiAuthTimeout(supabase.auth.getUser());
+  if (userResult === API_AUTH_TIMEOUT) return { authed: false, orgId: null, timedOut: true };
+  if (!userResult.data.user) return { authed: false, orgId: null };
   // Read the tenant from the (validated) session so expensive routes can be
   // budgeted per-org. Absent pre-migration → no org limit, unchanged behaviour.
-  const { data: { session } } = await supabase.auth.getSession();
-  return { authed: true, orgId: decodeOrgClaim(session?.access_token).orgId };
+  const sessionResult = await withApiAuthTimeout(supabase.auth.getSession());
+  const token = sessionResult === API_AUTH_TIMEOUT ? undefined : sessionResult.data.session?.access_token;
+  return { authed: true, orgId: decodeOrgClaim(token).orgId };
 }
 
 export async function middleware(req: NextRequest) {
@@ -139,7 +148,14 @@ export async function middleware(req: NextRequest) {
     // its full answer key to anonymous callers. This flips the default — a new
     // route is closed unless its prefix is listed below.
     if (!isPublicApi(pathname)) {
-      const { authed, orgId } = await getApiAuth(req);
+      const { authed, orgId, timedOut } = await getApiAuth(req);
+      // Auth provider slow → fast retriable 503, never a hung 504.
+      if (timedOut) {
+        return NextResponse.json(
+          { error: "Authentication is temporarily unavailable — please retry." },
+          { status: 503, headers: { "Retry-After": "2" } },
+        );
+      }
       if (!authed) {
         return NextResponse.json({ error: "Authentication required." }, { status: 401 });
       }

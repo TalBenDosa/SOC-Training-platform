@@ -76,6 +76,31 @@ function isManagePath(pathname: string): boolean {
   return MANAGE_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
 }
 
+/**
+ * Bound a Supabase-auth network call so a slow/unreachable auth provider can
+ * never hang the Edge middleware into a MIDDLEWARE_INVOCATION_TIMEOUT (504).
+ * getUser()/getSession() hit the Supabase auth server on every navigation with
+ * no timeout of their own; a single latency spike there otherwise takes the
+ * whole page down. On timeout we return the AUTH_TIMEOUT sentinel and degrade
+ * gracefully (see call sites): public pages proceed, protected pages bounce to
+ * /login rather than 504. 4s is well under Vercel's middleware budget.
+ */
+const AUTH_TIMEOUT = Symbol("auth-timeout");
+const AUTH_TIMEOUT_MS = 4000;
+function withAuthTimeout<T>(p: Promise<T>): Promise<T | typeof AUTH_TIMEOUT> {
+  return Promise.race([
+    p,
+    new Promise<typeof AUTH_TIMEOUT>(resolve => setTimeout(() => resolve(AUTH_TIMEOUT), AUTH_TIMEOUT_MS)),
+  ]);
+}
+/** Redirect to /login, remembering where the caller was headed. */
+function toLogin(req: NextRequest, reason: string): NextResponse {
+  const to = new URL("/login", req.url);
+  to.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+  to.searchParams.set("reason", reason);
+  return NextResponse.redirect(to);
+}
+
 export async function refreshSupabaseSession(req: NextRequest, res: NextResponse): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
@@ -106,8 +131,16 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
 
   // getUser() (not getSession()) — it validates the JWT against the auth server
   // instead of trusting the cookie, so a forged or expired cookie cannot get
-  // past this gate. Same reasoning as src/lib/auth/apiGuard.ts.
-  const { data: { user } } = await supabase.auth.getUser();
+  // past this gate. Same reasoning as src/lib/auth/apiGuard.ts. Bounded so a
+  // slow auth provider degrades instead of 504-ing the page.
+  const userResult = await withAuthTimeout(supabase.auth.getUser());
+  if (userResult === AUTH_TIMEOUT) {
+    // Auth provider is slow. Never hang into a 504: a public page needs no gate
+    // so it proceeds; a protected page bounces to /login (which is public and
+    // re-resolves the session there) rather than taking the whole request down.
+    return isPublicPath(pathname) ? res : toLogin(req, "auth_unavailable");
+  }
+  const user = userResult.data.user;
 
   if (isPublicPath(pathname)) return res;
 
@@ -120,14 +153,12 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
 
   // ── Signed in, but /admin additionally requires role='admin' ───────────────
   if (isAdminPath(pathname)) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    // Fail closed: a missing profile row or a read error is NOT admin.
-    if (profile?.role !== "admin") {
+    const profileResult = await withAuthTimeout(
+      Promise.resolve(supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()),
+    );
+    // Fail closed: a missing profile row, a read error, OR an auth-provider
+    // timeout is NOT admin.
+    if (profileResult === AUTH_TIMEOUT || profileResult.data?.role !== "admin") {
       return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
     }
   }
@@ -135,8 +166,9 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
   // ── Tenancy gates (multi-tenant B2B). The org context is a signed JWT claim
   // stamped by the access-token hook; both fields are absent pre-migration, so
   // these gates are inert until the multi-tenancy rollout is live. ────────────
-  const { data: { session } } = await supabase.auth.getSession();
-  const claim = decodeOrgClaim(session?.access_token);
+  const sessionResult = await withAuthTimeout(supabase.auth.getSession());
+  if (sessionResult === AUTH_TIMEOUT) return toLogin(req, "auth_unavailable");
+  const claim = decodeOrgClaim(sessionResult.data.session?.access_token);
 
   // The super-admin console is platform-admin only.
   if (isSuperadminPath(pathname) && !claim.isPlatformAdmin) {
