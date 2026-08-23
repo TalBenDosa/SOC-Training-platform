@@ -37,6 +37,7 @@ const EXPENSIVE = [
   "/api/dashboard/incident-report",
   "/api/admin/",
   "/api/org/media",   // file uploads — heavy body, tight limit
+  "/api/org/content", // per-org authoring writes — content jsonb, tight limit
 ];
 
 function isExpensive(pathname: string): boolean {
