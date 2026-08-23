@@ -77,6 +77,32 @@ export interface OrgRoomMeta {
   authored: true;
 }
 
+/** A published per-org LIVE-FEED environment (migration 0044): a custom company
+ *  profile + benign background pool + one attack story, all client-safe (the
+ *  live feed is not client-scored — parity with the static companies). RLS
+ *  scopes the read to this org + published. The dashboard merges these into its
+ *  company selector, benign-pool lookup, and story picker. */
+export interface OrgCompanyContent {
+  id: string;
+  profile: Record<string, unknown> & { id: string; name: string; architecture: { sources: string[] } };
+  benignEvents: unknown[];
+  story: { id: string; title: string; mitre: string[]; events: unknown[]; complexity: string };
+}
+
+export async function fetchOrgCompanies(): Promise<OrgCompanyContent[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("content_companies")
+    .select("content")
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return data
+    .map(row => (row.content ?? {}) as OrgCompanyContent)
+    .filter(c => c?.profile?.id && Array.isArray(c.benignEvents) && c.story?.events);
+}
+
 export async function fetchOrgRoomMetas(): Promise<OrgRoomMeta[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];

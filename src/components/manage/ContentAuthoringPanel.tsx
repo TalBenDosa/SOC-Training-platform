@@ -12,12 +12,12 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { LOG_SOURCES, EVENT_TYPES, IOC_TYPES } from "@/lib/scenarios/authoredConstants";
+import { LOG_SOURCES, EVENT_TYPES, IOC_TYPES, COMMON_LOG_SOURCES } from "@/lib/scenarios/authoredConstants";
 import {
-  BookOpen, ClipboardList, Plus, Trash2, Eye, EyeOff, Pencil, Loader2, X, Target, DoorOpen,
+  BookOpen, ClipboardList, Plus, Trash2, Eye, EyeOff, Pencil, Loader2, X, Target, DoorOpen, Building2,
 } from "lucide-react";
 
-type ContentTab = "lessons" | "quizzes" | "scenarios" | "rooms";
+type ContentTab = "lessons" | "quizzes" | "scenarios" | "rooms" | "companies";
 
 interface Row {
   id: string;
@@ -379,6 +379,40 @@ function QuizzesTab() {
         onDelete={r => remove(r.id, String(r.content?.title ?? r.id))}
         emptyLabel="No quizzes authored yet. Your students still see all the global built-in quizzes." />
     </>
+  );
+}
+
+// ─── shared event-list editor (used by the Environments tab) ─────────────────
+interface CEvent { offsetMin: number; source: string; eventType: string; description: string; rawText: string; mitreTechnique?: string }
+const emptyCEvent = (): CEvent => ({ offsetMin: 0, source: "edr", eventType: "process_create", description: "", rawText: "" });
+
+function EventListEditor({ events, onChange, withMitre }: { events: CEvent[]; onChange: (e: CEvent[]) => void; withMitre?: boolean }) {
+  const upd = (i: number, patch: Partial<CEvent>) => onChange(events.map((e, j) => j === i ? { ...e, ...patch } : e));
+  return (
+    <div>
+      <div className="space-y-3">
+        {events.map((ev, i) => (
+          <div key={i} className="rounded border border-border bg-bg p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div><span className="text-[10px] text-slate-500">+min</span><input type="number" className={inputCls} value={ev.offsetMin} onChange={e => upd(i, { offsetMin: Number(e.target.value) })} /></div>
+              <div><span className="text-[10px] text-slate-500">source</span>
+                <select className={inputCls} value={ev.source} onChange={e => upd(i, { source: e.target.value })}>{LOG_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}</select>
+              </div>
+              <div className="sm:col-span-2"><span className="text-[10px] text-slate-500">event type</span>
+                <select className={inputCls} value={ev.eventType} onChange={e => upd(i, { eventType: e.target.value })}>{EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <input className={inputCls} value={ev.description} onChange={e => upd(i, { description: e.target.value })} placeholder="Analyst-facing summary of this log line" />
+              {events.length > 1 && <button onClick={() => onChange(events.filter((_, j) => j !== i))} className="rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>}
+            </div>
+            {withMitre && <input className={inputCls} value={ev.mitreTechnique ?? ""} onChange={e => upd(i, { mitreTechnique: e.target.value })} placeholder="MITRE technique (optional, e.g. T1059.001)" />}
+            <textarea className={cn(inputCls, "min-h-[36px] font-mono text-xs")} value={ev.rawText} onChange={e => upd(i, { rawText: e.target.value })} placeholder={"raw fields, one per line — e.g.\nsrc_ip: 10.0.0.5"} />
+          </div>
+        ))}
+      </div>
+      <Button variant="outline" size="sm" className="mt-2" onClick={() => onChange([...events, emptyCEvent()])}><Plus className="h-4 w-4" /> Add event</Button>
+    </div>
   );
 }
 
@@ -775,6 +809,132 @@ function RoomsTab() {
   );
 }
 
+// ─── Environments (live-feed companies) ──────────────────────────────────────
+interface CoDraft {
+  id?: string; name: string; industry: string; tagline: string; hq: string; size: number; description: string;
+  sources: string[]; benignEvents: CEvent[]; storyTitle: string; storyMitre: string; storyEvents: CEvent[];
+}
+const emptyCompany = (): CoDraft => ({
+  name: "", industry: "", tagline: "", hq: "", size: 500, description: "",
+  sources: ["edr", "o365", "firewall"], benignEvents: [emptyCEvent()],
+  storyTitle: "", storyMitre: "", storyEvents: [emptyCEvent()],
+});
+function toCEvents(raw: unknown): CEvent[] {
+  const evs = Array.isArray(raw) ? raw as Record<string, unknown>[] : [];
+  if (!evs.length) return [emptyCEvent()];
+  const base = new Date(String(evs[0].ts)).getTime();
+  return evs.map(e => ({
+    offsetMin: base ? Math.round((new Date(String(e.ts)).getTime() - base) / 60000) : 0,
+    source: String(e.source ?? "edr"), eventType: String(e.event_type ?? "process_create"),
+    description: String(e.description ?? ""),
+    rawText: Object.entries((e.raw ?? {}) as Record<string, unknown>).map(([k, v]) => `${k}: ${v}`).join("\n"),
+    mitreTechnique: String(e.mitre_technique ?? "") || undefined,
+  }));
+}
+
+function CompaniesTab() {
+  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("companies");
+  const [draft, setDraft] = useState<CoDraft | null>(null);
+  const [busy, setBusy] = useState(false);
+  function up<K extends keyof CoDraft>(k: K, v: CoDraft[K]) { setDraft(d => d ? { ...d, [k]: v } : d); }
+  function toggleSource(s: string) { setDraft(d => d ? { ...d, sources: d.sources.includes(s) ? d.sources.filter(x => x !== s) : [...d.sources, s] } : d); }
+
+  async function loadForEdit(id: string) {
+    setError(null);
+    const res = await fetch(`/api/org/content/companies/${encodeURIComponent(id)}`);
+    if (!res.ok) { setError("Could not load environment."); return; }
+    const { item } = await res.json();
+    const c = (item?.content ?? {}) as Record<string, unknown>;
+    const p = (c.profile ?? {}) as Record<string, unknown>;
+    const arch = (p.architecture ?? {}) as Record<string, unknown>;
+    const story = (c.story ?? {}) as Record<string, unknown>;
+    setDraft({
+      id: String(item.id),
+      name: String(p.name ?? ""), industry: String(p.industry ?? ""), tagline: String(p.tagline ?? ""),
+      hq: String(p.hq ?? ""), size: Number(p.size ?? 500), description: String(p.description ?? ""),
+      sources: Array.isArray(arch.sources) ? arch.sources as string[] : [],
+      benignEvents: toCEvents(c.benignEvents),
+      storyTitle: String(story.title ?? ""),
+      storyMitre: (Array.isArray(story.mitre) ? story.mitre as string[] : []).join(", "),
+      storyEvents: toCEvents(story.events),
+    });
+  }
+
+  async function submit(status: "draft" | "published") {
+    if (!draft) return;
+    setBusy(true);
+    const ok = await save({
+      id: draft.id, status,
+      name: draft.name, industry: draft.industry, tagline: draft.tagline, hq: draft.hq, size: draft.size, description: draft.description,
+      sources: draft.sources,
+      benignEvents: draft.benignEvents,
+      story: { title: draft.storyTitle, mitre: draft.storyMitre.split(",").map(s => s.trim()).filter(Boolean), events: draft.storyEvents },
+    });
+    setBusy(false);
+    if (ok) setDraft(null);
+  }
+
+  if (draft) {
+    return (
+      <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-white">{draft.id ? "Edit environment" : "New environment"}</h3>
+          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+        </div>
+        <Banner error={error} notice={null} />
+        <p className="text-[11px] text-slate-500">A custom company your students monitor in the SOC Dashboard live feed: its profile, its benign background noise, and one hidden attack story.</p>
+        <div><label className={labelCls}>Company name</label><input className={inputCls} value={draft.name} onChange={e => up("name", e.target.value)} placeholder="e.g. Acme College Health" /></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div><label className={labelCls}>Industry</label><input className={inputCls} value={draft.industry} onChange={e => up("industry", e.target.value)} placeholder="Healthcare" /></div>
+          <div><label className={labelCls}>HQ</label><input className={inputCls} value={draft.hq} onChange={e => up("hq", e.target.value)} placeholder="Tel Aviv, IL" /></div>
+          <div><label className={labelCls}>Employees</label><input type="number" className={inputCls} value={draft.size} onChange={e => up("size", Number(e.target.value))} /></div>
+          <div><label className={labelCls}>Tagline</label><input className={inputCls} value={draft.tagline} onChange={e => up("tagline", e.target.value)} placeholder="short blurb" /></div>
+        </div>
+        <div><label className={labelCls}>Description</label><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line about this environment." /></div>
+        <div>
+          <label className={labelCls}>Active log sources (drives the feed's source filter)</label>
+          <div className="flex flex-wrap gap-1.5">
+            {COMMON_LOG_SOURCES.map(s => (
+              <button key={s} onClick={() => toggleSource(s)}
+                className={cn("rounded border px-2 py-1 text-[11px] font-mono transition",
+                  draft.sources.includes(s) ? "border-cyber-500/60 bg-cyber-500/15 text-cyber-300" : "border-border bg-bg text-slate-400 hover:text-slate-200")}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div><label className={labelCls}>Benign background events (the noise the analyst sifts through)</label>
+          <EventListEditor events={draft.benignEvents} onChange={e => up("benignEvents", e)} />
+        </div>
+        <div className="rounded border border-severity-high/30 bg-severity-high/5 p-3 space-y-2">
+          <label className={labelCls}>Hidden attack story</label>
+          <input className={inputCls} value={draft.storyTitle} onChange={e => up("storyTitle", e.target.value)} placeholder="Attack title (the ground truth graded against the report)" />
+          <input className={inputCls} value={draft.storyMitre} onChange={e => up("storyMitre", e.target.value)} placeholder="MITRE techniques, comma-separated (optional — else derived from events)" />
+          <EventListEditor events={draft.storyEvents} onChange={e => up("storyEvents", e)} withMitre />
+        </div>
+        <div className="flex items-center gap-2 pt-1">
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => submit("published")}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Publish</Button>
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => submit("draft")}>Save draft</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Banner error={error} notice={notice} />
+      <div className="mt-3 mb-3">
+        <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyCompany()); }}><Plus className="h-4 w-4" /> New environment</Button>
+      </div>
+      <ItemList items={items} rowBusy={rowBusy}
+        onEdit={r => loadForEdit(r.id)}
+        onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
+        onDelete={r => remove(r.id, String((r.content?.profile as Record<string, unknown>)?.name ?? r.content?.name ?? r.id))}
+        emptyLabel="No custom environments yet. Your students still see all the global built-in companies in the live feed." />
+    </>
+  );
+}
+
 // ─── wrapper ─────────────────────────────────────────────────────────────────
 export function ContentAuthoringPanel() {
   const [tab, setTab] = useState<ContentTab>("lessons");
@@ -783,6 +943,7 @@ export function ContentAuthoringPanel() {
     { id: "quizzes", label: "Quizzes", icon: ClipboardList },
     { id: "scenarios", label: "Scenarios", icon: Target },
     { id: "rooms", label: "Rooms", icon: DoorOpen },
+    { id: "companies", label: "Environments", icon: Building2 },
   ];
   return (
     <Card>
@@ -790,7 +951,7 @@ export function ContentAuthoringPanel() {
         <Pencil className="h-4 w-4 text-cyber-300" /> Course Content
       </h2>
       <p className="mt-1 text-xs text-slate-400">
-        Write lessons, quizzes, live scenarios and learning rooms unique to your college. Published items appear to your students alongside the global built-in content. Drafts are visible only to you.
+        Write lessons, quizzes, scenarios, rooms and live-feed environments unique to your college. Published items appear to your students alongside the global built-in content. Drafts are visible only to you.
       </p>
 
       <div className="mt-3 flex gap-1 border-b border-border">
@@ -803,7 +964,7 @@ export function ContentAuthoringPanel() {
         ))}
       </div>
 
-      {tab === "lessons" ? <LessonsTab /> : tab === "quizzes" ? <QuizzesTab /> : tab === "scenarios" ? <ScenariosTab /> : <RoomsTab />}
+      {tab === "lessons" ? <LessonsTab /> : tab === "quizzes" ? <QuizzesTab /> : tab === "scenarios" ? <ScenariosTab /> : tab === "rooms" ? <RoomsTab /> : <CompaniesTab />}
     </Card>
   );
 }

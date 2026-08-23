@@ -20,15 +20,16 @@ import { randomUUID } from "crypto";
  * (the super-admin keeps global AI authoring in /admin).
  */
 
-export type OrgContentType = "lessons" | "quizzes" | "scenarios" | "rooms";
+export type OrgContentType = "lessons" | "quizzes" | "scenarios" | "rooms" | "companies";
 export const ORG_CONTENT_TABLE: Record<OrgContentType, string> = {
   lessons: "content_lessons",
   quizzes: "content_quizzes",
   scenarios: "content_scenarios",
   rooms: "content_rooms",
+  companies: "content_companies",
 };
 export function isOrgContentType(t: string): t is OrgContentType {
-  return t === "lessons" || t === "quizzes" || t === "scenarios" || t === "rooms";
+  return t === "lessons" || t === "quizzes" || t === "scenarios" || t === "rooms" || t === "companies";
 }
 
 export type NormalizeResult =

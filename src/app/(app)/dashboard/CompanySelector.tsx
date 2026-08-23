@@ -1,6 +1,7 @@
 "use client";
 import { cn } from "@/lib/utils";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfiles";
+import type { CompanyProfile } from "@/lib/sim/companyProfiles";
 import { CheckCircle2, Cloud, Lock, Shield, Building2, Server, Users } from "lucide-react";
 
 const INDUSTRY_ICON: Record<string, string> = {
@@ -20,11 +21,14 @@ interface Props {
   onClose?: () => void;
   unlockedIds?: string[];
   clearedIds?: string[];
+  /** Per-org authored companies (migration 0044), appended after the built-ins. */
+  extraCompanies?: CompanyProfile[];
 }
 
-export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, clearedIds }: Props) {
+export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, clearedIds, extraCompanies }: Props) {
+  const companies    = [...COMPANY_PROFILES, ...(extraCompanies ?? [])];
   const clearedCount = clearedIds?.length ?? 0;
-  const totalCount   = COMPANY_PROFILES.length;
+  const totalCount   = companies.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
@@ -57,7 +61,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
                   {clearedCount}/{totalCount} Secured
                 </p>
                 <div className="mt-1 flex gap-1">
-                  {COMPANY_PROFILES.map(c => (
+                  {companies.map(c => (
                     <div
                       key={c.id}
                       className={cn(
@@ -76,14 +80,14 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
         {/* Company grid */}
         <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3 max-h-[65vh] overflow-y-auto">
-          {COMPANY_PROFILES.map((c, idx) => {
+          {companies.map((c, idx) => {
             const isActive  = c.id === currentId;
             const isLocked  = unlockedIds ? !unlockedIds.includes(c.id) : false;
             const isCleared = clearedIds?.includes(c.id) ?? false;
             // A company unlocks when its predecessor is cleared, so name it —
             // a bare lock icon (unlike RoomCard's "Complete X first") left the
             // learner guessing what to do next.
-            const prevCompany = idx > 0 ? COMPANY_PROFILES[idx - 1] : null;
+            const prevCompany = idx > 0 ? companies[idx - 1] : null;
 
             return (
               <button

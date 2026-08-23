@@ -22,6 +22,9 @@ import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
 import { startDashboardTour } from "./OnboardingTour";
 import { COMPANY_PROFILES, COMPANY_EVENTS, NEXACORP_PROFILE } from "@/lib/sim/companyProfiles";
+import type { CompanyProfile } from "@/lib/sim/companyProfiles";
+import type { TelemetryEvent } from "@/lib/sim/types";
+import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicContent";
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
@@ -411,8 +414,43 @@ export default function DashboardPage() {
   // events, and without memoization it ran on EVERY render and handed a fresh
   // array identity to useLiveEvents each pass — which re-triggered the hook's
   // effects and was the root cause of the "setState during render" warning.
-  const eventPool       = useMemo(() => getCompanyEvents(selectedCompanyId), [selectedCompanyId]);
-  const selectedCompany = useMemo(() => getCompanyProfile(selectedCompanyId), [selectedCompanyId]);
+  // Per-org authored live-feed environments (migration 0044). RLS returns only
+  // this org's published companies; they merge into the selector, benign pool,
+  // source filter and story picker below via the org-aware resolvers.
+  const [orgCompanies, setOrgCompanies] = useState<OrgCompanyContent[]>([]);
+  useEffect(() => { fetchOrgCompanies().then(setOrgCompanies).catch(() => {}); }, []);
+  const orgCompanyMap = useMemo(() => new Map(orgCompanies.map(c => [c.profile.id, c])), [orgCompanies]);
+  const orgCompanyProfiles = useMemo(
+    () => orgCompanies.map(c => ({ ...(c.profile as unknown as CompanyProfile), events: c.benignEvents as TelemetryEvent[] })),
+    [orgCompanies],
+  );
+
+  // Org-aware lookups: an authored company id resolves from the DB content,
+  // everything else falls through to the static built-ins unchanged.
+  const resolveEvents = (id: string): TelemetryEvent[] => {
+    const o = orgCompanyMap.get(id);
+    if (o) return (o.benignEvents as TelemetryEvent[]).filter(e => e.source !== "dns");
+    return getCompanyEvents(id);
+  };
+  const resolveProfile = (id: string): CompanyProfile => {
+    const o = orgCompanyMap.get(id);
+    if (o) return { ...(o.profile as unknown as CompanyProfile), events: o.benignEvents as TelemetryEvent[] };
+    return getCompanyProfile(id) as CompanyProfile;
+  };
+  const resolveSources = (id: string): { value: string; label: string }[] => {
+    const o = orgCompanyMap.get(id);
+    if (!o) return getSourcesForCompany(id);
+    const active = o.profile.architecture?.sources ?? [];
+    return [{ value: "all", label: "All Sources" }, ...SOURCES.filter(s => s.value !== "all" && active.includes(s.value))];
+  };
+  const resolveStory = (id: string, difficulty?: Difficulty): AttackStory => {
+    const o = orgCompanyMap.get(id);
+    if (o) return instantiateStory(o.story as unknown as AttackStory, resolveEvents(id));
+    return instantiateStory(pickStoryForCompany(id, difficulty), getCompanyEvents(id));
+  };
+
+  const eventPool       = useMemo(() => resolveEvents(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  const selectedCompany = useMemo(() => resolveProfile(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Endpoint view of THE attack currently in the feed — built from the live
   // story's real process telemetry. Null for pure identity/cloud attacks (no
@@ -608,7 +646,7 @@ export default function DashboardPage() {
     // type, so the analyst must find it themselves. Easy is restricted to
     // single-host "foundation" stories (see attackStories.ts) so a student's
     // first attacks are never a full lateral-movement/credential-theft chain.
-    const story = instantiateStory(pickStoryForCompany(selectedCompanyId, difficulty), getCompanyEvents(selectedCompanyId));
+    const story = resolveStory(selectedCompanyId, difficulty);
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
@@ -625,7 +663,7 @@ export default function DashboardPage() {
       localStorage.removeItem("edr_live_investigation");
     } catch { /* ignore */ }
     setEdrInvestigated(false);
-    live.reset(getCompanyEvents(selectedCompanyId), story);
+    live.reset(resolveEvents(selectedCompanyId), story);
   };
 
   // ── Report ⇄ feed pause/resume ────────────────────────────────────────────
@@ -709,8 +747,9 @@ export default function DashboardPage() {
           currentId={selectedCompanyId}
           onSelect={handleSelectCompany}
           onClose={localStorage.getItem(COMPANY_KEY) ? () => setShowCompanySelector(false) : undefined}
-          unlockedIds={unlockedCompanies}
+          unlockedIds={[...unlockedCompanies, ...orgCompanyProfiles.map(c => c.id)]}
           clearedIds={clearedCompanies}
+          extraCompanies={orgCompanyProfiles}
         />
       )}
 
@@ -1088,7 +1127,7 @@ export default function DashboardPage() {
               onChange={(e) => setSourceFilter(e.target.value)}
               className="h-6 rounded border border-border bg-bg px-2 text-[10px] text-slate-300 focus:border-cyber-500/50 focus:outline-none"
             >
-              {getSourcesForCompany(selectedCompanyId).map(s => (
+              {resolveSources(selectedCompanyId).map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
@@ -1315,10 +1354,7 @@ export default function DashboardPage() {
               // after a short breather so the student is never juggling two.
               if (!armedNextRef.current) {
                 armedNextRef.current = true;
-                const nextStory = instantiateStory(
-                  pickStoryForCompany(selectedCompanyId, sessionDifficulty ?? undefined),
-                  getCompanyEvents(selectedCompanyId),
-                );
+                const nextStory = resolveStory(selectedCompanyId, sessionDifficulty ?? undefined);
                 setSessionStory(nextStory);
                 setInjectedStories(prev => [...prev, nextStory]);
                 live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min

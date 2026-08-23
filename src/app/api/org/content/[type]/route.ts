@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isOrgContentType, ORG_CONTENT_TABLE, normalizeOrgContent } from "@/lib/content/orgContent";
 import { splitAuthored } from "@/lib/scenarios/authored";
 import { splitAuthoredRoom } from "@/lib/rooms/authored";
+import { normalizeCompany } from "@/lib/dashboard/authoredCompany";
 
 /**
  * Per-org, manually-authored content (Phase 2 — migration 0040).
@@ -108,6 +109,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
       .upsert({ id: split.id, org_id: orgId, answer_key: split.answerKey }, { onConflict: "id" });
     if (keyErr) return NextResponse.json({ error: keyErr.message }, { status: 500 });
 
+    return NextResponse.json({ item: data });
+  }
+
+  // Companies (live-feed environments) — single content table, no key split.
+  if (type === "companies") {
+    const cn = normalizeCompany(orgId, body);
+    if (!cn.ok) return NextResponse.json({ error: cn.error }, { status: 422 });
+    const existing = await admin.from("content_companies").select("org_id").eq("id", cn.id).maybeSingle();
+    if (existing.data && existing.data.org_id !== orgId) {
+      return NextResponse.json({ error: "That item belongs to another environment." }, { status: 409 });
+    }
+    const { data, error } = await admin
+      .from("content_companies")
+      .upsert({ id: cn.id, org_id: orgId, status, content: cn.content, created_by: gate.user.id }, { onConflict: "id" })
+      .select("id, status, content, created_at, updated_at")
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ item: data });
   }
 
