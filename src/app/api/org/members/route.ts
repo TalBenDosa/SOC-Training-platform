@@ -30,17 +30,21 @@ export async function GET() {
   const { data: org } = await admin.from("organizations").select("id, name, slug, seat_limit, status, expires_at").eq("id", orgId).maybeSingle();
   const { data: memberRows } = await admin
     .from("org_members")
-    .select("org_id, user_id, role, status, joined_at, profiles(handle, display_name, xp)")
+    .select("org_id, user_id, role, status, joined_at, profiles(handle, display_name, xp, is_platform_admin)")
     .eq("org_id", orgId)
     .order("joined_at", { ascending: true });
 
-  const members: (OrgMember & { xp?: number })[] = (memberRows ?? []).map(m => {
-    const p = m.profiles as unknown as { handle?: string; display_name?: string; xp?: number } | null;
-    return {
-      org_id: m.org_id, user_id: m.user_id, role: m.role, status: m.status, joined_at: m.joined_at,
-      handle: p?.handle ?? null, display_name: p?.display_name ?? null, xp: p?.xp ?? 0,
-    };
-  });
+  // A platform super-admin doing oversight is invisible to per-org views: they
+  // can traverse any environment without appearing in its roster, counts, or XP.
+  const members: (OrgMember & { xp?: number })[] = (memberRows ?? [])
+    .filter(m => !(m.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin)
+    .map(m => {
+      const p = m.profiles as unknown as { handle?: string; display_name?: string; xp?: number } | null;
+      return {
+        org_id: m.org_id, user_id: m.user_id, role: m.role, status: m.status, joined_at: m.joined_at,
+        handle: p?.handle ?? null, display_name: p?.display_name ?? null, xp: p?.xp ?? 0,
+      };
+    });
 
   const [sessions, scenarios, rooms] = await Promise.all([
     admin.from("dashboard_sessions").select("id", { count: "exact", head: true }).eq("org_id", orgId),

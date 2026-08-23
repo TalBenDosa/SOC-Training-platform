@@ -15,14 +15,15 @@ import { logAudit } from "@/lib/audit/logAudit";
  *    so a full class can still be entered for support/inspection;
  *  - no affiliation clock (affiliation_expires_at stays null) — the 100-day
  *    rule binds students, not the platform owner;
- *  - membership is org_admin, so /manage works inside the environment.
+ *  - NO membership is created — /manage works via isPlatformAdmin alone, so the
+ *    owner never appears in the tenant's roster / leaderboard / analytics.
  *
  * Switching context = updating profiles.org_id. The service role passes the
  * 0005 guard trigger (auth.uid() is null on this connection); the client then
  * refreshes its session so the access-token hook restamps the org claims.
- * Nothing is ever REMOVED here: entering environment B keeps the membership
- * in A, so the super-admin accumulates environments — exactly the "several
- * environments, no limits" requirement.
+ * The super-admin can hop between any environments freely (bird's-eye oversight),
+ * accumulating no memberships; per-org aggregations exclude platform admins
+ * everywhere (org_leaderboard filters is_platform_admin; roster/analytics too).
  */
 export async function POST(req: Request) {
   const gate = await requireSuperAdmin("superadmin.enter_org");
@@ -39,12 +40,11 @@ export async function POST(req: Request) {
     .from("organizations").select("id, name").eq("id", orgId).maybeSingle();
   if (!org) return NextResponse.json({ error: "No such organisation." }, { status: 404 });
 
-  // Membership: upsert as org_admin, reactivating a removed row if one exists.
-  const { error: memErr } = await admin.from("org_members").upsert(
-    { org_id: orgId, user_id: gate.user.id, role: "org_admin", status: "active", affiliation_expires_at: null },
-    { onConflict: "org_id,user_id" },
-  );
-  if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 });
+  // NO membership is created. A platform super-admin reaches /manage via
+  // isPlatformAdmin alone (see requireOrgAdmin), so joining as org_admin would
+  // only pollute the tenant's roster / leaderboard / analytics with the owner.
+  // Entering is a pure context switch — the super-admin stays invisible to the
+  // environment they oversee.
 
   // Active context: where the JWT claims (and therefore /manage, leaderboards,
   // progress writes) point after the next token refresh.

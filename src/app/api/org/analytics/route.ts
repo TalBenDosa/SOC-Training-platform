@@ -65,7 +65,7 @@ export async function GET() {
 
   const [membersRes, roomsRes, scenariosRes, sessionsRes, attemptsRes, emailsRes] = await Promise.all([
     admin.from("org_members")
-      .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level)")
+      .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level, is_platform_admin)")
       .eq("org_id", orgId),
     admin.from("room_progress")
       .select("user_id, room_id, completed_at, updated_at")
@@ -118,7 +118,10 @@ export async function GET() {
   const avg = (nums: number[]): number | null =>
     nums.length === 0 ? null : Math.round(nums.reduce((s, n) => s + n, 0) / nums.length);
 
-  const students: StudentRow[] = (membersRes.data ?? []).map(m => {
+  const students: StudentRow[] = (membersRes.data ?? [])
+    // Platform super-admins doing oversight never count as students of the cohort.
+    .filter(m => !(m.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin)
+    .map(m => {
     const p = m.profiles as unknown as { handle?: string; display_name?: string; xp?: number; level?: number } | null;
     const rp = roomsBy.get(m.user_id) ?? [];
     const sc = scenariosBy.get(m.user_id) ?? [];
