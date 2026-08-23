@@ -18,6 +18,7 @@ import type { OrgMember, OrgUsage } from "@/lib/org/types";
 import type { StudentRow } from "@/app/api/org/analytics/route";
 import { cohortPathProgress, studentPathPercent } from "@/lib/org/pathProgress";
 import { AssignmentsPanel } from "@/components/manage/AssignmentsPanel";
+import { MediaPanel } from "@/components/manage/MediaPanel";
 
 interface OrgLite { id: string; name: string; slug: string; seat_limit: number; status: string; expires_at: string | null }
 type Member = OrgMember & { xp?: number };
@@ -454,6 +455,8 @@ export default function ManagePage() {
             )}
 
             <AssignmentsPanel />
+
+            <MediaPanel />
 
             <Card className="overflow-hidden p-0">
               <div className="flex items-center justify-between gap-3 px-4 py-3">

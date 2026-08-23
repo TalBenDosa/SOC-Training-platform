@@ -32,3 +32,28 @@ async function fetchPublished<T>(table: "content_scenarios" | "content_quizzes" 
 export const fetchPublishedScenarios = <T,>() => fetchPublished<T>("content_scenarios");
 export const fetchPublishedQuizzes   = <T,>() => fetchPublished<T>("content_quizzes");
 export const fetchPublishedLessons   = <T,>() => fetchPublished<T>("content_lessons");
+
+/** A published "College Materials" resource for the current org (migration 0038).
+ *  RLS scopes the read to the caller's own org + published, so this returns only
+ *  this college's materials. The file itself is fetched later via a signed URL
+ *  (GET /api/org/media/[id]/url) — never a public object path. */
+export interface OrgResource {
+  id: string;
+  kind: "pdf" | "pptx" | "video";
+  title: string;
+  mime: string;
+  size_bytes: number;
+  created_at: string;
+}
+
+export async function fetchOrgResources(): Promise<OrgResource[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("org_resources")
+    .select("id, kind, title, mime, size_bytes, created_at")
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return data as OrgResource[];
+}

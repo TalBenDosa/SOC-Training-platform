@@ -36,6 +36,7 @@ const EXPENSIVE = [
   "/api/lessons/",
   "/api/dashboard/incident-report",
   "/api/admin/",
+  "/api/org/media",   // file uploads — heavy body, tight limit
 ];
 
 function isExpensive(pathname: string): boolean {

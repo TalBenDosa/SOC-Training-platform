@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/scenarios",    label: "Scenarios",      icon: Target          },
   { href: "/quizzes",      label: "Quizzes",        icon: ClipboardList   },
   { href: "/achievements", label: "Achievements",   icon: Award           },
+  { href: "/resources",    label: "College Materials", icon: Library       },
 ];
 
 // Content-authoring tools (log validator, scenario/quiz generator) — deliberately
