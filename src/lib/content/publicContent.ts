@@ -57,3 +57,50 @@ export async function fetchOrgResources(): Promise<OrgResource[]> {
   if (error || !data) return [];
   return data as OrgResource[];
 }
+
+/** Client-safe metadata for the current org's published authored ROOMS
+ *  (migration 0043). content_rooms.content is already the answer-stripped
+ *  projection, so this is safe to read in the browser under RLS (own org +
+ *  published). Shaped to RoomMeta so the rooms list can merge it with the static
+ *  ROOMS_META with no other change. */
+export interface OrgRoomMeta {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  category: string;
+  estimatedMinutes: number;
+  xp: number;
+  icon: string;
+  prerequisites: string[];
+  tasks: { id: string; type: string; xp: number }[];
+  authored: true;
+}
+
+export async function fetchOrgRoomMetas(): Promise<OrgRoomMeta[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("content_rooms")
+    .select("content")
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+  return data.map(row => {
+    const c = (row.content ?? {}) as Record<string, unknown>;
+    const tasks = Array.isArray(c.tasks) ? c.tasks as Record<string, unknown>[] : [];
+    return {
+      id: String(c.id ?? ""),
+      title: String(c.title ?? "Untitled room"),
+      description: String(c.description ?? ""),
+      difficulty: (["beginner", "intermediate", "advanced"].includes(String(c.difficulty)) ? String(c.difficulty) : "beginner") as OrgRoomMeta["difficulty"],
+      category: String(c.category ?? "Custom"),
+      estimatedMinutes: Number(c.estimatedMinutes ?? 15),
+      xp: Number(c.xp ?? 0),
+      icon: String(c.icon ?? "🎓"),
+      prerequisites: Array.isArray(c.prerequisites) ? c.prerequisites as string[] : [],
+      tasks: tasks.map(t => ({ id: String(t.id ?? ""), type: String(t.type ?? "question"), xp: Number(t.xp ?? 0) })),
+      authored: true as const,
+    };
+  }).filter(r => r.id);
+}

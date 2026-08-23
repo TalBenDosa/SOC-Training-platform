@@ -30,9 +30,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ type: s
   if (!row) return NextResponse.json({ error: "Not found in this environment." }, { status: 404 });
 
   let answer_key: unknown = null;
-  if (type === "scenarios") {
+  if (type === "scenarios" || type === "rooms") {
+    const keyTable = type === "scenarios" ? "content_scenario_keys" : "content_room_keys";
     const { data: key } = await admin
-      .from("content_scenario_keys").select("answer_key").eq("id", id).eq("org_id", orgId).maybeSingle();
+      .from(keyTable).select("answer_key").eq("id", id).eq("org_id", orgId).maybeSingle();
     answer_key = key?.answer_key ?? null;
   }
   return NextResponse.json({ item: row, answer_key });

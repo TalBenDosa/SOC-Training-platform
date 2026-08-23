@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { findRoom, findTask, gradeTask } from "@/lib/rooms/grading";
+import { findTask, gradeTask } from "@/lib/rooms/grading";
+import { getEffectiveRoom } from "@/lib/rooms/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -23,7 +24,13 @@ export async function POST(
 ) {
   const { id: roomId, taskId } = await params;
 
-  const room = findRoom(decodeURIComponent(roomId));
+  // Fetched once: the session gives org context for resolving an org-authored
+  // room AND identifies the student for the attempt log below.
+  const user = await getAuthedUser();
+
+  // Resolves static built-ins AND org-authored DB rooms (the latter get their
+  // answer key merged in from the service-role-only key table).
+  const room = await getEffectiveRoom(decodeURIComponent(roomId), user?.orgId ?? null);
   if (!room) return NextResponse.json({ error: "Room not found." }, { status: 404 });
 
   const task = findTask(room, decodeURIComponent(taskId));
@@ -44,7 +51,6 @@ export async function POST(
   // Record the attempt for a signed-in student — best-effort, never blocks the
   // grade. Written via the service role with user_id + org_id from the session.
   try {
-    const user = await getAuthedUser();
     const admin = getSupabaseAdminClient();
     if (user && admin) {
       const b = (body ?? {}) as Record<string, unknown>;

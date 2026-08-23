@@ -3,6 +3,7 @@ import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isOrgContentType, ORG_CONTENT_TABLE, normalizeOrgContent } from "@/lib/content/orgContent";
 import { splitAuthored } from "@/lib/scenarios/authored";
+import { splitAuthoredRoom } from "@/lib/rooms/authored";
 
 /**
  * Per-org, manually-authored content (Phase 2 — migration 0040).
@@ -79,6 +80,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
 
     const { error: keyErr } = await admin
       .from("content_scenario_keys")
+      .upsert({ id: split.id, org_id: orgId, answer_key: split.answerKey }, { onConflict: "id" });
+    if (keyErr) return NextResponse.json({ error: keyErr.message }, { status: 500 });
+
+    return NextResponse.json({ item: data });
+  }
+
+  // Rooms use the same two-projection split (content_rooms + content_room_keys).
+  if (type === "rooms") {
+    const split = splitAuthoredRoom(orgId, body);
+    if (!split.ok) return NextResponse.json({ error: split.error }, { status: 422 });
+
+    const existing = await admin.from("content_rooms").select("org_id").eq("id", split.id).maybeSingle();
+    if (existing.data && existing.data.org_id !== orgId) {
+      return NextResponse.json({ error: "That item belongs to another environment." }, { status: 409 });
+    }
+
+    const { data, error } = await admin
+      .from("content_rooms")
+      .upsert({ id: split.id, org_id: orgId, status, content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" })
+      .select("id, status, content, created_at, updated_at")
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const { error: keyErr } = await admin
+      .from("content_room_keys")
       .upsert({ id: split.id, org_id: orgId, answer_key: split.answerKey }, { onConflict: "id" });
     if (keyErr) return NextResponse.json({ error: keyErr.message }, { status: 500 });
 

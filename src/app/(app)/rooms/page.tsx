@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { RoomCard } from "@/components/rooms/RoomCard";
-import { ROOMS_META } from "@/data/roomsMeta";
+import { ROOMS_META, type RoomMeta } from "@/data/roomsMeta";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { isRoomLocked, recommendNextRoom } from "@/lib/rooms/recommend";
 import { AssignedWork } from "@/components/assignments/AssignedWork";
 import { useBranding } from "@/lib/auth/useBranding";
+import { fetchOrgRoomMetas } from "@/lib/content/publicContent";
 import { BookOpen } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ export default function RoomsPage() {
   const { allRoomsUnlocked } = useBranding();
   const [progress, setProgress] = useState<AllProgress>({});
   const [filter, setFilter]     = useState<Category>("All");
+  const [orgRooms, setOrgRooms] = useState<RoomMeta[]>([]);
 
   useEffect(() => {
     // Read via the storage facade (Phase-1 seam): DB-backed room_progress for
@@ -36,7 +38,13 @@ export default function RoomsPage() {
     try {
       setProgress(getRoomProgress() as AllProgress);
     } catch { /* storage blocked */ }
+    // Per-org authored rooms (migration 0043) — RLS returns only this org's
+    // published rooms; they merge in alongside the static built-ins.
+    fetchOrgRoomMetas().then(rooms => setOrgRooms(rooms as unknown as RoomMeta[])).catch(() => {});
   }, []);
+
+  // Built-in rooms + this org's authored rooms (org rooms appended).
+  const allRooms: RoomMeta[] = [...ROOMS_META, ...orgRooms];
 
   // Prerequisite gating + "recommended next" now come from the SHARED
   // src/lib/rooms/recommend.ts, so the rooms list and the Room-Complete screen
@@ -45,9 +53,9 @@ export default function RoomsPage() {
   // every room open regardless of prerequisites — for eval/pilot cohorts.
   const isLocked = (roomId: string) => allRoomsUnlocked ? false : isRoomLocked(roomId, progress);
 
-  const filtered = ROOMS_META.filter(r => filter === "All" || r.category === filter);
+  const filtered = allRooms.filter(r => filter === "All" || r.category === filter);
 
-  const totalCompleted = ROOMS_META.filter(r => !!progress[r.id]?.completedAt).length;
+  const totalCompleted = allRooms.filter(r => !!progress[r.id]?.completedAt).length;
   const totalXp        = Object.values(progress).reduce((sum, p) => sum + (p.xpEarned ?? 0), 0);
 
   const rec = recommendNextRoom(progress);
@@ -93,7 +101,7 @@ export default function RoomsPage() {
             <div className="hidden lg:flex flex-col items-end gap-1 shrink-0">
               <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Your Progress</p>
               <p className="text-2xl font-bold font-mono text-white">
-                {totalCompleted}/{ROOMS_META.length}
+                {totalCompleted}/{allRooms.length}
               </p>
               <p className="text-[11px] text-slate-400">rooms complete</p>
               <p className="mt-1 text-sm font-semibold text-neon-amber font-mono">+{totalXp} XP</p>

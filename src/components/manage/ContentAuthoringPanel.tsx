@@ -14,10 +14,10 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { LOG_SOURCES, EVENT_TYPES, IOC_TYPES } from "@/lib/scenarios/authoredConstants";
 import {
-  BookOpen, ClipboardList, Plus, Trash2, Eye, EyeOff, Pencil, Loader2, X, Target,
+  BookOpen, ClipboardList, Plus, Trash2, Eye, EyeOff, Pencil, Loader2, X, Target, DoorOpen,
 } from "lucide-react";
 
-type ContentTab = "lessons" | "quizzes" | "scenarios";
+type ContentTab = "lessons" | "quizzes" | "scenarios" | "rooms";
 
 interface Row {
   id: string;
@@ -610,6 +610,171 @@ function ScenariosTab() {
   );
 }
 
+// ─── Rooms ───────────────────────────────────────────────────────────────────
+type RTaskKind = "reading" | "question" | "flag";
+interface RTask {
+  kind: RTaskKind;
+  // reading
+  heading?: string; body?: string; codeExample?: string;
+  // question
+  question?: string; options?: string[]; correct?: number; explanation?: string;
+  // flag
+  prompt?: string; answer?: string; hint?: string;
+  xp?: number;
+}
+interface RDraft {
+  id?: string; title: string; description: string; difficulty: string; category: string; icon: string; estimatedMinutes: number;
+  tasks: RTask[];
+}
+const emptyRTask = (kind: RTaskKind): RTask =>
+  kind === "reading" ? { kind, heading: "", body: "", codeExample: "", xp: 5 }
+  : kind === "question" ? { kind, question: "", options: ["", ""], correct: 0, explanation: "", xp: 25 }
+  : { kind, prompt: "", answer: "", hint: "", xp: 25 };
+const emptyRoom = (): RDraft => ({
+  title: "", description: "", difficulty: "beginner", category: "Custom", icon: "🎓", estimatedMinutes: 15,
+  tasks: [emptyRTask("reading")],
+});
+
+function RoomsTab() {
+  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("rooms");
+  const [draft, setDraft] = useState<RDraft | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function up<K extends keyof RDraft>(k: K, v: RDraft[K]) { setDraft(d => d ? { ...d, [k]: v } : d); }
+  function upTask(i: number, patch: Partial<RTask>) { setDraft(d => d ? { ...d, tasks: d.tasks.map((t, j) => j === i ? { ...t, ...patch } : t) } : d); }
+  function upOpt(ti: number, oi: number, v: string) {
+    setDraft(d => d ? { ...d, tasks: d.tasks.map((t, j) => j === ti ? { ...t, options: (t.options ?? []).map((o, k) => k === oi ? v : o) } : t) } : d);
+  }
+
+  async function loadForEdit(id: string) {
+    setError(null);
+    const res = await fetch(`/api/org/content/rooms/${encodeURIComponent(id)}`);
+    if (!res.ok) { setError("Could not load room."); return; }
+    const { item, answer_key } = await res.json();
+    const c = (item?.content ?? {}) as Record<string, unknown>;
+    const keyTasks = ((answer_key ?? {}) as Record<string, unknown>).tasks as Record<string, Record<string, unknown>> ?? {};
+    const safeTasks = Array.isArray(c.tasks) ? c.tasks as Record<string, unknown>[] : [];
+    setDraft({
+      id: String(item.id),
+      title: String(c.title ?? ""), description: String(c.description ?? ""), difficulty: String(c.difficulty ?? "beginner"),
+      category: String(c.category ?? "Custom"), icon: String(c.icon ?? "🎓"), estimatedMinutes: Number(c.estimatedMinutes ?? 15),
+      tasks: safeTasks.map(s => {
+        const tid = String(s.id); const k = keyTasks[tid] ?? {};
+        if (s.type === "reading") return { kind: "reading" as const, heading: String(s.heading ?? ""), body: String(s.content ?? ""), codeExample: String(s.codeExample ?? ""), xp: Number(s.xp ?? 5) };
+        if (s.type === "flag") return { kind: "flag" as const, prompt: String(s.prompt ?? ""), answer: String(k.answer ?? ""), hint: String(s.hint ?? ""), xp: Number(s.xp ?? 25) };
+        return { kind: "question" as const, question: String(s.question ?? ""), options: (s.options as string[]) ?? ["", ""], correct: Number(k.answer ?? 0), explanation: String(k.explanation ?? ""), xp: Number(s.xp ?? 25) };
+      }),
+    });
+  }
+
+  async function submit(status: "draft" | "published") {
+    if (!draft) return;
+    setBusy(true);
+    const ok = await save({
+      id: draft.id, status,
+      title: draft.title, description: draft.description, difficulty: draft.difficulty,
+      category: draft.category, icon: draft.icon, estimatedMinutes: draft.estimatedMinutes,
+      tasks: draft.tasks.map(t =>
+        t.kind === "reading" ? { kind: "reading", heading: t.heading, content: t.body, codeExample: t.codeExample, xp: t.xp }
+        : t.kind === "question" ? { kind: "question", question: t.question, options: t.options, correct: t.correct, explanation: t.explanation, xp: t.xp }
+        : { kind: "flag", prompt: t.prompt, answer: t.answer, hint: t.hint, xp: t.xp }),
+    });
+    setBusy(false);
+    if (ok) setDraft(null);
+  }
+
+  if (draft) {
+    return (
+      <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-white">{draft.id ? "Edit room" : "New room"}</h3>
+          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+        </div>
+        <Banner error={error} notice={null} />
+        <div><label className={labelCls}>Title</label><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Reading Windows logon events" /></div>
+        <div><label className={labelCls}>Description</label><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line shown on the room card." /></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div><label className={labelCls}>Difficulty</label>
+            <select className={inputCls} value={draft.difficulty} onChange={e => up("difficulty", e.target.value)}>
+              <option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option>
+            </select>
+          </div>
+          <div><label className={labelCls}>Category</label><input className={inputCls} value={draft.category} onChange={e => up("category", e.target.value)} /></div>
+          <div><label className={labelCls}>Icon</label><input className={inputCls} value={draft.icon} onChange={e => up("icon", e.target.value)} placeholder="🎓" /></div>
+          <div><label className={labelCls}>Minutes</label><input type="number" className={inputCls} value={draft.estimatedMinutes} onChange={e => up("estimatedMinutes", Number(e.target.value))} /></div>
+        </div>
+
+        <div>
+          <label className={labelCls}>Tasks</label>
+          <div className="space-y-3">
+            {draft.tasks.map((t, i) => (
+              <div key={i} className="rounded border border-border bg-bg p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="rounded bg-cyber-500/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyber-300">{t.kind}</span>
+                  {draft.tasks.length > 1 && <button onClick={() => up("tasks", draft.tasks.filter((_, j) => j !== i))} className="rounded p-1 text-slate-400 hover:text-severity-high" title="Remove task"><Trash2 className="h-4 w-4" /></button>}
+                </div>
+                {t.kind === "reading" && (<>
+                  <input className={inputCls} value={t.heading ?? ""} onChange={e => upTask(i, { heading: e.target.value })} placeholder="Section heading" />
+                  <textarea className={cn(inputCls, "min-h-[72px]")} value={t.body ?? ""} onChange={e => upTask(i, { body: e.target.value })} placeholder="Reading content (Markdown supported)." />
+                  <textarea className={cn(inputCls, "min-h-[40px] font-mono text-xs")} value={t.codeExample ?? ""} onChange={e => upTask(i, { codeExample: e.target.value })} placeholder="Optional code / log block" />
+                </>)}
+                {t.kind === "question" && (<>
+                  <textarea className={cn(inputCls, "min-h-[40px]")} value={t.question ?? ""} onChange={e => upTask(i, { question: e.target.value })} placeholder="Question" />
+                  <p className="text-[10px] text-slate-500">Select the radio next to the correct answer.</p>
+                  <div className="space-y-1.5">
+                    {(t.options ?? []).map((o, oi) => (
+                      <div key={oi} className="flex items-center gap-2">
+                        <input type="radio" name={`r-correct-${i}`} checked={t.correct === oi} onChange={() => upTask(i, { correct: oi })} className="accent-cyber-500" />
+                        <input className={inputCls} value={o} onChange={e => upOpt(i, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
+                        {(t.options ?? []).length > 2 && <button onClick={() => upTask(i, { options: (t.options ?? []).filter((_, k) => k !== oi), correct: (t.correct ?? 0) > oi ? (t.correct ?? 0) - 1 : t.correct })} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" /></button>}
+                      </div>
+                    ))}
+                  </div>
+                  {(t.options ?? []).length < 6 && <Button variant="ghost" size="sm" onClick={() => upTask(i, { options: [...(t.options ?? []), ""] })}><Plus className="h-3.5 w-3.5" /> Add option</Button>}
+                  <textarea className={cn(inputCls, "min-h-[40px]")} value={t.explanation ?? ""} onChange={e => upTask(i, { explanation: e.target.value })} placeholder="Explanation shown after answering." />
+                </>)}
+                {t.kind === "flag" && (<>
+                  <textarea className={cn(inputCls, "min-h-[40px]")} value={t.prompt ?? ""} onChange={e => upTask(i, { prompt: e.target.value })} placeholder="Prompt — what value should the analyst find?" />
+                  <input className={inputCls} value={t.answer ?? ""} onChange={e => upTask(i, { answer: e.target.value })} placeholder="Exact flag value (matched case-insensitively)" />
+                  <input className={inputCls} value={t.hint ?? ""} onChange={e => upTask(i, { hint: e.target.value })} placeholder="Optional hint" />
+                </>)}
+                {t.kind !== "reading" && (
+                  <div className="flex items-center gap-2"><span className="text-[10px] text-slate-500">XP</span>
+                    <input type="number" className={cn(inputCls, "max-w-[90px]")} value={t.xp ?? 25} onChange={e => upTask(i, { xp: Number(e.target.value) })} /></div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => up("tasks", [...draft.tasks, emptyRTask("reading")])}><Plus className="h-4 w-4" /> Reading</Button>
+            <Button variant="outline" size="sm" onClick={() => up("tasks", [...draft.tasks, emptyRTask("question")])}><Plus className="h-4 w-4" /> Question</Button>
+            <Button variant="outline" size="sm" onClick={() => up("tasks", [...draft.tasks, emptyRTask("flag")])}><Plus className="h-4 w-4" /> Flag</Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => submit("published")}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Publish</Button>
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => submit("draft")}>Save draft</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Banner error={error} notice={notice} />
+      <div className="mt-3 mb-3">
+        <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyRoom()); }}><Plus className="h-4 w-4" /> New room</Button>
+      </div>
+      <ItemList items={items} rowBusy={rowBusy}
+        onEdit={r => loadForEdit(r.id)}
+        onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
+        onDelete={r => remove(r.id, String(r.content?.title ?? r.id))}
+        emptyLabel="No rooms authored yet. Your students still see all the global built-in rooms." />
+    </>
+  );
+}
+
 // ─── wrapper ─────────────────────────────────────────────────────────────────
 export function ContentAuthoringPanel() {
   const [tab, setTab] = useState<ContentTab>("lessons");
@@ -617,6 +782,7 @@ export function ContentAuthoringPanel() {
     { id: "lessons", label: "Lessons", icon: BookOpen },
     { id: "quizzes", label: "Quizzes", icon: ClipboardList },
     { id: "scenarios", label: "Scenarios", icon: Target },
+    { id: "rooms", label: "Rooms", icon: DoorOpen },
   ];
   return (
     <Card>
@@ -624,7 +790,7 @@ export function ContentAuthoringPanel() {
         <Pencil className="h-4 w-4 text-cyber-300" /> Course Content
       </h2>
       <p className="mt-1 text-xs text-slate-400">
-        Write lessons, quizzes and live scenarios unique to your college. Published items appear to your students alongside the global built-in content. Drafts are visible only to you.
+        Write lessons, quizzes, live scenarios and learning rooms unique to your college. Published items appear to your students alongside the global built-in content. Drafts are visible only to you.
       </p>
 
       <div className="mt-3 flex gap-1 border-b border-border">
@@ -637,7 +803,7 @@ export function ContentAuthoringPanel() {
         ))}
       </div>
 
-      {tab === "lessons" ? <LessonsTab /> : tab === "quizzes" ? <QuizzesTab /> : <ScenariosTab />}
+      {tab === "lessons" ? <LessonsTab /> : tab === "quizzes" ? <QuizzesTab /> : tab === "scenarios" ? <ScenariosTab /> : <RoomsTab />}
     </Card>
   );
 }
