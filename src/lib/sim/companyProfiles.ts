@@ -55,7 +55,7 @@ export const NEXACORP_PROFILE: Omit<CompanyProfile, "events"> = {
     email:    "Microsoft 365 Exchange Online",
     firewall: "Palo Alto NGFW + GlobalProtect VPN",
     vpn:      "GlobalProtect",
-    sources:  ["edr", "ad", "o365", "cloudtrail", "firewall", "vpn", "sysmon"],
+    sources:  ["edr", "ad", "windows_security", "o365", "cloudtrail", "firewall", "vpn", "sysmon"],
   },
 };
 

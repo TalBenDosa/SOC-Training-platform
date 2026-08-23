@@ -86,6 +86,7 @@ const SOURCES = [
   { value: "all",        label: "All Sources" },
   { value: "edr",        label: "EDR" },
   { value: "ad",         label: "Active Directory" },
+  { value: "windows_security", label: "Windows Event Viewer" },
   { value: "o365",       label: "Office 365" },
   { value: "gws",        label: "Google Workspace" },
   { value: "okta",       label: "Okta" },
