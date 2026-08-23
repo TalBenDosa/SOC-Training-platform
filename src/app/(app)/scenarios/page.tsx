@@ -11,7 +11,7 @@ import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import Link from "next/link";
 import {
   Sparkles, Zap, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
-  BotIcon, EyeOff, GraduationCap,
+  BotIcon, EyeOff, GraduationCap, Target,
 } from "lucide-react";
 
 // ── Readiness map ──────────────────────────────────────────────────────────
@@ -65,6 +65,11 @@ interface PublishedScenario {
   narrative: string;
   events: unknown[];
   published_at: string;
+  // Org-authored scenarios (migration 0040/0041) carry these instead; they route
+  // to the safe server-graded /scenarios/[id] path rather than the client preview.
+  kind?: string;
+  scenario_id?: string;
+  briefing?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -208,8 +213,36 @@ export default function ScenariosPage() {
             );
           })}
 
-          {/* AI-generated / published scenarios */}
-          {published.map(s => {
+          {/* Org-authored scenarios — routed to the safe, server-graded play
+              page (/scenarios/[id]), not the client-side preview. Their card
+              deliberately shows only title + briefing + difficulty; the verdict,
+              IOCs and answers live server-side (migration 0041). */}
+          {published.filter(s => s.kind === "authored" && s.scenario_id).map(s => (
+            <Card key={s.scenario_id} className="flex flex-col border-cyber-500/20">
+              <div className="flex items-start justify-between">
+                <div className="rounded-md border border-cyber-500/30 bg-cyber-500/10 p-2.5 text-cyber-300">
+                  <Target className="h-5 w-5" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded border border-cyber-500/30 bg-cyber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyber-300">
+                    Custom
+                  </span>
+                  <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
+                </div>
+              </div>
+              <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
+              <p className="mt-1 flex-1 text-sm text-slate-400 line-clamp-2">{s.briefing}</p>
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-[11px] text-slate-400">Investigation</div>
+                <Link href={`/scenarios/${encodeURIComponent(s.scenario_id!)}`}>
+                  <Button variant="primary" size="sm">Launch</Button>
+                </Link>
+              </div>
+            </Card>
+          ))}
+
+          {/* AI-generated / published scenarios (legacy client-preview path) */}
+          {published.filter(s => s.kind !== "authored").map(s => {
             const Icon = ICON[s.attack_kind] ?? BotIcon;
             return (
               <Card key={s.id} className="flex flex-col border-neon-green/20">

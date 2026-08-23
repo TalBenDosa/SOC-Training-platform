@@ -34,7 +34,7 @@ import { buildHelpdeskMfaResetScenario }         from "./scenario-packs/helpdesk
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
-function eventsToAlerts(events: TelemetryEvent[], scenario_id: string): Alert[] {
+export function eventsToAlerts(events: TelemetryEvent[], scenario_id: string): Alert[] {
   const alerts: Alert[] = [];
   let aid = 0;
   // Builders declare events in narrative order, which is not always

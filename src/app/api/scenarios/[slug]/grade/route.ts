@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildScenarioBySlug } from "@/lib/sim/scenarios";
+import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 
@@ -21,7 +21,9 @@ export async function POST(
 
   const { slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
-  const bundle = buildScenarioBySlug(slug);
+  // Resolves static built-ins AND org-authored DB scenarios (the latter get
+  // their answer key merged in from the service-role-only key table).
+  const bundle = await resolveScenarioBundle(slug, gradeUser.orgId);
   if (!bundle) {
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
   }

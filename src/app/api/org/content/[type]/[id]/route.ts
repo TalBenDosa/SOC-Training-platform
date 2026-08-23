@@ -11,6 +11,33 @@ import { isOrgContentType, ORG_CONTENT_TABLE } from "@/lib/content/orgContent";
 
 export const runtime = "nodejs";
 
+// ── GET — full row for editing (scenarios also return their answer key, which
+//         the editor needs to prefill correct answers / narrative / IOCs) ─────
+export async function GET(_req: Request, { params }: { params: Promise<{ type: string; id: string }> }) {
+  const gate = await requireOrgAdmin("org.content.get");
+  if ("error" in gate) return gate.error;
+  const orgId = gate.user.orgId;
+  if (!orgId) return NextResponse.json({ error: "No organisation in session." }, { status: 400 });
+
+  const { type, id } = await params;
+  if (!isOrgContentType(type)) return NextResponse.json({ error: "Unknown content type." }, { status: 404 });
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  const { data: row } = await admin
+    .from(ORG_CONTENT_TABLE[type]).select("id, status, content").eq("id", id).eq("org_id", orgId).maybeSingle();
+  if (!row) return NextResponse.json({ error: "Not found in this environment." }, { status: 404 });
+
+  let answer_key: unknown = null;
+  if (type === "scenarios") {
+    const { data: key } = await admin
+      .from("content_scenario_keys").select("answer_key").eq("id", id).eq("org_id", orgId).maybeSingle();
+    answer_key = key?.answer_key ?? null;
+  }
+  return NextResponse.json({ item: row, answer_key });
+}
+
 // ── PATCH — flip status between draft and published ──────────────────────────
 export async function PATCH(req: Request, { params }: { params: Promise<{ type: string; id: string }> }) {
   const gate = await requireOrgAdmin("org.content.status");

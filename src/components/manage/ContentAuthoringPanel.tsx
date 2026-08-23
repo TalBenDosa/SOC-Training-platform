@@ -12,11 +12,12 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { LOG_SOURCES, EVENT_TYPES, IOC_TYPES } from "@/lib/scenarios/authoredConstants";
 import {
   BookOpen, ClipboardList, Plus, Trash2, Eye, EyeOff, Pencil, Loader2, X, Target,
 } from "lucide-react";
 
-type ContentTab = "lessons" | "quizzes";
+type ContentTab = "lessons" | "quizzes" | "scenarios";
 
 interface Row {
   id: string;
@@ -381,12 +382,241 @@ function QuizzesTab() {
   );
 }
 
+// ─── Scenarios ───────────────────────────────────────────────────────────────
+interface SEvent { offsetMin: number; source: string; eventType: string; description: string; rawText: string }
+interface SQuestion { prompt: string; kind: "single" | "multi"; options: string[]; correct: number[]; xp: number; explanation: string }
+interface SDraft {
+  id?: string; title: string; difficulty: string; isBenign: boolean; attackKindLabel: string; threatActor: string;
+  briefing: string; narrative: string; learningObjectives: string;
+  events: SEvent[]; iocs: { type: string; value: string }[]; questions: SQuestion[];
+}
+const emptySEvent = (): SEvent => ({ offsetMin: 0, source: "edr", eventType: "process_create", description: "", rawText: "" });
+const emptySQuestion = (): SQuestion => ({ prompt: "", kind: "single", options: ["", ""], correct: [0], xp: 50, explanation: "" });
+const emptyScenario = (): SDraft => ({
+  title: "", difficulty: "intermediate", isBenign: false, attackKindLabel: "", threatActor: "",
+  briefing: "", narrative: "", learningObjectives: "",
+  events: [emptySEvent()], iocs: [], questions: [emptySQuestion()],
+});
+
+function ScenariosTab() {
+  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("scenarios");
+  const [draft, setDraft] = useState<SDraft | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function up<K extends keyof SDraft>(k: K, v: SDraft[K]) { setDraft(d => d ? { ...d, [k]: v } : d); }
+  function upEvent(i: number, patch: Partial<SEvent>) { setDraft(d => d ? { ...d, events: d.events.map((e, j) => j === i ? { ...e, ...patch } : e) } : d); }
+  function upQ(i: number, patch: Partial<SQuestion>) { setDraft(d => d ? { ...d, questions: d.questions.map((q, j) => j === i ? { ...q, ...patch } : q) } : d); }
+  function upQOpt(qi: number, oi: number, v: string) { setDraft(d => d ? { ...d, questions: d.questions.map((q, j) => j === qi ? { ...q, options: q.options.map((o, k) => k === oi ? v : o) } : q) } : d); }
+  function upIoc(i: number, patch: Partial<{ type: string; value: string }>) { setDraft(d => d ? { ...d, iocs: d.iocs.map((x, j) => j === i ? { ...x, ...patch } : x) } : d); }
+
+  async function loadForEdit(id: string) {
+    setError(null);
+    const res = await fetch(`/api/org/content/scenarios/${encodeURIComponent(id)}`);
+    if (!res.ok) { setError("Could not load scenario."); return; }
+    const { item, answer_key } = await res.json();
+    const c = (item?.content ?? {}) as Record<string, unknown>;
+    const k = (answer_key ?? {}) as Record<string, unknown>;
+    const evs = Array.isArray(c.events) ? c.events as Record<string, unknown>[] : [];
+    const base = evs.length ? new Date(String(evs[0].ts)).getTime() : 0;
+    const safeQs = Array.isArray(c.questions) ? c.questions as Record<string, unknown>[] : [];
+    const keyQs = Array.isArray(k.questions) ? k.questions as Record<string, unknown>[] : [];
+    const keyById = new Map(keyQs.map(q => [String(q.id), q]));
+    setDraft({
+      id: String(item.id),
+      title: String(c.title ?? ""), difficulty: String(c.difficulty ?? "intermediate"),
+      isBenign: k.attack_kind === "false_positive",
+      attackKindLabel: k.attack_kind === "false_positive" ? "" : String(k.attack_kind ?? ""),
+      threatActor: String(k.threat_actor ?? ""),
+      briefing: String(c.briefing ?? ""), narrative: String(k.narrative ?? ""),
+      learningObjectives: (Array.isArray(k.learning_objectives) ? k.learning_objectives as string[] : []).join("\n"),
+      events: evs.length ? evs.map(e => ({
+        offsetMin: base ? Math.round((new Date(String(e.ts)).getTime() - base) / 60000) : 0,
+        source: String(e.source ?? "edr"), eventType: String(e.event_type ?? "process_create"),
+        description: String(e.description ?? ""),
+        rawText: Object.entries((e.raw ?? {}) as Record<string, unknown>).map(([kk, vv]) => `${kk}: ${vv}`).join("\n"),
+      })) : [emptySEvent()],
+      iocs: (Array.isArray(k.iocs) ? k.iocs as Record<string, unknown>[] : []).map(x => ({ type: String(x.type ?? "ip"), value: String(x.value ?? "") })),
+      questions: safeQs.length ? safeQs.map(q => {
+        const opts = Array.isArray(q.options) ? q.options as { value: string; label: string }[] : [];
+        const kq = keyById.get(String(q.id));
+        const ans = kq?.answer;
+        const ansArr = Array.isArray(ans) ? ans as string[] : ans != null ? [String(ans)] : [];
+        const correct = ansArr.map(v => opts.findIndex(o => o.value === v)).filter(i => i >= 0);
+        return {
+          prompt: String(q.prompt ?? ""), kind: q.kind === "multi" ? "multi" as const : "single" as const,
+          options: opts.map(o => o.label), correct: correct.length ? correct : [0],
+          xp: Number(q.xp ?? 50), explanation: String(kq?.explanation ?? ""),
+        };
+      }) : [emptySQuestion()],
+    });
+  }
+
+  function setCorrect(qi: number, oi: number, kind: "single" | "multi") {
+    setDraft(d => {
+      if (!d) return d;
+      return {
+        ...d, questions: d.questions.map((q, j) => {
+          if (j !== qi) return q;
+          if (kind === "single") return { ...q, correct: [oi] };
+          const has = q.correct.includes(oi);
+          return { ...q, correct: has ? q.correct.filter(x => x !== oi) : [...q.correct, oi] };
+        }),
+      };
+    });
+  }
+
+  async function submit(status: "draft" | "published") {
+    if (!draft) return;
+    setBusy(true);
+    const ok = await save({
+      id: draft.id, status,
+      title: draft.title, difficulty: draft.difficulty, isBenign: draft.isBenign,
+      attackKindLabel: draft.attackKindLabel, threatActor: draft.threatActor,
+      briefing: draft.briefing, narrative: draft.narrative,
+      learningObjectives: draft.learningObjectives.split("\n").map(s => s.trim()).filter(Boolean),
+      events: draft.events,
+      iocs: draft.iocs.filter(x => x.value.trim()),
+      questions: draft.questions,
+    });
+    setBusy(false);
+    if (ok) setDraft(null);
+  }
+
+  if (draft) {
+    return (
+      <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-white">{draft.id ? "Edit scenario" : "New scenario"}</h3>
+          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+        </div>
+        <Banner error={error} notice={null} />
+        <div><label className={labelCls}>Title</label><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. After-hours data staging on the file server" /></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div><label className={labelCls}>Difficulty</label>
+            <select className={inputCls} value={draft.difficulty} onChange={e => up("difficulty", e.target.value)}>
+              <option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option><option value="expert">Expert</option>
+            </select>
+          </div>
+          <div><label className={labelCls}>Verdict truth</label>
+            <select className={inputCls} value={draft.isBenign ? "benign" : "attack"} onChange={e => up("isBenign", e.target.value === "benign")}>
+              <option value="attack">Real attack</option><option value="benign">Benign (false positive)</option>
+            </select>
+          </div>
+          {!draft.isBenign && (
+            <div><label className={labelCls}>Attack kind</label><input className={inputCls} value={draft.attackKindLabel} onChange={e => up("attackKindLabel", e.target.value)} placeholder="ransomware" /></div>
+          )}
+        </div>
+        <div><label className={labelCls}>Threat actor (answer key)</label><input className={inputCls} value={draft.threatActor} onChange={e => up("threatActor", e.target.value)} placeholder="e.g. FIN7 affiliate — leave blank if benign" /></div>
+        <div><label className={labelCls}>Briefing (what the analyst first sees)</label><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.briefing} onChange={e => up("briefing", e.target.value)} placeholder="The alert / ticket text. No spoilers." /></div>
+        <div><label className={labelCls}>Debrief narrative (answer key)</label><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.narrative} onChange={e => up("narrative", e.target.value)} placeholder="What actually happened, revealed only after a full attempt." /></div>
+        <div><label className={labelCls}>Learning objectives (one per line)</label><textarea className={cn(inputCls, "min-h-[48px]")} value={draft.learningObjectives} onChange={e => up("learningObjectives", e.target.value)} /></div>
+
+        {/* Events */}
+        <div>
+          <label className={labelCls}>Telemetry events (the logs to investigate)</label>
+          <div className="space-y-3">
+            {draft.events.map((ev, i) => (
+              <div key={i} className="rounded border border-border bg-bg p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div><span className="text-[10px] text-slate-500">+min</span><input type="number" className={inputCls} value={ev.offsetMin} onChange={e => upEvent(i, { offsetMin: Number(e.target.value) })} /></div>
+                  <div className="sm:col-span-1"><span className="text-[10px] text-slate-500">source</span>
+                    <select className={inputCls} value={ev.source} onChange={e => upEvent(i, { source: e.target.value })}>{LOG_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                  </div>
+                  <div className="sm:col-span-2"><span className="text-[10px] text-slate-500">event type</span>
+                    <select className={inputCls} value={ev.eventType} onChange={e => upEvent(i, { eventType: e.target.value })}>{EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <input className={inputCls} value={ev.description} onChange={e => upEvent(i, { description: e.target.value })} placeholder="Analyst-facing summary of this log line" />
+                  {draft.events.length > 1 && <button onClick={() => up("events", draft.events.filter((_, j) => j !== i))} className="rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>}
+                </div>
+                <textarea className={cn(inputCls, "min-h-[40px] font-mono text-xs")} value={ev.rawText} onChange={e => upEvent(i, { rawText: e.target.value })} placeholder={"raw fields, one per line — e.g.\nprocess.name: powershell.exe\nsrc_ip: 10.0.0.5"} />
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => up("events", [...draft.events, emptySEvent()])}><Plus className="h-4 w-4" /> Add event</Button>
+        </div>
+
+        {/* IOCs */}
+        <div>
+          <label className={labelCls}>IOCs (grading truth — the indicators that matter)</label>
+          <div className="space-y-2">
+            {draft.iocs.map((io, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <select className={cn(inputCls, "max-w-[120px]")} value={io.type} onChange={e => upIoc(i, { type: e.target.value })}>{IOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                <input className={inputCls} value={io.value} onChange={e => upIoc(i, { value: e.target.value })} placeholder="value (must also appear in an event above)" />
+                <button onClick={() => up("iocs", draft.iocs.filter((_, j) => j !== i))} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ))}
+          </div>
+          <Button variant="ghost" size="sm" className="mt-1" onClick={() => up("iocs", [...draft.iocs, { type: "ip", value: "" }])}><Plus className="h-3.5 w-3.5" /> Add IOC</Button>
+        </div>
+
+        {/* Questions */}
+        <div>
+          <label className={labelCls}>Questions</label>
+          <div className="space-y-3">
+            {draft.questions.map((q, qi) => (
+              <div key={qi} className="rounded border border-border bg-bg p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <textarea className={cn(inputCls, "min-h-[44px]")} value={q.prompt} onChange={e => upQ(qi, { prompt: e.target.value })} placeholder={`Question ${qi + 1}`} />
+                  <select className={cn(inputCls, "max-w-[110px]")} value={q.kind} onChange={e => upQ(qi, { kind: e.target.value as "single" | "multi", correct: [] })}>
+                    <option value="single">Single</option><option value="multi">Multi</option>
+                  </select>
+                  {draft.questions.length > 1 && <button onClick={() => up("questions", draft.questions.filter((_, j) => j !== qi))} className="mt-1 rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>}
+                </div>
+                <p className="text-[10px] text-slate-500">Mark the correct {q.kind === "multi" ? "answers" : "answer"}.</p>
+                <div className="space-y-1.5">
+                  {q.options.map((o, oi) => (
+                    <div key={oi} className="flex items-center gap-2">
+                      <input type={q.kind === "multi" ? "checkbox" : "radio"} name={`s-correct-${qi}`} checked={q.correct.includes(oi)} onChange={() => setCorrect(qi, oi, q.kind)} className="accent-cyber-500" />
+                      <input className={inputCls} value={o} onChange={e => upQOpt(qi, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
+                      {q.options.length > 2 && <button onClick={() => upQ(qi, { options: q.options.filter((_, k) => k !== oi), correct: q.correct.filter(x => x !== oi).map(x => x > oi ? x - 1 : x) })} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" /></button>}
+                    </div>
+                  ))}
+                </div>
+                {q.options.length < 6 && <Button variant="ghost" size="sm" onClick={() => upQ(qi, { options: [...q.options, ""] })}><Plus className="h-3.5 w-3.5" /> Add option</Button>}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-500">XP</span>
+                  <input type="number" className={cn(inputCls, "max-w-[90px]")} value={q.xp} onChange={e => upQ(qi, { xp: Number(e.target.value) })} />
+                </div>
+                <textarea className={cn(inputCls, "min-h-[40px]")} value={q.explanation} onChange={e => upQ(qi, { explanation: e.target.value })} placeholder="Explanation shown after answering (optional)." />
+              </div>
+            ))}
+          </div>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => up("questions", [...draft.questions, emptySQuestion()])}><Plus className="h-4 w-4" /> Add question</Button>
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <Button variant="primary" size="sm" disabled={busy} onClick={() => submit("published")}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Publish</Button>
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => submit("draft")}>Save draft</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Banner error={error} notice={notice} />
+      <div className="mt-3 mb-3">
+        <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyScenario()); }}><Plus className="h-4 w-4" /> New scenario</Button>
+      </div>
+      <ItemList items={items} rowBusy={rowBusy}
+        onEdit={r => loadForEdit(r.id)}
+        onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
+        onDelete={r => remove(r.id, String(r.content?.title ?? r.id))}
+        emptyLabel="No scenarios authored yet. Your students still see all the global built-in scenarios." />
+    </>
+  );
+}
+
 // ─── wrapper ─────────────────────────────────────────────────────────────────
 export function ContentAuthoringPanel() {
   const [tab, setTab] = useState<ContentTab>("lessons");
   const TABS: { id: ContentTab; label: string; icon: typeof BookOpen }[] = [
     { id: "lessons", label: "Lessons", icon: BookOpen },
     { id: "quizzes", label: "Quizzes", icon: ClipboardList },
+    { id: "scenarios", label: "Scenarios", icon: Target },
   ];
   return (
     <Card>
@@ -394,7 +624,7 @@ export function ContentAuthoringPanel() {
         <Pencil className="h-4 w-4 text-cyber-300" /> Course Content
       </h2>
       <p className="mt-1 text-xs text-slate-400">
-        Write lessons and quizzes unique to your college. Published items appear to your students alongside the global built-in content. Drafts are visible only to you.
+        Write lessons, quizzes and live scenarios unique to your college. Published items appear to your students alongside the global built-in content. Drafts are visible only to you.
       </p>
 
       <div className="mt-3 flex gap-1 border-b border-border">
@@ -407,11 +637,7 @@ export function ContentAuthoringPanel() {
         ))}
       </div>
 
-      {tab === "lessons" ? <LessonsTab /> : <QuizzesTab />}
-
-      <div className="mt-4 flex items-center gap-2 rounded border border-border bg-bg px-3 py-2 text-[11px] text-slate-500">
-        <Target className="h-3.5 w-3.5 shrink-0" /> Scenario authoring (custom live investigations) is coming in a later phase.
-      </div>
+      {tab === "lessons" ? <LessonsTab /> : tab === "quizzes" ? <QuizzesTab /> : <ScenariosTab />}
     </Card>
   );
 }

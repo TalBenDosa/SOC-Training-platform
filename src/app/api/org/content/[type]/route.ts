@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isOrgContentType, ORG_CONTENT_TABLE, normalizeOrgContent } from "@/lib/content/orgContent";
+import { splitAuthored } from "@/lib/scenarios/authored";
 
 /**
  * Per-org, manually-authored content (Phase 2 — migration 0040).
@@ -56,6 +57,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const status = body.status === "published" ? "published" : "draft";
+
+  // Scenarios use the two-projection split: the client-safe content goes in
+  // content_scenarios, the answer key in the service-role-only key table.
+  if (type === "scenarios") {
+    const split = splitAuthored(orgId, body);
+    if (!split.ok) return NextResponse.json({ error: split.error }, { status: 422 });
+
+    const existing = await admin.from("content_scenarios").select("org_id").eq("id", split.id).maybeSingle();
+    if (existing.data && existing.data.org_id !== orgId) {
+      return NextResponse.json({ error: "That item belongs to another environment." }, { status: 409 });
+    }
+
+    const { data, error } = await admin
+      .from("content_scenarios")
+      .upsert({ id: split.id, org_id: orgId, status, content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" })
+      .select("id, status, content, created_at, updated_at")
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const { error: keyErr } = await admin
+      .from("content_scenario_keys")
+      .upsert({ id: split.id, org_id: orgId, answer_key: split.answerKey }, { onConflict: "id" });
+    if (keyErr) return NextResponse.json({ error: keyErr.message }, { status: 500 });
+
+    return NextResponse.json({ item: data });
+  }
 
   const norm = normalizeOrgContent(type, orgId, body);
   if (!norm.ok) return NextResponse.json({ error: norm.error }, { status: 422 });
@@ -68,7 +96,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     return NextResponse.json({ error: "That item belongs to another environment." }, { status: 409 });
   }
 
-  const status = body.status === "published" ? "published" : "draft";
   const { data, error } = await admin
     .from(ORG_CONTENT_TABLE[type])
     .upsert(
