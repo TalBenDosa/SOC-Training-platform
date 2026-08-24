@@ -166,13 +166,14 @@ export default function ScenariosPage() {
 
         {/* Built-in scenarios */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {visibleBuiltIn.map(s => {
+          {visibleBuiltIn.map((s, i) => {
             const Icon = ICON[s.attack_kind] ?? ShieldQuestion;
             return (
               <LibraryCard
                 key={s.slug}
                 href={`/scenarios/${s.slug}`}
                 seed={s.slug}
+                index={i}
                 icon={Icon}
                 typeLabel="Simulation"
                 title={s.title}
@@ -200,11 +201,12 @@ export default function ScenariosPage() {
               page (/scenarios/[id]), not the client-side preview. Their card
               deliberately shows only title + briefing + difficulty; the verdict,
               IOCs and answers live server-side (migration 0041). */}
-          {published.filter(s => s.kind === "authored" && s.scenario_id).map(s => (
+          {published.filter(s => s.kind === "authored" && s.scenario_id).map((s, i) => (
             <LibraryCard
               key={s.scenario_id}
               href={`/scenarios/${encodeURIComponent(s.scenario_id!)}`}
               seed={s.scenario_id!}
+              index={i}
               icon={Target}
               typeLabel="Custom Simulation"
               title={s.title}
@@ -221,13 +223,14 @@ export default function ScenariosPage() {
           ))}
 
           {/* AI-generated / published scenarios (legacy client-preview path) */}
-          {published.filter(s => s.kind !== "authored").map(s => {
+          {published.filter(s => s.kind !== "authored").map((s, i) => {
             const Icon = ICON[s.attack_kind] ?? BotIcon;
             return (
               <LibraryCard
                 key={s.id}
                 onClick={() => launchGenerated(s)}
                 seed={s.id}
+                index={i}
                 icon={Icon}
                 typeLabel="AI Scenario"
                 title={s.title}

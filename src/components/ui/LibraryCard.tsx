@@ -7,12 +7,15 @@
  * optional corner badge (e.g. difficulty), then title / summary / meta / CTA.
  */
 import Link from "next/link";
-import { coverArt, patternOverlay } from "@/lib/ui/coverArt";
+import { coverArt } from "@/lib/ui/coverArt";
 import { cn } from "@/lib/utils";
 
 export type LibraryCardProps = {
   /** Stable string that drives the generated art (slug / id). */
   seed: string;
+  /** Card position in its list — rotates the scene family so a page doesn't
+   *  cluster on one composition. */
+  index?: number;
   title: string;
   subtitle?: string;
   /** Motif icon shown large in the hero and small in the type badge. */
@@ -36,32 +39,22 @@ export type LibraryCardProps = {
   className?: string;
 };
 
-function Hero({ seed, icon: Icon, typeLabel, image }: Pick<LibraryCardProps, "seed" | "icon" | "typeLabel" | "image">) {
-  const art = coverArt(seed);
+function Hero({ seed, index, icon: Icon, typeLabel, image }: Pick<LibraryCardProps, "seed" | "index" | "icon" | "typeLabel" | "image">) {
+  const art = coverArt(seed, index ?? 0);
   return (
     <div className="relative aspect-[16/9] w-full overflow-hidden">
       {image ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={image} alt="" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]" />
       ) : (
-        <div className="absolute inset-0" style={{ background: art.background }}>
-          {/* motif overlay */}
-          <div
-            className="absolute inset-0 opacity-[0.16]"
-            style={{ backgroundImage: patternOverlay(art.pattern) }}
-          />
-          {/* oversized icon */}
-          <Icon
-            className="absolute -right-4 -top-3 h-40 w-40 text-white/25 transition duration-300 group-hover:scale-110"
-            style={{ transform: `rotate(${art.iconRotate}deg)` }}
-            strokeWidth={1.25}
-          />
-          {/* legibility scrim */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/25" />
-        </div>
+        // Generated SVG scene (varied composition per item) as the hero.
+        <div
+          className="absolute inset-0 transition duration-300 group-hover:scale-[1.05]"
+          style={{ backgroundImage: art.dataUri, backgroundSize: "cover", backgroundPosition: "center" }}
+        />
       )}
       {typeLabel && (
-        <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/20 bg-black/35 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
+        <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full border border-white/20 bg-black/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
           <Icon className="h-3 w-3" /> {typeLabel}
         </span>
       )}
@@ -70,7 +63,7 @@ function Hero({ seed, icon: Icon, typeLabel, image }: Pick<LibraryCardProps, "se
 }
 
 export function LibraryCard(props: LibraryCardProps) {
-  const { seed, title, subtitle, icon, typeLabel, image, cornerBadge, meta, cta, children, href, onClick, disabled, className } = props;
+  const { seed, index, title, subtitle, icon, typeLabel, image, cornerBadge, meta, cta, children, href, onClick, disabled, className } = props;
 
   const shell = cn(
     "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated text-left",
@@ -82,7 +75,7 @@ export function LibraryCard(props: LibraryCardProps) {
   const inner = (
     <>
       <div className="relative">
-        <Hero seed={seed} icon={icon} typeLabel={typeLabel} image={image} />
+        <Hero seed={seed} index={index} icon={icon} typeLabel={typeLabel} image={image} />
         {cornerBadge && <div className="absolute right-3 top-3">{cornerBadge}</div>}
       </div>
       <div className="flex flex-1 flex-col p-4">
