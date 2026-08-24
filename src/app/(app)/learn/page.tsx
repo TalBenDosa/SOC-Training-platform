@@ -96,15 +96,43 @@ function renderInline(text: string, keyBase: string | number) {
   });
 }
 
-// One fenced ```code``` block → a scrollable <pre>. Mermaid fences render as diagrams.
+// Shared "code/example" card: a subtle terminal-window header (muted window dots
+// + a type label) over legible monospace. Replaces the old glowing-green <pre> so
+// snippets read clearly as worked examples. Kept byte-for-byte in sync with the
+// route reader (learn/[slug]/[lesson]/page.tsx) so both surfaces look identical.
+function labelForLang(lang: string) {
+  const l = (lang || "").trim().toLowerCase();
+  if (!l || l === "text" || l === "plaintext") return "Example";
+  const map: Record<string, string> = {
+    spl: "SPL", kql: "KQL", aql: "AQL", eql: "EQL", sql: "SQL",
+    ps: "PowerShell", powershell: "PowerShell", bash: "Shell", sh: "Shell",
+    cmd: "Command", log: "Log", json: "JSON", yaml: "YAML", yara: "YARA",
+    sigma: "Sigma", xml: "XML", http: "HTTP", regex: "Regex",
+  };
+  return map[l] ?? lang.toUpperCase();
+}
+
+function CodeCard({ label, code }: { label: string; code: string }) {
+  return (
+    <div className="my-4 overflow-hidden rounded-xl border border-slate-700/50 bg-[#0a0f1c] shadow-sm">
+      <div className="flex items-center justify-between border-b border-slate-700/40 bg-slate-800/25 px-4 py-2">
+        <span className="flex gap-1.5" aria-hidden="true">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-400/40" />
+          <span className="h-2.5 w-2.5 rounded-full bg-amber-400/40" />
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/40" />
+        </span>
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">{label}</span>
+      </div>
+      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[12.5px] leading-relaxed text-slate-200"><code>{code}</code></pre>
+    </div>
+  );
+}
+
+// One fenced ```code``` block → a code card. Mermaid fences render as diagrams.
 function renderFencedCode(lang: string, body: string, key: string) {
   const code = body.replace(/\n+$/, "");
   if (lang === "mermaid" || isMermaidSource(code)) return <MermaidDiagram key={key} chart={code} />;
-  return (
-    <pre key={key} className="overflow-x-auto rounded-lg border border-[#1e2d4a] bg-[#0b1120] p-3 font-mono text-[12.5px] leading-relaxed text-neon-green">
-      <code>{code}</code>
-    </pre>
-  );
+  return <CodeCard key={key} label={labelForLang(lang)} code={code} />;
 }
 
 function renderContent(text: string) {
@@ -321,11 +349,7 @@ function SectionPageContent({
       {section.codeExample && (
         isMermaidSource(section.codeExample)
           ? <MermaidDiagram chart={section.codeExample} />
-          : (
-            <div className="overflow-x-auto rounded-lg border border-[#1e2d4a] bg-[#0a1020]">
-              <pre className="p-4 font-mono text-xs leading-relaxed text-neon-green">{section.codeExample}</pre>
-            </div>
-          )
+          : <CodeCard label="Example" code={section.codeExample} />
       )}
 
     </div>
