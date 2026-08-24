@@ -31,6 +31,13 @@ const csp = [
   "img-src 'self' data: blob: https://*.supabase.co https://avatars.githubusercontent.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  // In-app "College Materials" viewer: PDFs render in a SAME-ORIGIN blob: iframe
+  // (the signed URL is fetched via connect-src and turned into a blob, so it
+  // never lands in the DOM), and videos stream from Supabase storage. This lets
+  // materials open INSIDE the platform instead of a separate browser tab.
+  // object-src stays 'none' — we use <iframe>/<video>, never <object>/<embed>.
+  "frame-src 'self' blob:",
+  "media-src 'self' blob: https://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
