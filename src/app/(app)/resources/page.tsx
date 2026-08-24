@@ -14,6 +14,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
+import { LibraryCard } from "@/components/ui/LibraryCard";
 import { cn } from "@/lib/utils";
 import { FileText, Presentation, Video, Loader2, Library, Eye, X, Download, AlertTriangle } from "lucide-react";
 import { fetchOrgResources, type OrgResource } from "@/lib/content/publicContent";
@@ -126,31 +127,24 @@ export default function ResourcesPage() {
             <p className="max-w-sm text-xs text-slate-400">Your college hasn&apos;t published any presentations or videos yet. They&apos;ll appear here when they do.</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {items.map(r => {
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((r, i) => {
               const m = KIND_META[r.kind];
               return (
-                <button
+                <LibraryCard
                   key={r.id}
                   onClick={() => open(r)}
                   disabled={opening === r.id}
-                  className="group flex items-start gap-3 rounded-xl border border-border bg-bg-elevated px-4 py-3.5 text-left transition hover:border-cyber-500/50 hover:bg-bg-hover disabled:opacity-60"
-                >
-                  <span className={cn("mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border", m.cls)}>
-                    <m.icon className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-white group-hover:text-cyber-300">{r.title}</span>
-                    <span className="mt-0.5 block text-[11px] text-slate-500">{m.label} · {fmtSize(r.size_bytes)}</span>
-                  </span>
-                  {opening === r.id ? (
-                    <Loader2 className="mt-1 h-4 w-4 shrink-0 animate-spin text-slate-400" />
-                  ) : (
-                    <span className="mt-0.5 flex items-center gap-1 rounded-md border border-transparent px-2 py-1 text-[11px] font-semibold text-slate-500 transition group-hover:border-cyber-500/30 group-hover:text-cyber-300">
-                      <Eye className="h-3.5 w-3.5" /> Open
-                    </span>
-                  )}
-                </button>
+                  seed={r.id}
+                  index={i}
+                  icon={m.icon}
+                  typeLabel={m.label}
+                  title={r.title}
+                  meta={<>{m.label} · {fmtSize(r.size_bytes)}</>}
+                  cta={opening === r.id
+                    ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
+                    : <span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25"><Eye className="h-3.5 w-3.5" /> Open</span>}
+                />
               );
             })}
           </div>
