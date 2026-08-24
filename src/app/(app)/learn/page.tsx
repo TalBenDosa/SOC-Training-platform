@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 import { fetchPublishedLessons } from "@/lib/content/publicContent";
-import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen } from "lucide-react";
+import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen, ListChecks, BookMarked } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
@@ -337,8 +337,13 @@ function SectionPageContent({
 function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void }) {
   const [page, setPage]             = useState(0);
 
-  // Page layout:  0 = intro,  1..N = sections
-  const totalPages = 1 + lesson.sections.length;
+  // A closing summary page is shown whenever the lesson carries takeaways or
+  // references — content the reader previously never surfaced, and which also
+  // gives the final page real substance instead of ending mid-section.
+  const hasSummary = (lesson.keyTakeaways?.length ?? 0) > 0 || (lesson.references?.length ?? 0) > 0;
+
+  // Page layout:  0 = intro,  1..N = sections,  N+1 = summary (if any)
+  const totalPages = 1 + lesson.sections.length + (hasSummary ? 1 : 0);
 
   const goTo   = useCallback((p: number) => setPage(Math.max(0, Math.min(p, totalPages - 1))), [totalPages]);
   const onNext = () => goTo(page + 1);
@@ -359,8 +364,9 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
   const progress = ((page + 1) / totalPages) * 100;
 
   // Current content
-  const isIntro = page === 0;
-  const section = !isIntro ? lesson.sections[page - 1] : null;
+  const isIntro   = page === 0;
+  const isSummary = hasSummary && page === totalPages - 1;
+  const section   = !isIntro && !isSummary ? lesson.sections[page - 1] : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 sm:p-6">
@@ -406,12 +412,81 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
               </div>
 
               {renderContent(lesson.intro)}
+
+              {/* ── "In this lesson" agenda ──────────────────────────────────
+                  The intro is a single framing paragraph, so on a full-height
+                  page it left a large empty area below it. This outline fills
+                  the page with genuinely useful content — the student sees the
+                  path ahead and can jump straight to any section. */}
+              {lesson.sections.length > 0 && (
+                <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
+                  <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
+                    <ListChecks className="h-3.5 w-3.5" /> In this lesson
+                  </h3>
+                  <ol className="space-y-2.5">
+                    {lesson.sections.map((s, i) => (
+                      <li key={i}>
+                        <button
+                          onClick={() => goTo(i + 1)}
+                          className="group flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
+                        >
+                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/10 text-[11px] font-bold text-cyan-300">
+                            {i + 1}
+                          </span>
+                          <span className="text-[14px] leading-snug text-slate-300 group-hover:text-cyan-200">
+                            {s.heading}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
             </div>
           )}
 
           {/* Section page */}
           {section && (
             <SectionPageContent lesson={lesson} section={section} />
+          )}
+
+          {/* Summary page — key takeaways + references (previously unrendered) */}
+          {isSummary && (
+            <div className="space-y-6">
+              <div className="pb-5 border-b border-[#1e2d4a]">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
+                  Wrap-up
+                </span>
+                <h1 className="text-[22px] font-bold text-white leading-snug">Key Takeaways</h1>
+              </div>
+
+              {(lesson.keyTakeaways?.length ?? 0) > 0 && (
+                <ul className="space-y-3">
+                  {lesson.keyTakeaways.map((t, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                      <span className="text-[15px] leading-relaxed text-slate-200">{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {(lesson.references?.length ?? 0) > 0 && (
+                <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
+                  <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
+                    <BookMarked className="h-3.5 w-3.5" /> References &amp; further reading
+                  </h3>
+                  <ul className="space-y-2">
+                    {lesson.references.map((r, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-slate-400">
+                        <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500/60" />
+                        <span>{r}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
