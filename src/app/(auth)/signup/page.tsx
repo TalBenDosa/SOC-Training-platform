@@ -230,14 +230,20 @@ export default function SignupPage() {
     // deployment: mailer_autoconfirm), signUp returns an active session — the
     // account is ready NOW. Otherwise show "check your email".
     if (data.session) {
-      // Render the success confirmation FIRST, so it can't be skipped by the
-      // sign-out below re-rendering the tree. Then sign the fresh session out
-      // in the background (the request is to land on sign-in, and arriving
-      // there already authenticated would be confusing), and auto-advance
-      // after a beat long enough to actually read the confirmation.
+      // Render the success confirmation FIRST so the sign-out below can't blank
+      // it. The account is live (autoconfirm → active session); the product ask
+      // is to land the student on sign-in, so clear the just-created session.
+      //
+      // AWAIT the sign-out, THEN do a HARD navigation. The previous version
+      // fired a fire-and-forget signOut() and a *soft* router.push 2.6s later —
+      // that raced the auth-cookie clear and Next's client RSC cache, and could
+      // drop the user straight back onto the signup form, so a successful
+      // registration read as "it didn't work". A full-page load of /login is
+      // immune to that race. (The /login join-code path uses window.location
+      // for the same reason.)
       setSignedUp(true);
-      void supabase.auth.signOut();
-      setTimeout(() => router.push("/login?registered=1"), 2600);
+      try { await supabase.auth.signOut(); } catch { /* land on sign-in regardless */ }
+      setTimeout(() => { window.location.assign("/login?registered=1"); }, 1800);
     } else {
       setCheckEmail(true);
     }
@@ -274,11 +280,14 @@ export default function SignupPage() {
         <p className="mt-1 text-sm text-slate-400">Sign in to start training.</p>
         {/* The confirmation is the point, so the button is the primary path.
             An auto-redirect follows a couple of seconds later as a fallback. */}
-        <Link href="/login?registered=1" className="mt-6 block">
+        {/* Plain anchor (hard navigation), not next/link — a soft client nav
+            here can race the sign-out that's clearing the session and bounce
+            back to the form. A full-page load of /login is race-free. */}
+        <a href="/login?registered=1" className="mt-6 block">
           <Button variant="primary" size="lg" className="w-full">
             Continue to sign in <ArrowRight className="h-4 w-4" />
           </Button>
-        </Link>
+        </a>
         <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
           <Loader2 className="h-3 w-3 animate-spin" /> Taking you there automatically…
         </p>
