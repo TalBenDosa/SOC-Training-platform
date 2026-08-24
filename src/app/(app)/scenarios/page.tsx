@@ -3,15 +3,15 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { LibraryCard } from "@/components/ui/LibraryCard";
 import { SCENARIOS } from "@/lib/sim/scenarios";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import Link from "next/link";
 import {
   Sparkles, Zap, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
-  BotIcon, EyeOff, GraduationCap, Target,
+  BotIcon, EyeOff, GraduationCap, Target, ArrowRight,
 } from "lucide-react";
 
 // ── Readiness map ──────────────────────────────────────────────────────────
@@ -169,47 +169,30 @@ export default function ScenariosPage() {
           {visibleBuiltIn.map(s => {
             const Icon = ICON[s.attack_kind] ?? ShieldQuestion;
             return (
-              <Card key={s.slug} className="flex flex-col">
-                <div className="flex items-start justify-between">
-                  <div className="rounded-md border border-cyber-500/30 bg-cyber-500/10 p-2.5 text-cyber-300">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
-                </div>
-                <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
-                <p className="mt-1 flex-1 text-sm text-slate-400">{s.summary}</p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {/* attack_kind and threat_actor both spoil the exercise from the
-                      card: attack_kind renders "false positive" and threat_actor
-                      renders "None - authorised backup activity", so a student
-                      knows the verdict before opening the scenario. Difficulty is
-                      the only property they legitimately need in order to choose. */}
-                  <Badge variant="outline">{s.difficulty}</Badge>
-                </div>
-                {/* Soft readiness hint — recommends, never blocks. */}
+              <LibraryCard
+                key={s.slug}
+                href={`/scenarios/${s.slug}`}
+                seed={s.slug}
+                icon={Icon}
+                typeLabel="Simulation"
+                title={s.title}
+                subtitle={s.summary}
+                cornerBadge={<span className={diffPill(s.difficulty)}>{s.difficulty}</span>}
+                meta={<>+250 XP · ~45 min</>}
+                cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25">Launch <ArrowRight className="h-3.5 w-3.5" /></span>}
+              >
+                {/* Soft readiness hint — recommends, never blocks. Plain labels
+                    (not links): the whole card is a link, so nested anchors are
+                    invalid — the recommendation stays visible as text. */}
                 {prepGaps(s.slug).length > 0 && (
                   <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/25 bg-amber-500/5 px-2.5 py-2 text-[11px] text-amber-200/90">
                     <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
-                    <span>
-                      Recommended first:{" "}
-                      {prepGaps(s.slug).map((id, i) => (
-                        <span key={id}>
-                          {i > 0 && ", "}
-                          <Link href={`/rooms/${id}`} className="underline decoration-amber-500/40 hover:text-amber-100">
-                            {ROOM_LABEL[id] ?? id}
-                          </Link>
-                        </span>
-                      ))}
-                    </span>
+                    <span>Recommended first: {prepGaps(s.slug).map((id, i) => (
+                      <span key={id} className="text-amber-100">{i > 0 ? ", " : ""}{ROOM_LABEL[id] ?? id}</span>
+                    ))}</span>
                   </div>
                 )}
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-[11px] text-slate-400">+250 XP · ~45 min</div>
-                  <Link href={`/scenarios/${s.slug}`}>
-                    <Button variant="primary" size="sm">Launch</Button>
-                  </Link>
-                </div>
-              </Card>
+              </LibraryCard>
             );
           })}
 
@@ -218,64 +201,46 @@ export default function ScenariosPage() {
               deliberately shows only title + briefing + difficulty; the verdict,
               IOCs and answers live server-side (migration 0041). */}
           {published.filter(s => s.kind === "authored" && s.scenario_id).map(s => (
-            <Card key={s.scenario_id} className="flex flex-col border-cyber-500/20">
-              <div className="flex items-start justify-between">
-                <div className="rounded-md border border-cyber-500/30 bg-cyber-500/10 p-2.5 text-cyber-300">
-                  <Target className="h-5 w-5" />
-                </div>
+            <LibraryCard
+              key={s.scenario_id}
+              href={`/scenarios/${encodeURIComponent(s.scenario_id!)}`}
+              seed={s.scenario_id!}
+              icon={Target}
+              typeLabel="Custom Simulation"
+              title={s.title}
+              subtitle={s.briefing}
+              cornerBadge={
                 <div className="flex items-center gap-2">
-                  <span className="rounded border border-cyber-500/30 bg-cyber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyber-300">
-                    Custom
-                  </span>
+                  <span className="rounded border border-cyber-500/30 bg-black/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyber-200 backdrop-blur-sm">Custom</span>
                   <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
                 </div>
-              </div>
-              <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
-              <p className="mt-1 flex-1 text-sm text-slate-400 line-clamp-2">{s.briefing}</p>
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-[11px] text-slate-400">Investigation</div>
-                <Link href={`/scenarios/${encodeURIComponent(s.scenario_id!)}`}>
-                  <Button variant="primary" size="sm">Launch</Button>
-                </Link>
-              </div>
-            </Card>
+              }
+              meta={<>Investigation</>}
+              cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25">Launch <ArrowRight className="h-3.5 w-3.5" /></span>}
+            />
           ))}
 
           {/* AI-generated / published scenarios (legacy client-preview path) */}
           {published.filter(s => s.kind !== "authored").map(s => {
             const Icon = ICON[s.attack_kind] ?? BotIcon;
             return (
-              <Card key={s.id} className="flex flex-col border-neon-green/20">
-                <div className="flex items-start justify-between">
-                  <div className="rounded-md border border-neon-green/30 bg-neon-green/10 p-2.5 text-neon-green">
-                    <Icon className="h-5 w-5" />
-                  </div>
+              <LibraryCard
+                key={s.id}
+                onClick={() => launchGenerated(s)}
+                seed={s.id}
+                icon={Icon}
+                typeLabel="AI Scenario"
+                title={s.title}
+                subtitle={s.narrative}
+                cornerBadge={
                   <div className="flex items-center gap-2">
-                    <span className="rounded border border-neon-green/30 bg-neon-green/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-green">
-                      AI Generated
-                    </span>
+                    <span className="rounded border border-neon-green/30 bg-black/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-green backdrop-blur-sm">AI Generated</span>
                     <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
                   </div>
-                </div>
-                <h3 className="mt-3 text-base font-bold text-white">{s.title}</h3>
-                <p className="mt-1 flex-1 text-sm text-slate-400 line-clamp-2">{s.narrative}</p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {/* attack_kind and threat_actor both spoil the exercise from the
-                      card: attack_kind renders "false positive" and threat_actor
-                      renders "None - authorised backup activity", so a student
-                      knows the verdict before opening the scenario. Difficulty is
-                      the only property they legitimately need in order to choose. */}
-                  <Badge variant="outline">{s.difficulty}</Badge>
-                </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-[11px] text-slate-400">
-                    {new Date(s.published_at).toLocaleDateString()}
-                  </div>
-                  <Button variant="secondary" size="sm" onClick={() => launchGenerated(s)}>
-                    Launch
-                  </Button>
-                </div>
-              </Card>
+                }
+                meta={<>{new Date(s.published_at).toLocaleDateString()}</>}
+                cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25">Launch <ArrowRight className="h-3.5 w-3.5" /></span>}
+              />
             );
           })}
         </div>
