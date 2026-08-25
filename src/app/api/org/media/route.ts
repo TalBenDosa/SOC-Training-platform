@@ -69,6 +69,68 @@ export async function POST(req: Request) {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
+  // ── Two-step (direct-to-storage) finalize ──────────────────────────────────
+  // The browser already PUT the bytes to a signed upload URL (POST /sign),
+  // bypassing Vercel's ~4.5MB serverless request-body limit that made mid-size
+  // PPTX/PDF/video uploads fail. Here we re-validate the ACTUAL stored object by
+  // its magic bytes + size (never a client claim), then create the row.
+  if ((req.headers.get("content-type") ?? "").includes("application/json")) {
+    const body = await req.json().catch(() => ({}));
+    const storageKey = String(body?.storageKey ?? "");
+    const title = String(body?.title ?? "").trim();
+    if (!title) return NextResponse.json({ error: "A title is required." }, { status: 400 });
+    // The key MUST live under this org's prefix — never trust a client path.
+    if (!storageKey || !storageKey.startsWith(`${orgId}/`)) {
+      return NextResponse.json({ error: "Invalid upload reference." }, { status: 400 });
+    }
+    const { data: signed, error: signErr } = await admin.storage.from(BUCKET).createSignedUrl(storageKey, 60);
+    if (signErr || !signed) return NextResponse.json({ error: "Could not read the uploaded file." }, { status: 500 });
+
+    // Read only the first bytes (Range) so a 200MB video isn't pulled into the
+    // function; fall back to the reader's first chunk if Range is ignored.
+    let magic = new Uint8Array();
+    let size = 0;
+    try {
+      const head = await fetch(signed.signedUrl, { headers: { Range: "bytes=0-15" } });
+      if (!head.ok && head.status !== 206) throw new Error("read");
+      const cr = head.headers.get("content-range");
+      size = parseInt(cr?.split("/")[1] ?? head.headers.get("content-length") ?? "0", 10);
+      const reader = head.body?.getReader();
+      if (reader) { const { value } = await reader.read(); reader.cancel().catch(() => {}); if (value) magic = value.subarray(0, 16); }
+    } catch {
+      await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
+      return NextResponse.json({ error: "Upload did not complete. Please try again." }, { status: 400 });
+    }
+
+    const kind = sniff(magic);
+    if (!kind) {
+      await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
+      return NextResponse.json({ error: "Unsupported file type. Allowed: PDF, PPTX, MP4/WebM video." }, { status: 415 });
+    }
+    const cap = kind.kind === "video" ? MAX_VIDEO_BYTES : MAX_DOC_BYTES;
+    if (size > cap) {
+      await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
+      return NextResponse.json({ error: `File too large (max ${Math.round(cap / 1024 / 1024)}MB for ${kind.kind}).` }, { status: 413 });
+    }
+    const { data: row, error: insErr } = await admin
+      .from("org_resources")
+      .insert({
+        org_id: orgId, kind: kind.kind, title, storage_key: storageKey,
+        mime: kind.mime, size_bytes: size, status: "draft", created_by: gate.user.id,
+      })
+      .select("id, kind, title, mime, size_bytes, status, created_at")
+      .single();
+    if (insErr) {
+      await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
+      return NextResponse.json({ error: insErr.message }, { status: 500 });
+    }
+    await logAudit({
+      actorId: gate.user.id, action: "org.media.uploaded",
+      targetTable: "org_resources", targetId: row.id, metadata: { org_id: orgId, kind: kind.kind, size },
+    });
+    return NextResponse.json({ resource: row });
+  }
+
   let form: FormData;
   try { form = await req.formData(); } catch { return NextResponse.json({ error: "Invalid upload." }, { status: 400 }); }
   const file = form.get("file");

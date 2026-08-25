@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Upload, FileText, Presentation, Video, Trash2, Eye, EyeOff, Loader2, Library } from "lucide-react";
 
 interface Resource {
@@ -45,18 +46,36 @@ export function MediaPanel() {
   }
   useEffect(() => { load(); }, []);
 
+  // Two-step upload: (1) the server signs a storage upload URL, (2) the browser
+  // PUTs the file DIRECTLY to Supabase Storage — bypassing Vercel's ~4.5MB
+  // serverless request-body limit that made mid-size PPTX/PDF/video uploads fail
+  // — then (3) the server re-validates the stored bytes and creates the row.
   async function upload() {
     setError(null); setNotice(null);
     if (!file) { setError("Choose a file to upload."); return; }
     if (!title.trim()) { setError("Give the material a title."); return; }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setError("Uploads aren't configured on this deployment."); return; }
+    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
     setBusy(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("title", title.trim());
-      const res = await fetch("/api/org/media", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(data?.error ?? "Upload failed."); return; }
+      // 1. sign
+      const signRes = await fetch("/api/org/media/sign", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ext }),
+      });
+      const sign = await signRes.json().catch(() => ({}));
+      if (!signRes.ok) { setError(sign?.error ?? "Could not start the upload."); return; }
+      // 2. direct upload to storage (no function body limit)
+      const up = await supabase.storage.from("org-media").uploadToSignedUrl(sign.path, sign.token, file);
+      if (up.error) { setError(up.error.message || "Upload failed while sending the file."); return; }
+      // 3. finalize — server re-validates + creates the row
+      const finRes = await fetch("/api/org/media", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storageKey: sign.path, title: title.trim() }),
+      });
+      const fin = await finRes.json().catch(() => ({}));
+      if (!finRes.ok) { setError(fin?.error ?? "Upload failed."); return; }
       setNotice("Uploaded as a draft. Publish it to show students.");
       setTitle(""); setFile(null); if (fileRef.current) fileRef.current.value = "";
       await load();
