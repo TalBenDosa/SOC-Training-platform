@@ -11,7 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Upload, FileText, Presentation, Video, Trash2, Eye, EyeOff, Loader2, Library } from "lucide-react";
+import { Upload, FileText, Presentation, Video, Trash2, Eye, EyeOff, Loader2, Library, Download, DownloadCloud } from "lucide-react";
 
 interface Resource {
   id: string;
@@ -20,6 +20,7 @@ interface Resource {
   mime: string;
   size_bytes: number;
   status: "draft" | "published";
+  allow_download: boolean;
   created_at: string;
 }
 
@@ -96,6 +97,16 @@ export function MediaPanel() {
     await load();
   }
 
+  async function setDownload(id: string, allow: boolean) {
+    setRowBusy(id); setError(null);
+    const res = await fetch(`/api/org/media/${id}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ allow_download: allow }),
+    });
+    setRowBusy(null);
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Update failed."); return; }
+    await load();
+  }
+
   async function remove(id: string, title: string) {
     if (!confirm(`Delete "${title}"? This removes the file for good.`)) return;
     setRowBusy(id); setError(null);
@@ -158,6 +169,17 @@ export function MediaPanel() {
                 pub ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-slate-500/40 bg-slate-500/10 text-slate-400")}>
                 {pub ? "Published" : "Draft"}
               </span>
+              {/* Download permission — OFF by default; students can only view
+                  until the admin opts this resource in. */}
+              <button
+                onClick={() => setDownload(r.id, !r.allow_download)}
+                disabled={rowBusy === r.id}
+                title={r.allow_download ? "Downloads allowed — click to disable" : "View-only — click to allow download"}
+                className={cn("rounded p-1.5 transition disabled:opacity-50",
+                  r.allow_download ? "text-cyber-300 hover:bg-cyber-500/10" : "text-slate-500 hover:bg-slate-500/10 hover:text-slate-300")}
+              >
+                {r.allow_download ? <DownloadCloud className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+              </button>
               <button
                 onClick={() => setStatus(r.id, pub ? "draft" : "published")}
                 disabled={rowBusy === r.id}

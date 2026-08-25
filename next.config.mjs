@@ -36,7 +36,8 @@ const csp = [
   // never lands in the DOM), and videos stream from Supabase storage. This lets
   // materials open INSIDE the platform instead of a separate browser tab.
   // object-src stays 'none' — we use <iframe>/<video>, never <object>/<embed>.
-  "frame-src 'self' blob:",
+  // blob: → in-app PDF viewer; officeapps.live.com → read-only PPTX slide viewer.
+  "frame-src 'self' blob: https://view.officeapps.live.com https://*.officeapps.live.com",
   "media-src 'self' blob: https://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",

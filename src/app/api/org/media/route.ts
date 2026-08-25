@@ -53,7 +53,7 @@ export async function GET() {
 
   const { data, error } = await admin
     .from("org_resources")
-    .select("id, kind, title, mime, size_bytes, status, created_at")
+    .select("id, kind, title, mime, size_bytes, status, allow_download, created_at")
     .eq("org_id", orgId)                     // service role bypasses RLS — re-assert
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
         org_id: orgId, kind: kind.kind, title, storage_key: storageKey,
         mime: kind.mime, size_bytes: size, status: "draft", created_by: gate.user.id,
       })
-      .select("id, kind, title, mime, size_bytes, status, created_at")
+      .select("id, kind, title, mime, size_bytes, status, allow_download, created_at")
       .single();
     if (insErr) {
       await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
@@ -164,7 +164,7 @@ export async function POST(req: Request) {
       org_id: orgId, kind: kind.kind, title, storage_key: storageKey,
       mime: kind.mime, size_bytes: bytes.length, status: "draft", created_by: gate.user.id,
     })
-    .select("id, kind, title, mime, size_bytes, status, created_at")
+    .select("id, kind, title, mime, size_bytes, status, allow_download, created_at")
     .single();
   if (insErr) {
     // best-effort cleanup of the orphaned object

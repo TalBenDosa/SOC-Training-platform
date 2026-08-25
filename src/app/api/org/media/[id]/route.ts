@@ -27,16 +27,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
-  const status = body.status === "published" ? "published" : body.status === "draft" ? "draft" : null;
-  if (!status) return NextResponse.json({ error: "status must be 'published' or 'draft'." }, { status: 400 });
+  // Accept a publish/unpublish change and/or a download-permission change.
+  const update: Record<string, unknown> = {};
+  if (body.status === "published" || body.status === "draft") update.status = body.status;
+  if (typeof body.allow_download === "boolean") update.allow_download = body.allow_download;
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "Nothing to update — provide status and/or allow_download." }, { status: 400 });
+  }
 
   const owned = await ownRow(id, orgId, admin);
   if ("error" in owned) return owned.error;
 
-  const { error } = await admin.from("org_resources").update({ status }).eq("id", id).eq("org_id", orgId);
+  const { error } = await admin.from("org_resources").update(update).eq("id", id).eq("org_id", orgId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  await logAudit({ actorId: gate.user.id, action: `org.media.${status}`, targetTable: "org_resources", targetId: id, metadata: { org_id: orgId } });
-  return NextResponse.json({ ok: true, status });
+  const action = "status" in update
+    ? `org.media.${update.status}`
+    : `org.media.download_${update.allow_download ? "on" : "off"}`;
+  await logAudit({ actorId: gate.user.id, action, targetTable: "org_resources", targetId: id, metadata: { org_id: orgId, ...update } });
+  return NextResponse.json({ ok: true, ...update });
 }
 
 /** DELETE — remove the row and its storage object. */

@@ -183,15 +183,17 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
             <p className="truncate text-sm font-semibold text-white">{r.title}</p>
             <p className="text-[11px] text-slate-500">{m.label} · {fmtSize(r.size_bytes)}</p>
           </div>
-          <a
-            href={blobUrl ?? url}
-            download={r.kind === "pptx" ? undefined : r.title}
-            target={r.kind === "pptx" ? "_blank" : undefined}
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-elevated px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300"
-          >
-            <Download className="h-3.5 w-3.5" /> Download
-          </a>
+          {/* Download is OFF unless the college opted this resource in. */}
+          {r.allow_download && (
+            <a
+              href={blobUrl ?? url}
+              download={r.title}
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-border bg-bg-elevated px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300"
+            >
+              <Download className="h-3.5 w-3.5" /> Download
+            </a>
+          )}
           <button
             onClick={onClose}
             aria-label="Close"
@@ -221,21 +223,16 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
             </video>
           )}
 
+          {/* PPTX has no native browser renderer, so the slides are shown through
+              Microsoft's read-only Office embed (it fetches the short-lived
+              signed URL and renders the deck inline — no download needed). */}
           {r.kind === "pptx" && (
-            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-              <Presentation className="h-10 w-10 text-neon-amber" />
-              <p className="text-sm font-semibold text-white">PowerPoint presentation</p>
-              <p className="max-w-sm text-xs text-slate-400">
-                This presentation opens in PowerPoint. Download it to view the slides.
-              </p>
-              <a
-                href={url}
-                download={r.title}
-                className="mt-1 flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/10 px-4 py-2 text-sm font-semibold text-cyber-300 transition hover:bg-cyber-500/20"
-              >
-                <Download className="h-4 w-4" /> Download presentation
-              </a>
-            </div>
+            <iframe
+              src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`}
+              title={r.title}
+              className="h-full w-full border-0"
+              allowFullScreen
+            />
           )}
         </div>
       </div>

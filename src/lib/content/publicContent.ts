@@ -43,6 +43,9 @@ export interface OrgResource {
   title: string;
   mime: string;
   size_bytes: number;
+  /** Off by default — students can VIEW but only download once the org admin
+   *  opts this resource in. */
+  allow_download: boolean;
   created_at: string;
 }
 
@@ -51,7 +54,7 @@ export async function fetchOrgResources(): Promise<OrgResource[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("org_resources")
-    .select("id, kind, title, mime, size_bytes, created_at")
+    .select("id, kind, title, mime, size_bytes, allow_download, created_at")
     .eq("status", "published")
     .order("created_at", { ascending: false });
   if (error || !data) return [];
