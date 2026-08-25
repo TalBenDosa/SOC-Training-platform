@@ -334,15 +334,24 @@ function chunk4(events: TelemetryEvent[]): TelemetryEvent[][] {
 // (see chunk4 above) — not individually verified for beginner-friendliness,
 // so they default to "core" rather than being assumed simple. They still
 // give Medium/Hard sessions company-flavored variety beyond the generic pool.
+//
+// Exception: a few chain-D slices end in host-to-host lateral movement or a
+// root/privilege compromise (medcore-chain-d = VPN brute -> RDP lateral;
+// globallogis-chain-d = SSH brute -> root -> dropper). Those meet the "advanced"
+// bar, so a Medium session (foundation+core only) must NOT be served them —
+// they are promoted to "advanced" and surface at Hard, where they also add
+// company-specific variety to the otherwise generic advanced pool.
+const ADVANCED_CHAIN_SLICES = new Set(["medcore-chain-d", "globallogis-chain-d"]);
 const COMPANY_CHAIN_STORIES: AttackStory[] = Object.entries(COMPANY_ATTACKS).flatMap(
   ([companyId, events]) => {
     const titles = CHAIN_TITLES[companyId] ?? [];
-    return chunk4(events).map((chainEvents, i) =>
-      story(`${companyId}-chain-${String.fromCharCode(97 + i)}`,
+    return chunk4(events).map((chainEvents, i) => {
+      const id = `${companyId}-chain-${String.fromCharCode(97 + i)}`;
+      return story(id,
         { title: titles[i] ?? `${companyId} — Chain ${String.fromCharCode(65 + i)}`, events: chainEvents },
-        "core",
-        [companyId])
-    );
+        ADVANCED_CHAIN_SLICES.has(id) ? "advanced" : "core",
+        [companyId]);
+    });
   }
 );
 

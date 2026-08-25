@@ -90,16 +90,20 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
 
   return (
     <div className="relative inline-block">
-      {/* Hover works with a mouse; onClick is the touch/keyboard fallback (mirrors
-          Term.tsx) — without it this info card was unreachable on touch devices. */}
-      <span
-        className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider cursor-help", sourceColor)}
+      {/* A real <button> so keyboard users can reveal the card (focus/Enter),
+          not just mouse hover. onClick is the touch/keyboard toggle. */}
+      <button
+        type="button"
+        aria-expanded={visible}
+        className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60", sourceColor)}
         onMouseEnter={() => setVisible(true)}
         onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
         onClick={(e) => { e.stopPropagation(); setVisible(v => !v); }}
       >
         {sourceLabel}
-      </span>
+      </button>
       {visible && (
         <div
           className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-lg border border-border/80 bg-[#080d14] p-3 shadow-2xl"
@@ -139,80 +143,27 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
 function HeaderTip({ label, tip }: { label: string; tip: string }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className="relative inline-block"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-      onClick={(e) => { e.stopPropagation(); setVisible(v => !v); }}
-    >
-      <span className="cursor-help border-b border-dashed border-slate-600/60 hover:border-slate-400/60 transition-colors">
+    <div className="relative inline-block">
+      {/* A real <button> so keyboard users can reveal the tip (focus/Enter),
+          not just mouse hover. */}
+      <button
+        type="button"
+        aria-expanded={visible}
+        className="cursor-help border-b border-dashed border-slate-600/60 hover:border-slate-400/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60"
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
+        onClick={(e) => { e.stopPropagation(); setVisible(v => !v); }}
+      >
         {label}
-      </span>
+      </button>
       {visible && (
         <div className="absolute left-0 top-full mt-1.5 z-50 w-64 rounded-lg border border-border/80 bg-[#080d14] px-3 py-2 shadow-2xl">
           <p className="text-[10px] leading-relaxed text-slate-300">{tip}</p>
         </div>
       )}
     </div>
-  );
-}
-
-// ─── Action result badge (ALLOWED / BLOCKED / QUARANTINED …) ─────────────────
-
-type ActionStatus = "allowed" | "blocked" | "quarantined" | "killed" | "detected" | "denied";
-
-interface ActionInfo { label: string; status: ActionStatus }
-
-function extractAction(event: LiveEvent): ActionInfo | null {
-  const raw = event.raw ?? {};
-  // Try all key conventions used across event files (priority order)
-  const v: string = (
-    (raw["action_result"]       as string | undefined) ??
-    (raw["event.action_result"] as string | undefined) ??
-    (raw["firewall.action"]     as string | undefined) ??
-    (raw["pan.action"]          as string | undefined) ??
-    (raw["fortinet.action"]     as string | undefined) ??
-    (raw["action"]              as string | undefined) ??
-    (raw["event.action"]        as string | undefined) ??
-    ""
-  );
-  if (!v) return null;
-  const lv = v.toLowerCase();
-  if (lv === "allow" || lv === "allowed" || lv === "accept" || lv === "pass")
-    return { label: "ALLOWED",     status: "allowed"     };
-  if (lv === "block" || lv === "blocked" || lv === "deny" || lv === "denied" ||
-      lv === "drop"  || lv === "reset-both" || lv === "reset-client")
-    return { label: "BLOCKED",     status: "blocked"     };
-  if (lv === "quarantined")
-    return { label: "QUARANTINED", status: "quarantined" };
-  if (lv === "process_killed")
-    return { label: "KILLED",       status: "killed"      };
-  if (lv === "detected_not_blocked" || lv === "detect_only" || lv === "audit")
-    return { label: "DETECTED",     status: "detected"    };
-  if (lv.includes("allow") || lv.includes("accept"))  return { label: "ALLOWED",  status: "allowed"   };
-  if (lv.includes("block") || lv.includes("drop") || lv.includes("deny"))
-    return { label: "BLOCKED",  status: "blocked"   };
-  return null;
-}
-
-const ACTION_STYLE: Record<ActionStatus, string> = {
-  allowed:     "bg-neon-green/10   text-neon-green   border-neon-green/25",
-  blocked:     "bg-severity-high/15 text-severity-high border-severity-high/30",
-  quarantined: "bg-neon-amber/10   text-neon-amber   border-neon-amber/25",
-  killed:      "bg-severity-critical/15 text-severity-critical border-severity-critical/30",
-  detected:    "bg-severity-medium/15 text-severity-medium border-severity-medium/30",
-  denied:      "bg-severity-high/15 text-severity-high border-severity-high/30",
-};
-
-function ActionBadge({ event }: { event: LiveEvent }) {
-  const info = extractAction(event);
-  if (!info) return null;
-  return (
-    <span className={cn(
-      "shrink-0 inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest",
-      ACTION_STYLE[info.status]
-    )}>
-      {info.label}
-    </span>
   );
 }
 
@@ -297,6 +248,99 @@ function extractActionOutcome(event: LiveEvent): ActionOutcome {
   return null;
 }
 
+
+// ─── Raw-log view (highlighted + copy) ────────────────────────────────────────
+
+/**
+ * Lightweight, dependency-free field emphasis for the raw log. A real syntax
+ * highlighter would need an external lib (blocked by CSP), so this keys off the
+ * `lang` discriminator rawLogFormat already computes and colours field
+ * names/keys brighter and string values softer with a couple of small regexes.
+ */
+function highlightRawLog(text: string, lang: "xml" | "syslog" | "json"): React.ReactNode[] {
+  const KEY = "text-slate-100 font-semibold"; // field names / keys / tags — brighter
+  const STR = "text-slate-400";               // string values — softer
+  const NUM = "text-cyber-300";               // numbers / literals
+
+  let re: RegExp;
+  if (lang === "json") {
+    // key string (followed by ':') | standalone string value | number | literal
+    re = /("(?:[^"\\]|\\.)*")(\s*:)|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?)|\b(true|false|null)\b/g;
+  } else if (lang === "syslog") {
+    // key= (field name before '=') | quoted value
+    re = /([\w.\-]+)(=)|("(?:[^"\\]|\\.)*")/g;
+  } else {
+    // <tag or </tag | attr= | quoted value
+    re = /(<\/?)([A-Za-z][\w.\-:]*)|([\w.\-:]+)(=)|("(?:[^"\\]|\\.)*")/g;
+  }
+
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  const push = (cls: string, s: string) => nodes.push(<span key={i++} className={cls}>{s}</span>);
+
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(<span key={i++}>{text.slice(last, m.index)}</span>);
+    if (lang === "json") {
+      if (m[1] !== undefined)      { push(KEY, m[1]); nodes.push(<span key={i++}>{m[2]}</span>); }
+      else if (m[3] !== undefined) push(STR, m[3]);
+      else if (m[4] !== undefined) push(NUM, m[4]);
+      else if (m[5] !== undefined) push(NUM, m[5]);
+    } else if (lang === "syslog") {
+      if (m[1] !== undefined)      { push(KEY, m[1]); nodes.push(<span key={i++}>{m[2]}</span>); }
+      else if (m[3] !== undefined) push(STR, m[3]);
+    } else {
+      if (m[2] !== undefined)      { nodes.push(<span key={i++}>{m[1]}</span>); push(KEY, m[2]); }
+      else if (m[3] !== undefined) { push(KEY, m[3]); nodes.push(<span key={i++}>{m[4]}</span>); }
+      else if (m[5] !== undefined) push(STR, m[5]);
+    }
+    last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(<span key={i++}>{text.slice(last)}</span>);
+  return nodes;
+}
+
+function RawLogView({ event }: { event: LiveEvent }) {
+  const [copied, setCopied] = useState(false);
+  const rawLog = toRawLog(event);
+
+  function handleCopy() {
+    navigator.clipboard?.writeText(rawLog.text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-[#0d1520] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          <BookOpen className="h-3 w-3 text-slate-400" />
+          {rawLog.format}
+        </span>
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[10px] font-semibold transition-colors",
+            copied
+              ? "border-neon-green/50 text-neon-green"
+              : "border-border/60 text-slate-400 hover:text-slate-200 hover:border-slate-500"
+          )}
+        >
+          {copied
+            ? <><CheckCircle2 className="h-3 w-3" /> Copied ✓</>
+            : <><Copy className="h-3 w-3" /> Copy</>}
+        </button>
+      </div>
+      <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre">
+        {highlightRawLog(rawLog.text, rawLog.lang)}
+      </pre>
+      <p className="text-[10px] leading-relaxed text-slate-400">
+        This is how <span className="text-slate-400">{rawLog.format.split(",")[0]}</span> arrives in the SIEM before parsing — the same bytes a real analyst pivots on. The Analysis tab parses these fields into a readable view.
+      </p>
+    </div>
+  );
+}
 
 // ─── Detail panel ─────────────────────────────────────────────────────────────
 
@@ -497,32 +541,7 @@ function DetailPanel({
         )}
 
         {showRawJson ? (
-          (() => {
-            const rawLog = toRawLog(event);
-            return (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-[#0d1520] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    <BookOpen className="h-3 w-3 text-slate-400" />
-                    {rawLog.format}
-                  </span>
-                  <button
-                    onClick={() => navigator.clipboard?.writeText(rawLog.text)}
-                    className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2 py-1 text-[10px] font-semibold text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors"
-                  >
-                    <Copy className="h-3 w-3" />
-                    Copy
-                  </button>
-                </div>
-                <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[10px] leading-relaxed text-slate-300 whitespace-pre">
-                  {rawLog.text}
-                </pre>
-                <p className="text-[10px] leading-relaxed text-slate-400">
-                  This is how <span className="text-slate-400">{rawLog.format.split(",")[0]}</span> arrives in the SIEM before parsing — the same bytes a real analyst pivots on. The Analysis tab parses these fields into a readable view.
-                </p>
-              </div>
-            );
-          })()
+          <RawLogView event={event} />
         ) : (
           <>
             {/* Basic Info */}
@@ -557,6 +576,15 @@ function DetailPanel({
                     <span className={cn("font-mono text-[11px] text-slate-200 break-all", colorClass)}>{value}</span>
                   </div>
                 ))}
+                {/* MITRE ATT&CK mapping lives here in the expanded panel — the
+                    student must open the row to see the technique (it is
+                    deliberately absent from the always-visible row). */}
+                {event.mitre_technique && (
+                  <div className="flex gap-3 items-center pt-1">
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">MITRE ATT&CK</span>
+                    <MitreBadge technique={event.mitre_technique} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -754,7 +782,7 @@ function SocMethodologyBanner() {
     { num: "1", label: "Source", detail: "Which tool logged this? What does that tool monitor? (Hover the SOURCE badge)" },
     { num: "2", label: "Actors", detail: "Who is the user? What machine? What process? What started it?" },
     { num: "3", label: "Behavior", detail: "Is this normal for this context? Would a legitimate user do exactly this?" },
-    { num: "4", label: "Pattern", detail: "Does this match a known attack? Check the MITRE badge if present." },
+    { num: "4", label: "Pattern", detail: "Does this match a known attack? Expand the row to see its MITRE ATT&CK mapping." },
     { num: "5", label: "Classify", detail: "Benign = expected normal activity. Suspicious = unusual but inconclusive. Malicious = clear attack indicator." },
   ];
 
@@ -807,6 +835,14 @@ const EventRow = memo(function EventRow({
 }) {
   const [expanded, setExpanded] = useState(false);
 
+  function toggleExpanded() {
+    // Side effect lives in the handler, not inside setExpanded's updater —
+    // React (Strict Mode) may invoke an updater function twice to check for
+    // impurities, which would double-count this if it lived there.
+    if (!expanded) onRowOpened?.(); // only count transitions into "opened", not collapses
+    setExpanded(v => !v);
+  }
+
   const timeStr = event.ts
     ? new Date(event.ts).toLocaleTimeString("en-GB", { hour12: false })
     : "—";
@@ -822,15 +858,20 @@ const EventRow = memo(function EventRow({
         initial={isNew ? { opacity: 0, y: -8 } : false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        onClick={() => {
-          // Side effect lives in the handler, not inside setExpanded's updater —
-          // React (Strict Mode) may invoke an updater function twice to check
-          // for impurities, which would double-count this if it lived there.
-          if (!expanded) onRowOpened?.(); // only count transitions into "opened", not collapses
-          setExpanded(v => !v);
+        tabIndex={0}
+        role="button"
+        aria-expanded={expanded}
+        onClick={toggleExpanded}
+        onKeyDown={(e) => {
+          // Enter / Space toggles the row so keyboard users reach the same
+          // expand interaction as a mouse click.
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleExpanded();
+          }
         }}
         className={cn(
-          "group cursor-pointer border-t border-border/60 transition-colors",
+          "group cursor-pointer border-t border-border/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60",
           expanded ? "bg-bg-hover" : "hover:bg-bg-hover/60",
         )}
       >
@@ -907,8 +948,11 @@ const EventRow = memo(function EventRow({
               forms their own conclusion, and the Incident Report is the single
               place they state and are graded on their findings. */}
           <div className="flex items-center gap-1.5">
+            {/* Rule ID only — the MITRE badge deliberately does NOT live here.
+                Showing it in the always-visible row would flag which rows are the
+                attack without expanding. The technique is revealed inside the
+                expanded DetailPanel instead. */}
             <span className="font-mono text-[10px] text-slate-400">{event.ruleId}</span>
-            {event.mitre_technique && <MitreBadge technique={event.mitre_technique} />}
           </div>
         </td>
       </motion.tr>
@@ -1031,7 +1075,7 @@ export function EventFeed({
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity — EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
               <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Severity score 1-10. Levels 1-3: routine activity. Levels 4-6: investigate further. Levels 7-10: likely threat — take action." /></th>
-              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Click the purple badge to learn about the technique." /></th>
+              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Expand the row to see its MITRE ATT&CK mapping." /></th>
             </tr>
           </thead>
           <tbody>
@@ -1050,7 +1094,9 @@ export function EventFeed({
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
-                  No events match the current filter.
+                  {events.length === 0
+                    ? "Press Start Training to begin your shift."
+                    : "No events match the current filter."}
                 </td>
               </tr>
             )}

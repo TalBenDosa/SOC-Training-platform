@@ -27,7 +27,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ad_01", ts: T(0), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     description: "j.chen signed in to WS-FIN-2847",
     raw: {
       "event.code": "4624",
@@ -347,7 +347,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_pwd_03", ts: T(35), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "informational",
-    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     description: "j.chen changed password",
     raw: { "event.code": "4723", "event.action": "password-changed",
            "target.user": "NEXACORP\\jchen", "user.name": "NEXACORP\\jchen",
@@ -614,7 +614,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_email_replyto_mismatch", ts: T(14), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
     event_type: "email_received", severity: "medium",
-    user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
+    user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst",
     src_ip: "45.142.212.100",
     description: "Email from 'NexaCorp HR <hr@nexacorp.com>' delivered — Reply-To points to external Gmail address",
     fp_explanation: "The From address looks internal but the Reply-To is an external Gmail. This is a classic BEC precursor — legitimate HR emails never route replies to personal accounts.",
@@ -1060,7 +1060,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mdo_phish_delivered", ts: T(71), source: "o365", vendor: "Microsoft Defender for Office 365",
     event_type: "email_received", severity: "high",
-    hostname: undefined, user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
+    hostname: undefined, user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst",
     src_ip: "89.44.13.218",
     mitre_technique: "T1566.001",
     description: "Phishing email with macro-enabled attachment delivered to inbox — not caught by automated filters",
@@ -1144,7 +1144,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_01", ts: T(1), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst",
     process: { name: "chrome.exe", pid: 4120, parent_name: "explorer.exe", parent_pid: 1924,
                cmdline: "chrome.exe --start-maximized", user: "NEXACORP\\jchen", integrity: "medium" },
     description: "j.chen launched Chrome on WS-FIN-2847",
@@ -1589,7 +1589,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_prx_03", ts: T(20), source: "proxy", vendor: "Palo Alto Networks PAN-OS",
     event_type: "http_request", severity: "informational",
-    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     network: { url: "https://app.docusign.com/documents", domain: "app.docusign.com",
                method: "GET", status: 200, bytes_in: 31800 },
     description: "Outbound HTTPS request from WS-FIN-2847 to app.docusign.com — proxy allowed",
@@ -1931,7 +1931,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dlp_01", ts: T(20), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "medium",
-    user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
+    user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     description: "j.chen emailed SSN data to external@gmail.com",
     raw: { "event.action": "DLP_PolicyTriggered", "event.outcome": "blocked",
            "user.email": "j.chen@nexacorp.com", "source.ip": "10.10.20.14",
@@ -2056,7 +2056,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     fp_explanation: "PowerShell -EncodedCommand fired because the IT automation script (Deploy-MonitoringAgent.ps1) was authored with encoded commands to avoid quoting issues with special characters. The script was signed by NexaCorp IT and is catalogued in change ticket CHG-9914.",
     description: "PowerShell -EncodedCommand on WS-IT-003 (signed automation)",
     process: { name: "powershell.exe", pid: 5102, parent_name: "svchost.exe", parent_pid: 820, user: "SYSTEM", cmdline: "powershell.exe -NonInteractive -ExecutionPolicy Bypass -EncodedCommand JABzAGMAcgBpAHAAdAAgAD0AIAB7AHsARABlAHAAbABvAHkALQBBAGcAZQBuAHQAfQB9AA==" },
-    raw: { "Category": "SuspiciousScriptExecution", "action_result": "allowed" },
+    raw: { "Category": "SuspiciousScriptExecution", "file.signed": "true", "file.signer": "NexaCorp Internal CA", "action_result": "allowed" },
   },
   {
     id: "b_fp_003", ts: "2026-05-10T11:00:00.000Z",
@@ -2066,7 +2066,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     expected_verdict: "fp",
     fp_explanation: "IT department runs a monthly hardware inventory scan using wmic.exe — standard asset management practice. The query lists BIOS serial numbers for the quarterly audit report. Scheduled task registered under IT-OPS-SCAN and approved in change policy.",
     description: "wmic.exe hardware inventory scan on WS-IT-007",
-    process: { name: "wmic.exe", pid: 6230, parent_name: "taskeng.exe", parent_pid: 6100, user: "it.admin", cmdline: "wmic /node:@C:\\IT\\servers.txt bios get SerialNumber,Manufacturer /format:csv" },
+    process: { name: "wmic.exe", pid: 6230, parent_name: "svchost.exe", parent_pid: 6100, user: "it.admin", cmdline: "wmic /node:@C:\\IT\\servers.txt bios get SerialNumber,Manufacturer /format:csv" },
     raw: { "Category": "LOLBinExecution", "action_result": "allowed" },
   },
   {
@@ -2240,7 +2240,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_fail_01", ts: T(8), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     description: "j.chen failed sign-in to WS-FIN-2847 (bad password)",
     raw: { "event.code": "4625", "logon.type": "2", "sub.status": "0xC000006A",
            "failure.reason": "Unknown user name or bad password",
@@ -3105,7 +3105,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_19", ts: T(122), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst",
     process: { name: "notepad.exe", pid: 2210, parent_name: "explorer.exe", parent_pid: 1924, integrity: "medium" },
     description: "j.chen opened notepad.exe on WS-FIN-2847",
     raw: {
@@ -3216,7 +3216,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_edr_24", ts: T(171), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "process_create", severity: "informational",
-    hostname: "LT-ENG-4400", user_email: "j.chen@nexacorp.com", user_title: "IT Admin",
+    hostname: "LT-ENG-4400", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst",
     process: { name: "code.exe", pid: 3440, parent_name: "explorer.exe", parent_pid: 2100, integrity: "medium" },
     description: "j.chen launched VS Code on LT-ENG-4400",
     raw: {
@@ -8173,7 +8173,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_win_04", ts: T(23), source: "windows_security", vendor: "Windows Security",
     event_type: "process_create", severity: "informational",
-    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.20.14",
+    hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     description: "outlook.exe launched by j.chen on WS-FIN-2847",
     raw: {
       "event.code": "4688",

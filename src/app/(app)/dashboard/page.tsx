@@ -1080,9 +1080,17 @@ export default function DashboardPage() {
           {/* Feed header */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
             <div className="flex items-center gap-3">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-green opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-neon-green" />
+              {/* Pulsing green only while the feed is actually streaming; a
+                  static amber dot (no ping) when paused, so the indicator never
+                  claims "live" while stopped. */}
+              <span className="relative flex h-2 w-2" title={live.isStreaming ? "Live — streaming" : "Paused"}>
+                {live.isStreaming && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-green opacity-75" />
+                )}
+                <span className={cn(
+                  "relative inline-flex h-2 w-2 rounded-full",
+                  live.isStreaming ? "bg-neon-green" : "bg-neon-amber"
+                )} />
               </span>
               <div>
                 <h3 className="text-sm font-semibold text-white">Live Event Feed</h3>
@@ -1195,6 +1203,7 @@ export default function DashboardPage() {
             )}>
               <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">User</span>
               <select
+                aria-label="Filter events by user"
                 value={userFilter}
                 onChange={(e) => setUserFilter(e.target.value)}
                 className={cn(
@@ -1218,6 +1227,7 @@ export default function DashboardPage() {
             )}>
               <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Host</span>
               <select
+                aria-label="Filter events by host"
                 value={hostFilter}
                 onChange={(e) => setHostFilter(e.target.value)}
                 className={cn(
@@ -1241,6 +1251,7 @@ export default function DashboardPage() {
             )}>
               <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">IP</span>
               <select
+                aria-label="Filter events by source IP"
                 value={ipFilter}
                 onChange={(e) => setIpFilter(e.target.value)}
                 className={cn(
@@ -1264,6 +1275,7 @@ export default function DashboardPage() {
             )}>
               <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">MITRE</span>
               <select
+                aria-label="Filter events by MITRE technique"
                 value={mitreFilter}
                 onChange={(e) => setMitreFilter(e.target.value)}
                 className={cn(

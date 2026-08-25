@@ -247,13 +247,13 @@ export function buildBundledCryptominerScenario(
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
       description:
-        "svchost_helper.exe started at 18:02 with pool and wallet arguments on its command line, parented by taskeng.exe.",
+        "svchost_helper.exe started at 18:02 with pool and wallet arguments on its command line, launched by the installer VideoConvertPro_Setup.exe.",
       process: {
         name: "svchost_helper.exe",
         pid: 11_020,
         path: "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
-        parent_name: "taskeng.exe",
-        parent_pid: 2044,
+        parent_name: "VideoConvertPro_Setup.exe",
+        parent_pid: 10_244,
         cmdline:
           "svchost_helper.exe -o stratum+tcp://eu1.pool-relay-mining.com:3333 -u 48Hn2QkP9cRxVaLmT4dW --cpu-max-threads-hint=70 --background",
         user: `NEXACORP\\${victim.sam}`,
@@ -278,8 +278,8 @@ export function buildBundledCryptominerScenario(
           "svchost_helper.exe -o stratum+tcp://eu1.pool-relay-mining.com:3333 -u 48Hn2QkP9cRxVaLmT4dW --cpu-max-threads-hint=70 --background",
         "process.hash.sha256": minerHash,
         "process.code_signature.status": "unsigned",
-        "process.parent.name": "taskeng.exe",
-        "process.parent.pid": "2044",
+        "process.parent.name": "VideoConvertPro_Setup.exe",
+        "process.parent.pid": "10244",
         "user.name": `NEXACORP\\${victim.sam}`,
         "host.name": host.hostname,
         "host.ip": host.ip,
@@ -394,7 +394,7 @@ export function buildBundledCryptominerScenario(
         "crowdstrike.detection.technique": "Resource Hijacking",
         "crowdstrike.detection.technique_id": "T1496",
         "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.detection.process_tree": "taskeng.exe > svchost_helper.exe",
+        "crowdstrike.detection.process_tree": "VideoConvertPro_Setup.exe > svchost_helper.exe",
         "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
         "crowdstrike.network_containment_state": "Not Contained",
         "event.action": "alert",
@@ -497,12 +497,12 @@ export function buildBundledCryptominerScenario(
         { value: "stratum_args", label: "The command line — a stratum+tcp pool URL, a wallet identifier, and a CPU-thread hint" },
         { value: "appdata", label: "It runs from AppData, where legitimate software is never installed" },
         { value: "unsigned", label: "It is unsigned, and unsigned binaries in a corporate estate are always malware" },
-        { value: "parent", label: "Its parent is taskeng.exe, which only ever launches malicious tasks" },
+        { value: "parent", label: "Its parent is VideoConvertPro_Setup.exe, which only ever launches malicious software" },
       ],
       answer: "stratum_args",
       xp: 50,
       explanation:
-        "The arguments name the activity outright: stratum+tcp is the mining-pool protocol, -u carries a wallet address, and --cpu-max-threads-hint=70 tells it how much of the machine to consume. Nothing else needs interpreting. The other three options overstate ordinary facts into rules that will burn you: plenty of legitimate software installs to AppData (Teams, Slack, Zoom), unsigned binaries are common in any estate that runs internal tooling, and taskeng.exe is the ordinary Windows task engine that launches every scheduled task on the machine, malicious or not.",
+        "The arguments name the activity outright: stratum+tcp is the mining-pool protocol, -u carries a wallet address, and --cpu-max-threads-hint=70 tells it how much of the machine to consume. Nothing else needs interpreting. The other three options overstate ordinary facts into rules that will burn you: plenty of legitimate software installs to AppData (Teams, Slack, Zoom), unsigned binaries are common in any estate that runs internal tooling, and the parent being the installer proves only that the bundler dropped and ran it — the very same installer also delivered a genuinely-working video converter, so 'the installer launched it' is not by itself proof of what the process does.",
     },
     {
       id: "q2",
@@ -565,7 +565,7 @@ export function buildBundledCryptominerScenario(
 
 Forty seconds into the install, a second binary was written: C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe, 6.4 MB, unsigned. The name is doing deliberate work — svchost is one of the most familiar strings in a Windows process list, and "helper" reads as harmless. Five seconds later schtasks.exe registered a task called WinHostSync to run it at every logon, five minutes after the desktop loads. The delay is not an accident; it puts the process start well away from the moment anyone would be watching the machine boot.
 
-At 18:02 it started. Its command line names exactly what it is: stratum+tcp://eu1.pool-relay-mining.com:3333, a wallet identifier, and --cpu-max-threads-hint=70. The firewall let the connection out under the default outbound rule as pan.app "unknown-tcp", and that session stayed open for eleven hours.
+At 18:02 the installer launched it directly — the WinHostSync task is what brings it back after every future logon. Its command line names exactly what it is: stratum+tcp://eu1.pool-relay-mining.com:3333, a wallet identifier, and --cpu-max-threads-hint=70. The firewall let the connection out under the default outbound rule as pan.app "unknown-tcp", and that session stayed open for eleven hours.
 
 The service-desk symptoms follow directly from that command line: --cpu-max-threads-hint=70 pins most of the CPU, so the fans run constantly and the battery drains by lunchtime. The session never closed and the process never idled — the laptop mined all night on a desk in an empty office, which is exactly what Falcon's Resource Hijacking detection flagged.
 

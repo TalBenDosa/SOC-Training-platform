@@ -642,19 +642,19 @@ export function buildHelpdeskMfaResetScenario(
         {
           value: "revoke_and_delete",
           label:
-            "Revoke l.ferreira's active sessions and refresh tokens, delete the Authenticator method registered at evt_hmr_06, reset the password again, and verify her identity out-of-band before restoring access",
+            "Revoke l.ferreira's sessions and refresh tokens, delete the Authenticator method added at evt_hmr_06, reset the password, and verify her identity out-of-band",
         },
         {
           value: "reset_password_only",
-          label: "Reset the password a second time and consider the ticket closed",
+          label: "Reset the password a second time, note the earlier reset in the ticket, and consider the matter closed",
         },
         {
           value: "block_ip_only",
-          label: "Block 185.220.101.47 at the perimeter — that removes the attacker's access to the account",
+          label: "Block 185.220.101.47 at the perimeter — with the attacker IP blocked, their access to the account is gone",
         },
         {
           value: "retrain_agent",
-          label: "The account itself is fine; this only requires retraining James Oduya on verification procedure",
+          label: "The account itself is fine; this only calls for retraining James Oduya on the verification procedure he skipped",
         },
       ],
       answer: "revoke_and_delete",
