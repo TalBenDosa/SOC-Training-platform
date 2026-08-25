@@ -311,7 +311,7 @@ const winProtoRoom = {
         `An LDAP session starts with a **bind** (authenticating to the directory, which any domain user can do with their own credentials by default), followed by one or more **search** operations — each specifying a base DN (where in the directory tree to start), a scope (this object only, one level down, or the entire subtree), and, critically, a **filter**: a query expression describing which objects to return and which attributes to read. Because any authenticated domain user can, by default, read a very large portion of the directory's attributes (this is intentional — AD needs to be broadly readable for normal operation, like looking up a colleague's phone number or department), LDAP reconnaissance requires no special privileges at all — just a normal domain account.\n\n` +
         `**The specific recon filters worth recognizing**\n\n` +
         `- **Kerberoastable accounts**: (&(objectClass=user)(servicePrincipalName=*)) — every user account (as opposed to computer account, which also technically have SPNs) that has at least one SPN set. This is the exact target list Kerberoasting draws from, and it's precisely why every account this query returns should be treated as a candidate target requiring a strong, rotated password.\n` +
-        `- **AS-REP-roastable accounts**: (userAccountControl:1.2.840.113556.1.4.803:=8388608) — a bitwise-AND LDAP matching rule filter that returns every account with the DONT_REQ_PREAUTH flag set (8388608 is the decimal value of that specific userAccountControl bit).\n` +
+        `- **AS-REP-roastable accounts**: (userAccountControl:1.2.840.113556.1.4.803:=4194304) — a bitwise-AND LDAP matching rule filter that returns every account with the DONT_REQ_PREAUTH flag set (4194304, i.e. 0x400000, is the decimal value of that specific userAccountControl bit).\n` +
         `- **High-value/privileged accounts**: (adminCount=1) — returns accounts that are, or historically were, members of a protected administrative group (Domain Admins, Enterprise Admins, and similar); AD's AdminSDHolder process stamps this attribute and, notably, does NOT automatically un-stamp it if the account is later removed from the privileged group, which is itself a useful (if imperfect) hunting signal.\n` +
         `- **Nested group membership walks**: repeated queries against the memberOf and member attributes, recursively, to map out the full effective group membership chain for an account or the full effective membership of a group — this is exactly how tools like BloodHound build their graph of "who can reach what, through which chain of group memberships and permissions," which is often far less obvious than looking at direct group membership alone.\n\n` +
         `**Why LDAP recon is hard to distinguish from legitimate activity in isolation**\n\n` +
@@ -323,7 +323,7 @@ const winProtoRoom = {
         "  (&(objectClass=user)(servicePrincipalName=*))\n" +
         "\n" +
         "AS-REP-roastable accounts (DONT_REQ_PREAUTH set):\n" +
-        "  (userAccountControl:1.2.840.113556.1.4.803:=8388608)\n" +
+        "  (userAccountControl:1.2.840.113556.1.4.803:=4194304)\n" +
         "\n" +
         "Privileged / high-value accounts:\n" +
         "  (adminCount=1)\n" +

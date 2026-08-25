@@ -979,7 +979,7 @@ Most professional SOC analysts use online sandboxes for quick dynamic analysis â
 
 Every file has a **cryptographic hash** â€” a unique mathematical fingerprint calculated from the file's contents. Change even a single byte of the file and the hash changes completely. The three most common hash algorithms are:
 
-- **MD5 (Message Digest 5):** 32 hexadecimal characters. Fast to calculate. Example: \`a1b2c3d4e5f6789012345678\`. No longer considered cryptographically secure (collisions possible), but still widely used for malware tracking.
+- **MD5 (Message Digest 5):** 32 hexadecimal characters. Fast to calculate. Example: \`d41d8cd98f00b204e9800998ecf8427e\` (32 characters). No longer considered cryptographically secure (collisions possible), but still widely used for malware tracking.
 - **SHA-1 (Secure Hash Algorithm 1):** 40 characters. Also deprecated for security purposes.
 - **SHA-256:** 64 characters. The **preferred standard** for malware analysis. Computationally infeasible to forge. Example: \`5a6b7c8d86782f4f2a04749d369a8c2531f82bcb25e9b8bf36e552c161e641a4\`
 

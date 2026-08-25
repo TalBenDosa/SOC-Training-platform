@@ -523,9 +523,26 @@ Once a log exists, it needs to travel to your SIEM. The three classic protocols 
 
 **Syslog (UDP/TCP port 514)**
 The original Unix logging standard, born in 1980. Syslog is the most universal protocol — virtually every network device (firewalls, switches, routers) and Unix/Linux system supports it. A Syslog message has three parts:
-- **PRI** (Priority): a number encoding Facility (what type of system generated this) × Severity (how urgent)
+- **PRI** (Priority): a number encoding Facility (what type of system generated this) and Severity (how urgent)
 - **Header**: timestamp and hostname
 - **MSG**: the actual log content
+
+The PRI is not a random number — it sits in angle brackets at the very start of every Syslog message and is computed with a fixed formula from RFC 5424: **PRI = (Facility number x 8) + Severity number**. For example, a PRI of 34 decodes to Facility 4 (security/authorization messages) and Severity 2 (Critical), because 4 x 8 + 2 = 34. Knowing this lets you read the urgency of a message at a glance.
+
+**The 8 Syslog severity levels (0 = most urgent, 7 = least):**
+
+| Severity | Name | Meaning |
+| --- | --- | --- |
+| 0 | Emergency | System is unusable |
+| 1 | Alert | Action must be taken immediately |
+| 2 | Critical | Critical condition |
+| 3 | Error | Error condition |
+| 4 | Warning | Warning condition |
+| 5 | Notice | Normal but significant event |
+| 6 | Informational | Routine informational message |
+| 7 | Debug | Debug-level detail for developers |
+
+There are 24 facility codes (0-23): codes 0-15 are reserved for standard system components (for example 0 = kernel, 1 = user-level, 2 = mail, 3 = system daemons, 4 = security/authorization, 9 = clock/cron daemon, 10 = authpriv), and codes 16-23 are the free-to-use local0 through local7 slots that appliance vendors assign to their own traffic. That gives 24 facilities x 8 severities = 192 possible PRI values. In day-to-day triage you care most about severity: narrowing a noisy firewall feed to severity 0-3 is a fast way to surface the events that actually matter.
 
 RFC 3164 (older "BSD Syslog") and RFC 5424 (modern structured Syslog) are the two standards. Many vendors implement their own flavor of Syslog, making parsing challenging.
 

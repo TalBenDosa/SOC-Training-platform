@@ -32,27 +32,143 @@ Every time you open a website, send an email, or stream a video, billions of pac
 
 Engineers needed a way to describe how computers talk to each other without everything being one tangled mess. In 1984, the International Organization for Standardization (ISO) published the **OSI model** (Open Systems Interconnection model). It divides network communication into **7 distinct layers**, each with a specific job. Think of it like an assembly line — each layer handles one part of the process and hands off to the next.
 
-Here are the 7 layers, from bottom to top:
+Here are the 7 layers, from bottom (closest to the physical wire) to top (closest to you, the user). A classic memory trick reads them bottom-to-top: "Please Do Not Throw Sausage Pizza Away" — Physical, Data Link, Network, Transport, Session, Presentation, Application.
 
-**Layer 1 — Physical:** The actual cables, fiber optic wires, radio waves (Wi-Fi), and electrical signals. This layer is about raw bits — 0s and 1s moving through a physical medium. Examples: Ethernet cable (Cat6), fiber optic, Wi-Fi radio signals.
+**One idea you need first: encapsulation and the "PDU"**
 
-**Layer 2 — Data Link:** Packages raw bits into **frames** and handles communication between devices on the *same* local network. This is where **MAC addresses** (Media Access Control addresses) live. Think of it as the "neighborhood delivery" layer — it gets data from one device to the next device on the same street. Examples: Ethernet, Wi-Fi (802.11), switches.
+Go back to the postal analogy. You do not hand a bare sheet of paper to the mail carrier — you put the paper inside an envelope, write an address on the envelope, and the post office may drop that envelope into a larger mail sack with its own routing label. Each stage wraps the previous one in a new layer with its own addressing.
 
-**Layer 3 — Network:** Handles logical addressing and **routing** — getting data across *multiple* networks to reach a destination anywhere in the world. This is where **IP addresses** live. Examples: IP (Internet Protocol), routers, ICMP (ping).
+Networks do exactly this, and the technical word for it is **encapsulation** — each layer wraps the data from the layer above inside its own "envelope" (a header, and sometimes a footer). The chunk of data at each layer has a name: its **PDU (Protocol Data Unit)**. The PDU is named differently at each layer, and this is not trivia — logs, tools, and alerts all use these words:
 
-**Layer 4 — Transport:** Breaks data into segments, manages delivery, and handles error checking. This is where **TCP** and **UDP** live — the two protocols that decide whether delivery is guaranteed or fast. Think of it as the "shipping department" that tracks packages.
+| Layer | PDU name | Plain meaning |
+|-------|----------|---------------|
+| 7 Application | Data | The raw message (a web page, an email) |
+| 6 Presentation | Data | Same message, formatted / encrypted |
+| 5 Session | Data | Same message, inside a managed session |
+| 4 Transport | Segment (TCP) / Datagram (UDP) | The message chopped into numbered pieces |
+| 3 Network | Packet | A segment wrapped with source + destination IP |
+| 2 Data Link | Frame | A packet wrapped with source + destination MAC |
+| 1 Physical | Bits | The frame turned into raw 1s and 0s on the wire |
 
-**Layer 5 — Session:** Manages the opening, maintaining, and closing of "sessions" between applications. For example, when you log into a website, a session is established and kept alive while you browse. Less visible but important.
+Read that table top-to-bottom and you have described what happens to your data on the way *out* of your computer: your web request (Data) is cut into **segments**, each segment is wrapped into a **packet** carrying IP addresses, each packet is wrapped into a **frame** carrying MAC addresses, and the frame is finally sent as **bits**. On the receiving computer the same steps run in reverse (de-encapsulation), peeling one envelope off at each layer until the web server reads your original request.
 
-**Layer 6 — Presentation:** Handles data formatting, encryption, and compression. When your browser decrypts an HTTPS website, that happens at this layer. Examples: TLS/SSL encryption, JPEG/PNG compression, ASCII encoding.
+Now, layer by layer, from the bottom up.
 
-**Layer 7 — Application:** The layer your software actually uses. HTTP, DNS, SMTP (email), FTP — these all live at Layer 7. This is what you see as a user.
+**Layer 1 — Physical**
+
+- **What it does:** Moves raw bits — literally 1s and 0s — across a physical medium as electrical voltage (copper), pulses of light (fiber), or radio waves (Wi-Fi). It defines cables, connectors, voltages, and signal timing. It has no idea what the bits mean.
+- **PDU:** bits. **Addressing:** none — there are no addresses at Layer 1, just a signal on a medium.
+- **Examples:** Ethernet cabling (Cat5e / Cat6 copper), fiber optic, the radio portion of Wi-Fi, hubs, repeaters, network interface card (NIC) transceivers, the RJ45 connector.
+- **SOC relevance:** A cut cable, a failing transceiver, or radio interference appears here as "link down." Physical-layer attacks include cable tapping and rogue devices plugged into an unused wall port — which is exactly why physical security and Network Access Control (NAC) exist.
+
+**Layer 2 — Data Link**
+
+- **What it does:** Turns bits into **frames** and delivers them between two devices on the *same* local network (the same LAN segment) — a single "hop." It also detects transmission errors inside a frame.
+- **PDU:** frame. **Addressing:** the **MAC address** (Media Access Control address) — a 48-bit hardware address burned into each NIC at the factory, written like 00:1A:2B:3C:4D:5E.
+- **Protocols and technologies at this layer:**
+
+| Protocol / tech | Purpose | SOC relevance |
+|-----------------|---------|---------------|
+| Ethernet (IEEE 802.3) | Wired LAN framing | The dominant wired LAN standard |
+| Wi-Fi (IEEE 802.11) | Wireless LAN framing | Rogue access points and evil-twin attacks live here |
+| ARP (Address Resolution Protocol) | Maps an IP address to a MAC address on the LAN | ARP spoofing / poisoning enables man-in-the-middle attacks |
+| VLAN tagging (IEEE 802.1Q) | Splits one physical switch into isolated virtual LANs | VLAN hopping attacks try to jump between segments |
+| STP (Spanning Tree Protocol) | Prevents switching loops | STP manipulation can reroute traffic through an attacker |
+| PPP (Point-to-Point Protocol) | Direct link between two nodes (some WAN / dial links) | Legacy, but still seen on WAN links |
+
+- **SOC relevance:** Because Layer 2 has no concept of the wider internet, its attacks are *local* — the attacker is already on your LAN. **ARP spoofing** works because ARP has no authentication: the attacker sends forged ARP replies claiming "the gateway's IP belongs to MY MAC address," so victims unknowingly send their traffic to the attacker instead of the real router. That is the concrete mechanism behind most on-LAN man-in-the-middle attacks.
+
+**Layer 3 — Network**
+
+- **What it does:** Handles logical addressing and **routing** — choosing a path so a packet can cross *multiple* networks and reach a destination anywhere in the world, not just the local LAN.
+- **PDU:** packet. **Addressing:** the **IP address** (IPv4, e.g., 192.168.1.50, or IPv6).
+- **Protocols at this layer:**
+
+| Protocol | Purpose | SOC relevance |
+|----------|---------|---------------|
+| IPv4 / IPv6 | Logical addressing and routing of packets | The addresses you match in almost every log |
+| ICMP (Internet Control Message Protocol) | Error and diagnostic messages; powers ping and traceroute | ICMP tunneling smuggles data inside ping packets |
+| IGMP (Internet Group Management Protocol) | Manages multicast group membership | Rare in SOC work, but seen on some LANs |
+| IPsec (AH / ESP) | Encrypts and authenticates IP packets (VPNs) | The basis of many site-to-site VPN tunnels |
+| OSPF / BGP / EIGRP / RIP | Routing protocols — how routers learn paths | BGP hijacking reroutes internet traffic through an attacker |
+
+- **SOC relevance:** Layer 3 is where you answer "internal or external?" (private vs public IP) and "where in the world is this?" (geolocation). Attacks include IP spoofing (forging the source IP) and BGP hijacking (announcing routes you do not own to pull traffic toward you).
+
+**Layer 4 — Transport**
+
+- **What it does:** Manages end-to-end delivery *between applications* on two hosts. It chops the data stream into numbered pieces and — depending on the protocol — either guarantees ordered, reliable delivery or fires data off with no guarantees. It also introduces **ports**, the numbers that say which application the data is for.
+- **PDU:** segment (TCP) or datagram (UDP). **Addressing:** the **port number** (0–65535), combined with the IP address to form a **socket** — an IP:port pair such as 10.0.0.5:443, the exact "address + apartment number" that identifies one endpoint of a conversation.
+- **Protocols at this layer:**
+
+| Protocol | Purpose | SOC relevance |
+|----------|---------|---------------|
+| TCP (Transmission Control Protocol) | Reliable, ordered, connection-oriented delivery | Its three-way handshake is targeted by SYN floods |
+| UDP (User Datagram Protocol) | Fast, connectionless, no delivery guarantee | Abused for amplification / reflection DDoS |
+| SCTP (Stream Control Transmission Protocol) | Multi-stream reliable transport | Less common; appears in telecom / 4G-5G core signaling |
+
+Ports are split into three ranges by IANA (Internet Assigned Numbers Authority): **well-known ports 0–1023** (standard services like 443 for HTTPS), **registered ports 1024–49151** (vendor-assigned, like 3389 for RDP), and **dynamic / ephemeral ports 49152–65535** (temporary, picked by your own computer when *it* starts a connection). The next reading covers TCP, UDP, and ports in depth.
+
+- **SOC relevance:** Layer 4 is where "what service is this?" is answered by the port number. A **SYN flood** abuses TCP's handshake (covered in the next reading); UDP's statelessness makes it the vehicle for reflection / amplification DDoS.
+
+**Layer 5 — Session**
+
+- **What it does:** Opens, maintains, synchronizes, and gracefully closes the ongoing "conversation" (session) between two applications — including re-establishing it if it drops mid-stream.
+- **PDU:** data. **Addressing:** none of its own; it relies on the ports and sockets from Layer 4.
+- **Examples:** the session-management parts of RPC (Remote Procedure Call), the NetBIOS session service, and session tickets / resumption in protocols like TLS. In the real-world TCP/IP stack these session duties are usually blended into the application and transport layers rather than a cleanly separate layer.
+- **SOC relevance:** Session handling is where **session hijacking** lives — if an attacker steals or predicts the identifier that keeps a session alive (a session token or cookie), they can take over an already-authenticated conversation without ever knowing the password.
+
+**Layer 6 — Presentation**
+
+- **What it does:** Translates data between the application's format and something ready for the network — **encryption / decryption, compression, and character / media encoding**. It is the "translator" that makes both sides agree on how the bytes are represented.
+- **PDU:** data. **Addressing:** none.
+- **Examples:** TLS / SSL encryption (the encryption itself), character encodings (ASCII, Unicode / UTF-8), media formats (JPEG, PNG, GIF), and compression (gzip). Modern stacks fold most of this into the application; TLS in particular straddles Layers 5–7 depending on who is describing it.
+- **SOC relevance:** This is where TLS turns readable traffic into ciphertext — which is precisely why attackers hide command-and-control (C2) traffic inside HTTPS, and why enterprises deploy TLS / SSL inspection to see inside it.
+
+**Layer 7 — Application**
+
+- **What it does:** The layer your software actually speaks. It is *not* the application (your browser) itself — it is the set of **protocols** the application uses to communicate over the network. This is the layer you touch most as an analyst, because almost every service has a protocol here.
+- **PDU:** data (often called a message, or a request / response). **Addressing:** application-level names such as domain names and URLs.
+- **The full working set of Layer 7 protocols every analyst should recognize** (every port below verified against the IANA Service Name and Port Number Registry):
+
+| Protocol | Port(s) | Transport | Purpose | SOC relevance |
+|----------|---------|-----------|---------|---------------|
+| HTTP | 80 | TCP | Unencrypted web traffic | Cleartext — credentials and tokens are readable in transit |
+| HTTPS | 443 | TCP | Encrypted web (HTTP over TLS) | Blends C2 into normal web; needs TLS inspection to see inside |
+| DNS | 53 | UDP + TCP | Resolves names to IP addresses | DNS tunneling and DGA; rarely blocked, so heavily abused |
+| SMTP | 25, 587, 465 | TCP | Sending email (25 server-to-server, 587 submission, 465 SMTPS) | Spoofing, open-relay abuse, phishing delivery |
+| IMAP / IMAPS | 143 / 993 | TCP | Retrieving email, kept on the server | 993 is the TLS-secured version; 143 is cleartext |
+| POP3 / POP3S | 110 / 995 | TCP | Retrieving email, downloaded to the device | 995 is the TLS-secured version; 110 is cleartext |
+| FTP | 21 control, 20 data | TCP | File transfer | Cleartext credentials; used to exfiltrate data |
+| SSH / SFTP | 22 | TCP | Encrypted remote shell and file transfer | Brute-forced constantly; also abused for tunneling |
+| Telnet | 23 | TCP | Legacy remote shell | Cleartext — never use; its presence alone is a finding |
+| RDP | 3389 | TCP | Windows remote desktop | Top ransomware entry point when internet-exposed |
+| SMB | 445 (139 legacy) | TCP | Windows file / printer sharing | EternalBlue / WannaCry; lateral movement |
+| SNMP / SNMP-trap | 161 / 162 | UDP | Network device monitoring and management | Weak community strings leak device configuration |
+| LDAP / LDAPS | 389 / 636 | TCP + UDP / TCP | Directory queries (Active Directory) | Reconnaissance and credential attacks against AD |
+| Kerberos | 88 | TCP + UDP | Windows / AD authentication tickets | Kerberoasting, Golden / Silver Ticket attacks |
+| NTP | 123 | UDP | Time synchronization | Reflection / amplification DDoS; log-timestamp integrity |
+| DHCP | 67 server, 68 client | UDP | Automatic IP address assignment | Rogue DHCP server enables man-in-the-middle |
+| RADIUS | 1812 auth, 1813 acct | UDP | Centralized network authentication (AAA) | Credential attacks against the authentication layer |
+
+(That is a working set, not the entire universe — IANA lists thousands of registered application protocols — but these are the ones you will meet again and again in SOC work.)
+
+- **SOC relevance:** Because Layer 7 carries the actual content, it hosts the richest attacks: SQL injection, cross-site scripting (XSS), phishing payloads, and application exploits. It is also where the "does this protocol belong on this port?" check pays off — malware loves to run its own traffic over a trusted port like 443 or 53 to blend in.
 
 **Why Do SOC Analysts Care About OSI?**
 
-When something goes wrong, analysts use the OSI model to narrow down the problem. A firewall blocking traffic? That's likely a Layer 3 or 4 issue. A website not loading despite the network being fine? Could be Layer 7. An attacker intercepting Wi-Fi traffic? Layer 2. The model gives you a structured way to think about attacks and defenses.
+The OSI model gives you a structured way to locate a problem or an attack. When something goes wrong, you ask "which layer?" and immediately narrow the field:
 
-Many attacks target specific layers: DDoS attacks often flood Layer 3 or 4, SQL injection targets Layer 7, and ARP spoofing attacks Layer 2.
+| Layer | A problem here looks like | A representative attack |
+|-------|---------------------------|-------------------------|
+| 1 Physical | Link down, no signal | Cable tap, rogue device on a wall port |
+| 2 Data Link | The wrong device answering on the LAN | ARP spoofing, MAC flooding, VLAN hopping |
+| 3 Network | Traffic reaching the wrong network or host | IP spoofing, BGP hijacking, ICMP tunneling |
+| 4 Transport | Connections failing or exhausted | SYN flood, UDP amplification DDoS |
+| 5 Session | An authenticated session taken over | Session hijacking (stolen token / cookie) |
+| 6 Presentation | Encryption hiding malicious content | C2 concealed inside TLS; downgrade attacks |
+| 7 Application | The service itself is abused | SQL injection, XSS, phishing, RDP brute force |
+
+This layered thinking is why an analyst can look at one alert and reason: "a firewall blocking traffic by IP and port is a Layer 3/4 control; a website that will not load even though the network is fine is probably Layer 7; someone intercepting Wi-Fi is Layer 2." The model turns a vague "the network is broken" into a specific, testable question.
 
 **IP Addressing: The Internet's Address System**
 
@@ -125,6 +241,33 @@ This reliability comes at a cost: speed. The overhead of acknowledgments and ord
 TCP is used for: web browsing (HTTP/HTTPS), email (SMTP), file transfers (FTP), SSH, database connections — anything where you cannot afford to lose data.
 
 **Security note:** The three-way handshake is the target of a classic attack called a **SYN flood**. An attacker sends thousands of SYN packets but never completes the handshake, exhausting the server's connection table and causing a Denial of Service (DoS).
+
+**Closing a TCP Connection: The Four-Way Teardown**
+
+Opening a connection takes three steps; closing one gracefully takes **four**, because each side must shut down its own direction of the conversation independently (TCP connections are "full-duplex" — data flows both ways at once, so both directions have to be closed one at a time). The flag that signals "I am finished sending" is **FIN** (short for "finish"):
+
+1. **FIN** — Side A says "I have no more data to send."
+2. **ACK** — Side B acknowledges: "Understood."
+3. **FIN** — Side B, when it is also done, says "I have no more data either."
+4. **ACK** — Side A acknowledges, and the connection closes.
+
+There is also an abrupt way to end a connection: the **RST** flag (reset). Instead of the polite four-step goodbye, RST slams the connection shut immediately — used when something is wrong, when a port is closed, or when a firewall forcibly drops a session. Seeing a burst of RSTs can itself be a signal (for example, a closed-port response during a port scan).
+
+**TCP Connection States — the words you will see in logs**
+
+A TCP connection is a little state machine. Tools like netstat and firewall logs report which state a connection is in, and each state means something specific:
+
+| State | What it means | SOC relevance |
+|-------|---------------|---------------|
+| LISTEN | A service is waiting for incoming connections on a port | A service listening on an unexpected port can be a backdoor |
+| SYN-SENT | This host sent a SYN and is waiting for SYN-ACK | Many SYN-SENT to one destination can indicate scanning |
+| SYN-RECEIVED | A SYN arrived; SYN-ACK was sent; waiting for the final ACK | A pile of these ("half-open" connections) is the fingerprint of a SYN flood |
+| ESTABLISHED | Handshake complete; data can flow both ways | A completed handshake to a suspicious port means data likely moved |
+| FIN-WAIT / CLOSE-WAIT | One side has begun the graceful FIN teardown | Normal connection winding down |
+| TIME-WAIT | Connection closed; the OS briefly holds the slot to catch stray packets | Normal and expected after a close |
+| CLOSED | No connection exists | The resting state |
+
+The two states worth memorizing for security are **SYN-RECEIVED** (half-open — the SYN-flood signature) and **ESTABLISHED** (a real, completed connection — meaning if the destination is malicious, data was almost certainly exchanged).
 
 **UDP — Fast, Connectionless**
 
@@ -450,13 +593,24 @@ When you type "gmail.com" into your browser:
 
 This whole process typically takes under 50 milliseconds. DNS uses **port 53** (UDP for most queries, TCP for large responses).
 
-**DNS Record Types** (know these for SOC work):
-- **A record:** Maps a domain to an IPv4 address (gmail.com → 142.250.80.46)
-- **AAAA record:** Maps a domain to an IPv6 address
-- **CNAME record:** Alias from one domain to another (mail.company.com → company.com)
-- **MX record:** Mail eXchange — which server handles email for this domain
-- **TXT record:** Text data — used for SPF/DKIM email verification, domain ownership proofs
-- **PTR record:** Reverse lookup — IP address → domain name
+**DNS Record Types**
+
+A DNS zone is not just a list of "name to IP" mappings — it holds several different **record types**, each answering a different question. These are standardized record types (maintained in IANA's DNS Parameters registry); here is the full working set an analyst needs to recognize, and why each one matters:
+
+| Record | Full name | What it stores | SOC relevance |
+|--------|-----------|----------------|---------------|
+| A | Address | Maps a domain to an IPv4 address (gmail.com → 142.250.80.46) | The record malware resolves to reach its C2 server |
+| AAAA | IPv6 Address | Maps a domain to an IPv6 address | Same as A, but for IPv6 — easy to overlook in monitoring |
+| CNAME | Canonical Name | An alias pointing one name at another name (mail.company.com → company.com) | Chained CNAMEs can hide the true destination of a lookup |
+| MX | Mail eXchange | Which mail server(s) handle email for the domain, with priority | Attackers check MX records to target the right mail server |
+| NS | Name Server | Which servers are authoritative for the domain's zone | A changed NS record can signal a domain hijack |
+| TXT | Text | Free-form text; holds SPF, DKIM, DMARC records and ownership proofs | Weak or missing SPF/DKIM/DMARC enables email spoofing; TXT is also abused to smuggle data |
+| PTR | Pointer | Reverse lookup: an IP address back to a domain name | Used to enrich a suspicious IP with its hostname |
+| SOA | Start of Authority | The zone's admin data — primary NS, serial number, refresh timers | One mandatory SOA per zone; its serial number tracks changes |
+| SRV | Service | The host and port for a specific service (e.g., _ldap._tcp for Active Directory) | Attackers query SRV records to locate domain controllers and other services |
+| CAA | Certification Authority Authorization | Which certificate authorities are allowed to issue certs for the domain | Prevents unauthorized TLS certificates being issued for you |
+
+The two you will lean on most in day-to-day investigation are **A/AAAA** (what IP did this suspicious domain point to?) and **TXT** (is the email security posture — SPF/DKIM/DMARC — actually configured, or can anyone spoof this domain?).
 
 **DNS Security Threats:**
 - **DNS cache poisoning:** Attacker injects fake DNS responses so your DNS cache stores wrong IP addresses (you type "bank.com" and get sent to a fake site)
@@ -556,11 +710,24 @@ Email attacks at the protocol level:
 
 **ICMP** (Internet Control Message Protocol) is the protocol behind **ping** — it sends an "echo request" and expects an "echo reply." It's used for network diagnostics and the **traceroute** tool (which shows the path your packets take across the internet).
 
-ICMP has no ports — it's at Layer 3, directly on top of IP. It's often allowed through firewalls for diagnostic purposes, which attackers exploit:
+ICMP has no ports — it's at Layer 3, directly on top of IP. Instead of ports, every ICMP message carries a **type** number that says what kind of message it is. Knowing the common types (defined in RFC 792) tells you what a device is actually reporting:
 
-- **ICMP tunneling:** Data can be encoded inside ICMP echo packets to create a covert communication channel that bypasses firewalls
-- **Ping flood:** Overwhelming a target with ICMP requests (old-school DDoS)
-- **ICMP redirect attacks:** Forged ICMP redirect messages can be used to manipulate routing tables`,
+| Type | Name | Meaning | SOC relevance |
+|------|------|---------|---------------|
+| 0 | Echo Reply | The "pong" answer to a ping | The reply half of ping and of ICMP tunneling |
+| 3 | Destination Unreachable | The target network/host/port could not be reached | Floods of type 3 can reveal scanning or misconfiguration |
+| 4 | Source Quench | Legacy "slow down" congestion signal (deprecated) | Rare today; historically abused to degrade connections |
+| 5 | Redirect | "Use a better router for this destination" | Forged type 5 messages reroute a victim's traffic (MITM) |
+| 8 | Echo Request | The "ping" that asks for a reply | The request half of ping and of ICMP tunneling |
+| 11 | Time Exceeded | A packet's TTL (Time To Live) hit zero | This is what makes traceroute work; also used to map networks |
+| 12 | Parameter Problem | The packet header was malformed | Can indicate crafted/malicious packets |
+| 13 / 14 | Timestamp / Timestamp Reply | Requests/returns a remote clock value | Leaks host info; used in reconnaissance |
+
+ICMP is often allowed through firewalls for diagnostic purposes, which attackers exploit:
+
+- **ICMP tunneling:** The data-carrying part of an Echo Request (type 8) or Echo Reply (type 0) is normally just padding — attackers stuff stolen data or C2 commands into that payload field, creating a covert channel that looks like ordinary ping traffic and slips past firewalls that permit ICMP. Tools like Loki and icmpsh do exactly this.
+- **Ping flood / ICMP flood:** Overwhelming a target with a torrent of Echo Requests (type 8) to exhaust its bandwidth or CPU — an old-school DDoS.
+- **ICMP redirect attacks:** Forged Redirect messages (type 5) tell a victim "route your traffic through me instead of the real gateway," manipulating its routing table to enable a man-in-the-middle position.`,
         checkpoint: {
           question: "According to the reading, which port does RDP (Remote Desktop Protocol) use?",
           options: [

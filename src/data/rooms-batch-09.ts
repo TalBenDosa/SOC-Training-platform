@@ -1094,6 +1094,10 @@ Reading this: "Version is SPF1. Trust all IPs in Google's SPF record, trust mail
 - **softfail (~all)** — the sending server is probably not authorised. Mark as suspicious but deliver.
 - **neutral (?all)** — the domain makes no assertion about authorisation. Common in misconfigured domains.
 - **none** — no SPF record exists. Cannot verify. Common in small organisations.
+- **temperror** — a temporary (usually DNS) error stopped the check from completing; a later retry may succeed. Treat as "unknown, retry", not as pass or fail.
+- **permerror** — a permanent error: the domain's SPF record is malformed or breaks a hard limit (for example, more than the RFC 7208 maximum of 10 DNS-lookup mechanisms). It signals a broken record on the sender's side that a DNS operator must fix.
+
+Those seven values — pass, fail, softfail, neutral, none, temperror, and permerror — are the complete set defined by RFC 7208. You will meet all of them in real Authentication-Results headers, so recognise temperror and permerror rather than assuming every non-pass result means spoofing.
 
 **DKIM — DomainKeys Identified Mail**
 

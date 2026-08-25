@@ -58,6 +58,8 @@ const protocolsMasterclass = {
         `**Layer 3 — Network**: IP (Internet Protocol) lives here. This layer handles logical addressing (IP addresses) and routing — deciding which path packets take across networks. Every firewall log that shows a source IP, destination IP, and whether the packet was allowed or blocked is operating at Layer 3.\n\n` +
         `**Layer 2 — Data Link**: MAC (Media Access Control) addresses and Ethernet frames live here. ARP (Address Resolution Protocol) operates at this layer to map IP addresses to MAC addresses. Layer 2 attacks like ARP poisoning and MAC spoofing are detected by NAC (Network Access Control) tools and switch logs, not by standard firewalls.\n\n` +
         `**Layer 1 — Physical**: The actual cables, fiber, radio signals, and hardware ports. No security logging happens here in a meaningful sense — you detect physical tampering through physical security systems, not SIEMs.\n\n` +
+        `**How data is wrapped at each layer: encapsulation and the PDU names**\n\n` +
+        `As your data travels down the layers on the sending machine, each layer wraps what it received from the layer above inside its own header — like putting a letter inside an envelope, then that envelope inside a shipping box, then the box onto a labelled pallet. This wrapping is called encapsulation, and the receiving machine unwraps it in reverse (decapsulation) as the data travels back up its own layers. The named bundle of data at each layer has a specific term — the PDU (Protocol Data Unit) — and knowing these names lets you read tool documentation and packet captures precisely. At Layers 7-5 (Application, Presentation, Session) the PDU is simply called data (or a message). At Layer 4 (Transport) a TCP PDU is called a segment and a UDP PDU is called a datagram. At Layer 3 (Network) it is a packet. At Layer 2 (Data Link) it is a frame. At Layer 1 (Physical) it is raw bits on the wire. When a firewall says it "drops malformed frames" (Layer 2) or an IDS says it "reassembles TCP segments" (Layer 4), the PDU name is telling you exactly which layer that tool operates at — and therefore which attacks it can and cannot see.\n\n` +
         `**The TCP/IP Model**\n\n` +
         `In practice, the networking world uses a simpler 4-layer model called TCP/IP (also called the Internet model). It collapses the OSI model's seven layers into four: Network Access (OSI Layers 1-2), Internet (OSI Layer 3), Transport (OSI Layer 4), and Application (OSI Layers 5-7).\n\n` +
         `**Why does this matter for a SOC analyst?**\n\n` +
@@ -86,6 +88,18 @@ const protocolsMasterclass = {
         "                                           MAC addressing\n" +
         "Layer 1      Physical       Network        Cables, fiber,\n" +
         "                           Access         radio, hardware\n" +
+        "============================================================\n\n" +
+        "PROTOCOL DATA UNIT (PDU) NAME PER LAYER\n" +
+        "============================================================\n" +
+        "Layer        Name                     PDU (unit of data)\n" +
+        "------------------------------------------------------------\n" +
+        "Layer 7-5    Application/Presentation/  Data / Message\n" +
+        "             Session\n" +
+        "Layer 4      Transport                 Segment (TCP) /\n" +
+        "                                       Datagram (UDP)\n" +
+        "Layer 3      Network                   Packet\n" +
+        "Layer 2      Data Link                 Frame\n" +
+        "Layer 1      Physical                  Bits\n" +
         "============================================================\n\n" +
         "ATTACK-TO-LAYER-TO-TOOL MAPPING\n" +
         "============================================================\n" +
@@ -393,7 +407,9 @@ const protocolsMasterclass = {
         `- DELETE: Remove a resource. Used in REST APIs.\n` +
         `- HEAD: Like GET, but the server returns only the headers, not the body. Used to check if a resource exists or get its size.\n` +
         `- OPTIONS: Ask the server what methods it supports for a given URL. Commonly used by browsers in CORS preflight requests. Attackers sometimes use OPTIONS to fingerprint web servers.\n` +
-        `- PATCH: Partially update a resource.\n\n` +
+        `- PATCH: Partially update a resource.\n` +
+        `- CONNECT: Establish a network tunnel through a proxy to the destination server. This is the method a browser uses to tunnel an HTTPS session through a forward proxy. SOC relevance: tunneling malware and covert-channel tools abuse CONNECT to smuggle arbitrary TCP traffic through a permitted web proxy — a proxy log showing CONNECT requests to non-web ports (anything other than 443) is a strong indicator worth pivoting on.\n` +
+        `- TRACE: Ask the server to echo back the exact request it received, as a path-diagnostic loop-back test. It should be disabled on production web servers: when enabled it enables a Cross-Site Tracing (XST) attack, in which an attacker uses TRACE to read request headers — including session cookies that were marked HttpOnly to hide them from scripts. Seeing TRACE enabled on a server is itself a hardening finding.\n\n` +
         `**HTTP Status Codes**\n\n` +
         `The server responds to every request with a three-digit status code:\n\n` +
         `- 1xx (Informational): Request received, processing continues. Rarely logged meaningfully.\n` +

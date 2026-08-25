@@ -5812,6 +5812,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 0
       },
       {
+        "id": "secprod-r6b",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "secprod-ac1",
         "type": "analyst_choice",
         "xp": 30

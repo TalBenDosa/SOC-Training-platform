@@ -287,7 +287,7 @@ const awsSecurityRoom = {
         `An **IAM user** represents a long-term identity — typically a person or a service that needs permanent credentials (a username/password for console access, and/or an access key ID + secret access key for programmatic access via CLI or SDK). Access keys do not expire on their own, which is exactly why a leaked access key is so dangerous: unless someone notices and revokes it, it can be used indefinitely.\n\n` +
         `An **IAM role** is different: it is an identity with no long-term credentials attached at all. Instead, anyone (or anything — like an EC2 instance, a Lambda function, or another AWS account) who is allowed to "assume" the role receives **temporary credentials** that automatically expire, typically within 1 to 12 hours. Roles are the recommended way to grant permissions to applications running on EC2 instances, because there is no static secret sitting on disk waiting to be stolen — although, as you'll see later in this room, the temporary credentials themselves can still be stolen while they are valid.\n\n` +
         `**Anatomy of an IAM Policy**\n\n` +
-        `A policy is a JSON document with, at minimum, an Effect (Allow or Deny), an Action (the specific API call(s) covered, e.g. s3:GetObject), and a Resource (which specific object(s) the policy applies to, e.g. a specific bucket ARN or * for everything).\n\n` +
+        `A policy is a JSON document with, at minimum, an Effect (Allow or Deny), an Action (the specific API call(s) covered, e.g. s3:GetObject), and a Resource (which specific object(s) the policy applies to, e.g. a specific bucket ARN or * for everything). Two more elements matter for security even though they are optional: a Condition, which restricts WHEN an Allow applies — for example, only from a specific source IP range (aws:SourceIp), or only when the caller authenticated with MFA (aws:MultiFactorAuthPresent) — and, on resource-based policies (a policy attached directly to a resource like an S3 bucket rather than to an identity), a Principal that names WHICH identity the rule applies to. Conditions are a common security guardrail, which is exactly why an attacker who edits a policy will often strip the Condition out: a CreatePolicyVersion that quietly removes an aws:SourceIp or MFA condition can turn a tightly-scoped, IP-locked permission into one usable from anywhere, so a SOC analyst comparing an old and new policy version should always check whether a protective Condition disappeared, not just whether the Action or Resource got broader.\n\n` +
         `**The Most Dangerous Policy Pattern**\n\n` +
         `A policy that grants "Action": "*", "Resource": "*" with "Effect": "Allow" is the cloud equivalent of a master key that opens every door in the building, the safe, and the server room — it is functionally equivalent to full Administrator access. SOC analysts should always treat the creation or attachment of such a policy as a high-priority event requiring investigation, especially when it is created moments after suspicious activity, or attached to a role that should have narrow, task-specific permissions (like a role meant only to serve a web application).\n\n` +
         `**IAM Privilege Escalation**\n\n` +
@@ -308,6 +308,11 @@ const awsSecurityRoom = {
         "  Effect:    Allow or Deny\n" +
         "  Action:    which API calls this applies to\n" +
         "  Resource:  which specific AWS resource(s)\n" +
+        "  Condition: OPTIONAL -- WHEN the rule applies (e.g.\n" +
+        "             only from a set source IP, or only if\n" +
+        "             MFA is present). Attackers strip these.\n" +
+        "  Principal: OPTIONAL -- on resource-based policies,\n" +
+        "             WHICH identity the rule applies to\n" +
         "=======================================================\n\n" +
         "IAM USER vs IAM ROLE\n" +
         "=======================================================\n" +

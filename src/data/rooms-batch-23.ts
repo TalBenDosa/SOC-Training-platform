@@ -580,6 +580,69 @@ Its blind spots are specific and worth knowing by name. Many organizations route
     },
 
     // ------------------------------------------------------------------
+    // Reading 6b — Vulnerability Scanner (the one active product)
+    // ------------------------------------------------------------------
+    {
+      type: "reading",
+      id: "secprod-r6b",
+      heading: "Vulnerability Scanners: The One Product That Reaches Out Instead of Watching",
+      content: `Every product so far in this room is a watcher. It sits somewhere — on a host, inline on the wire, on an out-of-band tap, in front of one application, in the cloud identity plane — and waits for files, packets, or events to arrive so it can judge them. A vulnerability scanner is the exact opposite, and that inversion is the whole reason it earns its own reading: it is the one product in the entire lineup that actively reaches out and initiates traffic to the machines it assesses, rather than passively observing traffic someone else generated. It is a prober, not a sensor. The ones you'll meet by name are Tenable Nessus, Qualys, Rapid7 InsightVM (formerly Nexpose), and the open-source OpenVAS.
+
+Where it sits: not inline, and not on a tap. A scanner is simply a host on the network — or a cloud-hosted service, or a lightweight agent installed on the target itself — that, usually on a fixed schedule, connects out to a list of target systems and interrogates each one: knocking on ports to see which are open, asking each service that answers what it is and what version it's running, and comparing every answer against a constantly-updated database of known vulnerabilities (Tenable calls each individual check a "plugin"; other vendors call them signatures or detections). Because it is the thing initiating the connections, it has no position in anyone else's traffic path from which it could block anything — and it isn't trying to. Assessment, not enforcement, is the entire job.
+
+What it sees, and the credentialed-versus-uncredentialed split that decides how much: an uncredentialed (network-only) scan sees exactly what an external attacker with no login would see — open ports, service banners, and behaviour it can poke at from outside — and infers likely vulnerabilities from those outside signals alone. A credentialed (authenticated) scan is handed a real login to each target and can read the actual installed-patch level, exact package versions, and configuration directly from inside the system. The accuracy gap between the two is enormous: authenticated scanning is widely considered the single biggest accuracy improvement available, because the scanner can confirm whether a patch is genuinely installed instead of guessing from an externally visible version string. That guessing is the root of the scanner's most famous weakness, below.
+
+What it does when it detects something — and this is the sharpest contrast in the whole room: nothing to the target. A scanner never blocks, quarantines, kills, drops, or isolates anything, under any policy, ever. This is a stronger statement than the EDR-on-Detection-Only case from Reading 1: that sensor could have blocked and was merely configured not to, whereas a scanner is structurally incapable of enforcement because it has no foothold in the traffic or process path to act from. Its only output is a report — a list of findings, each carrying a CVE (Common Vulnerabilities and Exposures) identifier where one exists, plus a CVSS (Common Vulnerability Scoring System) base score and severity rating that describe how serious that class of flaw is in general. Acting on that report — patching, reconfiguring, decommissioning, isolating — is a separate human-and-process step entirely, which is exactly why "the scanner found it" and "the risk was fixed" are two very different states, sometimes months apart.
+
+Its blind spot is time, not position: a scan is a point-in-time snapshot. It tells you what was true at 02:00 last Tuesday, not what is true right now — a vulnerability introduced an hour after the scan finished stays invisible until the next scheduled run, which is why scanning is a periodic health check rather than the continuous monitoring EDR and NDR provide. It also cannot tell you whether anything it found is actually being exploited; that is the job of the detection products in the rest of this room. A scanner's output tells you where the unlocked doors are — it never tells you whether someone is currently walking through one.
+
+Its two characteristic false positives are worth knowing by name, because they point in opposite directions:
+
+- Backported-patch false positives. Many plugins detect a vulnerability purely from a software package's version number, without ever attempting to exploit it. But Red Hat, Debian, and Ubuntu all default to backporting — applying a security fix to an older package while deliberately leaving its version number unchanged for stability. A version-only, uncredentialed scan sees the old version string, matches it against a known CVE, and reports the host as vulnerable even though the fix was actually applied long ago. This is one of the most common false positives in all of vulnerability management, and it is precisely why credentialed scanning — which can read the distribution's real patch metadata instead of just the version string — exists.
+
+- The scanner as everyone else's false positive. This is the flip side, and it is the exact situation the next task walks through: a scanner's own probing traffic — hundreds of connections to many ports and hosts in a short burst — is, by shape, indistinguishable from the reconnaissance phase of a real attack, so an IDS or NDR will dutifully raise "scan detected" alerts every single time an authorized scan runs. The scanner did nothing wrong and the IDS did nothing wrong; the traffic that is a scanner's entire legitimate purpose simply has the same shape as hostile reconnaissance. That is why an authorized scanner's schedule and source host must be known facts on the SOC floor, so those alerts can be triaged in seconds instead of chased for hours.`,
+      codeExample:
+        "TENABLE NESSUS -- REPRESENTATIVE FINDING (from the report, not an alert)\n" +
+        "===========================================================\n" +
+        "Host:            10.44.20.31\n" +
+        "Plugin ID:       42873   (one Tenable plugin = one vulnerability check)\n" +
+        "Plugin Name:     SSL Medium Strength Cipher Suites Supported (SWEET32)\n" +
+        "Severity:        High\n" +
+        "CVSS v3.1 Base:  7.5\n" +
+        "CVE:             CVE-2016-2183\n" +
+        "Plugin Output:   Negotiated a 64-bit block cipher (DES-CBC3-SHA)\n" +
+        "===========================================================\n" +
+        "A scanner FINDING is not an ALERT. Nothing was blocked, and\n" +
+        "nothing is known to be under attack -- this is a report line\n" +
+        "saying 'this weakness exists here,' carrying a CVE and a CVSS\n" +
+        "base score, handed off to a remediation process that is\n" +
+        "entirely separate from the scanner itself.\n" +
+        "===========================================================\n\n" +
+        "CREDENTIALED vs UNCREDENTIALED -- WHY IT DECIDES ACCURACY\n" +
+        "===========================================================\n" +
+        "Uncredentialed  -> sees only what an outside attacker sees:\n" +
+        "                   open ports, banners, externally visible\n" +
+        "                   version strings -> more false positives\n" +
+        "Credentialed     -> logs in and reads the REAL installed-patch\n" +
+        "                   state -> can tell a backported-but-patched\n" +
+        "                   package from a genuinely vulnerable one\n" +
+        "===========================================================",
+      checkpoint: {
+        question:
+          "Why can a vulnerability scanner never block a vulnerability it finds, even when configured as aggressively as possible — a stronger limitation than an EDR set to Detection Only?",
+        options: [
+          "Because scanners are always deployed out-of-band on a network tap, exactly like an IDS, and a tap can only ever read a copy of traffic",
+          "Because a scanner has no position in any traffic or process path to act from at all — it only reaches out, assesses, and reports a finding (with a CVE and CVSS score); remediation is a separate human-and-process step",
+          "Because a scanner's block feature only activates once a finding's CVSS base score reaches a perfect 10.0, and almost no real finding scores that high",
+          "Because scanners can block, but only for uncredentialed findings — a credentialed scan is read-only by design and forfeits any enforcement capability",
+        ],
+        answer: 1,
+        explanation:
+          "A scanner is a prober, not a sensor: it initiates connections to assess targets and has no foothold in the traffic or process path from which enforcement would even be possible. This is a stronger statement than the EDR Detection Only case — that sensor could have blocked and was configured not to, whereas a scanner is structurally incapable of it. Its output is a report (CVE plus CVSS severity), and acting on that report is a separate step entirely. CVSS scores and credentialed-versus-uncredentialed mode change accuracy and detail, never whether it can enforce.",
+      },
+    },
+
+    // ------------------------------------------------------------------
     // Analyst choice — vuln scanner triggers IDS alert (false positive)
     // ------------------------------------------------------------------
     {
