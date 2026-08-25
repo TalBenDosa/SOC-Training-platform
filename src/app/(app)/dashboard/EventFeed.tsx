@@ -10,7 +10,6 @@ import { LOG_SOURCE_GUIDE } from "./logSourceGuide";
 import { toRawLog } from "./rawLogFormat";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
-import { EmailHeaderViewer } from "./EmailHeaderViewer";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery,
@@ -309,9 +308,14 @@ const SEVERITY_COLORS: Record<string, string> = {
   informational: "text-slate-400",
 };
 
+// Every privileged / domain-admin action (create/modify/delete an account, a
+// password change, a group or role change, a privilege escalation) gets the
+// "Verify with IT" step — the analyst confirms with the Help Desk whether a
+// change ticket exists before deciding.
 const ADMIN_EVENT_TYPES = new Set([
   "group_modify", "account_modify", "account_create", "account_delete",
-  "privilege_escalation", "role_assignment", "account_lockout",
+  "privilege_escalation", "privileged_operation", "role_assignment",
+  "account_lockout", "cloud_role_change", "linux_priv_change",
 ]);
 
 function DetailPanel({
@@ -326,11 +330,16 @@ function DetailPanel({
   const [showRawJson, setShowRawJson] = useState(false);
   const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done">("idle");
 
-  const hasItVerify = event.it_verify_result !== undefined || ADMIN_EVENT_TYPES.has(event.event_type);
+  // Resolve the IT-verify outcome for ANY admin action. An explicitly-authored
+  // result wins (the attack's malicious admin action carries "unverified");
+  // otherwise routine background admin activity defaults to a confirmed ticket.
+  const verifyResult: "confirmed" | "unverified" | undefined =
+    event.it_verify_result ?? (ADMIN_EVENT_TYPES.has(event.event_type) ? "confirmed" : undefined);
+  const hasItVerify = verifyResult !== undefined;
 
   function handleItVerify(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!event.it_verify_result) return; // no predetermined result — shouldn't happen
+    if (!verifyResult) return;
     setItVerifyState("verifying");
     setTimeout(() => setItVerifyState("done"), 1400 + Math.random() * 600);
   }
@@ -435,7 +444,7 @@ function DetailPanel({
         </div>
 
         {/* IT Verification Widget — shown for admin/privileged action events */}
-        {!showRawJson && hasItVerify && event.it_verify_result && (
+        {!showRawJson && hasItVerify && (
           <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2.5">
             <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">IT Verification</p>
             {itVerifyState === "idle" && (
@@ -458,7 +467,7 @@ function DetailPanel({
                 Contacting IT Help Desk&hellip;
               </div>
             )}
-            {itVerifyState === "done" && event.it_verify_result === "confirmed" && (
+            {itVerifyState === "done" && verifyResult === "confirmed" && (
               <div className="rounded border border-neon-green/40 bg-neon-green/5 px-3 py-2.5">
                 <div className="flex items-start gap-2.5">
                   <CheckCircle2 className="h-4 w-4 text-neon-green mt-0.5 shrink-0" />
@@ -471,7 +480,7 @@ function DetailPanel({
                 </div>
               </div>
             )}
-            {itVerifyState === "done" && event.it_verify_result === "unverified" && (
+            {itVerifyState === "done" && verifyResult === "unverified" && (
               <div className="rounded border border-severity-critical/40 bg-severity-critical/5 px-3 py-2.5">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 text-severity-critical mt-0.5 shrink-0" />
@@ -551,8 +560,9 @@ function DetailPanel({
               </div>
             </div>
 
-            {/* ── Email Header Investigator ─────────────────────────── */}
-            <EmailHeaderViewer event={event} onXp={onXp} />
+            {/* Email header investigation was intentionally removed — that
+                exercise was not well enough characterised to grade fairly, so
+                analysts no longer investigate raw mail headers here. */}
 
             {/* Detailed Log Data */}
             <div id="ef-detail-log-data" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
