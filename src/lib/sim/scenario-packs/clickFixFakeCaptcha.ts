@@ -623,7 +623,7 @@ Forty-five seconds later the page loaded a script from human-verify-check.net â€
 
 At 14:12:50 explorer.exe launched powershell.exe with a hidden window and a one-line command: fetch https://pkg-delivery-cdn.net/v/init.ps1 and pipe it straight into Invoke-Expression. No file was downloaded first â€” the Run dialog executed exactly the text that had been placed on the clipboard. Three seconds later the firewall logged the GET request for init.ps1 itself, matching the URL in the command line.
 
-Five seconds after that, the same PowerShell process spawned a second PowerShell process with a Base64-encoded command. That one finally wrote something to disk: five seconds later, sysupd32.exe appeared in C:\\Users\\t.avraham\\AppData\\Local\\Temp, unsigned, 871 KB. It ran four seconds after that.
+Five seconds after that, the same PowerShell process spawned a second PowerShell process with a Base64-encoded command. That one finally wrote something to disk: seven seconds later, sysupd32.exe appeared in C:\\Users\\t.avraham\\AppData\\Local\\Temp, unsigned, 871 KB. It ran four seconds after that.
 
 Its first act was to call home. The connection to sync-metrics-relay.com was denied at the firewall under the newly-registered-domain category, and eighteen seconds later Falcon raised a Critical detection and killed the process.
 

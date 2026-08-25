@@ -289,7 +289,7 @@ export function buildDriveByBrowserMinerScenario(
       description:
         "The renderer process (PID 8842) wrote a compiled copy of the module to Chrome's own Code Cache, confirming wm-mod.wasm was compiled and executed rather than just downloaded.",
       file: {
-        name: "wm-mod_0",
+        name: "a1f4c9_0",
         path: "C:\\Users\\t.ravid\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Code Cache\\wasm\\a1f4c9_0",
         extension: "",
         size: 176_640,

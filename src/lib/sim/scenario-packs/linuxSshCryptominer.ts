@@ -226,7 +226,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1033",
       mitre_tactic: "Discovery",
       description:
-        "Ninety seconds after the login, session 41 ran id, uname -a, cat /etc/os-release and crontab -l from /home/svc-backup. The SYSCALL record shown is the `id` execution.",
+        "Two minutes after the login, session 41 ran id, uname -a, cat /etc/os-release and crontab -l from /home/svc-backup. The SYSCALL record shown is the `id` execution.",
       process: {
         name: "id",
         pid: 1901,

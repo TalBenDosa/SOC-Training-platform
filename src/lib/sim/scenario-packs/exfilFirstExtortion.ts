@@ -188,7 +188,7 @@ export function buildExfilFirstExtortionScenario(
       mitre_technique: "T1074.001",
       mitre_tactic: "Collection",
       description:
-        "Microsoft Purview Endpoint DLP matched 1,847 instances of sensitivity-labeled client financial data being read by an unallowed application (7z.exe) on LAPTOP-NX-R.DOYLE. The matching rule is enforced, but its configured action is Audit — the activity was logged and the user was not notified, and nothing was blocked.",
+        "Microsoft Purview Endpoint DLP matched 1,847 instances of sensitivity-labeled client financial data being read by an unallowed application (7z.exe) on LAPTOP-NX-R.DOYLE. The matching rule is enforced, but its configured actions are Audit and NotifyUser — the activity was logged and the user notified, and nothing was blocked.",
       file: {
         name: "Q3_Client_Holdings_Export.xlsx",
         path: "C:\\ProgramData\\Adobe\\ARM\\cache\\Shares\\ClientRecords\\Q3_Client_Holdings_Export.xlsx",

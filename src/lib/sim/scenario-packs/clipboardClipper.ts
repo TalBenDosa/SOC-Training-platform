@@ -334,7 +334,7 @@ export function buildClipboardClipperScenario(
     // ---------------------------------------------------------------------
     {
       id: "evt_clc_07_config_pull",
-      ts: T(2 * HOUR + 16_000),
+      ts: T(2 * HOUR + 15 * MIN + 16_000),
       source: "firewall",
       vendor: "Palo Alto Networks PAN-OS",
       event_type: "http_request",
@@ -422,8 +422,8 @@ export function buildClipboardClipperScenario(
     {
       type: "domain",
       value: c2,
-      first_seen: T(2 * HOUR + 16_000),
-      last_seen: T(2 * HOUR + 16_000),
+      first_seen: T(2 * HOUR + 15 * MIN + 16_000),
+      last_seen: T(2 * HOUR + 15 * MIN + 16_000),
       reputation: "malicious",
       tags: ["c2", "wallet-config-distribution"],
     },
@@ -561,7 +561,7 @@ Nothing crashed. Nothing looked wrong on her screen at any point. Two days later
       { ts: T(2 * MIN + 36_000), phase: "Persistence", action: "cmd.exe adds a Run key via `reg add` (T1059.003)" },
       { ts: T(2 * MIN + 44_000), phase: "Execution", action: "clipsvc_helper.exe starts silently" },
       { ts: T(2 * HOUR + 15 * MIN), phase: "Collection", action: "Clipboard format listener registered; wallet addresses substituted in place (T1115)" },
-      { ts: T(2 * HOUR + 16_000), phase: "Command and Control", action: `Periodic config pull from ${c2}` },
+      { ts: T(2 * HOUR + 15 * MIN + 16_000), phase: "Command and Control", action: `Periodic config pull from ${c2}` },
       { ts: T(2 * 24 * HOUR + 3 * HOUR), phase: "Detection", action: "SentinelOne raises a Critical detection and kills the process — two days after infection" },
     ],
     questions,
