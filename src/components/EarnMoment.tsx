@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star } from "lucide-react";
-import { type Rank } from "@/lib/progression/ranks";
+import { rankForXp, type Rank } from "@/lib/progression/ranks";
+import { getTotalXp } from "@/lib/storage/progress";
 import { useRank } from "@/lib/progression/useRank";
 import { useFullName } from "@/lib/auth/useFullName";
 import { RankCertificateModal } from "@/components/certificate/RankCertificateModal";
@@ -52,21 +53,28 @@ export function EarnMoment() {
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (!ready) return; // never act on the pre-load 0-XP state
+    if (!ready) return;
     let acked: number | null = null;
-    try { const v = localStorage.getItem(ACK_KEY); acked = v === null ? null : parseInt(v, 10); } catch { /* ignore */ }
-    const persist = (n: number) => { try { localStorage.setItem(ACK_KEY, String(n)); } catch { /* ignore */ } };
+    try { const v = localStorage.getItem(ACK_KEY); if (v !== null) { const n = parseInt(v, 10); acked = Number.isNaN(n) ? null : n; } } catch { /* ignore */ }
 
-    // First time on this device, OR a lower-ranked context (a different account
-    // signed in, or an XP reset): silently (re-)baseline so we never fire a
-    // retroactive certificate for a rank the learner already held.
-    if (acked === null || Number.isNaN(acked) || rank.minXp < acked) { persist(rank.minXp); return; }
-    // A genuine promotion the learner hasn't been shown yet → celebrate ONCE and
-    // remember it, so a reload/login (rank.minXp === acked) shows nothing.
+    // First time on this device: baseline AFTER a short settle so we capture the
+    // REAL loaded rank, not the transient 0 that getTotalXp() returns before the
+    // signed-in XP syncs. No certificate — this is not a promotion.
+    if (acked === null) {
+      const t = setTimeout(() => {
+        try { localStorage.setItem(ACK_KEY, String(rankForXp(getTotalXp()).minXp)); } catch { /* ignore */ }
+      }, 4000);
+      return () => clearTimeout(t);
+    }
+
+    // acked is MONOTONIC — only ever raised, never lowered. So the transient
+    // 0-XP load (rank.minXp < acked) is ignored, and a reload (rank.minXp ===
+    // acked) shows nothing. A certificate fires only on a genuine NEW high,
+    // once, then acked catches up so it can't fire again.
     if (rank.minXp > acked) {
       show({ title: "Rank Up!", sub: rankLabel(rank) });
       if (rank.id !== "student") setCertRank({ rank, xp });
-      persist(rank.minXp);
+      try { localStorage.setItem(ACK_KEY, String(rank.minXp)); } catch { /* ignore */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, rank.id, rank.minXp, xp]);
