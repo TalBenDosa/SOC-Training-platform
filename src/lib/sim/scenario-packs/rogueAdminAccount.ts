@@ -435,6 +435,7 @@ export function buildRogueAdminAccountScenario(
       raw: {
         "AlertName": "PrivilegedGroupAddition_RecentlyCreatedAccount",
         "alert.rule.id": "SEN-IDENT-0244",
+        "alert.severity": "High",
         "ExtendedProperties.Window Start": T(N + 4 * MIN),
         "ExtendedProperties.Window End": T(N + 16 * MIN),
         "ExtendedProperties.New Account": "NEXACORP\\s.katz",

@@ -594,7 +594,7 @@ export function buildInfostealerSessionTheftScenario(
       first_seen: T(3 * HOUR + 47 * MIN + 24 * SEC),
       last_seen: T(3 * HOUR + 47 * MIN + 24 * SEC),
       reputation: "malicious",
-      tags: ["c2", "exfil"],
+      tags: ["c2", "outbound-post-target"],
     },
     {
       type: "sha256",

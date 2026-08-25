@@ -198,7 +198,6 @@ export function buildSoftwareInstallFalsePositiveScenario(
         "file.code_signature.status": "unsigned",
         "file.code_signature.subject_name": "",
         "process.integrity_level": "System",
-        "user.session.interactive": "false",
         action_result: "allowed",
       },
     },

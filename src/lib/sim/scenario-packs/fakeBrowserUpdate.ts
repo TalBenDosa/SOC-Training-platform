@@ -181,7 +181,7 @@ export function buildFakeBrowserUpdateScenario(
         "pan.filename": "Chrome_Update_127.0.6533.js",
         "pan.filetype": "script",
         "pan.file_hash": scriptHash,
-        "pan.direction": "download",
+        "pan.direction": "server-to-client",
         "pan.session_id": "884147",
         "source.ip": host.ip,
         "url.domain": stagingHost,
@@ -212,7 +212,7 @@ export function buildFakeBrowserUpdateScenario(
         sha256: scriptHash,
       },
       raw: {
-        "crowdstrike.event_simpleName": "NewScriptWritten",
+        "crowdstrike.event_simpleName": "FileWritten",
         "crowdstrike.sensor.id": "b3e7d1904f2a4c88a1e5602d7fc3b914",
         "event.action": "file_created",
         "file.name": "Chrome_Update_127.0.6533.js",

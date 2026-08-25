@@ -82,7 +82,7 @@ export function buildEsxiRansomwareScenario(
         "rule.id": "81613",
         "rule.level": "5",
         "rule.description": "FortiGate: SSL VPN tunnel established.",
-        "rule.groups": "fortigate,vpn,authentication",
+        "rule.groups": ["fortigate", "vpn", "authentication"],
       },
     },
 
@@ -130,10 +130,10 @@ export function buildEsxiRansomwareScenario(
         "data.sentbyte": "8412",
         "data.rcvdbyte": "44190",
         "data.appcat": "unscanned",
-        "rule.id": "81603",
+        "rule.id": "81601",
         "rule.level": "3",
         "rule.description": "FortiGate: Traffic session accepted by policy.",
-        "rule.groups": "fortigate,firewall",
+        "rule.groups": ["fortigate", "firewall"],
       },
     },
 
@@ -474,7 +474,7 @@ export function buildEsxiRansomwareScenario(
       description:
         "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27, all of them guests on PROD-CLUSTER-A; the record for SQL-PROD-02 is shown, host status offline.",
       raw: {
-        "crowdstrike.event_simpleName": "SensorHeartbeatMissing",
+        "crowdstrike.event_simpleName": "AgentOffline",
         "crowdstrike.host.hostname": "SQL-PROD-02",
         "crowdstrike.host.aid": "b41d9c77e2a54f0e8c1a6d3f9b207e55",
         "crowdstrike.host.platform_name": "Windows",
@@ -486,7 +486,7 @@ export function buildEsxiRansomwareScenario(
         "crowdstrike.host.reduced_functionality_mode": "no",
         "crowdstrike.sensor.version": "7.18.18604.0",
         "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "sensor_heartbeat_missing",
+        "event.action": "agent_offline",
         "host.name": "SQL-PROD-02",
       },
     },

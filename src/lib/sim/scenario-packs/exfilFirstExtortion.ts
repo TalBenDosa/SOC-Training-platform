@@ -56,6 +56,7 @@ export function buildExfilFirstExtortionScenario(
   const megaNode = "gfs301n112.userstorage.mega.co.nz";
   const megaNodeIp = "31.216.148.28";
 
+  const robocopyHash = makeSha256("windows_system32_robocopy_exe_signed_microsoft_2026");
   const archiveHash = makeSha256("nexacorp_adobe_arm_cache_7z_portable_2026");
   const rcloneHash = makeSha256("nexacorp_adobe_arm_helper_renamed_rclone_2026");
   const flaggedFileHash = makeSha256("nexacorp_client_holdings_q3_2026_export");
@@ -92,6 +93,7 @@ export function buildExfilFirstExtortionScenario(
           'robocopy.exe "\\\\SRV-NX-FIN01\\Shares" "C:\\ProgramData\\Adobe\\ARM\\cache\\Shares" /E /Z /R:1 /W:1 /MT:16 /NFL /NDL /NP /XF *.tmp *.log',
         user: `NEXACORP\\${victim.sam}`,
         integrity: "medium",
+        hash: { sha256: robocopyHash },
       },
       raw: {
         "mde.ActionType": "ProcessCreated",
@@ -103,6 +105,7 @@ export function buildExfilFirstExtortionScenario(
         "process.executable": "C:\\Windows\\System32\\Robocopy.exe",
         "process.command_line":
           'robocopy.exe "\\\\SRV-NX-FIN01\\Shares" "C:\\ProgramData\\Adobe\\ARM\\cache\\Shares" /E /Z /R:1 /W:1 /MT:16 /NFL /NDL /NP /XF *.tmp *.log',
+        "process.hash.sha256": robocopyHash,
         "process.code_signature.status": "signed",
         "process.integrity_level": "Medium",
         "process.parent.name": "cmd.exe",

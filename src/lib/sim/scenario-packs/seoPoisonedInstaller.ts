@@ -42,7 +42,7 @@ export function buildSeoPoisonedInstallerScenario(
 
   const host = { hostname: "LAP-3312", ip: "10.14.19.63" };
   const victim = { email: "d.avraham@nexacorp.com", name: "Dor Avraham", sam: "d.avraham" };
-  const deviceId = "a4f7c1e29b3d4host6a01c8f2ed37b104";
+  const deviceId = "224e37355dd22197935d79f9a23781bb07bd0c1a";
 
   const lookalike = "puttysoftware-download.com";
   const c2 = "cdn-assets-relay92.net";
@@ -522,7 +522,7 @@ export function buildSeoPoisonedInstallerScenario(
       first_seen: T(3 * MIN + 14_000),
       last_seen: T(7 * MIN),
       reputation: "malicious",
-      tags: ["c2", "payload-staging", "exfil"],
+      tags: ["c2", "payload-staging", "outbound-post-target"],
     },
     {
       type: "sha256",

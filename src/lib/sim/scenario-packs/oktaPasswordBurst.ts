@@ -182,6 +182,7 @@ export function buildOktaPasswordBurstScenario(
         "okta.securityContext.asNumber": attackerAsn,
         "okta.securityContext.asOrg": attackerAsOrg,
         "okta.securityContext.isp": attackerAsOrg,
+        "okta.securityContext.domain": "flokinet.is",
         "okta.securityContext.isProxy": "false",
         "okta.authenticationContext.authenticationStep": "0",
         "okta.authenticationContext.credentialType": "PASSWORD",
@@ -268,6 +269,7 @@ export function buildOktaPasswordBurstScenario(
         "okta.securityContext.asNumber": attackerAsn,
         "okta.securityContext.asOrg": attackerAsOrg,
         "okta.securityContext.isp": attackerAsOrg,
+        "okta.securityContext.domain": "flokinet.is",
         "okta.securityContext.isProxy": "false",
         // authenticationStep 1 = the password stage was passed and the policy
         // moved the transaction on to the second factor.
@@ -345,9 +347,9 @@ export function buildOktaPasswordBurstScenario(
         "Forty-seven seconds later the same transaction records outcome.result REJECTED with reason USER_REJECTED_PUSH.",
       authentication: { method: "OKTA_VERIFY_PUSH", result: "failure" },
       raw: {
-        "okta.eventType": "user.authentication.auth_via_mfa",
-        "okta.displayMessage": "Authentication of user via MFA",
-        "okta.outcome.result": "REJECTED",
+        "okta.eventType": "user.mfa.okta_verify.push_response",
+        "okta.displayMessage": "MFA push notification denied",
+        "okta.outcome.result": "DENIED",
         "okta.outcome.reason": "USER_REJECTED_PUSH",
         "okta.severity": "WARN",
         "okta.actor.id": victim.id,
@@ -387,9 +389,9 @@ export function buildOktaPasswordBurstScenario(
         "The last of two further push challenges from the same address, also rejected. No further activity from 45.132.192.77 after 02:45.",
       authentication: { method: "OKTA_VERIFY_PUSH", result: "failure" },
       raw: {
-        "okta.eventType": "user.authentication.auth_via_mfa",
-        "okta.displayMessage": "Authentication of user via MFA",
-        "okta.outcome.result": "REJECTED",
+        "okta.eventType": "user.mfa.okta_verify.push_response",
+        "okta.displayMessage": "MFA push notification denied",
+        "okta.outcome.result": "DENIED",
         "okta.outcome.reason": "USER_REJECTED_PUSH",
         "okta.severity": "WARN",
         "okta.actor.id": victim.id,

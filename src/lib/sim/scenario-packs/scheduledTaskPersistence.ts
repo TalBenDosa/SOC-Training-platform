@@ -50,6 +50,18 @@ export function buildScheduledTaskPersistenceScenario(
   const powershellHash = makeSha256("windows_powershell_v1_signed_microsoft");
   const schtasksHash  = makeSha256("windows_system32_schtasks_exe_signed_microsoft");
 
+  // Sysmon ProcessGuid values — one per process creation instant, threaded
+  // through ParentProcessGuid so the Event ID 11/22 records (which carry no
+  // parent field of their own) and the SIEM's "join on ParentProcessGuid"
+  // query in evt_stp_08 are backed by telemetry that actually contains that
+  // field, not just by matching PIDs.
+  const explorerGuid   = "{a53f7d10-eac9-6600-0000-0010b4e50300}"; // explorer.exe, pre-existing
+  const powershellGuid = "{a53f7d10-eaec-6600-0000-0010e6210400}"; // evt_stp_02, PID 5124
+  const schtasksGuid   = "{a53f7d10-eaf1-6600-0000-0010128b0400}"; // evt_stp_04, PID 5188
+  const netfixGuid1    = "{a53f7d10-eafd-6600-0000-0010b3f60400}"; // first run, PID 5240
+  const svchostGuid    = "{a53f7d05-2a1b-6600-0000-0010f4c20100}"; // Schedule service host, pre-existing
+  const netfixGuid2    = "{a53f7d29-4763-6600-0000-0010a9d90800}"; // relaunch at logon, PID 2016
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The download. A forum-linked "fix" for a common, believable
@@ -144,6 +156,8 @@ export function buildScheduledTaskPersistenceScenario(
         "winlog.event_data.IntegrityLevel": "Medium",
         "winlog.event_data.ProcessId": "5124",
         "winlog.event_data.ParentProcessId": "3116",
+        "winlog.event_data.ProcessGuid": powershellGuid,
+        "winlog.event_data.ParentProcessGuid": explorerGuid,
         "host.name": host.hostname,
         "user.name": `NEXACORP\\${victim.sam}`,
       },
@@ -182,6 +196,7 @@ export function buildScheduledTaskPersistenceScenario(
         "winlog.event_data.CreationUtcTime": T(3 * MIN + 24_000),
         "winlog.event_data.Hashes": `SHA256=${payloadHash}`,
         "winlog.event_data.ProcessId": "5124",
+        "winlog.event_data.ProcessGuid": powershellGuid,
         "host.name": host.hostname,
         "user.name": `NEXACORP\\${victim.sam}`,
       },
@@ -234,6 +249,59 @@ export function buildScheduledTaskPersistenceScenario(
         "winlog.event_data.IntegrityLevel": "Medium",
         "winlog.event_data.ProcessId": "5188",
         "winlog.event_data.ParentProcessId": "5124",
+        "winlog.event_data.ProcessGuid": schtasksGuid,
+        "winlog.event_data.ParentProcessGuid": powershellGuid,
+        "host.name": host.hostname,
+        "user.name": `NEXACORP\\${victim.sam}`,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 4b. The script launches the binary it just wrote and registered a task
+    //     for — this is what actually creates the process that later makes
+    //     the DNS query in evt_stp_05, so Sysmon logs it as Event ID 1 first.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_stp_04b_payload_exec",
+      ts: T(3 * MIN + 33_000),
+      source: "sysmon",
+      vendor: "Microsoft Sysmon",
+      event_type: "process_create",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "high",
+      description:
+        "Four seconds after registering the scheduled task, the same PowerShell session launched netfix_agent.exe directly, once, to run immediately rather than waiting for the next logon.",
+      process: {
+        name: "netfix_agent.exe",
+        pid: 5240,
+        path: "C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe",
+        parent_name: "powershell.exe",
+        parent_pid: 5124,
+        cmdline: "\"C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe\"",
+        user: `NEXACORP\\${victim.sam}`,
+        integrity: "medium",
+        hash: { sha256: payloadHash },
+      },
+      raw: {
+        "event.code": "1",
+        "winlog.provider_name": "Microsoft-Windows-Sysmon",
+        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+        "winlog.computer_name": host.hostname,
+        "winlog.event_data.UtcTime": T(3 * MIN + 33_000),
+        "winlog.event_data.Image": "C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe",
+        "winlog.event_data.CommandLine": "\"C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe\"",
+        "winlog.event_data.ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "winlog.event_data.ParentCommandLine":
+          "powershell.exe -ExecutionPolicy Bypass -File \"C:\\Users\\s.attia\\Downloads\\SpeedBoost_NetFix.ps1\"",
+        "winlog.event_data.Hashes": `SHA256=${payloadHash}`,
+        "winlog.event_data.User": `NEXACORP\\${victim.sam}`,
+        "winlog.event_data.IntegrityLevel": "Medium",
+        "winlog.event_data.ProcessId": "5240",
+        "winlog.event_data.ParentProcessId": "5124",
+        "winlog.event_data.ProcessGuid": netfixGuid1,
+        "winlog.event_data.ParentProcessGuid": powershellGuid,
         "host.name": host.hostname,
         "user.name": `NEXACORP\\${victim.sam}`,
       },
@@ -254,7 +322,7 @@ export function buildScheduledTaskPersistenceScenario(
       severity: "medium",
       dns: { query: c2, query_type: "A", rcode: "0" },
       description:
-        "netfix_agent.exe resolved svc-heartbeat-relay.net twelve seconds after being written.",
+        "netfix_agent.exe resolved svc-heartbeat-relay.net eight seconds after launching.",
       raw: {
         "event.code": "22",
         "winlog.provider_name": "Microsoft-Windows-Sysmon",
@@ -266,6 +334,7 @@ export function buildScheduledTaskPersistenceScenario(
         "winlog.event_data.QueryStatus": "0",
         "winlog.event_data.QueryResults": "type:  1 46.246.90.12;",
         "winlog.event_data.ProcessId": "5240",
+        "winlog.event_data.ProcessGuid": netfixGuid1,
         "host.name": host.hostname,
         "user.name": `NEXACORP\\${victim.sam}`,
       },
@@ -352,6 +421,8 @@ export function buildScheduledTaskPersistenceScenario(
         "winlog.event_data.ParentImage": "C:\\Windows\\System32\\svchost.exe",
         "winlog.event_data.ParentCommandLine": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Schedule",
         "winlog.event_data.Hashes": `SHA256=${payloadHash}`,
+        "winlog.event_data.ProcessGuid": netfixGuid2,
+        "winlog.event_data.ParentProcessGuid": svchostGuid,
         "winlog.event_data.User": `NEXACORP\\${victim.sam}`,
         "winlog.event_data.IntegrityLevel": "Medium",
         "winlog.event_data.ProcessId": "2016",
@@ -376,7 +447,7 @@ export function buildScheduledTaskPersistenceScenario(
       ts: T(21 * HOUR + 9 * MIN),
       source: "siem",
       vendor: "Microsoft Sentinel",
-      event_type: "edr_alert",
+      event_type: "ueba_anomaly",
       hostname: host.hostname,
       user_email: victim.email,
       src_ip: host.ip,
@@ -387,14 +458,16 @@ export function buildScheduledTaskPersistenceScenario(
       raw: {
         "event.action": "correlation-alert",
         "event.outcome": "alerted",
-        "alert.name": "Scheduled Task Persistence via Script-Spawned PowerShell",
+        "AlertName": "ScheduledTaskPersistence_ScriptSpawnedPowerShell",
         "alert.description":
           "schtasks.exe was spawned by powershell.exe, itself running a script downloaded minutes earlier, and registered a logon-triggered task. The task's target binary later executed as a child of svchost.exe (Schedule service), confirming the persistence mechanism is active.",
         "alert.severity": "High",
-        "alert.rule.name": "Scheduled Task Persistence via Script-Spawned PowerShell",
+        "alert.rule.id": "SEN-PERSIST-0088",
         "ExtendedProperties.Query": "SysmonEvent1 | join SysmonEvent1 on ParentProcessGuid",
         "ExtendedProperties.Trigger Process": "schtasks.exe (parent powershell.exe)",
+        "ExtendedProperties.Trigger ProcessGuid": schtasksGuid,
         "ExtendedProperties.Relaunch Process": "netfix_agent.exe (parent svchost.exe)",
+        "ExtendedProperties.Relaunch ParentProcessGuid": svchostGuid,
         "host.hostname": host.hostname,
         "user.name": `NEXACORP\\${victim.sam}`,
       },
@@ -557,6 +630,7 @@ The evidence that this mattered arrived 21 hours later. At 05:11 the next mornin
       { ts: T(3 * MIN + 18_000), phase: "Execution", action: "explorer.exe launches powershell.exe running the downloaded script (T1059.001)" },
       { ts: T(3 * MIN + 24_000), phase: "Execution", action: "netfix_agent.exe written to AppData\\Local\\NetFixSvc" },
       { ts: T(3 * MIN + 29_000), phase: "Persistence", action: "schtasks.exe registers NetFixOptimizer to run at every logon (T1053.005)" },
+      { ts: T(3 * MIN + 33_000), phase: "Execution", action: "powershell.exe launches netfix_agent.exe directly for an immediate first run" },
       { ts: T(3 * MIN + 41_000), phase: "Command and Control", action: `netfix_agent.exe resolves ${c2}` },
       { ts: T(3 * MIN + 44_000), phase: "Command and Control", action: "First outbound check-in, allowed as newly-registered-domain (T1071.001)" },
       { ts: T(21 * HOUR + 6 * MIN), phase: "Persistence", action: "netfix_agent.exe relaunches at logon as a child of svchost.exe — the task firing (T1053.005)" },

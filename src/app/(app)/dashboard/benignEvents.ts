@@ -119,7 +119,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "event.action": "logged-in",
       "event.outcome": "success",
       "user.name": "NEXACORP\\svc-backup",
-      "source.ip": "10.20.12.15",
+      "source.ip": "-",
       "host.name": "SRV-NXC-DC01",
     },
   },
@@ -188,7 +188,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ad_11", ts: T(8), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "SRV-NXC-DC01", user_email: "m.torres@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "m.torres@nexacorp.com", src_ip: "10.100.50.31",
     description: "A sign-in attempt for m.torres failed because the username does not exist",
     raw: {
       "event.code": "4625",
@@ -226,7 +226,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ad_12", ts: T(42), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-FILES01", user_email: "a.cohen@nexacorp.com", src_ip: "10.10.10.5",
+    hostname: "SRV-NXC-FILES01", user_email: "a.cohen@nexacorp.com", src_ip: "10.10.30.55",
     description: "a.cohen logged on to SRV-NXC-FILES01 via Remote Desktop",
     raw: {
       "event.code": "4624",
@@ -263,7 +263,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ad_13", ts: T(67), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-FS02", user_email: "d.brown@nexacorp.com", src_ip: "10.10.40.91",
+    hostname: "SRV-NXC-FS02", user_email: "d.brown@nexacorp.com", src_ip: "10.10.30.62",
     description: "d.brown authenticated to SRV-NXC-FS02 via network (mapped drive)",
     raw: {
       "event.code": "4624",
@@ -300,7 +300,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_ad_14", ts: T(88), source: "ad", vendor: "Windows Security",
     event_type: "account_lockout", severity: "medium",
-    hostname: "SRV-NXC-DC01", user_email: "p.garcia@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "p.garcia@nexacorp.com", src_ip: "10.10.20.58",
     description: "p.garcia account locked out after 5 consecutive failed password attempts from WS-MKTG-0301",
     raw: {
       "event.code": "4740",
@@ -327,7 +327,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_pwd_01", ts: T(10), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "informational",
-    hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.55",
+    hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", user_title: "HR Manager", src_ip: "10.10.30.62",
     description: "d.brown changed password",
     raw: { "event.code": "4723", "event.action": "password-changed",
            "target.user": "NEXACORP\\dbrown", "user.name": "NEXACORP\\dbrown",
@@ -337,7 +337,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_pwd_02", ts: T(22), source: "ad", vendor: "Windows Security",
     event_type: "account_modify", severity: "informational",
-    hostname: "WS-ENG-3301", user_email: "l.clark@nexacorp.com", src_ip: "10.10.40.88",
+    hostname: "WS-ENG-3301", user_email: "l.clark@nexacorp.com", src_ip: "10.10.40.91",
     description: "l.clark changed password",
     raw: { "event.code": "4723", "event.action": "password-changed",
            "target.user": "NEXACORP\\lclark", "user.name": "NEXACORP\\lclark",
@@ -445,7 +445,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_grp_01", ts: T(35), source: "ad", vendor: "Windows Security",
     event_type: "group_modify", severity: "informational",
-    hostname: "SRV-NXC-DEV01", user_email: "t.harris@nexacorp.com", user_title: "IT Admin",
+    hostname: "SRV-NXC-DEV01", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
     src_ip: "10.20.12.40",
     description: "t.harris added k.taylor to Remote Desktop Users on SRV-NXC-DEV01",
     raw: {
@@ -1420,7 +1420,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dns_06", ts: T(31), source: "dns", vendor: "Windows DNS Server",
     event_type: "dns_query", severity: "informational",
-    hostname: "SRV-NXC-FS02", src_ip: "10.10.40.91",
+    hostname: "SRV-NXC-FS02", src_ip: "10.20.12.22",
     dns: { query: "s3.amazonaws.com", query_type: "A", rcode: "NOERROR" },
     description: "SRV-NXC-FS02 looked up s3.amazonaws.com",
     raw: { "dns.question.name": "s3.amazonaws.com", "dns.question.type": "A",
@@ -1776,15 +1776,19 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
            "event.action_result": "allow" },
   },
   {
-    id: "b_win_02", ts: T(34), source: "sysmon", vendor: "Microsoft Sysmon",
+    id: "b_win_02", ts: T(34), source: "windows_security", vendor: "Windows Security",
     event_type: "service_install", severity: "low",
     hostname: "WS-ENG-3301",
     description: "AdobeARM service installed on WS-ENG-3301",
-    raw: { "event.code": "7045", "service.name": "AdobeARM",
-           "service.image_path": "C:\\Program Files (x86)\\Common Files\\Adobe\\ARM\\AdobeARM.exe",
-           "service.type": "auto", "service.account": "LocalSystem",
-           "process.signed": "true", "process.publisher": "Adobe Inc.",
-           "host.name": "WS-ENG-3301", "event.action_result": "allow" },
+    raw: { "winlog.event_id": "7045", "winlog.channel": "System",
+           "winlog.provider_name": "Service Control Manager",
+           "winlog.event_data.ServiceName": "AdobeARM",
+           "winlog.event_data.ImagePath": "C:\\Program Files (x86)\\Common Files\\Adobe\\ARM\\AdobeARM.exe",
+           "winlog.event_data.ServiceType": "user mode service",
+           "winlog.event_data.StartType": "auto start",
+           "winlog.event_data.AccountName": "LocalSystem",
+           "event.code": "7045", "event.action": "service-installed",
+           "host.name": "WS-ENG-3301", "event.outcome": "success" },
   },
 
   // ── AV — clean scan results ────────────────────────────────────────────────
@@ -1933,27 +1937,45 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     event_type: "dlp_alert", severity: "medium",
     user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     description: "j.chen emailed SSN data to external@gmail.com",
-    raw: { "event.action": "DLP_PolicyTriggered", "event.outcome": "blocked",
-           "user.email": "j.chen@nexacorp.com", "source.ip": "10.10.20.14",
-           "policy.name": "PII-External-Email-Block",
-           "policy.action": "BlockAccess",
-           "action_result": "blocked",
-           "data.sensitive_types": "U.S. Social Security Number", "data.count": "3",
-           "channel.type": "Email", "email.recipient": "external@gmail.com",
-           "dlp.triggered": "true" },
+    raw: {
+      "data.office365.Operation": "DlpRuleMatch",
+      "data.office365.Workload": "Exchange",
+      "data.office365.UserId": "j.chen@nexacorp.com",
+      "data.office365.PolicyDetails[0].PolicyName": "PII-External-Email-Block",
+      "data.office365.PolicyDetails[0].Rules[0].RuleName": "Block external email with SSNs",
+      "data.office365.PolicyDetails[0].Rules[0].Actions[0]": "BlockAccess",
+      "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "U.S. Social Security Number (SSN)",
+      "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Count": "3",
+      "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Confidence": "95",
+      "data.office365.ExchangeMetaData.Subject": "Q2 Analyst Roster — SSNs for Background Checks",
+      "data.office365.ExchangeMetaData.From": "j.chen@nexacorp.com",
+      "data.office365.ExchangeMetaData.To": "external@gmail.com",
+      "event.action": "dlp-rule-match",
+      "event.outcome": "blocked",
+      "source.ip": "10.10.20.14",
+    },
   },
   {
     id: "b_dlp_02", ts: T(37), source: "dlp", vendor: "Microsoft Purview",
     event_type: "dlp_alert", severity: "low",
     user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel sent HR document (Employee Data) via email",
-    raw: { "event.action": "DLP_PolicyTriggered", "event.outcome": "success",
-           "user.email": "s.patel@nexacorp.com",
-           "policy.name": "HR-Internal-Notify",
-           "policy.action": "NotifyUser",
-           "action_result": "allowed_with_notification",
-           "data.sensitive_types": "Employee Data", "channel.type": "Email",
-           "dlp.triggered": "true" },
+    raw: {
+      "data.office365.Operation": "DlpRuleMatch",
+      "data.office365.Workload": "Exchange",
+      "data.office365.UserId": "s.patel@nexacorp.com",
+      "data.office365.PolicyDetails[0].PolicyName": "HR-Internal-Notify",
+      "data.office365.PolicyDetails[0].Rules[0].RuleName": "Notify on internal HR data email",
+      "data.office365.PolicyDetails[0].Rules[0].Actions[0]": "NotifyUser",
+      "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "NexaCorp Employee Data (custom)",
+      "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Count": "1",
+      "data.office365.ExchangeMetaData.Subject": "Updated org chart — HR use only",
+      "data.office365.ExchangeMetaData.From": "s.patel@nexacorp.com",
+      "data.office365.ExchangeMetaData.To": "d.brown@nexacorp.com",
+      "event.action": "dlp-rule-match",
+      "event.outcome": "allowed-with-notification",
+      "source.ip": "10.10.30.55",
+    },
   },
 
   // ── WAF / Threat Prevention ───────────────────────────────────────────────
@@ -2149,13 +2171,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_itv_01", ts: "2026-05-10T09:47:00.000Z",
     source: "ad", event_type: "account_modify", severity: "medium",
     vendor: "Windows Security",
-    hostname: "DC-PROD-01", user_email: "it-admin@nexacorp.com",
+    hostname: "SRV-NXC-DC01", user_email: "it-admin@nexacorp.com",
     description: "it-admin reset password for j.chen via ADUC",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Ticket INC-20483 raised by j.chen at 09:40 — 'Forgot password, locked out'. Password reset performed by tier-1 agent Dave H. This is authorised helpdesk activity.",
     raw: {
       "event.code": "4723", "user.name": "NEXACORP\\jchen",
-      "actor.name": "NEXACORP\\it-admin", "host.name": "DC-PROD-01",
+      "actor.name": "NEXACORP\\it-admin", "host.name": "SRV-NXC-DC01",
       "ad.object_dn": "CN=Jing Chen,OU=Finance,DC=nexacorp,DC=com",
       "ad.changed_attributes": "unicodePwd", "event.action_result": "success",
     },
@@ -2165,7 +2187,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_itv_02", ts: "2026-05-10T11:22:00.000Z",
     source: "ad", event_type: "group_modify", severity: "medium",
     vendor: "Windows Security",
-    hostname: "DC-PROD-01", user_email: "it-admin@nexacorp.com",
+    hostname: "SRV-NXC-DC01", user_email: "it-admin@nexacorp.com",
     description: "it-admin added p.wright to Domain Admins group",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Change request CHG-00712 approved by CISO on 2026-05-09. p.wright (CTO) granted temporary Domain Admin access for a planned infrastructure migration window (05/10–05/11). Authorised by change advisory board.",
@@ -2173,13 +2195,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_id": "4728",
       "winlog.subject_user_name": "it-admin",
       "winlog.subject_domain": "NEXACORP",
-      "winlog.subject_user_sid": "S-1-5-21-2910928827-1031074387-0-500",
+      "winlog.subject_user_sid": "S-1-5-21-3421479547-3897544621-1789562108-500",
       "winlog.member_name": "p.wright",
-      "winlog.member_sid": "S-1-5-21-2910928827-1031074387-0-1142",
+      "winlog.member_sid": "S-1-5-21-3421479547-3897544621-1789562108-1142",
       "winlog.target_group": "Domain Admins",
       "winlog.member_added": "p.wright@nexacorp.com",
       "winlog.group_domain": "NEXACORP",
-      "host.name": "DC-PROD-01",
+      "host.name": "SRV-NXC-DC01",
       "ad.group_type": "Security",
       "ad.group_scope": "Global",
       "change_ref": "CHG-00712",
@@ -2206,13 +2228,13 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_itv_04", ts: "2026-05-10T15:51:00.000Z",
     source: "ad", event_type: "account_create", severity: "medium",
     vendor: "Windows Security",
-    hostname: "DC-PROD-01", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
+    hostname: "SRV-NXC-DC01", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead",
     description: "t.harris created new AD account for vendor contractor",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Onboarding request ONB-0388 submitted by Procurement (Sarah Li) on 2026-05-08. New account 'contractor_mbajwa' for 3-month engagement with NexaCorp engineering team. Account creation by IT Ops aligns with standard onboarding SLA.",
     raw: {
       "event.code": "4720", "user.name": "NEXACORP\\contractor_mbajwa",
-      "actor.name": "NEXACORP\\tharris", "host.name": "DC-PROD-01",
+      "actor.name": "NEXACORP\\tharris", "host.name": "SRV-NXC-DC01",
       "ad.account_type": "User", "ad.object_dn": "CN=M Bajwa,OU=Contractors,DC=nexacorp,DC=com",
       "ad.sam_account_name": "contractor_mbajwa", "event.action_result": "success",
     },
@@ -2222,7 +2244,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     id: "b_itv_05", ts: "2026-05-10T16:38:00.000Z",
     source: "o365", event_type: "role_assignment", severity: "high",
     vendor: "Microsoft Entra ID",
-    hostname: "DC-PROD-01", user_email: "l.clark@nexacorp.com",
+    hostname: "SRV-NXC-DC01", user_email: "l.clark@nexacorp.com",
     description: "l.clark assigned Global Administrator role in Azure AD",
     it_verify_result: "unverified",
     it_verify_message: "IT has no record of a request or approval to elevate l.clark to Global Administrator in Azure AD. l.clark is a junior IT analyst and should not hold tenant-wide admin rights. This assignment was not part of any open change ticket. Investigate immediately — possible insider threat or compromised admin account.",
@@ -3569,7 +3591,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_01", ts: T(11), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-FILES01", user_email: "k.osei@nexacorp.com", src_ip: "10.10.10.5",
+    hostname: "SRV-NXC-FILES01", user_email: "k.osei@nexacorp.com", src_ip: "10.100.50.31",
     description: "k.osei network logon to SRV-NXC-FILES01 (mapped drive)",
     raw: {
       "event.code": "4624",
@@ -3586,7 +3608,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_02", ts: T(31), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-FS02", user_email: "r.williams@nexacorp.com", src_ip: "10.10.40.91",
+    hostname: "SRV-NXC-FS02", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams network logon to SRV-NXC-FS02 (shared folder)",
     raw: {
       "event.code": "4624",
@@ -3603,7 +3625,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_03", ts: T(50), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-FILES01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.10.5",
+    hostname: "SRV-NXC-FILES01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel network logon to SRV-NXC-FILES01 (HR share)",
     raw: {
       "event.code": "4624",
@@ -3620,7 +3642,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_04", ts: T(68), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-EXCH01", user_email: "svc-backup@nexacorp.com", src_ip: "10.20.12.11",
+    hostname: "SRV-NXC-EXCH01", user_email: "svc-backup@nexacorp.com", src_ip: "10.20.12.22",
     description: "svc-backup Kerberos TGT renewed on SRV-NXC-EXCH01",
     raw: {
       "event.code": "4768",
@@ -3639,7 +3661,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_05", ts: T(81), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "svc-reporting@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "svc-reporting@nexacorp.com", src_ip: "10.20.12.11",
     description: "svc-reporting Kerberos TGT renewed on SRV-NXC-DC01",
     raw: {
       "event.code": "4768",
@@ -3658,7 +3680,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_06", ts: T(94), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-FILES01", user_email: "t.harris@nexacorp.com", src_ip: "10.10.10.5",
+    hostname: "SRV-NXC-FILES01", user_email: "t.harris@nexacorp.com", src_ip: "10.10.1.5",
     description: "t.harris RDP logon to SRV-NXC-FILES01",
     raw: {
       "event.code": "4624",
@@ -3693,7 +3715,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_08", ts: T(128), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DEV01", user_email: "a.jones@nexacorp.com", src_ip: "10.20.12.40",
+    hostname: "SRV-NXC-DEV01", user_email: "a.jones@nexacorp.com", src_ip: "10.100.50.23",
     description: "a.jones RDP logon to SRV-NXC-DEV01 (dev server)",
     raw: {
       "event.code": "4624",
@@ -3728,7 +3750,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_auth_10", ts: T(160), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "svc-exchange@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "svc-exchange@nexacorp.com", src_ip: "10.20.12.11",
     description: "svc-exchange Kerberos TGS ticket issued on SRV-NXC-DC01",
     raw: {
       "event.code": "4769",
@@ -6399,7 +6421,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_logon_01", ts: T(5), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
     description: "j.chen connected to a file share on SRV-NXC-DC01",
     raw: {
       "event.code": "4624",
@@ -6430,7 +6452,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_logon_02", ts: T(13), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel's office printer signed in to SRV-NXC-DC01 to print a document",
     raw: {
       "event.code": "4624",
@@ -6518,7 +6540,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_logon_05", ts: T(52), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor failed to connect to SRV-NXC-DC01 with the wrong password",
     raw: {
       "event.code": "4625",
@@ -6548,7 +6570,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_logon_06", ts: T(63), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "SRV-NXC-DC01", user_email: "d.morgan@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "d.morgan@nexacorp.com", src_ip: "10.10.20.77",
     description: "d.morgan failed to remotely connect to SRV-NXC-DC01 — username not found",
     raw: {
       "event.code": "4625",
@@ -6578,7 +6600,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_logon_07", ts: T(81), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "SRV-FILE01", user_email: "svc-backup@nexacorp.com", src_ip: "10.10.1.12",
+    hostname: "SRV-FILE01", user_email: "svc-backup@nexacorp.com", src_ip: "10.10.1.30",
     description: "svc-backup failed to connect to SRV-FILE01 — its account password has expired",
     raw: {
       "event.code": "4625",
@@ -6676,7 +6698,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_smb_01", ts: T(7), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
     description: "j.chen opened the Finance file share on SRV-NXC-DC01",
     raw: {
       "event.code": "5140",
@@ -6701,7 +6723,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_smb_02", ts: T(16), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "s.patel@nexacorp.com", src_ip: "10.10.30.55",
     description: "s.patel's computer downloaded Group Policy settings from the domain controller",
     raw: {
       "event.code": "5140",
@@ -6726,7 +6748,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_smb_03", ts: T(23), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
-    hostname: "SRV-FILE01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.1.12",
+    hostname: "SRV-FILE01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor opened a report file on the SRV-FILE01 Shared folder",
     raw: {
       "event.code": "5145",
@@ -6754,7 +6776,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_smb_04", ts: T(36), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
-    hostname: "SRV-FILE01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.12",
+    hostname: "SRV-FILE01", user_email: "it.admin@nexacorp.com", src_ip: "10.10.1.5",
     description: "it.admin uploaded a Windows patch file to the SRV-FILE01 IT-Deploy folder",
     raw: {
       "event.code": "5145",
@@ -6782,7 +6804,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_smb_05", ts: T(71), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "r.williams@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.14",
     description: "r.williams's computer retrieved a domain logon script from the domain controller",
     raw: {
       "event.code": "5140",
@@ -6906,7 +6928,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_kerb_01", ts: T(3), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
     description: "j.chen signed in for the day and received a domain login ticket",
     raw: {
       "event.code": "4768",
@@ -6914,9 +6936,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
       "winlog.event_data.TargetUserName": "j.chen",
       "winlog.event_data.TargetDomainName": "NEXACORP.COM",
-      "winlog.event_data.TargetSid": "S-1-5-21-3847291122-1820991288-2319374993-1104",
+      "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1101",
       "winlog.event_data.ServiceName": "krbtgt",
-      "winlog.event_data.ServiceSid": "S-1-5-21-3847291122-1820991288-2319374993-502",
+      "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-502",
       "winlog.event_data.TicketOptions": "0x40810010",
       "winlog.event_data.Status": "0x0",
       "winlog.event_data.TicketEncryptionType": "0x12",
@@ -6933,7 +6955,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_kerb_02", ts: T(8), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
     description: "j.chen's computer requested access to a file share on SRV-FILE01",
     raw: {
       "event.code": "4769",
@@ -6942,7 +6964,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.TargetUserName": "j.chen@NEXACORP.COM",
       "winlog.event_data.TargetDomainName": "NEXACORP.COM",
       "winlog.event_data.ServiceName": "cifs/SRV-FILE01.nexacorp.com",
-      "winlog.event_data.ServiceSid": "S-1-5-21-3847291122-1820991288-2319374993-1121",
+      "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-1601",
       "winlog.event_data.TicketOptions": "0x40810000",
       "winlog.event_data.TicketEncryptionType": "0x12",
       "winlog.event_data.IpAddress": "::ffff:10.10.20.14",
@@ -6966,7 +6988,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.TargetUserName": "it.admin@NEXACORP.COM",
       "winlog.event_data.TargetDomainName": "NEXACORP.COM",
       "winlog.event_data.ServiceName": "host/SRV-NXC-DC01.nexacorp.com",
-      "winlog.event_data.ServiceSid": "S-1-5-21-3847291122-1820991288-2319374993-1001",
+      "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-1000",
       "winlog.event_data.TicketOptions": "0x40800000",
       "winlog.event_data.TicketEncryptionType": "0x12",
       "winlog.event_data.IpAddress": "::ffff:10.10.1.5",
@@ -6981,14 +7003,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dc_kerb_04", ts: T(57), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "k.taylor@nexacorp.com", src_ip: "10.10.40.88",
     description: "k.taylor's sign-in request to the domain controller failed with a wrong password",
     raw: {
       "event.code": "4771",
       "winlog.channel": "Security",
       "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
       "winlog.event_data.TargetUserName": "k.taylor",
-      "winlog.event_data.TargetSid": "S-1-5-21-3847291122-1820991288-2319374993-1108",
+      "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1116",
       "winlog.event_data.ServiceName": "krbtgt/NEXACORP",
       "winlog.event_data.TicketOptions": "0x40810010",
       "winlog.event_data.Status": "0x18",
@@ -7081,7 +7103,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mc_dc_01", ts: T(9), source: "ad", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-DC01", user_email: "m.edwards@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "m.edwards@nexacorp.com", src_ip: "10.10.20.91",
     description: "m.edwards remotely connected to the core server SRV-NXC-DC01",
     raw: {
       "event.code": "4624",
@@ -7100,14 +7122,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "logon.type_description": "RemoteInteractive (RDP)",
       "event.action": "logged-in",
       "event.outcome": "success",
-      "source.ip": "10.10.1.5",
+      "source.ip": "10.10.20.91",
       "host.name": "SRV-NXC-DC01",
     },
   },
   {
     id: "b_mc_dc_02", ts: T(15), source: "ad", vendor: "Windows Security",
     event_type: "cloud_storage_access", severity: "informational",
-    hostname: "SRV-NXC-TRADING01", user_email: "m.edwards@nexacorp.com", src_ip: "10.20.12.44",
+    hostname: "SRV-NXC-TRADING01", user_email: "m.edwards@nexacorp.com", src_ip: "10.10.20.91",
     description: "m.edwards's workstation connected to the Trading platform data share",
     raw: {
       "event.code": "5140",
@@ -7125,14 +7147,14 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.AccessList": "ReadData (or ListDirectory)",
       "event.action": "network-share-access",
       "event.outcome": "success",
-      "source.ip": "10.20.12.44",
+      "source.ip": "10.10.20.91",
       "host.name": "SRV-NXC-TRADING01",
     },
   },
   {
     id: "b_mc_dc_03", ts: T(41), source: "ad", vendor: "Windows Security",
     event_type: "auth_failure", severity: "low",
-    hostname: "SRV-NXC-DC01", user_email: "trading-desk4@nexacorp.com", src_ip: "10.10.1.5",
+    hostname: "SRV-NXC-DC01", user_email: "trading-desk4@nexacorp.com", src_ip: "10.10.30.70",
     description: "trading-desk4 failed to sign in after their smart card session timed out",
     raw: {
       "event.code": "4625",
@@ -7153,7 +7175,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "logon.type_description": "Interactive (local) — smart card re-auth",
       "event.action": "logon-failed",
       "event.outcome": "failure",
-      "source.ip": "10.10.1.5",
+      "source.ip": "10.10.30.70",
       "host.name": "SRV-NXC-DC01",
     },
   },
@@ -7446,6 +7468,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "SRV-NXC-CIRUNNER01", user_email: "svc-cipipeline@nexacorp.com", src_ip: "10.20.12.42",
     description: "A GitHub Actions runner ran the automated test suite for the api-gateway project",
     raw: {
+      "crowdstrike.event_simpleName": "ProcessRollup2",
       "crowdstrike.ContextProcessName": "node",
       "crowdstrike.CommandLine": "node --experimental-vm-modules /home/runner/work/api-gateway/api-gateway/node_modules/.bin/jest --runInBand --forceExit",
       "crowdstrike.ParentProcessName": "Runner.Worker",
@@ -7589,6 +7612,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "SRV-NXC-CIRUNNER01", user_email: "svc-cipipeline@nexacorp.com", src_ip: "10.20.12.42",
     description: "The CI pipeline ran a Snyk scan to check dependencies for known vulnerabilities",
     raw: {
+      "crowdstrike.event_simpleName": "ProcessRollup2",
       "crowdstrike.ContextProcessName": "snyk",
       "crowdstrike.CommandLine": "snyk test --json --org=nexacorp --severity-threshold=high",
       "crowdstrike.ParentProcessName": "bash",
@@ -7881,6 +7905,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "LT-ENG-4413", user_email: "k.osei@nexacorp.com", src_ip: "10.100.50.44",
     description: "k.osei used a YubiKey to complete MFA while signing in to the production bastion host",
     raw: {
+      "crowdstrike.event_simpleName": "ProcessRollup2",
       "crowdstrike.ContextProcessName": "ssh",
       "crowdstrike.CommandLine": "ssh -i ~/.ssh/id_ed25519 k.osei@bastion.nexacorp.com -p 22",
       "crowdstrike.ParentProcessName": "bash",
@@ -8038,21 +8063,20 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_sysmon_svc_01", ts: T(72), source: "sysmon", vendor: "Microsoft Sysmon",
+    id: "b_sysmon_svc_01", ts: T(72), source: "windows_security", vendor: "Windows Security",
     event_type: "service_install", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
     description: "Windows Update installed its background update service on WS-FIN-2847",
     raw: {
-      "event.code": "4",
-      "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-      "winlog.provider_name": "Microsoft-Windows-Sysmon",
-      "winlog.event_data.ImagePath": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p",
+      "winlog.event_id": "7045",
+      "winlog.channel": "System",
+      "winlog.provider_name": "Service Control Manager",
       "winlog.event_data.ServiceName": "wuauserv",
-      "winlog.event_data.ServiceType": "0x20",
-      "winlog.event_data.StartType": "0x3",
-      "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
-      "process.name": "svchost.exe",
-      "service.name": "wuauserv",
+      "winlog.event_data.ImagePath": "C:\\Windows\\system32\\svchost.exe -k netsvcs -p",
+      "winlog.event_data.ServiceType": "user mode service",
+      "winlog.event_data.StartType": "demand start",
+      "winlog.event_data.AccountName": "NT AUTHORITY\\SYSTEM",
+      "event.code": "7045",
       "event.action": "service-installed",
       "event.outcome": "success",
       "host.name": "WS-FIN-2847",
@@ -8073,7 +8097,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "winlog.event_data.ParentCommandLine": "C:\\Windows\\system32\\wbem\\wmiprvse.exe -secured -Embedding",
       "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
       "winlog.event_data.IntegrityLevel": "System",
-      "winlog.event_data.Hashes": "SHA256=2B4D6A8C0E2F4A6B8D0E2F4A6B8D0E2F4A6B8D0E2F4A6B8D0E2F4A6B8D0E2",
+      "winlog.event_data.Hashes": "SHA256=2B4D6A8C0E2F4A6B8D0E2F4A6B8D0E2F4A6B8D0E2F4A6B8D0E2F4A6B8D0E2F41",
       "process.name": "CcmExec.exe",
       "process.parent.name": "WmiPrvSE.exe",
       "event.action": "process-created",
@@ -8109,9 +8133,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   // (4104) and a local-group enumeration (4798). All informational — the
   // baseline an analyst learns before the same IDs turn up inside an attack.
   {
-    id: "b_win_01", ts: T(6), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_01", ts: T(6), source: "windows_security", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "WS-ENG-3310", user_email: "a.jones@nexacorp.com", user_title: "Software Engineer", src_ip: "10.10.40.31",
+    hostname: "WS-ENG-3310", user_email: "a.jones@nexacorp.com", user_title: "Systems Admin", src_ip: "10.10.40.31",
     description: "a.jones signed in to WS-ENG-3310",
     raw: {
       "event.code": "4624",
@@ -8131,9 +8155,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_02", ts: T(11), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_02", ts: T(11), source: "windows_security", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "SRV-NXC-FS01", user_email: "r.williams@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.61",
+    hostname: "SRV-NXC-FS01", user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.61",
     description: "r.williams accessed a network share on SRV-NXC-FS01",
     raw: {
       "event.code": "4624",
@@ -8151,7 +8175,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_03", ts: T(17), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_03", ts: T(17), source: "windows_security", vendor: "Windows Security",
     event_type: "auth_failure", severity: "informational",
     hostname: "WS-HR-1142", user_email: "s.patel@nexacorp.com", user_title: "Risk Analyst", src_ip: "10.10.30.55",
     description: "s.patel mistyped her password on WS-HR-1142",
@@ -8171,7 +8195,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_04", ts: T(23), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_04", ts: T(23), source: "windows_security", vendor: "Windows Security",
     event_type: "process_create", severity: "informational",
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst", src_ip: "10.10.20.14",
     description: "outlook.exe launched by j.chen on WS-FIN-2847",
@@ -8191,9 +8215,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_05", ts: T(29), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_05", ts: T(29), source: "windows_security", vendor: "Windows Security",
     event_type: "process_create", severity: "informational",
-    hostname: "WS-ENG-3311", user_email: "k.taylor@nexacorp.com", user_title: "Software Engineer", src_ip: "10.10.40.44",
+    hostname: "WS-ENG-3311", user_email: "k.taylor@nexacorp.com", user_title: "Senior Developer", src_ip: "10.10.40.44",
     description: "Microsoft Teams updater ran on WS-ENG-3311",
     raw: {
       "event.code": "4688",
@@ -8209,7 +8233,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_06", ts: T(34), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_06", ts: T(34), source: "windows_security", vendor: "Windows Security",
     event_type: "privileged_operation", severity: "informational",
     hostname: "WS-IT-0455", user_email: "it-admin@nexacorp.com", user_title: "Systems Administrator", src_ip: "10.10.50.12",
     description: "it-admin was assigned special privileges on WS-IT-0455",
@@ -8226,9 +8250,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_07", ts: T(41), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_07", ts: T(41), source: "windows_security", vendor: "Windows Security",
     event_type: "auth_success", severity: "informational",
-    hostname: "WS-IT-0455", user_email: "t.harris@nexacorp.com", user_title: "Systems Administrator", src_ip: "10.10.50.12",
+    hostname: "WS-IT-0455", user_email: "t.harris@nexacorp.com", user_title: "DevOps Lead", src_ip: "10.10.50.12",
     description: "t.harris used explicit credentials on WS-IT-0455",
     raw: {
       "event.code": "4648",
@@ -8244,7 +8268,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_08", ts: T(50), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_08", ts: T(50), source: "windows_security", vendor: "Windows Security",
     event_type: "service_install", severity: "informational",
     hostname: "WS-ENG-3311", src_ip: "10.10.40.44",
     description: "Google Update service installed on WS-ENG-3311",
@@ -8262,9 +8286,9 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_09", ts: T(58), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_09", ts: T(58), source: "windows_security", vendor: "Windows Security",
     event_type: "process_create", severity: "informational",
-    hostname: "WS-IT-0455", user_email: "l.clark@nexacorp.com", user_title: "IT Operations", src_ip: "10.10.50.12",
+    hostname: "WS-IT-0455", user_email: "l.clark@nexacorp.com", user_title: "IT Admin", src_ip: "10.10.50.12",
     description: "l.clark ran a PowerShell inventory script on WS-IT-0455",
     raw: {
       "event.code": "4104",
@@ -8279,7 +8303,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
   {
-    id: "b_win_10", ts: T(66), source: "windows_security", vendor: "Windows Security",
+    id: "b_wev_10", ts: T(66), source: "windows_security", vendor: "Windows Security",
     event_type: "privileged_operation", severity: "informational",
     hostname: "WS-HR-1142", src_ip: "10.10.30.55",
     description: "Local Administrators group enumerated on WS-HR-1142",
@@ -8513,7 +8537,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dcid_4768", ts: T(111), source: "ad", vendor: "Windows Security",
     event_type: "kerberos_tgt", severity: "informational",
-    hostname: "DC-NXC-01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.1.10",
+    hostname: "DC-NXC-01", user_email: "j.chen@nexacorp.com", src_ip: "10.10.20.14",
     description: "Kerberos ticket granted to j.chen",
     raw: {
       "event.code": "4768", "winlog.channel": "Security",
@@ -8531,7 +8555,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_dcid_4769", ts: T(114), source: "ad", vendor: "Windows Security",
     event_type: "kerberos_tgs", severity: "informational",
-    hostname: "DC-NXC-01", user_email: "r.williams@nexacorp.com", src_ip: "10.10.1.10",
+    hostname: "DC-NXC-01", user_email: "r.williams@nexacorp.com", src_ip: "10.10.20.61",
     description: "Kerberos service ticket issued to r.williams",
     raw: {
       "event.code": "4769", "winlog.channel": "Security",

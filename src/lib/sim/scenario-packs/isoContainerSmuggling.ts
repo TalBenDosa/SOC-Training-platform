@@ -75,6 +75,7 @@ export function buildIsoContainerSmugglingScenario(
         "data.type": "utm",
         "data.subtype": "filefilter",
         "data.eventtype": "filefilter",
+        "data.logid": "0211008192",
         "data.level": "warning",
         "data.action": "log-only",
         "data.logdesc": "File filter",
@@ -322,6 +323,7 @@ export function buildIsoContainerSmugglingScenario(
         "data.type": "utm",
         "data.subtype": "webfilter",
         "data.eventtype": "ftgd_allow",
+        "data.logid": "0316013056",
         "data.level": "notice",
         "data.action": "passthrough",
         "data.msg": "URL belongs to an allowed category",
@@ -564,7 +566,7 @@ At 10:09:20 she double-clicked it. Windows' own container-mount handler presente
 
 cmd.exe's entire command line was a single instruction: start powershell.exe, hidden, with a base64-encoded command. It did, one second later. The decoded command downloaded core.dll, 2.4 MB, from cdn-update-relay.net — infrastructure with no connection to invoice-doc-share.net — and wrote it to C:\\Users\\n.katz\\AppData\\Roaming. FortiGate's web filter passed the request through; the domain had no category yet.
 
-Falcon's detection caught up six seconds after PowerShell started and killed the process before it could load what it had just downloaded. core.dll is still sitting on the host — the kill stopped the process that fetched it, not the file itself.`,
+Falcon's detection caught up ten seconds after PowerShell started and killed the process before it could load what it had just downloaded. core.dll is still sitting on the host — the kill stopped the process that fetched it, not the file itself.`,
     learning_objectives: [
       "Recognise container smuggling (T1553.005) — a Mark-of-the-Web bypass where the tag on a downloaded ISO/IMG doesn't propagate to files exposed once it's mounted",
       "Read a firewall's file-filter and web-category fields to understand why an unusual container type and a fresh domain both slipped through",
