@@ -1221,8 +1221,10 @@ export function useLiveEvents({
   // SLA detection window — how long the student has to classify the attack
   // once its first phase appears, before the miss penalty fires. Report
   // writing itself is untimed (the SLA is cleared the moment markCaught()
-  // runs, well before the Incident Report modal opens).
-  const SLA_SECONDS = 480; // 8 minutes
+  // runs, well before the Incident Report modal opens). Widened from 8 to 15
+  // minutes so a beginner who investigates thoroughly — including a pivot into
+  // the EDR console — has realistic room to respond before the clock counts it.
+  const SLA_SECONDS = 900; // 15 minutes
 
   /**
    * Quiet period between the END of one attack campaign and the FIRST phase of
