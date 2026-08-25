@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Star } from "lucide-react";
-import { rankForXp, type Rank } from "@/lib/progression/ranks";
-import { getTotalXp } from "@/lib/storage/progress";
+import { type Rank } from "@/lib/progression/ranks";
+import { useRank } from "@/lib/progression/useRank";
 import { useFullName } from "@/lib/auth/useFullName";
 import { RankCertificateModal } from "@/components/certificate/RankCertificateModal";
 
@@ -26,11 +26,12 @@ import { RankCertificateModal } from "@/components/certificate/RankCertificateMo
  */
 type Celebration = { title: string; sub: string };
 
-const readXp = getTotalXp;
+/** localStorage key holding the minXp of the highest rank already celebrated on
+ *  this device, so a promotion pops exactly once — never again on reload/login. */
+const ACK_KEY = "soc_ack_rank_minxp";
 
 /** "Analyst · Tier 1", "Senior Analyst · Tier 3", "SOC Trainee", "Student". */
-function rankLabel(xp: number): string {
-  const r = rankForXp(xp);
+function rankLabel(r: Rank): string {
   return r.tier.startsWith("tier-") ? `${r.label} · ${r.tier.replace("tier-", "Tier ")}` : r.label;
 }
 
@@ -41,34 +42,36 @@ export function EarnMoment() {
   // toast so the two lifetimes are independent: the toast auto-hides, the
   // certificate modal stays until dismissed.
   const [certRank, setCertRank] = useState<{ rank: Rank; xp: number } | null>(null);
-  const lastRankId = useRef<string | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const name = useFullName();
+  // Reactive, DB-or-localStorage backed; `ready` is false until the REAL xp has
+  // loaded — which is what stops the old bug where the 0→real jump on every page
+  // load looked like a promotion and re-popped the certificate.
+  const { xp, rank, ready } = useRank();
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    setMounted(true);
-    // Baseline from current XP so we never fire on first load.
-    lastRankId.current = rankForXp(readXp()).id;
+    if (!ready) return; // never act on the pre-load 0-XP state
+    let acked: number | null = null;
+    try { const v = localStorage.getItem(ACK_KEY); acked = v === null ? null : parseInt(v, 10); } catch { /* ignore */ }
+    const persist = (n: number) => { try { localStorage.setItem(ACK_KEY, String(n)); } catch { /* ignore */ } };
 
-    const id = setInterval(() => {
-      const xp = readXp();
-      const rank = rankForXp(xp);
-      // XP only ever increases, so any rank-id change is a promotion.
-      if (lastRankId.current && rank.id !== lastRankId.current) {
-        show({ title: "Rank Up!", sub: rankLabel(xp) });
-        // Student is the entry rank (0 XP) — you are never promoted INTO it, so
-        // every real promotion earns a certificate.
-        if (rank.id !== "student") setCertRank({ rank, xp });
-      }
-      lastRankId.current = rank.id;
-    }, 1500);
-
-    return () => {
-      clearInterval(id);
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-    };
+    // First time on this device, OR a lower-ranked context (a different account
+    // signed in, or an XP reset): silently (re-)baseline so we never fire a
+    // retroactive certificate for a rank the learner already held.
+    if (acked === null || Number.isNaN(acked) || rank.minXp < acked) { persist(rank.minXp); return; }
+    // A genuine promotion the learner hasn't been shown yet → celebrate ONCE and
+    // remember it, so a reload/login (rank.minXp === acked) shows nothing.
+    if (rank.minXp > acked) {
+      show({ title: "Rank Up!", sub: rankLabel(rank) });
+      if (rank.id !== "student") setCertRank({ rank, xp });
+      persist(rank.minXp);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready, rank.id, rank.minXp, xp]);
+
+  useEffect(() => () => { if (hideTimer.current) clearTimeout(hideTimer.current); }, []);
 
   function show(c: Celebration) {
     setCelebration(c);
