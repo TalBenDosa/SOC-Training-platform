@@ -357,6 +357,10 @@ export default function DashboardPage() {
   // fresh shift and once the report passes). Reactive so returning from /edr
   // shows the reminder immediately.
   const [edrInvestigated, setEdrInvestigated] = useState(false);
+  // When the analyst opened the EDR console for the live case — used to defer the
+  // "you missed it" verdict while they're deep in the endpoint investigation
+  // (bounded, so an abandoned EDR tab can't hold the incident open forever).
+  const edrOpenedAtRef = useRef<number | null>(null);
   useEffect(() => {
     // The EDR runs in a separate tab, so the "student investigated" signal
     // arrives via the localStorage `storage` event (fires in OTHER tabs). Also
@@ -466,6 +470,12 @@ export default function DashboardPage() {
     intervalMs: 90_000,   // 90s between ticks — readable pace for training
     story:      sessionStory,
     onStoryComplete: handleStoryComplete,
+    // Defer the "you missed it" verdict while the analyst is genuinely working
+    // the case: the report modal is open, OR they opened the EDR console within
+    // the last 6 minutes (a real endpoint deep-dive shouldn't auto-fail them).
+    isInvestigating: () =>
+      showReportModal ||
+      (edrOpenedAtRef.current !== null && Date.now() - edrOpenedAtRef.current < 360_000),
     autoStart:  false,    // nothing streams until the student presses Start Training
   });
   liveRef.current = live;
@@ -488,6 +498,7 @@ export default function DashboardPage() {
       prevIncidentIdRef.current = id;
       setReportPassed(false);
       armedNextRef.current = false;
+      edrOpenedAtRef.current = null; // new incident → the EDR-open grace resets
       try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
       setEdrInvestigated(false);
     }
@@ -795,8 +806,10 @@ export default function DashboardPage() {
                 target="_blank"
                 rel="noopener"
                 onClick={() => {
-                  if (edrAlertCount > 0 && liveEdrInvestigation && typeof window !== "undefined")
+                  if (edrAlertCount > 0 && liveEdrInvestigation && typeof window !== "undefined") {
                     localStorage.setItem("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
+                    edrOpenedAtRef.current = Date.now(); // defer any "missed" verdict while they dig in EDR
+                  }
                 }}
                 className={cn(
                   "relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition",

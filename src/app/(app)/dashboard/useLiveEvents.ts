@@ -830,6 +830,10 @@ interface UseLiveEventsOptions {
   story?: AttackStory | null;
   /** Called when the active story's final phase has been injected */
   onStoryComplete?: () => void;
+  /** True while the analyst is actively investigating this incident (report modal
+   *  open, or the EDR console in play). When true, the "you missed it" verdict is
+   *  deferred — a thorough investigation must never auto-fail the analyst. */
+  isInvestigating?: () => boolean;
   intervalMs?: number;
   maxVisible?: number;
   /**
@@ -908,6 +912,7 @@ export function useLiveEvents({
   companyId,
   story = null,
   onStoryComplete,
+  isInvestigating,
   intervalMs = 40000,
   maxVisible = 100,
   autoStart = true,
@@ -964,6 +969,29 @@ export function useLiveEvents({
   const storyCursorRef    = useRef(0);
   const onStoryCompleteRef = useRef(onStoryComplete);
   onStoryCompleteRef.current = onStoryComplete;
+  // Reassigned every render so the miss-watchdog always reads the CURRENT
+  // "is the analyst investigating right now?" closure.
+  const isInvestigatingRef = useRef(isInvestigating);
+  isInvestigatingRef.current = isInvestigating;
+  /** Grace after the story's last phase before it can be ruled "missed". A
+   *  passing report during this window still counts (markCaught cancels it). */
+  const MISS_GRACE_MS = 240_000; // 4 minutes
+  const missWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Rule the incident "missed" — but only once the analyst has genuinely
+   *  disengaged. Caught during the window → cancelled by markCaught. Still
+   *  investigating (report open / EDR in play) → re-check in a minute instead of
+   *  slamming a "you missed it" over an active investigation. */
+  const scheduleMissCheck = useCallback((delay: number) => {
+    if (missWatchdogRef.current) clearTimeout(missWatchdogRef.current);
+    missWatchdogRef.current = setTimeout(() => {
+      missWatchdogRef.current = null;
+      if (caughtRef.current) return;
+      if (isInvestigatingRef.current?.()) { scheduleMissCheck(60_000); return; }
+      setIsStreaming(false);
+      setTimeout(() => setMissedAttack(true), 1500);
+    }, delay);
+  }, []);
   const globalIdx         = useRef(15);
   const activeIncidentRef = useRef<ActiveIncident | null>(null);
   const missTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1128,11 +1156,8 @@ export function useLiveEvents({
             // phase land in the feed first, so the learner sees the events the
             // debrief is about to walk them through.
             if (storyJustFinished && !isFP && !caughtRef.current) {
-              // Stop the feed before the debrief lands, for the same reason as
-              // story mode: a modal over a still-scrolling feed reads as an
-              // interruption to click past rather than a result to read.
-              setIsStreaming(false);
-              setTimeout(() => setMissedAttack(true), 2000);
+              // Same grace + investigation-aware deferral as story mode.
+              scheduleMissCheck(MISS_GRACE_MS);
             }
           }
           return;
@@ -1274,8 +1299,9 @@ export function useLiveEvents({
       // letting benign events keep scrolling behind a modal that says "you
       // missed it" invites the learner to dismiss and carry on without reading.
       if (!caughtRef.current) {
-        setIsStreaming(false);
-        setTimeout(() => setMissedAttack(true), 2000);
+        // Give the analyst 4 minutes after the last phase to still catch it (a
+        // passing report counts), and never fail them mid-investigation.
+        scheduleMissCheck(MISS_GRACE_MS);
       }
       storyRef.current = null;
       onStoryCompleteRef.current?.();
@@ -1305,6 +1331,7 @@ export function useLiveEvents({
     return () => {
       if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
       if (missTimerRef.current)   clearTimeout(missTimerRef.current);
+      if (missWatchdogRef.current) clearTimeout(missWatchdogRef.current);
       if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1339,6 +1366,8 @@ export function useLiveEvents({
         clearTimeout(missTimerRef.current);
         missTimerRef.current = null;
       }
+      // A catch during the post-last-phase grace cancels the "missed" verdict.
+      if (missWatchdogRef.current) { clearTimeout(missWatchdogRef.current); missWatchdogRef.current = null; }
       // Record catch speed + stop SLA countdown
       if (attackInjectedAtRef.current !== null) {
         const elapsed = Date.now() - attackInjectedAtRef.current;
@@ -1368,6 +1397,7 @@ export function useLiveEvents({
     // Clear pending timers
     if (attackTimerRef.current) { clearTimeout(attackTimerRef.current); attackTimerRef.current = null; }
     if (missTimerRef.current)   { clearTimeout(missTimerRef.current);   missTimerRef.current   = null; }
+    if (missWatchdogRef.current){ clearTimeout(missWatchdogRef.current);missWatchdogRef.current = null; }
     // Arm the new session story (or keep the current one when omitted)
     if (newStory !== undefined) {
       storyRef.current = newStory;
