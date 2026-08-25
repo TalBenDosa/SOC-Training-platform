@@ -357,15 +357,26 @@ export default function DashboardPage() {
   // fresh shift and once the report passes). Reactive so returning from /edr
   // shows the reminder immediately.
   const [edrInvestigated, setEdrInvestigated] = useState(false);
-  // When the analyst opened the EDR console for the live case — used to defer the
-  // "you missed it" verdict while they're deep in the endpoint investigation
-  // (bounded, so an abandoned EDR tab can't hold the incident open forever).
-  const edrOpenedAtRef = useRef<number | null>(null);
+  // True while the analyst is investigating the live case in the EDR console —
+  // set when they open it, cleared when they finish there (the EDR decision
+  // flips soc_edr_investigated), on a new incident, or by a safety cap so an
+  // abandoned EDR tab can't freeze the response clock forever. Reactive (state,
+  // not a ref) so both the SLA pause AND the "paused" badge update live.
+  const [investigatingInEdr, setInvestigatingInEdr] = useState(false);
+  const edrPauseCapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     // The EDR runs in a separate tab, so the "student investigated" signal
     // arrives via the localStorage `storage` event (fires in OTHER tabs). Also
     // re-check on focus, for when they alt-tab back to the Dashboard.
-    const sync = () => { try { setEdrInvestigated(localStorage.getItem("soc_edr_investigated") === "1"); } catch { /* ignore */ } };
+    const sync = () => {
+      try {
+        const done = localStorage.getItem("soc_edr_investigated") === "1";
+        setEdrInvestigated(done);
+        // Finished in EDR → resume the clock; they now write the report (which
+        // pauses it again). Keeps a walked-away EDR tab from freezing it.
+        if (done) { setInvestigatingInEdr(false); if (edrPauseCapRef.current) { clearTimeout(edrPauseCapRef.current); edrPauseCapRef.current = null; } }
+      } catch { /* ignore */ }
+    };
     sync();
     window.addEventListener("storage", sync);
     window.addEventListener("soc:edr-investigated", sync);
@@ -473,9 +484,7 @@ export default function DashboardPage() {
     // Defer the "you missed it" verdict while the analyst is genuinely working
     // the case: the report modal is open, OR they opened the EDR console within
     // the last 6 minutes (a real endpoint deep-dive shouldn't auto-fail them).
-    isInvestigating: () =>
-      showReportModal ||
-      (edrOpenedAtRef.current !== null && Date.now() - edrOpenedAtRef.current < 360_000),
+    isInvestigating: () => showReportModal || investigatingInEdr,
     autoStart:  false,    // nothing streams until the student presses Start Training
   });
   liveRef.current = live;
@@ -498,7 +507,8 @@ export default function DashboardPage() {
       prevIncidentIdRef.current = id;
       setReportPassed(false);
       armedNextRef.current = false;
-      edrOpenedAtRef.current = null; // new incident → the EDR-open grace resets
+      setInvestigatingInEdr(false); // new incident → the EDR pause resets
+      if (edrPauseCapRef.current) { clearTimeout(edrPauseCapRef.current); edrPauseCapRef.current = null; }
       try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
       setEdrInvestigated(false);
     }
@@ -808,7 +818,12 @@ export default function DashboardPage() {
                 onClick={() => {
                   if (edrAlertCount > 0 && liveEdrInvestigation && typeof window !== "undefined") {
                     localStorage.setItem("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
-                    edrOpenedAtRef.current = Date.now(); // defer any "missed" verdict while they dig in EDR
+                    // Pause the response clock (and defer any "missed" verdict)
+                    // while they investigate in EDR. Safety cap resumes it after
+                    // 20 min so an abandoned EDR tab can't freeze it forever.
+                    setInvestigatingInEdr(true);
+                    if (edrPauseCapRef.current) clearTimeout(edrPauseCapRef.current);
+                    edrPauseCapRef.current = setTimeout(() => setInvestigatingInEdr(false), 1_200_000);
                   }
                 }}
                 className={cn(
@@ -1274,7 +1289,7 @@ export default function DashboardPage() {
             events={live.events}
             attackTimerSeconds={live.attackTimerSeconds}
             avgCatchMs={live.avgCatchMs}
-            slaPaused={showReportModal && live.attackTimerSeconds != null}
+            slaPaused={(showReportModal || investigatingInEdr) && live.attackTimerSeconds != null}
           />
 
           {/* The actual feed — pure investigation surface. No alert queue, no
