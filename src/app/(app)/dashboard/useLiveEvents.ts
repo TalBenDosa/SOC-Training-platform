@@ -1122,30 +1122,21 @@ export function useLiveEvents({
               setAttackTimerSeconds(SLA_SECONDS);
               if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
               slaIntervalRef.current = setInterval(() => {
+                // Paused while the analyst is working the case (report open / EDR
+                // in play); the miss is driven off this countdown. No XP clawback:
+                // losing points for not clicking fast enough reads as a trap.
+                if (isInvestigatingRef.current?.()) return;
                 setAttackTimerSeconds(prev => {
-                  if (prev === null || prev <= 1) {
+                  if (prev === null) return null;
+                  if (prev <= 1) {
                     if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
+                    if (!caughtRef.current) setFnCount(c => c + 1);
                     return null;
                   }
                   return prev - 1;
                 });
               }, 1000);
               setActiveIncident(incident);
-              if (missTimerRef.current) clearTimeout(missTimerRef.current);
-              missTimerRef.current = setTimeout(() => {
-                // SLA expiry counts the miss, but does NOT open the debrief.
-                // Phases are still arriving at this point — showing the ending
-                // here told the learner how the story finished before it had.
-                // The debrief opens when the story actually completes, below.
-                if (!caughtRef.current) {
-                  setFnCount(c => c + 1);
-                  // No XP clawback: losing points for not clicking fast enough on
-                  // a timer reads as a trap.
-                }
-                if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
-                setAttackTimerSeconds(null);
-                missTimerRef.current = null;
-              }, SLA_SECONDS * 1000);
             }
 
             setNewIds(batchIds);
@@ -1267,21 +1258,22 @@ export function useLiveEvents({
       setAttackTimerSeconds(SLA_SECONDS);
       if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
       slaIntervalRef.current = setInterval(() => {
+        // Pause the response clock while the analyst is working the case — the
+        // report is open (they're pulling data into it) or the EDR console is in
+        // play. That time must not count against them. The miss is driven off
+        // THIS countdown, so pausing it pauses the miss too.
+        if (isInvestigatingRef.current?.()) return;
         setAttackTimerSeconds(prev => {
-          if (prev === null || prev <= 1) { if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; } return null; }
+          if (prev === null) return null;
+          if (prev <= 1) {
+            if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
+            if (!caughtRef.current) setFnCount(c => c + 1); // count the miss; no XP clawback, no debrief here
+            return null;
+          }
           return prev - 1;
         });
       }, 1000);
       setActiveIncident(incident);
-      if (missTimerRef.current) clearTimeout(missTimerRef.current);
-      missTimerRef.current = setTimeout(() => {
-        // Counts the miss only. The debrief waits for the story to finish —
-        // see the completion check where the attack clears.
-        if (!caughtRef.current) { setFnCount(c => c + 1); } // no XP clawback
-        if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
-        setAttackTimerSeconds(null);
-        missTimerRef.current = null;
-      }, SLA_SECONDS * 1000);
     } else if (activeIncidentRef.current) {
       // Later phases extend the same incident (chain board sees the full story)
       activeIncidentRef.current = {

@@ -1274,6 +1274,7 @@ export default function DashboardPage() {
             events={live.events}
             attackTimerSeconds={live.attackTimerSeconds}
             avgCatchMs={live.avgCatchMs}
+            slaPaused={showReportModal && live.attackTimerSeconds != null}
           />
 
           {/* The actual feed — pure investigation surface. No alert queue, no

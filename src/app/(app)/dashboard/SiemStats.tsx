@@ -38,9 +38,12 @@ interface SiemStatsProps {
   events: LiveEvent[];
   attackTimerSeconds?: number | null;
   avgCatchMs?: number | null;
+  /** The response clock is paused (the analyst is writing the report / in EDR),
+   *  so it isn't counting against them — shown as a paused state, not a race. */
+  slaPaused?: boolean;
 }
 
-export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null }: SiemStatsProps) {
+export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null, slaPaused = false }: SiemStatsProps) {
   // Compact by default — beginners see the 4 chips that matter; "+ more" reveals the rest
   const [showAll, setShowAll] = useState(false);
   const fiveMinAgo = Date.now() - 5 * 60 * 1000;
@@ -65,10 +68,13 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-[#0a0f18] px-5 py-2.5">
 
-      {/* SLA Attack Timer — only visible during active attack */}
+      {/* SLA Attack Timer — only visible during active attack. Paused (report
+          open / EDR in play) → neutral, no pulse, "paused" label: the analyst's
+          time is NOT counting against them while they work the case. */}
       {attackTimerSeconds != null && timerColor && (
         <div className={cn(
           "inline-flex items-center gap-2 rounded-md border px-3 py-1.5",
+          slaPaused                 ? "border-cyber-500/40 bg-cyber-500/10" :
           timerColor === "critical" ? "border-severity-critical/60 bg-severity-critical/10 animate-pulse" :
           timerColor === "medium"   ? "border-severity-medium/50 bg-severity-medium/8" :
                                       "border-neon-green/40 bg-neon-green/8"
@@ -76,9 +82,11 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
           <span className="text-[10px] text-slate-400 font-medium"><Term k="sla">SLA</Term></span>
           <span className={cn(
             "font-mono text-[11px] font-bold",
+            slaPaused                 ? "text-cyber-300" :
             timerColor === "critical" ? "text-severity-critical" :
             timerColor === "medium"   ? "text-severity-medium"   : "text-neon-green"
-          )}>⏱ {fmtTimer(attackTimerSeconds ?? 0)}</span>
+          )}>{slaPaused ? "⏸" : "⏱"} {fmtTimer(attackTimerSeconds ?? 0)}</span>
+          {slaPaused && <span className="text-[10px] font-semibold uppercase tracking-wide text-cyber-300">paused</span>}
         </div>
       )}
 
