@@ -134,6 +134,32 @@ export interface TelemetryEvent {
   mitre_technique?: string;
   mitre_tactic?: string;
   severity?: Severity;
+  // ── EDR / SIEM correlation & alert classification (SPEC-edr-scenario-integration) ──
+  /**
+   * Shared correlation id across every event of ONE attack chain — SIEM logs AND
+   * their EDR telemetry alike. Models a SIEM "Incident" (Sentinel) / "notable"
+   * (Splunk): it's the explicit join that lets an EDR detection be tied to the
+   * firewall/AD/O365 logs of the same incident, and lets the EDR console build a
+   * SEPARATE, isolated case per incident_id. Format: `inc:<pack-slug>:<n>`.
+   */
+  incident_id?: string;
+  /**
+   * Marks an EDR event as ALERT-grade (a detection) rather than pivot-only
+   * telemetry. Only 1-3 detections per incident are shown as top-level feed/scenario
+   * rows; the rest of the `source:"edr"` process_create telemetry surfaces ONLY
+   * inside the EDR console's process tree — this is what prevents an "EDR flood".
+   */
+  is_detection?: boolean;
+  /**
+   * Three-way triage classification, set on the incident's primary detection:
+   *  - "edr":     endpoint-observable only → investigate in the EDR console.
+   *  - "hybrid":  host artifacts AND a control-plane facet → detection surfaces in
+   *               SIEM, pivot into EDR for the correlated host.
+   *  - "non_edr": control-plane only (cloud IdP / SaaS / network / email) → no host
+   *               process to walk; investigated in SIEM/identity, NO "Investigate in
+   *               EDR" affordance. Derived by classifyScope() from the incident's events.
+   */
+  edr_scope?: "edr" | "hybrid" | "non_edr";
   /**
    * Story difficulty tier, stamped when the event is drawn into an attack story.
    * Drives progressive log fidelity: advanced-tier events get realistic benign
