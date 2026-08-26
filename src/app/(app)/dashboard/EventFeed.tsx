@@ -359,7 +359,7 @@ const SEVERITY_COLORS: Record<string, string> = {
 const ADMIN_EVENT_TYPES = new Set([
   "group_modify", "account_modify", "account_create", "account_delete",
   "privilege_escalation", "privileged_operation", "role_assignment",
-  "account_lockout", "cloud_role_change", "linux_priv_change",
+  "cloud_role_change", "linux_priv_change",
 ]);
 
 function DetailPanel({
@@ -374,11 +374,18 @@ function DetailPanel({
   const [showRawJson, setShowRawJson] = useState(false);
   const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done">("idle");
 
-  // Resolve the IT-verify outcome for ANY admin action. An explicitly-authored
-  // result wins (the attack's malicious admin action carries "unverified");
-  // otherwise routine background admin activity defaults to a confirmed ticket.
+  // Resolve the IT-verify outcome for an admin ACTION (a group/role/account
+  // change). An explicitly-authored result wins. Otherwise: an event that is
+  // part of an attack (it carries a MITRE technique) is NEVER assumed benign —
+  // it defaults to "unverified" (escalate); only routine admin activity with no
+  // attack technique defaults to a confirmed change ticket. Attack SYMPTOMS
+  // (e.g. account lockouts from a spray) are not admin changes at all and are
+  // excluded from ADMIN_EVENT_TYPES, so they get no "authorised change" verdict.
   const verifyResult: "confirmed" | "unverified" | undefined =
-    event.it_verify_result ?? (ADMIN_EVENT_TYPES.has(event.event_type) ? "confirmed" : undefined);
+    event.it_verify_result ??
+    (ADMIN_EVENT_TYPES.has(event.event_type)
+      ? (event.mitre_technique ? "unverified" : "confirmed")
+      : undefined);
   const hasItVerify = verifyResult !== undefined;
 
   function handleItVerify(e: React.MouseEvent) {
