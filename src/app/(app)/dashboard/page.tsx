@@ -28,6 +28,7 @@ import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicC
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
+import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import {
   BookOpen, Building2, Cpu, FileText, Filter, GraduationCap, LogOut, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
@@ -74,8 +75,24 @@ function extractIndicators(events: import("@/lib/sim/types").TelemetryEvent[]): 
     if (dom) out.add(dom);
     const sha = (e.file as { sha256?: string } | undefined)?.sha256;
     if (sha) out.add(sha);
-    const proc = (e.process as { name?: string } | undefined)?.name;
-    if (proc) out.add(proc);
+    const procObj = e.process as { name?: string; hash?: { sha256?: string } } | undefined;
+    if (procObj?.name) out.add(procObj.name);
+    if (procObj?.hash?.sha256) out.add(procObj.hash.sha256);
+    // Also harvest indicators that live ONLY in the vendor-native `raw` block —
+    // the exact same fields the Threat-Intel drawer lets the analyst "Check
+    // Hash / Check IP / Check Domain" on. A SHA-256 the student pulled from
+    // cs.SHA256HashData (or Sysmon Hashes, Defender SHA256, …) is a real,
+    // observable artifact; if it isn't harvested here the report grader has no
+    // record of it and wrongly brands the student's citation "fabricated". Use
+    // the SAME recognisers the drawer uses so ground truth == what's checkable.
+    const raw = (e.raw ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v !== "string" || !v.trim()) continue;
+      const val = v.trim();
+      if (isSha256Field(k, val) || isIpCheckField(k, val) || isDomainCheckField(k, val)) {
+        out.add(val);
+      }
+    }
   }
   return Array.from(out);
 }
