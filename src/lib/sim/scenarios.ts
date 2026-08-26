@@ -15,6 +15,7 @@ import { buildBruteForceSingleAccountScenario } from "./scenario-packs/bruteForc
 import { buildOktaPasswordBurstScenario }    from "./scenario-packs/oktaPasswordBurst";
 import { buildFakeBrowserUpdateScenario }    from "./scenario-packs/fakeBrowserUpdate";
 import { buildTrojanizedInstallerKeyloggerScenario } from "./scenario-packs/trojanizedInstallerKeylogger";
+import { buildMultiHostIntrusionScenario } from "./scenario-packs/multiHostIntrusion";
 import { buildGwsPhishingAttachmentScenario } from "./scenario-packs/gwsPhishingAttachment";
 import { buildBundledCryptominerScenario }   from "./scenario-packs/bundledCryptominer";
 import { buildSeoPoisonedInstallerScenario }     from "./scenario-packs/seoPoisonedInstaller";
@@ -3365,6 +3366,11 @@ export const SCENARIOS = [
     difficulty: "beginner", attack_kind: "input_capture",
     threat_actor: "Commodity infostealer distributor", build: withAlerts(buildTrojanizedInstallerKeyloggerScenario),
     summary: "The installer is signed and the PDF tool genuinely works. It also drops a second binary that reads what she types into her browser." },
+  { slug: "multi-host-intrusion",
+    title: "Multi-Host Intrusion — Foothold, Lateral Move, Staging",
+    difficulty: "advanced", attack_kind: "multi_host_intrusion",
+    threat_actor: "Hands-on-keyboard intrusion operator (pre-ransomware)", build: withAlerts(buildMultiHostIntrusionScenario),
+    summary: "One operator, three hosts, three separate EDR incidents in forty minutes — foothold, an LSASS dump on the file server, and gigabytes staged and pushed out. Investigate each host as its own case, then tie them into one campaign." },
   { slug: "gws-phishing-attachment",
     title: "Shared Invoice — Malicious Attachment via Google Workspace",
     difficulty: "beginner", attack_kind: "phishing_attachment",
