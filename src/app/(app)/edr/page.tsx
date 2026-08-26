@@ -48,7 +48,12 @@ export default function EdrConsolePage() {
   }, [router]);
 
   const investigations = useMemo(
-    () => (liveInv ? [liveInv, ...EDR_INVESTIGATIONS] : EDR_INVESTIGATIONS),
+    // In a live shift the analyst investigates the CURRENT incident's host only —
+    // showing the unrelated built-in practice cases (FIN-WS-07, RES-SRV-02, …)
+    // alongside it cluttered the case-switcher and broke the "one incident, its
+    // own isolated case" model. The built-in EDR_INVESTIGATIONS stay as the
+    // standalone-practice set, shown only when there is no live attack to walk.
+    () => (liveInv ? [liveInv] : EDR_INVESTIGATIONS),
     [liveInv],
   );
   const inv = investigations.find(i => i.id === invId) ?? investigations[0];
