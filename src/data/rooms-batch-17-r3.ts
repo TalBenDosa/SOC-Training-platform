@@ -572,7 +572,7 @@ const tlsRoom = {
       id: "tls-ac1",
       heading: "Verdict: A Self-Signed Certificate With an Unusual JA3 on an Internal Segment",
       scenario:
-        "A detection rule flagged a TLS session from SRV-BACKUP02 to 10.40.1.40 on port 8006 using a self-signed certificate and a JA3 hash that does not match any common browser or standard library signature in the threat-intel feed. IT change records confirm 10.40.1.40 is the management interface of the company's on-premises backup appliance (a Proxmox Backup Server instance), which has used a vendor-default self-signed certificate since its installation eight months ago, and the connection recurs nightly at the scheduled backup job time.",
+        "A detection rule flagged a TLS session from SRV-BACKUP02 to 10.40.1.40 on port 8007 using a self-signed certificate and a JA3 hash that does not match any common browser or standard library signature in the threat-intel feed. IT change records confirm 10.40.1.40 is the management interface of the company's on-premises backup appliance (a Proxmox Backup Server instance), which has used a vendor-default self-signed certificate since its installation eight months ago, and the connection recurs nightly at the scheduled backup job time.",
       event: {
         id: "evt-tls-ac1-001",
         ts: "2026-04-06T01:00:04.000Z",
@@ -583,16 +583,16 @@ const tlsRoom = {
         hostname: "SRV-BACKUP02.solvix.local",
         src_ip: "10.40.1.55",
         dst_ip: "10.40.1.40",
-        dst_port: 8006,
+        dst_port: 8007,
         protocol: "tcp",
         it_verify_result: "confirmed",
         it_verify_message: "10.40.1.40 is the Proxmox Backup Server management appliance, in production since 2025-08; self-signed cert is the vendor default and has not been rotated. Nightly connection matches the scheduled 01:00 backup job.",
         description:
-          "SRV-BACKUP02 connects nightly at 01:00 to 10.40.1.40:8006 using a self-signed certificate that has been in place for eight months, with a JA3 not present in the standard-browser reference list",
+          "SRV-BACKUP02 connects nightly at 01:00 to 10.40.1.40:8007 using a self-signed certificate that has been in place for eight months, with a JA3 not present in the standard-browser reference list",
         raw: {
           "id.orig_h": "10.40.1.55",
           "id.resp_h": "10.40.1.40",
-          "id.resp_p": 8006,
+          "id.resp_p": 8007,
           "ssl.subject": "CN=pbs-appliance",
           "ssl.issuer": "CN=pbs-appliance",
           "ssl.validation_status": "self signed certificate",

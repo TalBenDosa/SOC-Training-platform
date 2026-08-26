@@ -784,7 +784,7 @@ Volatility is the industry-standard open-source memory forensics framework. Afte
 svchost.exe (Service Host) is a core Windows process that hosts Windows services. There are many legitimate svchost.exe instances running at any time. Attackers know this and name their malware "svchost.exe" to blend in.
 
 How to spot a fake svchost.exe in memory analysis:
-- Parent process should be services.exe (PID often 804). If the parent is explorer.exe, cmd.exe, or PID 1 (System), it is suspicious.
+- Parent process should be services.exe (PID often 804). If the parent is explorer.exe, cmd.exe, or PID 4 (System), it is suspicious.
 - Path should be C:\\Windows\\System32\\svchost.exe. If it is running from AppData, Temp, or a user directory, it is malicious.
 - Legitimate svchost.exe always has a "-k" argument (e.g., svchost.exe -k netsvcs). No argument = suspicious.`,
       checkpoint: {
@@ -917,7 +917,7 @@ By combining memory forensics (what was running), disk forensics (what files exi
         raw: {
           "volatility.plugin": "pslist",
           "volatility.pid": "4892",
-          "volatility.ppid": "1",
+          "volatility.ppid": "4",
           "volatility.name": "svchost.exe",
           "volatility.offset": "0x0000be8f2a006080",
           "volatility.create_time": "2025-06-24T14:31:55Z",
@@ -926,18 +926,18 @@ By combining memory forensics (what was running), disk forensics (what files exi
       questions: [
         {
           // Asked as full statements rather than bare PID numbers on purpose: the
-          // correct answer to "what is the PPID?" is the single character "1",
+          // correct answer to "what is the PPID?" is the single character "4",
           // which a student can pick off by shape without reading the output.
           question: "Volatility lists this svchost.exe at PID 4892. What does the volatility.ppid field tell you about its parent?",
           options: [
             "PPID 804 — services.exe spawned it, the normal parent for svchost.exe",
             "PPID 4892 — the process is recorded as its own parent",
-            "PPID 1 — the System process, not services.exe, is the parent",
+            "PPID 4 — the System process, not services.exe, is the parent",
             "PPID 640 — a parent that is neither services.exe nor System",
           ],
           answer: 2,
           explanation:
-            "The PPID (Parent Process ID) is 1, which corresponds to the System process. Legitimate svchost.exe instances are spawned by services.exe, which has a PID of approximately 804 (it varies but is always services.exe). A PPID of 1 (System) means something unusual is the parent of this process — this is a classic indicator of process injection or hollow process creation, where an attacker creates a new svchost.exe process outside the normal startup hierarchy. This is one of the most reliable indicators of process injection in memory forensics.",
+            "The PPID (Parent Process ID) is 4, which corresponds to the System process. Legitimate svchost.exe instances are spawned by services.exe, which has a PID of approximately 804 (it varies but is always services.exe). A PPID of 4 (System) means something unusual is the parent of this process — this is a classic indicator of process injection or hollow process creation, where an attacker creates a new svchost.exe process outside the normal startup hierarchy. This is one of the most reliable indicators of process injection in memory forensics.",
           xp: 40,
         },
         {
@@ -961,7 +961,7 @@ By combining memory forensics (what was running), disk forensics (what files exi
       type: "flag" as const,
       id: "dfir-flag1",
       prompt: `Look at the Volatility pslist output in the log analysis above. The suspicious svchost.exe process has an anomalous PPID. What is that PPID? Enter the number only.`,
-      answer: "1",
+      answer: "4",
       hint: "PPID is the Parent Process ID. Legitimate svchost.exe should have services.exe as its parent. This one has an unusually low PPID — look at the volatility.ppid field in the raw log.",
       xp: 50,
     },
