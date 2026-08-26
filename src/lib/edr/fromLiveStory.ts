@@ -156,6 +156,9 @@ export function buildInvestigationFromStory(
         domain: net?.domain ?? hostOf(net?.url),
         proto: e.protocol ?? (net?.url?.startsWith("https") ? "TLS" : "HTTP"),
         bytes: net?.bytes_out,
+        method: net?.method,
+        status: net?.status,
+        url: net?.url,
       });
     }
     if (e.file?.path && owner.files!.length < 8) {

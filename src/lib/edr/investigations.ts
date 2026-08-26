@@ -21,6 +21,9 @@ export interface EdrNetConn {
   domain?: string;
   proto?: string;
   bytes?: number;
+  method?: string;   // HTTP method — lets a browser's activity read as a request chain
+  status?: number;   // HTTP status (200 / 301 / 302 …); a 3xx marks a redirect hop
+  url?: string;
 }
 
 export interface EdrFileOp {

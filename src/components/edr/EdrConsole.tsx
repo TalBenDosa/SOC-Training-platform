@@ -275,12 +275,20 @@ export function EdrConsole({ inv, investigations, invId, onSwitch, embedded = fa
                   <div className="px-4 py-3 text-[12px]">
                     {sel.network?.length ? (
                       <table className="w-full text-left"><tbody className="divide-y divide-border/50">
-                        {sel.network.map((c, i) => (
+                        {/* Time-ordered so a browser's requests read as a chain —
+                            the entry site, its 3xx redirect hops (amber), and the
+                            final fetch that pulled the payload. */}
+                        {[...sel.network].sort((a, b) => a.ts.localeCompare(b.ts)).map((c, i) => (
                           <tr key={i}>
                             <td className="py-1.5 pr-2 font-mono text-slate-500">{c.ts}</td>
-                            <td className="py-1.5 pr-2 text-slate-400">{c.proto ?? "TCP"}</td>
+                            <td className="py-1.5 pr-2 font-mono">
+                              <span className="text-slate-400">{c.method ?? c.proto ?? "TCP"}</span>
+                              {c.status != null && (
+                                <span className={c.status >= 300 && c.status < 400 ? "text-neon-amber" : "text-slate-500"}> {c.status}</span>
+                              )}
+                            </td>
                             <td className="py-1.5 pr-2 font-mono text-slate-200">{c.remote_ip}:{c.remote_port}</td>
-                            <td className="py-1.5 font-mono text-cyber-300">{c.domain ?? ""}</td>
+                            <td className="py-1.5 font-mono text-cyber-300 break-all">{c.domain ?? c.url ?? ""}</td>
                           </tr>
                         ))}
                       </tbody></table>

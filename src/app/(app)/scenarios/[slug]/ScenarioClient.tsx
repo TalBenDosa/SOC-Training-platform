@@ -358,6 +358,10 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
   const [search, setSearch]       = useState("");
   const [sevFilter, setSevFilter] = useState<"all" | "medium" | "high">("all");
   const [showAll, setShowAll]     = useState(false);
+  // De-flood: hide EDR telemetry rows, leaving detections + SIEM logs. The hidden
+  // process/file telemetry is then walked inside the EDR console tree (the pivot).
+  // Default off so it never removes an event a scenario question references.
+  const [detectionsOnly, setDetectionsOnly] = useState(false);
   // Correlation: the incident_id currently highlighted across the whole feed.
   const [focusIncident, setFocusIncident] = useState<string | null>(null);
   // EDR pivot: one ISOLATED investigation per incident_id (edr/hybrid only) — each
@@ -377,6 +381,9 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
     return [...events]
       .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
       .filter(ev => {
+      if (detectionsOnly
+        && (ev.source === "edr" || ev.source === "sysmon" || ev.source === "av" || ev.source === "windows_security" || ev.source === "linux_audit")
+        && !ev.is_detection) return false;
       if (sevFilter === "high"   && ev.severity !== "high" && ev.severity !== "critical") return false;
       if (sevFilter === "medium" && (!ev.severity || SEV_LEVEL[ev.severity] < 4)) return false;
       if (search) {
@@ -394,7 +401,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
       }
       return true;
     });
-  }, [events, sevFilter, search]);
+  }, [events, sevFilter, search, detectionsOnly]);
 
   const visible = showAll ? filtered : filtered.slice(0, 30);
 
@@ -432,6 +439,18 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
                 {f === "all" ? "All" : f === "medium" ? "≥ Medium" : "High/Critical"}
               </button>
             ))}
+            <button
+              onClick={() => setDetectionsOnly(v => !v)}
+              title="Hide EDR telemetry — show only detections and SIEM logs. Walk the hidden process/file telemetry inside the EDR console (Investigate in EDR)."
+              className={cn(
+                "rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition",
+                detectionsOnly
+                  ? "bg-cyber-500/20 text-cyber-300 border border-cyber-500/30"
+                  : "text-slate-400 hover:text-slate-300",
+              )}
+            >
+              Detections only
+            </button>
           </div>
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
