@@ -381,10 +381,18 @@ function DetailPanel({
   // attack technique defaults to a confirmed change ticket. Attack SYMPTOMS
   // (e.g. account lockouts from a spray) are not admin changes at all and are
   // excluded from ADMIN_EVENT_TYPES, so they get no "authorised change" verdict.
+  // An admin action is only ever auto-"confirmed" (benign) when it looks like
+  // routine, low-risk background activity. If it carries a MITRE technique OR is
+  // High/Critical severity, it is treated as suspicious and defaults to
+  // "unverified" (escalate) — a malicious admin action (a rogue account
+  // exercising privileges, an attacker-created forwarding rule) must never read
+  // as an authorised change just because IT wasn't explicitly asked.
+  const looksSuspicious =
+    !!event.mitre_technique || event.severity === "high" || event.severity === "critical";
   const verifyResult: "confirmed" | "unverified" | undefined =
     event.it_verify_result ??
     (ADMIN_EVENT_TYPES.has(event.event_type)
-      ? (event.mitre_technique ? "unverified" : "confirmed")
+      ? (looksSuspicious ? "unverified" : "confirmed")
       : undefined);
   const hasItVerify = verifyResult !== undefined;
 

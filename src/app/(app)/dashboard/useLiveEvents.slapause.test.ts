@@ -1,8 +1,9 @@
-// Verifies the response-clock (SLA) pause: while the analyst is investigating
-// (report drawer open OR EDR console in play — both feed the same
-// `isInvestigating` flag), the SLA countdown must FREEZE, then resume when they
-// come back. This is the exact behaviour requested for EDR investigation. Runs
-// the REAL useLiveEvents hook under fake timers (no JSX so vitest's *.test.ts
+// Verifies the response-clock pause: the clock is now an ELAPSED timer that
+// counts UP from 0 (not a countdown, and never a fail). While the analyst is
+// investigating (report drawer open OR EDR console in play — both feed the same
+// `isInvestigating` flag), the clock must FREEZE, then resume counting up when
+// they come back. Same pause guarantee as before, opposite direction. Runs the
+// REAL useLiveEvents hook under fake timers (no JSX so vitest's *.test.ts
 // include picks it up).
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
@@ -42,7 +43,7 @@ function Harness() {
   return null;
 }
 
-describe("SLA response clock pause during investigation", () => {
+describe("response clock (counts up) pause during investigation", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -60,29 +61,32 @@ describe("SLA response clock pause during investigation", () => {
     vi.useRealTimers();
   });
 
-  it("freezes the countdown while investigating, and resumes after", () => {
+  it("counts up while running, freezes while investigating, and resumes after", () => {
     act(() => { root.render(React.createElement(Harness)); });
 
     // Advance past FIRST_PHASE_DELAY (120-180s) so the attack's first phase lands
-    // and the SLA countdown arms.
+    // and the response clock arms at 0 and starts counting UP.
     act(() => { vi.advanceTimersByTime(181_000); });
     const started = latest!.attackTimerSeconds;
     expect(started).not.toBeNull();
-    expect(started!).toBeGreaterThan(600); // SLA_SECONDS = 900
+    expect(started!).toBeGreaterThanOrEqual(0); // elapsed, not a countdown
 
-    // Running: 6 one-second ticks decrement it.
+    // Running: 6 one-second ticks INCREMENT it.
     act(() => { vi.advanceTimersByTime(6_000); });
     const afterRunning = latest!.attackTimerSeconds!;
-    expect(afterRunning).toBe(started! - 6);
+    expect(afterRunning).toBe(started! + 6);
 
     // Analyst opens EDR / report → investigating. The clock must FREEZE.
     investigating = true;
     act(() => { vi.advanceTimersByTime(30_000); });
     expect(latest!.attackTimerSeconds).toBe(afterRunning); // unchanged across 30s
 
-    // Back from investigating → the clock resumes counting down.
+    // Back from investigating → the clock resumes counting UP.
     investigating = false;
     act(() => { vi.advanceTimersByTime(4_000); });
-    expect(latest!.attackTimerSeconds).toBe(afterRunning - 4);
+    expect(latest!.attackTimerSeconds).toBe(afterRunning + 4);
+
+    // The clock never fails or halts the shift: no missed-attack flag ever fires.
+    expect(latest!.missedAttack).toBe(false);
   });
 });

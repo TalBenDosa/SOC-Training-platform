@@ -396,6 +396,9 @@ export function buildRogueAdminAccountScenario(
       hostname: adminServer.hostname,
       user_email: rogue.email,
       severity: "high",
+      it_verify_result: "unverified",
+      it_verify_message:
+        "Service Desk has no change or onboarding record for s.katz (the 4720 that created the account was already flagged with no ticket). Privileges exercised by an account created out-of-hours with no authorisation must be escalated, not cleared.",
       description:
         "The s.katz logon session on SRV-ADM-07 was issued SeDebugPrivilege, SeBackupPrivilege, SeRestorePrivilege and SeLoadDriverPrivilege among others (Event 4672).",
       raw: {

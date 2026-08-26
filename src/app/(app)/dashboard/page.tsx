@@ -29,7 +29,7 @@ import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import {
-  AlertTriangle, BookOpen, Building2, Cpu, FileText, Filter, GraduationCap, LogOut, Pause, Play,
+  BookOpen, Building2, Cpu, FileText, Filter, GraduationCap, LogOut, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
@@ -410,21 +410,15 @@ export default function DashboardPage() {
   // (EDR, O365, Firewall, Sysmon, etc.) not just AD.
   // liveRef lets onStoryComplete (called from inside the hook) reach live.startStory.
   const liveRef = useRef<import("./useLiveEvents").LiveEventsApi | null>(null);
-  // A missed attack now stops the shift on the FIRST miss — the full-screen
-  // "you didn't report the attack" modal handles it (see live.missedAttack
-  // below). haltedRef mirrors that stopped state so handleStoryComplete, which
-  // is invoked from inside the hook over a stale closure, cannot arm another
-  // campaign behind the modal.
-  const haltedRef = useRef(false);
   // Have we already armed the NEXT attack for the current incident? Reset when a
   // new incident opens (see the effect below). This enforces ONE incident at a
   // time: the next attack is armed only when the student files a passing report
   // (handleReportPassed), never automatically when a story finishes injecting.
   const armedNextRef = useRef(false);
   // Story completion no longer auto-arms the next attack — that let a second
-  // incident pile on while the student was still working the first. A story that
-  // completes uncaught is handled by the hook's missed-attack modal; a caught one
-  // arms its successor from the report handler instead.
+  // incident pile on while the student was still working the first. An uncaught
+  // story simply ends (no popup, no halt — the feed keeps streaming); a caught
+  // one arms its successor from the report handler instead.
   const handleStoryComplete = () => { /* intentionally does nothing — see handleReportPassed */ };
   // Memoize the pool/profile lookups: getCompanyEvents filters ~8000 benign
   // events, and without memoization it ran on EVERY render and handed a fresh
@@ -481,9 +475,9 @@ export default function DashboardPage() {
     intervalMs: 90_000,   // 90s between ticks — readable pace for training
     story:      sessionStory,
     onStoryComplete: handleStoryComplete,
-    // Defer the "you missed it" verdict while the analyst is genuinely working
-    // the case: the report modal is open, OR they opened the EDR console within
-    // the last 6 minutes (a real endpoint deep-dive shouldn't auto-fail them).
+    // Pause the response clock while the analyst is genuinely working the case:
+    // the report modal is open, OR the EDR console is in play. That time is not
+    // held against them (there is no fail — only the coaching metric).
     isInvestigating: () => showReportModal || investigatingInEdr,
     autoStart:  false,    // nothing streams until the student presses Start Training
   });
@@ -710,18 +704,6 @@ export default function DashboardPage() {
     setTrainingActive(false);   // locks the EDR console again
     live.pause();               // stop the feed — nothing streams outside a shift
   };
-
-  /**
-   * Stop the shift once too many attacks have gone unreported. Letting campaigns
-   * keep stacking up after the analyst has clearly lost the thread just buries
-   * them further; halting turns it into a clean restart point instead.
-   */
-  // The FIRST miss stops the shift. The hook has already paused the feed and
-  // raised live.missedAttack (the modal); here we just latch haltedRef so no
-  // further story is armed. Cleared when the learner restarts from the modal.
-  useEffect(() => {
-    if (live.missedAttack) haltedRef.current = true;
-  }, [live.missedAttack]);
 
   // Tick the session clock once a second while a session is running.
   useEffect(() => {
@@ -982,93 +964,10 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Missed-attack debrief — a coaching moment, never a silent penalty */}
-        {live.missedAttack && (() => {
-          const ids = new Set(live.activeIncident?.eventIds ?? []);
-          // live.events is newest-first (new batches are prepended), so filtering
-          // and slicing it directly showed the kill chain BACKWARDS and — worse —
-          // kept the LAST six events while dropping the first. The opening moves
-          // are exactly what a student needs to learn to catch, so sort
-          // chronologically and keep the EARLIEST six.
-          const missedEvents = live.events
-            .filter(e => ids.has(e.id))
-            .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
-            .slice(0, 6);
-          return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
-              role="dialog" aria-modal="true" aria-labelledby="missed-attack-title"
-            >
-              <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-neon-amber/40 bg-bg shadow-2xl shadow-neon-amber/10">
-
-                <div className="border-b border-border px-7 py-8 text-center">
-                  <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-severity-critical/10 ring-2 ring-severity-critical/50">
-                    <AlertTriangle className="h-8 w-8 text-severity-critical" />
-                  </span>
-                  <h2 id="missed-attack-title" className="mt-5 text-3xl font-bold text-white">
-                    You didn&apos;t report the attack
-                  </h2>
-                  <p className="mt-2 text-base font-semibold text-severity-critical">
-                    Training stopped
-                  </p>
-                  <p className="mt-2 text-sm text-slate-400">
-                    <span className="font-semibold text-neon-amber">{live.activeIncident?.title ?? "A multi-stage attack"}</span>{" "}
-                    ran to completion in the feed without being reported.
-                  </p>
-                  {/* A miss is a lesson, not a penalty — and saying so is what
-                      stops the full-screen stop reading as punishment. */}
-                  <p className="mt-4 inline-block rounded-full bg-neon-green/10 px-3 py-1 text-xs font-medium text-neon-green">
-                    No points lost — spotting the ones you miss is how you build the eye for it
-                  </p>
-                </div>
-
-                {missedEvents.length > 0 && (
-                  <div className="px-7 py-6">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">What it looked like</p>
-                    <ol className="mt-4 space-y-3">
-                      {missedEvents.map((e, i) => (
-                        <li key={e.id} className="flex gap-3">
-                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 font-mono text-[10px] text-slate-400">
-                            {i + 1}
-                          </span>
-                          <div className="min-w-0">
-                            <span className="font-mono text-[11px] text-slate-400">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
-                            <p className="text-xs leading-relaxed text-slate-300">{e.description ?? e.displayDescription}</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-3 border-t border-border px-7 py-5 sm:flex-row-reverse">
-                  {/* One clear way forward — you asked for a single "back to
-                      training" action, and a stopped shift has exactly one
-                      sensible next step. */}
-                  <Button
-                    variant="primary" size="lg" className="w-full"
-                    onClick={() => {
-                      haltedRef.current = false;   // re-arm story injection
-                      live.clearMissedAttack();
-                      live.dismissIncident();
-                      handleStartTraining(sessionDifficulty ?? "medium");
-                    }}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" /> Back to training
-                  </Button>
-                  {/* Secondary, quiet: dismiss without restarting, leaving the
-                      feed paused so the events under discussion stay on screen. */}
-                  <button
-                    onClick={() => { live.clearMissedAttack(); live.dismissIncident(); }}
-                    className="w-full rounded-md px-4 py-2 text-xs font-medium text-slate-400 transition hover:text-slate-300 sm:w-auto"
-                  >
-                    Review the paused feed
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
+        {/* No missed-attack modal. The live feed is a low-pressure practice
+            space: an uncaught attack never halts the shift or throws a penalty
+            popup. Response time is measured and surfaced as gentle coaching
+            inside the incident report instead (see IncidentReportModal). */}
 
         {/* Analyst workflow — persistent "what do I do now?" strip */}
         <WorkflowGuide reportPassed={reportPassed} />
@@ -1378,6 +1277,11 @@ export default function DashboardPage() {
             attackTitle={storyTitle}
             attackMitreTechniques={storyMitre}
             decoys={decoysSeen}
+            // Response-time coaching data. Prefer the recorded response time; if
+            // the report is filed before an explicit catch, fall back to the
+            // current elapsed clock (seconds → ms). Coaching only — not graded.
+            responseMs={live.lastResponseMs ?? (live.attackTimerSeconds != null ? live.attackTimerSeconds * 1000 : null)}
+            responseTargetSeconds={live.responseTargetSeconds}
             onClose={closeReport}
             onPassed={() => {
               setReportPassed(true);

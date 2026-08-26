@@ -7,6 +7,14 @@ import type { IncidentReportResponse } from "@/app/api/dashboard/incident-report
 
 type Phase = "form" | "grading" | "result";
 
+/** Format a millisecond duration as "Xm Ys" for the response-time coaching line. */
+function fmtDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}m ${s}s`;
+}
+
 function ScoreRing({ score }: { score: number }) {
   const radius = 36;
   const circ   = 2 * Math.PI * radius;
@@ -51,6 +59,12 @@ interface Props {
    * state as a teaching debrief (never before/on failure — see render).
    */
   decoys?: { label: string; source: string; fp_explanation: string }[];
+  /** Response time (ms) for this incident — from the attack's first phase to the
+   *  catch / this report. Surfaced as a coaching point below; it NEVER affects
+   *  pass/fail or the score. null when unmeasured. */
+  responseMs?: number | null;
+  /** Response-time target in seconds — the coaching benchmark (default 15 min). */
+  responseTargetSeconds?: number;
   onClose: () => void;
   onPassed: () => void;
 }
@@ -62,6 +76,8 @@ export function IncidentReportModal({
   attackTitle,
   attackMitreTechniques,
   decoys = [],
+  responseMs = null,
+  responseTargetSeconds = 900,
   onClose,
   onPassed,
 }: Props) {
@@ -370,6 +386,44 @@ export function IncidentReportModal({
                   </div>
                 )}
               </div>
+
+              {/* Response-time coaching — a gentle pace note, NEVER part of the
+                  grade. Within target → a positive note; over target → a soft
+                  "areas to improve" nudge. The live feed is practice, so time is
+                  only ever coaching (see useLiveEvents: no miss, no penalty). */}
+              {responseMs != null && (() => {
+                const targetMs  = responseTargetSeconds * 1000;
+                const within    = responseMs <= targetMs;
+                const targetMin = Math.round(responseTargetSeconds / 60);
+                const overBy    = fmtDuration(responseMs - targetMs);
+                return (
+                  <div className={cn(
+                    "rounded border px-4 py-3 space-y-1.5",
+                    within ? "border-neon-green/25 bg-neon-green/5" : "border-neon-amber/25 bg-neon-amber/5"
+                  )}>
+                    <div className="flex items-center gap-1.5">
+                      {within
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-neon-green shrink-0" />
+                        : <AlertTriangle className="h-3.5 w-3.5 text-neon-amber shrink-0" />}
+                      <p className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider",
+                        within ? "text-neon-green" : "text-neon-amber"
+                      )}>
+                        {within ? "Response time" : "Areas to improve"}
+                      </p>
+                    </div>
+                    <p className="text-xs font-semibold text-slate-200">
+                      Response time: {fmtDuration(responseMs)}
+                    </p>
+                    <p className={cn("text-[10px] leading-relaxed", within ? "text-neon-green" : "text-neon-amber")}>
+                      {within
+                        ? `Good pace — within the ${targetMin}-minute response target.`
+                        : `Response time exceeded the ${targetMin}-minute target by ${overBy} — work on faster triage next shift.`}
+                    </p>
+                    <p className="text-[9px] text-slate-500">Coaching only — this does not affect your score.</p>
+                  </div>
+                );
+              })()}
 
               {/* Decoy debrief — only after a PASS. Recognising false positives is
                   half of SOC work; these benign events looked suspicious this

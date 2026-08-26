@@ -857,15 +857,22 @@ export interface LiveEventsApi {
   /** Arm a new attack story mid-session. Optional delayMs overrides the default
    *  8-12 min campaign cooldown (the dashboard uses a shorter gap after a report). */
   startStory: (story: AttackStory, delayMs?: number) => void;
-  // Miss-detection
+  // Retained for API compatibility — the live feed no longer fails on a miss, so
+  // this is now ALWAYS false and clearMissedAttack is a harmless no-op.
   missedAttack: boolean;
   clearMissedAttack: () => void;
   /** Register a real catch — called when the student's incident report passes.
-   * Stops the SLA countdown, records catch speed, and prevents the miss-timer
-   * from later (wrongly) counting this incident as missed. */
+   * Stops the response clock and records catch speed + response time. */
   markCaught: (eventId: string) => void;
-  // SLA countdown (seconds remaining; null when no active attack)
+  // Response clock — ELAPSED seconds since the attack's first phase (counts UP;
+  // pauses while investigating). null when no active attack. Never a deadline.
   attackTimerSeconds: number | null;
+  /** Response time (ms) for the most recently handled incident, from attack
+   * first-phase injection to catch / passing report. null until one is handled.
+   * A coaching metric only — never affects pass/fail or score. */
+  lastResponseMs: number | null;
+  /** The response-time TARGET in seconds (a coaching benchmark, not a deadline). */
+  responseTargetSeconds: number;
   fnCount: number;
   // Phase-1 behavioral telemetry (ANALYST_TELEMETRY_PLAN.md)
   eventsOpenedCount: number;
@@ -939,6 +946,10 @@ export function useLiveEvents({
   // this session, whether it was ultimately caught or missed.
   const [attacksPresentedCount, setAttacksPresentedCount] = useState(0);
   const [avgCatchMs,           setAvgCatchMs]           = useState<number | null>(null);
+  // Response time (ms) for the most recently handled incident — from attack
+  // first-phase injection to the catch / passing report. Surfaced as a coaching
+  // point in the incident report; never affects pass/fail or score.
+  const [lastResponseMs,       setLastResponseMs]       = useState<number | null>(null);
   const [lastAttackChain,      setLastAttackChain]      = useState<LiveEvent[] | null>(null);
   /** Incident ids already counted toward attacksCaughtCount — guards markCaught
    * against double-incrementing if it's ever invoked twice for the same incident. */
@@ -973,25 +984,13 @@ export function useLiveEvents({
   // "is the analyst investigating right now?" closure.
   const isInvestigatingRef = useRef(isInvestigating);
   isInvestigatingRef.current = isInvestigating;
-  /** Grace after the story's last phase before it can be ruled "missed". A
-   *  passing report during this window still counts (markCaught cancels it). */
-  const MISS_GRACE_MS = 240_000; // 4 minutes
+  // The live feed is a low-pressure PRACTICE space, not a time-pressure trap.
+  // An uncaught attack is NEVER a fail and NEVER halts the shift: no "you missed
+  // it" popup, no stream stop, no false-negative penalty. Response time is
+  // measured instead (see attackTimerSeconds + lastResponseMs) and surfaced only
+  // as a gentle coaching point inside the incident report. The former
+  // miss-watchdog and its grace window have been retired accordingly.
   const missWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  /** Rule the incident "missed" — but only once the analyst has genuinely
-   *  disengaged. Caught during the window → cancelled by markCaught. Still
-   *  investigating (report open / EDR in play) → re-check in a minute instead of
-   *  slamming a "you missed it" over an active investigation. */
-  const scheduleMissCheck = useCallback((delay: number) => {
-    if (missWatchdogRef.current) clearTimeout(missWatchdogRef.current);
-    missWatchdogRef.current = setTimeout(() => {
-      missWatchdogRef.current = null;
-      if (caughtRef.current) return;
-      if (isInvestigatingRef.current?.()) { scheduleMissCheck(60_000); return; }
-      setIsStreaming(false);
-      setTimeout(() => setMissedAttack(true), 1500);
-    }, delay);
-  }, []);
   const globalIdx         = useRef(15);
   const activeIncidentRef = useRef<ActiveIncident | null>(null);
   const missTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1091,10 +1090,6 @@ export function useLiveEvents({
         // Fire next attack phase if due
         if (world.attack && attackDue(world)) {
           const attackEvents = advanceAttack(world);
-          // advanceAttack() clears world.attack once every phase has been
-          // injected. That — not the SLA clock — is the moment the story is
-          // over, and the only honest moment to show how it ended.
-          const storyJustFinished = world.attack === null;
           if (attackEvents && attackEvents.length > 0) {
             const isFP = world.attack?.isFP ?? false;
             const now  = Date.now();
@@ -1119,22 +1114,16 @@ export function useLiveEvents({
               caughtRef.current = false;
               attackInjectedAtRef.current = now;
               setAttacksPresentedCount(c => c + 1);
-              setAttackTimerSeconds(SLA_SECONDS);
+              // Response clock counts UP from 0 — an elapsed timer, not a
+              // countdown. It is never a fail at any value; it only measures how
+              // long the analyst took so the report can coach on pace.
+              setAttackTimerSeconds(0);
               if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
               slaIntervalRef.current = setInterval(() => {
                 // Paused while the analyst is working the case (report open / EDR
-                // in play); the miss is driven off this countdown. No XP clawback:
-                // losing points for not clicking fast enough reads as a trap.
+                // in play) — that time must not count against them. No fail, ever.
                 if (isInvestigatingRef.current?.()) return;
-                setAttackTimerSeconds(prev => {
-                  if (prev === null) return null;
-                  if (prev <= 1) {
-                    if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
-                    if (!caughtRef.current) setFnCount(c => c + 1);
-                    return null;
-                  }
-                  return prev - 1;
-                });
+                setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
               }, 1000);
               setActiveIncident(incident);
             }
@@ -1143,13 +1132,10 @@ export function useLiveEvents({
             setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
             setTimeout(() => setNewIds(new Set()), 2000);
 
-            // The story ran to its end without being flagged. Let the final
-            // phase land in the feed first, so the learner sees the events the
-            // debrief is about to walk them through.
-            if (storyJustFinished && !isFP && !caughtRef.current) {
-              // Same grace + investigation-aware deferral as story mode.
-              scheduleMissCheck(MISS_GRACE_MS);
-            }
+            // The story ran to its end. Whether or not it was flagged, the feed
+            // simply keeps streaming — no popup, no halt, no penalty. If the
+            // analyst was deep in an earlier attack, that is fine: the response
+            // clock kept measuring and the report will coach on pace.
           }
           return;
         }
@@ -1209,13 +1195,11 @@ export function useLiveEvents({
   const FIRST_PHASE_DELAY = () => 120_000 + Math.floor(Math.random() * 60_000);   // 2-3 min
   const PHASE_GAP         = () => 120_000 + Math.floor(Math.random() * 120_000);  // 2-4 min
 
-  // SLA detection window — how long the student has to classify the attack
-  // once its first phase appears, before the miss penalty fires. Report
-  // writing itself is untimed (the SLA is cleared the moment markCaught()
-  // runs, well before the Incident Report modal opens). Widened from 8 to 15
-  // minutes so a beginner who investigates thoroughly — including a pivot into
-  // the EDR console — has realistic room to respond before the clock counts it.
-  const SLA_SECONDS = 900; // 15 minutes
+  // Response-time TARGET — a coaching benchmark, NOT a deadline. The response
+  // clock counts up from 0; if the analyst catches/reports within this many
+  // seconds the report notes a good pace, otherwise it gently flags faster
+  // triage as an improvement area. Nothing fails or halts at this value.
+  const SLA_SECONDS = 900; // 15 minutes — response-time target
 
   /**
    * Quiet period between the END of one attack campaign and the FIRST phase of
@@ -1255,23 +1239,16 @@ export function useLiveEvents({
       caughtRef.current = false;
       attackInjectedAtRef.current = now;
       setAttacksPresentedCount(c => c + 1);
-      setAttackTimerSeconds(SLA_SECONDS);
+      // Response clock starts at 0 and counts UP — an elapsed timer measuring how
+      // long the analyst takes to respond. It never fails or halts at any value.
+      setAttackTimerSeconds(0);
       if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
       slaIntervalRef.current = setInterval(() => {
         // Pause the response clock while the analyst is working the case — the
         // report is open (they're pulling data into it) or the EDR console is in
-        // play. That time must not count against them. The miss is driven off
-        // THIS countdown, so pausing it pauses the miss too.
+        // play. That time must not count against them.
         if (isInvestigatingRef.current?.()) return;
-        setAttackTimerSeconds(prev => {
-          if (prev === null) return null;
-          if (prev <= 1) {
-            if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
-            if (!caughtRef.current) setFnCount(c => c + 1); // count the miss; no XP clawback, no debrief here
-            return null;
-          }
-          return prev - 1;
-        });
+        setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
       }, 1000);
       setActiveIncident(incident);
     } else if (activeIncidentRef.current) {
@@ -1288,15 +1265,10 @@ export function useLiveEvents({
     setTimeout(() => setNewIds(new Set()), 2000);
 
     if (storyCursorRef.current >= s.events.length) {
-      // Story fully injected. If it was never flagged, this is the moment the
-      // attack is genuinely over — stop the feed and debrief. Pausing matters:
-      // letting benign events keep scrolling behind a modal that says "you
-      // missed it" invites the learner to dismiss and carry on without reading.
-      if (!caughtRef.current) {
-        // Give the analyst 4 minutes after the last phase to still catch it (a
-        // passing report counts), and never fail them mid-investigation.
-        scheduleMissCheck(MISS_GRACE_MS);
-      }
+      // Story fully injected. Caught or not, the feed just keeps streaming — no
+      // "you missed it" popup, no halt, no penalty. Clearing the story arms the
+      // next campaign via onStoryComplete; the analyst can still file a passing
+      // report for this incident, and response time is only ever coaching.
       storyRef.current = null;
       onStoryCompleteRef.current?.();
     } else {
@@ -1362,13 +1334,15 @@ export function useLiveEvents({
       }
       // A catch during the post-last-phase grace cancels the "missed" verdict.
       if (missWatchdogRef.current) { clearTimeout(missWatchdogRef.current); missWatchdogRef.current = null; }
-      // Record catch speed + stop SLA countdown
+      // Record catch speed + response time, then stop the response clock.
       if (attackInjectedAtRef.current !== null) {
         const elapsed = Date.now() - attackInjectedAtRef.current;
         catchSpeedMsRef.current.push(elapsed);
         attackInjectedAtRef.current = null;
         const all = catchSpeedMsRef.current;
         setAvgCatchMs(Math.round(all.reduce((a, b) => a + b, 0) / all.length));
+        // This incident's response time — the coaching metric shown in the report.
+        setLastResponseMs(elapsed);
       }
       // Count once per incident — guards against a double-call for the same catch.
       if (!countedIncidentIdsRef.current.has(incident.id)) {
@@ -1421,6 +1395,7 @@ export function useLiveEvents({
     setAttacksCaughtCount(0);
     setAttacksPresentedCount(0);
     setAvgCatchMs(null);
+    setLastResponseMs(null);
     setAttackTimerSeconds(null);
     setLastAttackChain(null);
     catchSpeedMsRef.current    = [];
@@ -1470,7 +1445,8 @@ export function useLiveEvents({
     events, isStreaming, sessionXp,
     newIds, activeIncident, dismissIncident, pause, resume, reset, startStory,
     missedAttack, clearMissedAttack, markCaught,
-    attackTimerSeconds, fnCount, eventsOpenedCount, recordEventOpened,
+    attackTimerSeconds, lastResponseMs, responseTargetSeconds: SLA_SECONDS,
+    fnCount, eventsOpenedCount, recordEventOpened,
     attacksCaughtCount, avgCatchMs, endSession,
     lastAttackChain, clearLastAttackChain, addXp,
   };

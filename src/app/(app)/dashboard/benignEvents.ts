@@ -652,7 +652,6 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     src_ip: "185.220.101.33",
     mitre_technique: "T1566.001",
     description: "Email from 'payroll@nexac0rp.com' (lookalike domain, SPF fail) — delivered to inbox, not caught by filter",
-    fp_explanation: "SPF fail + lookalike domain (nexac0rp.com with zero instead of 'o') + no DKIM = clear phishing. Analyst should check the From domain character-by-character.",
     network: { domain: "nexac0rp.com", bytes_in: 7200 },
     raw: {
       "data.office365.Operation": "MessageDelivered",
