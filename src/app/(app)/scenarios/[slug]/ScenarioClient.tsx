@@ -235,13 +235,27 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
 
 // ─── Single log row ───────────────────────────────────────────────────────────
 
-function LogRow({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: ThreatQuery) => void }) {
+function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident }: {
+  ev: TelemetryEvent;
+  onThreatQuery: (q: ThreatQuery) => void;
+  /** true when this row shares the incident currently in focus. */
+  focused?: boolean;
+  /** true when an incident is in focus and this row is NOT part of it. */
+  dimmed?: boolean;
+  /** toggle the focused incident (null clears it). */
+  onFocusIncident?: (id: string | null) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const level = SEV_LEVEL[ev.severity ?? "informational"] ?? 1;
   const sevBadge = SEV_BADGE[ev.severity ?? "informational"];
   const srcLabel = SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase();
   const srcColor = SOURCE_COLORS[ev.source] ?? SOURCE_COLORS.proxy;
   const timeStr = new Date(ev.ts).toLocaleTimeString("en-GB", { hour12: false });
+  // An alert-grade EDR detection — the row that opens the ticket, as opposed to
+  // the pivot-only process/file/registry telemetry around it (SPEC-edr-scenario
+  // -integration §4). Marking it lets the analyst read the queue at a glance
+  // instead of a flat wall of equally-weighted rows.
+  const isDetection = !!ev.is_detection;
 
   const description = ev.description ??
     (ev.process ? `${ev.process.name}${ev.process.parent_name ? ` ← ${ev.process.parent_name}` : ""}` :
@@ -259,6 +273,9 @@ function LogRow({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: 
           expanded ? "bg-bg-hover" : "hover:bg-bg-hover/60",
           ev.severity === "critical" && "border-l-2 border-l-severity-critical",
           ev.severity === "high"     && "border-l-2 border-l-severity-high",
+          isDetection && "bg-cyber-500/[0.06]",
+          focused && "bg-cyber-500/15 ring-1 ring-inset ring-cyber-500/40",
+          dimmed && "opacity-40",
         )}
       >
         <td className="w-5 pl-3">
@@ -269,15 +286,39 @@ function LogRow({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: 
           <span className="truncate block">{ev.hostname ?? "—"}</span>
         </td>
         <td className="py-2.5 pr-3">
-          <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", srcColor)}>
-            {srcLabel}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", srcColor)}>
+              {srcLabel}
+            </span>
+            {isDetection && (
+              <span
+                title="Detection — the alert-grade event that opens the ticket"
+                className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/15 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-cyber-300"
+              >
+                <span className="h-1 w-1 rounded-full bg-cyber-300" /> Alert
+              </span>
+            )}
+          </div>
         </td>
         <td className="py-2.5 pr-3">
           <span className="block text-[11px] text-slate-300 leading-relaxed line-clamp-2">{description}</span>
-          {ev.mitre_technique && (
-            <span className="mt-0.5 font-mono text-[9px] text-neon-purple/70">{ev.mitre_technique}</span>
-          )}
+          <div className="mt-0.5 flex items-center gap-2">
+            {ev.mitre_technique && (
+              <span className="font-mono text-[9px] text-neon-purple/70">{ev.mitre_technique}</span>
+            )}
+            {ev.incident_id && onFocusIncident && (
+              <button
+                onClick={e => { e.stopPropagation(); onFocusIncident(focused ? null : ev.incident_id!); }}
+                title={focused ? "Clear correlation" : "Correlate — highlight every event of this incident"}
+                className={cn(
+                  "inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider transition",
+                  focused ? "bg-cyber-500/25 text-cyber-200" : "text-slate-500 hover:text-cyber-300",
+                )}
+              >
+                🔗 {focused ? "correlated" : "correlate"}
+              </button>
+            )}
+          </div>
         </td>
         <td className="py-2.5 pr-4">
           <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded border font-mono text-[10px] font-bold", sevBadge)}>
@@ -301,6 +342,8 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
   const [search, setSearch]       = useState("");
   const [sevFilter, setSevFilter] = useState<"all" | "medium" | "high">("all");
   const [showAll, setShowAll]     = useState(false);
+  // Correlation: the incident_id currently highlighted across the whole feed.
+  const [focusIncident, setFocusIncident] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     // Sort by timestamp before filtering. Scenario builders declare events in
@@ -333,6 +376,16 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
   }, [events, sevFilter, search]);
 
   const visible = showAll ? filtered : filtered.slice(0, 30);
+
+  // Chronological events of the focused incident — drives the correlation banner
+  // and mini-timeline. Uses the FULL event set so an incident stays whole even
+  // under a severity filter or the 30-row cap.
+  const incidentEvents = useMemo(() => {
+    if (!focusIncident) return [] as TelemetryEvent[];
+    return [...events]
+      .filter(e => e.incident_id === focusIncident)
+      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+  }, [events, focusIncident]);
 
   return (
     <>
@@ -372,6 +425,37 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
         </div>
       </div>
 
+      {focusIncident && incidentEvents.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-cyber-500/25 bg-cyber-500/[0.05] px-4 py-2.5">
+          <span className="text-[11px] font-semibold text-cyber-200">🔗 Correlated incident</span>
+          <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-300">
+            {incidentEvents.length} events · {new Set(incidentEvents.map(e => e.source)).size} sources
+          </span>
+          {/* Mini-timeline: one dot per event in time order; detections stand out. */}
+          <div className="flex items-center gap-1">
+            {incidentEvents.map(e => (
+              <span
+                key={e.id}
+                title={`${new Date(e.ts).toLocaleTimeString("en-GB", { hour12: false })} · ${SOURCE_LABEL[e.source] ?? e.source}${e.is_detection ? " · DETECTION" : ""}`}
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full border",
+                  e.is_detection      ? "bg-cyber-400 border-cyber-300"
+                  : e.severity === "critical" ? "bg-severity-critical/70 border-severity-critical"
+                  : e.severity === "high"     ? "bg-severity-high/70 border-severity-high"
+                  : "bg-slate-500/50 border-slate-500",
+                )}
+              />
+            ))}
+          </div>
+          <button
+            onClick={() => setFocusIncident(null)}
+            className="ml-auto text-[10px] font-semibold text-slate-400 transition hover:text-white"
+          >
+            clear ✕
+          </button>
+        </div>
+      )}
+
       <div className="max-h-[520px] overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
@@ -386,7 +470,14 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
           </thead>
           <tbody>
             {visible.map(ev => (
-              <LogRow key={ev.id} ev={ev} onThreatQuery={setThreatQuery} />
+              <LogRow
+                key={ev.id}
+                ev={ev}
+                onThreatQuery={setThreatQuery}
+                onFocusIncident={setFocusIncident}
+                focused={!!focusIncident && ev.incident_id === focusIncident}
+                dimmed={!!focusIncident && ev.incident_id !== focusIncident}
+              />
             ))}
             {filtered.length === 0 && (
               <tr>
