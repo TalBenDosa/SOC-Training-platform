@@ -549,7 +549,6 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
       <ScenarioEdrPanel
         investigations={edrInvestigations}
         caseId={edrCaseId}
-        onSwitch={setEdrCaseId}
         onClose={() => setEdrCaseId(null)}
       />
     )}
@@ -559,20 +558,18 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
 
 // ─── Embedded EDR console panel (the scenario pivot) ───────────────────────────
 
-function ScenarioEdrPanel({ investigations, caseId, onSwitch, onClose }: {
+function ScenarioEdrPanel({ investigations, caseId, onClose }: {
   investigations: EdrInvestigation[];
   caseId: string;
-  onSwitch: (id: string) => void;
   onClose: () => void;
 }) {
-  const inv = investigations.find(i => i.id === caseId) ?? investigations[0];
-  if (!inv) return null;
+  if (investigations.length === 0) return null;
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur-sm">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-cyber-300" />
-          <span className="text-sm font-bold text-white">EDR Console — {inv.host.name}</span>
+          <span className="text-sm font-bold text-white">EDR Console</span>
           {investigations.length > 1 && (
             <span
               title="Each incident is a separate, isolated case — switch between them without mixing their process trees"
@@ -587,7 +584,7 @@ function ScenarioEdrPanel({ investigations, caseId, onSwitch, onClose }: {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        <EdrConsole embedded inv={inv} investigations={investigations} invId={inv.id} onSwitch={onSwitch} />
+        <EdrConsole embedded investigations={investigations} initialCaseId={caseId} />
       </div>
     </div>
   );

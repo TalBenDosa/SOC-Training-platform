@@ -24,7 +24,7 @@ export default function EdrConsolePage() {
   // avoids any server/client hydration mismatch.
   const [allowed, setAllowed] = useState<boolean | null>(null); // null = still checking
   const [liveInv, setLiveInv] = useState<EdrInvestigation | null>(null);
-  const [invId, setInvId] = useState(EDR_INVESTIGATIONS[0].id);
+  const [invId, setInvId] = useState<string | null>(null); // set from ?case; null → Incidents list
 
   useEffect(() => {
     // The EDR console is ONLY reachable from an active shift — the student must
@@ -56,7 +56,8 @@ export default function EdrConsolePage() {
     () => (liveInv ? [liveInv] : EDR_INVESTIGATIONS),
     [liveInv],
   );
-  const inv = investigations.find(i => i.id === invId) ?? investigations[0];
   if (!allowed) return null; // checking access / redirecting to the Dashboard
-  return <EdrConsole key={inv.id} inv={inv} investigations={investigations} onSwitch={setInvId} invId={inv.id} />;
+  // A live shift stashed one investigation → open it directly; otherwise (no
+  // ?case) fall to the Incidents management page over the built-in practice set.
+  return <EdrConsole investigations={investigations} initialCaseId={invId ?? undefined} />;
 }

@@ -27,11 +27,95 @@ const SEV_STYLE: Record<string, string> = {
 };
 
 /**
- * The EDR console UI, extracted from the /edr route so it can also be embedded
- * inside a ready scenario (ScenarioEdrPanel). `embedded` drops the page chrome
- * (Topbar + page container) so it sits cleanly inside a panel/drawer.
+ * The EDR console for the whole set of open incidents. With more than one, it
+ * opens on an Incidents management page (pick which to investigate); with one it
+ * goes straight into that case. `initialCaseId` opens a specific incident directly
+ * (the scenario "Investigate in EDR" pivot). `embedded` drops the page chrome
+ * (Topbar + page container) so it sits inside a panel/drawer.
  */
-export function EdrConsole({ inv, investigations, invId, onSwitch, embedded = false }: { inv: EdrInvestigation; investigations: EdrInvestigation[]; invId: string; onSwitch: (id: string) => void; embedded?: boolean }) {
+export function EdrConsole({ investigations, initialCaseId, embedded = false }: {
+  investigations: EdrInvestigation[];
+  initialCaseId?: string;
+  embedded?: boolean;
+}) {
+  const [caseId, setCaseId] = useState<string | null>(
+    initialCaseId ?? (investigations.length === 1 ? investigations[0].id : null),
+  );
+  if (investigations.length === 0) return null;
+  // More than one incident and none opened yet → the Incidents management page.
+  if (caseId === null) {
+    return <IncidentsList investigations={investigations} onOpen={setCaseId} embedded={embedded} />;
+  }
+  const inv = investigations.find(i => i.id === caseId) ?? investigations[0];
+  return (
+    <CaseConsole
+      key={inv.id}
+      inv={inv}
+      embedded={embedded}
+      onBack={investigations.length > 1 ? () => setCaseId(null) : undefined}
+    />
+  );
+}
+
+/**
+ * The Incidents management page — one row per open incident, each isolated as its
+ * own case (SPEC-edr-scenario-integration §6.1). Score/band/techniques/detection
+ * count are derived from the incident's own detections. Clicking one opens its
+ * full investigation.
+ */
+function IncidentsList({ investigations, onOpen, embedded }: {
+  investigations: EdrInvestigation[];
+  onOpen: (id: string) => void;
+  embedded?: boolean;
+}) {
+  const SEV_WEIGHT: Record<string, number> = { critical: 40, high: 25, medium: 12, low: 4 };
+  return (
+    <div>
+      {!embedded && <Topbar title="EDR Console" subtitle="Incidents — pick one to investigate" />}
+      <div className={embedded ? "space-y-3" : "container mx-auto max-w-[1000px] px-6 py-6 space-y-3"}>
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-cyber-300" />
+          <h2 className="text-sm font-bold text-white">Incidents</h2>
+          <span className="rounded-full border border-border bg-bg-elevated px-2 py-0.5 text-[10px] text-slate-400">{investigations.length} open</span>
+        </div>
+        {investigations.map(inv => {
+          const score = Math.min(100, inv.detections.reduce((s, d) => s + (SEV_WEIGHT[d.severity] ?? 0), 0));
+          const band = score >= 70 ? "Critical" : score >= 40 ? "High" : score >= 15 ? "Medium" : "Low";
+          const bandStyle = band === "Critical" ? "text-severity-critical" : band === "High" ? "text-severity-high" : band === "Medium" ? "text-neon-amber" : "text-neon-green";
+          const techniques = Array.from(new Set(inv.detections.map(d => d.technique)));
+          return (
+            <button key={inv.id} onClick={() => onOpen(inv.id)}
+              className="flex w-full items-center gap-4 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-left transition hover:border-cyber-500/40">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-bg"><Cpu className="h-5 w-5 text-cyber-300" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-white">{inv.host.name} <span className="ml-1 font-mono text-[11px] font-normal text-slate-400">{inv.host.ip}</span></p>
+                <p className="truncate text-[11px] text-slate-400">{inv.summary}</p>
+                {techniques.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {techniques.slice(0, 5).map(t => (
+                      <span key={t} className="rounded border border-neon-purple/30 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-neon-purple">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="shrink-0 text-center">
+                <p className={`font-mono text-xl font-bold leading-none ${bandStyle}`}>{score}</p>
+                <p className="text-[9px] uppercase tracking-wider text-slate-500">{band}</p>
+              </div>
+              <div className="shrink-0 text-center">
+                <p className="text-sm font-bold text-white">{inv.detections.length}</p>
+                <p className="text-[9px] uppercase tracking-wider text-slate-500">detections</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation; onBack?: () => void; embedded?: boolean }) {
   const { roots, childrenOf } = useMemo(() => buildProcessTree(inv.processes), [inv]);
   const detByPid = useMemo(() => {
     const m = new Map<number, typeof inv.detections>();
@@ -141,16 +225,18 @@ export function EdrConsole({ inv, investigations, invId, onSwitch, embedded = fa
     <div>
       {!embedded && <Topbar title="EDR Console" subtitle="Investigate the endpoint — walk the tree, decide" />}
       <div className={embedded ? "space-y-4" : "container mx-auto max-w-[1200px] px-6 py-6 space-y-4"}>
-        {/* case switch + host header */}
+        {/* back-to-incidents (when more than one) + host header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            {investigations.map(i => (
-              <button key={i.id} onClick={() => onSwitch(i.id)}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${i.id === invId ? "border-cyber-500/60 bg-cyber-500/10 text-cyber-200" : "border-border bg-bg-elevated text-slate-400 hover:text-white"}`}>
-                {i.id === "live" && <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-neon-green align-middle" />}
-                {i.host.name}
+          <div className="flex flex-wrap items-center gap-2">
+            {onBack && (
+              <button onClick={onBack}
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:text-white">
+                <ChevronRight className="h-3.5 w-3.5 rotate-180" /> Incidents
               </button>
-            ))}
+            )}
+            <span className="rounded-lg border border-cyber-500/40 bg-cyber-500/10 px-3 py-1.5 text-xs font-medium text-cyber-200">
+              {inv.host.name}
+            </span>
           </div>
           <Button variant={isolated ? "outline" : "primary"} size="sm" onClick={() => isolate(!isolated)}>
             <MonitorX className="mr-1.5 h-4 w-4" /> {isolated ? "Host isolated ✓ — release" : "Isolate host"}
