@@ -40,6 +40,13 @@ export function buildTrojanizedInstallerKeyloggerScenario(
   const keyloggerHash = makeSha256("winupd_helper_keylogger_binary_2026");
   const realToolHash  = makeSha256("swiftpdf_merge_legitimate_component_2026");
 
+  // EDR↔scenario integration (SPEC-edr-scenario-integration, Phase 1b): one
+  // incident. Endpoint-primary → edr_scope "edr" (the firewall download/exfil are
+  // transport evidence, not a separate control-plane investigation). The Falcon
+  // detections are alert-grade rows; the rest of the EDR process/file/registry
+  // events are pivot-only telemetry surfaced inside the process tree.
+  const INCIDENT = "inc:tik:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The download. Ordinary category, ordinary user, ordinary need.
@@ -272,6 +279,7 @@ export function buildTrojanizedInstallerKeyloggerScenario(
       severity: "critical",
       mitre_technique: "T1056.001",
       mitre_tactic: "Collection",
+      is_detection: true, // alert-grade: the behavioural keylogging detection (the crux)
       description:
         "winupd_helper.exe installed a low-level keyboard hook via SetWindowsHookExW and began reading input directed at chrome.exe.",
       process: {
@@ -413,6 +421,8 @@ export function buildTrojanizedInstallerKeyloggerScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true,    // the DetectionSummaryEvent — the alert that opens the ticket
+      edr_scope: "edr",      // endpoint-primary incident → investigated in the EDR console
       description:
         "Falcon raised a Critical detection on LAP-2290 for an unsigned AppData binary holding a keyboard hook, with the host's recent software-installation context attached.",
       raw: {
@@ -476,6 +486,10 @@ export function buildTrojanizedInstallerKeyloggerScenario(
       },
     },
   ];
+
+  // Every event in this pack belongs to the one keylogger incident (correlation
+  // key; also lets the EDR console build a single isolated case for it).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

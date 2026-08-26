@@ -50,6 +50,14 @@ export function buildSeoPoisonedInstallerScenario(
   const installerHash = makeSha256("puttysoftware_download_fake_putty_installer_2026");
   const stealerHash = makeSha256("cdn_assets_relay92_stealer_payload_upd_helper_2026");
 
+  // EDR↔scenario integration (Phase 1b): one incident, endpoint-primary (the
+  // infostealer runs on the host; the firewall ad-click/download/fetch/exfil are
+  // the web-redirect transport chain). edr_scope "edr". Alert-grade rows: the
+  // credential-store copy (the crux) and the Defender incident. The intermediate
+  // MDE file/process events are pivot-only telemetry in the process tree, where
+  // the chrome.exe → installer → payload redirect/fetch chain is walked.
+  const INCIDENT = "inc:spi:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The sponsored result. Nothing here is a known-bad domain.
@@ -394,6 +402,7 @@ export function buildSeoPoisonedInstallerScenario(
       severity: "critical",
       mitre_technique: "T1555.003",
       mitre_tactic: "Credential Access",
+      is_detection: true, // alert-grade: the browser credential-store copy (the crux)
       description:
         "upd_helper.exe created C:\\Users\\d.avraham\\AppData\\Local\\Temp\\sysdata\\Chrome_Default\\Login Data, 120 KB — the same filename Chrome uses for its own SQLite credential store, which was still open and locked in the running browser. Cookies and Web Data followed in the same burst.",
       file: {
@@ -479,6 +488,8 @@ export function buildSeoPoisonedInstallerScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true,    // the Defender infostealer incident — the alert that opens the ticket
+      edr_scope: "edr",      // endpoint-primary incident → investigated in the EDR console
       description:
         "Defender raised a High-severity infostealer incident on LAP-3312, tying the unsigned dropper to the Chrome credential-store copy and the outbound POST, and quarantined upd_helper.exe after the transfer had already completed.",
       raw: {
@@ -506,6 +517,9 @@ export function buildSeoPoisonedInstallerScenario(
       },
     },
   ];
+
+  // Every event belongs to the one infostealer incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

@@ -42,9 +42,17 @@ describe("classifyScope — three-way EDR triage", () => {
     expect(classifyScope(events)).toBe("hybrid");
   });
 
-  it("C2 beacon: firewall connection + host process → hybrid", () => {
+  it("C2: a PASSIVE firewall beacon log + host process → edr (transport is not a second plane)", () => {
     const events = [
       ev({ source: "firewall", event_type: "net_connection", dst_ip: "185.1.2.3" }),
+      ev({ source: "edr", event_type: "process_create", process: { name: "svchost.exe", pid: 900 } }),
+    ];
+    expect(classifyScope(events)).toBe("edr");
+  });
+
+  it("C2: an ACTIVE network detection (IDS signature / block) + host process → hybrid", () => {
+    const events = [
+      ev({ source: "ids", event_type: "ids_signature", dst_ip: "185.1.2.3" }),
       ev({ source: "edr", event_type: "process_create", process: { name: "svchost.exe", pid: 900 } }),
     ];
     expect(classifyScope(events)).toBe("hybrid");
@@ -66,5 +74,23 @@ describe("classifyScope — three-way EDR triage", () => {
     expect(isHostObservable(ev({ source: "o365", event_type: "auth_failure" }))).toBe(false);
     expect(isControlPlane(ev({ source: "o365", event_type: "auth_failure" }))).toBe(true);
     expect(isHostObservable(ev({ source: "edr", event_type: "process_create", process: { name: "p", pid: 1 } }))).toBe(true);
+  });
+});
+
+// The derived classification must agree with the edr_scope the Phase-1b pilot
+// packs authored explicitly on their detection — a guard against the classifier
+// and the hand-annotated packs drifting apart.
+describe("classifyScope agrees with the authored pilot packs", () => {
+  it("trojanizedInstallerKeylogger (endpoint keylogger) → edr", async () => {
+    const { buildTrojanizedInstallerKeyloggerScenario } = await import("@/lib/sim/scenario-packs/trojanizedInstallerKeylogger");
+    expect(classifyScope(buildTrojanizedInstallerKeyloggerScenario().events)).toBe("edr");
+  });
+  it("seoPoisonedInstaller (web-redirect infostealer) → edr", async () => {
+    const { buildSeoPoisonedInstallerScenario } = await import("@/lib/sim/scenario-packs/seoPoisonedInstaller");
+    expect(classifyScope(buildSeoPoisonedInstallerScenario().events)).toBe("edr");
+  });
+  it("infostealerSessionTheft (host theft + identity replay) → hybrid", async () => {
+    const { buildInfostealerSessionTheftScenario } = await import("@/lib/sim/scenario-packs/infostealerSessionTheft");
+    expect(classifyScope(buildInfostealerSessionTheftScenario().events)).toBe("hybrid");
   });
 });

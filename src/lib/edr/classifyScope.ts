@@ -7,11 +7,20 @@
  * `edr_scope` explicitly on its detection event; `classifyScope` is the fallback
  * and the basis for the validator.
  *
- *   edr      = host artifacts present, no control-plane facet → investigate in EDR
- *   hybrid   = BOTH a host artifact AND a control-plane facet → detection in SIEM,
- *              pivot into the EDR host it correlates to
+ *   edr      = host artifacts present, no independent control-plane facet →
+ *              investigate in EDR
+ *   hybrid   = host artifact AND an independent control-plane facet (identity /
+ *              cloud / email, or an active network detection) → detection often
+ *              surfaces in SIEM, pivot into the EDR host it correlates to
  *   non_edr  = control-plane only (cloud IdP / SaaS / network device / email) →
  *              no host process to walk; investigated in SIEM / identity console
+ *
+ * KEY NUANCE: passive network-transport logs (a firewall/proxy/DNS record of the
+ * download, C2 beacon, or exfil that ACCOMPANIES an endpoint attack) are NOT an
+ * independent control-plane facet — they are supporting evidence for the endpoint
+ * investigation, so they do not tip an otherwise-endpoint incident to "hybrid".
+ * What tips it is an identity/cloud/email plane (a real second investigation
+ * destination) or an ACTIVE network detection (IDS/WAF fired, a block).
  */
 import type { TelemetryEvent, LogSource, EventType } from "@/lib/sim/types";
 
@@ -20,25 +29,6 @@ export type EdrScope = "edr" | "hybrid" | "non_edr";
 /** Sensors that live ON an endpoint/server — their events are host-observable. */
 const HOST_SENSOR_SOURCES: ReadonlySet<LogSource> = new Set<LogSource>([
   "edr", "sysmon", "av", "windows_security", "linux_audit",
-]);
-
-/**
- * Sources observable only at a control plane AWAY from any single host — cloud
- * IdPs, SaaS, network devices, email gateways, directory/DC auth. `ad` is here
- * (a DC Kerberos/replication event is a directory-plane fact); when a TOOL runs
- * the attack from a compromised endpoint, that host's process events add the
- * host facet and tip the incident to "hybrid".
- */
-const CONTROL_PLANE_SOURCES: ReadonlySet<LogSource> = new Set<LogSource>([
-  // network devices
-  "firewall", "ids", "vpn", "proxy", "dns", "dhcp", "nac", "waf",
-  // identity / directory (cloud IdP + on-prem DC directory plane)
-  "ad", "okta", "iam", "mfa",
-  // cloud / SaaS / collaboration
-  "o365", "gws", "cloudtrail", "cloud_azure", "cloud_gcp",
-  "exchange", "sharepoint", "teams", "email_gateway",
-  // security tooling / other control planes
-  "dlp", "ueba", "threat_intel", "db_monitor", "siem", "soar", "k8s_audit",
 ]);
 
 /** Event types that are inherently a host-side artifact regardless of source. */
@@ -54,6 +44,33 @@ const HOST_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
 /** Host logons (local/interactive/network/SSH) recorded ON the endpoint. */
 const HOST_LOGON_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
   "auth_success", "auth_failure", "ssh_login", "ssh_failed",
+]);
+
+/**
+ * Independent control-plane facets — a genuine SECOND investigation destination
+ * away from the host: identity/directory, cloud/SaaS, and email/collaboration.
+ * Presence of one of these alongside a host artifact makes an incident "hybrid".
+ */
+const IDENTITY_CLOUD_SOURCES: ReadonlySet<LogSource> = new Set<LogSource>([
+  "ad", "okta", "iam", "mfa",
+  "o365", "gws", "cloudtrail", "cloud_azure", "cloud_gcp",
+  "exchange", "sharepoint", "teams", "email_gateway",
+]);
+
+/** Network-transport sources — evidence that accompanies an attack, not a plane. */
+const NETWORK_TRANSPORT_SOURCES: ReadonlySet<LogSource> = new Set<LogSource>([
+  "firewall", "vpn", "proxy", "dns", "dhcp", "nac",
+]);
+
+/** Active network detections (a signature fired / a block) — these DO tip. */
+const NETWORK_DETECTION_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
+  "net_blocked", "ids_signature", "ids_blocked", "waf_block",
+]);
+
+/** Any source that is not host-observable — used for the non_edr determination. */
+const ANY_CONTROL_PLANE_SOURCES: ReadonlySet<LogSource> = new Set<LogSource>([
+  ...IDENTITY_CLOUD_SOURCES, ...NETWORK_TRANSPORT_SOURCES,
+  "ids", "waf", "dlp", "ueba", "threat_intel", "db_monitor", "siem", "soar", "k8s_audit",
 ]);
 
 /**
@@ -77,10 +94,26 @@ export function isHostObservable(e: TelemetryEvent): boolean {
 
 /** Does this event live only at a control plane away from a single host? */
 export function isControlPlane(e: TelemetryEvent): boolean {
-  // A host-observable event is never counted as control-plane, even if its source
-  // is dual-listed — the host facet wins for that event.
   if (isHostObservable(e)) return false;
-  return CONTROL_PLANE_SOURCES.has(e.source);
+  return ANY_CONTROL_PLANE_SOURCES.has(e.source);
+}
+
+/**
+ * Is this an INDEPENDENT control-plane facet that tips an endpoint incident to
+ * hybrid — an identity/cloud/email plane, or an active network detection? Passive
+ * network-transport logs (a plain firewall/proxy record of the download/C2/exfil)
+ * return false: they are supporting evidence, not a second investigation.
+ */
+export function isHybridTippingFacet(e: TelemetryEvent): boolean {
+  if (isHostObservable(e)) return false;
+  if (IDENTITY_CLOUD_SOURCES.has(e.source)) return true;
+  if (e.source === "ids" || e.source === "waf") return true;
+  if (NETWORK_DETECTION_EVENT_TYPES.has(e.event_type)) return true;
+  // A passive record from a pure transport source does not tip.
+  if (NETWORK_TRANSPORT_SOURCES.has(e.source)) return false;
+  // Remaining control planes (dlp/ueba/threat_intel/db_monitor/siem/soar/k8s) are
+  // tooling/aggregation, not a distinct pivot destination — treat as neutral.
+  return false;
 }
 
 /**
@@ -89,14 +122,19 @@ export function isControlPlane(e: TelemetryEvent): boolean {
  */
 export function classifyScope(events: readonly TelemetryEvent[]): EdrScope {
   let host = false;
-  let control = false;
+  let tipping = false;
+  let anyControl = false;
   for (const e of events) {
     if (isHostObservable(e)) host = true;
-    else if (isControlPlane(e)) control = true;
-    if (host && control) return "hybrid";
+    else {
+      if (isHybridTippingFacet(e)) tipping = true;
+      if (ANY_CONTROL_PLANE_SOURCES.has(e.source)) anyControl = true;
+    }
+    if (host && tipping) return "hybrid";
   }
   if (host) return "edr";
-  return "non_edr"; // control-plane only, or nothing to walk
+  void anyControl; // control-plane-only (or nothing to walk) → not an EDR case
+  return "non_edr";
 }
 
 /** Does this incident warrant an "Investigate in EDR" affordance? */

@@ -70,6 +70,16 @@ export function buildInfostealerSessionTheftScenario(
   const officeAppId = "d3590ed6-52b3-4102-aeff-aad2292ab01c";
   const mfaPolicyId = "1f0b6c93-7d24-4a5e-8b90-c3f27a641e58";
 
+  // EDR↔scenario integration (Phase 1b): ONE incident that spans two planes —
+  // the infostealer on the host (EDR: file/process/credential-copy) AND the
+  // stolen session cookie replayed against Entra/M365 (o365 identity events).
+  // That makes it edr_scope "hybrid": the Falcon detection surfaces the endpoint
+  // side and the analyst pivots to EDR for the host, while the Entra sign-in
+  // replay is investigated on the identity plane — correlated by the shared
+  // incident_id + account + timing. Alert-grade EDR rows: the Cookies (session)
+  // theft crux and the Falcon detection; the rest of the EDR events are pivot-only.
+  const INCIDENT = "inc:ist:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. Baseline. Her own morning sign-in — real MFA, her own device.
@@ -347,6 +357,7 @@ export function buildInfostealerSessionTheftScenario(
       severity: "critical",
       mitre_technique: "T1539",
       mitre_tactic: "Credential Access",
+      is_detection: true, // alert-grade: the session-cookie theft (the crux that enables the replay)
       description:
         "Five seconds later the same process created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies, 60 KB — Chrome's own cookie store, copied out of its locked location in the same staging folder as Login Data.",
       file: {
@@ -512,6 +523,8 @@ export function buildInfostealerSessionTheftScenario(
       severity: "critical",
       mitre_technique: "T1555.003",
       mitre_tactic: "Credential Access",
+      is_detection: true,    // the Falcon detection — the endpoint alert that opens the ticket
+      edr_scope: "hybrid",   // spans host (infostealer) + identity (replayed session) → pivot to EDR for the host
       description:
         "Falcon raised a Critical detection on LAP-6688 for browser-credential-store staging and killed PDF_Converter_Pro_Setup.exe — after the archive had already left the host and the stolen session had already been used.",
       raw: {
@@ -578,6 +591,10 @@ export function buildInfostealerSessionTheftScenario(
       },
     },
   ];
+
+  // Every event — host EDR and identity-plane alike — belongs to the one
+  // infostealer→session-replay incident (this is the SIEM↔EDR correlation key).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {
