@@ -50,7 +50,7 @@ function fail(error: string, status = 400): GradeResult {
  * change whether an answer is judged correct, so at worst a student games the
  * XP split between full/half credit, not the underlying score.
  */
-export function gradeTask(task: RoomTask, submission: any): GradeResult {
+export function gradeTask(task: RoomTask, submission: any, room?: Room): GradeResult {
   switch (task.type) {
     case "question": {
       const selected = submission?.selectedIndex;
@@ -197,12 +197,24 @@ export function gradeTask(task: RoomTask, submission: any): GradeResult {
       // NOT among this case's real indicators and don't appear anywhere in
       // the prompt/context either — inventing evidence is worse than citing
       // none, mirroring the scenario grader's fabrication penalty.
+      //
+      // CRITICAL: a value is only "fabricated" if it appears NOWHERE the student
+      // could have seen it. referenceIocs is just the hand-authored KEY set; the
+      // real evidence a strong student legitimately cites — a benign sign-in's IP
+      // they correctly scoped OUT, a second hash shown in a sibling event — lives
+      // in the room's reading/events, not in referenceIocs. Scanning only
+      // referenceIocs branded that correct citation "fabricated" and failed good
+      // students. So we substring-scan the whole serialized room (reading text +
+      // every event raw block + log_analysis content), exactly as the scenario
+      // grader scans its eventsBlob. Ground truth == everything visible in the room.
+      const roomBlob = room ? JSON.stringify(room).toLowerCase() : "";
       const realValues = new Set(task.referenceIocs.map(v => v.toLowerCase()));
+      const isRealValue = (v: string) => realValues.has(v) || (!!roomBlob && roomBlob.includes(v));
       const claimed = new Set<string>();
       for (const m of trimmed.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g)) claimed.add(m[0].toLowerCase());
       for (const m of trimmed.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase());
       for (const m of trimmed.matchAll(/\b[0-9a-f]{32,64}\b/gi)) claimed.add(m[0].toLowerCase());
-      const fabricated = [...claimed].filter(v => !realValues.has(v));
+      const fabricated = [...claimed].filter(v => !isRealValue(v));
 
       // Depth: substance relative to this task's own minWords, not a fixed
       // constant — a short capstone and a full report shouldn't share a bar.

@@ -30,6 +30,13 @@ export interface IncidentReportRequest {
   attackMitreTechniques?: string[];
   /** Real indicator values from the actual attack events (ground truth) */
   realIndicators?: string[];
+  /**
+   * Serialized ground-truth events (raw included). Any claimed IP/email/hash that
+   * appears as a substring here is treated as REAL — this is what makes a value
+   * the student can SEE in a log (an MD5, a private host IP, a vendor-keyed raw
+   * field) count as evidence instead of "fabricated". Mirrors the scenario grader.
+   */
+  evidenceText?: string;
 }
 
 export interface IncidentReportResponse {
@@ -47,12 +54,19 @@ export interface IncidentReportResponse {
  * indicators from the attack. Returns which real ones they correctly cited and
  * which claimed values are fabricated (invented — not in the logs at all).
  */
-function analyseIndicators(summary: string, real: string[]) {
+function analyseIndicators(summary: string, real: string[], evidenceText = "") {
   const t = summary.toLowerCase();
   const realLower = real.map(r => r.toLowerCase());
+  const evidence = evidenceText.toLowerCase();
   const isReal = (v: string) => {
     const lv = v.toLowerCase();
-    return realLower.some(r => r === lv || r.includes(lv) || lv.includes(r));
+    // Real if it matches a discrete ground-truth indicator OR appears anywhere in
+    // the serialized evidence (raw log blocks included). The evidence-substring
+    // arm is what stops a genuinely-observable value — an MD5/SHA1, a private host
+    // IP, a vendor-keyed raw field the discrete list doesn't enumerate — from
+    // being branded "fabricated". Same rule as the (clean) scenario grader.
+    return (evidence.length > 0 && evidence.includes(lv)) ||
+      realLower.some(r => r === lv || r.includes(lv) || lv.includes(r));
   };
 
   // Which real indicators did they quote?
@@ -75,7 +89,7 @@ function analyseIndicators(summary: string, real: string[]) {
 // ── Heuristic fallback ────────────────────────────────────────────────────────
 
 function heuristicGrade(req: IncidentReportRequest, note?: string): IncidentReportResponse {
-  const { summary, attackTitle, realIndicators = [] } = req;
+  const { summary, attackTitle, realIndicators = [], evidenceText = "" } = req;
   const t = summary.trim().toLowerCase();
 
   // ── Component 1 — Attack Identification (0-40) ───────────────────────────
@@ -102,7 +116,7 @@ function heuristicGrade(req: IncidentReportRequest, note?: string): IncidentRepo
   if (wrongType) attackScore = Math.min(attackScore, 20);
 
   // ── Component 2 — Evidence (0-30), verified against ground truth ──────────
-  const { cited, fabricated } = analyseIndicators(summary, realIndicators);
+  const { cited, fabricated } = analyseIndicators(summary, realIndicators, evidenceText);
   const hasFabrication = fabricated.length > 0;
   let iocScore: number;
   if (hasFabrication) {
@@ -272,7 +286,7 @@ export async function POST(req: Request) {
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const client = new Anthropic({ apiKey });
-    const { cited, fabricated } = analyseIndicators(body.summary, body.realIndicators ?? []);
+    const { cited, fabricated } = analyseIndicators(body.summary, body.realIndicators ?? [], body.evidenceText ?? "");
 
     const msg = await client.messages.create({
       model: process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001",

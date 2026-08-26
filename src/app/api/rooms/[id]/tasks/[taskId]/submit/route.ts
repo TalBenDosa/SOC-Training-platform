@@ -43,7 +43,11 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
-  const result = gradeTask(task, body);
+  // Pass the resolved room so written_report grading can scan its shown content
+  // (reading + events) for legitimately-citable indicators, not just the task's
+  // hand-authored referenceIocs — otherwise a correct citation of room-visible
+  // evidence is wrongly branded "fabricated".
+  const result = gradeTask(task, body, room);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

@@ -50,6 +50,14 @@ interface Props {
   companyId: string;
   /** Real indicator values from the actual attack — grader ground truth */
   realIndicators: string[];
+  /**
+   * Serialized ground-truth attack events (raw included). The grader treats any
+   * IP/email/hash the student cites that appears in this text as REAL — so a
+   * value visible in a log's raw block (an MD5, a private host IP, a vendor-keyed
+   * field) is never mis-flagged as "fabricated" just because it wasn't in the
+   * discrete realIndicators list. Mirrors the scenario grader's eventsBlob.
+   */
+  evidenceText?: string;
   attackTitle: string | null;
   /** MITRE technique IDs the real attack used — sent to grader as ground truth */
   attackMitreTechniques?: string[];
@@ -73,6 +81,7 @@ export function IncidentReportModal({
   companyName,
   companyId,
   realIndicators,
+  evidenceText,
   attackTitle,
   attackMitreTechniques,
   decoys = [],
@@ -159,6 +168,7 @@ export function IncidentReportModal({
           attackTitle: attackTitle ?? undefined,
           attackMitreTechniques: attackMitreTechniques ?? [],
           realIndicators,
+          evidenceText,
         }),
       });
 

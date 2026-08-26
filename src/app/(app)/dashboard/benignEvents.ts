@@ -610,14 +610,21 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // ── Email header training: suspicious Reply-To mismatch ──────────────────
+  // ── Email header training: BEC reply-to hijack (genuine attack) ──────────
+  // Display-From spoofs internal HR, but Reply-To routes to an external Gmail and
+  // the Return-Path is a lookalike (mailout-nexacorp.com, NOT nexacorp.com). SPF/
+  // DKIM/DMARC "pass" only because they authenticate the lookalike sender domain,
+  // not nexacorp.com — a classic direct-deposit BEC precursor. This is a real
+  // attack the analyst should catch, so it stays gradeable (MITRE-tagged, high) and
+  // is NOT tagged as an FP decoy — its earlier fp_explanation contradicted its own
+  // text, which called it a "BEC precursor" while excluding it from the attack set.
   {
     id: "b_email_replyto_mismatch", ts: T(14), source: "o365", vendor: "Microsoft 365 Unified Audit Log",
-    event_type: "email_received", severity: "medium",
+    event_type: "email_received", severity: "high",
     user_email: "j.chen@nexacorp.com", user_title: "Financial Analyst",
     src_ip: "45.142.212.100",
-    description: "Email from 'NexaCorp HR <hr@nexacorp.com>' delivered — Reply-To points to external Gmail address",
-    fp_explanation: "The From address looks internal but the Reply-To is an external Gmail. This is a classic BEC precursor — legitimate HR emails never route replies to personal accounts.",
+    mitre_technique: "T1566", mitre_tactic: "Initial Access",
+    description: "Email from 'NexaCorp HR <hr@nexacorp.com>' delivered — Reply-To points to external Gmail, Return-Path is a lookalike domain",
     network: { domain: "gmail.com", bytes_in: 4800 },
     raw: {
       "data.office365.Operation": "MessageDelivered",

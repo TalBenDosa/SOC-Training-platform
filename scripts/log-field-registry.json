@@ -3205,6 +3205,7 @@
         "authentication.status",
         "authentication.substatus",
         "autorun.key",
+        "av.verdict",
         "crowdstrike.CommandLine",
         "crowdstrike.ComputerName",
         "crowdstrike.ContextProcessId_decimal",

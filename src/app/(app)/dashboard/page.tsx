@@ -1376,6 +1376,12 @@ export default function DashboardPage() {
         // Indicators the grader uses to verify the student cited real evidence
         // and to catch genuinely fabricated data (a hostname that never appears).
         const realIndicators = extractIndicators(groundTruthEvents);
+        // Full serialized evidence (raw blocks included) so the grader's
+        // fabrication check treats ANY IP/email/hash the student cites that is
+        // visible in a log — including MD5/SHA1, private host IPs, and vendor-keyed
+        // raw fields the discrete extractIndicators list doesn't enumerate — as
+        // real, never "fabricated". Mirrors the scenario grader's eventsBlob.
+        const evidenceText = JSON.stringify(groundTruthEvents);
         // Decoys the student saw this session — benign events carrying a written
         // fp_explanation that, until now, was authored but never surfaced anywhere
         // in the UI. Shown only AFTER a passing report (see the modal) as a
@@ -1399,6 +1405,7 @@ export default function DashboardPage() {
             companyName={selectedCompany.name}
             companyId={selectedCompanyId}
             realIndicators={realIndicators}
+            evidenceText={evidenceText}
             attackTitle={storyTitle}
             attackMitreTechniques={storyMitre}
             decoys={decoysSeen}

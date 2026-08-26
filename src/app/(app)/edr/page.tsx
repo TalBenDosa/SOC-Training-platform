@@ -150,7 +150,23 @@ function Console({ inv, investigations, invId, onSwitch }: { inv: EdrInvestigati
   }
 
   function decide(choice: number /* pid, or -1 for benign */) {
-    setDecided({ correct: choice === inv.answer.pid });
+    // A student who flags ANY process the console itself confirms malicious — its
+    // hash resolves malicious under "Look up hash" (lookupHash) — has correctly
+    // identified a malicious process, so accept it, even when a *different*
+    // process is the designated "impact" the debrief highlights (e.g. flagging the
+    // Cobalt Strike beacon instead of the LockBit encryptor in the ransomware
+    // case). Penalizing a flag the tooling itself calls malicious teaches students
+    // to distrust the hash lookup — the exact negative-learning we're removing.
+    // Benign resolution (-1) stays correct only when the case truly has no payload;
+    // in a benign case, flagging any process is still wrong.
+    const correct = (() => {
+      if (choice === -1) return inv.answer.pid === -1;
+      if (inv.answer.pid < 0) return false;
+      if (choice === inv.answer.pid) return true;
+      const p = inv.processes.find(x => x.pid === choice);
+      return !!(p?.sha256 && lookupHash(p.sha256)?.malicious);
+    })();
+    setDecided({ correct });
     // Flag that the student investigated on the endpoint, so the Dashboard can
     // remind them to actually FILE the incident report — investigating without
     // writing it up is the classic half-finished ticket. localStorage so the

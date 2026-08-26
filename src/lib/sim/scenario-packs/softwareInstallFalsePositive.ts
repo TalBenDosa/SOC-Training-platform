@@ -393,6 +393,14 @@ export function buildSoftwareInstallFalsePositiveScenario(
         "process.name": "mlnk-collector-setup.exe",
         "process.hash.sha256": setupHash,
         "file.hash.sha256": binHash,
+        // Clean file reputation across AV/threat-intel — this is a BEHAVIOURAL
+        // Falcon detection on an in-house tool, not a known-bad sample (see the
+        // estate-wide prevalence event: 197 hosts, zero AV detections). Without
+        // this, a hash-reputation lookup wrongly returned MALICIOUS, contradicting
+        // the pack's own ground truth and teaching the student to distrust their
+        // correct false-positive conclusion. Behavioural alert + clean reputation
+        // is the textbook FP signature.
+        "av.verdict": "clean",
         "host.name": host.hostname,
         "host.ip": host.ip,
         action_result: "detected",

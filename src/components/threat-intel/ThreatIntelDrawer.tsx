@@ -220,7 +220,16 @@ function buildHashIntel(hash: string, event: TelemetryEvent): HashIntelData {
   );
 
   const isPUP = malwareType === "PUP" || malwareName.toLowerCase().includes("pup");
-  const isMalicious = !isPUP && (
+  // Explicit clean file reputation overrides a purely BEHAVIOURAL EDR detection.
+  // A CrowdStrike behavioural alert (crowdstrike.detection.*) fires on an in-house
+  // tool as readily as on malware — so an event that ALSO carries av.verdict:"clean"
+  // and names no malware family/sample is the textbook false-positive signature
+  // (behavioural alert + clean AV/threat-intel reputation + high prevalence). Reading
+  // its hash as MALICIOUS contradicted the very FP the scenario is teaching. Genuine
+  // malware packs name a malware.family/name (or never set av.verdict:"clean"), so
+  // this override can't turn a real detonation CLEAN.
+  const cleanReputation = avVerdict === "clean" && malwareFamily === "" && malwareName === "";
+  const isMalicious = !isPUP && !cleanReputation && (
     malwareFamily !== "" || malwareName !== "" || vendorDetection !== "" ||
     quarantine === "quarantined" || quarantine === "deleted" ||
     actionResult === "quarantined" || actionResult === "process_killed" ||
