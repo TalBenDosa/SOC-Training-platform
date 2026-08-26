@@ -68,6 +68,16 @@ export function buildHelpdeskMfaResetScenario(
   const baselineSessionId2 = "f4a8e2d6-7b39-4c15-9d80-6a2c37f10e93";
   const attackerSessionId = "7c4e1a9d-3f26-4b58-9d70-2a8e5c319f04";
 
+  // EDR↔scenario integration (Phase 4): control-plane-only incident — a
+  // social-engineered helpdesk MFA reset, a rogue authenticator registration, and
+  // an account-takeover sign-in, all on the identity plane. The single EDR event
+  // (evt_hmr_08) is just the benign start of a logon session (userinit.exe →
+  // explorer.exe) — no malicious process tree, no Falcon detection — so there is
+  // nothing to investigate in the EDR console. edr_scope "non_edr"; no is_detection
+  // (no EDR detections); edr_scope goes on the identity detection that opens the
+  // ticket — the new-geo, unmanaged-device sign-in on the reset account.
+  const INCIDENT = "inc:hmr:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. BASELINE — a completely ordinary morning sign-in.
@@ -391,6 +401,7 @@ export function buildHelpdeskMfaResetScenario(
       severity: "critical",
       mitre_technique: "T1078.004",
       mitre_tactic: "Initial Access",
+      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
       user_email: victim.email,
       user_title: "Trade Settlements Analyst",
       src_ip: attackerIp,
@@ -501,6 +512,10 @@ export function buildHelpdeskMfaResetScenario(
       },
     },
   ];
+
+  // Every event belongs to the one helpdesk-MFA-reset account-takeover incident
+  // (correlation key; also lets the EDR console associate the identity-plane case).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

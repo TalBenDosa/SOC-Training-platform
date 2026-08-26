@@ -94,3 +94,30 @@ describe("classifyScope agrees with the authored pilot packs", () => {
     expect(classifyScope(buildInfostealerSessionTheftScenario().events)).toBe("hybrid");
   });
 });
+
+// Phase 4 functional guard: for EVERY annotated scenario, the authored edr_scope
+// must agree with what buildInvestigationsFromScenario can actually produce — an
+// edr/hybrid incident must yield at least one walkable EDR case (a process tree),
+// and a non_edr-only scenario must yield none. Catches an incident marked edr/hybrid
+// that has no process telemetry to investigate (the button would never work).
+describe("Phase 4 — authored edr_scope matches buildable EDR investigations", () => {
+  it("holds across the whole scenario registry", async () => {
+    const { SCENARIOS } = await import("@/lib/sim/scenarios");
+    const { buildInvestigationsFromScenario } = await import("./fromLiveStory");
+    const problems: string[] = [];
+    for (const s of SCENARIOS as ReadonlyArray<{ slug: string; build: () => { events: TelemetryEvent[] } }>) {
+      const bundle = s.build();
+      const scopes = new Set(bundle.events.map(e => e.edr_scope).filter(Boolean));
+      if (scopes.size === 0) continue; // un-annotated legacy scenario — skip
+      const invs = buildInvestigationsFromScenario(bundle);
+      const wantsEdr = scopes.has("edr") || scopes.has("hybrid");
+      if (wantsEdr) {
+        if (invs.length === 0) problems.push(`${s.slug}: scope ${[...scopes]} but 0 EDR investigations built`);
+        else if (!invs.every(i => i.processes.length > 0)) problems.push(`${s.slug}: an EDR investigation has no process tree`);
+      } else {
+        if (invs.length !== 0) problems.push(`${s.slug}: non_edr only, yet ${invs.length} EDR investigation(s) built`);
+      }
+    }
+    expect(problems, problems.join("\n")).toEqual([]);
+  });
+});

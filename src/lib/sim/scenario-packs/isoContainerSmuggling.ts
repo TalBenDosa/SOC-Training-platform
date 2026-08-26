@@ -45,6 +45,12 @@ export function buildIsoContainerSmugglingScenario(
   const isoHash = makeSha256("invoice_84421_iso_container_smuggling_2026");
   const payloadHash = makeSha256("cdn_update_relay_core_dll_payload_2026");
 
+  // EDR↔scenario integration (Phase 4): one incident. Endpoint-primary → edr_scope
+  // "edr" (the firewall download/fetch are transport evidence). The Falcon
+  // DetectionSummaryEvent is the alert that opens the ticket; the critical
+  // encoded-PowerShell detection is the behavioural crux.
+  const INCIDENT = "inc:ics:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The download. An ISO, not an executable — nothing here trips a
@@ -258,6 +264,7 @@ export function buildIsoContainerSmugglingScenario(
       severity: "critical",
       mitre_technique: "T1059.001",
       mitre_tactic: "Execution",
+      is_detection: true, // alert-grade: the critical behavioural detection — hidden, encoded PowerShell spawned from the mounted-container shortcut (the crux)
       description:
         "One second later cmd.exe spawned powershell.exe with a hidden window and a base64-encoded command.",
       process: {
@@ -399,6 +406,8 @@ export function buildIsoContainerSmugglingScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true, // the DetectionSummaryEvent — the alert that opens the ticket
+      edr_scope: "edr",   // endpoint-primary incident → investigated in the EDR console
       description:
         "Falcon raised a Critical detection on LAP-5528 for the explorer → cmd → powershell chain originating from a mounted ISO volume, and killed the PowerShell process before core.dll could be loaded.",
       raw: {
@@ -425,6 +434,9 @@ export function buildIsoContainerSmugglingScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

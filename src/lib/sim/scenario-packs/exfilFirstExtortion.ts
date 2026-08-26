@@ -61,6 +61,12 @@ export function buildExfilFirstExtortionScenario(
   const rcloneHash = makeSha256("nexacorp_adobe_arm_helper_renamed_rclone_2026");
   const flaggedFileHash = makeSha256("nexacorp_client_holdings_q3_2026_export");
 
+  // EDR↔scenario integration (Phase 4): one incident. Endpoint-primary staging →
+  // archive → cloud egress on the laptop → edr_scope "edr". The firewall/DLP/SIEM
+  // rows are transport and correlation evidence; the renamed rclone binary
+  // starting is the alert-grade EDR behavioural detection carrying the exfil crux.
+  const INCIDENT = "inc:efe:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. Local data staging. A recursive copy of the whole finance share
@@ -243,6 +249,8 @@ export function buildExfilFirstExtortionScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "high",
+      is_detection: true, // alert-grade: the highest-severity EDR behavioural detection — a renamed rclone binary staged to exfiltrate the archive to cloud storage (the crux)
+      edr_scope: "edr",   // endpoint-primary exfiltration incident → investigated in the EDR console
       description:
         "At 01:29 a binary named AdobeARMHelper.exe — sitting in the same cache folder, not the real Adobe update path — started with an rclone-style command line copying the local archive to a remote named 'mega', using a config file dropped alongside it.",
       process: {
@@ -449,6 +457,9 @@ export function buildExfilFirstExtortionScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

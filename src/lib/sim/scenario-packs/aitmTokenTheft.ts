@@ -35,6 +35,14 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
   // One browser session, issued once, used twice. This is the whole scenario.
   const sessionId = "0f2c1e64-3b7a-4c19-9d84-5a6e2f8b17d3";
 
+  // EDR↔scenario integration (Phase 4): this is a control-plane-only incident —
+  // AiTM reverse-proxy phishing and a replayed session cookie against Entra/M365,
+  // with no host EDR events and no process to walk. edr_scope "non_edr": there is
+  // nothing to investigate in the EDR console. No is_detection (no EDR detections);
+  // edr_scope goes on the identity detection that opens the ticket — the
+  // non-interactive cookie-replay sign-in.
+  const INCIDENT = "inc:aitm:1";
+
   const events: TelemetryEvent[] = [
     // ── 1. The lure ──────────────────────────────────────────────────────────
     {
@@ -386,6 +394,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       user_email: victim, user_title: "Financial Controller",
       src_ip: replayIp,
       geo: { country: "Germany", city: "Frankfurt", latitude: 50.1109, longitude: 8.6821 },
+      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
       description:
         "A second, non-interactive Entra sign-in for m.delgado from 91.132.139.204 in Frankfurt (AS51167) on Chrome 121 — multifactor satisfied by a claim in the token.",
       raw: {
@@ -577,6 +586,10 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       },
     },
   ];
+
+  // Every event belongs to the one AiTM token-theft incident (correlation key;
+  // also lets the EDR console associate the identity-plane case).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     { type: "domain", value: phishHost,                    first_seen: T(4 * MIN + 6 * SEC),  reputation: "malicious",  tags: ["look-alike", "newly-registered"] },

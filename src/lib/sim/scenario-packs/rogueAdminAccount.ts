@@ -50,6 +50,12 @@ export function buildRogueAdminAccountScenario(
   const rogue = { sam: "s.katz", email: "s.katz@nexacorp.com" };
   const rogueSid = "S-1-5-21-3421479547-3897544621-1789562108-5108";
 
+  // EDR↔scenario integration (Phase 4): one incident. Host-observable identity
+  // abuse on the domain controller / admin server → edr_scope "edr". The other
+  // 4720/4624/4672 records and the Sentinel correlation are pivot evidence; the
+  // rogue account landing in Domain Admins is the alert-grade behavioural crux.
+  const INCIDENT = "inc:ra:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. CONTROL part 1 — what an authorised account creation looks like.
@@ -267,6 +273,7 @@ export function buildRogueAdminAccountScenario(
       severity: "critical",
       mitre_technique: "T1098",
       mitre_tactic: "Persistence",
+      edr_scope: "non_edr", // AD/directory-plane incident (rogue account → Domain Admins) — no host process tree to walk; investigated in AD/SIEM, not the EDR console
       description:
         "Three minutes after it was created, s.katz was added to the security-enabled global group Domain Admins on DC01 (Event 4728), by t.aharoni.",
       raw: {
@@ -458,6 +465,9 @@ export function buildRogueAdminAccountScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

@@ -58,6 +58,12 @@ export function buildLinuxSshCryptominerScenario(
   const minerDir = "/home/svc-backup/.cache/.fontconfig";
   const minerPath = `${minerDir}/kworker`;
 
+  // EDR↔scenario integration (Phase 4): one incident. Host-primary Linux
+  // intrusion (linux_audit/EDR host events) → edr_scope "edr". The auditd/SSH and
+  // firewall rows are pivot and transport evidence; the miner executing as uid
+  // 1004 is the alert-grade EDR behavioural detection carrying the impact crux.
+  const INCIDENT = "inc:lsc:1";
+
   const events: TelemetryEvent[] = [
     // ── 1. BENIGN DISCRIMINATOR ────────────────────────────────────────────────
     {
@@ -469,6 +475,8 @@ export function buildLinuxSshCryptominerScenario(
       severity: "critical",
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
+      is_detection: true, // alert-grade: the critical EDR behavioural detection — the masqueraded miner executing as uid 1004 (the impact crux)
+      edr_scope: "edr",   // host-primary Linux intrusion → investigated in the EDR console
       description:
         "kworker launched from the hidden .fontconfig directory as uid 1004 with parent bash, carrying a Monero wallet, a pool address and --max-cpu-usage 90 on its command line.",
       process: {
@@ -630,6 +638,9 @@ export function buildLinuxSshCryptominerScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     { type: "ip", value: attacker.spray1, first_seen: T(52 * MIN), reputation: "malicious", tags: ["ssh-auth-failure", "external", "hosting-provider"] },

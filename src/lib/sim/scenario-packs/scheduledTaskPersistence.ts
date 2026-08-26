@@ -62,6 +62,12 @@ export function buildScheduledTaskPersistenceScenario(
   const svchostGuid    = "{a53f7d05-2a1b-6600-0000-0010f4c20100}"; // Schedule service host, pre-existing
   const netfixGuid2    = "{a53f7d29-4763-6600-0000-0010a9d90800}"; // relaunch at logon, PID 2016
 
+  // EDR↔scenario integration (Phase 4): one incident. Endpoint-primary (Sysmon
+  // host telemetry) → edr_scope "edr". The firewall beacon and the SIEM
+  // correlation are transport and detection evidence; the schtasks.exe
+  // registration is the alert-grade EDR behavioural detection carrying the crux.
+  const INCIDENT = "inc:stp:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The download. A forum-linked "fix" for a common, believable
@@ -218,6 +224,8 @@ export function buildScheduledTaskPersistenceScenario(
       severity: "high",
       mitre_technique: "T1053.005",
       mitre_tactic: "Persistence",
+      is_detection: true, // alert-grade: the EDR behavioural crux — schtasks.exe registering the logon-triggered persistence (T1053.005)
+      edr_scope: "edr",   // endpoint-primary persistence incident → investigated in the EDR console
       description:
         "Five seconds later powershell.exe spawned schtasks.exe, registering a task named NetFixOptimizer to run the AppData binary at every logon, at the highest available run level.",
       process: {
@@ -473,6 +481,9 @@ export function buildScheduledTaskPersistenceScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

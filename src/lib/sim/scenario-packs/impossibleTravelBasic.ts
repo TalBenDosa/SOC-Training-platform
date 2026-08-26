@@ -63,6 +63,13 @@ export function buildImpossibleTravelBasicScenario(
   const hostileUserAgent =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0";
 
+  // EDR↔scenario integration (Phase 4): control-plane-only incident — a phished
+  // token replayed as an impossible-travel Entra sign-in, with no host EDR events
+  // and no process to walk. edr_scope "non_edr": nothing to investigate in the EDR
+  // console. No is_detection (no EDR detections); edr_scope goes on the identity
+  // detection that opens the ticket — the SIEM impossible-travel correlation.
+  const INCIDENT = "inc:itb:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. BASELINE — what a normal morning looks like for this account.
@@ -386,6 +393,7 @@ export function buildImpossibleTravelBasicScenario(
       severity: "high",
       mitre_technique: "T1078.004",
       mitre_tactic: "Initial Access",
+      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
       description:
         "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly: 3,290 km in 135 minutes, implied speed 1,462 km/h.",
       raw: {
@@ -516,6 +524,10 @@ export function buildImpossibleTravelBasicScenario(
       },
     },
   ];
+
+  // Every event belongs to the one impossible-travel account-takeover incident
+  // (correlation key; also lets the EDR console associate the identity-plane case).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

@@ -36,6 +36,16 @@ export function buildEsxiRansomwareScenario(
   const datastore = "DS-PROD-01";
   const elfHash = makeSha256("akira_esxi_elf_encryptor_v3");
 
+  // EDR↔scenario integration (Phase 4): ONE incident that spans two planes — the
+  // identity side (SSO password spray → vCenter admin → role grant) AND the host
+  // side (ESXi shell sessions and the ELF encryptor on the hypervisor, plus the
+  // Falcon guest-sensor blackout). edr_scope "hybrid": the analyst pivots to EDR
+  // for the endpoint blind-spot (71 guests going offline) while the SSO/permission
+  // abuse is investigated on the identity plane, correlated by incident_id.
+  // is_detection is EDR-source only — here the single Falcon AgentOffline alert;
+  // the ESXi impact events are host telemetry (linux_audit), not EDR detections.
+  const INCIDENT = "inc:esxi:1";
+
   const events: TelemetryEvent[] = [
     // ── 1. Initial access — SSL-VPN, valid credential, no second factor ────────
     {
@@ -471,6 +481,7 @@ export function buildEsxiRansomwareScenario(
       event_type: "edr_alert",
       hostname: "SQL-PROD-02",
       severity: "high",
+      edr_scope: "non_edr",  // ESXi ransomware — the host impact is on the hypervisor (vCenter/ESXi shell), not a Windows/Linux EDR process tree, so there's no walkable EDR case on this platform; investigated in vCenter/SIEM
       description:
         "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27, all of them guests on PROD-CLUSTER-A; the record for SQL-PROD-02 is shown, host status offline.",
       raw: {
@@ -560,6 +571,10 @@ export function buildEsxiRansomwareScenario(
       },
     },
   ];
+
+  // Every event — identity-plane SSO abuse and host-plane ESXi impact alike —
+  // belongs to the one ESXi-ransomware incident (the SIEM↔EDR correlation key).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

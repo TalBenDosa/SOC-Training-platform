@@ -42,6 +42,12 @@ export function buildDriveByBrowserMinerScenario(
   const scriptHost = "edge-metrics-cdn14.com";
   const poolRelay = "ws-relay-pool9.com";
 
+  // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
+  // edr_scope "edr". The Falcon browser-renderer detection is the single
+  // alert-grade EDR row; the mining crux (the WebSocket relay tunnel) lives in
+  // firewall telemetry, and the renderer/cache EDR events are pivot-only.
+  const INCIDENT = "inc:dbm:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. Ordinary work. He uses this converter most weeks.
@@ -365,6 +371,8 @@ export function buildDriveByBrowserMinerScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true,    // the DetectionSummaryEvent — the alert that opens the ticket
+      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
       description:
         "Falcon raised a Critical detection on LAP-6690, tying renderer PID 8842 to a 24-minute WebSocket session against a mining relay and to sustained near-100% CPU usage on that single tab for the same window. No file was ever downloaded or executed outside the browser, so nothing was killed — the finding requires the tab to be closed.",
       raw: {
@@ -392,6 +400,9 @@ export function buildDriveByBrowserMinerScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

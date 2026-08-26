@@ -58,6 +58,12 @@ export function buildClickFixFakeCaptchaScenario(
   const stealerHash = makeSha256("commodity_infostealer_binary_paste_run_2026");
   const powershellHash = makeSha256("windows_powershell_v1_signed_microsoft");
 
+  // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
+  // edr_scope "edr". Alert-grade rows: the Falcon paste-and-run detection that
+  // opens the ticket, plus the paste-and-run behavioural event (the crux). The
+  // rest is pivot-only telemetry walked in the process tree.
+  const INCIDENT = "inc:cfc:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The user lands on the lure page. Ordinary web browsing, allowed.
@@ -171,6 +177,7 @@ export function buildClickFixFakeCaptchaScenario(
       severity: "high",
       mitre_technique: "T1204.004",
       mitre_tactic: "Execution",
+      is_detection: true, // alert-grade: the paste-and-run behavioural detection (the crux)
       description:
         "At 14:12:50 explorer.exe started powershell.exe with a hidden-window download-and-run command line. No file was downloaded or written beforehand — the process was launched directly, consistent with a pasted command run from the Windows Run dialog.",
       process: {
@@ -447,6 +454,8 @@ export function buildClickFixFakeCaptchaScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true,    // the DetectionSummaryEvent — the alert that opens the ticket
+      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
       description:
         "Falcon raised a Critical detection on WS-3387 for a paste-and-run chain — explorer.exe directly spawning PowerShell, no antecedent download — and killed sysupd32.exe.",
       raw: {
@@ -474,6 +483,9 @@ export function buildClickFixFakeCaptchaScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

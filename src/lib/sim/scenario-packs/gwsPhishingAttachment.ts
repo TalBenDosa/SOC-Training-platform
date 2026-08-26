@@ -41,6 +41,16 @@ export function buildGwsPhishingAttachmentScenario(
   const chromeHash     = makeSha256("google_chrome_helper_signed_binary_2026");
   const osascriptHash  = makeSha256("macos_usr_bin_osascript_apple_signed");
 
+  // EDR↔scenario integration (Phase 4): ONE incident spanning two planes — the
+  // email/identity side (Google Workspace delivery inside a real supplier thread,
+  // and the same attachment fanning out to other mailboxes) AND the host side
+  // (macOS endpoint: mounted DMG → unnotarized app → osascript). edr_scope
+  // "hybrid": the analyst pivots to EDR to walk the process tree on LAP-003 while
+  // the mail-borne delivery and tenant spread are investigated on the GWS plane,
+  // correlated by incident_id. Alert-grade EDR rows: the osascript execution crux
+  // and the Falcon detection; the earlier EDR file/process events are pivot-only.
+  const INCIDENT = "inc:gws:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. Delivered. Authenticated. Inside a real thread.
@@ -201,6 +211,7 @@ export function buildGwsPhishingAttachmentScenario(
       severity: "critical",
       mitre_technique: "T1059.002",
       mitre_tactic: "Execution",
+      is_detection: true, // alert-grade: the behavioural crux — an unnotarized app spawning osascript to exfil a phished password
       description:
         "Four seconds later the app spawned /usr/bin/osascript running an AppleScript that presents a password dialog and pipes the answer to curl.",
       process: {
@@ -301,6 +312,8 @@ export function buildGwsPhishingAttachmentScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true,    // the Falcon detection — the endpoint alert that opens the ticket
+      edr_scope: "hybrid",   // spans host (macOS execution chain) + email/identity (GWS delivery + tenant spread) → pivot to EDR for the host
       description:
         "Falcon raised a Critical detection on LAP-003 for an unnotarized app from a mounted volume spawning osascript, and killed the osascript process.",
       raw: {
@@ -388,6 +401,10 @@ export function buildGwsPhishingAttachmentScenario(
       },
     },
   ];
+
+  // Every event — host EDR chain and GWS email plane alike — belongs to the one
+  // phishing-attachment incident (the SIEM↔EDR correlation key).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

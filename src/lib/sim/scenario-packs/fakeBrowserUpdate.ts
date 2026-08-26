@@ -44,6 +44,12 @@ export function buildFakeBrowserUpdateScenario(
   const wscriptHash = makeSha256("windows_system32_wscript_exe_signed_microsoft");
   const powershellHash = makeSha256("windows_powershell_v1_signed_microsoft");
 
+  // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
+  // edr_scope "edr". Alert-grade rows: the Falcon script-dropper detection that
+  // opens the ticket, plus the wscript user-execution behavioural event (the
+  // crux — the technique the alert names). The rest is pivot-only telemetry.
+  const INCIDENT = "inc:fbu:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. Ordinary browsing. Clean category, allowed, nothing to see.
@@ -243,6 +249,7 @@ export function buildFakeBrowserUpdateScenario(
       severity: "high",
       mitre_technique: "T1204.002",
       mitre_tactic: "Execution",
+      is_detection: true, // alert-grade: the user-execution behavioural detection (the crux)
       description:
         "At 13:47:08 explorer.exe started wscript.exe with the downloaded .js file as its argument.",
       process: {
@@ -387,6 +394,8 @@ export function buildFakeBrowserUpdateScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true,    // the DetectionSummaryEvent — the alert that opens the ticket
+      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
       description:
         "Falcon raised a Critical detection on LAP-4471 for the explorer → wscript → powershell chain and killed the PowerShell process.",
       raw: {
@@ -415,6 +424,9 @@ export function buildFakeBrowserUpdateScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

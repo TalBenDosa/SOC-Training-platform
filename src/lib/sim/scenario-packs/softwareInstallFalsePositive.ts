@@ -62,6 +62,16 @@ export function buildSoftwareInstallFalsePositiveScenario(
   const collectorFqdn = "mesh-collect.corp.nexacorp.com";
   const collectorIp = "10.30.9.40";
 
+  // EDR↔scenario integration (Phase 4): endpoint-only incident — a behavioural
+  // Falcon detection on an in-house tool (MeshLink Collector) pushed by Intune,
+  // which resolves to a FALSE POSITIVE. All artifacts are host-side (process/file
+  // write, LocalSystem service, outbound session); the Intune/change records are
+  // deployment context, not a separate identity plane. edr_scope "edr": the
+  // investigation is entirely in the EDR console. The single Falcon behavioural
+  // alert is the is_detection (av.verdict "clean" + estate prevalence make the FP);
+  // the surrounding EDR process/file events are pivot-only telemetry.
+  const INCIDENT = "inc:sifp:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. A change record exists. It names a package, a ring and a window.
@@ -373,6 +383,8 @@ export function buildSoftwareInstallFalsePositiveScenario(
       hostname: host.hostname,
       user_email: primaryUser,
       severity: "high",
+      is_detection: true, // the Falcon behavioural detection — the alert that opens the ticket (resolves to a false positive)
+      edr_scope: "edr",   // endpoint-only incident → investigated entirely in the EDR console
       description:
         "Falcon raised a HIGH behavioural detection on WS-ENG-4471 — unsigned write to Program Files, LocalSystem service, network session within seventy seconds. Disposition: Detection, No Action.",
       raw: {
@@ -482,6 +494,10 @@ export function buildSoftwareInstallFalsePositiveScenario(
       },
     },
   ];
+
+  // Every event belongs to the one behavioural-detection investigation (correlation
+  // key; also lets the EDR console build a single isolated case for it).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

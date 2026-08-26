@@ -44,6 +44,13 @@ export function buildOktaPasswordBurstScenario(
   const ua =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
 
+  // EDR↔scenario integration (Phase 4): control-plane-only incident — a password
+  // burst against a single Okta account, with no host EDR events and no process to
+  // walk. edr_scope "non_edr": nothing to investigate in the EDR console. No
+  // is_detection (no EDR detections); edr_scope goes on the identity detection that
+  // opens the ticket — the SIEM sign-in-failure-burst correlation.
+  const INCIDENT = "inc:okb:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. Firewall sees the egress side of nothing special — an ordinary TLS
@@ -466,6 +473,7 @@ export function buildOktaPasswordBurstScenario(
       user_email: victim.email,
       src_ip: attackerIp,
       severity: "medium",
+      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
       description:
         "The SIEM correlated the sign-in failures and raised a Medium alert at 02:52, with the account's directory context and the outcome reasons seen in the window.",
       raw: {
@@ -489,6 +497,10 @@ export function buildOktaPasswordBurstScenario(
       },
     },
   ];
+
+  // Every event belongs to the one Okta password-burst incident (correlation key;
+  // also lets the EDR console associate the identity-plane case).
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

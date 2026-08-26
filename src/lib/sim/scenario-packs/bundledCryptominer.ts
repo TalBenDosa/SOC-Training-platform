@@ -39,6 +39,12 @@ export function buildBundledCryptominerScenario(
   const minerHash     = makeSha256("svchost_helper_xmrig_variant_2026");
   const schtasksHash  = makeSha256("windows_system32_schtasks_exe_signed_microsoft");
 
+  // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
+  // edr_scope "edr". Alert-grade rows: the Falcon Resource-Hijacking summary
+  // that opens the ticket, plus the miner-start behavioural detection (the
+  // crux). The rest is pivot-only telemetry in the process tree.
+  const INCIDENT = "inc:bcm:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The download, at the end of the working day.
@@ -246,6 +252,7 @@ export function buildBundledCryptominerScenario(
       severity: "high",
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
+      is_detection: true, // alert-grade: the Resource Hijacking behavioural detection (the crux)
       description:
         "svchost_helper.exe started at 18:02 with pool and wallet arguments on its command line, launched by the installer VideoConvertPro_Setup.exe.",
       process: {
@@ -381,6 +388,8 @@ export function buildBundledCryptominerScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "high",
+      is_detection: true,    // the DetectionSummaryEvent — the alert that opens the ticket
+      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
       description:
         "Falcon raised a High detection for an unsigned AppData process holding a long-lived stratum connection, with the host's asset context attached.",
       raw: {
@@ -443,6 +452,9 @@ export function buildBundledCryptominerScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

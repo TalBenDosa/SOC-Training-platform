@@ -47,6 +47,12 @@ export function buildClipboardClipperScenario(
   const clipperHash   = makeSha256("clipsvc_helper_exe_clipper_binary_2026");
   const cmdHash       = makeSha256("windows_system32_cmd_exe_signed_microsoft");
 
+  // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
+  // edr_scope "edr". Alert-grade rows: the SentinelOne clipboard-hijacker
+  // detection that opens the ticket, plus the clipboard-hijack behavioural
+  // event (the crux). The rest is pivot-only telemetry in the process tree.
+  const INCIDENT = "inc:clc:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The download. A small utility for a real, ordinary need.
@@ -294,6 +300,7 @@ export function buildClipboardClipperScenario(
       severity: "critical",
       mitre_technique: "T1115",
       mitre_tactic: "Collection",
+      is_detection: true, // alert-grade: the clipboard-hijack behavioural detection (the crux)
       description:
         "clipsvc_helper.exe registered a clipboard format listener and repeatedly rewrote clipboard content matching cryptocurrency wallet address patterns.",
       process: {
@@ -379,6 +386,8 @@ export function buildClipboardClipperScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "critical",
+      is_detection: true,    // the SentinelOne malware detection — the alert that opens the ticket
+      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
       description:
         "SentinelOne raised a Critical detection on LAP-5528 for an unsigned AppData process holding a clipboard format listener, and killed it.",
       raw: {
@@ -401,6 +410,9 @@ export function buildClipboardClipperScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

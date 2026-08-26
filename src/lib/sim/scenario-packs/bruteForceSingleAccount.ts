@@ -43,6 +43,12 @@ export function buildBruteForceSingleAccountScenario(
   // Signed Microsoft binary — the tool is ordinary, the context is not.
   const netExeHash = makeSha256("windows_system32_net_exe_signed_microsoft");
 
+  // EDR↔scenario integration (Phase 4): one incident. Host-primary brute force
+  // against the published RDP server (Windows 4625/4624 + EDR on the server) →
+  // edr_scope "edr". The successful 4624 and share reads are Windows Security
+  // pivot telemetry; the EDR net.exe lateral-movement detection is alert-grade.
+  const INCIDENT = "inc:bf:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. First contact — inbound RDP from the internet, allowed by policy.
@@ -364,6 +370,8 @@ export function buildBruteForceSingleAccountScenario(
       severity: "medium",
       mitre_technique: "T1021.002",
       mitre_tactic: "Lateral Movement",
+      is_detection: true, // alert-grade: the EDR lateral-movement detection — net.exe mapping HR-Confidential from inside the session (the crux)
+      edr_scope: "edr",   // host-primary brute-force incident → investigated in the EDR console
       description:
         "Inside the new desktop session cmd.exe spawned the signed net.exe, running: net use Z: \\\\FS-CORP-02\\HR-Confidential as NEXACORP\\s.wolfe.",
       process: {
@@ -537,6 +545,9 @@ export function buildBruteForceSingleAccountScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {

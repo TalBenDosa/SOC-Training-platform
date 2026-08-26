@@ -44,6 +44,12 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     "arn:aws:wafv2:eu-west-1:481920347761:regional/webacl/shop-prod-waf/8f3c2b1a-64d7-4e10-9b52-7c31ad0e5f62";
   const albId = "481920347761-app/shop-prod-alb/1a2b3c4d5e6f7a8b";
 
+  // EDR↔scenario integration (Phase 4): one incident. Server RCE on the web host
+  // (w3wp → web shell → cmd on WEB-SHOP-01) → edr_scope "edr". The WAF/IIS/DB
+  // planes are edge, transport and repository evidence; the Defender detection on
+  // the IIS worker spawning cmd.exe is the alert-grade EDR behavioural crux.
+  const INCIDENT = "inc:wsr:1";
+
   const uaPython = "python-requests/2.31.0";
   const uaQualys = "Mozilla/5.0 (compatible; Qualys/9.6.4; +https://www.qualys.com/scanner)";
   const uaChrome =
@@ -586,6 +592,8 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
         user: "IIS APPPOOL\\ShopPortal",
         integrity: "medium",
       },
+      is_detection: true, // alert-grade: the Defender detection that opened the ticket — the IIS worker spawning cmd.exe (web shell RCE, the crux)
+      edr_scope: "edr",   // server-primary RCE incident → investigated in the EDR console
       description:
         "w3wp.exe spawned cmd.exe on WEB-SHOP-01, running whoami /priv, hostname and ipconfig /all in a single chained command line.",
       raw: {
@@ -790,6 +798,9 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     { type: "ip", value: atkA, first_seen: T(0), last_seen: T(19 * MIN), reputation: "malicious", tags: ["external", "scanning"] },

@@ -40,6 +40,12 @@ export function buildBackupFalsePositiveScenario(
   const jobGuid = "{7F2A9C41-3E8B-4D16-9A05-C2B77E4D8813}";
   const changeTicket = "CHG0041887";
 
+  // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
+  // edr_scope "edr". This is a FALSE POSITIVE — the EDR ransomware-behaviour
+  // alert is the single detection, investigated in the EDR console and resolved
+  // benign. Everything else is corroborating telemetry in the process tree.
+  const INCIDENT = "inc:bkpfp:1";
+
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
     // 1. The change that explains the new schedule (the day before).
@@ -385,6 +391,8 @@ export function buildBackupFalsePositiveScenario(
       severity: "critical",
       mitre_technique: "T1486",
       mitre_tactic: "Impact",
+      is_detection: true,    // the EDR ransomware-behaviour alert — the (false-positive) detection that opens the ticket
+      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
       description:
         "Defender for Endpoint raised a CRITICAL \"Ransomware behavior detected\" alert on FS-PROD-04 naming VeeamAgent.exe. RemediationAction is None.",
       raw: {
@@ -450,6 +458,9 @@ export function buildBackupFalsePositiveScenario(
       },
     },
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {
