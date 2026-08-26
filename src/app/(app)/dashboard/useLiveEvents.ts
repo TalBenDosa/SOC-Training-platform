@@ -19,6 +19,20 @@ export interface ActiveIncident {
   eventIds: string[];     // IDs of the injected attack events
 }
 
+/**
+ * Teaching payload for the POSITIVE "Learning Moment" debrief shown when an
+ * attack completes without being reported. It is never a penalty — just "here's
+ * the pattern so you catch it next time".
+ */
+export interface MissedIncidentDebrief {
+  /** What the attack was (the incident / story title). */
+  title: string;
+  /** MITRE technique ID(s) the attack used. */
+  techniques: string[];
+  /** One-line "how you could have caught it" tell — the standout signal. */
+  tell: string;
+}
+
 // ─── Display-enriched event ───────────────────────────────────────────────────
 
 export interface LiveEvent extends TelemetryEvent {
@@ -857,10 +871,14 @@ export interface LiveEventsApi {
   /** Arm a new attack story mid-session. Optional delayMs overrides the default
    *  8-12 min campaign cooldown (the dashboard uses a shorter gap after a report). */
   startStory: (story: AttackStory, delayMs?: number) => void;
-  // Retained for API compatibility — the live feed no longer fails on a miss, so
-  // this is now ALWAYS false and clearMissedAttack is a harmless no-op.
+  // Fires when an attack completes uncaught — drives the POSITIVE "Learning
+  // Moment" debrief (NOT a fail: no XP loss, no permanent halt). Paired with the
+  // missedIncident teaching payload. clearMissedAttack resets both.
   missedAttack: boolean;
   clearMissedAttack: () => void;
+  /** Teaching payload for the Learning-Moment debrief (what the attack was, its
+   *  MITRE technique(s), and the tell) — null when no debrief is active. */
+  missedIncident: MissedIncidentDebrief | null;
   /** Register a real catch — called when the student's incident report passes.
    * Stops the response clock and records catch speed + response time. */
   markCaught: (eventId: string) => void;
@@ -885,6 +903,28 @@ export interface LiveEventsApi {
   clearLastAttackChain: () => void;
   /** Award bonus XP not tied to a specific event classification (e.g. worksheet, notes grading) */
   addXp: (xp: number) => void;
+}
+
+// ─── Learning-Moment debrief builders ─────────────────────────────────────────
+
+/** The standout signal an analyst could have caught the attack by — the highest-
+ *  severity event's plain-language description, which reads as the "tell". */
+function buildMissedTell(events: TelemetryEvent[]): string {
+  const key = events.find(e => e.severity === "critical")
+           ?? events.find(e => e.severity === "high")
+           ?? events[0];
+  const desc = key?.description?.trim();
+  if (desc && desc.length > 8) return desc;
+  return "an unusual burst of high-severity activity from a single source, out of step with the normal baseline";
+}
+
+/** Assemble the positive teaching payload shown when an attack completes uncaught. */
+function buildMissedDebrief(title: string, techniques: string[], events: TelemetryEvent[]): MissedIncidentDebrief {
+  return {
+    title: title || "A multi-stage attack",
+    techniques: Array.from(new Set(techniques.filter(Boolean))),
+    tell: buildMissedTell(events),
+  };
 }
 
 // Incident title generator from attack event descriptions
@@ -933,6 +973,9 @@ export function useLiveEvents({
   const [newIds, setNewIds]                 = useState<Set<string>>(new Set());
   const [activeIncident, setActiveIncident] = useState<ActiveIncident | null>(null);
   const [missedAttack, setMissedAttack]     = useState(false);
+  // Teaching payload for the positive "Learning Moment" debrief (what the attack
+  // was), captured when an uncaught attack completes. null when no debrief.
+  const [missedIncident, setMissedIncident] = useState<MissedIncidentDebrief | null>(null);
 
   // SLA countdown + per-skill tracking
   const [attackTimerSeconds,   setAttackTimerSeconds]   = useState<number | null>(null);
@@ -984,13 +1027,33 @@ export function useLiveEvents({
   // "is the analyst investigating right now?" closure.
   const isInvestigatingRef = useRef(isInvestigating);
   isInvestigatingRef.current = isInvestigating;
-  // The live feed is a low-pressure PRACTICE space, not a time-pressure trap.
-  // An uncaught attack is NEVER a fail and NEVER halts the shift: no "you missed
-  // it" popup, no stream stop, no false-negative penalty. Response time is
-  // measured instead (see attackTimerSeconds + lastResponseMs) and surfaced only
-  // as a gentle coaching point inside the incident report. The former
-  // miss-watchdog and its grace window have been retired accordingly.
+  // The live feed is a low-pressure PRACTICE space. When an attack completes
+  // uncaught we DO surface it — as a POSITIVE "Learning Moment" debrief, never a
+  // punishment. This watchdog fires it only after a GENEROUSLY long grace (far
+  // longer than the old 4-minute trap), never while the analyst is mid-
+  // investigation (it re-checks on a ~60s delay instead of interrupting), and
+  // never once markCaught has run. It does not fail the shift or claw back XP —
+  // page.tsx pauses the feed behind the modal and resumes + arms the next attack
+  // when they dismiss it.
+  const MISS_DEBRIEF_GRACE_MS = 540_000; // 9 minutes after the attack's final phase
   const missWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleDebriefCheck = useCallback((delay: number, debrief: MissedIncidentDebrief) => {
+    if (missWatchdogRef.current) clearTimeout(missWatchdogRef.current);
+    missWatchdogRef.current = setTimeout(() => {
+      missWatchdogRef.current = null;
+      if (caughtRef.current) return;                          // caught in time → no debrief
+      if (isInvestigatingRef.current?.()) {                   // still working it → wait, never interrupt
+        scheduleDebriefCheck(60_000, debrief);
+        return;
+      }
+      // Surface the positive Learning-Moment debrief and pause the feed so the
+      // analyst actually reads it. No fail, no XP loss — page.tsx resumes on close.
+      setMissedIncident(debrief);
+      setMissedAttack(true);
+      setIsStreaming(false);
+    }, delay);
+  }, []);
   const globalIdx         = useRef(15);
   const activeIncidentRef = useRef<ActiveIncident | null>(null);
   const missTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1090,6 +1153,9 @@ export function useLiveEvents({
         // Fire next attack phase if due
         if (world.attack && attackDue(world)) {
           const attackEvents = advanceAttack(world);
+          // advanceAttack() clears world.attack once every phase has injected —
+          // that is the moment the story is genuinely over.
+          const storyJustFinished = world.attack === null;
           if (attackEvents && attackEvents.length > 0) {
             const isFP = world.attack?.isFP ?? false;
             const now  = Date.now();
@@ -1132,10 +1198,17 @@ export function useLiveEvents({
             setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
             setTimeout(() => setNewIds(new Set()), 2000);
 
-            // The story ran to its end. Whether or not it was flagged, the feed
-            // simply keeps streaming — no popup, no halt, no penalty. If the
-            // analyst was deep in an earlier attack, that is fine: the response
-            // clock kept measuring and the report will coach on pace.
+            // Completed uncaught → schedule the POSITIVE Learning-Moment debrief
+            // after a generous grace. Never a fail, never a halt (page.tsx
+            // resumes + arms the next attack on dismiss); a passing report before
+            // then cancels it via markCaught.
+            if (storyJustFinished && !isFP && !caughtRef.current) {
+              const inc = activeIncidentRef.current;
+              if (inc) {
+                const techniques = Array.from(new Set(raw.map(e => e.mitre_technique).filter((m): m is string => !!m)));
+                scheduleDebriefCheck(MISS_DEBRIEF_GRACE_MS, buildMissedDebrief(inc.title, techniques, raw));
+              }
+            }
           }
           return;
         }
@@ -1265,10 +1338,14 @@ export function useLiveEvents({
     setTimeout(() => setNewIds(new Set()), 2000);
 
     if (storyCursorRef.current >= s.events.length) {
-      // Story fully injected. Caught or not, the feed just keeps streaming — no
-      // "you missed it" popup, no halt, no penalty. Clearing the story arms the
-      // next campaign via onStoryComplete; the analyst can still file a passing
-      // report for this incident, and response time is only ever coaching.
+      // Story fully injected. If it was never caught, schedule the POSITIVE
+      // Learning-Moment debrief after a generous grace — never a fail, never a
+      // permanent halt (page.tsx pauses the feed behind the modal, then resumes
+      // and arms the next attack on dismiss). A passing report before the grace
+      // elapses cancels it via markCaught.
+      if (!caughtRef.current) {
+        scheduleDebriefCheck(MISS_DEBRIEF_GRACE_MS, buildMissedDebrief(s.title, s.mitre ?? [], s.events));
+      }
       storyRef.current = null;
       onStoryCompleteRef.current?.();
     } else {
@@ -1319,7 +1396,7 @@ export function useLiveEvents({
     activeIncidentRef.current = null;
   }, []);
 
-  const clearMissedAttack = useCallback(() => setMissedAttack(false), []);
+  const clearMissedAttack = useCallback(() => { setMissedAttack(false); setMissedIncident(null); }, []);
 
   const clearLastAttackChain = useCallback(() => setLastAttackChain(null), []);
 
@@ -1389,6 +1466,7 @@ export function useLiveEvents({
     setSessionXp(0);
     setActiveIncident(null);
     setMissedAttack(false);
+    setMissedIncident(null);
     setIsStreaming(true);
     setFnCount(0);
     setEventsOpenedCount(0);
@@ -1444,7 +1522,7 @@ export function useLiveEvents({
   return {
     events, isStreaming, sessionXp,
     newIds, activeIncident, dismissIncident, pause, resume, reset, startStory,
-    missedAttack, clearMissedAttack, markCaught,
+    missedAttack, missedIncident, clearMissedAttack, markCaught,
     attackTimerSeconds, lastResponseMs, responseTargetSeconds: SLA_SECONDS,
     fnCount, eventsOpenedCount, recordEventOpened,
     attacksCaughtCount, avgCatchMs, endSession,

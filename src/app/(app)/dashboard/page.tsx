@@ -682,6 +682,25 @@ export default function DashboardPage() {
     live.reset(resolveEvents(selectedCompanyId), story);
   };
 
+  /**
+   * Dismiss the positive "Learning Moment" debrief and CONTINUE the shift. This
+   * is never a fail: no XP is clawed back and the session is not halted. We
+   * clear the debrief, resume streaming, and arm the next attack (after a short
+   * breather) so the analyst keeps practising with the pattern fresh in mind.
+   */
+  const handleContinueFromDebrief = () => {
+    live.clearMissedAttack();
+    live.dismissIncident();
+    if (!armedNextRef.current) {
+      armedNextRef.current = true;
+      const nextStory = resolveStory(selectedCompanyId, sessionDifficulty ?? undefined);
+      setSessionStory(nextStory);
+      setInjectedStories(prev => [...prev, nextStory]);
+      live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min breather
+    }
+    live.resume(); // the debrief paused the feed; pick the shift back up
+  };
+
   // ── Report ⇄ feed pause/resume ────────────────────────────────────────────
   /** Open the incident report — auto-pause the live feed while they write. */
   const openReport = () => {
@@ -964,10 +983,99 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* No missed-attack modal. The live feed is a low-pressure practice
-            space: an uncaught attack never halts the shift or throws a penalty
-            popup. Response time is measured and surfaced as gentle coaching
-            inside the incident report instead (see IncidentReportModal). */}
+        {/* Learning-Moment debrief — a POSITIVE teaching pause, never a penalty.
+            When an attack completes uncaught (after a generous grace, and never
+            mid-investigation), the feed pauses behind this modal so the analyst
+            reads the pattern; dismissing it resumes the shift and arms the next
+            attack. No "failed", no "training stopped", no red alarm — instructive
+            blue/cyber tone, one clear "Continue the shift" action. */}
+        {live.missedAttack && live.missedIncident && (() => {
+          const debrief = live.missedIncident;
+          const ids = new Set(live.activeIncident?.eventIds ?? []);
+          // live.events is newest-first; sort chronologically and keep the
+          // EARLIEST six so the opening moves (the ones worth learning to catch)
+          // read top-to-bottom.
+          const teachingEvents = live.events
+            .filter(e => ids.has(e.id))
+            .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
+            .slice(0, 6);
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+              role="dialog" aria-modal="true" aria-labelledby="learning-moment-title"
+            >
+              <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-cyber-500/40 bg-bg-elevated shadow-2xl shadow-cyber-500/10">
+                <div className="h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
+
+                <div className="border-b border-border px-7 py-7 text-center">
+                  <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-cyber-500/10 ring-2 ring-cyber-500/40">
+                    <GraduationCap className="h-8 w-8 text-cyber-300" />
+                  </span>
+                  <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyber-300">Learning Moment</p>
+                  <h2 id="learning-moment-title" className="mt-2 text-2xl font-bold text-white">
+                    One slipped past
+                  </h2>
+                  <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-300">
+                    This attack unfolded without a report. Here&apos;s the pattern so you catch it next
+                    time — that&apos;s how analysts sharpen.
+                  </p>
+                  <p className="mt-4 inline-block rounded-full bg-neon-green/10 px-3 py-1 text-xs font-medium text-neon-green">
+                    No points lost — the shift keeps going
+                  </p>
+                </div>
+
+                <div className="space-y-4 px-7 py-6">
+                  {/* What it was */}
+                  <div className="rounded-lg border border-cyber-500/20 bg-cyber-500/5 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-cyber-300">What it was</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{debrief.title}</p>
+                    {debrief.techniques.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {debrief.techniques.map(t => (
+                          <span key={t} className="inline-flex items-center rounded border border-neon-purple/30 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-neon-purple">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* The tell */}
+                  <div className="rounded-lg border border-neon-amber/20 bg-neon-amber/5 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neon-amber">The tell to watch for next time</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-200">{debrief.tell}</p>
+                  </div>
+
+                  {/* How it unfolded */}
+                  {teachingEvents.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">How it unfolded</p>
+                      <ol className="mt-3 space-y-3">
+                        {teachingEvents.map((e, i) => (
+                          <li key={e.id} className="flex gap-3">
+                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyber-500/15 font-mono text-[10px] text-cyber-300">
+                              {i + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="font-mono text-[11px] text-slate-400">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
+                              <p className="text-xs leading-relaxed text-slate-300">{e.description ?? e.displayDescription}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-border px-7 py-5">
+                  <Button variant="primary" size="lg" className="w-full" onClick={handleContinueFromDebrief}>
+                    <Play className="mr-2 h-4 w-4" /> Continue the shift
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Analyst workflow — persistent "what do I do now?" strip */}
         <WorkflowGuide reportPassed={reportPassed} />

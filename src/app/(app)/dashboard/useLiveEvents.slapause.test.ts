@@ -86,7 +86,46 @@ describe("response clock (counts up) pause during investigation", () => {
     act(() => { vi.advanceTimersByTime(4_000); });
     expect(latest!.attackTimerSeconds).toBe(afterRunning + 4);
 
-    // The clock never fails or halts the shift: no missed-attack flag ever fires.
+    // The clock itself never fires the debrief — the attack is still unfolding
+    // here and, either way, catching it would cancel the debrief.
     expect(latest!.missedAttack).toBe(false);
+  });
+
+  it("fires a positive Learning-Moment debrief after the generous grace when uncaught & not investigating", () => {
+    act(() => { root.render(React.createElement(Harness)); });
+
+    // Let the whole story inject (all phases complete within ~420s).
+    act(() => { vi.advanceTimersByTime(500_000); });
+    expect(latest!.missedAttack).toBe(false);     // debrief scheduled, grace not elapsed
+    expect(latest!.missedIncident).toBeNull();
+
+    // Advance past MISS_DEBRIEF_GRACE_MS (540s) — uncaught, not investigating.
+    act(() => { vi.advanceTimersByTime(600_000); });
+    expect(latest!.missedAttack).toBe(true);
+    // …and it carries the teaching payload (what it was + technique + tell).
+    expect(latest!.missedIncident).not.toBeNull();
+    expect(latest!.missedIncident!.title).toBe(STORY.title);
+    expect(latest!.missedIncident!.techniques).toContain("T1059.001");
+    expect(typeof latest!.missedIncident!.tell).toBe("string");
+    expect(latest!.missedIncident!.tell.length).toBeGreaterThan(0);
+  });
+
+  it("does NOT fire the debrief while investigating, then fires after they return", () => {
+    act(() => { root.render(React.createElement(Harness)); });
+
+    // Complete the story (the debrief is now scheduled ~540s out).
+    act(() => { vi.advanceTimersByTime(500_000); });
+
+    // Analyst is deep in an investigation as the grace elapses → never interrupt.
+    investigating = true;
+    act(() => { vi.advanceTimersByTime(600_000); }); // past the grace, but deferred
+    expect(latest!.missedAttack).toBe(false);
+    expect(latest!.missedIncident).toBeNull();
+
+    // They finish investigating → the next ~60s re-check surfaces the debrief.
+    investigating = false;
+    act(() => { vi.advanceTimersByTime(61_000); });
+    expect(latest!.missedAttack).toBe(true);
+    expect(latest!.missedIncident).not.toBeNull();
   });
 });
