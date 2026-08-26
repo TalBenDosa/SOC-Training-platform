@@ -16,6 +16,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { lookupHash } from "@/lib/sim/hashDatabase";
+import { classifyScope } from "./classifyScope";
 import type { EdrInvestigation, EdrProcess, EdrDetection, EdrNetConn, EdrFileOp, EdrTimelineEvent, Verdict } from "./investigations";
 
 const ENDPOINT_SOURCES = new Set(["edr", "sysmon", "windows_security", "linux_audit", "av"]);
@@ -220,4 +221,37 @@ export function buildInvestigationFromStory(
     timeline,
     answer: { pid: payload?.pid ?? -1, explanation },
   };
+}
+
+/**
+ * Build the EDR investigations for a ready scenario — ONE per incident_id, fully
+ * isolated (SPEC-edr-scenario-integration §6.1). Each incident that is endpoint-
+ * investigable (edr / hybrid) and actually carries process telemetry becomes its
+ * own EdrInvestigation whose id is the incident_id, so the console's case-switcher
+ * shows them as separate cases with no cross-incident mixing. Identity/cloud-only
+ * incidents (non_edr) and incidents with no process tree to walk are skipped.
+ */
+export function buildInvestigationsFromScenario(
+  bundle: { title?: string; events: TelemetryEvent[] },
+): EdrInvestigation[] {
+  const byIncident = new Map<string, TelemetryEvent[]>();
+  for (const e of bundle.events) {
+    if (!e.incident_id) continue;
+    const list = byIncident.get(e.incident_id) ?? [];
+    list.push(e);
+    byIncident.set(e.incident_id, list);
+  }
+  const out: EdrInvestigation[] = [];
+  for (const [incidentId, events] of byIncident) {
+    // The authored edr_scope on the detection wins; fall back to the classifier.
+    const authored = events.find(e => e.edr_scope)?.edr_scope;
+    const scope = authored ?? classifyScope(events);
+    if (scope === "non_edr") continue;
+    const inv = buildInvestigationFromStory({ id: incidentId, title: bundle.title ?? incidentId, events });
+    if (!inv) continue; // no process tree to walk
+    inv.id = incidentId;
+    inv.title = `${bundle.title ?? "Incident"} — endpoint view`;
+    out.push(inv);
+  }
+  return out;
 }

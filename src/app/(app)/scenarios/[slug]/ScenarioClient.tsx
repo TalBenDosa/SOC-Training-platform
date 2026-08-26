@@ -16,6 +16,9 @@ import {
   type ThreatQuery,
 } from "@/components/threat-intel/ThreatIntelDrawer";
 import { shuffleSeeded } from "@/lib/lessons/shuffle";
+import { EdrConsole } from "@/components/edr/EdrConsole";
+import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
+import type { EdrInvestigation } from "@/lib/edr/investigations";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -235,7 +238,7 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
 
 // ─── Single log row ───────────────────────────────────────────────────────────
 
-function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident }: {
+function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident, canInvestigate, onInvestigate }: {
   ev: TelemetryEvent;
   onThreatQuery: (q: ThreatQuery) => void;
   /** true when this row shares the incident currently in focus. */
@@ -244,6 +247,10 @@ function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident }: {
   dimmed?: boolean;
   /** toggle the focused incident (null clears it). */
   onFocusIncident?: (id: string | null) => void;
+  /** true when this detection's incident is endpoint-investigable (edr/hybrid). */
+  canInvestigate?: boolean;
+  /** open this incident in the embedded EDR console. */
+  onInvestigate?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const level = SEV_LEVEL[ev.severity ?? "informational"] ?? 1;
@@ -318,6 +325,15 @@ function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident }: {
                 🔗 {focused ? "correlated" : "correlate"}
               </button>
             )}
+            {canInvestigate && onInvestigate && (
+              <button
+                onClick={e => { e.stopPropagation(); onInvestigate(); }}
+                title="Open this incident on the endpoint — walk the process tree in the EDR console"
+                className="inline-flex items-center gap-0.5 rounded border border-cyber-500/40 bg-cyber-500/15 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-cyber-200 transition hover:bg-cyber-500/25"
+              >
+                🔎 Investigate in EDR
+              </button>
+            )}
           </div>
         </td>
         <td className="py-2.5 pr-4">
@@ -344,6 +360,11 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
   const [showAll, setShowAll]     = useState(false);
   // Correlation: the incident_id currently highlighted across the whole feed.
   const [focusIncident, setFocusIncident] = useState<string | null>(null);
+  // EDR pivot: one ISOLATED investigation per incident_id (edr/hybrid only) — each
+  // a separate case in the console switcher. `edrCaseId` = the open case (null = closed).
+  const edrInvestigations = useMemo(() => buildInvestigationsFromScenario({ events }), [events]);
+  const edrIncidentIds = useMemo(() => new Set(edrInvestigations.map(i => i.id)), [edrInvestigations]);
+  const [edrCaseId, setEdrCaseId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     // Sort by timestamp before filtering. Scenario builders declare events in
@@ -477,6 +498,8 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
                 onFocusIncident={setFocusIncident}
                 focused={!!focusIncident && ev.incident_id === focusIncident}
                 dimmed={!!focusIncident && ev.incident_id !== focusIncident}
+                canInvestigate={!!ev.is_detection && !!ev.incident_id && edrIncidentIds.has(ev.incident_id)}
+                onInvestigate={() => ev.incident_id && setEdrCaseId(ev.incident_id)}
               />
             ))}
             {filtered.length === 0 && (
@@ -502,7 +525,52 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
         <ThreatIntelDrawer key="threat-drawer" query={threatQuery} onClose={() => setThreatQuery(null)} />
       )}
     </AnimatePresence>
+
+    {edrCaseId && (
+      <ScenarioEdrPanel
+        investigations={edrInvestigations}
+        caseId={edrCaseId}
+        onSwitch={setEdrCaseId}
+        onClose={() => setEdrCaseId(null)}
+      />
+    )}
     </>
+  );
+}
+
+// ─── Embedded EDR console panel (the scenario pivot) ───────────────────────────
+
+function ScenarioEdrPanel({ investigations, caseId, onSwitch, onClose }: {
+  investigations: EdrInvestigation[];
+  caseId: string;
+  onSwitch: (id: string) => void;
+  onClose: () => void;
+}) {
+  const inv = investigations.find(i => i.id === caseId) ?? investigations[0];
+  if (!inv) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur-sm">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-cyber-300" />
+          <span className="text-sm font-bold text-white">EDR Console — {inv.host.name}</span>
+          {investigations.length > 1 && (
+            <span
+              title="Each incident is a separate, isolated case — switch between them without mixing their process trees"
+              className="rounded border border-border bg-bg-elevated px-2 py-0.5 text-[10px] text-slate-400"
+            >
+              {investigations.length} separate incidents
+            </span>
+          )}
+        </div>
+        <button onClick={onClose} className="rounded p-1 text-slate-400 transition hover:text-white" aria-label="Close EDR console">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-5 py-4">
+        <EdrConsole embedded inv={inv} investigations={investigations} invId={inv.id} onSwitch={onSwitch} />
+      </div>
+    </div>
   );
 }
 
