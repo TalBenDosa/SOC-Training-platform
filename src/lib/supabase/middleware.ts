@@ -116,6 +116,16 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
     return res;
   }
 
+  // Public paths (the landing page + the entire sign-in funnel) need no gate, so
+  // skip the getUser() auth round-trip entirely for them. This was previously
+  // done AFTER getUser (below), which meant every /login, /signup, /join and /
+  // navigation paid a full round-trip to the Supabase auth server whose result
+  // was then discarded — a wasted round-trip on exactly the screens a
+  // logged-OUT user hits while entering the app. The only thing skipped is a
+  // token refresh on public pages, which is a no-op for the logged-out funnel
+  // and harmless elsewhere (any protected navigation refreshes the token).
+  if (isPublicPath(pathname)) return res;
+
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
     cookies: {
       getAll() {
@@ -135,14 +145,13 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
   // slow auth provider degrades instead of 504-ing the page.
   const userResult = await withAuthTimeout(supabase.auth.getUser());
   if (userResult === AUTH_TIMEOUT) {
-    // Auth provider is slow. Never hang into a 504: a public page needs no gate
-    // so it proceeds; a protected page bounces to /login (which is public and
-    // re-resolves the session there) rather than taking the whole request down.
-    return isPublicPath(pathname) ? res : toLogin(req, "auth_unavailable");
+    // Auth provider is slow. This point is only reached for a PROTECTED path
+    // (public paths returned above before getUser), so never hang into a 504 —
+    // bounce to /login (itself public, and it re-resolves the session there)
+    // rather than taking the whole request down.
+    return toLogin(req, "auth_unavailable");
   }
   const user = userResult.data.user;
-
-  if (isPublicPath(pathname)) return res;
 
   // ── Not signed in → login, remembering where they were headed ──────────────
   if (!user) {

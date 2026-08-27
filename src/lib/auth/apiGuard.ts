@@ -20,8 +20,9 @@ import "server-only";
  * validates the JWT with the Supabase auth server rather than trusting the
  * cookie, so a forged/expired cookie can't impersonate a user or an admin.
  */
+import { cache } from "react";
 import { NextResponse } from "next/server";
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getValidatedAuth } from "@/lib/auth/validatedUser";
 import { logAudit } from "@/lib/audit/logAudit";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 
@@ -39,14 +40,20 @@ export interface AuthedUser {
   isPlatformAdmin: boolean;
 }
 
-/** The signed-in user (with role from `profiles`), or null if not signed in / Supabase not configured. */
-export async function getAuthedUser(): Promise<AuthedUser | null> {
-  const supabase = await getSupabaseServerClient();
-  if (!supabase) return null;
-
-  // getUser() validates the JWT against the auth server (see file doc).
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user) return null;
+/**
+ * The signed-in user (with role from `profiles`), or null if not signed in /
+ * Supabase not configured.
+ *
+ * The auth read comes from the request-shared `getValidatedAuth()` (React
+ * `cache()`), so the layout's affiliation gate and this guard no longer make two
+ * separate getUser() round-trips on the same navigation — they share one. This
+ * function is itself `cache()`d too, so repeated guards within one render (e.g.
+ * a page that calls it more than once) collapse to a single profiles read.
+ */
+export const getAuthedUser = cache(async (): Promise<AuthedUser | null> => {
+  const auth = await getValidatedAuth();
+  if (!auth) return null;
+  const { supabase, user, session } = auth;
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -55,8 +62,8 @@ export async function getAuthedUser(): Promise<AuthedUser | null> {
     .maybeSingle();
 
   // The org context lives in the token claims (stamped by the access-token
-  // hook), not in a column — reading it here is safe before the migration lands.
-  const { data: { session } } = await supabase.auth.getSession();
+  // hook), not in a column — the session was already decoded locally by
+  // getValidatedAuth (no extra network hop).
   const { orgId, orgName, orgRole, isPlatformAdmin } = decodeOrgClaim(session?.access_token);
 
   return {
@@ -68,7 +75,7 @@ export async function getAuthedUser(): Promise<AuthedUser | null> {
     orgRole,
     isPlatformAdmin,
   };
-}
+});
 
 type Gate = { user: AuthedUser } | { error: NextResponse };
 

@@ -14,19 +14,19 @@ import "server-only";
  * security boundary, and a transient DB error must not lock every student out
  * of the product.
  */
-import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getValidatedAuth } from "@/lib/auth/validatedUser";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 
 const INTERNAL_ORG = "d0d0d0d0-0000-4000-8000-000000000000";
 
 export async function affiliationExpired(): Promise<boolean> {
-  const supabase = await getSupabaseServerClient();
-  if (!supabase) return false;
+  // Shares the request's single validated auth read (React cache()) with
+  // getAuthedUser(), so the layout's gate and the page's guard make ONE
+  // getUser() round-trip between them, not two.
+  const auth = await getValidatedAuth();
+  if (!auth) return false; // guests / unconfigured are gated by auth, not affiliation
+  const { supabase, user, session } = auth;
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false; // guests are gated by auth, not by affiliation
-
-  const { data: { session } } = await supabase.auth.getSession();
   const { orgId, orgRole, isPlatformAdmin } = decodeOrgClaim(session?.access_token);
 
   if (isPlatformAdmin) return false;
