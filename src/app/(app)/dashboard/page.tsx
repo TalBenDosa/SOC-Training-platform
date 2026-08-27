@@ -5,7 +5,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card, StatCard } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { loadSimData, type SimData } from "./simData";
+import { loadSimData, type SimData, type Difficulty } from "./simData";
 import { useLiveEvents } from "./useLiveEvents";
 import type { LiveEvent } from "./useLiveEvents";
 import { EventFeed } from "./EventFeed";
@@ -203,7 +203,10 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
 
 // ─── Start Training modal ─────────────────────────────────────────────────────
 
-export type Difficulty = "easy" | "medium" | "hard";
+// Difficulty is defined in ./simData (a leaf module) to avoid an import cycle;
+// re-exported here so existing `import { Difficulty } from ".../dashboard/page"`
+// consumers keep working.
+export type { Difficulty };
 
 // Difficulty describes only the CHALLENGE — never which attack is coming.
 // The attack type is chosen at random and kept hidden; the analyst must find it.
@@ -440,7 +443,16 @@ export default function DashboardPage() {
   // this org's published companies; they merge into the selector, benign pool,
   // source filter and story picker below via the org-aware resolvers.
   const [orgCompanies, setOrgCompanies] = useState<OrgCompanyContent[]>([]);
-  useEffect(() => { fetchOrgCompanies().then(setOrgCompanies).catch(() => {}); }, []);
+  // Keep the in-flight fetch so "Start Training" can await org content before
+  // resolving the pool — a returning org-user who clicks fast (before this
+  // resolves) would otherwise silently get the generic built-in pool instead of
+  // their org's authored environment.
+  const orgLoadRef = useRef<Promise<OrgCompanyContent[]> | null>(null);
+  useEffect(() => {
+    const p = fetchOrgCompanies();
+    orgLoadRef.current = p;
+    p.then(setOrgCompanies).catch(() => {});
+  }, []);
   const orgCompanyMap = useMemo(() => new Map(orgCompanies.map(c => [c.profile.id, c])), [orgCompanies]);
   const orgCompanyProfiles = useMemo(
     () => orgCompanies.map(c => ({ ...(c.profile as unknown as CompanyProfile), events: c.benignEvents as TelemetryEvent[] })),
@@ -454,15 +466,25 @@ export default function DashboardPage() {
   // until the analyst starts a shift (or signals intent to); every event/story
   // resolver takes it explicitly so the type system enforces "loaded before use".
   const [sim, setSim] = useState<SimData | null>(null);
+  // True when the lazy sim-data chunk failed to load (offline / chunk-hash swap
+  // after a redeploy). Drives a visible retry banner instead of a silent
+  // dead-end — see loadSimData() in simData.ts, which resets so a retry works.
+  const [simLoadFailed, setSimLoadFailed] = useState(false);
   const ensureSim = async (): Promise<SimData> => {
     if (sim) return sim;
-    const s = await loadSimData();
-    setSim(s);
-    return s;
+    try {
+      const s = await loadSimData();
+      setSim(s);
+      setSimLoadFailed(false);
+      return s;
+    } catch (e) {
+      setSimLoadFailed(true);
+      throw e;
+    }
   };
 
-  const resolveEvents = (s: SimData, id: string): TelemetryEvent[] => {
-    const o = orgCompanyMap.get(id);
+  const resolveEvents = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string): TelemetryEvent[] => {
+    const o = orgMap.get(id);
     if (o) return (o.benignEvents as TelemetryEvent[]).filter(e => e.source !== "dns");
     return getCompanyEvents(s, id);
   };
@@ -479,15 +501,15 @@ export default function DashboardPage() {
     const active = o.profile.architecture?.sources ?? [];
     return [{ value: "all", label: "All Sources" }, ...SOURCES.filter(s => s.value !== "all" && active.includes(s.value))];
   };
-  const resolveStory = (s: SimData, id: string, difficulty?: Difficulty): AttackStory => {
-    const o = orgCompanyMap.get(id);
-    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, id));
+  const resolveStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string, difficulty?: Difficulty): AttackStory => {
+    const o = orgMap.get(id);
+    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id));
     return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id));
   };
 
   // Empty until sim loads; the real pool is handed to the feed via live.reset()
   // at Start Training, so the feed (idle until then) never needs this early.
-  const eventPool       = useMemo(() => (sim ? resolveEvents(sim, selectedCompanyId) : []), [sim, selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  const eventPool       = useMemo(() => (sim ? resolveEvents(sim, orgCompanyMap, selectedCompanyId) : []), [sim, selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedCompany = useMemo(() => resolveProfile(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Endpoint view of THE attack currently in the feed — built from the live
@@ -691,8 +713,19 @@ export default function DashboardPage() {
     // single-host "foundation" stories (see attackStories.ts) so a student's
     // first attacks are never a full lateral-movement/credential-theft chain.
     // Await the lazy sim data (usually already preloaded when the modal opened).
-    const s = await ensureSim();
-    const story = resolveStory(s, selectedCompanyId, difficulty);
+    // If it can't load (offline / stale chunk), bail — simLoadFailed drives a
+    // visible retry banner; loadSimData() resets so pressing Start again retries.
+    let s: SimData;
+    try {
+      s = await ensureSim();
+    } catch {
+      return;
+    }
+    // Ensure org content finished loading so an org company resolves to its own
+    // authored environment, not the generic built-in pool (fast-click race).
+    const orgs = orgLoadRef.current ? await orgLoadRef.current.catch(() => orgCompanies) : orgCompanies;
+    const orgMap = new Map(orgs.map(c => [c.profile.id, c]));
+    const story = resolveStory(s, orgMap, selectedCompanyId, difficulty);
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
@@ -709,7 +742,7 @@ export default function DashboardPage() {
       localStorage.removeItem("edr_live_investigation");
     } catch { /* ignore */ }
     setEdrInvestigated(false);
-    live.reset(resolveEvents(s, selectedCompanyId), story);
+    live.reset(resolveEvents(s, orgMap, selectedCompanyId), story);
   };
 
   /**
@@ -724,7 +757,7 @@ export default function DashboardPage() {
     if (!armedNextRef.current) {
       armedNextRef.current = true;
       const s = await ensureSim();
-      const nextStory = resolveStory(s, selectedCompanyId, sessionDifficulty ?? undefined);
+      const nextStory = resolveStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined);
       setSessionStory(nextStory);
       setInjectedStories(prev => [...prev, nextStory]);
       live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min breather
@@ -901,7 +934,7 @@ export default function DashboardPage() {
               <LogOut className="h-3.5 w-3.5" />
               End Session
             </button>
-            <Button variant="primary" size="sm" onClick={() => { void loadSimData(); setShowTrainingModal(true); }}>
+            <Button variant="primary" size="sm" onClick={() => { loadSimData().catch(() => {}); setShowTrainingModal(true); }}>
               <Target className="h-4 w-4" /> Start Training
             </Button>
           </div>
@@ -985,6 +1018,23 @@ export default function DashboardPage() {
             </span>
           )}
         </div>
+
+        {/* Sim-data load failure — visible retry instead of a silent dead-end.
+            loadSimData() resets its cache on failure, so Retry genuinely re-attempts. */}
+        {simLoadFailed && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-severity-critical/50 bg-severity-critical/10 px-5 py-3">
+            <Siren className="h-4 w-4 shrink-0 text-severity-critical" />
+            <p className="text-sm text-slate-200">
+              Couldn&apos;t load the training data — check your connection and try again.
+            </p>
+            <button
+              onClick={() => { setSimLoadFailed(false); loadSimData().then(setSim).catch(() => setSimLoadFailed(true)); }}
+              className="ml-auto rounded-md bg-neon-purple px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-110"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Scenario objective banner */}
         {scenarioObjective && (
@@ -1447,7 +1497,7 @@ export default function DashboardPage() {
               if (!armedNextRef.current) {
                 armedNextRef.current = true;
                 const s = await ensureSim();
-                const nextStory = resolveStory(s, selectedCompanyId, sessionDifficulty ?? undefined);
+                const nextStory = resolveStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined);
                 setSessionStory(nextStory);
                 setInjectedStories(prev => [...prev, nextStory]);
                 live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min

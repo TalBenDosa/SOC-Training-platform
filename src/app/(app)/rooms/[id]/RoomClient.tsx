@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
@@ -225,6 +226,24 @@ export function RoomClient({ room }: RoomClientProps) {
   const completedCount = completedTaskIds.size;
   const totalTasks     = room.tasks.length;
   const currentTask    = room.tasks[currentTaskIndex];
+
+  // A room with no tasks (e.g. a mis-authored / half-published org room) would
+  // otherwise crash on `currentTask.type` just below. Render a friendly empty
+  // state instead of a white-screen runtime error — the page must degrade, not
+  // break, when content data is incomplete.
+  if (!currentTask) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg px-6">
+        <div className="w-full max-w-md rounded-xl border border-border bg-bg-elevated p-8 text-center space-y-3">
+          <p className="text-lg font-semibold text-white">This room has no content yet</p>
+          <p className="text-sm text-slate-400">There are no tasks to complete here yet. Please check back later.</p>
+          <Link href="/rooms" className="inline-block rounded-md bg-neon-purple px-4 py-2 text-sm font-bold text-white transition hover:brightness-110">
+            Back to Learning Rooms
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // If the current task is a flag, surface the NEAREST preceding task that carries a
   // log event (log_analysis or analyst_choice) so FlagPlayer keeps that log visible.

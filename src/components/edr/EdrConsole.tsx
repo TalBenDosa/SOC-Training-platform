@@ -135,6 +135,11 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
   const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
   const [rtr, setRtr] = useState<{ cmd: string; out: string }[]>([]);
   const [rtrIn, setRtrIn] = useState("");
+  // Browsers often refuse window.close() on a tab they didn't script-open (this
+  // one is opened via a normal <a target="_blank">), and the refusal is SILENT.
+  // Track it so we can escalate the "switch back manually" instruction instead of
+  // leaving the student clicking a dead button.
+  const [closeBlocked, setCloseBlocked] = useState(false);
 
   const sel = inv.processes.find(p => p.pid === selPid) ?? null;
   const toggle = (pid: number) => setExpanded(s => { const n = new Set(s); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
@@ -471,14 +476,18 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
                   report — the one place they're actually graded. */}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => window.close()}
+                  onClick={() => { try { window.close(); } catch { /* ignore */ } setTimeout(() => setCloseBlocked(true), 250); }}
                   className="inline-flex items-center gap-1.5 rounded-md bg-neon-purple px-3.5 py-2 text-xs font-bold text-white shadow transition hover:brightness-110"
                 >
                   <FileWarning className="h-4 w-4" /> Done — return to the Dashboard and file your report
                 </button>
                 <Button variant="outline" size="sm" onClick={() => { setDecided(null); }}>Investigate again</Button>
               </div>
-              <p className="mt-2 text-[11px] text-neon-amber">Switch back to your SOC Dashboard tab to write the incident report — your findings only count once it&apos;s submitted.</p>
+              <p className={`mt-2 text-[11px] ${closeBlocked ? "font-semibold text-neon-amber" : "text-neon-amber"}`}>
+                {closeBlocked
+                  ? "This tab couldn't close automatically — switch back to your SOC Dashboard tab (or press Ctrl/Cmd+W) to write the incident report. Your findings only count once it's submitted."
+                  : "Switch back to your SOC Dashboard tab to write the incident report — your findings only count once it's submitted."}
+              </p>
             </>
           )}
         </Card>

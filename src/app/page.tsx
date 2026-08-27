@@ -283,7 +283,7 @@ export default function Landing() {
       {/* ── The shift ───────────────────────────────────────────────────────── */}
       <section id="shift" className="container mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <SectionLabel>// How a shift runs</SectionLabel>
+          <SectionLabel>{"// How a shift runs"}</SectionLabel>
           <h2 className="mt-4 font-mono text-3xl font-bold text-white md:text-4xl">
             Nobody tells you which alert matters
           </h2>
@@ -311,7 +311,7 @@ export default function Landing() {
       {/* ── Platform capabilities ───────────────────────────────────────────── */}
       <section id="platform" className="container mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <SectionLabel>// What&apos;s inside</SectionLabel>
+          <SectionLabel>{"// What's inside"}</SectionLabel>
           <h2 className="mt-4 font-mono text-3xl font-bold text-white md:text-4xl">
             An entire SOC, and the judgement to work in one
           </h2>
@@ -342,7 +342,7 @@ export default function Landing() {
         <div className="rounded-xl border border-border bg-bg-elevated/40 p-8 backdrop-blur md:p-12">
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1.15fr] lg:items-center">
             <div>
-              <SectionLabel>// The telemetry</SectionLabel>
+              <SectionLabel>{"// The telemetry"}</SectionLabel>
               <h2 className="mt-4 font-mono text-2xl font-bold leading-tight text-white md:text-3xl">
                 The field names are the real field names
               </h2>
@@ -400,7 +400,7 @@ export default function Landing() {
       {/* ── Coverage ────────────────────────────────────────────────────────── */}
       <section id="coverage" className="container mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <SectionLabel>// Coverage</SectionLabel>
+          <SectionLabel>{"// Coverage"}</SectionLabel>
           <h2 className="mt-4 font-mono text-3xl font-bold text-white md:text-4xl">
             From first principles to nation-state
           </h2>
@@ -428,7 +428,7 @@ export default function Landing() {
         <div className="rule-fade mx-auto mb-16 max-w-3xl" />
 
         <div className="mx-auto max-w-2xl text-center">
-          <SectionLabel>// Access</SectionLabel>
+          <SectionLabel>{"// Access"}</SectionLabel>
           <h2 className="mt-4 font-mono text-3xl font-bold text-white md:text-4xl">
             One door in
           </h2>
