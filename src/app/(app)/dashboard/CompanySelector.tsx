@@ -1,7 +1,7 @@
 "use client";
 import { cn } from "@/lib/utils";
-import { COMPANY_PROFILES } from "@/lib/sim/companyProfiles";
-import type { CompanyProfile } from "@/lib/sim/companyProfiles";
+import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
+import type { CompanyProfile } from "@/lib/sim/companyProfilesMeta";
 import { CheckCircle2, Cloud, Lock, Shield, Building2, Server, Users } from "lucide-react";
 
 const INDUSTRY_ICON: Record<string, string> = {

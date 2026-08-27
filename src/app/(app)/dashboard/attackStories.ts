@@ -76,7 +76,8 @@ import { buildInfostealerSessionTheftScenario }  from "@/lib/sim/scenario-packs/
 import { buildEdgeVpnCveExploitScenario }        from "@/lib/sim/scenario-packs/edgeVpnCveExploit";
 import { buildExfilFirstExtortionScenario }      from "@/lib/sim/scenario-packs/exfilFirstExtortion";
 import { buildHelpdeskMfaResetScenario }         from "@/lib/sim/scenario-packs/helpdeskMfaReset";
-import { COMPANY_PROFILES, COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
+import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
+import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 /**

@@ -1,18 +1,17 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pickStoryForCompany, instantiateStory } from "./attackStories";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card, StatCard } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { loadSimData, type SimData } from "./simData";
 import { useLiveEvents } from "./useLiveEvents";
 import type { LiveEvent } from "./useLiveEvents";
 import { EventFeed } from "./EventFeed";
 import { getClearedCompanies, addClearedCompany, setLastSession, getRoomProgress } from "@/lib/storage/progress";
 import Link from "next/link";
 import { WorkflowGuide } from "./WorkflowGuide";
-import { BENIGN_EVENTS } from "./benignEvents";
 import { SiemStats } from "./SiemStats";
 import { CompanySelector } from "./CompanySelector";
 import { SessionSummaryModal } from "./SessionSummaryModal";
@@ -21,12 +20,11 @@ import { IncidentReportModal } from "./IncidentReportModal";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
 import { startDashboardTour } from "./OnboardingTour";
-import { COMPANY_PROFILES, COMPANY_EVENTS, NEXACORP_PROFILE } from "@/lib/sim/companyProfiles";
-import type { CompanyProfile } from "@/lib/sim/companyProfiles";
+import { COMPANY_PROFILES, NEXACORP_PROFILE } from "@/lib/sim/companyProfilesMeta";
+import type { CompanyProfile } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicContent";
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
-import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import {
@@ -51,12 +49,6 @@ const COMPANY_OBJECTIVES: Record<string, ObjDef[]> = {
   nexacorp: REPORT_OBJECTIVE, rocketstack: REPORT_OBJECTIVE, medcore: REPORT_OBJECTIVE,
   globallogis: REPORT_OBJECTIVE, quantumbank: REPORT_OBJECTIVE,
 };
-
-// ─── Event pools (computed once at module level) ──────────────────────────────
-
-// Background noise — NexaCorp default (other companies use COMPANY_EVENTS)
-// DNS events are excluded from the live feed — too noisy, not actionable in a SIEM dashboard
-const ALL_EVENTS = BENIGN_EVENTS.filter(e => e.source !== "dns");
 
 /**
  * Pull the real indicator values (IPs, users, hosts, domains, hashes) out of a
@@ -278,10 +270,13 @@ function StartTrainingModal({
 
 // ─── Dashboard page ───────────────────────────────────────────────────────────
 
-// Helper: get event pool for a given company id — DNS always excluded from live feed
-function getCompanyEvents(id: string) {
-  if (id === "nexacorp") return BENIGN_EVENTS.filter(e => e.source !== "dns");
-  const pool = COMPANY_EVENTS[id] ?? BENIGN_EVENTS;
+// Helper: get event pool for a given company id — DNS always excluded from live
+// feed. Takes the lazily-loaded sim data (benign + per-company pools) — see
+// simData.ts; the dashboard has it in hand before any pool is ever needed
+// (loaded at "Start Training").
+function getCompanyEvents(sim: SimData, id: string) {
+  if (id === "nexacorp") return sim.BENIGN_EVENTS.filter(e => e.source !== "dns");
+  const pool = sim.COMPANY_EVENTS[id] ?? sim.BENIGN_EVENTS;
   return pool.filter(e => e.source !== "dns");
 }
 
@@ -454,11 +449,25 @@ export default function DashboardPage() {
 
   // Org-aware lookups: an authored company id resolves from the DB content,
   // everything else falls through to the static built-ins unchanged.
-  const resolveEvents = (id: string): TelemetryEvent[] => {
+  // The heavy simulation data (benign + attack event pools, story registry) is
+  // loaded lazily — it's not in the dashboard's first-load bundle. `sim` is null
+  // until the analyst starts a shift (or signals intent to); every event/story
+  // resolver takes it explicitly so the type system enforces "loaded before use".
+  const [sim, setSim] = useState<SimData | null>(null);
+  const ensureSim = async (): Promise<SimData> => {
+    if (sim) return sim;
+    const s = await loadSimData();
+    setSim(s);
+    return s;
+  };
+
+  const resolveEvents = (s: SimData, id: string): TelemetryEvent[] => {
     const o = orgCompanyMap.get(id);
     if (o) return (o.benignEvents as TelemetryEvent[]).filter(e => e.source !== "dns");
-    return getCompanyEvents(id);
+    return getCompanyEvents(s, id);
   };
+  // Profiles are light (companyProfilesMeta) and stay in the initial bundle — no
+  // sim needed, so the Topbar/selector/source-filter render immediately.
   const resolveProfile = (id: string): CompanyProfile => {
     const o = orgCompanyMap.get(id);
     if (o) return { ...(o.profile as unknown as CompanyProfile), events: o.benignEvents as TelemetryEvent[] };
@@ -470,21 +479,23 @@ export default function DashboardPage() {
     const active = o.profile.architecture?.sources ?? [];
     return [{ value: "all", label: "All Sources" }, ...SOURCES.filter(s => s.value !== "all" && active.includes(s.value))];
   };
-  const resolveStory = (id: string, difficulty?: Difficulty): AttackStory => {
+  const resolveStory = (s: SimData, id: string, difficulty?: Difficulty): AttackStory => {
     const o = orgCompanyMap.get(id);
-    if (o) return instantiateStory(o.story as unknown as AttackStory, resolveEvents(id));
-    return instantiateStory(pickStoryForCompany(id, difficulty), getCompanyEvents(id));
+    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, id));
+    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id));
   };
 
-  const eventPool       = useMemo(() => resolveEvents(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Empty until sim loads; the real pool is handed to the feed via live.reset()
+  // at Start Training, so the feed (idle until then) never needs this early.
+  const eventPool       = useMemo(() => (sim ? resolveEvents(sim, selectedCompanyId) : []), [sim, selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedCompany = useMemo(() => resolveProfile(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Endpoint view of THE attack currently in the feed — built from the live
   // story's real process telemetry. Null for pure identity/cloud attacks (no
   // process tree), in which case "Investigate in EDR" opens the static console.
   const liveEdrInvestigation = useMemo(
-    () => (sessionStory ? buildInvestigationFromStory(sessionStory) : null),
-    [sessionStory],
+    () => (sim && sessionStory ? sim.buildInvestigationFromStory(sessionStory) : null),
+    [sim, sessionStory],
   );
 
   const live = useLiveEvents({
@@ -672,14 +683,16 @@ export default function DashboardPage() {
   };
 
   // ── Start training ─────────────────────────────────────────────────────────────
-  const handleStartTraining = (difficulty: Difficulty) => {
+  const handleStartTraining = async (difficulty: Difficulty) => {
     // Fresh session for the current company at the chosen difficulty. A new
     // attack story is picked at RANDOM within the difficulty's complexity
     // tier and kept hidden — the objective text never reveals the attack
     // type, so the analyst must find it themselves. Easy is restricted to
     // single-host "foundation" stories (see attackStories.ts) so a student's
     // first attacks are never a full lateral-movement/credential-theft chain.
-    const story = resolveStory(selectedCompanyId, difficulty);
+    // Await the lazy sim data (usually already preloaded when the modal opened).
+    const s = await ensureSim();
+    const story = resolveStory(s, selectedCompanyId, difficulty);
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
@@ -696,7 +709,7 @@ export default function DashboardPage() {
       localStorage.removeItem("edr_live_investigation");
     } catch { /* ignore */ }
     setEdrInvestigated(false);
-    live.reset(resolveEvents(selectedCompanyId), story);
+    live.reset(resolveEvents(s, selectedCompanyId), story);
   };
 
   /**
@@ -705,12 +718,13 @@ export default function DashboardPage() {
    * clear the debrief, resume streaming, and arm the next attack (after a short
    * breather) so the analyst keeps practising with the pattern fresh in mind.
    */
-  const handleContinueFromDebrief = () => {
+  const handleContinueFromDebrief = async () => {
     live.clearMissedAttack();
     live.dismissIncident();
     if (!armedNextRef.current) {
       armedNextRef.current = true;
-      const nextStory = resolveStory(selectedCompanyId, sessionDifficulty ?? undefined);
+      const s = await ensureSim();
+      const nextStory = resolveStory(s, selectedCompanyId, sessionDifficulty ?? undefined);
       setSessionStory(nextStory);
       setInjectedStories(prev => [...prev, nextStory]);
       live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min breather
@@ -887,7 +901,7 @@ export default function DashboardPage() {
               <LogOut className="h-3.5 w-3.5" />
               End Session
             </button>
-            <Button variant="primary" size="sm" onClick={() => setShowTrainingModal(true)}>
+            <Button variant="primary" size="sm" onClick={() => { void loadSimData(); setShowTrainingModal(true); }}>
               <Target className="h-4 w-4" /> Start Training
             </Button>
           </div>
@@ -1415,7 +1429,7 @@ export default function DashboardPage() {
             responseMs={live.lastResponseMs ?? (live.attackTimerSeconds != null ? live.attackTimerSeconds * 1000 : null)}
             responseTargetSeconds={live.responseTargetSeconds}
             onClose={closeReport}
-            onPassed={() => {
+            onPassed={async () => {
               setReportPassed(true);
               // Report filed — clear the EDR "don't forget" reminder.
               try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
@@ -1432,7 +1446,8 @@ export default function DashboardPage() {
               // after a short breather so the student is never juggling two.
               if (!armedNextRef.current) {
                 armedNextRef.current = true;
-                const nextStory = resolveStory(selectedCompanyId, sessionDifficulty ?? undefined);
+                const s = await ensureSim();
+                const nextStory = resolveStory(s, selectedCompanyId, sessionDifficulty ?? undefined);
                 setSessionStory(nextStory);
                 setInjectedStories(prev => [...prev, nextStory]);
                 live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min
