@@ -1,4 +1,3 @@
-import type { TelemetryEvent } from "@/lib/sim/types";
 
 const rooms = [
   // ─────────────────────────────────────────────────────────────

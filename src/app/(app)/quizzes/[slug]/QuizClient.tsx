@@ -329,7 +329,6 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
   // ANSWERING STATE
   // ═══════════════════════════════════════════════════════════════
   const isCorrect = qState.revealed && qState.selected === question.answer;
-  const isWrong   = qState.revealed && qState.selected !== question.answer;
 
   return (
     <div className="min-h-screen bg-bg">

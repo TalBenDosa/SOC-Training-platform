@@ -4756,7 +4756,6 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
   const attackerUser = "m.cohen@nexacorp.com";
   const attackerIp = "10.10.30.44";
   const dcIp = "10.10.1.5";
-  const sqlHash = makeSha256("cracked_svc_mssql_password");
 
   const events: TelemetryEvent[] = [
     // T+0: Normal domain auth — attacker foothold

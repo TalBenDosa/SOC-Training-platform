@@ -112,6 +112,7 @@ const benignServiceAccountEvent: TelemetryEvent = {
 };
 
 // ── Event 4 (flag task): service-account key theft + metadata server abuse ────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- authored attack-event, not yet wired into a room task
 const metadataKeyTheftEvent: TelemetryEvent = {
   id: "evt-gcp-metadata-theft-001",
   ts: "2026-05-19T02:42:30.000Z",

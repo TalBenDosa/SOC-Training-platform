@@ -110,6 +110,7 @@ const automationServicePrincipalEvent: TelemetryEvent = {
 };
 
 // ── Event 4 (flag task): storage account public blob access enabled + SAS token abuse ──
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- authored attack-event, not yet wired into a room task
 const storagePublicSasEvent: TelemetryEvent = {
   id: "evt-azure-storage-sas-001",
   ts: "2026-06-15T02:55:37.000Z",

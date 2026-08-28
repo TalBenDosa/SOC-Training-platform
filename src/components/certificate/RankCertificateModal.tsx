@@ -26,7 +26,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function RankCertificateModal({ rank, xp, name, onClose }: Props) {
+export function RankCertificateModal({ rank, name, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
   const [ready, setReady] = useState(false);

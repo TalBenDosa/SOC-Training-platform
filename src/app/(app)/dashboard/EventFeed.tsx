@@ -365,7 +365,6 @@ const ADMIN_EVENT_TYPES = new Set([
 function DetailPanel({
   event,
   onThreatQuery,
-  onXp,
 }: {
   event: LiveEvent;
   onThreatQuery: (q: ThreatQuery) => void;
@@ -403,9 +402,6 @@ function DetailPanel({
     setTimeout(() => setItVerifyState("done"), 1400 + Math.random() * 600);
   }
 
-  const sourceLabel = event.source === "cloudtrail"
-    ? cloudLabel(event.vendor)
-    : (SOURCE_LABEL[event.source] ?? event.source.toUpperCase());
   const severityColor = SEVERITY_COLORS[event.severity ?? ""] ?? "text-slate-300";
   const actionOutcome = extractActionOutcome(event);
 
@@ -861,10 +857,6 @@ const EventRow = memo(function EventRow({
   const timeStr = event.ts
     ? new Date(event.ts).toLocaleTimeString("en-GB", { hour12: false })
     : "—";
-  const sourceLabel = event.source === "cloudtrail"
-    ? cloudLabel(event.vendor)
-    : (SOURCE_LABEL[event.source] ?? event.source.toUpperCase());
-  const sourceColor = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.proxy;
 
   return (
     <>

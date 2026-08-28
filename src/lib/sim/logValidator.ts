@@ -413,7 +413,7 @@ type VendorSchemaKey = keyof typeof VENDOR_SCHEMAS;
  */
 function detectVendorSchema(
   vendor: string | undefined,
-  source: string
+  _source: string
 ): VendorSchemaKey | null {
   if (!vendor) return null;
 

@@ -55,7 +55,8 @@ export function FeedbackInbox() {
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
     setItems((await res.json()).items ?? []);
   }
-  useEffect(() => { load(filter); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- filter-keyed fetch; load reads current props
+  useEffect(() => { load(filter); }, [filter]);
 
   async function setStatus(id: string, status: Status) {
     setItems(prev => prev.map(r => (r.id === id ? { ...r, status } : r)));

@@ -50,6 +50,7 @@ function fail(error: string, status = 400): GradeResult {
  * change whether an answer is judged correct, so at worst a student games the
  * XP split between full/half credit, not the underlying score.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- submission shape is task-type-dependent (selectedIndex / answer / order / selectedIds / ...) and is narrowed per-case by the switch below; a single static type here would fight every branch
 export function gradeTask(task: RoomTask, submission: any, room?: Room): GradeResult {
   switch (task.type) {
     case "question": {

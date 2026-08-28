@@ -10,6 +10,11 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { cn } from "@/lib/utils";
 
+// Handle format: 3–20 chars, lowercase alnum + underscore. Module-scope so it is
+// a STABLE reference — a regex re-created inside the component would otherwise
+// churn the availability effect's dependencies (react-hooks/exhaustive-deps).
+const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
+
 export default function SignupPage() {
   usePageTitle("Create account");
   const router = useRouter();
@@ -99,9 +104,9 @@ export default function SignupPage() {
         }
       })
       .catch(() => setInviteState("invalid"));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once invite lookup; router is stable
   }, []);
 
-  const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
   const normalisedHandle = handle.trim().toLowerCase();
   const handleWellFormed = normalisedHandle === "" || HANDLE_RE.test(normalisedHandle);
 

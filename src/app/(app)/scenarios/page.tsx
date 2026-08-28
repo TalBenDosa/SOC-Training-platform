@@ -3,14 +3,12 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { LibraryCard } from "@/components/ui/LibraryCard";
 import { SCENARIOS } from "@/lib/sim/scenarios";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
-import Link from "next/link";
 import {
-  Sparkles, Zap, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
+  Sparkles, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
   BotIcon, EyeOff, GraduationCap, Target, ArrowRight,
 } from "lucide-react";
 

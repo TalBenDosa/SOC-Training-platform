@@ -42,7 +42,8 @@ function useOrgContent(type: ContentTab) {
     if (res.ok) setItems((await res.json()).items ?? []);
     else setItems([]);
   }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [type]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- type-keyed fetch; load reads current props
+  useEffect(() => { load(); }, [type]);
 
   async function save(body: Record<string, unknown>): Promise<boolean> {
     setError(null); setNotice(null);

@@ -1,16 +1,14 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
-import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, FileText, Trophy, CheckCircle2, Shield } from "lucide-react";
-import Link from "next/link";
-import { cn, formatTs } from "@/lib/utils";
+import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, FileText, Trophy, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { addTotalXp, appendScenarioRecord } from "@/lib/storage/progress";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Badge, SeverityBadge } from "@/components/ui/Badge";
+import { Badge } from "@/components/ui/Badge";
 import { CompletionModal, type GradeResult } from "@/components/scenarios/CompletionModal";
-import type { ScenarioBundle, TelemetryEvent, IOC } from "@/lib/sim/types";
+import type { ScenarioBundle, TelemetryEvent } from "@/lib/sim/types";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery,
@@ -931,20 +929,6 @@ function InvestigationPanel({
     </div>
   );
 }
-
-// ─── Interactive IOC Tracker ──────────────────────────────────────────────────
-
-const IOC_TYPE_COLORS: Record<string, string> = {
-  ip:     "border-neon-blue/40 bg-neon-blue/10 text-neon-blue",
-  domain: "border-neon-purple/40 bg-neon-purple/10 text-neon-purple",
-  url:    "border-neon-amber/40 bg-neon-amber/10 text-neon-amber",
-  sha256: "border-severity-high/40 bg-severity-high/10 text-severity-high",
-  md5:    "border-severity-high/40 bg-severity-high/10 text-severity-high",
-  email:  "border-cyber-500/40 bg-cyber-500/10 text-cyber-300",
-  user:   "border-slate-400/40 bg-slate-400/10 text-slate-300",
-  host:   "border-neon-green/40 bg-neon-green/10 text-neon-green",
-};
-
 
 // ─── Main client component ────────────────────────────────────────────────────
 

@@ -33,7 +33,6 @@ export function buildEsxiRansomwareScenario(
   const tunnelIp = "10.99.8.44";
   const vcenter = { host: "vcsa-01.nexacorp.local", ip: "10.20.5.20" };
   const esxi = { host: "esx-prod-03.nexacorp.local", ip: "10.20.5.33" };
-  const datastore = "DS-PROD-01";
   const elfHash = makeSha256("akira_esxi_elf_encryptor_v3");
 
   // EDR↔scenario integration (Phase 4): ONE incident that spans two planes — the

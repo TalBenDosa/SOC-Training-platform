@@ -2,12 +2,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
-import { Card, StatCard } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { loadSimData, type SimData, type Difficulty } from "./simData";
 import { useLiveEvents } from "./useLiveEvents";
-import type { LiveEvent } from "./useLiveEvents";
 import { EventFeed } from "./EventFeed";
 import { getClearedCompanies, addClearedCompany, setLastSession, getRoomProgress } from "@/lib/storage/progress";
 import Link from "next/link";

@@ -53,10 +53,9 @@ const W = 400, H = 225; // 16:9 canvas
 
 // ── Scene families. Each returns SVG markup drawn over the gradient base. ──────
 type Scene = (r: () => number, c1: string, c2: string) => string;
-const pick = <T,>(r: () => number, arr: T[]) => arr[Math.floor(r() * arr.length)];
 const n = (x: number) => Math.round(x * 10) / 10;
 
-const cubes: Scene = (r, c1, c2) => {
+const cubes: Scene = (r, _c1, _c2) => {
   let s = "";
   const count = 7 + Math.floor(r() * 6);
   for (let i = 0; i < count; i++) {
@@ -100,7 +99,7 @@ const waves: Scene = (r) => {
   return s;
 };
 
-const hexgrid: Scene = (r, c1) => {
+const hexgrid: Scene = (r, _c1) => {
   let s = "";
   const R = 20, dx = R * 1.5, dy = R * Math.sqrt(3);
   for (let col = 0; col < 10; col++) for (let row = 0; row < 5; row++) {

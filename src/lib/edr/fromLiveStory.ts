@@ -17,9 +17,8 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { lookupHash } from "@/lib/sim/hashDatabase";
 import { classifyScope } from "./classifyScope";
-import type { EdrInvestigation, EdrProcess, EdrDetection, EdrNetConn, EdrFileOp, EdrTimelineEvent, Verdict } from "./investigations";
+import type { EdrInvestigation, EdrProcess, EdrDetection, EdrFileOp, EdrTimelineEvent, Verdict } from "./investigations";
 
-const ENDPOINT_SOURCES = new Set(["edr", "sysmon", "windows_security", "linux_audit", "av"]);
 const USER_WRITABLE = /\\(AppData|Temp|Users\\[^\\]+\\Downloads|ProgramData)\\|\/tmp\/|\/home\/[^/]+\//i;
 
 /** HH:MM:SS out of an ISO timestamp, TZ-agnostic. */

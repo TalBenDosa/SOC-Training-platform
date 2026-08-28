@@ -308,7 +308,7 @@ function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }
 // ─── Section Page Content (combined slide + text) ────────────────────────────
 
 function SectionPageContent({
-  lesson, section,
+  section,
 }: {
   lesson:  Lesson;
   section: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage };

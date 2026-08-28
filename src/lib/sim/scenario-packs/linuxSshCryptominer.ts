@@ -28,9 +28,6 @@ export function buildLinuxSshCryptominerScenario(
   const B = new Date("2026-04-14T21:40:00Z").getTime();
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
-  /** auditd stamps are epoch seconds; keep them in lockstep with T(). */
-  const EPOCH = 1_776_202_800;
-  const A = (min: number) => (EPOCH + min * 60).toString();
 
   const host = {
     name: "nix-bkp-01",

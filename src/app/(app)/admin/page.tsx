@@ -3,9 +3,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import {
   Search, Download, Sparkles, Plus, Eye, Edit2, Trash2,
-  X, ChevronDown, ChevronRight, ChevronLeft, Check, Save, Shield, Users as UsersIcon,
+  X, ChevronDown, ChevronRight, Check, Save, Shield, Users as UsersIcon,
   LayoutDashboard, HelpCircle, Loader2, AlertTriangle,
-  RotateCcw, Target, BookOpen, Activity, Database, Zap, Code2, ExternalLink,
+  RotateCcw, BookOpen, Activity, Code2, ExternalLink,
   ShieldCheck, XCircle, AlertCircle, Info, Play, RefreshCw, CheckCircle2,
 } from "lucide-react";
 import type { ValidationReport, ValidationIssue, IssueSeverity } from "@/lib/sim/logValidator";
@@ -2455,6 +2455,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
     setOpenSec(Math.max(0, i - 1));
   }
 
+  /* eslint-disable @typescript-eslint/no-unused-vars -- Lesson takeaways/quiz EDITOR helpers: implemented but the UI is not yet wired (TABS below has only overview/sections). Kept intact for the pending feature rather than deleted. */
   // Takeaway helpers
   function updateTakeaway(i: number, val: string) {
     setDraft(d => { const t = [...d.keyTakeaways]; t[i] = val; return { ...d, keyTakeaways: t }; });
@@ -2495,6 +2496,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
     }));
   }
   function removeQuizQ(i: number) { setDraft(d => ({ ...d, quiz: (d.quiz ?? []).filter((_, idx) => idx !== i) })); }
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
   const inputCls = "w-full rounded-lg border border-[#2a3555] bg-[#070b14] px-3 py-2 text-[13px] text-white placeholder-slate-500 focus:border-cyan-500/60 focus:outline-none resize-none";
   const TABS: { id: "overview"|"sections"; label: string }[] = [

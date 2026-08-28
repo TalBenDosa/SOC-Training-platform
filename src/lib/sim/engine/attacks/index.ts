@@ -30,11 +30,6 @@ function eid(prefix: string): string {
   return `${prefix}_${Date.now()}_${++_eventSeq}`;
 }
 
-/** Return the victim's current (or newly created) session IP. */
-function victimIp(world: WorldState, victim: CompanyUser): string {
-  return getOrCreateSession(world, victim).ip;
-}
-
 /** Attach the attack correlation id to every raw block. */
 function withCorr(raw: Record<string, unknown>, world: WorldState): Record<string, unknown> {
   return { ...raw, "attack.correlationId": world.attack?.correlationId ?? "" };
@@ -646,7 +641,6 @@ const playbookPasswordSpray: AttackPlaybook = {
       name: "Password Spray — Auth Failures",
       mitre: "T1110.003",
       generate(world: WorldState): AttackPhaseResult {
-        const victim = world.attack!.victim;
         const attackerIp = externalAttackerIp(world);
         const adDomain = world.meta.adDomain || "CORP";
 

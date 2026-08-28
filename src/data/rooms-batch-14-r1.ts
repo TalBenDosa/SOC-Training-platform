@@ -118,6 +118,7 @@ const getCallerIdentityEvent: TelemetryEvent = {
 };
 
 // ── Event 4 (flag task): CloudTrail disabled + crypto-mining EC2 launch ───────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- authored attack-event, not yet wired into a room task
 const cloudTrailDisabledEvent: TelemetryEvent = {
   id: "evt-aws-ct-stop-001",
   ts: "2026-06-11T04:02:51.000Z",

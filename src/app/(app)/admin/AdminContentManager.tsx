@@ -3,11 +3,10 @@ import { useState, useEffect } from "react";
 import {
   Trash2, RotateCcw, BookOpen, Shield, HelpCircle, Zap,
   Loader2, ChevronDown, ChevronUp, Check, Eye, Plus,
-  AlertTriangle, ExternalLink, FileText, Target,
+  AlertTriangle, FileText, Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { SCENARIOS } from "@/lib/sim/scenarios";
 import { ALL_QUIZZES as QUIZZES } from "@/lib/quizzes/data";
 import { LESSON_PATHS } from "@/lib/lessons/paths";

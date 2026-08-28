@@ -34,20 +34,6 @@ function pickActiveOrAnyUser(world: WorldState): CompanyUser {
   return pickActiveUser(world);
 }
 
-// Well-known external IP → geo mapping used across generators
-const WELL_KNOWN_DEST_IPS: Record<string, string> = {
-  "teams.microsoft.com": "52.113.194.132",
-  "outlook.office365.com": "40.97.64.9",
-  "login.microsoftonline.com": "20.190.144.147",
-  "github.com": "140.82.121.4",
-  "api.pagerduty.com": "52.74.183.40",
-  "api.github.com": "140.82.121.5",
-  "registry.npmjs.org": "104.16.17.35",
-  "hub.docker.com": "54.236.7.185",
-  "8.8.8.8": "8.8.8.8",
-  "1.1.1.1": "1.1.1.1",
-};
-
 // ─── Auth generator ───────────────────────────────────────────────────────────
 
 function genAuth(world: WorldState): GeneratedEvent {
@@ -243,7 +229,6 @@ function genProcess(world: WorldState): GeneratedEvent {
   const session = getOrCreateSession(world, user);
   const hostname = user.hostname;
   const isWindows = user.osType === "windows";
-  const isMac = user.osType === "macos";
   const isAdmin = user.isAdmin;
   const domain = world.meta.adDomain;
 

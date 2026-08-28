@@ -2,7 +2,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, BookOpen, Shield, FileText } from "lucide-react";
 import type {
   SanitizedRoomTask as RoomTask,
@@ -32,7 +31,7 @@ interface TaskPlayerProps {
 /** POSTs a task submission to the server-side grader (src/lib/rooms/grading.ts)
  *  and returns its verdict. No sub-player ever compares an answer locally
  *  anymore — see src/data/rooms.ts's file doc for why. */
-async function submitTask(roomId: string, taskId: string, body: unknown): Promise<{ correct: boolean; xpEarned: number; reveal: Record<string, any> }> {
+async function submitTask(roomId: string, taskId: string, body: unknown): Promise<{ correct: boolean; xpEarned: number; reveal: Record<string, unknown> }> {
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/tasks/${encodeURIComponent(taskId)}/submit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

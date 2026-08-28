@@ -158,7 +158,8 @@ export default function OrgDetailPage() {
     if (!orgCode) return;
     try { await navigator.clipboard.writeText(orgCode.code); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* clipboard blocked */ }
   }
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- id-keyed fetch; load reads current props
+  useEffect(() => { load(); }, [id]);
 
   async function patch(body: Record<string, unknown>, msg: string) {
     setSaving(true); setError(null); setNotice(null);

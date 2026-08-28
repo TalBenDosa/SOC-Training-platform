@@ -11,7 +11,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { lookupHash, vtLabel, vtColor, MALWARE_HASHES, CLEAN_HASHES } from "@/lib/sim/hashDatabase";
+import { lookupHash, vtLabel, vtColor } from "@/lib/sim/hashDatabase";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,6 @@ interface Ioc {
   source: string;
 }
 
-type Phase = "investigating" | "complete";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

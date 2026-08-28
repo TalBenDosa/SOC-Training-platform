@@ -120,8 +120,6 @@ function calculateRuleLevel(event: TelemetryEvent): number {
   const mitre  = event.mitre_technique ?? "";
   const proc   = event.process;
   const net    = event.network;
-  const desc   = (event.description ?? "").toLowerCase();
-  const raw    = event.raw ?? {} as Record<string, unknown>;
 
   // ── MITRE technique hard overrides ────────────────────────────────────────
   if (mitre) {
@@ -1259,6 +1257,7 @@ export function useLiveEvents({
     }, intervalMs);
 
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- interval keyed intentionally; enrichWithFidelity/scheduleDebriefCheck are useCallback-stable and read live values via refs, so recreating the interval on their identity would only churn it
   }, [isStreaming, intervalMs, maxVisible, engineMode]);
 
   // ── Attack injection — Story Scheduler ───────────────────────────────────────
