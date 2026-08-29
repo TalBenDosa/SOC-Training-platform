@@ -27,12 +27,18 @@ import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import {
-  BookOpen, Building2, Cpu, FileText, Filter, GraduationCap, LogOut, Pause, Play,
+  BookOpen, Building2, Cpu, FileText, Filter, GraduationCap, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
 const COMPANY_KEY       = "soc_selected_company_v1";  // device-local UI preference (which company is open)
 const COMPANY_ORDER     = ["nexacorp", "rocketstack", "medcore", "globallogis", "quantumbank"];
+
+// Auto-advance rule: catch this many attacks within this rolling window and the
+// company is secured AUTOMATICALLY and the next one unlocks — this replaces the
+// manual "End Session → Secure This Company" gate.
+const ADVANCE_CATCHES   = 2;
+const ADVANCE_WINDOW_MS = 30 * 60_000; // 30 minutes
 
 type SessionRecord = import("./useLiveEvents").DashboardSessionRecord;
 
@@ -404,6 +410,10 @@ export default function DashboardPage() {
 
   // ─── Progress counters (session-scoped, reset on company switch) ─────────
   const [reportPassed,    setReportPassed]    = useState(false);
+  // Timestamps of attacks caught this run — drives the "2 attacks in 30 minutes →
+  // auto-advance" rule. caughtInWindow mirrors the count within the window for UI.
+  const caughtTimesRef = useRef<number[]>([]);
+  const [caughtInWindow, setCaughtInWindow] = useState(0);
 
   // Filters
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
@@ -638,6 +648,8 @@ export default function DashboardPage() {
     setShowCompanySelector(false);
     setSourceFilter("all");
     setReportPassed(false);
+    caughtTimesRef.current = [];
+    setCaughtInWindow(0);
     // Picking a company does NOT start the feed — it waits for Start Training.
     // If a shift was running, end it so nothing streams for the new company
     // until the student explicitly starts again.
@@ -703,6 +715,20 @@ export default function DashboardPage() {
     if (nextCompanyId) handleSelectCompany(nextCompanyId);
   };
 
+  /** The student caught ADVANCE_CATCHES attacks within ADVANCE_WINDOW_MS — end the
+   *  shift and secure the company AUTOMATICALLY. This is the sole progression path
+   *  now that "End Session" is gone: performance advances you, not a button. */
+  const autoAdvanceCompany = () => {
+    live.endSession();          // record the run (history / streak / stats)
+    live.pause();               // freeze the feed
+    setSessionStartedAt(null);
+    setSessionDifficulty(null);
+    setTrainingActive(false);   // lock the EDR console again
+    caughtTimesRef.current = [];
+    setCaughtInWindow(0);
+    handleClearCompany();       // secure → Company-Secured modal → unlock next
+  };
+
   // ── Start training ─────────────────────────────────────────────────────────────
   const handleStartTraining = async (difficulty: Difficulty) => {
     // Fresh session for the current company at the chosen difficulty. A new
@@ -728,7 +754,7 @@ export default function DashboardPage() {
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
-    setScenarioObjective(`${label} session — watch the feed, identify the attack hidden in it, and report it. You will not be told what it is.`);
+    setScenarioObjective(`${label} session — watch the feed and report the attacks hidden in it. Catch ${ADVANCE_CATCHES} within 30 minutes to secure the company and advance. You won't be told what they are.`);
     setSessionStartedAt(Date.now());
     setSessionDifficulty(difficulty);
     setSessionElapsed(0);
@@ -736,6 +762,8 @@ export default function DashboardPage() {
     // the EDR console. Clear any EDR-report reminder from a previous shift.
     setTrainingActive(true);
     armedNextRef.current = false;   // fresh session — next attack arms only after the first report
+    caughtTimesRef.current = [];    // fresh catch window for the auto-advance rule
+    setCaughtInWindow(0);
     try {
       localStorage.removeItem("soc_edr_investigated");
       localStorage.removeItem("edr_live_investigation");
@@ -777,15 +805,6 @@ export default function DashboardPage() {
   };
   const resumeShift = () => { live.resume(); setPausedForReport(false); setShowResumePrompt(false); };
   const stayPaused  = () => { setPausedForReport(false); setShowResumePrompt(false); };
-
-  /** Ends the session, stops the clock, freezes the feed and locks the EDR. */
-  const handleEndSession = () => {
-    setSessionSummary(live.endSession());
-    setSessionStartedAt(null);
-    setSessionDifficulty(null);
-    setTrainingActive(false);   // locks the EDR console again
-    live.pause();               // stop the feed — nothing streams outside a shift
-  };
 
   // Tick the session clock once a second while a session is running.
   useEffect(() => {
@@ -926,13 +945,6 @@ export default function DashboardPage() {
               <FileText className="h-4 w-4" />
               {reportPassed ? "Report Submitted ✓" : "Report Incident"}
             </button>
-            <button
-              onClick={handleEndSession}
-              className="flex items-center gap-1.5 rounded border border-neon-amber/40 bg-neon-amber/8 px-2.5 py-1.5 text-xs font-semibold text-neon-amber hover:bg-neon-amber/15 transition"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              End Session
-            </button>
             <Button variant="primary" size="sm" onClick={() => { loadSimData().catch(() => {}); setShowTrainingModal(true); }}>
               <Target className="h-4 w-4" /> Start Training
             </Button>
@@ -1008,6 +1020,13 @@ export default function DashboardPage() {
                 </span>
               )}
               <span className="font-mono text-xs font-bold text-white">{sessionClock}</span>
+              {/* Progress toward the auto-advance rule: catch 2 attacks in 30 min. */}
+              <span
+                className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-cyber-300"
+                title={`Catch ${ADVANCE_CATCHES} attacks within 30 minutes to secure the company and advance`}
+              >
+                Caught {Math.min(caughtInWindow, ADVANCE_CATCHES)}/{ADVANCE_CATCHES}
+              </span>
             </span>
           ) : (
             <span className="ml-auto flex items-center gap-2 text-xs text-slate-400">
@@ -1490,6 +1509,16 @@ export default function DashboardPage() {
               // later and count a genuinely-caught attack as missed.
               const caughtIds = live.activeIncident?.eventIds ?? [];
               if (caughtIds.length > 0) live.markCaught(caughtIds[0]);
+              // Auto-advance rule: record this catch's time, keep only those inside
+              // the rolling window, and if the student has now caught ADVANCE_CATCHES
+              // within ADVANCE_WINDOW_MS, secure the company automatically and stop.
+              const now = Date.now();
+              caughtTimesRef.current = [...caughtTimesRef.current, now].filter(t => now - t <= ADVANCE_WINDOW_MS);
+              setCaughtInWindow(caughtTimesRef.current.length);
+              if (caughtTimesRef.current.length >= ADVANCE_CATCHES && !clearedCompanies.includes(selectedCompanyId)) {
+                autoAdvanceCompany();
+                return; // advancing — don't arm another attack for this (now secured) company
+              }
               // ONE incident at a time: only now — with the current one reported —
               // do we arm the NEXT attack, and only once per incident. It lands
               // after a short breather so the student is never juggling two.
