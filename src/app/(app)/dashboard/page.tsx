@@ -27,7 +27,7 @@ import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import {
-  BookOpen, Building2, Cpu, FileText, Filter, GraduationCap, Pause, Play,
+  BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
@@ -414,6 +414,9 @@ export default function DashboardPage() {
   // auto-advance" rule. caughtInWindow mirrors the count within the window for UI.
   const caughtTimesRef = useRef<number[]>([]);
   const [caughtInWindow, setCaughtInWindow] = useState(0);
+  // Time left (ms) to catch the next attack before the oldest catch rolls out of
+  // the 30-min window — null when there are no catches in the window yet.
+  const [windowRemainingMs, setWindowRemainingMs] = useState<number | null>(null);
 
   // Filters
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
@@ -650,6 +653,7 @@ export default function DashboardPage() {
     setReportPassed(false);
     caughtTimesRef.current = [];
     setCaughtInWindow(0);
+    setWindowRemainingMs(null);
     // Picking a company does NOT start the feed — it waits for Start Training.
     // If a shift was running, end it so nothing streams for the new company
     // until the student explicitly starts again.
@@ -726,6 +730,7 @@ export default function DashboardPage() {
     setTrainingActive(false);   // lock the EDR console again
     caughtTimesRef.current = [];
     setCaughtInWindow(0);
+    setWindowRemainingMs(null);
     handleClearCompany();       // secure → Company-Secured modal → unlock next
   };
 
@@ -764,6 +769,7 @@ export default function DashboardPage() {
     armedNextRef.current = false;   // fresh session — next attack arms only after the first report
     caughtTimesRef.current = [];    // fresh catch window for the auto-advance rule
     setCaughtInWindow(0);
+    setWindowRemainingMs(null);
     try {
       localStorage.removeItem("soc_edr_investigated");
       localStorage.removeItem("edr_live_investigation");
@@ -806,16 +812,30 @@ export default function DashboardPage() {
   const resumeShift = () => { live.resume(); setPausedForReport(false); setShowResumePrompt(false); };
   const stayPaused  = () => { setPausedForReport(false); setShowResumePrompt(false); };
 
-  // Tick the session clock once a second while a session is running.
+  // Tick the session clock once a second while a session is running. The same
+  // tick maintains the auto-advance window: it rolls off catches older than
+  // ADVANCE_WINDOW_MS (so the count can drop on its own) and computes the time
+  // left to reach the next catch before the oldest one expires.
   useEffect(() => {
     if (sessionStartedAt === null) return;
     const id = setInterval(() => {
-      setSessionElapsed(Math.floor((Date.now() - sessionStartedAt) / 1000));
+      const now = Date.now();
+      setSessionElapsed(Math.floor((now - sessionStartedAt) / 1000));
+      const kept = caughtTimesRef.current.filter(t => now - t <= ADVANCE_WINDOW_MS);
+      if (kept.length !== caughtTimesRef.current.length) {
+        caughtTimesRef.current = kept;
+        setCaughtInWindow(kept.length);
+      }
+      setWindowRemainingMs(kept.length > 0 ? Math.max(0, kept[0] + ADVANCE_WINDOW_MS - now) : null);
     }, 1000);
     return () => clearInterval(id);
   }, [sessionStartedAt]);
 
   const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
+  // Countdown to the oldest catch expiring — the deadline to reach the next catch.
+  const windowClock = windowRemainingMs != null
+    ? `${String(Math.floor(windowRemainingMs / 60000)).padStart(2, "0")}:${String(Math.floor((windowRemainingMs % 60000) / 1000)).padStart(2, "0")}`
+    : null;
 
   // Is the viewport wide enough to show the console and the report drawer
   // side by side? Tracked in state (not a Tailwind breakpoint class) because
@@ -1027,6 +1047,16 @@ export default function DashboardPage() {
               >
                 Caught {Math.min(caughtInWindow, ADVANCE_CATCHES)}/{ADVANCE_CATCHES}
               </span>
+              {/* Countdown: time left to catch the next attack before this one
+                  rolls out of the 30-minute window. Only while mid-way (≥1, <goal). */}
+              {caughtInWindow > 0 && caughtInWindow < ADVANCE_CATCHES && windowClock && (
+                <span
+                  className="flex items-center gap-1 rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-px font-mono text-[10px] font-bold text-neon-amber"
+                  title="Time left to catch the next attack before this catch drops out of the 30-minute window"
+                >
+                  <Clock className="h-3 w-3" /> {windowClock}
+                </span>
+              )}
             </span>
           ) : (
             <span className="ml-auto flex items-center gap-2 text-xs text-slate-400">
@@ -1515,6 +1545,7 @@ export default function DashboardPage() {
               const now = Date.now();
               caughtTimesRef.current = [...caughtTimesRef.current, now].filter(t => now - t <= ADVANCE_WINDOW_MS);
               setCaughtInWindow(caughtTimesRef.current.length);
+              setWindowRemainingMs(caughtTimesRef.current.length > 0 ? Math.max(0, caughtTimesRef.current[0] + ADVANCE_WINDOW_MS - now) : null);
               if (caughtTimesRef.current.length >= ADVANCE_CATCHES && !clearedCompanies.includes(selectedCompanyId)) {
                 autoAdvanceCompany();
                 return; // advancing — don't arm another attack for this (now secured) company
