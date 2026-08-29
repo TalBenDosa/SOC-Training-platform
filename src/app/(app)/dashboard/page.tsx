@@ -39,6 +39,7 @@ const COMPANY_ORDER     = ["nexacorp", "rocketstack", "medcore", "globallogis", 
 // manual "End Session → Secure This Company" gate.
 const ADVANCE_CATCHES   = 2;
 const ADVANCE_WINDOW_MS = 30 * 60_000; // 30 minutes
+const MISSION_BONUS_XP  = 250;         // session-XP reward for completing the mission
 
 type SessionRecord = import("./useLiveEvents").DashboardSessionRecord;
 
@@ -723,6 +724,7 @@ export default function DashboardPage() {
    *  shift and secure the company AUTOMATICALLY. This is the sole progression path
    *  now that "End Session" is gone: performance advances you, not a button. */
   const autoAdvanceCompany = () => {
+    live.addXp(MISSION_BONUS_XP);  // reward the completed mission (session XP)
     live.endSession();          // record the run (history / streak / stats)
     live.pause();               // freeze the feed
     setSessionStartedAt(null);
@@ -1598,6 +1600,8 @@ export default function DashboardPage() {
         <CompanyClearedModal
           clearedCompanyName={selectedCompany.name}
           nextCompanyName={nextCompany?.name ?? null}
+          xpAwarded={MISSION_BONUS_XP}
+          attacksCaught={ADVANCE_CATCHES}
           onContinue={handleClearedContinue}
         />
       )}
