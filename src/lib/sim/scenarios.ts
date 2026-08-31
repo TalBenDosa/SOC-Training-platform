@@ -50,6 +50,12 @@ import { buildGoldenSamlScenario }               from "./scenario-packs/goldenSa
 import { buildGwsOauthMarketplaceScenario }      from "./scenario-packs/gwsOauthMarketplace";
 import { buildThreatIntelHuntScenario }          from "./scenario-packs/threatIntelHunt";
 import { buildContainerEscapeCryptominingScenario } from "./scenario-packs/containerEscapeCryptomining";
+import { buildMobileMdmCompromiseScenario }      from "./scenario-packs/mobileMdmCompromise";
+import { buildGcpSaKeyTheftScenario }            from "./scenario-packs/gcpSaKeyTheft";
+import { buildMacosTccPkgScenario }              from "./scenario-packs/macosTccPkg";
+import { buildEmailBombHelpdeskScenario }        from "./scenario-packs/emailBombHelpdesk";
+import { buildOtNetworkAnomalyScenario }         from "./scenario-packs/otNetworkAnomaly";
+import { buildBecWireFraudScenario }             from "./scenario-packs/becWireFraud";
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
@@ -3547,6 +3553,38 @@ export const SCENARIOS = [
     difficulty: "advanced", attack_kind: "container_escape",
     threat_actor: "Cloud-native intrusion operator (resource-hijacking, runtime breakout)", build: withAlerts(buildContainerEscapeCryptominingScenario),
     summary: "A poisoned image is deployed as an over-permissive privileged pod, runs an XMRig miner, then uses host namespaces to break out of the container onto the Kubernetes worker node and reach a mining pool. The Kubernetes audit trail is the escape origin; the runtime miner and pool traffic are the impact. A sanctioned CNI DaemonSet that is privileged by design is the benign control — privileged alone is not the signal." },
+
+  // ── P4 use-case expansion (scenario-usecase-map Part 5: mobile/MDM, GCP-native, macOS TCC, email-bomb social-eng, OT/ICS, BEC wire fraud) ──
+  { slug: "mobile-mdm-compromise",
+    title: "Mobile in the Blind Spot — an Intune-Managed Phone Goes Rogue",
+    difficulty: "intermediate", attack_kind: "mobile_compromise",
+    threat_actor: "Mobile-phishing operator (smishing-led device takeover, no host foothold)", build: withAlerts(buildMobileMdmCompromiseScenario),
+    summary: "A smishing link leads to a sideloaded app and a rooted device; Intune's mobile-threat signal fires and the device flips non-compliant, yet corporate mail and files are still reached because the Entra sign-in shows a Conditional-Access gap — a non-compliant device getting success. The analyst reaches the verdict from Intune compliance + Entra sign-ins, not a host process tree. A phone that briefly went non-compliant for a pending OS update is the benign control." },
+  { slug: "gcp-sa-key-theft",
+    title: "Minted Key — Service-Account Key Theft on GCP",
+    difficulty: "advanced", attack_kind: "cloud_credential_theft",
+    threat_actor: "Operator abusing a compromised developer identity to key an over-permissioned GCP service account", build: withAlerts(buildGcpSaKeyTheftScenario),
+    summary: "A compromised developer identity mints a long-lived user-managed key on an over-permissioned service account, then the acting principal switches to that SA to read the datalake and Secret Manager — all from an external IP. The quiet CreateServiceAccountKey admin-activity line is the pivot; the data reads are the blast radius. A Terraform CI service account creating a key from inside the pipeline is the benign control." },
+  { slug: "macos-tcc-pkg",
+    title: "macOS TCC Bypass — a Fake .pkg Rewrites the Privacy Database and Persists as a LaunchDaemon",
+    difficulty: "intermediate", attack_kind: "macos_tcc_bypass",
+    threat_actor: "macOS intrusion operator distributing a trojanized installer package (fake productivity/meeting app)", build: withAlerts(buildMacosTccPkgScenario),
+    summary: "A fake meeting-app installer package runs a root postinstall script that rewrites the TCC privacy database to grant itself Full Disk Access and Screen Recording, then installs a LaunchDaemon for boot persistence and reads protected user data. The tells are the root install-script, the TCC.db manipulation and the daemon that survives reboot. A notarized, validly-signed .pkg with a normal per-user LaunchAgent is the benign control." },
+  { slug: "email-bomb-helpdesk",
+    title: "Email Bomb to Fake Help Desk — Quick Assist Takeover",
+    difficulty: "intermediate", attack_kind: "email_bomb_social_eng",
+    threat_actor: "Social-engineering intrusion operator (mail-flood pretext, help-desk impersonation)", build: withAlerts(buildEmailBombHelpdeskScenario),
+    summary: "Hundreds of individually-clean newsletter confirmations flood a mailbox in minutes; then a caller posing as IT offers to 'help stop the spam' and talks the overwhelmed user into launching Microsoft's own signed Quick Assist, and hands-on-keyboard discovery follows. The flood is the opening move, not the attack — a signed remote tool is not the signal, the unsolicited context is. A sanctioned Quick Assist session on a real ticket is the benign control. (Black Basta TTP.)" },
+  { slug: "ot-network-anomaly",
+    title: "OT/ICS Intrusion — A Corporate Host Writes to a PLC (Network-Only Visibility)",
+    difficulty: "advanced", attack_kind: "ot_ics_intrusion",
+    threat_actor: "IT-to-OT pivot operator issuing industrial-protocol commands from a corporate foothold", build: withAlerts(buildOtNetworkAnomalyScenario),
+    summary: "Seen only through passive network sensors (Zeek + Suricata) at the IT/OT boundary: a corporate-VLAN host starts speaking Modbus to production PLCs it never contacts, sweeps the controller range, and issues write function codes to a line controller. The discriminator is source identity + a Modbus WRITE from an unauthorized host versus the engineering station's normal read polling — the benign control on the same protocol, port and PLCs." },
+  { slug: "bec-wire-fraud",
+    title: "The CFO Who Never Called — a BEC Wire-Fraud Impersonation",
+    difficulty: "intermediate", attack_kind: "bec_wire_fraud",
+    threat_actor: "Business email compromise operator (external executive impersonation, no host or mailbox foothold)", build: withAlerts(buildBecWireFraudScenario),
+    summary: "An urgent wire request appears to come from the CFO — a lookalike-domain email with a display-name spoof that fails SPF/DKIM/DMARC, reinforced by a deepfake voice-clone phone call. The teaching point is that this is impersonation, not a mailbox takeover: the real CFO account is untouched. The verdict comes from email authentication + the lookalike domain, not from any compromised internal account. A genuine CFO payment email that passes auth is the benign control." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
