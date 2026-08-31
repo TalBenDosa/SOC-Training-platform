@@ -37,6 +37,13 @@ import { buildLinuxPrivescSuidScenario }         from "./scenario-packs/linuxPri
 import { buildLateralMovementPthScenario }       from "./scenario-packs/lateralMovementPth";
 import { buildInsiderDlpUsbCloudScenario }       from "./scenario-packs/insiderDlpUsbCloud";
 import { buildNacRogueDeviceScenario }           from "./scenario-packs/nacRogueDevice";
+import { buildMacosStealerDmgScenario }          from "./scenario-packs/macosStealerDmg";
+import { buildSqliDbExfilScenario }              from "./scenario-packs/sqliDbExfil";
+import { buildAzureManagedIdentityAbuseScenario } from "./scenario-packs/azureManagedIdentityAbuse";
+import { buildCicdSupplyChainScenario }          from "./scenario-packs/cicdSupplyChain";
+import { buildUebaCompromisedAccountScenario }   from "./scenario-packs/uebaCompromisedAccount";
+import { buildVishingRmmScenario }               from "./scenario-packs/vishingRmm";
+import { buildPamVaultAbuseScenario }            from "./scenario-packs/pamVaultAbuse";
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
@@ -3465,6 +3472,43 @@ export const SCENARIOS = [
     difficulty: "beginner", attack_kind: "rogue_device",
     threat_actor: "Unauthorized insider / unmanaged device (physical network access)", build: withAlerts(buildNacRogueDeviceScenario),
     summary: "A rogue Windows laptop spoofs an HP printer's MAC to bypass MAB onto the corporate LAN; Cisco ISE profiling catches the OUI/fingerprint mismatch, posture fails, and NAC quarantines the port." },
+
+  // ── P2 use-case expansion (scenario-usecase-map: macOS, DB-layer, Azure-native, CI/CD, UEBA, social-eng, PAM) ──
+  { slug: "macos-stealer-dmg",
+    title: "macOS Stealer — a 'Cracked' App DMG Harvests Keychain, Cookies and Wallets",
+    difficulty: "intermediate", attack_kind: "macos_infostealer",
+    threat_actor: "Commodity macOS infostealer operator (Atomic/AMOS-family), distributing via pirated-app disk images", build: withAlerts(buildMacosStealerDmgScenario),
+    summary: "A pirated-app DMG carries an Atomic/AMOS-family stealer: it mounts, phishes the user's macOS password through a fake osascript dialog, then reads the login Keychain, browser cookies and a crypto wallet before zipping it all to an external host. A signed, notarized install of the same shape is the benign control — the malice is the source, not the file type." },
+  { slug: "sqli-db-exfil",
+    title: "SQL Injection to Database Exfiltration — Following the Attack Past the WAF",
+    difficulty: "advanced", attack_kind: "sql_injection",
+    threat_actor: "External web attacker automating SQL injection against a public storefront", build: withAlerts(buildSqliDbExfilScenario),
+    summary: "The WAF blocks the obvious ' OR 1=1 probe but the UNION and error-based payloads sail through a detection-mode rule — and the database audit shows what the WAF alert alone cannot: schema enumeration, a 248k-row PII dump, and xp_cmdshell OS execution. Learn to follow the injection past the perimeter into the DB where the data actually left." },
+  { slug: "azure-managed-identity-abuse",
+    title: "Azure App-Registration Credential Abuse — the Quiet Secret-Add Behind a Cloud Data-Access Alert",
+    difficulty: "advanced", attack_kind: "cloud_privilege_escalation",
+    threat_actor: "Cloud intrusion operator abusing a compromised workload identity (post-foothold)", build: withAlerts(buildAzureManagedIdentityAbuseScenario),
+    summary: "An attacker appends a new client secret to an over-permissioned Entra app registration, then authenticates non-interactively to Graph and ARM to enumerate the subscription, grant itself a role, and read Key Vault secrets and Storage keys. The loud data-access alert traces back to one quiet 'Add service principal credentials' audit line — a legitimate Terraform rotation is the benign look-alike." },
+  { slug: "cicd-supply-chain",
+    title: "Poisoned Pipeline — CI/CD Supply-Chain Compromise into the Cloud",
+    difficulty: "advanced", attack_kind: "supply_chain",
+    threat_actor: "Intrusion operator abusing a compromised repository maintainer account", build: withAlerts(buildCicdSupplyChainScenario),
+    summary: "A compromised maintainer mints a PAT, registers an attacker-controlled self-hosted runner, and pushes a workflow change through a branch-protection override — then the run trades its GitHub OIDC token for an AWS deploy role and reads S3 and Secrets Manager from outside AWS, which is what GuardDuty finally catches. An approved PR editing the same workflow is the benign control." },
+  { slug: "ueba-compromised-account",
+    title: "Behavioral Risk First — a UEBA-led Account-Compromise Hunt",
+    difficulty: "intermediate", attack_kind: "account_compromise",
+    threat_actor: "External actor operating a stolen session (cloud identity takeover — no host foothold)", build: withAlerts(buildUebaCompromisedAccountScenario),
+    summary: "The investigation starts not from a signature alert but from a Sentinel UEBA risk score: impossible travel, a mass SharePoint download, and a new inbox-forwarding rule on one entity. Pivot from the anomaly into the Entra sign-in and O365 audit to confirm a real token-replay compromise — and contrast it with a benign impossible-travel anomaly (corporate VPN, approved travel) that scores high but is not an attack." },
+  { slug: "vishing-rmm",
+    title: "Callback Vishing — RMM Install to Hands-on-Keyboard Discovery",
+    difficulty: "intermediate", attack_kind: "social_engineering",
+    threat_actor: "Voice-phishing initial-access operator (help-desk impersonation, RMM-enabled)", build: withAlerts(buildVishingRmmScenario),
+    summary: "A caller posing as IT security talks a payments clerk into installing signed, legitimate AnyDesk, then runs AD discovery hands-on-keyboard. The binary is trusted and the signature is valid — the signal is the context: an unsolicited install right after an inbound call, an RMM the bank does not deploy. A sanctioned ScreenConnect support session is the benign control of the identical shape." },
+  { slug: "pam-vault-abuse",
+    title: "PAM Vault Abuse — an Off-Hours Domain-Admin Checkout Used Outside PSM",
+    difficulty: "advanced", attack_kind: "privileged_access_abuse",
+    threat_actor: "Credential-abusing operator misusing a PAM-vaulted domain-admin account (insider or account takeover)", build: withAlerts(buildPamVaultAbuseScenario),
+    summary: "A CyberArk-vaulted domain-admin credential is retrieved off-hours with no dual-control and no change record, then replayed straight into servers — bypassing the monitored PSM proxy that policy requires. A privileged logon alone looks normal; the tell is the checkout record plus the credential used outside PSM. An approved break-glass checkout of the same account is the benign control." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
