@@ -758,9 +758,9 @@ export function buildInsiderDlpUsbCloudScenario(
       kind: "single",
       options: [
         { value: "destination_auth_context", label: "Destination and context: Reyes sends to a SANCTIONED corporate tenant under change ticket CHG-2026-0814, in a role whose job is bulk data movement, with no departure flag — Okafor sends labeled CLIENT data to an unsanctioned personal cloud and a USB, above his own baseline, days before his access is revoked" },
-        { value: "volume_decides", label: "Volume decides it — Reyes moved more data, so if anything her transfer is the higher-risk one and should be escalated first" },
-        { value: "dlp_fired_or_not", label: "Whether DLP fired — Okafor triggered policy matches and Reyes did not, so the DLP alerts alone cleanly separate the two with no further context needed" },
-        { value: "same_verdict", label: "Nothing meaningfully separates them; both are large sanctioned-network transfers and both should be treated as benign business activity" },
+        { value: "volume_decides", label: "Volume decides it — Reyes moved 1.4 GB against Okafor's ~584 MB, so by raw transfer size her upload is the objectively higher-risk one and should be escalated ahead of his" },
+        { value: "dlp_fired_or_not", label: "Whether DLP fired — Okafor triggered Purview policy matches and Reyes's transfer did not, so the presence or absence of a DLP alert alone cleanly separates the two cases with no further context needed" },
+        { value: "same_verdict", label: "Nothing meaningfully separates them — both are large transfers off the corporate network on the same afternoon by authenticated employees, so both should be logged and closed as ordinary benign business activity" },
       ],
       answer: "destination_auth_context",
       xp: 60,

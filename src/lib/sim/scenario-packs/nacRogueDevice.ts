@@ -240,8 +240,8 @@ export function buildNacRogueDeviceScenario(
       hostname: rogueHostname,
       src_ip: rogueIp,
       severity: "high",
-      mitre_technique: "T1557",
-      mitre_tactic: "Credential Access",
+      mitre_technique: "T1036",
+      mitre_tactic: "Defense Evasion",
       incident_id: INCIDENT,
       edr_scope: "non_edr",
       description:
@@ -352,7 +352,7 @@ export function buildNacRogueDeviceScenario(
       dst_ip: "10.30.9.55",
       severity: "high",
       mitre_technique: "T1078",
-      mitre_tactic: "Lateral Movement",
+      mitre_tactic: "Defense Evasion",
       incident_id: INCIDENT,
       edr_scope: "non_edr",
       description:
