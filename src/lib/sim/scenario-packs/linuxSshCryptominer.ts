@@ -120,7 +120,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "sshd on nix-bkp-01 logged an 'Invalid user' failure for jenkins from 89.248.165.32 on tcp/2202 — one representative record from a repeating pattern of generic usernames.",
+        "sshd on nix-bkp-01 (nix-bkp-01.northwind-logistics.io) logged 'Invalid user' failures for generic usernames on tcp/2202. This representative record is jenkins from 89.248.165.32; the same pattern arrived from three hosting-provider IPs — 89.248.165.32, 45.148.10.87 and 194.26.229.11.",
       authentication: { method: "password", result: "failure" },
       raw: {
         "data.program_name": "sshd",

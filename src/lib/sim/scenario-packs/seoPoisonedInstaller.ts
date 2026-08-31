@@ -24,7 +24,7 @@
  * (Credentials from Password Stores: Credentials from Web Browsers).
  *
  * SOURCE-LIGHT: only `edr` (Microsoft Defender for Endpoint) and `firewall`
- * (Palo Alto Networks NGFW) events.
+ * (Palo Alto Networks PAN-OS) events.
  *
  * NOTE: `difficulty: "foundation"` is declared on the SCENARIOS registry entry
  * in scenarios.ts (ScenarioBundle itself carries no difficulty field).
@@ -66,7 +66,7 @@ export function buildSeoPoisonedInstallerScenario(
       id: "evt_spi_01_ad_click",
       ts: T(0),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "http_request",
       hostname: host.hostname,
       user_email: victim.email,
@@ -116,7 +116,7 @@ export function buildSeoPoisonedInstallerScenario(
       id: "evt_spi_02_download",
       ts: T(45_000),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "http_request",
       hostname: host.hostname,
       user_email: victim.email,
@@ -258,7 +258,7 @@ export function buildSeoPoisonedInstallerScenario(
       id: "evt_spi_05_stage2_fetch",
       ts: T(3 * MIN + 14_000),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "http_request",
       hostname: host.hostname,
       user_email: victim.email,
@@ -433,7 +433,7 @@ export function buildSeoPoisonedInstallerScenario(
       id: "evt_spi_09_exfil",
       ts: T(7 * MIN),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "http_request",
       hostname: host.hostname,
       user_email: victim.email,

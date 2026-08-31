@@ -249,6 +249,8 @@ export function buildExfilFirstExtortionScenario(
       user_email: victim.email,
       src_ip: host.ip,
       severity: "high",
+      mitre_technique: "T1567.002", // Exfiltration to Cloud Storage — rclone copy to a 'mega' remote (Q1 cites evt_efe_04 as T1567.002)
+      mitre_tactic: "Exfiltration",
       is_detection: true, // alert-grade: the highest-severity EDR behavioural detection — a renamed rclone binary staged to exfiltrate the archive to cloud storage (the crux)
       edr_scope: "edr",   // endpoint-primary exfiltration incident → investigated in the EDR console
       description:
@@ -295,7 +297,7 @@ export function buildExfilFirstExtortionScenario(
       id: "evt_efe_05_session_start",
       ts: T(24 * MIN + 15_000),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection",
       hostname: host.hostname,
       user_email: victim.email,
@@ -335,7 +337,7 @@ export function buildExfilFirstExtortionScenario(
       id: "evt_efe_06_session_end",
       ts: T(59 * MIN),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection",
       hostname: host.hostname,
       user_email: victim.email,

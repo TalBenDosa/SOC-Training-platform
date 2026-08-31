@@ -192,7 +192,7 @@ export function buildEsxiRansomwareScenario(
       src_ip: tunnelIp,
       severity: "critical",
       mitre_technique: "T1078.001",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Privilege Escalation", // aligned with the killchain phase for this step; T1078.001 is valid under Privilege Escalation
       description:
         "vCenter recorded a UserLoginSessionEvent for VSPHERE.LOCAL\\Administrator from 10.99.8.44 via the vim-java client, session 52e1a3f9-7c40-4b18-9d02-6a1f88c3b410.",
       raw: {
@@ -480,6 +480,7 @@ export function buildEsxiRansomwareScenario(
       event_type: "edr_alert",
       hostname: "SQL-PROD-02",
       severity: "high",
+      is_detection: true,    // the ONE endpoint-side signal the SOC ever received — must surface under the "Detections only" filter
       edr_scope: "non_edr",  // ESXi ransomware — the host impact is on the hypervisor (vCenter/ESXi shell), not a Windows/Linux EDR process tree, so there's no walkable EDR case on this platform; investigated in vCenter/SIEM
       description:
         "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27, all of them guests on PROD-CLUSTER-A; the record for SQL-PROD-02 is shown, host status offline.",

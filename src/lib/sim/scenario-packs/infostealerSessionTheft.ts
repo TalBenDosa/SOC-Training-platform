@@ -30,7 +30,7 @@
  * Session Cookie), T1204.002 (User Execution: Malicious File) and
  * T1550.004 (Use Alternate Authentication Material: Web Session Cookie).
  *
- * SOURCES: edr (CrowdStrike Falcon), firewall (Palo Alto Networks NGFW),
+ * SOURCES: edr (CrowdStrike Falcon), firewall (Palo Alto Networks PAN-OS),
  * o365 (Microsoft Entra ID / Microsoft 365 Unified Audit Log).
  *
  * NOTE: `difficulty: "core"` is declared on the SCENARIOS registry entry in
@@ -174,7 +174,7 @@ export function buildInfostealerSessionTheftScenario(
       id: "evt_ist_02_lure_download",
       ts: T(3 * HOUR + 41 * MIN),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "http_request",
       hostname: host.hostname,
       user_email: victim.email,
@@ -387,7 +387,7 @@ export function buildInfostealerSessionTheftScenario(
       id: "evt_ist_07_exfil",
       ts: T(3 * HOUR + 47 * MIN + 24 * SEC),
       source: "firewall",
-      vendor: "Palo Alto Networks NGFW",
+      vendor: "Palo Alto Networks PAN-OS",
       event_type: "http_request",
       hostname: host.hostname,
       user_email: victim.email,

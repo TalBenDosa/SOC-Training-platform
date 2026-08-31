@@ -84,6 +84,8 @@ export function buildScheduledTaskPersistenceScenario(
       user_title: "HR Coordinator",
       src_ip: host.ip,
       severity: "low",
+      mitre_technique: "T1189", // Drive-by Compromise — web-delivered malicious script from a forum-linked "fix" (matches the killchain's "Initial Access" phase)
+      mitre_tactic: "Initial Access",
       description:
         "WS-7742 downloaded SpeedBoost_NetFix.ps1 from netfix-tools-download.com at 08:05, allowed under the category computer-and-internet-info.",
       file: { name: "SpeedBoost_NetFix.ps1", path: "/scripts/SpeedBoost_NetFix.ps1", extension: "ps1", size: 4_216, sha256: scriptHash },
