@@ -321,7 +321,9 @@ export function buildS3ExfilExposureScenario(
 
     // ─────────────────────────────────────────────────────────────────────
     // 6. THE BLAST RADIUS BEGINS — ListObjectsV2 enumerates the now-open
-    //    bucket from the external address (T1580).
+    //    bucket from the external address (T1619 — Cloud Storage Object
+    //    Discovery, not the broader T1580 Cloud Infrastructure Discovery,
+    //    since this is specifically object enumeration inside a bucket).
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "s3exfil_06_list_objects",
@@ -332,7 +334,7 @@ export function buildS3ExfilExposureScenario(
       user_title: "Service Account",
       src_ip: attackerIp,
       severity: "high",
-      mitre_technique: "T1580",
+      mitre_technique: "T1619",
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
@@ -622,7 +624,7 @@ Read as a whole, the case has a clean shape: the CloudTrail management events ar
       { ts: T(3 * MIN + 40 * SEC), phase: "Defense Evasion", action: "PutBucketPolicy — Principal \"*\" allowed s3:GetObject on the bucket (T1562.007)" },
       { ts: T(4 * MIN), phase: "Defense Evasion", action: "PutBucketAcl — AllUsers group granted READ (T1562.007)" },
       { ts: T(9 * MIN), phase: "Detection", action: `GuardDuty Policy:S3/BucketAnonymousAccessGranted on ${bucket}` },
-      { ts: T(11 * MIN), phase: "Discovery", action: `ListObjectsV2 — 20,000 keys enumerated from ${attackerIp} (T1580)` },
+      { ts: T(11 * MIN), phase: "Discovery", action: `ListObjectsV2 — 20,000 keys enumerated from ${attackerIp} (T1619)` },
       { ts: T(12 * MIN), phase: "Collection", action: `GetObject burst — 20,000 objects, 41 GB pulled from ${attackerIp} (T1530)` },
       { ts: T(20 * MIN), phase: "Detection", action: "GuardDuty Exfiltration:S3/ObjectRead.Unusual — the drain flagged (T1567)" },
       { ts: T(21 * MIN), phase: "Detection", action: "GuardDuty Discovery:S3/AnomalousBehavior — enumeration + reads correlated on the key (T1526)" },
