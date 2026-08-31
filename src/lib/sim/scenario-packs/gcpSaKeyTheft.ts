@@ -427,7 +427,8 @@ export function buildGcpSaKeyTheftScenario(
     // ─────────────────────────────────────────────────────────────────────
     // 7. SECRET PULL — the SA reads a Secret Manager secret version from the
     //    same external address: a warehouse connection string, a credential
-    //    that unlocks the next system (T1552.001 — Unsecured Credentials).
+    //    that unlocks the next system (T1555.006 — Credentials from Password
+    //    Stores: Cloud Secrets Management Stores).
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "gcpkey_07_access_secret",
@@ -438,7 +439,7 @@ export function buildGcpSaKeyTheftScenario(
       user_title: "Service Account",
       src_ip: attackerIp,
       severity: "critical",
-      mitre_technique: "T1552.001",
+      mitre_technique: "T1555.006",
       mitre_tactic: "Credential Access",
       incident_id: INCIDENT,
       description:
@@ -734,7 +735,7 @@ Event Threat Detection caught both halves: at 01:15 it raised Persistence: New S
       { ts: T(5 * MIN + 30 * SEC), phase: "Privilege Escalation", action: `GenerateAccessToken mints a token to act as ${targetSa} (T1078.004)` },
       { ts: T(7 * MIN), phase: "Discovery", action: `storage.objects.list indexes ${bucket} as the SA from ${attackerIp} (T1619)` },
       { ts: T(9 * MIN), phase: "Collection", action: `storage.objects.get burst — ~62 GB pulled from ${bucket} (T1530)` },
-      { ts: T(12 * MIN), phase: "Credential Access", action: `AccessSecretVersion reads ${secretName} as the SA (T1552.001)` },
+      { ts: T(12 * MIN), phase: "Credential Access", action: `AccessSecretVersion reads ${secretName} as the SA (T1555.006)` },
       { ts: T(15 * MIN), phase: "Detection", action: "Event Threat Detection — Persistence: New Service Account Key (T1098.001)" },
       { ts: T(24 * MIN), phase: "Detection", action: "Event Threat Detection — Exfiltration: Cloud Storage Object Read (T1567)" },
     ],
