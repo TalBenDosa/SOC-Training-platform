@@ -44,6 +44,12 @@ import { buildCicdSupplyChainScenario }          from "./scenario-packs/cicdSupp
 import { buildUebaCompromisedAccountScenario }   from "./scenario-packs/uebaCompromisedAccount";
 import { buildVishingRmmScenario }               from "./scenario-packs/vishingRmm";
 import { buildPamVaultAbuseScenario }            from "./scenario-packs/pamVaultAbuse";
+import { buildDestructiveWiperScenario }         from "./scenario-packs/destructiveWiper";
+import { buildS3ExfilExposureScenario }          from "./scenario-packs/s3ExfilExposure";
+import { buildGoldenSamlScenario }               from "./scenario-packs/goldenSaml";
+import { buildGwsOauthMarketplaceScenario }      from "./scenario-packs/gwsOauthMarketplace";
+import { buildThreatIntelHuntScenario }          from "./scenario-packs/threatIntelHunt";
+import { buildContainerEscapeCryptominingScenario } from "./scenario-packs/containerEscapeCryptomining";
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
@@ -3509,6 +3515,38 @@ export const SCENARIOS = [
     difficulty: "advanced", attack_kind: "privileged_access_abuse",
     threat_actor: "Credential-abusing operator misusing a PAM-vaulted domain-admin account (insider or account takeover)", build: withAlerts(buildPamVaultAbuseScenario),
     summary: "A CyberArk-vaulted domain-admin credential is retrieved off-hours with no dual-control and no change record, then replayed straight into servers — bypassing the monitored PSM proxy that policy requires. A privileged logon alone looks normal; the tell is the checkout record plus the credential used outside PSM. An approved break-glass checkout of the same account is the benign control." },
+
+  // ── P3 use-case expansion (scenario-usecase-map: wiper, S3 exfil, Golden SAML, GWS OAuth, threat-intel hunt, container escape) ──
+  { slug: "destructive-wiper",
+    title: "Destructive Wiper — an Endpoint Bricked, and No Way to Pay for It Back",
+    difficulty: "advanced", attack_kind: "destructive_attack",
+    threat_actor: "Destructive intrusion operator (data-destruction objective, wiper deployed via a compromised admin)", build: withAlerts(buildDestructiveWiperScenario),
+    summary: "It looks ransomware-adjacent — mass file overwrites, shadow copies deleted, recovery disabled, event logs cleared — but there is no ransom note, no key, and no decryptor C2, because the goal is destruction, not extortion. Learn to tell a wiper from ransomware by the absence of any recovery path, and why the response is rebuild-from-backup rather than negotiate. A change-ticketed IT secure-wipe is the benign control." },
+  { slug: "s3-exfil-exposure",
+    title: "Exposed Bucket — S3 Made Public, Then Emptied",
+    difficulty: "intermediate", attack_kind: "cloud_data_exfiltration",
+    threat_actor: "Operator abusing a leaked, over-permissioned IAM access key", build: withAlerts(buildS3ExfilExposureScenario),
+    summary: "A leaked IAM key disables Block Public Access and rewrites the bucket policy to public, then bulk-downloads tens of thousands of objects — and GuardDuty raises anonymous-access and exfiltration findings. The config-change management events are the origin; the GetObject burst from an internet address is the blast radius. A backup service role reading the same bucket from inside AWS is the benign control." },
+  { slug: "golden-saml",
+    title: "Golden SAML — a Federation Token With No Matching AD FS Issuance",
+    difficulty: "expert", attack_kind: "federation_abuse",
+    threat_actor: "Nation-state-style intrusion set abusing a compromised federation server (SolarWinds / APT29 TTP)", build: withAlerts(buildGoldenSamlScenario),
+    summary: "An attacker who owns the AD FS server steals the token-signing key and mints SAML assertions for privileged users straight to the cloud — no real logon at the identity provider. The defining tell is an absence: a federated sign-in accepted by Entra with no matching AD FS token-issuance event on-prem, and MFA satisfied by a claim already inside the token. A legitimate federated sign-in that does have its issuance record is the benign control." },
+  { slug: "gws-oauth-marketplace",
+    title: "Consent, Not Credentials — a Malicious OAuth App in Google Workspace",
+    difficulty: "intermediate", attack_kind: "oauth_abuse",
+    threat_actor: "Consent-phishing operator abusing a third-party OAuth app (cloud identity, no host foothold)", build: withAlerts(buildGwsOauthMarketplaceScenario),
+    summary: "A user is phished into authorizing a broad-scope OAuth app; the consent issues an offline refresh token that reads their mailbox and exfiltrates Drive over the API — no password, MFA irrelevant, and it survives the password reset the help desk tries. The consent grant is the persistence; the API access is the impact. A narrow-scope, admin-allowlisted app the user consents to normally is the benign control." },
+  { slug: "threat-intel-hunt",
+    title: "Threat-Intel Hunt — From a Recorded Future IOC Set to a Live Beacon",
+    difficulty: "intermediate", attack_kind: "threat_hunt",
+    threat_actor: "GLASSTHORN intrusion set (TEMP.Halberd) — SystemBC proxy-implant operator", build: withAlerts(buildThreatIntelHuntScenario),
+    summary: "This case opens with intelligence, not an alert: a Recorded Future risk-list update names a C2 domain, an IP and a malware hash tied to an active campaign. Sweep the estate and one workstation lights up — DNS to the C2, periodic proxy beacons, and the exact hash running on the host. Learn intel→sweep→confirm, and why a second host that matched a now-sinkholed indicator is a false hit, not a compromise." },
+  { slug: "container-escape-cryptomining",
+    title: "Container Escape to the Node — a Poisoned Image that Mines and Breaks Out",
+    difficulty: "advanced", attack_kind: "container_escape",
+    threat_actor: "Cloud-native intrusion operator (resource-hijacking, runtime breakout)", build: withAlerts(buildContainerEscapeCryptominingScenario),
+    summary: "A poisoned image is deployed as an over-permissive privileged pod, runs an XMRig miner, then uses host namespaces to break out of the container onto the Kubernetes worker node and reach a mining pool. The Kubernetes audit trail is the escape origin; the runtime miner and pool traffic are the impact. A sanctioned CNI DaemonSet that is privileged by design is the benign control — privileged alone is not the signal." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
