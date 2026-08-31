@@ -32,6 +32,11 @@ import { buildInfostealerSessionTheftScenario } from "./scenario-packs/infosteal
 import { buildEdgeVpnCveExploitScenario }        from "./scenario-packs/edgeVpnCveExploit";
 import { buildExfilFirstExtortionScenario }      from "./scenario-packs/exfilFirstExtortion";
 import { buildHelpdeskMfaResetScenario }         from "./scenario-packs/helpdeskMfaReset";
+import { buildWindowsPrivescTokenScenario }      from "./scenario-packs/windowsPrivescToken";
+import { buildLinuxPrivescSuidScenario }         from "./scenario-packs/linuxPrivescSuid";
+import { buildLateralMovementPthScenario }       from "./scenario-packs/lateralMovementPth";
+import { buildInsiderDlpUsbCloudScenario }       from "./scenario-packs/insiderDlpUsbCloud";
+import { buildNacRogueDeviceScenario }           from "./scenario-packs/nacRogueDevice";
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
@@ -3433,6 +3438,33 @@ export const SCENARIOS = [
     difficulty: "advanced", attack_kind: "exfiltration",
     threat_actor: "Exfiltration-only extortion crew (BianLian/Karakurt-style — no encryptor deployed)", build: withAlerts(buildExfilFirstExtortionScenario),
     summary: "Mass file reads, a 7-Zip archive, and a sustained upload to a cloud-storage host — then a demand. Nothing is encrypted and no ransom note lands on disk, which is exactly why grading this by 'what did they break' misses that it is a ransomware-class incident." },
+
+  // ── P1 use-case expansion (scenario-usecase-map: privilege escalation ×2, lateral movement, insider DLP, NAC) ──
+  { slug: "windows-privesc-token",
+    title: "SYSTEM in Twelve Seconds — Token Impersonation on an IIS Host",
+    difficulty: "intermediate", attack_kind: "windows_privilege_escalation",
+    threat_actor: "Post-exploitation operator on a compromised web-app service account", build: withAlerts(buildWindowsPrivescTokenScenario),
+    summary: "A non-admin IIS service account holds SeImpersonatePrivilege — and turns it into a SYSTEM shell via a named-pipe potato attack, then dumps the local SAM. The loud SAM export is downstream; the quiet 4672 is where it began." },
+  { slug: "linux-privesc-suid",
+    title: "www-data to Root — SUID find on an Ubuntu App Server",
+    difficulty: "intermediate", attack_kind: "linux_privilege_escalation",
+    threat_actor: "Opportunistic intruder operating a www-data web-shell foothold", build: withAlerts(buildLinuxPrivescSuidScenario),
+    summary: "A www-data foothold escalates to root by abusing a setuid /usr/bin/find (GTFOBins), reads /etc/shadow, and plants a uid-0 backdoor account — proven from auditd uid/euid/auid and a Falcon privilege-escalation detection." },
+  { slug: "lateral-movement-pth",
+    title: "Pass-the-Hash to the File Server, Second Hop to the DC",
+    difficulty: "intermediate", attack_kind: "lateral_movement",
+    threat_actor: "Hands-on-keyboard intrusion operator (post-foothold, credential-replay)", build: withAlerts(buildLateralMovementPthScenario),
+    summary: "An operator replays a stolen NTLM hash to log into a file server without a password, installs a remote service PsExec-style, and hops to a Domain Controller — learn to tell a pass-the-hash 4624 from a legitimate network logon." },
+  { slug: "insider-dlp-usb-cloud",
+    title: "Last Week on the Job — Insider Exfil via USB and Personal Cloud",
+    difficulty: "intermediate", attack_kind: "insider_data_theft",
+    threat_actor: "Malicious insider (departing employee, valid account — no external actor)", build: withAlerts(buildInsiderDlpUsbCloudScenario),
+    summary: "A departing Senior Financial Analyst copies labeled client data to a personal USB stick and uploads it to consumer Dropbox — every action allowed under his own account because Purview DLP is in Audit mode. Reach the verdict from audit-only DLP + HR context, not from any control that blocked." },
+  { slug: "nac-rogue-device",
+    title: "The Printer That Wasn't — Rogue Device Caught by NAC",
+    difficulty: "beginner", attack_kind: "rogue_device",
+    threat_actor: "Unauthorized insider / unmanaged device (physical network access)", build: withAlerts(buildNacRogueDeviceScenario),
+    summary: "A rogue Windows laptop spoofs an HP printer's MAC to bypass MAB onto the corporate LAN; Cisco ISE profiling catches the OUI/fingerprint mismatch, posture fails, and NAC quarantines the port." },
 ] as const;
 
 // ─── Impossible Travel — Account Compromise via Stolen Credentials ────────────
