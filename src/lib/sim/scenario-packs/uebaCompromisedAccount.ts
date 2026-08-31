@@ -109,6 +109,7 @@ export function buildUebaCompromisedAccountScenario(
       user_title: benign.title,
       src_ip: benign.ip,
       severity: "informational",
+      expected_verdict: "fp",
       fp_explanation:
         "Benign. r.laurent tripped ImpossibleTravelActivity the same night, but the sign-in is corroborated: an approved travel record for Singapore, egress over the known corporate-VPN ASN, a compliant managed device, and a satisfied MFA requirement. The anomaly score is real, the verdict is not a compromise — a UEBA score is a reason to look, not a conclusion. Contrast with j.almeida, whose sign-in has none of that corroboration.",
       description:

@@ -153,8 +153,8 @@ export function buildPamVaultAbuseScenario(
       user_title: engineer.title,
       src_ip: engineerWs.ip,
       severity: "high",
-      mitre_technique: "T1078.002",
-      mitre_tactic: "Defense Evasion",
+      mitre_technique: "T1555.005",
+      mitre_tactic: "Credential Access",
       incident_id: INCIDENT,
       description:
         "CyberArk recorded a Retrieve Password on the domain-admin object adm-nexa-da at 02:10 from WKS-ROPS-14: retrieval method Copy, dual control not confirmed, no linked access request or change record, and no PSM session opened.",
@@ -633,7 +633,7 @@ export function buildPamVaultAbuseScenario(
     iocs,
     killchain: [
       { ts: "2026-08-23T03:02:11Z", phase: "Baseline", action: `Break-glass PSM checkout of ${daAccount} — dual-control confirmed, change CHG0049211, recorded PSM session: the sanctioned control case` },
-      { ts: T(0), phase: "Credential Access", action: `CyberArk Retrieve Password (Copy) on ${daAccount} — no dual control, no change record, no PSM session (T1078.002)` },
+      { ts: T(0), phase: "Credential Access", action: `CyberArk Retrieve Password (Copy) on ${daAccount} — no dual control, no change record, no PSM session (T1555.005)` },
       { ts: T(3 * MIN), phase: "Defense Evasion", action: `4768 TGT for ${daAccount} requested from ${engineerWs.hostname} — the copied credential authenticating (T1078.002)` },
       { ts: T(4 * MIN), phase: "Lateral Movement", action: `4624 LogonType 10 (RDP) on ${finDb.hostname} from ${engineerWs.hostname} — direct, not via the PSM proxy (T1021.001)` },
       { ts: T(4 * MIN + 5 * SEC), phase: "Privilege Escalation", action: "4672 — the RDP session carries domain-admin privileges (T1078.002)" },
