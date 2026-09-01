@@ -533,52 +533,76 @@ function deepReplace(value: unknown, pairs: [string, string][]): unknown {
  * the new name while the raw log (which the student is told to quote exactly)
  * still carried the original, so an exact quote was scored as fabricated evidence.
  */
-export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[]): AttackStory {
-  if (Math.random() < 0.5) return s;
-
-  // Most frequent non-service victim in the story
-  const counts = new Map<string, number>();
-  for (const e of s.events) {
-    if (e.user_email && !SERVICE_ACCOUNT.test(e.user_email)) {
-      counts.set(e.user_email, (counts.get(e.user_email) ?? 0) + 1);
-    }
+export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string): AttackStory {
+  // L-03: the attack chain is authored on one EDR (CrowdStrike). Make it arrive on
+  // the EDR the active company actually runs, so "Switch Company" is a real change of
+  // telemetry — not the same CrowdStrike attack under a different company name. This
+  // runs ALWAYS (independent of the 50% identity reshuffle below).
+  if (companyEdr) {
+    s = {
+      ...s,
+      events: s.events.map(e =>
+        e.source === "edr" && e.vendor && e.vendor !== companyEdr ? { ...e, vendor: companyEdr } : e
+      ),
+    };
   }
-  const victim = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  if (!victim) return s;
 
-  // Replacement candidates from the company pool
-  const seen = new Set<string>();
-  const users: string[] = [];
+  // L-03 (upgraded to CRITICAL): route the attack chain through the SAME company
+  // adaptation the baseline already gets, and do it ALWAYS (not 50% of the time).
+  // Otherwise the attack betrays itself in three more ways beyond the vendor: on a
+  // SentinelOne shop every CrowdStrike event IS the attack; the one hostname that
+  // doesn't match the asset pool is the attack; the one email domain that isn't the
+  // company's is the attack. Swap victim→company roster, hostnames→company assets,
+  // and the internal domain→the company's, so the incident reads as native.
+  const roster: string[] = [];  const rSeen = new Set<string>();
+  const hostPool: string[] = []; const hSeen = new Set<string>();
+  const domainCount = new Map<string, number>();
   for (const e of companyPool) {
     const u = e.user_email;
-    if (!u || SERVICE_ACCOUNT.test(u) || u === victim || seen.has(u)) continue;
-    seen.add(u); users.push(u);
+    if (u && !SERVICE_ACCOUNT.test(u) && !rSeen.has(u)) { rSeen.add(u); roster.push(u); }
+    if (u && u.includes("@")) { const d = u.split("@")[1]; domainCount.set(d, (domainCount.get(d) ?? 0) + 1); }
+    const h = e.hostname;
+    if (h && !hSeen.has(h)) { hSeen.add(h); hostPool.push(h); }
   }
-  if (users.length === 0) return s;
+  const companyDomain = [...domainCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 
-  const replacement = users[Math.floor(Math.random() * users.length)];
-  const origName = victim.split("@")[0];              // e.g. "j.smith"
-  const newName  = replacement.split("@")[0];         // e.g. "r.cohen"
-  // Every form the victim's identity takes across banner + raw log. Longest
-  // first so the full email is replaced before its bare username substring.
-  const basePairs: [string, string][] = [
-    [victim, replacement],
-    [origName, newName],
-    [origName.replace(/\./g, ""), newName.replace(/\./g, "")], // "jsmith" -> "rcohen"
-  ];
-  const pairs = basePairs
-    .filter(([f, t]) => f && t && f !== t)
-    .sort((a, b) => b[0].length - a[0].length);
+  const pairs: [string, string][] = [];
 
-  const subStr = (str: string) => { let o = str; for (const [f, t] of pairs) if (str.includes(f)) o = o.split(f).join(t); return o; };
+  // Victim identity → a company roster user, in every form it appears (full email,
+  // dotted name, squashed name). Longest-first so the email is replaced before the
+  // bare username substring.
+  const counts = new Map<string, number>();
+  for (const e of s.events) if (e.user_email && !SERVICE_ACCOUNT.test(e.user_email)) counts.set(e.user_email, (counts.get(e.user_email) ?? 0) + 1);
+  const victim = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const replacement = roster.length ? roster[Math.floor(Math.random() * roster.length)] : undefined;
+  if (victim && replacement && victim !== replacement) {
+    const on = victim.split("@")[0], nn = replacement.split("@")[0];
+    pairs.push([victim, replacement], [on, nn], [on.replace(/\./g, ""), nn.replace(/\./g, "")]);
+  }
+
+  // Internal email domain → the company's (catches any other internal identity that
+  // still carried the story's baked-in domain, e.g. cryotech.com on a MedCore feed).
+  const victimDomain = victim?.includes("@") ? victim.split("@")[1] : undefined;
+  if (victimDomain && companyDomain && victimDomain !== companyDomain) pairs.push([victimDomain, companyDomain]);
+
+  // Story hostnames → the company's asset pool (deterministic per distinct host).
+  const storyHosts = [...new Set(s.events.map(e => e.hostname).filter((h): h is string => !!h))];
+  const hostMap = new Map<string, string>();
+  storyHosts.forEach((h, i) => { const t = hostPool.length ? hostPool[i % hostPool.length] : h; if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); } });
+
+  const clean = pairs.filter(([f, t]) => f && t && f !== t).sort((a, b) => b[0].length - a[0].length);
+  if (clean.length === 0) return s;
+
+  const subStr = (str: string) => { let o = str; for (const [f, t] of clean) if (o.includes(f)) o = o.split(f).join(t); return o; };
 
   return {
     ...s,
     events: s.events.map(e => ({
       ...e,
-      user_email: e.user_email === victim ? replacement : e.user_email,
+      user_email: victim && e.user_email === victim && replacement ? replacement : e.user_email,
+      hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
       description: e.description ? subStr(e.description) : e.description,
-      raw: e.raw ? (deepReplace(e.raw, pairs) as typeof e.raw) : e.raw,
+      raw: e.raw ? (deepReplace(e.raw, clean) as typeof e.raw) : e.raw,
     })),
   };
 }

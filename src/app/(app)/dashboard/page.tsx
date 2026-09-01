@@ -91,7 +91,7 @@ const SOURCES = [
   { value: "all",        label: "All Sources" },
   { value: "edr",        label: "EDR" },
   { value: "ad",         label: "Active Directory" },
-  { value: "windows_security", label: "Windows Event Viewer" },
+  { value: "windows_security", label: "Windows Security" },
   { value: "o365",       label: "Office 365" },
   { value: "gws",        label: "Google Workspace" },
   { value: "okta",       label: "Okta" },
@@ -274,9 +274,16 @@ function StartTrainingModal({
 // simData.ts; the dashboard has it in hand before any pool is ever needed
 // (loaded at "Start Training").
 function getCompanyEvents(sim: SimData, id: string) {
-  if (id === "nexacorp") return sim.BENIGN_EVENTS.filter(e => e.source !== "dns");
-  const pool = sim.COMPANY_EVENTS[id] ?? sim.BENIGN_EVENTS;
-  return pool.filter(e => e.source !== "dns");
+  const base = id === "nexacorp" ? sim.BENIGN_EVENTS : (sim.COMPANY_EVENTS[id] ?? sim.BENIGN_EVENTS);
+  // L-03 / L-09: emit ONLY the sources this company's architecture actually runs.
+  // The pool used to leak 12+ sources — a second competing EDR, AWS WAF/RDS on an
+  // Azure estate, DLP/Linux/email that the company never declared — regardless of
+  // the stack, which contradicts the Security-Products and Asset-Context rooms and
+  // left the source filter menu (correctly limited to the declared sources) unable
+  // to select half of what was on screen. Aligning the feed to architecture.sources
+  // makes "Switch Company" a real change of telemetry and makes the filter complete.
+  const active = new Set(getCompanyProfile(id).architecture?.sources ?? []);
+  return base.filter(e => e.source !== "dns" && (active.size === 0 || active.has(e.source)));
 }
 
 function getCompanyProfile(id: string) {
@@ -508,8 +515,11 @@ export default function DashboardPage() {
   };
   const resolveStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string, difficulty?: Difficulty): AttackStory => {
     const o = orgMap.get(id);
-    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id));
-    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id));
+    // L-03: pass the company's declared EDR so the attack arrives on the product it
+    // actually runs (SentinelOne for MedCore, Sophos for GlobalLogis, …) instead of
+    // always CrowdStrike.
+    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr);
+    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id), getCompanyProfile(id).architecture?.edr);
   };
 
   // Empty until sim loads; the real pool is handed to the feed via live.reset()
@@ -745,11 +755,16 @@ export default function DashboardPage() {
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
     setWindowRemainingMs(null);
+    try { sessionStorage.removeItem("soc_dash_session"); } catch { /* ignore */ }
     handleClearCompany();       // secure → Company-Secured modal → unlock next
   };
 
   // ── Start training ─────────────────────────────────────────────────────────────
-  const handleStartTraining = async (difficulty: Difficulty) => {
+  const handleStartTraining = async (difficulty: Difficulty, companyOverride?: string) => {
+    // `companyOverride` is set only by the on-refresh resume (see the mount effect
+    // below); normal starts use the currently-selected company.
+    const company = companyOverride ?? selectedCompanyId;
+    if (companyOverride && companyOverride !== selectedCompanyId) setSelectedCompanyId(companyOverride);
     // Fresh session for the current company at the chosen difficulty. A new
     // attack story is picked at RANDOM within the difficulty's complexity
     // tier and kept hidden — the objective text never reveals the attack
@@ -769,7 +784,7 @@ export default function DashboardPage() {
     // authored environment, not the generic built-in pool (fast-click race).
     const orgs = orgLoadRef.current ? await orgLoadRef.current.catch(() => orgCompanies) : orgCompanies;
     const orgMap = new Map(orgs.map(c => [c.profile.id, c]));
-    const story = resolveStory(s, orgMap, selectedCompanyId, difficulty);
+    const story = resolveStory(s, orgMap, company, difficulty);
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
@@ -790,8 +805,30 @@ export default function DashboardPage() {
       localStorage.removeItem("edr_live_investigation");
     } catch { /* ignore */ }
     setEdrInvestigated(false);
-    live.reset(resolveEvents(s, orgMap, selectedCompanyId), story);
+    live.reset(resolveEvents(s, orgMap, company), story);
+    // L-09: remember the active shift so a page refresh resumes it instead of
+    // dropping the feed back to an idle 0-event dashboard. Session-scoped: it
+    // lives only for this tab and is cleared when the shift is secured.
+    try { sessionStorage.setItem("soc_dash_session", JSON.stringify({ c: company, d: difficulty })); } catch { /* ignore */ }
   };
+
+  // L-09: on a page refresh mid-shift, resume the session instead of dropping the
+  // analyst back to an idle 0-event feed. Runs once on mount; the marker is written
+  // by handleStartTraining and cleared when a shift is secured.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current) return;
+    resumedRef.current = true;
+    let saved: { c?: string; d?: Difficulty } | null = null;
+    try {
+      const raw = sessionStorage.getItem("soc_dash_session");
+      if (raw) saved = JSON.parse(raw);
+    } catch { saved = null; }
+    if (saved?.c && (saved.d === "easy" || saved.d === "medium" || saved.d === "hard")) {
+      void handleStartTraining(saved.d, saved.c);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Dismiss the positive "Learning Moment" debrief and CONTINUE the shift. This

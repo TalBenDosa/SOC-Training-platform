@@ -165,11 +165,20 @@ function buildRuleId(event: TelemetryEvent, index: number): string {
 }
 
 function buildDescription(event: TelemetryEvent): string {
-  // Prefer the event's own authored description — these are written as clear,
-  // plain sentences for beginners and read far better than the verbose raw
-  // Windows Event Viewer text (e.g. "The domain controller attempted to
-  // validate the credentials for an account").
-  if (event.description && event.description.trim().length > 12) return event.description;
+  // L-05 — the authored description states the CONCLUSION on attack events (names
+  // the tool, does the base32/base64 math, gives the domain age, decodes the TXT),
+  // which the banner promises the analyst will do themselves. Noise descriptions,
+  // by contrast, are factual ("LT-ENG-4400 looked up login.microsoftonline.com").
+  // So the authored line is only used for NON-attack events (no mitre_technique);
+  // attack events fall through to the factual, observable-derived line below. The
+  // interpretation is revealed in the report/debrief, not handed over in the feed.
+  // The authored description is a clear, beginner-friendly line — used for NON-attack
+  // events (whose authored text is factual). Attack events (mitre_technique present)
+  // skip it and fall through to the observable-derived line, so the feed describes
+  // rather than explains.
+  if (!event.mitre_technique && event.description && event.description.trim().length > 12) {
+    return event.description;
+  }
 
   // Otherwise fall back to the exact Event Viewer description text for the code
   const eventCode = event.raw?.["event.code"] as string | undefined;

@@ -167,7 +167,7 @@ export function HintPanel({ story, resetKey }: Props) {
           Stuck?
         </span>
         <span className="text-[11px] text-slate-400">
-          Optional nudges — methodology guidance only. They never reveal the answer, and asking costs nothing.
+          Optional nudges — they point you at where to look, never at the verdict, and asking costs nothing.
         </span>
         <button
           onClick={() => setOpen((v) => !v)}
