@@ -20,6 +20,13 @@ const ROOT = process.cwd();
 const { SCENARIOS } = await import(
   pathToFileURL(path.join(ROOT, "src/lib/sim/scenarios.ts")).href
 );
+const { SCENARIO_PREP } = await import(
+  pathToFileURL(path.join(ROOT, "src/lib/scenarios/prep.ts")).href
+);
+const { ROOMS_META } = await import(
+  pathToFileURL(path.join(ROOT, "src/data/roomsMeta.ts")).href
+);
+const ROOM_IDS = new Set(ROOMS_META.map(r => r.id));
 
 const VALID_SOURCES = new Set([
   "edr","sysmon","av","windows_security","linux_audit",
@@ -126,6 +133,18 @@ for (const [vn, rec] of vendorIndex) {
   }
   if (rec.spellings.size > 1) {
     add("WARN", "(corpus)", vn, `vendor has ${rec.spellings.size} spellings: ${[...rec.spellings].join(" / ")} — pick one canonical label`);
+  }
+}
+
+// ── F-10 prerequisites: every scenario recommends real, taught rooms ─────────
+for (const def of SCENARIOS) {
+  const prep = SCENARIO_PREP[def.slug];
+  if (!prep || prep.length === 0) {
+    add("ERROR", def.slug, "prerequisites", "no 'Recommended first' rooms declared in src/lib/scenarios/prep.ts (F-10)");
+    continue;
+  }
+  for (const id of prep) {
+    if (!ROOM_IDS.has(id)) add("ERROR", def.slug, "prerequisites", `prerequisite room "${id}" does not exist in ROOMS_META (F-10)`);
   }
 }
 

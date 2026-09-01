@@ -7,6 +7,8 @@ import { LibraryCard } from "@/components/ui/LibraryCard";
 import { SCENARIOS } from "@/lib/sim/scenarios";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
+import { SCENARIO_PREP } from "@/lib/scenarios/prep";
+import { ROOMS_META } from "@/data/roomsMeta";
 import {
   Sparkles, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
   BotIcon, EyeOff, GraduationCap, Target, ArrowRight,
@@ -19,38 +21,10 @@ import {
 // specific prior knowledge to the rooms that teach it, and the card shows a
 // SOFT "recommended first" hint (never a hard lock — self-paced learners keep
 // full freedom). Beginner scenarios are intentionally unmapped: no hint.
-const ROOM_LABEL: Record<string, string> = {
-  "active-directory": "Active Directory",
-  "kerberos-authentication": "Kerberos",
-  "identity-basics": "Identity Basics",
-  "auth-identity-monitoring": "Auth & Identity Monitoring",
-  "windows-protocols-lateral": "Windows Protocols & Lateral Movement",
-  "web-application-security": "Web App Security",
-  "cloud-security-monitoring": "Cloud Security Monitoring",
-  "tunneling-c2-channels": "Tunnelling & C2",
-  "malware-analysis-fundamentals": "Malware Analysis",
-  "endpoint-security-fundamentals": "Endpoint Security",
-  "linux-log-analysis": "Linux Log Analysis",
-  "mitre-attack": "MITRE ATT&CK",
-  "windows-event-logs": "Windows Event Logs",
-};
-const SCENARIO_PREP: Record<string, string[]> = {
-  "kerberoasting":               ["active-directory", "kerberos-authentication"],
-  "asrep-roasting":              ["active-directory", "kerberos-authentication"],
-  "dcsync-golden-ticket":        ["active-directory", "kerberos-authentication"],
-  "ntlm-relay-responder":        ["active-directory", "windows-protocols-lateral"],
-  "aitm-token-theft":            ["identity-basics", "auth-identity-monitoring"],
-  "oauth-app-persistence":       ["identity-basics", "cloud-security-monitoring"],
-  "oauth-consent-grant-phishing":["identity-basics", "cloud-security-monitoring"],
-  "dns-tunneling":               ["tunneling-c2-channels"],
-  "lolbins":                     ["windows-event-logs", "mitre-attack"],
-  "web-shell-sqli":              ["web-application-security"],
-  "ransomware-lockbit":          ["endpoint-security-fundamentals", "malware-analysis-fundamentals"],
-  "esxi-ransomware":             ["endpoint-security-fundamentals", "malware-analysis-fundamentals"],
-  "k8s-pod-escape-imds":         ["cloud-security-monitoring"],
-  "cloud-cryptomining":          ["cloud-security-monitoring"],
-  "linux-ssh-cryptominer":       ["linux-log-analysis"],
-};
+// Real room titles for the "recommended first" hint, from the client-safe meta —
+// so every prerequisite renders its actual room name (F-10). SCENARIO_PREP now
+// lives in @/lib/scenarios/prep (shared with the integrity gate) and covers all 67.
+const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.title]));
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -187,7 +161,7 @@ export default function ScenariosPage() {
                   <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/25 bg-amber-500/5 px-2.5 py-2 text-[11px] text-amber-200/90">
                     <GraduationCap className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
                     <span>Recommended first: {prepGaps(s.slug).map((id, i) => (
-                      <span key={id} className="text-amber-100">{i > 0 ? ", " : ""}{ROOM_LABEL[id] ?? id}</span>
+                      <span key={id} className="text-amber-100">{i > 0 ? ", " : ""}{ROOM_TITLE[id] ?? id}</span>
                     ))}</span>
                   </div>
                 )}
