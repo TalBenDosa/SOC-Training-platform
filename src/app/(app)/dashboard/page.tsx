@@ -414,6 +414,9 @@ export default function DashboardPage() {
   // Timestamps of attacks caught this run — drives the "2 attacks in 30 minutes →
   // auto-advance" rule. caughtInWindow mirrors the count within the window for UI.
   const caughtTimesRef = useRef<number[]>([]);
+  // Incidents already counted toward the auto-advance rule — dedup so a
+  // re-submitted passing report can't double-count, double-award XP, or re-arm.
+  const countedIncidentIdsRef = useRef<Set<string>>(new Set());
   const [caughtInWindow, setCaughtInWindow] = useState(0);
   // Time left (ms) to catch the next attack before the oldest catch rolls out of
   // the 30-min window — null when there are no catches in the window yet.
@@ -653,6 +656,7 @@ export default function DashboardPage() {
     setSourceFilter("all");
     setReportPassed(false);
     caughtTimesRef.current = [];
+    countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
     setWindowRemainingMs(null);
     // Picking a company does NOT start the feed — it waits for Start Training.
@@ -731,6 +735,7 @@ export default function DashboardPage() {
     setSessionDifficulty(null);
     setTrainingActive(false);   // lock the EDR console again
     caughtTimesRef.current = [];
+    countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
     setWindowRemainingMs(null);
     handleClearCompany();       // secure → Company-Secured modal → unlock next
@@ -770,6 +775,7 @@ export default function DashboardPage() {
     setTrainingActive(true);
     armedNextRef.current = false;   // fresh session — next attack arms only after the first report
     caughtTimesRef.current = [];    // fresh catch window for the auto-advance rule
+    countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
     setWindowRemainingMs(null);
     try {
@@ -1529,11 +1535,19 @@ export default function DashboardPage() {
             responseMs={live.lastResponseMs ?? (live.attackTimerSeconds != null ? live.attackTimerSeconds * 1000 : null)}
             responseTargetSeconds={live.responseTargetSeconds}
             onClose={closeReport}
-            onPassed={async () => {
+            onPassed={async (score: number) => {
               setReportPassed(true);
               // Report filed — clear the EDR "don't forget" reminder.
               try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
               setEdrInvestigated(false);
+
+              // Dedup: count each incident exactly once. The modal's submit stays
+              // interactive after a pass, so a re-submitted passing report must not
+              // double-count toward auto-advance, re-award XP, or re-arm an attack.
+              const incidentId = live.activeIncident?.id ?? null;
+              if (incidentId && countedIncidentIdsRef.current.has(incidentId)) return;
+              if (incidentId) countedIncidentIdsRef.current.add(incidentId);
+
               // A passing report IS the catch — register it for real. Without
               // this, markCaught() was never called from anywhere: the SLA
               // never cleared on a correct report, avgCatchMs/attacksCaughtCount
@@ -1541,16 +1555,26 @@ export default function DashboardPage() {
               // later and count a genuinely-caught attack as missed.
               const caughtIds = live.activeIncident?.eventIds ?? [];
               if (caughtIds.length > 0) live.markCaught(caughtIds[0]);
-              // Auto-advance rule: record this catch's time, keep only those inside
-              // the rolling window, and if the student has now caught ADVANCE_CATCHES
-              // within ADVANCE_WINDOW_MS, secure the company automatically and stop.
-              const now = Date.now();
-              caughtTimesRef.current = [...caughtTimesRef.current, now].filter(t => now - t <= ADVANCE_WINDOW_MS);
-              setCaughtInWindow(caughtTimesRef.current.length);
-              setWindowRemainingMs(caughtTimesRef.current.length > 0 ? Math.max(0, caughtTimesRef.current[0] + ADVANCE_WINDOW_MS - now) : null);
-              if (caughtTimesRef.current.length >= ADVANCE_CATCHES && !clearedCompanies.includes(selectedCompanyId)) {
-                autoAdvanceCompany();
-                return; // advancing — don't arm another attack for this (now secured) company
+
+              // Reward the catch with SESSION XP proportional to the report score
+              // so the XP chip moves on every good report (was: 0 until the mission
+              // bonus at advance). Session-scoped via live.addXp — per PM audit F3 /
+              // migration 0035 the dashboard's XP never touches rank/profiles.xp.
+              live.addXp(Math.max(25, Math.round(score * 1.5)));
+
+              // Auto-advance rule: only a real incident counts. Record this catch's
+              // time, keep only those inside the rolling window, and if the student
+              // has now caught ADVANCE_CATCHES within ADVANCE_WINDOW_MS, secure the
+              // company automatically and stop.
+              if (incidentId) {
+                const now = Date.now();
+                caughtTimesRef.current = [...caughtTimesRef.current, now].filter(t => now - t <= ADVANCE_WINDOW_MS);
+                setCaughtInWindow(caughtTimesRef.current.length);
+                setWindowRemainingMs(caughtTimesRef.current.length > 0 ? Math.max(0, caughtTimesRef.current[0] + ADVANCE_WINDOW_MS - now) : null);
+                if (caughtTimesRef.current.length >= ADVANCE_CATCHES && !clearedCompanies.includes(selectedCompanyId)) {
+                  autoAdvanceCompany();
+                  return; // advancing — don't arm another attack for this (now secured) company
+                }
               }
               // ONE incident at a time: only now — with the current one reported —
               // do we arm the NEXT attack, and only once per incident. It lands

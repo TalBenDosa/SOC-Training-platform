@@ -74,7 +74,7 @@ interface Props {
   /** Response-time target in seconds — the coaching benchmark (default 15 min). */
   responseTargetSeconds?: number;
   onClose: () => void;
-  onPassed: () => void;
+  onPassed: (score: number) => void;
 }
 
 export function IncidentReportModal({
@@ -176,7 +176,7 @@ export function IncidentReportModal({
       const data: IncidentReportResponse = await res.json();
       setResult(data);
       setPassed(data.passed);
-      if (data.passed) { onPassed(); localStorage.removeItem(draftKey); }
+      if (data.passed) { onPassed(data.score); localStorage.removeItem(draftKey); }
       setPhase("result");
     } catch {
       // NEVER fail-open. A network/grader failure must not award a pass — that
