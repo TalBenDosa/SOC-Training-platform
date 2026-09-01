@@ -53,7 +53,7 @@ export function WorkflowGuide({ reportPassed }: Props) {
 
         {reportPassed && (
           <span className="ml-auto text-[11px] font-bold text-neon-green">
-            Objective complete — end the session to secure the company 🏆
+            Report accepted — catch 2 attacks within 30 minutes and the company is secured automatically 🏆
           </span>
         )}
       </div>
