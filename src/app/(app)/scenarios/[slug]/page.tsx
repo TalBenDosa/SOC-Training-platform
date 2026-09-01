@@ -40,12 +40,36 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     // fields and the rest of the raw block. Server-enforced, so none of this is
     // readable in view-source during the investigation. Grading uses the real
     // bundle on the server, so nothing here affects the score.
+    //
+    // The same rule applies to a handful of TYPED fields that exist ONLY to carry
+    // the answer key on the object itself — these were missed by the original F-02
+    // pass because they are not literally named "description":
+    //   - fp_explanation            → an analyst write-up of why an FP event LOOKS
+    //                                 alarming but is actually benign — a verdict
+    //                                 and its reasoning, in prose, on the event.
+    //   - expected_verdict          → literally "tp"/"fp" ground truth for the event.
+    //   - it_verify_result/_message → "confirmed" means "mark benign", "unverified"
+    //                                 means "treat as suspicious" — the verdict
+    //                                 spelled out as an enum.
+    // All three survive untouched through `...e` and were readable in full via the
+    // per-row "Raw JSON" toggle (`JSON.stringify(ev, null, 2)` in ScenarioClient),
+    // i.e. the exact leak F-02 was written to close, just on different field names.
     events: (bundle.events ?? []).map(e => {
       const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
       for (const k of Object.keys(raw)) {
         if (/\.description$/i.test(k)) delete raw[k];
       }
-      return { ...e, description: undefined, mitre_technique: undefined, mitre_tactic: undefined, raw };
+      return {
+        ...e,
+        description: undefined,
+        mitre_technique: undefined,
+        mitre_tactic: undefined,
+        fp_explanation: undefined,
+        expected_verdict: undefined,
+        it_verify_result: undefined,
+        it_verify_message: undefined,
+        raw,
+      };
     }),
     questions: bundle.questions.map(q => ({
       ...q,

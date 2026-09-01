@@ -7994,13 +7994,58 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
         "GeoLocation.country_name": "Russia",
       },
     },
+    {
+      // The SIEM correlation record. Okta writes ONE user.session.start /
+      // push_response event per attempt (see the "Representative record" notes
+      // above) — the 47/12/60 totals that make this MFA fatigue rather than one
+      // denied push are SIEM-side aggregates, never a field on a single Okta
+      // record, and (since F-02) the analyst-facing `description` that used to
+      // state them is stripped during the investigation. Without a structured
+      // place for the counts to live, the sweep pattern was unverifiable from the
+      // visible telemetry alone — an analyst could still guess the right multiple
+      // -choice option, but could not confirm it, from data. This event puts the
+      // counts where a real Sentinel analytics rule actually would: as fields on
+      // its own correlation record — the same pattern already used for the
+      // backup-agent false-positive scenario's HighVolumeFileAccess_SingleAccount
+      // rule (evt_bkpfp_10_correlation).
+      id: "mfa_11_correlation",
+      ts: T(25 * MIN),
+      source: "siem", vendor: "Microsoft Sentinel",
+      event_type: "ueba_anomaly", severity: "critical", mitre_technique: "T1621", mitre_tactic: "Credential Access",
+      hostname: "okta-idp.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
+      description: "Sentinel rule MFAFatigue_ExcessivePushWithSuccess correlated j.chen's Okta activity across a 764-second window ending at the approved push.",
+      raw: {
+        "AlertName": "MFAFatigue_ExcessivePushWithSuccess",
+        "alert.rule.id": "SEN-MFA-0114",
+        "target.user.name": "j.chen@nexacorp.com",
+        "host.name": "okta-idp.nexacorp.com",
+        "ExtendedProperties.Window Start": T(0),
+        "ExtendedProperties.Window End": T(12 * MIN + 44_000),
+        "ExtendedProperties.Time window (s)": 764,
+        "ExtendedProperties.Auth Failure Count": 47,
+        "ExtendedProperties.MFA Push Denied Count": 12,
+        "ExtendedProperties.MFA Push Total Count": 60,
+        "ExtendedProperties.MFA Push Approved Count": 1,
+        "ExtendedProperties.Source Country": "Russia",
+        "ExtendedProperties.Source IP": "91.108.4.33",
+        "event.action": "correlation-alert",
+        "event.outcome": "alerted",
+      },
+    },
   ];
 
   const iocs: IOC[] = [
     { type: "ip",     value: "91.108.4.33",                            reputation: "malicious", tags: ["external-infrastructure", "moscow", "telegram-datacenter"] },
     { type: "email",  value: "j.chen.backup@proton.me",                reputation: "malicious", tags: ["exfil-target", "inbox-forwarding"] },
     { type: "host",   value: "DESKTOP-MOSCOW-99",                      reputation: "malicious", tags: ["attacker-device", "ca-policy-exclusion"] },
-    { type: "sha256", value: makeSha256("okta-api-token-j.chen-2026"), reputation: "malicious", tags: ["okta-api-token", "persistence"] },
+    // The persistence artifact is an Okta API token, identified in the Okta System
+    // Log by its NAME, not a file hash — Okta never emits a SHA256 for a token.
+    // (Was previously a fabricated makeSha256() value that appeared nowhere in the
+    // telemetry: an uncitable curated IOC that permanently capped the achievable
+    // evidence score below 100%, since a student can never find a hash the vendor
+    // never generates. Fixed to the actual token name from mfa_08_api_token's raw
+    // block, which the analyst can genuinely read and cite.)
+    { type: "user",   value: "j.chen-api-token-2026",                    reputation: "malicious", tags: ["okta-api-token", "persistence"] },
   ];
 
   const killchain = [
