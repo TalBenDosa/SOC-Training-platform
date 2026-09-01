@@ -151,6 +151,14 @@ export interface TelemetryEvent {
    */
   is_detection?: boolean;
   /**
+   * Marks a baseline / ambient-context event (a "here is what normal looked like"
+   * record) that is deliberately declared out of the incident's strict causal
+   * order. The scenario-integrity gate (F-03) allows such an event to sit out of
+   * ts order; every other event must be chronological. It does not affect display
+   * (the feed and tables sort by ts regardless).
+   */
+  is_baseline?: boolean;
+  /**
    * Three-way triage classification, set on the incident's primary detection:
    *  - "edr":     endpoint-observable only → investigate in the EDR console.
    *  - "hybrid":  host artifacts AND a control-plane facet → detection surfaces in
