@@ -35,7 +35,6 @@ export async function POST(
     verdict?: string | null;
     verdictReason?: string;
     analystNotes?: string;
-    findings?: string;
     indicators?: { type: string; value: string }[];
   };
   try {
@@ -46,7 +45,7 @@ export async function POST(
 
   const {
     answers = {}, timeTaken = 0, iocTagged = 0,
-    verdict = null, verdictReason = "", analystNotes = "", findings = "",
+    verdict = null, verdictReason = "", analystNotes = "",
     indicators = [],
   } = body;
 
@@ -112,7 +111,7 @@ export async function POST(
   // The report is the actual analyst deliverable, and it used to be discarded:
   // a blank report and a rigorous one scored identically. It is now graded on a
   // rubric, deterministically first so the result never depends on an API key.
-  const reportText = [analystNotes, findings, verdictReason].join(" ").trim();
+  const reportText = [analystNotes, verdictReason].join(" ").trim();
   const words = reportText.split(/\s+/).filter(Boolean).length;
 
   const expectedVerdict = bundle.attack_kind === "false_positive" ? "benign" : "malicious";
@@ -123,30 +122,48 @@ export async function POST(
   const normalizedVerdict = verdict === "tp" ? "malicious" : verdict === "fp" ? "benign" : verdict;
   const verdictCorrect = normalizedVerdict === expectedVerdict;
 
-  // Did they name the things that matter? Credit each scenario IOC they cite,
-  // whether via the indicator list or in prose.
+  // ── Evidence / IOCs ───────────────────────────────────────────────────────
+  // The curated bundle.iocs are the indicators the incident TURNED ON — the target
+  // for "enough evidence". But per product direction, ANY indication that aids the
+  // investigation counts as an IOC: an indicator the analyst pulled from the
+  // telemetry that is not on the curated list is still valid investigative
+  // evidence and earns credit. "Real" = on the IOC list OR appearing anywhere in
+  // the scenario's events.
   const scenarioIocValues = (bundle.iocs ?? []).map(i => i.value.toLowerCase());
+  const eventsBlob = JSON.stringify(bundle.events ?? []).toLowerCase();
+  const realValues = new Set(scenarioIocValues);
+  const isRealValue = (v: string) => realValues.has(v) || eventsBlob.includes(v);
+
   const citedValues = new Set(
     indicators.map(i => String(i.value).toLowerCase().trim()).filter(Boolean),
   );
+
+  // How many of the curated KEY indicators they named — used only for honest
+  // "you named X of the Y key indicators" feedback, not to cap the score.
   const iocsCited = scenarioIocValues.filter(
     v => citedValues.has(v) || reportText.toLowerCase().includes(v),
   ).length;
-  const iocCoverage = scenarioIocValues.length
-    ? iocsCited / scenarioIocValues.length
-    : 0;
+
+  // Every REAL indicator the analyst surfaced — tagged in the IOC list OR named in
+  // the written report — counts toward evidence, not just the curated key set.
+  const usefulCited = new Set<string>();
+  for (const v of citedValues) if (v.length >= 3 && isRealValue(v)) usefulCited.add(v);
+  for (const v of scenarioIocValues) if (reportText.toLowerCase().includes(v)) usefulCited.add(v);
+
+  // Coverage credits ANY useful indicator, measured against the key-set size as
+  // the "enough evidence" bar (capped at 1) — so citing helpful non-curated
+  // indicators earns credit instead of being ignored.
+  const iocTarget = Math.max(1, scenarioIocValues.length);
+  const iocCoverage = Math.min(1, usefulCited.size / iocTarget);
 
   // Fabrication check — penalise inventing indicators that appear NOWHERE in the
   // scenario's telemetry or IOC list. Citing an IP/hash/email that doesn't exist
   // is an integrity failure worse than citing none, and a real SOC report that
   // fabricates evidence is unusable. Mirrors the dashboard incident-report grader.
-  const realValues = new Set(scenarioIocValues);
-  const eventsBlob = JSON.stringify(bundle.events ?? []).toLowerCase();
   const claimed = new Set<string>();
   for (const m of reportText.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g))  claimed.add(m[0].toLowerCase()); // IPv4
   for (const m of reportText.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase()); // email
   for (const m of reportText.matchAll(/\b[0-9a-f]{32,64}\b/gi))         claimed.add(m[0].toLowerCase()); // hash
-  const isRealValue = (v: string) => realValues.has(v) || eventsBlob.includes(v);
   const fabricated = [...claimed].filter(v => v.length >= 4 && !isRealValue(v));
 
   const reportRubric = {
@@ -157,7 +174,7 @@ export async function POST(
     // Evidence: naming the indicators the incident actually turned on — but a
     // fabricated indicator caps this near zero regardless of how many real ones
     // were cited.
-    evidence: fabricated.length > 0 ? (iocsCited > 0 ? 5 : 0) : Math.round(iocCoverage * 30),
+    evidence: fabricated.length > 0 ? (usefulCited.size > 0 ? 5 : 0) : Math.round(iocCoverage * 30),
     // Reasoning, not just assertion — did they justify the verdict?
     reasoning: verdictReason.trim().split(/\s+/).filter(Boolean).length >= 25 ? 20
              : verdictReason.trim().split(/\s+/).filter(Boolean).length >= 10 ? 12 : 0,

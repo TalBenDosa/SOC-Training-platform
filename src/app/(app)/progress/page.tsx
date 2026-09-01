@@ -784,7 +784,9 @@ export default function ProgressPage() {
                                 {[
                                   { h: "Verdict reasoning", v: s.report.verdictReason },
                                   { h: "Analyst notes", v: s.report.notes },
-                                  { h: "Key findings", v: s.report.findings },
+                                  // "Key findings" was removed from the report (folded into IOCs);
+                                  // still shown for older records that captured it.
+                                  ...(s.report.findings !== undefined ? [{ h: "Key findings", v: s.report.findings }] : []),
                                 ].map(({ h, v }) => (
                                   <div key={h} className="rounded border border-border bg-bg-elevated p-3">
                                     <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</p>

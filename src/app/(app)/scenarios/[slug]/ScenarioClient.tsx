@@ -610,11 +610,10 @@ const IOC_COLORS: Record<IocType, string> = {
   other:  "text-slate-400 border-slate-500/30 bg-slate-500/10",
 };
 
-type ReportTab = "narrative" | "findings" | "iocs" | "verdict";
+type ReportTab = "narrative" | "iocs" | "verdict";
 
 const REPORT_TABS: { id: ReportTab; label: string }[] = [
   { id: "narrative", label: "Narrative" },
-  { id: "findings",  label: "Findings"  },
   { id: "iocs",      label: "IOCs"      },
   { id: "verdict",   label: "Verdict"   },
 ];
@@ -623,8 +622,6 @@ function InvestigationPanel({
   phase,
   notes,
   onNotesChange,
-  findings,
-  onFindingsChange,
   iocs,
   onAddIoc,
   onRemoveIoc,
@@ -638,8 +635,6 @@ function InvestigationPanel({
   phase: Phase;
   notes: string;
   onNotesChange: (v: string) => void;
-  findings: string;
-  onFindingsChange: (v: string) => void;
   iocs: ManualIoc[];
   onAddIoc: (ioc: ManualIoc) => void;
   onRemoveIoc: (id: string) => void;
@@ -670,12 +665,13 @@ function InvestigationPanel({
   // Section completion: has meaningful content
   const sectionDone: Record<ReportTab, boolean> = {
     narrative: notes.trim().length > 10,
-    findings:  findings.trim().length > 10,
     iocs:      iocs.length > 0,
     verdict:   verdict !== null,
   };
   const completedCount = Object.values(sectionDone).filter(Boolean).length;
-  const canFinalize    = completedCount >= 3 && quizComplete;
+  // Three sections now (Findings was folded into IOCs). Require any two — keeping
+  // the same "you don't need every tab" leniency as the old 3-of-4 bar.
+  const canFinalize    = completedCount >= 2 && quizComplete;
 
   return (
     <div className="rounded-lg border border-border/60 bg-[#0d1520] overflow-hidden">
@@ -736,26 +732,6 @@ function InvestigationPanel({
                 disabled
                   ? "Start the investigation to begin writing..."
                   : "Describe the attack timeline, methods, and what you observed in the logs..."
-              }
-            />
-          </div>
-        )}
-
-        {/* FINDINGS */}
-        {activeTab === "findings" && (
-          <div>
-            <p className="mb-0.5 text-sm font-semibold text-white">Key Findings</p>
-            <p className="mb-3 text-[11px] text-slate-400">MITRE techniques observed and specific evidence</p>
-            <textarea
-              rows={10}
-              disabled={disabled}
-              value={findings}
-              onChange={e => onFindingsChange(e.target.value)}
-              className={inputCls + " resize-none"}
-              placeholder={
-                disabled
-                  ? "Start the investigation to begin writing..."
-                  : "e.g. T1059.001 — PowerShell spawned from WINWORD.EXE (macro execution)\nT1071.001 — C2 beacon to 185.220.101.x:443 every 60s\nT1003.001 — LSASS memory read via rundll32.exe..."
               }
             />
           </div>
@@ -944,7 +920,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
 
   // Investigation log state
   const [notes, setNotes]                   = useState("");
-  const [findings, setFindings]             = useState("");
   const [manualIocs, setManualIocs]         = useState<ManualIoc[]>([]);
   const [verdict, setVerdict]               = useState<"tp" | "fp" | null>(null);
   const [verdictReason, setVerdictReason]   = useState("");
@@ -961,7 +936,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
     setAnswers({});
     setManualIocs([]);
     setNotes("");
-    setFindings("");
     setVerdict(null);
     setVerdictReason("");
     setGradeResult(null);
@@ -976,7 +950,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
     setAnswers({});
     setManualIocs([]);
     setNotes("");
-    setFindings("");
     setVerdict(null);
     setVerdictReason("");
   };
@@ -1028,7 +1001,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           verdict,
           verdictReason,
           analystNotes: notes,
-          findings,
           indicators: manualIocs,
         }),
       });
@@ -1056,7 +1028,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
             verdict,
             verdictReason,
             notes,
-            findings,
             reportScore: result.report?.score,
             rubric: result.report?.rubric,
             passed: result.passed,
@@ -1206,8 +1177,6 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           phase={phase}
           notes={notes}
           onNotesChange={setNotes}
-          findings={findings}
-          onFindingsChange={setFindings}
           iocs={manualIocs}
           onAddIoc={handleAddIoc}
           onRemoveIoc={handleRemoveIoc}
