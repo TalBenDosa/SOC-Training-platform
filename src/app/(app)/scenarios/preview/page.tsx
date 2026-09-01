@@ -152,7 +152,9 @@ function EventRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const isFp = isEventFp(ev);
-  const timeStr = new Date(ev.ts).toLocaleTimeString("en-GB", { hour12: false });
+  // UTC (fixed timeZone) — deterministic across SSR/client (no React #418) and
+  // consistent with the UTC briefing, matching the main scenario view.
+  const timeStr = new Date(ev.ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" });
   const srcColor = SOURCE_COLORS[ev.source] ?? SOURCE_COLORS.proxy;
   const srcLabel = SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase();
 

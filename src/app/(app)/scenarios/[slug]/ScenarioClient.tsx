@@ -84,7 +84,7 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
   const basicInfo: [string, string][] = [
     ["Event Action",     vendorAction || ev.event_type.replace(/_/g, " ")],
     ["Source Type",      SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase()],
-    ["Timestamp",        new Date(ev.ts).toLocaleString("en-GB")],
+    ["Timestamp",        `${new Date(ev.ts).toLocaleString("en-GB", { timeZone: "UTC" })} UTC`],
     ["Severity",         (ev.severity ?? "informational").toUpperCase()],
     ["Username",         ev.user_email ?? "—"],
     ["Hostname",         ev.hostname ?? "—"],
@@ -255,7 +255,12 @@ function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident, canInvest
   const sevBadge = SEV_BADGE[ev.severity ?? "informational"];
   const srcLabel = SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase();
   const srcColor = SOURCE_COLORS[ev.source] ?? SOURCE_COLORS.proxy;
-  const timeStr = new Date(ev.ts).toLocaleTimeString("en-GB", { hour12: false });
+  // Render in UTC explicitly. This is deterministic on the server AND the client
+  // (a fixed timeZone, not the runtime's), which closes the React #418 hydration
+  // mismatch (SSR-UTC vs client-local) AND makes the table agree with the briefing,
+  // which is written in UTC. (See the "Timestamps, Timezones & Building a Timeline"
+  // room: a mature SIEM stores UTC — here we also display it.)
+  const timeStr = new Date(ev.ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" });
   // An alert-grade EDR detection — the row that opens the ticket, as opposed to
   // the pivot-only process/file/registry telemetry around it (SPEC-edr-scenario
   // -integration §4). Marking it lets the analyst read the queue at a glance
@@ -474,7 +479,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
             {incidentEvents.map(e => (
               <span
                 key={e.id}
-                title={`${new Date(e.ts).toLocaleTimeString("en-GB", { hour12: false })} · ${SOURCE_LABEL[e.source] ?? e.source}${e.is_detection ? " · DETECTION" : ""}`}
+                title={`${new Date(e.ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" })} UTC · ${SOURCE_LABEL[e.source] ?? e.source}${e.is_detection ? " · DETECTION" : ""}`}
                 className={cn(
                   "h-2.5 w-2.5 rounded-full border",
                   e.is_detection      ? "bg-cyber-400 border-cyber-300"
@@ -499,7 +504,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
             <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
               <th className="w-5 pl-3 py-2" />
-              <th className="py-2 pr-3">Time</th>
+              <th className="py-2 pr-3">Time (UTC)</th>
               <th className="py-2 pr-3">Agent</th>
               <th className="py-2 pr-3">Source</th>
               <th className="py-2 pr-3">Description</th>
