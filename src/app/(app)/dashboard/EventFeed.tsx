@@ -7,6 +7,7 @@ export type TimeFilter = "15m" | "1h" | "4h" | "all";
 import { cn } from "@/lib/utils";
 import type { LiveEvent } from "./useLiveEvents";
 import { LOG_SOURCE_GUIDE } from "./logSourceGuide";
+import { eventMatchesSearch } from "./eventSearch";
 import { toRawLog } from "./rawLogFormat";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
@@ -1032,17 +1033,9 @@ export function EventFeed({
       if (hostFilter  !== "all"  && ev.hostname       !== hostFilter)     return false;
       if (ipFilter    !== "all"  && ev.src_ip         !== ipFilter)       return false;
       if (mitreFilter !== "all"  && ev.mitre_technique !== mitreFilter)   return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (
-          !ev.displayDescription.toLowerCase().includes(q) &&
-          !ev.hostname?.toLowerCase().includes(q) &&
-          !ev.user_email?.toLowerCase().includes(q) &&
-          !ev.ruleId.toLowerCase().includes(q) &&
-          !ev.src_ip?.toLowerCase().includes(q) &&
-          !(ev.mitre_technique ?? "").toLowerCase().includes(q)
-        ) return false;
-      }
+      // Free-text search: substring across a flattened event (incl. stringified
+      // `raw`) plus optional `field:value` tokens — see eventSearch.ts.
+      if (search && !eventMatchesSearch(ev, search)) return false;
       return true;
     });
   }, [events, timeFilter, severityFilter, sourceFilter, userFilter, hostFilter, ipFilter, mitreFilter, search]);

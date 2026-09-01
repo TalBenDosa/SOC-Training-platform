@@ -11,6 +11,8 @@ import { EventFeed } from "./EventFeed";
 import { getClearedCompanies, addClearedCompany, setLastSession, getRoomProgress } from "@/lib/storage/progress";
 import Link from "next/link";
 import { WorkflowGuide } from "./WorkflowGuide";
+import { HintPanel } from "./HintPanel";
+import { SavedSearches, type FilterSnapshot } from "./SavedSearches";
 import { SiemStats } from "./SiemStats";
 import { CompanySelector } from "./CompanySelector";
 import { IncidentReportModal } from "./IncidentReportModal";
@@ -669,6 +671,25 @@ export default function DashboardPage() {
     setSearch("");
   };
 
+  // Snapshot of the live filter state — what a saved-search preset captures.
+  const filterSnapshot: FilterSnapshot = {
+    search, severityFilter, sourceFilter, userFilter, hostFilter, ipFilter, mitreFilter,
+  };
+  // Apply a saved preset back onto the filter state (and reveal row 2 if it
+  // carries any advanced filter, so the applied state is actually visible).
+  const applyFilterSnapshot = (s: FilterSnapshot) => {
+    setSearch(s.search);
+    setSeverityFilter(s.severityFilter);
+    setSourceFilter(s.sourceFilter);
+    setUserFilter(s.userFilter);
+    setHostFilter(s.hostFilter);
+    setIpFilter(s.ipFilter);
+    setMitreFilter(s.mitreFilter);
+    if (s.userFilter !== "all" || s.hostFilter !== "all" || s.ipFilter !== "all" || s.mitreFilter !== "all") {
+      setShowAdvancedFilters(true);
+    }
+  };
+
   // ── Dynamic KPIs ─────────────────────────────────────────────────────────────
   const threatLevel = useMemo(() => {
     const recent = live.events.slice(0, 20);
@@ -1206,6 +1227,15 @@ export default function DashboardPage() {
         {/* Analyst workflow — persistent "what do I do now?" strip */}
         <WorkflowGuide reportPassed={reportPassed} />
 
+        {/* Tiered, opt-in nudges for a stuck analyst — only while a shift runs.
+            Methodology only; never reveals the IOC/verdict/technique (HintPanel). */}
+        {sessionStartedAt !== null && (
+          <HintPanel
+            story={sessionStory}
+            resetKey={live.activeIncident?.id ?? sessionStory?.id ?? null}
+          />
+        )}
+
         {/* Live Event Feed */}
         <div className="flex gap-4 items-start">
           <div className="min-w-0 flex-1">
@@ -1429,6 +1459,8 @@ export default function DashboardPage() {
           </div>
           )}
 
+          {/* Saved searches — named presets over the query + dropdown filters */}
+          <SavedSearches current={filterSnapshot} onApply={applyFilterSnapshot} />
 
           <SiemStats
             events={live.events}
