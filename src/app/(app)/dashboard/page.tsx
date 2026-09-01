@@ -13,8 +13,6 @@ import Link from "next/link";
 import { WorkflowGuide } from "./WorkflowGuide";
 import { SiemStats } from "./SiemStats";
 import { CompanySelector } from "./CompanySelector";
-import { SessionSummaryModal } from "./SessionSummaryModal";
-import type { DashboardSessionRecord } from "./useLiveEvents";
 import { IncidentReportModal } from "./IncidentReportModal";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
@@ -41,21 +39,11 @@ const ADVANCE_CATCHES   = 2;
 const ADVANCE_WINDOW_MS = 30 * 60_000; // 30 minutes
 const MISSION_BONUS_XP  = 250;         // session-XP reward for completing the mission
 
-type SessionRecord = import("./useLiveEvents").DashboardSessionRecord;
 
 // The analyst's ONE deliverable per company: a passing incident report. It
 // already grades attack identification + evidence + action + impact holistically
 // (see /api/dashboard/incident-report), so there's no separate "classify N
 // events" gate — that would just be a second, redundant scoring mechanism.
-interface ObjDef { label: string; met: (r: SessionRecord, reportPassed: boolean) => boolean }
-const REPORT_OBJECTIVE: ObjDef[] = [
-  { label: "Submit a passing incident report (score ≥ 60)", met: (_, rp) => rp },
-];
-const COMPANY_OBJECTIVES: Record<string, ObjDef[]> = {
-  nexacorp: REPORT_OBJECTIVE, rocketstack: REPORT_OBJECTIVE, medcore: REPORT_OBJECTIVE,
-  globallogis: REPORT_OBJECTIVE, quantumbank: REPORT_OBJECTIVE,
-};
-
 /**
  * Pull the real indicator values (IPs, users, hosts, domains, hashes) out of a
  * set of attack events. These are the ground truth the report grader checks the
@@ -355,7 +343,6 @@ export default function DashboardPage() {
   const [showClearedModal, setShowClearedModal] = useState(false);
 
   // ─── Session summary modal ────────────────────────────────────────────────
-  const [sessionSummary, setSessionSummary] = useState<DashboardSessionRecord | null>(null);
 
   // ─── Hosts contained in the EDR console ───────────────────────────────────
   // Shared state with /edr: isolating a host there marks it "Contained" here,
@@ -715,7 +702,6 @@ export default function DashboardPage() {
     // company automatically opens the next one via the useMemo above.
     addClearedCompany(selectedCompanyId);
     setClearedCompanies(getClearedCompanies());
-    setSessionSummary(null);
     setShowClearedModal(true);
   };
 
@@ -766,7 +752,7 @@ export default function DashboardPage() {
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
-    setScenarioObjective(`${label} session — watch the feed and report the attacks hidden in it. Catch ${ADVANCE_CATCHES} within 30 minutes to secure the company and advance. You won't be told what they are.`);
+    setScenarioObjective(`${label} session — watch the feed and report the attacks hidden in it. Catch ${ADVANCE_CATCHES} within a rolling 30-minute window to secure the company and advance — there's no time pressure, the window simply resets if it lapses. You won't be told what they are.`);
     setSessionStartedAt(Date.now());
     setSessionDifficulty(difficulty);
     setSessionElapsed(0);
@@ -1048,21 +1034,24 @@ export default function DashboardPage() {
                 </span>
               )}
               <span className="font-mono text-xs font-bold text-white">{sessionClock}</span>
-              {/* Progress toward the auto-advance rule: catch 2 attacks in 30 min. */}
+              {/* Progress toward the auto-advance rule: catch 2 attacks in a
+                  rolling 30-min window. Framed as positive progress, not time
+                  pressure — if the window lapses the count just resets, no penalty
+                  (consistent with the no-fail debrief philosophy elsewhere). */}
               <span
                 className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-cyber-300"
-                title={`Catch ${ADVANCE_CATCHES} attacks within 30 minutes to secure the company and advance`}
+                title={`Catch ${ADVANCE_CATCHES} attacks within a rolling 30-minute window to secure the company and advance — no rush, the window just resets if it lapses`}
               >
                 Caught {Math.min(caughtInWindow, ADVANCE_CATCHES)}/{ADVANCE_CATCHES}
               </span>
-              {/* Countdown: time left to catch the next attack before this one
-                  rolls out of the 30-minute window. Only while mid-way (≥1, <goal). */}
+              {/* Explicit, calm status: how many more and how long left in the
+                  current rolling window. Neutral cyber tone (not alarming amber). */}
               {caughtInWindow > 0 && caughtInWindow < ADVANCE_CATCHES && windowClock && (
                 <span
-                  className="flex items-center gap-1 rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-px font-mono text-[10px] font-bold text-neon-amber"
-                  title="Time left to catch the next attack before this catch drops out of the 30-minute window"
+                  className="flex items-center gap-1 rounded border border-cyber-500/30 bg-cyber-500/5 px-1.5 py-px font-mono text-[10px] font-semibold text-cyber-300/90"
+                  title="One more catch within this window secures the company. If it lapses the count just resets — no penalty."
                 >
-                  <Clock className="h-3 w-3" /> {windowClock}
+                  <Clock className="h-3 w-3" /> {ADVANCE_CATCHES - Math.min(caughtInWindow, ADVANCE_CATCHES)} more · {windowClock} left
                 </span>
               )}
             </span>
@@ -1600,24 +1589,6 @@ export default function DashboardPage() {
           onXpAward={handleXpAward}
         />
       )}
-
-      {/* ── Session Summary Modal ──────────────────────────────────────── */}
-      {sessionSummary && (() => {
-        const objDefs = COMPANY_OBJECTIVES[selectedCompanyId] ?? [];
-        const objWithMet = objDefs.map(o => ({ label: o.label, met: o.met(sessionSummary, reportPassed) }));
-        const allMet = objWithMet.length > 0 && objWithMet.every(o => o.met);
-        return (
-          <SessionSummaryModal
-            record={sessionSummary}
-            reportPassed={reportPassed}
-            onClose={() => setSessionSummary(null)}
-            objectives={objWithMet}
-            canClearCompany={allMet && !clearedCompanies.includes(selectedCompanyId)}
-            nextCompanyName={nextCompany?.name}
-            onClearCompany={handleClearCompany}
-          />
-        );
-      })()}
 
       {/* ── Company Cleared Modal ──────────────────────────────────────── */}
       {showClearedModal && (
