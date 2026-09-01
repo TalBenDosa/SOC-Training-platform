@@ -61,7 +61,7 @@ export function buildOktaPasswordBurstScenario(
       id: "evt_okb_01_fw_tls",
       ts: T(0),
       source: "firewall",
-      vendor: "Fortinet FortiGate",
+      vendor: "FortiGate",
       event_type: "net_connection",
       src_ip: attackerIp,
       dst_port: 443,
@@ -417,12 +417,50 @@ export function buildOktaPasswordBurstScenario(
     },
 
     // ---------------------------------------------------------------------
+    // 10. The correlation that opened the ticket, with the account context.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_okb_10_siem_context",
+      ts: T(38 * MIN),
+      source: "siem",
+      vendor: "Microsoft Sentinel",
+      event_type: "ueba_anomaly",
+      user_email: victim.email,
+      src_ip: attackerIp,
+      severity: "medium",
+      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
+      description:
+        "The SIEM correlated the sign-in failures and raised a Medium alert at 02:52, with the account's directory context and the outcome reasons seen in the window.",
+      raw: {
+        "AlertName": "OktaSignInFailureBurst_SingleAccount",
+        "alert.rule.id": "SEN-IDENT-0204",
+        "alert.severity": "Medium",
+        "target.user.email": victim.email,
+        "user.full_name": victim.name,
+        "user.department": "Finance",
+        "user.title": "Finance Analyst",
+        "user.group.name": ["Everyone", "Finance", "Okta-MFA-Required"],
+        "ExtendedProperties.Window Start": T(1 * MIN),
+        "ExtendedProperties.Window End": T(31 * MIN),
+        "ExtendedProperties.Failure Count": "96",
+        "ExtendedProperties.Outcome Reasons Seen": ["INVALID_CREDENTIALS", "MFA_REQUIRED", "USER_REJECTED_PUSH"],
+        "ExtendedProperties.Source Addresses In Window": [attackerIp],
+        "ExtendedProperties.Sessions Created In Window": "0",
+        "ExtendedProperties.Password Last Changed": "2025-11-02T08:41:00Z",
+        "event.action": "correlation-alert",
+        "event.outcome": "alerted",
+      },
+    },
+
+    // ---------------------------------------------------------------------
     // 9. The user's own successful sign-in that morning — the baseline that
-    //    shows what a legitimate session for this account looks like.
+    //    shows what a legitimate session for this account looks like. Comes
+    //    hours after the ticket-opening correlation above (07:26 vs 02:52).
     // ---------------------------------------------------------------------
     {
       id: "evt_okb_09_user_normal_login",
       ts: T(5 * 60 * MIN + 12 * MIN),
+      is_baseline: true,
       source: "okta",
       vendor: "Okta",
       event_type: "auth_success",
@@ -458,42 +496,6 @@ export function buildOktaPasswordBurstScenario(
         "event.outcome": "success",
         "source.ip": corpIp,
         "user.email": victim.email,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 10. The correlation that opened the ticket, with the account context.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_okb_10_siem_context",
-      ts: T(38 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "medium",
-      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
-      description:
-        "The SIEM correlated the sign-in failures and raised a Medium alert at 02:52, with the account's directory context and the outcome reasons seen in the window.",
-      raw: {
-        "AlertName": "OktaSignInFailureBurst_SingleAccount",
-        "alert.rule.id": "SEN-IDENT-0204",
-        "alert.severity": "Medium",
-        "target.user.email": victim.email,
-        "user.full_name": victim.name,
-        "user.department": "Finance",
-        "user.title": "Finance Analyst",
-        "user.group.name": ["Everyone", "Finance", "Okta-MFA-Required"],
-        "ExtendedProperties.Window Start": T(1 * MIN),
-        "ExtendedProperties.Window End": T(31 * MIN),
-        "ExtendedProperties.Failure Count": "96",
-        "ExtendedProperties.Outcome Reasons Seen": ["INVALID_CREDENTIALS", "MFA_REQUIRED", "USER_REJECTED_PUSH"],
-        "ExtendedProperties.Source Addresses In Window": [attackerIp],
-        "ExtendedProperties.Sessions Created In Window": "0",
-        "ExtendedProperties.Password Last Changed": "2025-11-02T08:41:00Z",
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
       },
     },
   ];

@@ -607,7 +607,7 @@ export function buildLinuxSshCryptominerScenario(
     {
       id: "lsc_13_cpu_alert",
       ts: T(95 * MIN),
-      source: "siem",
+      source: "infra_monitor",
       vendor: "Zabbix",
       event_type: "ueba_anomaly",
       hostname: host.name,
@@ -627,11 +627,6 @@ export function buildLinuxSshCryptominerScenario(
         "data.load_5m": "15.71",
         "data.load_15m": "14.88",
         "data.cpu_count": "8",
-        "data.top_output":
-          "23:15:03 up 214 days,  4:11,  2 users,  load average: 15.94, 15.71, 14.88\n" +
-          "  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND\n" +
-          " 1974 svc-bac+  20   0 4682312 2.412g   3204 S 690.0  30.9  145:22.71 kworker\n" +
-          " 2103 backup    20   0  892440 214332   8812 S  96.0   2.6    9:41.03 restic",
       },
     },
   ];

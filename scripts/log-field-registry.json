@@ -12111,7 +12111,6 @@
         "data.load_15m",
         "data.load_1m",
         "data.load_5m",
-        "data.top_output",
         "zabbix.host.ip",
         "zabbix.host.name",
         "zabbix.item.key",

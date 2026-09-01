@@ -19,6 +19,10 @@ export type LogSource =
   | "exchange" | "sharepoint" | "teams" | "email_gateway"
   // Security tooling
   | "dlp" | "ueba" | "threat_intel" | "db_monitor" | "siem" | "soar"
+  // Business systems / infrastructure (non-security sources that still
+  // surface in an investigation — HR lifecycle events, source-control /
+  // CI audit trails, hypervisor management planes, infra monitoring)
+  | "hr" | "vcs" | "virtualization" | "infra_monitor"
   // Legacy
   | "k8s_audit";
 

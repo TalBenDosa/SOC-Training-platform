@@ -83,7 +83,7 @@ export function buildBackupFalsePositiveScenario(
     {
       id: "evt_bkpfp_02_svc_logon",
       ts: T(W),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: fileServer.hostname,
@@ -125,7 +125,7 @@ export function buildBackupFalsePositiveScenario(
     {
       id: "evt_bkpfp_03_privileges",
       ts: T(W + 2_000),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "privileged_operation",
       hostname: fileServer.hostname,
@@ -260,7 +260,7 @@ export function buildBackupFalsePositiveScenario(
     {
       id: "evt_bkpfp_06_file_read",
       ts: T(W + MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "file_access",
       hostname: fileServer.hostname,

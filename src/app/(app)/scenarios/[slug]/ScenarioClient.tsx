@@ -35,6 +35,8 @@ const SOURCE_LABEL: Record<string, string> = {
   o365: "Office 365", okta: "Okta", firewall: "Firewall",
   dns: "DNS", vpn: "VPN", cloudtrail: "Azure/AWS", proxy: "Proxy",
   dlp: "DLP", k8s_audit: "K8s",
+  hr: "HR System", vcs: "Source Control", virtualization: "Virtualization",
+  infra_monitor: "Infra Monitoring",
 };
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -49,6 +51,10 @@ const SOURCE_COLORS: Record<string, string> = {
   cloudtrail: "bg-severity-medium/20 text-severity-medium border-severity-medium/30",
   proxy:      "bg-slate-400/20 text-slate-300 border-slate-400/30",
   dlp:        "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
+  hr:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
+  vcs:            "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
+  virtualization: "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
+  infra_monitor:  "bg-slate-400/20 text-slate-300 border-slate-400/30",
 };
 
 const SEV_LEVEL: Record<string, number> = {

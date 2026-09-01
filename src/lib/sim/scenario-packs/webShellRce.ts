@@ -60,7 +60,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
     {
       id: "evt_01_apppool_privileges",
       ts: T(-45 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: web.hostname,

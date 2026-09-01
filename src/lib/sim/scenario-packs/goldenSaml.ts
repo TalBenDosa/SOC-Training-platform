@@ -102,7 +102,7 @@ export function buildGoldenSamlScenario(
     {
       id: "evt_gs_00_benign_adfs_issue",
       ts: "2026-08-28T14:30:04Z",
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: adfs.hostname,
@@ -200,7 +200,7 @@ export function buildGoldenSamlScenario(
     {
       id: "evt_gs_02_dkm_object_access",
       ts: T(0),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "file_access",
       hostname: dc.hostname,
@@ -248,7 +248,7 @@ export function buildGoldenSamlScenario(
     {
       id: "evt_gs_03_signing_key_export",
       ts: T(2 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "file_access",
       hostname: adfs.hostname,

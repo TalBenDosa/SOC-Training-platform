@@ -104,7 +104,7 @@ export function buildBruteForceSingleAccountScenario(
     {
       id: "evt_bf_02_fail_wrong_user",
       ts: T(2 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_failure",
       hostname: rds.hostname,
@@ -155,7 +155,7 @@ export function buildBruteForceSingleAccountScenario(
     {
       id: "evt_bf_03_fail_burst",
       ts: T(3 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_failure",
       hostname: rds.hostname,
@@ -206,7 +206,7 @@ export function buildBruteForceSingleAccountScenario(
     {
       id: "evt_bf_04_fail_last",
       ts: T(19 * MIN + 20_000),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_failure",
       hostname: rds.hostname,
@@ -258,7 +258,7 @@ export function buildBruteForceSingleAccountScenario(
     {
       id: "evt_bf_05_auth_success",
       ts: T(20 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: rds.hostname,
@@ -311,7 +311,7 @@ export function buildBruteForceSingleAccountScenario(
     {
       id: "evt_bf_06_rdp_session",
       ts: T(20 * MIN + 8_000),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: rds.hostname,
@@ -419,7 +419,7 @@ export function buildBruteForceSingleAccountScenario(
     {
       id: "evt_bf_08_share_access",
       ts: T(22 * MIN + 20_000),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "file_access",
       hostname: fileServer.hostname,
@@ -461,7 +461,7 @@ export function buildBruteForceSingleAccountScenario(
     {
       id: "evt_bf_09_file_read",
       ts: T(23 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "file_access",
       hostname: fileServer.hostname,

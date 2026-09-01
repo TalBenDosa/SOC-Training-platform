@@ -74,7 +74,7 @@ export function buildLateralMovementPthScenario(
     {
       id: "evt_lm_00_benign_logon",
       ts: "2026-08-26T13:12:04Z",
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: fileSrv.hostname,
@@ -172,7 +172,7 @@ export function buildLateralMovementPthScenario(
     {
       id: "evt_lm_02_pth_logon",
       ts: T(4 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: fileSrv.hostname,
@@ -226,7 +226,7 @@ export function buildLateralMovementPthScenario(
     {
       id: "evt_lm_03_special_privs",
       ts: T(4 * MIN + 6 * SEC),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "privilege_escalation",
       hostname: fileSrv.hostname,
@@ -266,7 +266,7 @@ export function buildLateralMovementPthScenario(
     {
       id: "evt_lm_04_admin_share",
       ts: T(4 * MIN + 22 * SEC),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "file_access",
       hostname: fileSrv.hostname,
@@ -313,7 +313,7 @@ export function buildLateralMovementPthScenario(
     {
       id: "evt_lm_05_service_install",
       ts: T(5 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "service_install",
       hostname: fileSrv.hostname,
@@ -404,7 +404,7 @@ export function buildLateralMovementPthScenario(
     {
       id: "evt_lm_07_payload_powershell",
       ts: T(5 * MIN + 12 * SEC),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "process_create",
       hostname: fileSrv.hostname,
@@ -543,7 +543,7 @@ export function buildLateralMovementPthScenario(
     {
       id: "evt_lm_10_dc_logon",
       ts: T(8 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: dc.hostname,

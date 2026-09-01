@@ -284,6 +284,49 @@ export function buildDestructiveWiperScenario(
     },
 
     // ─────────────────────────────────────────────────────────────────────
+    // 8. CORROBORATION — Microsoft Defender for Endpoint sees the same run.
+    //    DeviceProcessEvents ties the vssadmin shadow-deletion to the same
+    //    initiating payload SHA256 (T1490).
+    // ─────────────────────────────────────────────────────────────────────
+    {
+      id: "dw_08_mde_corroboration",
+      ts: T(21 * SEC),
+      source: "edr",
+      vendor: "Microsoft Defender for Endpoint",
+      event_type: "process_create",
+      hostname: host.name,
+      src_ip: host.ip,
+      severity: "high",
+      mitre_technique: "T1490",
+      mitre_tactic: "Impact",
+      incident_id: INCIDENT,
+      description:
+        "Defender for Endpoint, also on VNT-WKS-27, independently recorded the vssadmin shadow deletion. Its DeviceProcessEvents row ties the vssadmin child to the same initiating cl64.exe binary and payload SHA256 as Falcon saw.",
+      raw: {
+        "Timestamp": T(21 * SEC),
+        "DeviceName": host.name,
+        "DeviceId": host.id,
+        "ActionType": "ProcessCreated",
+        "FileName": "vssadmin.exe",
+        "FolderPath": "C:\\Windows\\System32\\vssadmin.exe",
+        "ProcessCommandLine": "vssadmin.exe delete shadows /all /quiet",
+        "ProcessId": "6712",
+        "InitiatingProcessFileName": "cl64.exe",
+        "InitiatingProcessFolderPath": "C:\\Users\\Public\\cl64.exe",
+        "InitiatingProcessCommandLine": "C:\\Users\\Public\\cl64.exe",
+        "InitiatingProcessId": "6620",
+        "InitiatingProcessSHA256": wiperHash,
+        "AccountName": "system",
+        "AccountDomain": "nt authority",
+        "ReportId": "51830744",
+        "threat.technique.id": "T1490",
+        "threat.technique.name": "Inhibit System Recovery",
+        "threat.tactic.name": "Impact",
+        "threat.tactic.id": "TA0040",
+      },
+    },
+
+    // ─────────────────────────────────────────────────────────────────────
     // 4. BOOT RECOVERY DISABLED — Sysmon Event 1. bcdedit turns off Windows
     //    recovery so the machine cannot self-heal (T1490).
     // ─────────────────────────────────────────────────────────────────────
@@ -483,49 +526,6 @@ export function buildDestructiveWiperScenario(
         "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
         "host.name": host.name,
         "event.code": "11",
-      },
-    },
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 8. CORROBORATION — Microsoft Defender for Endpoint sees the same run.
-    //    DeviceProcessEvents ties the vssadmin shadow-deletion to the same
-    //    initiating payload SHA256 (T1490).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_08_mde_corroboration",
-      ts: T(21 * SEC),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "process_create",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1490",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Defender for Endpoint, also on VNT-WKS-27, independently recorded the vssadmin shadow deletion. Its DeviceProcessEvents row ties the vssadmin child to the same initiating cl64.exe binary and payload SHA256 as Falcon saw.",
-      raw: {
-        "Timestamp": T(21 * SEC),
-        "DeviceName": host.name,
-        "DeviceId": host.id,
-        "ActionType": "ProcessCreated",
-        "FileName": "vssadmin.exe",
-        "FolderPath": "C:\\Windows\\System32\\vssadmin.exe",
-        "ProcessCommandLine": "vssadmin.exe delete shadows /all /quiet",
-        "ProcessId": "6712",
-        "InitiatingProcessFileName": "cl64.exe",
-        "InitiatingProcessFolderPath": "C:\\Users\\Public\\cl64.exe",
-        "InitiatingProcessCommandLine": "C:\\Users\\Public\\cl64.exe",
-        "InitiatingProcessId": "6620",
-        "InitiatingProcessSHA256": wiperHash,
-        "AccountName": "system",
-        "AccountDomain": "nt authority",
-        "ReportId": "51830744",
-        "threat.technique.id": "T1490",
-        "threat.technique.name": "Inhibit System Recovery",
-        "threat.tactic.name": "Impact",
-        "threat.tactic.id": "TA0040",
       },
     },
 

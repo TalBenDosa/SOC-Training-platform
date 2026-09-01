@@ -91,7 +91,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_02_baseline_create",
       ts: T(6 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "account_create",
       hostname: dc.hostname,
@@ -135,7 +135,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_03_admin_logon",
       ts: T(N),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: adminServer.hostname,
@@ -185,7 +185,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_04_admin_privs",
       ts: T(N + 2 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "privileged_operation",
       hostname: adminServer.hostname,
@@ -220,7 +220,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_05_acct_create",
       ts: T(N + 4 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "account_create",
       hostname: dc.hostname,
@@ -265,7 +265,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_06_group_add_domain",
       ts: T(N + 7 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "group_modify",
       hostname: dc.hostname,
@@ -307,7 +307,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_07_group_add_local",
       ts: T(N + 9 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "group_modify",
       hostname: adminServer.hostname,
@@ -348,7 +348,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_08_new_acct_logon",
       ts: T(N + 15 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: adminServer.hostname,
@@ -397,7 +397,7 @@ export function buildRogueAdminAccountScenario(
     {
       id: "evt_ra_09_new_acct_privs",
       ts: T(N + 16 * MIN),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "privileged_operation",
       hostname: adminServer.hostname,

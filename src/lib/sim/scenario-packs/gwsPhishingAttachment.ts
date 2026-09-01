@@ -262,7 +262,7 @@ export function buildGwsPhishingAttachmentScenario(
       id: "evt_gws_05_c2_blocked",
       ts: T(16 * MIN + 25_000),
       source: "firewall",
-      vendor: "Fortinet FortiGate",
+      vendor: "FortiGate",
       event_type: "http_blocked",
       hostname: host.hostname,
       user_email: victim.email,

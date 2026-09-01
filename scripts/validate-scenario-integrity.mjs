@@ -28,6 +28,7 @@ const VALID_SOURCES = new Set([
   "o365","gws","cloudtrail","cloud_azure","cloud_gcp",
   "exchange","sharepoint","teams","email_gateway",
   "dlp","ueba","threat_intel","db_monitor","siem","soar",
+  "hr","vcs","virtualization","infra_monitor",
   "k8s_audit",
 ]);
 

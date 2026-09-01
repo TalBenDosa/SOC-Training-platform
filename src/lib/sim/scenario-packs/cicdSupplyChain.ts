@@ -36,10 +36,9 @@
  * changed" shape, opposite verdict. The lesson is that the event is not "a
  * workflow file was edited" but HOW it reached main and WHO the actor was.
  *
- * SOURCES (registry keys): github-audit-log (vendor "GitHub Audit Log") and
- * aws-cloudtrail (vendors "AWS CloudTrail" and "AWS GuardDuty"). Both ride the
- * platform's `source: "cloudtrail"` LogSource, matching the existing
- * companyProfiles.ts convention for GitHub audit events.
+ * SOURCES (registry keys): github-audit-log (vendor "GitHub Audit Log") rides
+ * the platform's `source: "vcs"` LogSource; aws-cloudtrail (vendors "AWS
+ * CloudTrail" and "AWS GuardDuty") rides `source: "cloudtrail"`.
  *
  * NOTE: register in scenarios.ts with difficulty "advanced". The ScenarioBundle
  * itself carries no difficulty field.
@@ -95,7 +94,7 @@ export function buildCicdSupplyChainScenario(
     {
       id: "cicd_00_benign_pr",
       ts: "2026-08-30T14:22:10Z",
-      source: "cloudtrail",
+      source: "vcs",
       vendor: "GitHub Audit Log",
       event_type: "cloud_api_call",
       user_email: dev.email,
@@ -141,7 +140,7 @@ export function buildCicdSupplyChainScenario(
     {
       id: "cicd_01_pat_create",
       ts: T(0),
-      source: "cloudtrail",
+      source: "vcs",
       vendor: "GitHub Audit Log",
       event_type: "cloud_api_call",
       user_email: attacker.email,
@@ -180,7 +179,7 @@ export function buildCicdSupplyChainScenario(
     {
       id: "cicd_02_runner_register",
       ts: T(2 * MIN),
-      source: "cloudtrail",
+      source: "vcs",
       vendor: "GitHub Audit Log",
       event_type: "cloud_api_call",
       user_email: attacker.email,
@@ -217,7 +216,7 @@ export function buildCicdSupplyChainScenario(
     {
       id: "cicd_03_workflow_override",
       ts: T(5 * MIN),
-      source: "cloudtrail",
+      source: "vcs",
       vendor: "GitHub Audit Log",
       event_type: "cloud_api_call",
       user_email: attacker.email,
@@ -257,7 +256,7 @@ export function buildCicdSupplyChainScenario(
     {
       id: "cicd_04_webhook_create",
       ts: T(6 * MIN),
-      source: "cloudtrail",
+      source: "vcs",
       vendor: "GitHub Audit Log",
       event_type: "cloud_api_call",
       user_email: attacker.email,
@@ -295,7 +294,7 @@ export function buildCicdSupplyChainScenario(
     {
       id: "cicd_05_workflow_run",
       ts: T(8 * MIN),
-      source: "cloudtrail",
+      source: "vcs",
       vendor: "GitHub Audit Log",
       event_type: "cloud_api_call",
       user_email: attacker.email,

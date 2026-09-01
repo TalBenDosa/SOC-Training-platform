@@ -263,7 +263,7 @@ export function buildSoftwareInstallFalsePositiveScenario(
     {
       id: "evt_sifp_05_service_install",
       ts: T(W + 52 * SEC),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "service_install",
       hostname: host.hostname,
@@ -397,8 +397,6 @@ export function buildSoftwareInstallFalsePositiveScenario(
         "crowdstrike.detection.pattern_id": "41277",
         "crowdstrike.detection.pattern_disposition": "10",
         "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.behaviors":
-          "Unsigned binary written to Program Files|Auto-start service created with LocalSystem account|Network session opened within 70 seconds of first execution|Chain executed with no interactive logon",
         "crowdstrike.sensor.id": "7a1c53e9b0d24f68a35c1e70bd94f2a6",
         "crowdstrike.network_containment_state": "Not Contained",
         "crowdstrike.detection.status": "new",

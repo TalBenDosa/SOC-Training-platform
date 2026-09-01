@@ -109,6 +109,8 @@ const SOURCE_LABEL: Record<string, string> = {
   edr: "EDR", sysmon: "Sysmon", ad: "Active Directory",
   o365: "Office 365", okta: "Okta", firewall: "Firewall",
   dns: "DNS", vpn: "VPN", cloudtrail: "AWS/Azure", proxy: "Proxy", dlp: "DLP",
+  hr: "HR System", vcs: "Source Control", virtualization: "Virtualization",
+  infra_monitor: "Infra Monitoring",
 };
 const SOURCE_COLORS: Record<string, string> = {
   edr: "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",

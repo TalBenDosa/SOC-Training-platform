@@ -103,7 +103,7 @@ export function buildInsiderDlpUsbCloudScenario(
     {
       id: "evt_idt_00_hr_context",
       ts: T(-3 * DAY),
-      source: "soar",
+      source: "hr",
       vendor: "Workday",
       event_type: "account_modify",
       user_email: insider.email,
@@ -132,7 +132,7 @@ export function buildInsiderDlpUsbCloudScenario(
     {
       id: "evt_idt_01_logon",
       ts: T(0),
-      source: "windows_security",
+      source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
       hostname: host.hostname,
@@ -183,7 +183,7 @@ export function buildInsiderDlpUsbCloudScenario(
     {
       id: "evt_idt_02_mass_access",
       ts: T(6 * MIN),
-      source: "o365",
+      source: "dlp",
       vendor: "Microsoft Purview",
       event_type: "cloud_api_call",
       hostname: host.hostname,
@@ -601,12 +601,6 @@ export function buildInsiderDlpUsbCloudScenario(
         "behavior.name": "bulk_client_data_access_and_egress",
         "behavior.score": "190",
         "anomaly.score": "92",
-        "ExtendedProperties.Correlated Signals": [
-          "Workday resignation — termination 2026-08-28, access revocation scheduled",
-          "Client-share access 190+ files vs 14/day baseline (T1039)",
-          "Bulk copy of 34 labeled files to USB serial " + usbSerial + " (T1052.001)",
-          "Upload of 34 labeled files (~584 MB) to " + personalCloud + " (T1567.002)",
-        ],
         "ExtendedProperties.HR Status": "Resignation submitted; termination 2026-08-28",
         "ExtendedProperties.30-Day File Access Baseline": "14 files/day",
         "ExtendedProperties.Files Copied To Removable Media": "34",
@@ -626,6 +620,7 @@ export function buildInsiderDlpUsbCloudScenario(
     {
       id: "evt_idt_11_benign_control",
       ts: T(-2 * HOUR),
+      is_baseline: true,
       source: "dlp",
       vendor: "Microsoft Purview",
       event_type: "cloud_storage_access",

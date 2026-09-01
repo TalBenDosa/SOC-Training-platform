@@ -51,7 +51,7 @@ export function buildEsxiRansomwareScenario(
       id: "evt_01_vpn_login",
       ts: T(0),
       source: "vpn",
-      vendor: "FortiGate",
+      vendor: "FortiGate SSL-VPN",
       event_type: "vpn_login",
       hostname: "FG-EDGE-01",
       user_email: "r.okonkwo@nexacorp.com",
@@ -150,7 +150,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_03_sso_spray",
       ts: T(14 * MIN),
-      source: "iam",
+      source: "virtualization",
       vendor: "VMware vCenter Server",
       event_type: "auth_failure",
       hostname: vcenter.host,
@@ -184,7 +184,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_04_sso_success",
       ts: T(21 * MIN),
-      source: "iam",
+      source: "virtualization",
       vendor: "VMware vCenter Server",
       event_type: "auth_success",
       hostname: vcenter.host,
@@ -222,7 +222,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_05_perm_grant",
       ts: T(24 * MIN),
-      source: "iam",
+      source: "virtualization",
       vendor: "VMware vCenter Server",
       event_type: "role_assignment",
       hostname: vcenter.host,
@@ -262,7 +262,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_06_ssh_enabled",
       ts: T(29 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware ESXi",
       event_type: "policy_modification",
       hostname: esxi.host,
@@ -300,7 +300,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_07_fw_changed",
       ts: T(31 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware ESXi",
       event_type: "policy_modification",
       hostname: esxi.host,
@@ -338,7 +338,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_08_root_pw",
       ts: T(34 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware ESXi",
       event_type: "account_modify",
       hostname: esxi.host,
@@ -373,7 +373,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_09_ssh_session",
       ts: T(37 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware ESXi",
       event_type: "ssh_login",
       hostname: esxi.host,
@@ -412,7 +412,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_10_vim_cmd_poweroff",
       ts: T(41 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware ESXi",
       event_type: "privileged_operation",
       hostname: esxi.host,
@@ -441,7 +441,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_11_vm_poweroff",
       ts: T(42 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware vCenter Server",
       event_type: "privileged_operation",
       hostname: vcenter.host,
@@ -506,7 +506,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_13_encryptor",
       ts: T(52 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware ESXi",
       event_type: "privileged_operation",
       hostname: esxi.host,
@@ -541,7 +541,7 @@ export function buildEsxiRansomwareScenario(
     {
       id: "evt_14_ransom_note",
       ts: T(56 * MIN),
-      source: "linux_audit",
+      source: "virtualization",
       vendor: "VMware ESXi",
       event_type: "file_create",
       hostname: esxi.host,

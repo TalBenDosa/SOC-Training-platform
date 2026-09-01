@@ -401,12 +401,6 @@ export function buildExfilFirstExtortionScenario(
         "target.user.name": `NEXACORP\\${victim.sam}`,
         "user.full_name": victim.name,
         "user.department": "Finance Operations",
-        "ExtendedProperties.Correlated Signals": [
-          "Local data staging via robocopy (T1074.001)",
-          "Multi-volume encrypted archive via 7z.exe (T1560.001)",
-          "Sustained session to online-storage-and-backup category, 39.6 GB (T1567.002)",
-          "Purview Endpoint DLP policy match on labeled client data, action=Audit",
-        ],
         "ExtendedProperties.Total Bytes Transferred": "39648512000",
         "ExtendedProperties.Destination Category": "online-storage-and-backup",
         "ExtendedProperties.Encryption Events In Correlation Window": "0",
