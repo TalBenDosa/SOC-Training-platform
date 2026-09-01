@@ -71,7 +71,7 @@ const DASHBOARD_STEPS: TourStep[] = [
     icon: "🎯",
     content:
       "The Rule ID is the detection rule that fired. When you see a purple badge like T1059.001 — that's a MITRE ATT&CK technique ID. Click it to learn exactly what this attacker technique does, what to look for in logs, and how to detect it.",
-    example: "RULE_92400    → generic process creation\nT1059.001     → PowerShell execution\nT1003.001     → LSASS credential dump",
+    example: "HTS-92400    → generic process creation\nT1059.001     → PowerShell execution\nT1003.001     → LSASS credential dump",
     targetId: "ef-th-ruleid",
   },
   {

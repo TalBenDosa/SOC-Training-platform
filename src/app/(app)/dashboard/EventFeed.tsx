@@ -9,7 +9,16 @@ import type { LiveEvent } from "./useLiveEvents";
 import { LOG_SOURCE_GUIDE } from "./logSourceGuide";
 import { eventMatchesSearch } from "./eventSearch";
 import { toRawLog } from "./rawLogFormat";
+import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
+
+// L-01: the internal event id (b_… baseline, atk_evt_…<phase> attack) named the
+// answer — and it was shown verbatim in the Analysis detail panel's event.id row,
+// so a student could tell attack from noise, and read the kill-chain phase, without
+// reading a single log. Display an OPAQUE, deterministic id derived from the real
+// one; the semantic id stays on the engine object for catch/correlation/grading.
+const opaqueEventId = (id: string) =>
+  "EVT-" + hashString(id).toString(16).toUpperCase().padStart(8, "0");
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
@@ -431,7 +440,7 @@ function DetailPanel({
   ];
 
   const ecsCore: [string, string][] = [
-    ["event.id",       event.id],
+    ["event.id",       opaqueEventId(event.id)],
     ["event.provider", event.vendor ?? event.source.toUpperCase()],
     ["event.type",     event.event_type.replace(/_/g, " ")],
     ...(event.mitre_technique ? [["threat.technique.id", event.mitre_technique] as [string, string]] : []),

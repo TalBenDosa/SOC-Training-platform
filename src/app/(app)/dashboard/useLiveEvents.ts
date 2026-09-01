@@ -45,162 +45,66 @@ export interface LiveEvent extends TelemetryEvent {
 
 // Wazuh-style rule IDs by MITRE technique
 const RULE_ID_MAP: Record<string, string> = {
-  "T1566.001": "RULE_5715",   // Phishing attachment
-  "T1059.001": "RULE_5912",   // PowerShell
-  "T1059.003": "RULE_5906",   // cmd.exe
-  "T1071.001": "RULE_3128",   // C2 HTTPS
-  "T1204.002": "RULE_5720",   // User execution of malicious file
-  "T1071.004": "RULE_1002",   // DNS tunneling
-  "T1027":     "RULE_1102",   // Obfuscated files
-  "T1218.011": "RULE_92300",  // Rundll32 LOLBin
-  "T1547.001": "RULE_61116",  // Registry Run key
-  "T1003.001": "RULE_61656",  // LSASS dump
-  "T1110.003": "RULE_5452",   // Password spray
-  "T1078":     "RULE_5501",   // Valid accounts
-  "T1567.002": "RULE_9200",   // Exfil to cloud
-  "T1486":     "RULE_99201",  // Ransomware encrypt
-  "T1490":     "RULE_99202",  // VSS delete
-  "T1070.001": "RULE_92511",  // Clear event logs
-  "T1569.002": "RULE_92511",  // PsExec service
-  "T1021.001": "RULE_5712",   // RDP lateral
-  "T1098.005": "RULE_99301",  // OAuth app
-  "T1530":     "RULE_99302",  // Cloud storage
-  "T1114.002": "RULE_99303",  // Email collection
-  "T1552.001": "RULE_99100",  // Credentials in files
-  "T1048.003": "RULE_5560",   // Exfil over email
-  "T1052.001": "RULE_5570",   // USB exfil
+  "T1566.001": "HTS-5715",   // Phishing attachment
+  "T1059.001": "HTS-5912",   // PowerShell
+  "T1059.003": "HTS-5906",   // cmd.exe
+  "T1071.001": "HTS-3128",   // C2 HTTPS
+  "T1204.002": "HTS-5720",   // User execution of malicious file
+  "T1071.004": "HTS-1002",   // DNS tunneling
+  "T1027":     "HTS-1102",   // Obfuscated files
+  "T1218.011": "HTS-92300",  // Rundll32 LOLBin
+  "T1547.001": "HTS-61116",  // Registry Run key
+  "T1003.001": "HTS-61656",  // LSASS dump
+  "T1110.003": "HTS-5452",   // Password spray
+  "T1078":     "HTS-5501",   // Valid accounts
+  "T1567.002": "HTS-9200",   // Exfil to cloud
+  "T1486":     "HTS-99201",  // Ransomware encrypt
+  "T1490":     "HTS-99202",  // VSS delete
+  "T1070.001": "HTS-92511",  // Clear event logs
+  "T1569.002": "HTS-92511",  // PsExec service
+  "T1021.001": "HTS-5712",   // RDP lateral
+  "T1098.005": "HTS-99301",  // OAuth app
+  "T1530":     "HTS-99302",  // Cloud storage
+  "T1114.002": "HTS-99303",  // Email collection
+  "T1552.001": "HTS-99100",  // Credentials in files
+  "T1048.003": "HTS-5560",   // Exfil over email
+  "T1052.001": "HTS-5570",   // USB exfil
 };
 
 // Wazuh-style rule IDs by source + event_type (benign baseline)
 const SOURCE_EVENT_RULE: Record<string, string> = {
-  "ad:auth_success":        "RULE_18101",
-  "ad:auth_failure":        "RULE_18102",
-  "edr:process_create":     "RULE_92400",
-  "edr:scheduled_task":     "RULE_60105",
-  "edr:av_detection":       "RULE_53601",
-  "sysmon:process_create":  "RULE_92400",
-  "sysmon:file_create":     "RULE_92402",
-  "sysmon:net_connection":  "RULE_92403",
-  "sysmon:registry_set":    "RULE_92404",
-  "dns:dns_query":          "RULE_82001",
-  "firewall:net_connection":"RULE_40101",
-  "vpn:vpn_login":          "RULE_72201",
-  "vpn:vpn_logout":         "RULE_72202",
-  "proxy:http_request":     "RULE_31100",
-  "o365:email_received":    "RULE_91501",
-  "o365:email_sent":        "RULE_91502",
-  "o365:sharepoint_access": "RULE_91510",
-  "o365:teams_message":     "RULE_91520",
-  "cloudtrail:cloud_api_call":"RULE_80200",
+  "ad:auth_success":        "HTS-18101",
+  "ad:auth_failure":        "HTS-18102",
+  "edr:process_create":     "HTS-92400",
+  "edr:scheduled_task":     "HTS-60105",
+  "edr:av_detection":       "HTS-53601",
+  "sysmon:process_create":  "HTS-92400",
+  "sysmon:file_create":     "HTS-92402",
+  "sysmon:net_connection":  "HTS-92403",
+  "sysmon:registry_set":    "HTS-92404",
+  "dns:dns_query":          "HTS-82001",
+  "firewall:net_connection":"HTS-40101",
+  "vpn:vpn_login":          "HTS-72201",
+  "vpn:vpn_logout":         "HTS-72202",
+  "proxy:http_request":     "HTS-31100",
+  "o365:email_received":    "HTS-91501",
+  "o365:email_sent":        "HTS-91502",
+  "o365:sharepoint_access": "HTS-91510",
+  "o365:teams_message":     "HTS-91520",
+  "cloudtrail:cloud_api_call":"HTS-80200",
 };
 
-// Known-benign domains that should never elevate level
-const BENIGN_DOMAINS = new Set([
-  "windowsupdate.microsoft.com", "login.microsoftonline.com", "teams.microsoft.com",
-  "outlook.office365.com", "s3.amazonaws.com", "api.github.com", "zoom.us",
-  "www.bbc.com", "stackoverflow.com", "www.linkedin.com", "app.docusign.com",
-  "registry.npmjs.org", "www.googleapis.com",
-]);
-
-// Known-safe signed processes
-const BENIGN_PROCS = new Set([
-  "chrome.exe", "teams.exe", "outlook.exe", "excel.exe", "winword.exe", "word.exe",
-  "onedrive.exe", "msmpeng.exe", "wuauclt.exe", "explorer.exe", "svchost.exe",
-  "services.exe", "lsass.exe", "csrss.exe", "officeclick2run.exe", "officeclicktorun.exe",
-]);
-
-// LOLBins — medium-high suspicion depending on context
-const LOLBINS = new Set([
-  "mshta.exe", "wscript.exe", "cscript.exe", "regsvr32.exe", "certutil.exe",
-  "bitsadmin.exe", "wmic.exe", "regasm.exe", "installutil.exe",
-]);
 
 function calculateRuleLevel(event: TelemetryEvent): number {
-  const sev    = event.severity ?? "informational";
-  const mitre  = event.mitre_technique ?? "";
-  const proc   = event.process;
-  const net    = event.network;
-
-  // ── MITRE technique hard overrides ────────────────────────────────────────
-  if (mitre) {
-    if (["T1486", "T1490"].includes(mitre))           return 10; // ransomware / VSS
-    if (["T1003.001", "T1003"].includes(mitre))       return 10; // LSASS dump
-    if (["T1059.001"].includes(mitre))                return 9;  // PowerShell
-    if (["T1071.001", "T1071.004"].includes(mitre))   return 9;  // C2 comms
-    if (["T1055"].includes(mitre))                    return 9;  // Process injection
-    if (["T1566.001"].includes(mitre))                return 8;  // Phishing
-    if (["T1204.002"].includes(mitre))                return 8;  // User execution of malicious file
-    if (["T1110.003", "T1110.001", "T1110.004", "T1110"].includes(mitre)) return 8;  // Brute force / spray / stuffing
-    if (["T1547.001"].includes(mitre))                return 8;  // Persistence
-    if (["T1027", "T1218.011", "T1218.010"].includes(mitre)) return 8;  // Obfuscation/LOLBin
-    if (["T1098.005", "T1098.001", "T1114.002", "T1114.001", "T1114.003", "T1530"].includes(mitre)) return 8; // Cloud / mailbox collection / forwarding
-    if (["T1137.005"].includes(mitre))                return 8;  // Outlook rule persistence
-    if (["T1569.002", "T1021.001", "T1021.002", "T1557.001"].includes(mitre)) return 8;  // Lateral / relay
-    if (["T1070.001", "T1070"].includes(mitre))       return 8;  // Log clear
-    if (["T1003.006"].includes(mitre))                return 9;  // DCSync
-    if (["T1558.003", "T1558.004"].includes(mitre))   return 8;  // Kerberoasting / AS-REP
-    if (["T1552.005", "T1552.001", "T1610", "T1611"].includes(mitre)) return 8; // IMDS / container escape / secrets
-    if (["T1528", "T1136.003"].includes(mitre))       return 8;  // OAuth token / cloud account
-    if (["T1621"].includes(mitre))                    return 7;  // MFA fatigue
-    if (["T1078", "T1078.002", "T1078.004"].includes(mitre)) return 7;  // Valid accounts
-    if (["T1048.003", "T1052.001", "T1041", "T1567", "T1567.002", "T1580", "T1087.002", "T1087.004", "T1496"].includes(mitre)) return 7; // Exfil / discovery / mining
-  }
-
-  // ── Process content analysis ───────────────────────────────────────────────
-  if (proc) {
-    const name = (proc.name ?? "").toLowerCase();
-    const cmd  = (proc.cmdline ?? "").toLowerCase();
-
-    // Critical command indicators
-    if (cmd.includes("-encodedcommand") || cmd.includes(" -enc "))  return 10;
-    if (cmd.includes("delete shadows"))                             return 10;
-    if (cmd.includes("minidump") || cmd.includes("comsvcs"))       return 10;
-    if (cmd.includes("cl security") || cmd.includes("cl system"))  return 9;
-    if (cmd.includes("-windowstyle hidden") || cmd.includes("-w hidden")) return 9;
-    if (cmd.includes("bypass") && name === "powershell.exe")       return 8;
-    if (cmd.includes("invoke-mimikatz") || name === "mimikatz.exe") return 10;
-    if (name === "psexec.exe" || name === "psexesvc.exe")           return 8;
-    if (name === "vssadmin.exe")                                    return 9;
-    if (name === "wevtutil.exe" && cmd.includes(" cl "))            return 8;
-
-    // LOLBin usage → medium-high
-    if (LOLBINS.has(name)) return Math.max(6, severityBase(sev));
-
-    // Known-safe signed binaries → keep low
-    if (BENIGN_PROCS.has(name) && !cmd.includes("bypass")) {
-      return Math.min(2, severityBase(sev));
-    }
-  }
-
-  // ── Network content analysis ──────────────────────────────────────────────
-  if (net) {
-    const domain = (net.domain ?? "").toLowerCase();
-    if (BENIGN_DOMAINS.has(domain)) return 1;
-  }
-
-  // ── Event-type baseline (no MITRE / no suspicious content) ───────────────
-  // These are the "quiet" defaults, but severity is always a FLOOR: a
-  // high-severity event never displays a level that contradicts its severity
-  // (e.g. a malicious mail-forward rule must not read as level 2).
-  const floor = severityBase(sev);
-  switch (event.event_type) {
-    case "dns_query":
-    case "vpn_logout":
-    case "sharepoint_access":
-    case "teams_message":
-    case "scheduled_task":   return Math.max(1, floor);
-
-    case "auth_failure":     return Math.max(3, floor);   // single failure = low
-    case "mfa_denied":       return Math.max(5, floor);
-    case "vpn_login":        return Math.max(2, floor);
-    case "email_received":   return Math.max(2, floor);
-    case "email_sent":       return Math.max(2, floor);
-    case "registry_set":     return Math.max(2, floor);
-    case "file_create":      return Math.max(2, floor);
-  }
-
-  // ── Fallback: severity → level ────────────────────────────────────────────
-  return floor;
+  // L-06 — SINGLE SOURCE OF TRUTH: the displayed rule level is derived purely from
+  // the event severity, identically for attack and noise. The old function boosted
+  // the level from mitre_technique (which ONLY attack events carry) and from
+  // process/command content, so attack events uniquely reached levels 7-10 and a 9
+  // was unreachable by any noise event — filtering 7-10 and looking for a 9
+  // isolated the attack without reading a single log. Tying level to severity, and
+  // keeping genuine high-severity NOISE in the pool, closes that leak: an 8 or a 10
+  // now appears on real incidents and benign decoys alike.
+  return severityBase(event.severity ?? "informational");
 }
 
 function severityBase(sev: string): number {
@@ -211,6 +115,36 @@ function severityBase(sev: string): number {
     case "low":           return 3;
     case "informational": return 1;
     default:              return 1;
+  }
+}
+
+// ── L-02: realistic timing (no metronome) ─────────────────────────────────────
+// Real telemetry does not arrive on a fixed 60-second grid, and the events of one
+// incident do not all land within seconds — each product has its own ingestion
+// lag. Before this, baseline events were spaced exactly 60s apart while attack
+// events burst 3-4s apart, so "sort by time and take everything off the grid"
+// solved any session without reading a log.
+
+// Deterministic irregular cumulative offset (ms) into the past for the k-th
+// most-recent backfill event: sums pseudo-random 20-100s gaps so the historical
+// feed is never on a fixed 60s grid. k=0 → ~now; larger k → further back.
+function jitteredOffset(k: number): number {
+  let ms = 0, seed = 0x9e3779b9 >>> 0;
+  for (let j = 0; j < k; j++) { seed = Math.imul(seed + j + 1, 2654435761) >>> 0; ms += 20_000 + (seed % 80_000); }
+  return ms;
+}
+
+// Per-source ingestion delay — the characteristic lag between an action and its
+// log landing in the SIEM. Spreads one incident's events across minutes and out of
+// strict order, so building the timeline is a genuine skill, not a sort.
+function ingestionDelayMs(source: string): number {
+  const r = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo));
+  switch (source) {
+    case "edr": case "sysmon": case "av":                         return r(5_000, 20_000);
+    case "firewall": case "proxy": case "dns": case "ids":
+    case "waf": case "vpn": case "nac": case "dhcp":              return r(10_000, 60_000);
+    case "siem": case "ueba": case "soar": case "threat_intel":   return r(30_000, 120_000);
+    default:                                                      return r(15_000, 60_000);
   }
 }
 
@@ -227,7 +161,7 @@ function buildRuleId(event: TelemetryEvent, index: number): string {
   if (SOURCE_EVENT_RULE[sourceKey]) return SOURCE_EVENT_RULE[sourceKey];
   // 3. Deterministic fallback
   const base = 60000 + (index % 9000);
-  return `RULE_${base}`;
+  return `HTS-${base}`;
 }
 
 function buildDescription(event: TelemetryEvent): string {
@@ -1114,7 +1048,7 @@ export function useLiveEvents({
       }
       setEvents(
         initial.map((e, i) =>
-          enrichWithFidelity(withRebasedTime(e, new Date(now - (14 - i) * 60_000).toISOString()), i)
+          enrichWithFidelity(withRebasedTime(e, new Date(now - jitteredOffset(14 - i)).toISOString()), i)
         ).reverse()
       );
       return;
@@ -1132,7 +1066,7 @@ export function useLiveEvents({
     domainUsersRef.current = extractDomainUsers(pool);
     setEvents(
       initial.map((e, i) =>
-        enrichWithFidelity(withRebasedTime(e, new Date(now - (14 - i) * 60_000).toISOString()), i)
+        enrichWithFidelity(withRebasedTime(e, new Date(now - jitteredOffset(14 - i)).toISOString()), i)
       ).reverse()
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1157,11 +1091,17 @@ export function useLiveEvents({
           if (attackEvents && attackEvents.length > 0) {
             const isFP = world.attack?.isFP ?? false;
             const now  = Date.now();
-            const raw  = attackEvents.map((g: GeneratedEvent, i: number) => ({
-              ...generatedToTelemetry(g, globalIdx.current + i),
-              ts: new Date(now + i * 4_000).toISOString(),
-              id: `eng_atk_${now}_${i}`,
-            }));
+            const raw  = attackEvents.map((g: GeneratedEvent, i: number) => {
+              const tele = generatedToTelemetry(g, globalIdx.current + i);
+              return {
+                ...tele,
+                // L-02: spread the incident's events across minutes with a per-source
+                // ingestion lag, not a 3-4s burst — building the timeline is now a
+                // real correlation exercise, not "take everything within 11 seconds".
+                ts: new Date(now + i * (30_000 + Math.floor(Math.random() * 45_000)) + ingestionDelayMs(tele.source)).toISOString(),
+                id: `eng_atk_${now}_${i}`,
+              };
+            });
             globalIdx.current += raw.length;
             const enriched = raw.map(e => enrichWithFidelity(e, globalIdx.current++));
             const batchIds  = new Set(enriched.map(e => e.id));
@@ -1292,7 +1232,9 @@ export function useLiveEvents({
     const n = Math.min(s.events.length - cursor, 2 + (Math.random() < 0.5 ? 1 : 0)); // 2-3 events
     const now = Date.now();
     const slice = s.events.slice(cursor, cursor + n).map((e, i) => ({
-      ...withRebasedTime(e, new Date(now + i * 4_000).toISOString()),
+      // L-02: spread over minutes + per-source ingestion delay (was a 4s burst),
+      // so the attack no longer stands out as "the only thing off the 60s grid".
+      ...withRebasedTime(e, new Date(now + i * (30_000 + Math.floor(Math.random() * 45_000)) + ingestionDelayMs(e.source)).toISOString()),
       id: `atk_${e.id}_${now}_${i}`,
     }));
     storyCursorRef.current = cursor + n;
