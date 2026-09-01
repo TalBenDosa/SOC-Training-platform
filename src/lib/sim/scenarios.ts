@@ -59,6 +59,58 @@ import { buildBecWireFraudScenario }             from "./scenario-packs/becWireF
 
 // ─── Alert auto-generator ────────────────────────────────────────────────────
 
+// Build the alert's title + description from the EVENT'S OWN OBSERVABLES — never a
+// per-technique template (which could contradict the event it points at: the old
+// generator stamped "macro Office document" on a .pdf.exe ZIP, and "PowerShell
+// beacon" where no PowerShell existed) and never the analyst's prose conclusion
+// (that is the exercise — see F-02). An alert states what the tool SAW, grounded
+// in the same structured observables the analyst reads on the event row, so it can
+// never disagree with its own event.
+function alertTextFromEvent(e: TelemetryEvent): { title: string; description: string } {
+  const vendor = e.vendor ?? e.source.toUpperCase();
+  const host = e.hostname ? ` on ${e.hostname}` : "";
+  const p = e.process;
+  const n = e.network;
+  if (p?.name) {
+    const parent = p.parent_name ? ` (child of ${p.parent_name})` : "";
+    return {
+      title: `${vendor} flagged process ${p.name}${host}`,
+      description: `${vendor} raised a detection on ${p.name}${parent}${host}${p.cmdline ? ` — command line: ${p.cmdline}` : ""}.`,
+    };
+  }
+  if (n?.domain) {
+    return {
+      title: `${vendor}: outbound connection to ${n.domain}${host}`,
+      description: `${vendor} flagged a connection to ${n.domain}${e.dst_ip ? ` (${e.dst_ip})` : ""}${host}.`,
+    };
+  }
+  if (n?.url) {
+    let hostPart = n.url;
+    try { hostPart = new URL(n.url).host; } catch { /* keep the raw url */ }
+    return {
+      title: `${vendor}: web request to ${hostPart}${host}`,
+      description: `${vendor} flagged a web request to ${n.url}${host}.`,
+    };
+  }
+  if (e.file?.path) {
+    return {
+      title: `${vendor}: file activity — ${e.file.path}${host}`,
+      description: `${vendor} flagged file activity on ${e.file.path}${host}${e.file.sha256 ? ` (sha256 ${e.file.sha256})` : ""}.`,
+    };
+  }
+  const et = e.event_type.replace(/_/g, " ");
+  if (e.user_email && /auth|login|logon|sign|account|mfa|token/i.test(e.event_type)) {
+    return {
+      title: `${vendor}: ${et} — ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}`,
+      description: `${vendor} recorded ${et} for ${e.user_email}${e.src_ip ? ` from ${e.src_ip}` : ""}${host}.`,
+    };
+  }
+  return {
+    title: `${vendor} detection: ${et}${host}`,
+    description: `${vendor} raised a ${e.severity ?? "medium"} detection (${et})${host}.`,
+  };
+}
+
 export function eventsToAlerts(events: TelemetryEvent[], scenario_id: string): Alert[] {
   const alerts: Alert[] = [];
   let aid = 0;
@@ -77,8 +129,7 @@ export function eventsToAlerts(events: TelemetryEvent[], scenario_id: string): A
     alerts.push({
       id: `alt_${scenario_id.slice(0, 6)}_${aid}`,
       alert_uid: vendorAlertId(e.vendor ?? e.source, scenario_id, aid),
-      title: titleForTechnique(e.mitre_technique, e),
-      description: descForTechnique(e.mitre_technique, e),
+      ...alertTextFromEvent(e),
       source: e.source, vendor: e.vendor ?? e.source.toUpperCase(),
       severity: e.severity,
       status: "new",
@@ -105,140 +156,6 @@ function vendorAlertId(vendor: string, scenarioId: string, n: number): string {
   return `${tag}-${h}`;
 }
 
-function titleForTechnique(t: string, e: TelemetryEvent): string {
-  switch (t) {
-    case "T1566.001": return "Spearphishing attachment with macro delivered";
-    case "T1059.001": return "Encoded PowerShell spawned by Office process";
-    case "T1071.001": return "Outbound HTTPS beacon to uncategorized domain";
-    case "T1027":     return "Obfuscated DLL written to user TEMP directory";
-    case "T1218.011": return "rundll32.exe executing user-writable DLL";
-    case "T1547.001": return "Registry Run key persistence established";
-    case "T1003.001": return "LSASS memory dumped via comsvcs.dll MiniDump";
-    case "T1110.003": return "Password spraying across multiple accounts";
-    case "T1078":     return "Anomalous sign-in from new geography";
-    case "T1071.004": return "DNS tunneling — high-entropy subdomain pattern";
-    case "T1567.002": return "Large data download from cloud storage";
-    case "T1021.002": return "Lateral movement via SMB Admin Share (PsExec)";
-    case "T1569.002": return "Remote service execution via PsExec";
-    case "T1490":     return "Volume shadow copies deleted — ransomware pre-stage";
-    case "T1486":     return "Files encrypted with ransomware extension";
-    case "T1098.001": return e.source === "cloudtrail"
-      ? "AdministratorAccess policy attached to backdoor IAM user"
-      : "Rogue OAuth app registered with broad permissions";
-    case "T1564.008": return "Hidden inbox rule created to conceal attacker mail";
-    case "T1528":     return "OAuth consent granted to an attacker-controlled application";
-    case "T1114.002": return "Email collection via Microsoft Graph API";
-    case "T1530":     return "Bulk data access from cloud storage";
-    case "T1552.001": return "AWS access key committed to public GitHub repository";
-    case "T1078.004": return "Valid cloud account used from attacker IP — credential confirmation";
-    case "T1580":     return "Cloud infrastructure discovery — S3, EC2, Secrets Manager enumeration";
-    case "T1578.002": return "Attacker launched GPU instances for cryptomining (RunInstances)";
-    case "T1136.003": return "Backdoor IAM user created for persistent cloud access";
-    case "T1496":     return "Resource hijacking — GPU instances running Monero cryptominer";
-    case "T1052.001": return "Sensitive files copied to USB removable device";
-    case "T1567":     return "Exfiltration to personal cloud storage";
-    case "T1087.002": return "LDAP SPN enumeration — Kerberoasting reconnaissance";
-    case "T1558.003": return "Kerberos TGS tickets requested with RC4 encryption (Kerberoasting)";
-    case "T1041":     return "Data exfiltration via DNS tunnel";
-    case "T1105":     return "certutil.exe downloading payload from attacker URL";
-    case "T1218.010": return "regsvr32.exe Squiblydoo — remote COM scriptlet execution";
-    case "T1218.005": return "mshta.exe executing remote VBScript";
-    case "T1057":     return "wmic.exe enumerating running processes";
-    case "T1197":     return "bitsadmin.exe BITS job used for persistence download";
-    case "T1053.005": return "Scheduled task created for SYSTEM-level persistence";
-    case "T1003.006": return "DCSync — replication credential dump from domain controller";
-    case "T1003.003": return "NTDS.dit snapshot — Active Directory database extracted";
-    case "T1558.001": return "Golden Ticket forged using stolen krbtgt NTLM hash";
-    case "T1562.001": return "Windows Defender disabled — real-time protection tampered";
-    case "T1021.001": return "RDP lateral movement via stolen admin credentials";
-    case "T1136.001": return "Domain admin account created for attacker persistence";
-    case "T1070.001": return "Security audit log cleared — attacker covering tracks";
-    case "T1195.002": return "Trojanized software update from compromised vendor supply chain";
-    case "T1083":     return "File system discovery — hunting for credentials and config files";
-    case "T1021.004": return "Lateral movement via SSH using stolen private key";
-    case "T1053.003": return "Cron job persistence established for malicious process";
-    case "T1036.005": return "Malicious binary masquerading as legitimate vendor telemetry process";
-    case "T1621":     return "MFA push bombardment — user fatigued into approving";
-    case "T1558.004": return "AS-REP Roasting — TGT requested without pre-authentication";
-    case "T1557.001": return "LLMNR/NBT-NS Poisoning — name-resolution answers from an unexpected host";
-    case "T1610":     return "Malicious kubectl exec into production container";
-    case "T1611":     return "Container escape to host — breakout onto the EC2 node OS";
-    case "T1552.005": return "EC2 Instance Metadata Service (IMDS) queried for IAM credentials";
-    case "T1137.005": return "Inbox rule created by OAuth app to forward email externally";
-    case "T1078.002": return "Domain service account used post-credential crack";
-    case "T1550.003": return "Golden Ticket used for lateral movement — Pass the Ticket";
-    case "T1114.003": return "Mailbox auto-forwarding rule created to external address";
-    default:          return `Detection: ${t}`;
-  }
-}
-
-function descForTechnique(t: string, e: TelemetryEvent): string {
-  const host = e.hostname ? ` on ${e.hostname}` : "";
-  const user = e.user_email ? ` (${e.user_email})` : "";
-  switch (t) {
-    case "T1566.001": return `Macro-enabled Office document delivered via email${user}. SPF/DKIM/DMARC all failed.`;
-    case "T1059.001": return `WINWORD.EXE spawned powershell.exe with -EncodedCommand and Hidden window${host}.`;
-    case "T1071.001": return `PowerShell initiated TLS connection to a recently-registered C2 domain${host}.`;
-    case "T1027":     return `PE DLL written to %TEMP% by non-installer process${host}. High entropy, unsigned.`;
-    case "T1547.001": return `HKCU Run key created pointing to %TEMP% DLL${host}.`;
-    case "T1003.001": return `comsvcs.dll MiniDump used to dump LSASS — credential theft${host}.`;
-    case "T1110.003": return `Multiple auth failures across accounts from same IP${user}.`;
-    case "T1078":     return `Auth success from first-time country — stolen credentials likely${user}.`;
-    case "T1071.004": return `DNS tunneling: 48+ char base32 subdomains, TXT records carrying C2 data${host}.`;
-    case "T1567.002": return `Large file download (>100MB) from S3 — 650x daily baseline${user}.`;
-    case "T1021.002": return `SMB connection to ADMIN$ share — PsExec lateral movement${host}.`;
-    case "T1569.002": return `PSEXESVC.exe service created on remote host under NT AUTHORITY\\SYSTEM.`;
-    case "T1490":     return `vssadmin delete shadows /all /quiet — prevents file recovery.`;
-    case "T1486":     return `Files encrypted with .locked extension — ransomware payload active.`;
-    case "T1098.001": return e.source === "cloudtrail"
-      ? `AdministratorAccess managed policy attached to backdoor IAM user — full AWS account takeover.`
-      : `OAuth app registered with Mail.ReadWrite + Files.ReadWrite.All${user}.`;
-    case "T1564.008": return `Inbox rule created that files or deletes mail before the owner sees it${user}.`;
-    case "T1114.002": return `Graph API MailItemsAccessed via third-party OAuth app${user}.`;
-    case "T1530":     return `Bulk file download from SharePoint/S3${user}.`;
-    case "T1552.001": return `AWS access key found in public GitHub commit${user} — automated secret scanner detected it 3 minutes after push.`;
-    case "T1078.004": return `Attacker used stolen cloud credentials from ${e.src_ip ?? "unknown IP"} — first-ever use of this key from this location.`;
-    case "T1580":     return `Rapid cloud recon: ListBuckets, DescribeInstances, ListSecrets, DescribeVpcs — all within 90 seconds from same attacker IP.`;
-    case "T1578.002": return `RunInstances: GPU instances (p3.8xlarge) launched in ${e.raw["cloud.region"] ?? "us-east-1"} — XMRig miner installed via UserData script.`;
-    case "T1136.003": return `Backdoor IAM user created — attacker persistence before original stolen credentials could be revoked.`;
-    case "T1496":     return `Cryptomining: DNS queries to pool.minexmr.com from 14 EC2 GPU instances — $342.72/hr burn rate.`;
-    case "T1052.001": return `Files copied to USB removable device${host}.`;
-    case "T1567":     return `Outbound upload to personal cloud storage — DLP triggered${host}.`;
-    case "T1087.002": return `LDAP query enumerating all service accounts with SPNs — classic Kerberoasting pre-step${host}.`;
-    case "T1558.003": return `Kerberos TGS tickets requested with RC4 encryption (0x17) — hashes can be cracked offline${host}.`;
-    case "T1041":     return `Data being encoded into DNS subdomain names and exfiltrated via DNS queries${host}.`;
-    case "T1105":     return `certutil.exe used to download payload from internet — legitimate tool abused as LOLBin${host}.`;
-    case "T1218.010": return `regsvr32 /i:<URL> executes COM scriptlet remotely — bypasses AppLocker (Squiblydoo)${host}.`;
-    case "T1218.005": return `mshta.exe executing VBScript from attacker URL — spawned by regsvr32 in LOLBin chain${host}.`;
-    case "T1057":     return `wmic.exe process enumeration — post-exploitation discovery via built-in Windows tool${host}.`;
-    case "T1197":     return `bitsadmin BITS job downloads attacker binary — BITS jobs run as SYSTEM and survive reboots${host}.`;
-    case "T1053.005": return `Scheduled task '${e.process?.cmdline?.includes("NexaCorpHealthCheck") ? "NexaCorpHealthCheck" : "unknown"}' runs attacker payload as SYSTEM every 5 minutes${host}.`;
-    case "T1003.006": return `DCSync attack: non-DC account requested DS-Replication-Get-Changes-All on ${host || "DC"} — Mimikatz is replicating all AD credential hashes.`;
-    case "T1003.003": return `ntdsutil.exe created NTDS.dit snapshot${host} — contains NTLM hashes for every domain account. Can be cracked offline.`;
-    case "T1558.001": return `Kerberos TGT with 87,600-hour lifetime (10 years) — Golden Ticket forged offline using stolen krbtgt hash${host}. Survives all password resets.`;
-    case "T1562.001": return `Windows Defender real-time protection disabled via registry tamper${host} — attacker clearing the way for credential theft tools.`;
-    case "T1021.001": return `RDP session from external IP to domain controller${host}${user} — never legitimate outside IT break-glass procedures.`;
-    case "T1136.001": return `Shadow admin account created and added to Domain Admins${host}${user} — disguised as service account for stealthy persistence.`;
-    case "T1070.001": return `Security audit log cleared (Event 1102)${host} — attacker destroying forensic evidence. This is the last event before logs disappear.`;
-    case "T1195.002": return `Trojanized vendor software installed${host} — signed by real vendor cert but contains a malicious payload.`;
-    case "T1083":     return `Credential hunting: find scanning /home /root /etc for credentials, .env, .pem files${host}.`;
-    case "T1021.004": return `SSH lateral movement using stolen private key${host} — no password required; attacker pivoting to database and CI/CD servers.`;
-    case "T1053.003": return `Cron job written to /etc/cron.d${host} — re-launches malicious process every 15 minutes, survives reboots.`;
-    case "T1036.005": return `Malicious process masquerading as legitimate vendor binary — wrong path, unsigned, SHA256 mismatch vs. known-good${host}.`;
-    case "T1621":     return `${e.src_ip ?? "Attacker"} sent 60+ Okta push notifications to exhaust${user} — user approved at 01:32 AM after 11 minutes of bombardment.`;
-    case "T1558.004": return `AS-REP Roasting: account has Kerberos pre-authentication disabled (PreAuthType=0) — attacker requested TGT without credentials and will crack offline${host}.`;
-    case "T1557.001": return `An LLMNR broadcast was answered by a host that does not own the requested name; the authentication that followed was relayed to ${e.dst_ip ?? "another server"}${host}.`;
-    case "T1610":     return `kubectl exec into container ${e.hostname ?? "api-prod"} from unexpected external IP — attacker using compromised CI/CD token to gain container shell${host}.`;
-    case "T1611":     return `nsenter used with host namespace flags to break out of the container onto the EC2 node OS${host} — container escape to full host access.`;
-    case "T1552.005": return `curl to 169.254.169.254 (AWS IMDS) from inside container${host} — attacker retrieving IAM role credentials bound to the EC2 node to pivot to cloud.`;
-    case "T1528":     return `Malicious OAuth app "${e.raw?.["data.office365.ExtendedProperties.AppDisplayName"] ?? "Productivity Suite Pro"}" granted Mail.ReadWrite + Files.ReadWrite.All by${user} — app silently reads all email via Graph API.`;
-    case "T1137.005": return `Inbox forwarding rule created by OAuth app (not user) — all email forwarded to external address. App used delegated Graph API permissions${user}.`;
-    case "T1078.002": return `Service account authenticated from new IP after offline hash crack — AS-REP roasted account now used for lateral movement${host}.`;
-    case "T1550.003": return `Forged Golden Ticket presented directly to ${host || "Domain Controller"} — Kerberos accepted the ticket because krbtgt hash is still valid${user}. Survives all user password resets.`;
-    case "T1114.003": return `Set-Mailbox configured ForwardingSmtpAddress to an external address${user} — persists after password reset, must be explicitly cleared.`;
-    default:          return `Detection triggered: ${t}`;
-  }
-}
 
 function tacticForTechnique(t: string): string | undefined {
   if (t.startsWith("T1566")) return "TA0001";
