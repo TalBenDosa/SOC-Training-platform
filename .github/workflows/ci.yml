@@ -72,6 +72,15 @@ jobs:
       - name: Validate scenario content
         run: npm run validate:scenarios
 
+      # Scenario DATA-INTEGRITY gate (Sept-2026 realism audit F-03/F-04/F-06/F-10):
+      # events must be chronological (or is_baseline), source must be a valid
+      # LogSource with a vendor mapped to exactly one source, raw blocks must carry
+      # no invented fields or leaked evt_* ids, and every scenario must recommend a
+      # real learning room. One check that catches four whole findings' worth of
+      # data bugs before they ship.
+      - name: Validate scenario integrity
+        run: npm run validate:scenarios:integrity
+
       # Malware-hash registries back the "Check Hash · VirusTotal" pivot — the
       # exact skill taught. Fails on any fabricated/synthetic SHA256 so a made-up
       # hash (which resolves to nothing on VT) can't regress in.
