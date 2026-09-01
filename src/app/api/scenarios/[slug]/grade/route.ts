@@ -45,7 +45,7 @@ export async function POST(
   }
 
   const {
-    answers = {}, timeTaken = 0, iocTagged = 0,
+    answers = {}, timeTaken = 0,
     verdict = null, verdictReason = "", analystNotes = "",
     indicators = [],
   } = body;
@@ -85,12 +85,17 @@ export async function POST(
       correct = submitted === q.answer;
     }
 
+    // Show the human-readable option LABEL, never the internal option value:
+    // feedback used to read "Correct: ext" (the value) instead of the real answer.
+    const optLabel = (val: string) => (q.options ?? []).find(o => o.value === val)?.label ?? val;
+    const toLabels = (a: string | string[]) => Array.isArray(a) ? a.map(optLabel) : optLabel(a);
+
     return {
       id: q.id,
       correct,
-      yourAnswer: submitted ?? (q.kind === "multi" ? [] : ""),
+      yourAnswer: submitted !== undefined ? toLabels(submitted) : (q.kind === "multi" ? [] : ""),
       // Revealed only for a question the learner actually attempted.
-      correctAnswer: answered ? q.answer : null,
+      correctAnswer: answered ? toLabels(q.answer as string | string[]) : null,
       explanation: answered ? q.explanation : null,
       prompt: q.prompt,
       xp: q.xp,
@@ -112,8 +117,9 @@ export async function POST(
   // widening is exploit-prone, so reportScoring.test.ts locks it down). See
   // reportScoring.ts for the evidence / fabrication / depth logic.
   const {
-    reportText, words, expectedVerdict, verdictCorrect,
-    scenarioIocValues, iocsCited, fabricated, reportRubric, reportScore,
+    reportText, words, expectedVerdict, verdictCorrect, verdictWrong,
+    scenarioIocValues, iocsCited, usefulCitedCount, fabricated, misattributed,
+    reportRubric, reportScore,
   } = scoreScenarioReport({
     verdict, verdictReason, analystNotes, indicators,
     iocs: bundle.iocs, events: bundle.events, attackKind: bundle.attack_kind,
@@ -122,16 +128,28 @@ export async function POST(
   // Quiz and report both count. The quiz tests recognition; the report tests
   // whether they can actually communicate an incident, which is the job.
   const score = Math.round(quizScore * 0.6 + reportScore * 0.4);
+  const passed = score >= 70;
   const xpEarned =
     perQuestion.filter(q => q.correct).reduce((s, q) => s + q.xp, 0) +
-    iocTagged * 10 +
+    // Reward CITING REAL indicators (precision), not merely tagging any (recall).
+    usefulCitedCount * 10 +
     Math.round(reportScore * 1.5);
-  const timeBonusXp = timeTaken < 600 ? 50 : timeTaken < 1200 ? 25 : 0;
-  const passed = score >= 70;
+  // The time bonus rewards thoroughness, not haste: only a PASSING investigation
+  // earns it, so racing to a fast wrong/thin answer no longer pays.
+  const timeBonusXp = passed ? (timeTaken < 600 ? 50 : timeTaken < 1200 ? 25 : 0) : 0;
 
   // AI feedback (Claude) — falls back to static text if no API key
+  // The verdict is the analyst's headline output — a wrong call is called out
+  // explicitly (it was silent before) and caps the report score.
+  const calledVerdict = verdict === "tp" ? "malicious" : verdict === "fp" ? "benign" : "no verdict";
+  const verdictNote = verdictWrong
+    ? ` ⚠ Your verdict was wrong — you called this ${calledVerdict}, the evidence shows ${expectedVerdict}. The verdict is the single most important output of an investigation, so a wrong call caps the report below passing.`
+    : "";
   const fabricationNote = fabricated.length > 0
     ? ` ⚠ Your report cited ${fabricated.length} indicator${fabricated.length > 1 ? "s" : ""} that appear nowhere in this incident's telemetry — never invent evidence; cite only what the logs actually show.`
+    : "";
+  const misattributionNote = misattributed.length > 0
+    ? ` ⚠ You tagged ${misattributed.join(", ")} as a hostile indicator — that is a known-benign address (a public DNS resolver, not adversary infrastructure). Tagging a benign or internal asset as malicious is a Tier-1 precision error.`
     : "";
   const reportNote =
     reportScore >= 75 ? "Your written report was thorough — verdict, evidence and reasoning all present."
@@ -140,7 +158,7 @@ export async function POST(
 
   let aiFeedback = (passed
     ? `Good investigation on "${bundle.title}". You identified ${correctCount}/${bundle.questions.length} attack stages and scored ${reportScore}/100 on the report. ${reportNote}`
-    : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}, report ${reportScore}). ${reportNote}`) + fabricationNote;
+    : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}, report ${reportScore}). ${reportNote}`) + verdictNote + misattributionNote + fabricationNote;
 
   // The paid LLM feedback additionally requires org budget headroom — `gradeUser`
   // itself is guaranteed non-null here, since the whole route is now gated above.
@@ -222,7 +240,9 @@ Write exactly 3 sentences of actionable, encouraging feedback. One sentence on t
       iocsCited,
       iocsTotal: scenarioIocValues.length,
       verdictCorrect,
+      verdictWrong,
       fabricated: fabricated.length,
+      misattributed: misattributed.length,
     },
   });
 }

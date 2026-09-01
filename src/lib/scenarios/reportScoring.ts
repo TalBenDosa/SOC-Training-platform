@@ -34,13 +34,26 @@ export interface ReportScoreResult {
   words: number;
   expectedVerdict: "benign" | "malicious";
   verdictCorrect: boolean;
+  verdictWrong: boolean;
   scenarioIocValues: string[];
   iocsCited: number;
   usefulCitedCount: number;
   fabricated: string[];
+  misattributed: string[];
   reportRubric: { verdict: number; depth: number; evidence: number; reasoning: number };
   reportScore: number;
 }
+
+// Well-known-benign addresses that are never a hostile indicator. Citing a public
+// DNS resolver as an IOC is a Tier-1 precision error, the same class as tagging the
+// victim's own asset — it is penalised, not credited. (Kept deliberately small and
+// unambiguous; the victim's own internal IP can't be detected generically here.)
+const BENIGN_INDICATORS = new Set<string>([
+  "8.8.8.8", "8.8.4.4",           // Google Public DNS
+  "1.1.1.1", "1.0.0.1",           // Cloudflare DNS
+  "208.67.222.222", "208.67.220.220", // OpenDNS
+  "9.9.9.9",                      // Quad9
+]);
 
 /**
  * Recursively flattens telemetry down to its leaf string/number/boolean VALUES
@@ -113,21 +126,34 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   for (const m of reportText.matchAll(/\b[0-9a-f]{32,64}\b/gi))         claimed.add(m[0].toLowerCase()); // hash
   const fabricated = [...claimed].filter(v => v.length >= 4 && !isRealValue(v));
 
+  // Precision error: a known-benign address tagged (or written) as a hostile
+  // indicator. Checked across BOTH the tagged IOC list and the prose.
+  const misattributed = [...new Set([...citedValues, ...claimed])].filter(v => BENIGN_INDICATORS.has(v));
+
   const reportRubric = {
     verdict:  verdict ? (verdictCorrect ? 25 : 5) : 0,
     depth:    words >= 150 ? 25 : words >= 80 ? 18 : words >= 40 ? 10 : words > 0 ? 4 : 0,
-    evidence: fabricated.length > 0 ? (usefulCited.size > 0 ? 5 : 0) : Math.round(iocCoverage * 30),
+    // A fabricated OR misattributed indicator caps evidence near zero — precision,
+    // not just recall: an unusable report is worse than a sparse one.
+    evidence: (fabricated.length > 0 || misattributed.length > 0)
+      ? (usefulCited.size > 0 ? 5 : 0)
+      : Math.round(iocCoverage * 30),
     reasoning: verdictReason.trim().split(/\s+/).filter(Boolean).length >= 25 ? 20
              : verdictReason.trim().split(/\s+/).filter(Boolean).length >= 10 ? 12 : 0,
   };
-  const reportScore = Math.min(
+  const rawReportScore = Math.min(
     100,
     reportRubric.verdict + reportRubric.depth + reportRubric.evidence + reportRubric.reasoning,
   );
+  // A confident WRONG verdict is worse than none: the verdict is the single most
+  // important output, so a thorough write-up must not pass the report on evidence
+  // and depth alone when the core call is wrong. Cap below the report pass line.
+  const verdictWrong = verdict != null && !verdictCorrect;
+  const reportScore = verdictWrong ? Math.min(rawReportScore, 49) : rawReportScore;
 
   return {
-    reportText, words, expectedVerdict, verdictCorrect,
+    reportText, words, expectedVerdict, verdictCorrect, verdictWrong,
     scenarioIocValues, iocsCited, usefulCitedCount: usefulCited.size,
-    fabricated, reportRubric, reportScore,
+    fabricated, misattributed, reportRubric, reportScore,
   };
 }

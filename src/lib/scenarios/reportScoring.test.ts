@@ -76,6 +76,28 @@ describe("scoreScenarioReport — IOC evidence exploit guards", () => {
     expect(r.fabricated).toContain("6.6.6.6");
     expect(r.reportRubric.evidence).toBe(5);
   });
+
+  it("tagging a known-benign address (8.8.8.8) is a precision error that caps evidence", () => {
+    const r = score({ indicators: [{ value: "10.20.14.31" }, { value: "8.8.8.8" }] });
+    expect(r.misattributed).toContain("8.8.8.8");
+    expect(r.reportRubric.evidence).toBe(5); // usefulCited > 0, but capped for the benign tag
+  });
+});
+
+describe("scoreScenarioReport — a wrong verdict caps the report", () => {
+  it("a confident WRONG verdict caps reportScore below the pass line even with strong evidence", () => {
+    // Correct call would score 100; calling a malicious incident benign must not pass.
+    const r = score({ verdict: "fp", indicators: [{ value: "10.20.14.31" }] });
+    expect(r.verdictWrong).toBe(true);
+    expect(r.reportRubric.verdict).toBe(5);
+    expect(r.reportScore).toBe(49); // capped (raw would be 5+25+30+20 = 80)
+  });
+
+  it("a correct verdict is never capped", () => {
+    const r = score({ verdict: "tp", indicators: [{ value: "10.20.14.31" }] });
+    expect(r.verdictWrong).toBe(false);
+    expect(r.reportScore).toBeGreaterThan(49);
+  });
 });
 
 describe("scoreScenarioReport — rubric & verdict mapping", () => {
