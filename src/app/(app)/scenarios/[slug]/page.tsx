@@ -30,6 +30,23 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     attack_kind: "",
     iocs: [],
     killchain: [],
+    // F-02 — the events table is something to INVESTIGATE, not read. Each event's
+    // analyst `description` and its MITRE mapping are the exercise (the student
+    // writes the description and picks the technique); they are stripped here and
+    // revealed only in the graded debrief. Conclusion-carrying raw fields (a
+    // "*.description" is the tool's own analyst write-up, e.g.
+    // crowdstrike.detection.description — the answer to Q1 verbatim) are dropped
+    // too. The analyst still sees every observable: process/file/network/auth
+    // fields and the rest of the raw block. Server-enforced, so none of this is
+    // readable in view-source during the investigation. Grading uses the real
+    // bundle on the server, so nothing here affects the score.
+    events: (bundle.events ?? []).map(e => {
+      const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
+      for (const k of Object.keys(raw)) {
+        if (/\.description$/i.test(k)) delete raw[k];
+      }
+      return { ...e, description: undefined, mitre_technique: undefined, mitre_tactic: undefined, raw };
+    }),
     questions: bundle.questions.map(q => ({
       ...q,
       answer: Array.isArray(q.answer) ? [] : "",
