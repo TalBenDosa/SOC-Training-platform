@@ -2,34 +2,9 @@ import { NextResponse } from "next/server";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
+import { scoreScenarioReport } from "@/lib/scenarios/reportScoring";
 
 export const runtime = "nodejs";
-
-// Recursively flattens a scenario's telemetry down to its leaf string/number/
-// boolean VALUES only — never object keys. Used to check whether a freely-typed
-// indicator was genuinely observed in the incident's raw events, without also
-// matching on structural field names like "vendor" or "hostname" (which
-// `JSON.stringify` would otherwise expose as substrings of the whole blob).
-function collectLeafValues(node: unknown, out: string[] = []): string[] {
-  if (node == null) return out;
-  if (typeof node === "string") {
-    if (node) out.push(node);
-    return out;
-  }
-  if (typeof node === "number" || typeof node === "boolean") {
-    out.push(String(node));
-    return out;
-  }
-  if (Array.isArray(node)) {
-    for (const v of node) collectLeafValues(v, out);
-    return out;
-  }
-  if (typeof node === "object") {
-    for (const v of Object.values(node as Record<string, unknown>)) collectLeafValues(v, out);
-    return out;
-  }
-  return out;
-}
 
 export async function POST(
   req: Request,
@@ -133,95 +108,16 @@ export async function POST(
     ? Math.round((correctCount / bundle.questions.length) * 100)
     : 0;
 
-  // ── Written report ────────────────────────────────────────────────────────
-  // The report is the actual analyst deliverable, and it used to be discarded:
-  // a blank report and a rigorous one scored identically. It is now graded on a
-  // rubric, deterministically first so the result never depends on an API key.
-  const reportText = [analystNotes, verdictReason].join(" ").trim();
-  const words = reportText.split(/\s+/).filter(Boolean).length;
-
-  const expectedVerdict = bundle.attack_kind === "false_positive" ? "benign" : "malicious";
-  // The client sends the analyst's call as "tp"/"fp" (true/false positive);
-  // normalise to the malicious/benign scheme the rubric compares against. Without
-  // this, "tp" !== "malicious" made the 25-pt correct-verdict tier unreachable and
-  // verdictCorrect permanently false — every right call scored as if wrong.
-  const normalizedVerdict = verdict === "tp" ? "malicious" : verdict === "fp" ? "benign" : verdict;
-  const verdictCorrect = normalizedVerdict === expectedVerdict;
-
-  // ── Evidence / IOCs ───────────────────────────────────────────────────────
-  // The curated bundle.iocs are the indicators the incident TURNED ON — the target
-  // for "enough evidence". But per product direction, ANY indication that aids the
-  // investigation counts as an IOC: an indicator the analyst pulled from the
-  // telemetry that is not on the curated list is still valid investigative
-  // evidence and earns credit. "Real" = on the IOC list OR appearing anywhere in
-  // the scenario's events.
-  const scenarioIocValues = (bundle.iocs ?? []).map(i => i.value.toLowerCase());
-  const realValues = new Set(scenarioIocValues);
-  // Leaf VALUES only (never object keys), joined on a separator a substring
-  // match can't cross. `JSON.stringify(events)` was tried first and rejected:
-  // it embeds every field NAME too ("vendor", "hostname", "process" are all
-  // literal substrings of that blob), so typing the word "vendor" as a cited
-  // indicator would "find" it. Restricting to values closes that hole.
-  const eventsBlob = collectLeafValues(bundle.events ?? []).join("").toLowerCase();
-  // A freely-typed indicator only counts as pulled-from-telemetry if it has
-  // enough shape to plausibly BE an indicator (an IP/hash/email/hostname has a
-  // digit, dot, @, underscore or hyphen, or is long enough not to be a common
-  // word). Without this, a description field's ordinary prose ("...the backup
-  // agent logon...") makes short common words like "the"/"log"/"get" match
-  // almost any scenario's blob, letting a report earn full evidence credit by
-  // pasting a handful of stopwords instead of citing real evidence.
-  const looksLikeIndicator = (v: string) => v.length >= 6 || /[\d@._-]/.test(v);
-  const isRealValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && eventsBlob.includes(v));
-
-  const citedValues = new Set(
-    indicators.map(i => String(i.value).toLowerCase().trim()).filter(Boolean),
-  );
-
-  // How many of the curated KEY indicators they named — used only for honest
-  // "you named X of the Y key indicators" feedback, not to cap the score.
-  const iocsCited = scenarioIocValues.filter(
-    v => citedValues.has(v) || reportText.toLowerCase().includes(v),
-  ).length;
-
-  // Every REAL indicator the analyst surfaced — tagged in the IOC list OR named in
-  // the written report — counts toward evidence, not just the curated key set.
-  const usefulCited = new Set<string>();
-  for (const v of citedValues) if (v.length >= 3 && isRealValue(v)) usefulCited.add(v);
-  for (const v of scenarioIocValues) if (reportText.toLowerCase().includes(v)) usefulCited.add(v);
-
-  // Coverage credits ANY useful indicator, measured against the key-set size as
-  // the "enough evidence" bar (capped at 1) — so citing helpful non-curated
-  // indicators earns credit instead of being ignored.
-  const iocTarget = Math.max(1, scenarioIocValues.length);
-  const iocCoverage = Math.min(1, usefulCited.size / iocTarget);
-
-  // Fabrication check — penalise inventing indicators that appear NOWHERE in the
-  // scenario's telemetry or IOC list. Citing an IP/hash/email that doesn't exist
-  // is an integrity failure worse than citing none, and a real SOC report that
-  // fabricates evidence is unusable. Mirrors the dashboard incident-report grader.
-  const claimed = new Set<string>();
-  for (const m of reportText.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g))  claimed.add(m[0].toLowerCase()); // IPv4
-  for (const m of reportText.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase()); // email
-  for (const m of reportText.matchAll(/\b[0-9a-f]{32,64}\b/gi))         claimed.add(m[0].toLowerCase()); // hash
-  const fabricated = [...claimed].filter(v => v.length >= 4 && !isRealValue(v));
-
-  const reportRubric = {
-    // Did they commit to a call at all, and was it right?
-    verdict:  verdict ? (verdictCorrect ? 25 : 5) : 0,
-    // Substance. Below ~40 words there is no analysis to assess.
-    depth:    words >= 150 ? 25 : words >= 80 ? 18 : words >= 40 ? 10 : words > 0 ? 4 : 0,
-    // Evidence: naming the indicators the incident actually turned on — but a
-    // fabricated indicator caps this near zero regardless of how many real ones
-    // were cited.
-    evidence: fabricated.length > 0 ? (usefulCited.size > 0 ? 5 : 0) : Math.round(iocCoverage * 30),
-    // Reasoning, not just assertion — did they justify the verdict?
-    reasoning: verdictReason.trim().split(/\s+/).filter(Boolean).length >= 25 ? 20
-             : verdictReason.trim().split(/\s+/).filter(Boolean).length >= 10 ? 12 : 0,
-  };
-  const reportScore = Math.min(
-    100,
-    reportRubric.verdict + reportRubric.depth + reportRubric.evidence + reportRubric.reasoning,
-  );
+  // Deterministic rubric — extracted to a pure, unit-tested module (the IOC
+  // widening is exploit-prone, so reportScoring.test.ts locks it down). See
+  // reportScoring.ts for the evidence / fabrication / depth logic.
+  const {
+    reportText, words, expectedVerdict, verdictCorrect,
+    scenarioIocValues, iocsCited, fabricated, reportRubric, reportScore,
+  } = scoreScenarioReport({
+    verdict, verdictReason, analystNotes, indicators,
+    iocs: bundle.iocs, events: bundle.events, attackKind: bundle.attack_kind,
+  });
 
   // Quiz and report both count. The quiz tests recognition; the report tests
   // whether they can actually communicate an incident, which is the job.
