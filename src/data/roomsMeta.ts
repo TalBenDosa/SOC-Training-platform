@@ -7238,5 +7238,442 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       }
     ]
+  },
+  {
+    "id": "macos-security-fundamentals",
+    "title": "macOS Security Fundamentals",
+    "description": "The macOS counterpart to Windows Fundamentals and Linux Fundamentals: how software actually arrives and runs on a Mac (DMG and PKG), how Gatekeeper, notarization and the quarantine attribute decide whether to let it, what Developer ID versus ad-hoc code signing tells an analyst, how osascript and the login Keychain get abused, what the TCC privacy database controls and how a root process can bypass it, and how LaunchAgents and LaunchDaemons persist software across logins and reboots.",
+    "difficulty": "beginner",
+    "category": "Threat Detection",
+    "estimatedMinutes": 60,
+    "xp": 400,
+    "icon": "🍎",
+    "prerequisites": [
+      "intro-cybersecurity",
+      "malware-types"
+    ],
+    "tasks": [
+      {
+        "id": "macf-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "macf-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "macf-la1",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1548.006"
+      },
+      {
+        "id": "macf-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "macf-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "macf-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "macf-la2",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1059.002"
+      },
+      {
+        "id": "macf-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "macf-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "macf-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "macf-f1",
+        "type": "flag",
+        "xp": 20
+      },
+      {
+        "id": "macf-q5",
+        "type": "question",
+        "xp": 30
+      }
+    ]
+  },
+  {
+    "id": "okta-identity-fundamentals",
+    "title": "Okta Identity & Authentication Fundamentals",
+    "description": "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms — the okta.eventType taxonomy, outcome.result and outcome.reason (including the single field flip that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
+    "difficulty": "intermediate",
+    "category": "Identity & Access",
+    "estimatedMinutes": 60,
+    "xp": 380,
+    "icon": "🔐",
+    "prerequisites": [
+      "identity-basics",
+      "entra-id"
+    ],
+    "tasks": [
+      {
+        "id": "oktaf-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "oktaf-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "oktaf-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-la1",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1110.001"
+      },
+      {
+        "id": "oktaf-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "oktaf-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "oktaf-la2",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1098"
+      },
+      {
+        "id": "oktaf-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "oktaf-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "oktaf-f1",
+        "type": "flag",
+        "xp": 20
+      },
+      {
+        "id": "oktaf-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "oktaf-q5",
+        "type": "question",
+        "xp": 30
+      }
+    ]
+  },
+  {
+    "id": "google-workspace-security",
+    "title": "Google Workspace Security",
+    "description": "The Google Workspace counterpart to this platform's Microsoft 365, Exchange Online, and SharePoint rooms: the gws.event.type/event.name audit model, Gmail's SPF/DKIM/DMARC fields, the OAuth token audit (scopes, offline vs online access, allowlist and marketplace-verification status), the Drive sharing and download audit, the admin console audit log, and Alert Center. Includes a direct contrast against Microsoft 365 so an analyst who only knows Exchange Online and SharePoint doesn't misread a Google Workspace tenant.",
+    "difficulty": "intermediate",
+    "category": "Cloud & SaaS Security",
+    "estimatedMinutes": 60,
+    "xp": 385,
+    "icon": "📨",
+    "prerequisites": [
+      "email-security",
+      "microsoft-365-security"
+    ],
+    "tasks": [
+      {
+        "id": "gwsf-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "gwsf-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-la1",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1528"
+      },
+      {
+        "id": "gwsf-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-la2",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1530"
+      },
+      {
+        "id": "gwsf-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "gwsf-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "gwsf-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "gwsf-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "gwsf-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "gwsf-f1",
+        "type": "flag",
+        "xp": 20
+      },
+      {
+        "id": "gwsf-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "gwsf-q4",
+        "type": "question",
+        "xp": 30
+      }
+    ]
+  },
+  {
+    "id": "esxi-virtualization-security",
+    "title": "ESXi & Virtualization Security",
+    "description": "What no other room covers: the vSphere permission model (roles, propagation, and the PermissionAddedEvent that proves when a grant actually happened), the two distinct hypervisor log sources (vCenter's vpxd.log and each ESXi host's own vobd.log and shell.log), the mechanical reason a running VM must be powered off before its datastore can be encrypted, and the single fact that shapes every hypervisor investigation: no EDR agent can run on ESXi at all, so detection has to come from these native audit trails instead.",
+    "difficulty": "advanced",
+    "category": "Cloud & Infrastructure Security",
+    "estimatedMinutes": 65,
+    "xp": 385,
+    "icon": "🖥️",
+    "prerequisites": [
+      "security-products-behaviour",
+      "linux-fundamentals"
+    ],
+    "tasks": [
+      {
+        "id": "esxf-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "esxf-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-la1",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1098"
+      },
+      {
+        "id": "esxf-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "esxf-la2",
+        "type": "log_analysis",
+        "xp": 80,
+        "mitreTechnique": "T1021.004"
+      },
+      {
+        "id": "esxf-ac1",
+        "type": "analyst_choice",
+        "xp": 30
+      },
+      {
+        "id": "esxf-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "esxf-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "esxf-q4",
+        "type": "question",
+        "xp": 30
+      },
+      {
+        "id": "esxf-m1",
+        "type": "matching",
+        "xp": 35
+      },
+      {
+        "id": "esxf-o1",
+        "type": "ordering",
+        "xp": 35
+      },
+      {
+        "id": "esxf-f1",
+        "type": "flag",
+        "xp": 20
+      }
+    ]
   }
 ];

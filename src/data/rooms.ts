@@ -47,6 +47,10 @@ import { roomsBatch32 } from "./rooms-batch-32";
 import { roomsBatch33 } from "./rooms-batch-33";
 import { roomsBatch34 } from "./rooms-batch-34";
 import { roomsBatch35 } from "./rooms-batch-35";
+import { roomsBatch36 } from "./rooms-batch-36";
+import { roomsBatch37 } from "./rooms-batch-37";
+import { roomsBatch38 } from "./rooms-batch-38";
+import { roomsBatch39 } from "./rooms-batch-39";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -299,4 +303,8 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch33), // ransomware-full-lifecycle
   ...cast(roomsBatch34), // bec-investigation
   ...cast(roomsBatch35), // sigma-yara-rule-authoring
+  ...cast(roomsBatch36), // macos-security-fundamentals
+  ...cast(roomsBatch37), // okta-identity-fundamentals
+  ...cast(roomsBatch38), // google-workspace-security
+  ...cast(roomsBatch39), // esxi-virtualization-security
 ];
