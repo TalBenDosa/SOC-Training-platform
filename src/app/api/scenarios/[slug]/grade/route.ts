@@ -5,6 +5,32 @@ import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 
 export const runtime = "nodejs";
 
+// Recursively flattens a scenario's telemetry down to its leaf string/number/
+// boolean VALUES only — never object keys. Used to check whether a freely-typed
+// indicator was genuinely observed in the incident's raw events, without also
+// matching on structural field names like "vendor" or "hostname" (which
+// `JSON.stringify` would otherwise expose as substrings of the whole blob).
+function collectLeafValues(node: unknown, out: string[] = []): string[] {
+  if (node == null) return out;
+  if (typeof node === "string") {
+    if (node) out.push(node);
+    return out;
+  }
+  if (typeof node === "number" || typeof node === "boolean") {
+    out.push(String(node));
+    return out;
+  }
+  if (Array.isArray(node)) {
+    for (const v of node) collectLeafValues(v, out);
+    return out;
+  }
+  if (typeof node === "object") {
+    for (const v of Object.values(node as Record<string, unknown>)) collectLeafValues(v, out);
+    return out;
+  }
+  return out;
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ slug: string }> },
@@ -130,9 +156,22 @@ export async function POST(
   // evidence and earns credit. "Real" = on the IOC list OR appearing anywhere in
   // the scenario's events.
   const scenarioIocValues = (bundle.iocs ?? []).map(i => i.value.toLowerCase());
-  const eventsBlob = JSON.stringify(bundle.events ?? []).toLowerCase();
   const realValues = new Set(scenarioIocValues);
-  const isRealValue = (v: string) => realValues.has(v) || eventsBlob.includes(v);
+  // Leaf VALUES only (never object keys), joined on a separator a substring
+  // match can't cross. `JSON.stringify(events)` was tried first and rejected:
+  // it embeds every field NAME too ("vendor", "hostname", "process" are all
+  // literal substrings of that blob), so typing the word "vendor" as a cited
+  // indicator would "find" it. Restricting to values closes that hole.
+  const eventsBlob = collectLeafValues(bundle.events ?? []).join("").toLowerCase();
+  // A freely-typed indicator only counts as pulled-from-telemetry if it has
+  // enough shape to plausibly BE an indicator (an IP/hash/email/hostname has a
+  // digit, dot, @, underscore or hyphen, or is long enough not to be a common
+  // word). Without this, a description field's ordinary prose ("...the backup
+  // agent logon...") makes short common words like "the"/"log"/"get" match
+  // almost any scenario's blob, letting a report earn full evidence credit by
+  // pasting a handful of stopwords instead of citing real evidence.
+  const looksLikeIndicator = (v: string) => v.length >= 6 || /[\d@._-]/.test(v);
+  const isRealValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && eventsBlob.includes(v));
 
   const citedValues = new Set(
     indicators.map(i => String(i.value).toLowerCase().trim()).filter(Boolean),

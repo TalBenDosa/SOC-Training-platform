@@ -685,12 +685,12 @@ function InvestigationPanel({
           <h3 className="text-sm font-bold text-white">Investigation Report</h3>
         </div>
         <span className="text-[10px] font-mono text-slate-400">
-          {completedCount}<span className="text-slate-700">/4</span>
+          {completedCount}<span className="text-slate-700">/3</span>
         </span>
       </div>
 
       {/* ── Tab bar ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 border-b border-border/60">
+      <div className="grid grid-cols-3 border-b border-border/60">
         {REPORT_TABS.map(tab => {
           const active = activeTab === tab.id;
           const done   = sectionDone[tab.id];
@@ -897,7 +897,7 @@ function InvestigationPanel({
         {(!canFinalize || !quizComplete) && phase === "investigating" && (
           <p className="mt-2 text-center text-[10px] text-slate-400">
             {!quizComplete && "Answer all quiz questions · "}
-            {completedCount < 3 && `Complete ${3 - completedCount} more section${3 - completedCount !== 1 ? "s" : ""}`}
+            {completedCount < 2 && `Complete ${2 - completedCount} more section${2 - completedCount !== 1 ? "s" : ""}`}
           </p>
         )}
       </div>
