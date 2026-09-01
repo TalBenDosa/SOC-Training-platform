@@ -88,7 +88,7 @@ function analyseIndicators(summary: string, real: string[], evidenceText = "") {
 
 // ── Heuristic fallback ────────────────────────────────────────────────────────
 
-function heuristicGrade(req: IncidentReportRequest, note?: string): IncidentReportResponse {
+function heuristicGrade(req: IncidentReportRequest, note?: string, deterministicOnly = false): IncidentReportResponse {
   const { summary, attackTitle, realIndicators = [], evidenceText = "" } = req;
   const t = summary.trim().toLowerCase();
 
@@ -140,11 +140,23 @@ function heuristicGrade(req: IncidentReportRequest, note?: string): IncidentRepo
   const strengths: string[] = [];
   const gaps: string[] = [];
 
-  if (attackScore >= 30 && !wrongType) strengths.push("Named a specific attack technique.");
-  else if (attackScore >= 20 && !wrongType) strengths.push("Identified the broad attack category.");
+  // Ground-truth-verified positives are always safe to state — they're checked
+  // against the real indicators, not inferred from keywords.
   if (cited.length > 0) strengths.push(`Cited ${cited.length} real indicator${cited.length > 1 ? "s" : ""} from the logs (${cited.slice(0, 3).join(", ")}).`);
+  // Keyword-inferred positives (technique named / category / impact described) are
+  // NOT verified for correctness — a report that says "false positive, no malware"
+  // still trips the category/impact keyword tests. When this grade is STANDING IN
+  // for the AI (deterministicOnly), suppress them: praising an unread report is
+  // worse than a bare low score. The real AI path evaluates the prose and writes
+  // its own strengths, so it never reaches here.
+  if (!deterministicOnly) {
+    if (attackScore >= 30 && !wrongType) strengths.push("Named a specific attack technique.");
+    else if (attackScore >= 20 && !wrongType) strengths.push("Identified the broad attack category.");
+    if (hasImpact) strengths.push("Described the business impact or risk.");
+  }
+  // Presence of a concrete response verb is deterministic (it either appears or it
+  // doesn't) — safe to note even in fallback mode.
   if (hasAction) strengths.push("Included a recommended response action.");
-  if (hasImpact) strengths.push("Described the business impact or risk.");
 
   // Fabrication is the headline gap — name exactly what was invented.
   if (hasFabrication) {
@@ -274,13 +286,13 @@ export async function POST(req: Request) {
   const reportUser = apiKey ? await getAuthedUser() : null;
   if (!apiKey || !reportUser) {
     return NextResponse.json(heuristicGrade(body,
-      "Note: this is a basic automatic score. Full AI analyst feedback is available when signed in on a deployment with AI grading configured."));
+      "Note: this is a basic automatic score from deterministic checks only (real vs. invented indicators, presence of a response action). It does not read your reasoning — full AI analyst feedback is available when signed in on a deployment with AI grading configured.", true));
   }
   // Spend ceiling (migration 0024). Over budget → the same heuristic grade a
   // guest gets: still a real score, just not model-written.
   if (!(await checkAiBudget(reportUser.orgId)).allowed) {
     return NextResponse.json(heuristicGrade(body,
-      "Note: this is a basic automatic score. Detailed AI feedback is briefly unavailable."));
+      "Note: this is a basic automatic score from deterministic checks only — detailed AI feedback is briefly unavailable.", true));
   }
 
   try {
@@ -322,6 +334,6 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error("[incident-report]", err);
     return NextResponse.json(heuristicGrade(body,
-      "Note: the AI grader was temporarily unavailable, so this is a basic automatic score."));
+      "Note: the AI grader was temporarily unavailable, so this is a basic automatic score from deterministic checks only (it does not read your reasoning).", true));
   }
 }

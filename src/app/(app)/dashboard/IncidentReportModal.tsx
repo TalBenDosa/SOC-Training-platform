@@ -148,8 +148,13 @@ export function IncidentReportModal({
   ].filter(Boolean).join("\n");
 
   const effectiveSummary = guided ? buildGuidedSummary() : summary;
+  // All four guided fields are required — they mirror the four rubric components
+  // (identification, evidence, action, impact), and the grader docks points for a
+  // missing action or impact, so the form must not let them be skipped. This keeps
+  // the form and the score saying the same thing (L-10).
   const canSubmit = guided
-    ? gWhat.trim().length >= 10 && gIocs.trim().length + gAction.trim().length >= 10 && effectiveSummary.length >= 30
+    ? gWhat.trim().length >= 10 && gIocs.trim().length >= 3 &&
+      gAction.trim().length >= 5 && gImpact.trim().length >= 5
     : summary.trim().length >= 30;
 
   const handleSubmit = async () => {
@@ -273,9 +278,9 @@ export function IncidentReportModal({
                       ph: "Name the specific attack — e.g. \"A password spray attack against multiple accounts, followed by an account takeover of r.patel.\"" },
                     { label: "Evidence — which IOCs prove it?", req: true, value: gIocs, set: setGIocs, rows: 2,
                       ph: "Quote the values you collected — e.g. \"Source IP 91.108.4.154 (40+ failed logins), compromised user r.patel@nexacorp.com.\"" },
-                    { label: "Recommended action", req: false, value: gAction, set: setGAction, rows: 2,
+                    { label: "Recommended action", req: true, value: gAction, set: setGAction, rows: 2,
                       ph: "e.g. \"Block the IP at the firewall, reset r.patel's password, review all logins from that IP.\"" },
-                    { label: "Business impact", req: false, value: gImpact, set: setGImpact, rows: 2,
+                    { label: "Business impact", req: true, value: gImpact, set: setGImpact, rows: 2,
                       ph: "e.g. \"The attacker had access to customer financial data — potential data-breach and regulatory exposure.\"" },
                   ].map((f, i) => (
                     <div key={f.label}>
