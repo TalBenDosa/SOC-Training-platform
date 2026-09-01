@@ -1566,8 +1566,13 @@ export default function DashboardPage() {
               // interactive after a pass, so a re-submitted passing report must not
               // double-count toward auto-advance, re-award XP, or re-arm an attack.
               const incidentId = live.activeIncident?.id ?? null;
-              if (incidentId && countedIncidentIdsRef.current.has(incidentId)) return;
-              if (incidentId) countedIncidentIdsRef.current.add(incidentId);
+              // No active incident to attribute the catch to (e.g. the report modal
+              // was left open until this incident rolled out and none is live) —
+              // nothing to reward, count, or re-arm. Guards a stale re-submit from
+              // re-awarding XP when the dedup key (incident.id) is absent.
+              if (!incidentId) return;
+              if (countedIncidentIdsRef.current.has(incidentId)) return;
+              countedIncidentIdsRef.current.add(incidentId);
 
               // A passing report IS the catch — register it for real. Without
               // this, markCaught() was never called from anywhere: the SLA
