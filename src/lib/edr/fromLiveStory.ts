@@ -39,6 +39,124 @@ function hostOf(url?: string): string | undefined {
   try { return new URL(url).hostname; } catch { return undefined; }
 }
 
+// Canonical on-disk locations of well-known Windows binaries. A real EDR always shows
+// the full image path; the corpus often gives only the bare name for system/parent
+// processes (explorer.exe, svchost.exe, WINWORD.EXE). We resolve those to their real
+// location — but ONLY for a NON-malicious process, so a payload masquerading as a
+// system binary from the wrong folder is never falsely given the legit system path
+// (that wrong path is the tell the analyst is meant to catch).
+const CANONICAL_IMAGE_PATHS: Record<string, string> = {
+  "explorer.exe": "C:\\Windows\\explorer.exe",
+  "svchost.exe": "C:\\Windows\\System32\\svchost.exe",
+  "services.exe": "C:\\Windows\\System32\\services.exe",
+  "lsass.exe": "C:\\Windows\\System32\\lsass.exe",
+  "winlogon.exe": "C:\\Windows\\System32\\winlogon.exe",
+  "csrss.exe": "C:\\Windows\\System32\\csrss.exe",
+  "wininit.exe": "C:\\Windows\\System32\\wininit.exe",
+  "smss.exe": "C:\\Windows\\System32\\smss.exe",
+  "taskhostw.exe": "C:\\Windows\\System32\\taskhostw.exe",
+  "cmd.exe": "C:\\Windows\\System32\\cmd.exe",
+  "powershell.exe": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+  "pwsh.exe": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+  "rundll32.exe": "C:\\Windows\\System32\\rundll32.exe",
+  "regsvr32.exe": "C:\\Windows\\System32\\regsvr32.exe",
+  "mshta.exe": "C:\\Windows\\System32\\mshta.exe",
+  "wscript.exe": "C:\\Windows\\System32\\wscript.exe",
+  "cscript.exe": "C:\\Windows\\System32\\cscript.exe",
+  "conhost.exe": "C:\\Windows\\System32\\conhost.exe",
+  "dllhost.exe": "C:\\Windows\\System32\\dllhost.exe",
+  "schtasks.exe": "C:\\Windows\\System32\\schtasks.exe",
+  "net.exe": "C:\\Windows\\System32\\net.exe",
+  "net1.exe": "C:\\Windows\\System32\\net1.exe",
+  "reg.exe": "C:\\Windows\\System32\\reg.exe",
+  "sc.exe": "C:\\Windows\\System32\\sc.exe",
+  "wmic.exe": "C:\\Windows\\System32\\wbem\\WMIC.exe",
+  "certutil.exe": "C:\\Windows\\System32\\certutil.exe",
+  "bitsadmin.exe": "C:\\Windows\\System32\\bitsadmin.exe",
+  "curl.exe": "C:\\Windows\\System32\\curl.exe",
+  "whoami.exe": "C:\\Windows\\System32\\whoami.exe",
+  "ipconfig.exe": "C:\\Windows\\System32\\ipconfig.exe",
+  "userinit.exe": "C:\\Windows\\System32\\userinit.exe",
+  "wmiprvse.exe": "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+  "w3wp.exe": "C:\\Windows\\System32\\inetsrv\\w3wp.exe",
+  "fodhelper.exe": "C:\\Windows\\System32\\fodhelper.exe",
+  "psexesvc.exe": "C:\\Windows\\PSEXESVC.exe",
+  "vssadmin.exe": "C:\\Windows\\System32\\vssadmin.exe",
+  "wbadmin.exe": "C:\\Windows\\System32\\wbadmin.exe",
+  "bcdedit.exe": "C:\\Windows\\System32\\bcdedit.exe",
+  "wevtutil.exe": "C:\\Windows\\System32\\wevtutil.exe",
+  "netsh.exe": "C:\\Windows\\System32\\netsh.exe",
+  "nltest.exe": "C:\\Windows\\System32\\nltest.exe",
+  "dsquery.exe": "C:\\Windows\\System32\\dsquery.exe",
+  "taskkill.exe": "C:\\Windows\\System32\\taskkill.exe",
+  "tasklist.exe": "C:\\Windows\\System32\\tasklist.exe",
+  "systeminfo.exe": "C:\\Windows\\System32\\systeminfo.exe",
+  "nslookup.exe": "C:\\Windows\\System32\\nslookup.exe",
+  "arp.exe": "C:\\Windows\\System32\\arp.exe",
+  "route.exe": "C:\\Windows\\System32\\route.exe",
+  "ping.exe": "C:\\Windows\\System32\\PING.EXE",
+  "findstr.exe": "C:\\Windows\\System32\\findstr.exe",
+  "msiexec.exe": "C:\\Windows\\System32\\msiexec.exe",
+  "wusa.exe": "C:\\Windows\\System32\\wusa.exe",
+  "robocopy.exe": "C:\\Windows\\System32\\Robocopy.exe",
+  "icacls.exe": "C:\\Windows\\System32\\icacls.exe",
+  "takeown.exe": "C:\\Windows\\System32\\takeown.exe",
+  "spoolsv.exe": "C:\\Windows\\System32\\spoolsv.exe",
+  "msdt.exe": "C:\\Windows\\System32\\msdt.exe",
+  "odbcconf.exe": "C:\\Windows\\System32\\odbcconf.exe",
+  "installutil.exe": "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\InstallUtil.exe",
+  "msbuild.exe": "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\MSBuild.exe",
+  "winword.exe": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+  "excel.exe": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+  "powerpnt.exe": "C:\\Program Files\\Microsoft Office\\root\\Office16\\POWERPNT.EXE",
+  "outlook.exe": "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE",
+  "chrome.exe": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "msedge.exe": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "firefox.exe": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+  // macOS / Linux system binaries (RocketStack and other *nix estates)
+  "finder": "/System/Library/CoreServices/Finder.app/Contents/MacOS/Finder",
+  "launchd": "/sbin/launchd",
+  "sh": "/bin/sh",
+  "bash": "/bin/bash",
+  "zsh": "/bin/zsh",
+  "dash": "/bin/dash",
+  "docker": "/usr/bin/docker",
+  "dockerd": "/usr/bin/dockerd",
+  "containerd": "/usr/bin/containerd",
+  "kubectl": "/usr/bin/kubectl",
+  "python3": "/usr/bin/python3",
+  "node": "/usr/bin/node",
+  "curl": "/usr/bin/curl",
+  "wget": "/usr/bin/wget",
+  "ssh": "/usr/bin/ssh",
+  "sshd": "/usr/sbin/sshd",
+  "sudo": "/usr/bin/sudo",
+  "crontab": "/usr/bin/crontab",
+  "osascript": "/usr/bin/osascript",
+};
+
+/**
+ * The image path a real EDR shows — the on-disk location the process ran from, the
+ * first field an analyst reads to answer "where did this run from?". When the
+ * structured process.path is missing or is a bare filename with no directory, recover
+ * the folder from the FIRST executable token of the command line (which carries the
+ * full path); then, for a NON-malicious well-known system binary, its canonical
+ * location. Only when nothing yields a directory do we fall back to the bare name.
+ */
+function imagePathOf(p: NonNullable<TelemetryEvent["process"]>, opts?: { malicious?: boolean }): string {
+  if (p.path && /[\\/]/.test(p.path)) return p.path;         // already a real path
+  const cl = p.cmdline ?? "";
+  const m = cl.match(/^\s*"([^"]+?\.[A-Za-z0-9]{2,4})"/)      // "C:\dir\prog.exe" …
+        ?? cl.match(/^\s*([A-Za-z]:\\[^\s"]+?\.[A-Za-z0-9]{2,4})(?=\s|$)/)  // C:\dir\prog.exe …
+        ?? cl.match(/^\s*(\/[^\s"]+?)(?=\s|$)/);              // /usr/bin/prog …
+  if (m && /[\\/]/.test(m[1])) return m[1];
+  if (!opts?.malicious) {
+    const canon = CANONICAL_IMAGE_PATHS[p.name?.toLowerCase() ?? ""];
+    if (canon) return canon;
+  }
+  return p.path ?? p.name;
+}
+
 // Parents that have no business launching another executable — an Office doc or
 // a script host spawning a child is the classic "living off the land" tell.
 const ANOMALOUS_PARENTS = new Set([
@@ -54,13 +172,14 @@ const ANOMALOUS_PARENTS = new Set([
  */
 function whyItStandsOut(
   p: NonNullable<TelemetryEvent["process"]>,
-  o: { signed: boolean; malicious?: boolean; userWritable: boolean },
+  o: { signed: boolean; malicious?: boolean; userWritable: boolean; imagePath?: string },
 ): string | undefined {
+  const path = o.imagePath ?? p.path ?? "?";
   const bits: string[] = [];
   if (o.malicious) bits.push("its SHA-256 matches a known-bad sample on record");
-  if (!o.signed && o.userWritable) bits.push(`it runs UNSIGNED from a user-writable path (${p.path ?? "?"}) — a real system binary never does`);
+  if (!o.signed && o.userWritable) bits.push(`it runs UNSIGNED from a user-writable path (${path}) — a real system binary never does`);
   else if (!o.signed) bits.push("it is not digitally signed");
-  else if (o.userWritable) bits.push(`it runs from a user-writable path (${p.path ?? "?"})`);
+  else if (o.userWritable) bits.push(`it runs from a user-writable path (${path})`);
   const parent = p.parent_name?.toLowerCase();
   if (parent && ANOMALOUS_PARENTS.has(parent) && p.name.toLowerCase() !== parent)
     bits.push(`its parent is ${p.parent_name}, which has no legitimate reason to launch this`);
@@ -90,7 +209,8 @@ export function buildInvestigationFromStory(
     if (procByPid.has(p.pid)) return;
     const sha256 = p.hash?.sha256;
     const malicious = sha256 ? lookupHash(sha256)?.malicious : false;
-    const userWritable = USER_WRITABLE.test(p.path ?? "");
+    const imagePath = imagePathOf(p, { malicious });   // real on-disk path (recovered from cmdline / canonical if needed)
+    const userWritable = USER_WRITABLE.test(imagePath);
     // E-02: signing is authoritative when the log states it — a real EDR reads the
     // Authenticode result off the binary, and the console must not contradict it.
     // Prefer the explicit raw field (process.signed / file.signed / code_signature.*)
@@ -116,12 +236,12 @@ export function buildInvestigationFromStory(
       name: p.name,
       cmdline: p.cmdline ?? p.name,
       user: p.user ?? e.user_email ?? e.user?.email ?? "unknown",
-      path: p.path ?? p.name,
+      path: imagePath,
       signed,
       sha256,
       startedAt: hhmmss(e.ts),
       verdict,
-      note: verdict === "benign" ? undefined : whyItStandsOut(p, { signed, malicious, userWritable }),
+      note: verdict === "benign" ? undefined : whyItStandsOut(p, { signed, malicious, userWritable, imagePath }),
       network: [],
       files: [],
     });
@@ -132,10 +252,14 @@ export function buildInvestigationFromStory(
     if (p.parent_pid != null && !procByPid.has(p.parent_pid)) {
       // A parent we never saw a create event for — add a benign stub so the
       // tree connects (real consoles show the ancestor even without its own row).
+      // Resolve its image path to the canonical location too, so the tree root shows
+      // "C:\Windows\explorer.exe", not a bare "explorer.exe".
+      const parentName = p.parent_name ?? "process";
+      const parentPath = imagePathOf({ pid: p.parent_pid, name: parentName, cmdline: parentName }, { malicious: false });
       procByPid.set(p.parent_pid, {
-        pid: p.parent_pid, ppid: 0, name: p.parent_name ?? "process",
+        pid: p.parent_pid, ppid: 0, name: parentName,
         cmdline: p.parent_name ?? "—", user: p.user ?? "unknown",
-        path: p.parent_name ?? "—", signed: true, startedAt: hhmmss(e.ts), verdict: "benign",
+        path: parentPath, signed: true, startedAt: hhmmss(e.ts), verdict: "benign",
         network: [], files: [],
       });
     }
