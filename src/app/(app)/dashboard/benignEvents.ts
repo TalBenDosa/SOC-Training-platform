@@ -1816,6 +1816,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mde_01", ts: T(13), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "av_detection", severity: "medium",
+    mitre_technique: "T1204.002", mitre_tactic: "Execution",
+    expected_verdict: "tp", is_detection: true,
     hostname: "WS-HR-1142", user_email: "d.brown@nexacorp.com", user_title: "HR Manager",
     file: { path: "C:\\Users\\dbrown\\Downloads\\crack_tool.exe",
             sha256: "c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8" },
@@ -1834,6 +1836,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mde_02", ts: T(27), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "av_detection", severity: "high",
+    mitre_technique: "T1036.005", mitre_tactic: "Defense Evasion",
+    expected_verdict: "tp", is_detection: true,
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com",
     file: { path: "C:\\Windows\\Temp\\svchost32.exe",
             sha256: "027cc450ef5f8c5f653329641ec1fed91f694e0d229928963b30f6b0d7d3a745" },
@@ -1854,6 +1858,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mde_03", ts: T(48), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "av_detection", severity: "critical",
+    mitre_technique: "T1055.001", mitre_tactic: "Defense Evasion",
     hostname: "SRV-NXC-FS02",
     file: { path: "C:\\Windows\\Temp\\update_helper.dll",
             sha256: "e70272b32fb3bcee5fe5e1707340fdd0419c342b670fbf58a1e9f203124498e3" },
@@ -4627,6 +4632,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_waf_bl_01", ts: T(7), source: "waf", vendor: "AWS WAF",
     event_type: "waf_block", severity: "medium",
+    mitre_technique: "T1190", mitre_tactic: "Initial Access",
     hostname: "app.nexacorp.com",
     description: "AWS WAF blocked SQL injection attempt in query string",
     src_ip: "91.108.4.77",
@@ -4656,6 +4662,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_waf_bl_02", ts: T(21), source: "waf", vendor: "Cloudflare WAF",
     event_type: "waf_block", severity: "medium",
+    mitre_technique: "T1190", mitre_tactic: "Initial Access",
     hostname: "app.nexacorp.com",
     description: "Cloudflare WAF blocked XSS attempt in POST body",
     src_ip: "185.234.217.44",
@@ -4686,6 +4693,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_waf_bl_03", ts: T(44), source: "waf", vendor: "F5 Advanced WAF",
     event_type: "waf_block", severity: "high",
+    mitre_technique: "T1190", mitre_tactic: "Initial Access",
+    expected_verdict: "tp", is_detection: true,
     hostname: "app.nexacorp.com",
     description: "F5 WAF blocked path traversal attempt targeting /etc/passwd",
     src_ip: "46.161.41.98",
@@ -4715,6 +4724,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_waf_rl_01", ts: T(30), source: "waf", vendor: "Cloudflare WAF",
     event_type: "waf_block", severity: "medium",
+    mitre_technique: "T1499", mitre_tactic: "Impact",
     hostname: "app.nexacorp.com",
     description: "Cloudflare rate limit block — too many requests from single IP",
     src_ip: "122.114.88.45",
@@ -4746,6 +4756,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_waf_rl_02", ts: T(62), source: "waf", vendor: "AWS WAF",
     event_type: "waf_block", severity: "medium",
+    mitre_technique: "T1110.004", mitre_tactic: "Credential Access",
     hostname: "app.nexacorp.com",
     description: "AWS WAF rate limit block on login endpoint from same IP",
     src_ip: "66.90.73.77",
@@ -4847,6 +4858,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_waf_bl_04", ts: T(80), source: "waf", vendor: "Cloudflare WAF",
     event_type: "waf_block", severity: "critical",
+    mitre_technique: "T1190", mitre_tactic: "Initial Access",
+    expected_verdict: "tp", is_detection: true,
     hostname: "app.nexacorp.com",
     description: "WAF blocked Log4Shell exploit attempt (CVE-2021-44228)",
     src_ip: "5.188.86.172",
@@ -4879,6 +4892,8 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_waf_bl_05", ts: T(95), source: "waf", vendor: "AWS WAF",
     event_type: "waf_block", severity: "high",
+    mitre_technique: "T1190", mitre_tactic: "Initial Access",
+    expected_verdict: "tp", is_detection: true,
     hostname: "app.nexacorp.com",
     description: "AWS WAF blocked command injection attempt in POST body",
     src_ip: "77.83.34.119",

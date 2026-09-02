@@ -45,6 +45,10 @@ export interface IncidentReportResponse {
   feedback: string;
   strengths: string[];
   gaps: string[];
+  /** How the score was produced. "ai" = the model read the prose; "deterministic" =
+   *  the keyword/indicator fallback ran because the AI grader was unavailable. The
+   *  UI presents "deterministic" as a PRELIMINARY check, not a final verdict. */
+  graded_by: "ai" | "deterministic";
 }
 
 // ── Fabrication / citation analysis ───────────────────────────────────────────
@@ -160,7 +164,7 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
 
   // Fabrication is the headline gap — name exactly what was invented.
   if (hasFabrication) {
-    gaps.push(`Fabricated evidence: "${fabricated.slice(0, 3).join('", "')}" ${fabricated.length > 1 ? "do" : "does"} not appear anywhere in the logs. Never invent indicators — quote the real values you can see${realIndicators.length ? ` (e.g. ${realIndicators.slice(0, 2).join(", ")})` : ""}.`);
+    gaps.push(`Couldn't verify: "${fabricated.slice(0, 3).join('", "')}" ${fabricated.length > 1 ? "do" : "does"} not appear in the evidence collected for this incident. Re-check the exact value against the raw logs${realIndicators.length ? ` (confirmed indicators here include ${realIndicators.slice(0, 2).join(", ")})` : ""} — quote what you can actually see, character for character.`);
   }
   if (wrongType) {
     gaps.push(`The attack type you named doesn't match the evidence. Re-read the logs and identify what actually happened${attackTitle ? ` (this was: ${attackTitle}).` : "."}`);
@@ -184,7 +188,7 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
   // real AI grader, say so, so the score isn't mistaken for full AI feedback.
   const feedback = note ? `${base}\n\n${note}` : base;
 
-  return { score, passed, feedback, strengths, gaps };
+  return { score, passed, feedback, strengths, gaps, graded_by: "deterministic" };
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────────
@@ -272,6 +276,7 @@ export async function POST(req: Request) {
       feedback: "No report was written. Describe what attack you detected and what action to take.",
       strengths: [],
       gaps: ["The report field was empty — write your analysis before submitting."],
+      graded_by: "deterministic",
     } satisfies IncidentReportResponse);
   }
 
@@ -285,6 +290,10 @@ export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const reportUser = apiKey ? await getAuthedUser() : null;
   if (!apiKey || !reportUser) {
+    // R-04 diagnostics: the audit saw the fallback in ALL submissions. Log WHY so a
+    // chronic outage (missing prod key) is distinguishable from an unauthenticated
+    // direct-API call. This is a preliminary, prose-unread score — flagged as such.
+    console.warn(`[incident-report] deterministic fallback: ${!apiKey ? "ANTHROPIC_API_KEY not set" : "no authenticated user"}`);
     return NextResponse.json(heuristicGrade(body,
       "Note: this is a basic automatic score from deterministic checks only (real vs. invented indicators, presence of a response action). It does not read your reasoning — full AI analyst feedback is available when signed in on a deployment with AI grading configured.", true));
   }
@@ -321,6 +330,7 @@ export async function POST(req: Request) {
       feedback: typeof parsed.feedback === "string" && parsed.feedback.trim() ? parsed.feedback : computed.feedback,
       strengths: isStringArray(parsed.strengths) ? parsed.strengths : computed.strengths,
       gaps: isStringArray(parsed.gaps) ? parsed.gaps : computed.gaps,
+      graded_by: "ai",
     };
 
     await recordAiUsage({

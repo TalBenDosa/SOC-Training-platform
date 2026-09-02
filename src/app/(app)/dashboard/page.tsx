@@ -1540,8 +1540,13 @@ export default function DashboardPage() {
         // scored as "fabricated" because they weren't in the one picked story.
         // FP decoys (it_verify_result / fp_explanation / expected_verdict:"fp")
         // are excluded so they never become gradeable "attacks".
+        // A gradeable "attack" is any high/critical event that isn't a decoy — NOT
+        // just EDR detections. Requiring mitre_technique used to silently exclude
+        // AV/EDR *block* events (which carry none) and any non-EDR signal (a failed
+        // password spray, a firewall block) that a Tier-1 analyst is expected to
+        // report — so their real IOCs were scored as "fabricated". Severity + the
+        // decoy exclusions are the correct gate; technique is optional.
         const feedAttackEvents = live.events.filter(e =>
-          !!e.mitre_technique &&
           (e.severity === "high" || e.severity === "critical") &&
           !e.it_verify_result && !e.fp_explanation && e.expected_verdict !== "fp"
         );
@@ -1559,7 +1564,14 @@ export default function DashboardPage() {
         // visible in a log — including MD5/SHA1, private host IPs, and vendor-keyed
         // raw fields the discrete extractIndicators list doesn't enumerate — as
         // real, never "fabricated". Mirrors the scenario grader's eventsBlob.
-        const evidenceText = JSON.stringify(groundTruthEvents);
+        // R-02: serialize the ENTIRE feed the student actually saw on screen, not
+        // just the ground-truth attack subset. The grader's fabrication check treats
+        // any value present in evidenceText as real — so a hash/IP/user quoted from
+        // ANY visible event (a blocked-malware detection, a failed-auth line, a
+        // firewall block — every source, not only EDR) counts as genuine evidence
+        // and is never wrongly flagged "fabricated". Only truly invented values,
+        // absent from the whole feed, are caught.
+        const evidenceText = JSON.stringify(live.events);
         // Decoys the student saw this session — benign events carrying a written
         // fp_explanation that, until now, was authored but never surfaced anywhere
         // in the UI. Shown only AFTER a passing report (see the modal) as a

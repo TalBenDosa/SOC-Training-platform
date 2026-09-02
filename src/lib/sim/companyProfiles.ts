@@ -77,6 +77,8 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "av_detection", severity: "low",
     vendor: "CrowdStrike Falcon", hostname: "LAP-003", user_email: "s.amir@rocketstack.io",
     src_ip: "172.16.10.3",
+    mitre_technique: "T1204.002", mitre_tactic: "Execution",
+    expected_verdict: "tp", is_detection: true,
     description: "Unwanted software detected on LAP-003",
     file: { path: "/Users/s.amir/Downloads/VideoConverter_setup.dmg", sha256: "d7f3a4b2c1e0f5a8b9c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4" },
     raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "PUP.BundleApp", "action_result": "quarantined", "quarantine.status": "quarantined", "crowdstrike.SeverityName": "LOW" }
@@ -908,8 +910,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "av_detection", severity: "high",
     vendor: "SentinelOne", hostname: "WS-NURS-033", user_email: "r.bakker@medcorehealth.org",
     src_ip: "192.168.10.33",
+    mitre_technique: "T1204.002", mitre_tactic: "Execution",
     expected_verdict: "tp", is_detection: true,
-    fp_explanation: "Real malware detection (Trojan.GenericKD) that SentinelOne auto-killed and quarantined — a TRUE positive that was contained, not noise. Correct handling: confirm the quarantine held, check how update.exe reached r.bakker's Temp folder, and scope for other hosts; low urgency because it was blocked, but it is not a false positive.",
     description: "Trojan.GenericKD detected on WS-NURS-033",
     file: { path: "C:\\Users\\r.bakker\\AppData\\Temp\\update.exe", sha256: "6204651fac7f02eb1baba261cd2b4852d21eaf94f00bfcee0bd76c599e32c1e9" },
     raw: { "s1.event_type": "THREAT", "threat.name": "Trojan.GenericKD", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "s1.threat_level": "high" }
@@ -1848,6 +1850,8 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     id: "gl_sx_002", ts: "2026-05-10T07:30:00.000Z",
     source: "edr", event_type: "av_detection", severity: "medium",
     vendor: "Sophos Intercept X", hostname: "WH-TERM-012", src_ip: "10.50.10.12",
+    mitre_technique: "T1204.002", mitre_tactic: "Execution",
+    expected_verdict: "tp", is_detection: true,
     description: "PUA.Adware detected on WH-TERM-012",
     file: { path: "C:\\Temp\\DriverUpdate.exe", sha256: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3" },
     raw: { "sophos.detection_name": "PUA.Adware", "action_result": "quarantined", "quarantine.status": "quarantined" }
@@ -2369,8 +2373,8 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     id: "qb_cs_003", ts: "2026-05-10T10:45:00.000Z",
     source: "edr", event_type: "av_detection", severity: "critical",
     vendor: "CrowdStrike Falcon", hostname: "WKS-QB-012", src_ip: "10.100.1.12",
+    mitre_technique: "T1055.001", mitre_tactic: "Defense Evasion",
     expected_verdict: "tp", is_detection: true,
-    fp_explanation: "A reflective CobaltStrike beacon inside svchost.exe is a confirmed compromise (T1055/T1071) that Falcon killed and quarantined — a TRUE positive, not background noise. Correct handling: confirm the kill, isolate WKS-QB-012, and hunt for how the beacon was injected and what it reached before termination.",
     description: "CrowdStrike raised a memory-based detection inside svchost.exe on WKS-QB-012 and killed the process",
     file: { path: "memory://svchost.exe", sha256: "32519b85c0b422e4656de6e6c41878e95fd95026267daab4215ee59c107d6c77" },
     raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.reflective", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "crowdstrike.SeverityName": "CRITICAL", "policy.name": "Banking-Prevent" }

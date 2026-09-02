@@ -351,6 +351,22 @@ export function IncidentReportModal({
           {/* ── RESULT phase ── */}
           {phase === "result" && result && (
             <div className="space-y-4">
+              {/* R-04: when the AI grader was unavailable, present the fallback as a
+                  PRELIMINARY structural check — not an authoritative verdict — so a
+                  keyword-only score never reads as a final judgment of the analysis. */}
+              {result.graded_by === "deterministic" && (
+                <div className="rounded-lg border border-neon-amber/30 bg-neon-amber/5 px-4 py-2.5 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-neon-amber mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    <span className="font-bold text-neon-amber">Preliminary check — full review pending.</span>{" "}
+                    The AI grader wasn&apos;t available, so this is an automated structural check
+                    (real vs. unverified indicators and whether you named a response action). It does
+                    <em> not</em> read your reasoning — so structure, causality and business impact
+                    aren&apos;t scored here. Your XP is awarded; the score may change when the full
+                    review runs.
+                  </p>
+                </div>
+              )}
               {/* Score + pass/fail header */}
               <div className={cn(
                 "rounded-lg border p-4 flex items-center gap-5",
