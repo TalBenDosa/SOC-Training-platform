@@ -114,7 +114,7 @@ const oktaIdentityFundamentalsRoom = {
   description:
     "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms — the okta.eventType taxonomy, outcome.result and outcome.reason (including the single field flip that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
   difficulty: "intermediate" as const,
-  category: "Identity & Access",
+  category: "Identity",
   estimatedMinutes: 60,
   xp: 380,
   icon: "🔐",

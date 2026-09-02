@@ -156,7 +156,7 @@ const googleWorkspaceSecurityRoom = {
   description:
     "The Google Workspace counterpart to this platform's Microsoft 365, Exchange Online, and SharePoint rooms: the gws.event.type/event.name audit model, Gmail's SPF/DKIM/DMARC fields, the OAuth token audit (scopes, offline vs online access, allowlist and marketplace-verification status), the Drive sharing and download audit, the admin console audit log, and Alert Center. Includes a direct contrast against Microsoft 365 so an analyst who only knows Exchange Online and SharePoint doesn't misread a Google Workspace tenant.",
   difficulty: "intermediate" as const,
-  category: "Cloud & SaaS Security",
+  category: "Cloud Security",
   estimatedMinutes: 60,
   xp: 385,
   icon: "📨",

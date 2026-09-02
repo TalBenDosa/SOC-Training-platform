@@ -139,7 +139,7 @@ const esxiVirtualizationSecurityRoom = {
   description:
     "What no other room covers: the vSphere permission model (roles, propagation, and the PermissionAddedEvent that proves when a grant actually happened), the two distinct hypervisor log sources (vCenter's vpxd.log and each ESXi host's own vobd.log and shell.log), the mechanical reason a running VM must be powered off before its datastore can be encrypted, and the single fact that shapes every hypervisor investigation: no EDR agent can run on ESXi at all, so detection has to come from these native audit trails instead.",
   difficulty: "advanced" as const,
-  category: "Cloud & Infrastructure Security",
+  category: "Cloud Security",
   estimatedMinutes: 65,
   xp: 385,
   icon: "🖥️",
