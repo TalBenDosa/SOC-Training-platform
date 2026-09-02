@@ -518,8 +518,8 @@ export default function DashboardPage() {
     // L-03: pass the company's declared EDR so the attack arrives on the product it
     // actually runs (SentinelOne for MedCore, Sophos for GlobalLogis, …) instead of
     // always CrowdStrike.
-    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr);
-    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id), getCompanyProfile(id).architecture?.edr);
+    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr, id);
+    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id), getCompanyProfile(id).architecture?.edr, id);
   };
 
   // Empty until sim loads; the real pool is handed to the feed via live.reset()

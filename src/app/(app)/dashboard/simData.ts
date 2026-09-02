@@ -26,7 +26,7 @@ export interface SimData {
   BENIGN_EVENTS: TelemetryEvent[];
   COMPANY_EVENTS: Record<string, TelemetryEvent[]>;
   pickStoryForCompany: (companyId: string, difficulty?: Difficulty) => AttackStory;
-  instantiateStory: (story: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string) => AttackStory;
+  instantiateStory: (story: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string) => AttackStory;
   buildInvestigationFromStory: (story: AttackStory) => EdrInvestigation | null;
 }
 

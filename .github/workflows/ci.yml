@@ -81,6 +81,15 @@ jobs:
       - name: Validate scenario integrity
         run: npm run validate:scenarios:integrity
 
+      # L-03: a shared attack chain adapted to the active company must not leak the
+      # company it was authored for — no foreign EDR vendor/schema, no other
+      # company's hostname / email domain / NetBIOS, no foreign EDR product name in
+      # prose. Runs the live resolve path across every company × difficulty × many
+      # RNG draws and fails on any cross-company tell (regresses the instant a new
+      # story is added with hard-coded CrowdStrike/nexacorp entities).
+      - name: Validate live-feed company adaptation (no cross-company leaks)
+        run: npm run validate:feed:adaptation
+
       # Malware-hash registries back the "Check Hash · VirusTotal" pivot — the
       # exact skill taught. Fails on any fabricated/synthetic SHA256 so a made-up
       # hash (which resolves to nothing on VT) can't regress in.

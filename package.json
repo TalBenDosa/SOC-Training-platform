@@ -29,7 +29,8 @@
     "test:watch": "vitest",
     "test:e2e": "node scripts/test-backend-e2e.mjs",
     "test:tenancy": "node scripts/test-multitenancy-local.mjs",
-    "validate:scenarios:integrity": "tsx scripts/validate-scenario-integrity.mjs"
+    "validate:scenarios:integrity": "tsx scripts/validate-scenario-integrity.mjs",
+    "validate:feed:adaptation": "tsx scripts/verify-l03-adaptation.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",

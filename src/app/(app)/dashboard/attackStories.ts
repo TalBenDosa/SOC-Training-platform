@@ -524,20 +524,113 @@ function deepReplace(value: unknown, pairs: [string, string][]): unknown {
   return value;
 }
 
+// ── EDR vendor namespace normalisation (L-03) ────────────────────────────────
+// The attack corpus is authored almost entirely on CrowdStrike's rich schema. When
+// it lands on a company that runs a DIFFERENT EDR, the vendor-namespaced raw keys
+// (crowdstrike.*) are a dead giveaway — on a SentinelOne shop every crowdstrike.*
+// event IS the attack, and the field itself is invalid for that vendor. All the real
+// evidence lives in the structured process/file fields (rendered by the feed, kept
+// untouched here), so we reshape the raw block to the TARGET vendor's small,
+// baseline-matching convention: drop foreign-vendor keys, keep the vendor-neutral
+// (ECS) keys, and add the handful of target-vendor keys the company's own baseline +
+// authored attacks actually use. Nothing is invented — every emitted key already
+// appears in that company's feed.
+type EdrNs = "crowdstrike" | "s1" | "sophos" | "mde";
+const ANY_EDR_NS = /^(crowdstrike|s1|sophos|mde|cortex)\./;
+// When reshaping to another vendor we keep only the small set of vendor-NEUTRAL keys
+// the target companies' own EDR events actually use (evidence lives in the structured
+// process/file fields). This also drops vendor-flavoured "neutral" keys like
+// event.provider:"Microsoft Defender ATP" / event.dataset:"DeviceProcessEvents" that
+// would otherwise out a Defender-authored event on a SentinelOne/Sophos shop.
+const KEEP_NEUTRAL_PREFIX = /^(process|file|threat|source|destination|network|dns|usb|user|host|registry|url|http)\./;
+const KEEP_NEUTRAL_EXACT = new Set(["action_result", "quarantine.status", "policy.name", "event.action", "event.outcome", "event.category"]);
+// EDR product names that appear in prose/raw values — mapped to the company's own EDR
+// so a description like "CrowdStrike Falcon killed…" can't out the attack elsewhere.
+const EDR_PRODUCT_NAMES = [
+  "Microsoft Defender for Endpoint", "Microsoft Defender ATP", "Microsoft Defender",
+  "CrowdStrike Falcon Elite", "CrowdStrike Falcon", "SentinelOne Singularity",
+  "Sophos Intercept X", "Cortex XDR", "Carbon Black",
+  "CrowdStrike", "SentinelOne", "Sophos", "Falcon", "Defender",
+];
+
+function edrNsOfVendor(vendor?: string): EdrNs | null {
+  const v = (vendor ?? "").toLowerCase();
+  if (v.includes("crowdstrike") || v.includes("falcon")) return "crowdstrike";
+  if (v.includes("sentinelone") || v.includes("singularity")) return "s1";
+  if (v.includes("sophos")) return "sophos";
+  if (v.includes("defender") || v === "mde") return "mde";
+  return null;
+}
+function edrNsOfKeys(raw?: Record<string, unknown>): EdrNs | null {
+  for (const k of Object.keys(raw ?? {})) {
+    if (k.startsWith("crowdstrike.")) return "crowdstrike";
+    if (k.startsWith("s1.")) return "s1";
+    if (k.startsWith("sophos.")) return "sophos";
+    if (k.startsWith("mde.")) return "mde";
+  }
+  return null;
+}
+
+const S1_EVENT_TYPE: Record<string, string> = {
+  process_create: "PROCESS_CREATION", file_create: "FILE_CREATION",
+  net_connection: "IP_CONNECT", av_detection: "THREAT", detection: "THREAT",
+};
+const SOPHOS_EVENT_TYPE: Record<string, string> = {
+  process_create: "Process", file_create: "File",
+  net_connection: "Network", av_detection: "Malware", detection: "Malware",
+};
+const S1_LEVEL: Record<string, string> = {
+  critical: "critical", high: "high", medium: "medium", low: "low", informational: "none",
+};
+function edrAction(e: TelemetryEvent): string {
+  const r = String(e.raw?.["action_result"] ?? "").toLowerCase();
+  if (r.includes("kill")) return "kill";
+  if (r.includes("block") || r.includes("quarantin")) return "quarantine";
+  return "detect_only";
+}
+
+/** Rebuild an EDR event's raw block in `target`'s convention (see comment above). */
+function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown> {
+  const src = e.raw ?? {};
+  const neutral: Record<string, unknown> = {};        // only whitelisted neutral keys
+  for (const [k, v] of Object.entries(src)) if (KEEP_NEUTRAL_PREFIX.test(k) || KEEP_NEUTRAL_EXACT.has(k)) neutral[k] = v;
+
+  const et = e.event_type ?? "";
+  const isDetection = e.is_detection === true || /detection|threat|malware|ransom/i.test(et);
+  const block: Record<string, unknown> = {};
+  if (target === "crowdstrike") {
+    block["crowdstrike.event_simpleName"] =
+      et === "process_create" ? "ProcessRollup2" : et === "net_connection" ? "NetworkConnectIP4" : "DetectionSummaryEvent";
+    if (isDetection && e.mitre_technique) block["crowdstrike.detection.technique_id"] = e.mitre_technique;
+    if (e.severity) block["crowdstrike.SeverityName"] = e.severity.toUpperCase();
+  } else if (target === "s1") {
+    block["s1.event_type"] = S1_EVENT_TYPE[et] ?? (isDetection ? "THREAT" : "BEHAVIORAL_INDICATORS");
+    block["s1.threat_level"] = S1_LEVEL[e.severity ?? "informational"] ?? "none";
+    if (isDetection) block["s1.action"] = edrAction(e);
+  } else if (target === "sophos") {
+    block["sophos.event_type"] = SOPHOS_EVENT_TYPE[et] ?? (isDetection ? "Malware" : "Event");
+    block["sophos.detection_name"] = isDetection ? (String(src["threat.name"] ?? "") || "Mal/Generic-A") : "none";
+    if (isDetection) block["sophos.action"] = edrAction(e);
+  } else {
+    block["mde.ActionType"] = et === "process_create" ? "ProcessCreated" : isDetection ? "AlertRaised" : "GeneralEvent";
+  }
+  return { ...block, ...neutral };
+}
+
 /**
- * ~50% of sessions swap the story's primary victim with another employee from
- * the company's benign pool, so the same story never reads identically twice.
- * The swap rewrites the victim's identity EVERYWHERE it appears — user_email,
- * description, AND the raw log fields (email, dotted and undotted username, and
- * DOMAIN\\user forms). Skipping raw was a real bug: the feed banner would show
- * the new name while the raw log (which the student is told to quote exactly)
- * still carried the original, so an exact quote was scored as fabricated evidence.
+ * Adapt a shared attack story to the ACTIVE company so it reads as native telemetry,
+ * not the same CrowdStrike chain under a new company name. ALWAYS applied. It rewrites
+ * every company-identifying detail the story baked in for its author-company:
+ *   • EDR vendor + raw schema  → the company's EDR (see reshapeEdrRaw above)
+ *   • victim identity          → a user from the company roster (email + name forms)
+ *   • email domain + NetBIOS   → the company's (catches DOMAIN\\user forms too)
+ *   • hostnames                → the company's asset pool
+ * across the banner, the description, the structured process/file fields, AND the raw
+ * log — the last matters because the student is told to quote the raw exactly, so a
+ * stale value there would be scored as fabricated evidence.
  */
-export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string): AttackStory {
-  // L-03: the attack chain is authored on one EDR (CrowdStrike). Make it arrive on
-  // the EDR the active company actually runs, so "Switch Company" is a real change of
-  // telemetry — not the same CrowdStrike attack under a different company name. This
-  // runs ALWAYS (independent of the 50% identity reshuffle below).
+export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string): AttackStory {
+  const targetNs = edrNsOfVendor(companyEdr);
   if (companyEdr) {
     s = {
       ...s,
@@ -590,19 +683,52 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const hostMap = new Map<string, string>();
   storyHosts.forEach((h, i) => { const t = hostPool.length ? hostPool[i % hostPool.length] : h; if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); } });
 
-  const clean = pairs.filter(([f, t]) => f && t && f !== t).sort((a, b) => b[0].length - a[0].length);
-  if (clean.length === 0) return s;
+  // NetBIOS/realm domain forms (NEXACORP\\user) survive the email-domain swap and
+  // still name the origin company, so map every DOMAIN\\ token to the company's short
+  // name. Case-sensitive uppercase, so it never touches the lowercase email domain.
+  const companyNetbios = (companyId ?? companyDomain?.split(".")[0] ?? "").toUpperCase();
+  if (companyNetbios) {
+    const storyNetbios = new Set<string>();
+    for (const e of s.events) {
+      const scan = `${JSON.stringify(e.process ?? {})} ${JSON.stringify(e.raw ?? {})} ${e.description ?? ""}`;
+      for (const m of scan.matchAll(/([A-Za-z][A-Za-z0-9-]{2,})\\\\/g)) storyNetbios.add(m[1]);
+    }
+    for (const nb of storyNetbios) if (nb.toUpperCase() !== companyNetbios) pairs.push([nb, companyNetbios]);
+  }
 
+  // EDR product names in prose / raw values → the company's own EDR (skip the ones
+  // that ARE the company's product). Longest-first ordering (below) means
+  // "Microsoft Defender for Endpoint" is replaced before the bare "Defender".
+  if (companyEdr) {
+    const cl = companyEdr.toLowerCase();
+    for (const nm of EDR_PRODUCT_NAMES) {
+      const nl = nm.toLowerCase();
+      if (cl.includes(nl) || nl.includes(cl)) continue;   // never rewrite the company's own product
+      pairs.push([nm, companyEdr]);
+    }
+  }
+
+  const clean = pairs.filter(([f, t]) => f && t && f !== t).sort((a, b) => b[0].length - a[0].length);
   const subStr = (str: string) => { let o = str; for (const [f, t] of clean) if (o.includes(f)) o = o.split(f).join(t); return o; };
+  // Nothing to change AND no EDR schema to normalise → return the story untouched.
+  if (clean.length === 0 && !targetNs) return s;
 
   return {
     ...s,
-    events: s.events.map(e => ({
-      ...e,
-      user_email: victim && e.user_email === victim && replacement ? replacement : e.user_email,
-      hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
-      description: e.description ? subStr(e.description) : e.description,
-      raw: e.raw ? (deepReplace(e.raw, clean) as typeof e.raw) : e.raw,
-    })),
+    events: s.events.map(e => {
+      const adapted = {
+        ...e,
+        user_email: victim && e.user_email === victim && replacement ? replacement : e.user_email,
+        hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
+        description: e.description ? subStr(e.description) : e.description,
+        process: e.process ? (deepReplace(e.process, clean) as typeof e.process) : e.process,
+        raw: e.raw ? (deepReplace(e.raw, clean) as typeof e.raw) : e.raw,
+      };
+      // Reshape a foreign-EDR raw block into the company's own vendor convention.
+      if (adapted.source === "edr" && targetNs && edrNsOfKeys(adapted.raw) && edrNsOfKeys(adapted.raw) !== targetNs) {
+        adapted.raw = reshapeEdrRaw(adapted, targetNs) as typeof adapted.raw;
+      }
+      return adapted;
+    }),
   };
 }
