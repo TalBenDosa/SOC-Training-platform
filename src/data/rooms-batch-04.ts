@@ -946,11 +946,11 @@ Once a log is decoded into structured fields, the rule engine evaluates every ac
 | Ignored | 0 | No alert generated. Used to suppress noise. |
 | Low informational | 1–3 | System events with no security relevance. |
 | Low | 4–6 | Minor events worth logging but not alerting on. |
-| Medium | 7–11 | Events that should be investigated. Alerts generated for levels 7+. |
+| Medium | 7–11 | Events that should be investigated. |
 | High | 12–14 | Serious security events requiring prompt attention. |
 | Critical | 15 | Maximum severity — immediate response required. |
 
-By default, Wazuh generates alerts only for level 7 and above. Levels 0-6 are logged but do not produce visible alerts in the dashboard.
+By default, Wazuh writes an alert for any rule that fires at **level 3 or above** — this is the \`log_alert_level\` setting in \`ossec.conf\` (its default value is 3, *not* 7). Events below that level are still decoded and matched, and can be sent to the archives, but they fall below the default alerting threshold and so do not appear as alerts in the dashboard. Many teams raise \`log_alert_level\` (to 5, 7, or higher) to cut noise — but that is a tuning choice each site makes, not the out-of-the-box default.
 
 **Rule ID ranges — learn these rather than memorising individual numbers.** Wazuh groups its built-in rules into blocks by log source, and the block is far more durable knowledge than any single ID:
 
@@ -970,7 +970,7 @@ Some representative built-in rules you will meet often:
 
 - **5710** — sshd: attempt to log in using a non-existent user
 - **5503** — PAM: user login failed
-- **31151** — Web server attack: SQL injection attempt
+- **31103** — Web server attack: SQL injection attempt (successful SQLi escalates to **31106**)
 - **60104** — Rootkit detection by rootcheck
 
 **Always confirm the exact ID against your own instance before you build anything on it.** Rule IDs and their descriptions shift between ruleset versions, and every organisation runs a slightly different mix of built-in and custom rules. Two commands settle it in seconds: **/var/ossec/bin/wazuh-logtest** lets you paste a raw log line and see precisely which rule fires and at what level, and the rule files under **/var/ossec/ruleset/rules/** are plain XML you can grep. An analyst who knows how to *look up* the rule that fired is far more useful than one who memorised a list that was accurate for one version two years ago.
@@ -982,13 +982,13 @@ Wazuh rules are hierarchical. A parent rule matches the general event type (e.g.
 For example:
 - Parent rule 5700: "sshd authentication event detected" (fires on any SSH-related log)
 - Child rule 5710: "Failed login for non-existent user" (only fires if parent matched AND user does not exist)
-- Child rule 5711: "Multiple failed logins — brute force" (only fires if parent matched AND count > threshold)`,
+- Child rule 5712: "sshd: brute force trying to get access to the system" (only fires if parent matched AND failures exceed the frequency threshold in the timeframe)`,
       checkpoint: {
-        question: "According to the reading, at which Wazuh rule severity level does the dashboard begin generating visible alerts by default?",
-        options: ["Level 1", "Level 4", "Level 7", "Level 12"],
-        answer: 2,
+        question: "According to the reading, what is the DEFAULT value of Wazuh's `log_alert_level` — the level at or above which a rule produces a dashboard alert out of the box?",
+        options: ["Level 3", "Level 5", "Level 7", "Level 12"],
+        answer: 0,
         explanation:
-          "By default, Wazuh generates visible alerts only for level 7 and above. Levels 0-6 are logged but do not appear as alerts in the dashboard, which keeps low-value informational events from creating noise.",
+          "The default `log_alert_level` in `ossec.conf` is 3, so by default any rule firing at level 3 or above becomes a visible alert. A common tuning step is to raise it (to 5, 7, or higher) to cut noise, but that is a per-site choice — not the out-of-the-box default. Assuming '7' is the default is a frequent and costly mistake.",
       },
     } satisfies ReadingTask,
 
@@ -1006,7 +1006,7 @@ For example:
       ],
       answer: 3,
       explanation:
-        "In Wazuh's 0-15 severity scale, level 15 is the maximum — Critical. It indicates an event of the highest severity requiring immediate response. Levels 12-14 are High, 7-11 are Medium, 4-6 are Low, and 0-3 are informational or ignored. Only levels 7 and above generate visible alerts in the Wazuh dashboard by default.",
+        "In Wazuh's 0-15 severity scale, level 15 is the maximum — Critical. It indicates an event of the highest severity requiring immediate response. Levels 12-14 are High, 7-11 are Medium, 4-6 are Low, and 0-3 are informational or ignored. By default (`log_alert_level` = 3) any rule at level 3 or above becomes a visible alert in the dashboard; many teams then raise that threshold to cut noise, but 3 — not 7 — is the out-of-the-box default.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -1130,7 +1130,7 @@ The Wazuh Dashboard includes several built-in sections:
           ],
           answer: 1,
           explanation:
-            "Read it straight off the alert: `rule.id` is 5903 and `rule.level` is 12, and the alert helpfully carries `rule.description` — 'New user added to the system' — so you never have to remember what a given ID means. That is the habit worth building. Rule IDs shift between ruleset versions, so an analyst who reads the description field (or runs `wazuh-logtest` to confirm which rule fires) will be right in any environment, while one who memorised a list will eventually be confidently wrong.\n\nThe level is what sets your urgency: 12 sits in Wazuh's High band (12-14), above the default alerting threshold of 7. Combine that with the context — an unplanned account creation on a critical application server at 02:44 AM, outside any approved change window — and this is worth waking someone for, whatever the account happens to be called.",
+            "Read it straight off the alert: `rule.id` is 5903 and `rule.level` is 12, and the alert helpfully carries `rule.description` — 'New user added to the system' — so you never have to remember what a given ID means. That is the habit worth building. Rule IDs shift between ruleset versions, so an analyst who reads the description field (or runs `wazuh-logtest` to confirm which rule fires) will be right in any environment, while one who memorised a list will eventually be confidently wrong.\n\nThe level is what sets your urgency: 12 sits in Wazuh's High band (12-14), well above the default alerting threshold (`log_alert_level` = 3). Combine that with the context — an unplanned account creation on a critical application server at 02:44 AM, outside any approved change window — and this is worth waking someone for, whatever the account happens to be called.",
           xp: 25,
         },
         {
