@@ -272,7 +272,7 @@ const rooms = [
           },
           {
             id: "lsass",
-            left: "Process accessing LSASS.exe memory with GrantedAccess 0x1FFFFF",
+            left: "Process opening a full-access handle to LSASS.exe memory (GrantedAccess 0x1FFFFF = PROCESS_ALL_ACCESS)",
             right: "T1003.001 — OS Credential Dumping: LSASS Memory",
           },
           {

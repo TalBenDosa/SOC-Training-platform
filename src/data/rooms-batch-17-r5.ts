@@ -10,6 +10,7 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { KQL_PRIMER } from "@/data/kqlPrimer";
 
 // ── Log analysis event 1: spoofed message with envelope/header mismatch ─────
 const spoofedHeaderEvent: TelemetryEvent = {
@@ -645,7 +646,7 @@ const emailRoom = {
       id: "email-qf1",
       heading: "Write It Yourself: Surface DMARC-Failing Mail Impersonating Internal Domains in KQL",
       language: "kql",
-      context:
+      context: KQL_PRIMER +
         "Using the pattern from Log Analysis 1 (a message whose header From claims an internal solvix.com identity but fails SPF and DMARC), write the KQL a detection engineer would deploy to catch messages exactly like it.",
       template:
         "EmailEvents\n| where SenderFromDomain == \"{{domain}}\"\n| where SPFResult == \"{{spfresult}}\" or DMARCResult == \"{{dmarcresult}}\"\n| where DKIMResult != \"{{dkimresult}}\"",

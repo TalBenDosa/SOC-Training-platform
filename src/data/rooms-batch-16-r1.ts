@@ -153,7 +153,7 @@ const azureSecurityRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 70,
-  xp: 320,
+  xp: 345,
   icon: "🔷",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [
@@ -695,6 +695,32 @@ const azureSecurityRoom = {
         "          ActivityStatusValue, CallerIpAddress\n" +
         "| order by TimeGenerated asc\n" +
         "=======================================================",
+    },
+
+    // ── Log Analysis: blob container opened + long-lived SAS — precedes the flag ──
+    {
+      type: "log_analysis" as const,
+      id: "azure-la-storage",
+      heading: "Data Exposure: A Container Is Opened to the World",
+      context:
+        "Following the SAS-token generation described in the reading above, this Activity Log record shows the storage-account change the attacker made next. Read it before answering the flag.",
+      event: storagePublicSasEvent,
+      questions: [
+        {
+          question:
+            "The requestbody sets publicAccess to 'Container', the operation succeeded, and the same account just issued a SAS token expiring in 2027 (azure.storage.sasTokenExpiry). Why is this combination a confirmed data-exposure incident rather than a config tweak?",
+          options: [
+            "'Container' public access only exposes the container's metadata and name, never the blobs themselves, so no customer data can actually be read and this is informational",
+            "publicAccess 'Container' allows anonymous, unauthenticated read of every blob in customer-exports, and the multi-year SAS token is a second, portable way in — together they mean the data is reachable by anyone with the URL, indefinitely, with no sign-in",
+            "The change is safe because a SAS token is required in addition to public access, and this token expires, so access will automatically be revoked within the hour",
+            "Activity Log only records the request, not whether it succeeded, so an analyst cannot yet conclude the container was actually exposed from this event alone",
+          ],
+          answer: 1,
+          explanation:
+            "Setting a blob container's publicAccess to 'Container' permits anonymous, unauthenticated read of all blobs in it — no credential, no SAS needed — so customer-exports is now readable by anyone who knows or guesses the URL. On top of that, the attacker minted a SAS token valid until 2027 (rwdl), a long-lived portable credential that survives the public-access being closed again. The resultType is Success, so this is a confirmed exposure, not an attempt: close public access immediately, revoke the SAS (rotate the account keys that signed it), and review storage-analytics logs for anonymous GETs against the container.",
+          xp: 25,
+        },
+      ],
     },
 
     // ── Flag: extract value from raw storage/SAS event ──────────────────────

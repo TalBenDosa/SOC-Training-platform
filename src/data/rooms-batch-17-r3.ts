@@ -10,6 +10,7 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { KQL_PRIMER } from "@/data/kqlPrimer";
 
 // ── Log analysis event 1: TLS beacon session (metadata only, no decryption) ─
 const tlsBeaconEvent: TelemetryEvent = {
@@ -670,7 +671,7 @@ const tlsRoom = {
       id: "tls-qf1",
       heading: "Write It Yourself: Surface Beacon-Shaped TLS Sessions in KQL",
       language: "kql",
-      context:
+      context: KQL_PRIMER +
         "Using the pattern confirmed in Log Analysis 1 (repeated sessions to one destination, tight interval clustering, near-identical byte counts), write the KQL that would flag this pattern across the whole network without needing to inspect any single session manually first.",
       template:
         "NetworkSessionEvents\n| where DestinationPort == {{port}}\n| summarize SessionCount = count(), AvgBytesOut = avg(BytesSent), StdevBytesOut = stdev(BytesSent) by SourceIp, DestinationIp, JA3Hash\n| where SessionCount > {{threshold}}\n| where StdevBytesOut < {{stdevlimit}}",

@@ -40,6 +40,45 @@ const exposedKeyS3ExfilEvent: TelemetryEvent = {
   },
 };
 
+// ── Event 1b: Attacker disables the CloudTrail trail (defense evasion) ────────
+const cloudTrailStopLoggingEvent: TelemetryEvent = {
+  id: "evt-aws-stoplogging-001",
+  ts: "2026-06-11T04:02:09.000Z",
+  source: "cloudtrail",
+  vendor: "AWS CloudTrail",
+  event_type: "cloud_api_call",
+  severity: "critical",
+  user_email: "svc-deploy@nexacorp.com",
+  src_ip: "185.220.101.47",
+  geo: { country: "Netherlands", city: "Amsterdam" },
+  description: "The organisation's primary CloudTrail trail was stopped via StopLogging, minutes before a burst of EC2 RunInstances calls — a classic move to blind the SOC before the noisy part of the attack",
+  mitre_technique: "T1562.008",
+  mitre_tactic: "Defense Evasion",
+  raw: {
+    "aws.cloudtrail.eventName": "StopLogging",
+    "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com",
+    "aws.cloudtrail.awsRegion": "us-east-1",
+    "aws.cloudtrail.userIdentity.type": "IAMUser",
+    "aws.cloudtrail.userIdentity.arn": "arn:aws:iam::482915007733:user/svc-deploy",
+    "aws.cloudtrail.userIdentity.accountId": "482915007733",
+    "aws.cloudtrail.userIdentity.accessKeyId": "AKIAIOSFODNN7EXAMPLE",
+    "aws.cloudtrail.userIdentity.userName": "svc-deploy",
+    "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+    "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4 Linux/5.15.0",
+    "aws.cloudtrail.requestParameters.name": "nexacorp-primary-trail",
+    "aws.cloudtrail.responseElements": null,
+    "aws.cloudtrail.errorCode": "",
+    "aws.cloudtrail.errorMessage": "",
+    "aws.cloudtrail.requestID": "1C2D3E4F5A6B7C80",
+    "aws.cloudtrail.eventType": "AwsApiCall",
+    "aws.cloudtrail.managementEvent": true,
+    "aws.cloudtrail.readOnly": false,
+    "cloud.account.id": "482915007733",
+    "cloud.region": "us-east-1",
+    "action_result": "allowed",
+  },
+};
+
 // ── Event 2: IMDS credential theft -> IAM privilege escalation via new policy version
 const imdsPrivEscEvent: TelemetryEvent = {
   id: "evt-aws-privesc-001",
@@ -163,7 +202,7 @@ const awsSecurityRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 75,
-  xp: 315,
+  xp: 340,
   icon: "☁️",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [
@@ -516,7 +555,7 @@ const awsSecurityRoom = {
       questions: [
         {
           question:
-            "This event shows user_identity.type 'AssumedRole' with arn 'arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890', calling CreatePolicyVersion from the SAME external Tor IP as the earlier S3 event. What does the '/i-0a1b2c3d4e5f67890' suffix and the AssumedRole type tell you?",
+            "This event shows aws.cloudtrail.userIdentity.type 'AssumedRole' with arn 'arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890', calling CreatePolicyVersion from the SAME external Tor IP as the earlier S3 event. What does the '/i-0a1b2c3d4e5f67890' suffix and the AssumedRole type tell you?",
           options: [
             "This is unrelated to the earlier incident — AssumedRole sessions are refreshed constantly by AWS itself, so a new session appearing from a different country every few hours is completely routine background behavior",
             "The suffix is the EC2 instance ID that assumed the ec2-webapp-role. Because these are temporary role credentials, and they are now being used from an external Tor IP rather than from inside AWS, this strongly indicates the instance's IMDS-issued credentials were stolen (likely via SSRF) and are being reused by the same attacker seen in the earlier S3 event",
@@ -678,6 +717,32 @@ const awsSecurityRoom = {
         answer: 0,
         explanation: "The reading states that an empty errorCode means the call succeeded, while a populated value like AccessDenied or NoSuchEntity means the call was rejected.",
       },
+    },
+
+    // ── Log Analysis: CloudTrail disabled (defense evasion) — precedes the flag ──
+    {
+      type: "log_analysis" as const,
+      id: "aws-la-stoplogging",
+      heading: "Defense Evasion: The Trail Goes Quiet",
+      context:
+        "At 04:02 UTC — minutes before a burst of EC2 RunInstances calls the team expected from the crypto-mining stage — this single management event landed in CloudTrail. Read it before the trail's own events stop arriving.",
+      event: cloudTrailStopLoggingEvent,
+      questions: [
+        {
+          question:
+            "This event's aws.cloudtrail.eventName is 'StopLogging' with an empty errorCode, managementEvent true and readOnly false. Why is this one call more urgent than almost anything else in the feed?",
+          options: [
+            "It is routine trail maintenance — AWS restarts logging automatically within a few minutes, so no visible gap is ever created and no analyst action is required",
+            "It succeeded (empty errorCode) and it is a state-changing management action that turns OFF the very telemetry the SOC relies on — every attacker action after it may go unrecorded, so the blind window itself is the incident",
+            "StopLogging only pauses delivery to the S3 archive while live GuardDuty analysis continues unaffected, so detection coverage is fully preserved and this is low priority",
+            "It is read-only reconnaissance (readOnly is just mislabelled here), so it reveals attacker intent but changes nothing about what is being logged",
+          ],
+          answer: 1,
+          explanation:
+            "StopLogging (T1562.008, Impair Defenses) stops the trail from recording API activity. The empty errorCode plus action_result 'allowed' confirm it succeeded, and managementEvent:true / readOnly:false mark it as a state-changing control-plane action. From this timestamp on, the trail captures nothing — so the attacker's crypto-mining RunInstances calls and anything else that follows may leave no CloudTrail record at all. The disabling itself is the alert to chase: re-enable logging immediately, pivot to any still-live source (GuardDuty, VPC Flow Logs, billing) to reconstruct the blind window, and treat the identity that issued it as compromised.",
+          xp: 25,
+        },
+      ],
     },
 
     // ── Flag: extract value from raw CloudTrail block ───────────────────────

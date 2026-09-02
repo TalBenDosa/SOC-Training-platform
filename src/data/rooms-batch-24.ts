@@ -18,6 +18,7 @@
  */
 
 import type { Room } from "@/data/rooms";
+import { KQL_PRIMER } from "@/data/kqlPrimer";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 // =============================================================================
@@ -394,7 +395,7 @@ const credentialAttacksRoom: Room = {
       id: "cred-qf1",
       heading: "Write It Yourself: Detect a Password Spray in KQL",
       language: "kql",
-      context:
+      context: KQL_PRIMER +
         "Using the pattern confirmed in Log Analysis 2 — one source, many distinct targeted accounts, low attempts each — write the KQL a detection engineer would deploy to catch a spray, where raw failure COUNT alone would miss it.",
       template:
         "SecurityEvent\n| where EventID == {{eventid}}\n| where TimeGenerated > ago({{window}})\n| summarize DistinctAccounts = dcount({{accountfield}}), TotalFailures = count() by IpAddress\n| where DistinctAccounts > {{threshold}}",
@@ -774,7 +775,7 @@ const lateralMovementRoom: Room = {
       id: "lat-qf1",
       heading: "Write It Yourself: Correlate a Network Logon With a Following Service Install",
       language: "kql",
-      context: "Using the pattern confirmed in Log Analysis 1 and 2 — an NTLM network logon immediately followed by a new service on the same host — write the KQL that flags this sequence for any account not on an approved admin-source allowlist.",
+      context: KQL_PRIMER + "Using the pattern confirmed in Log Analysis 1 and 2 — an NTLM network logon immediately followed by a new service on the same host — write the KQL that flags this sequence for any account not on an approved admin-source allowlist.",
       template:
         "SecurityEvent\n| where EventID == {{logonid}} and LogonProcessName == \"{{logonproc}}\"\n| project Computer, Account = TargetUserName, LogonTime = TimeGenerated\n| join kind=inner (\n    SecurityEvent\n    | where EventID == {{svcid}}\n    | project Computer, InstallTime = TimeGenerated\n) on Computer\n| where InstallTime - LogonTime between (0min .. {{window}})",
       blanks: [
@@ -1178,7 +1179,7 @@ const webAttacksRoom: Room = {
       id: "web-qf1",
       heading: "Write It Yourself: Find a Web Worker Process Spawning a Shell",
       language: "kql",
-      context: "Using the pattern from the last step of the attack chain you just ordered — w3wp.exe should never be the parent of a command interpreter — write the KQL a detection engineer would deploy against endpoint process telemetry to catch it.",
+      context: KQL_PRIMER + "Using the pattern from the last step of the attack chain you just ordered — w3wp.exe should never be the parent of a command interpreter — write the KQL a detection engineer would deploy against endpoint process telemetry to catch it.",
       template:
         "DeviceProcessEvents\n| where InitiatingProcessFileName =~ \"{{parent}}\"\n| where FileName in~ (\"{{child1}}\", \"{{child2}}\", \"{{child3}}\")\n| project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine, AccountName",
       blanks: [

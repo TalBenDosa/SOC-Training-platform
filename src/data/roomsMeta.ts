@@ -3469,7 +3469,7 @@ export const ROOMS_META: RoomMeta[] = [
     "difficulty": "intermediate",
     "category": "Cloud Security",
     "estimatedMinutes": 75,
-    "xp": 315,
+    "xp": 340,
     "icon": "☁️",
     "prerequisites": [
       "cloud-security-monitoring"
@@ -3536,6 +3536,12 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aws-r5",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "aws-la-stoplogging",
+        "type": "log_analysis",
+        "xp": 25,
+        "mitreTechnique": "T1562.008"
       },
       {
         "id": "aws-f1",
@@ -3858,7 +3864,7 @@ export const ROOMS_META: RoomMeta[] = [
     "difficulty": "intermediate",
     "category": "Cloud Security",
     "estimatedMinutes": 70,
-    "xp": 320,
+    "xp": 345,
     "icon": "🌐",
     "prerequisites": [
       "cloud-security-monitoring"
@@ -3925,6 +3931,12 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "gcp-r5",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "gcp-la-sakey",
+        "type": "log_analysis",
+        "xp": 25,
+        "mitreTechnique": "T1098.001"
       },
       {
         "id": "gcp-f1",
@@ -4101,7 +4113,7 @@ export const ROOMS_META: RoomMeta[] = [
     "difficulty": "intermediate",
     "category": "Cloud Security",
     "estimatedMinutes": 70,
-    "xp": 320,
+    "xp": 345,
     "icon": "🔷",
     "prerequisites": [
       "cloud-security-monitoring"
@@ -4173,6 +4185,12 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "azure-r6",
         "type": "reading",
         "xp": 0
+      },
+      {
+        "id": "azure-la-storage",
+        "type": "log_analysis",
+        "xp": 25,
+        "mitreTechnique": "T1530"
       },
       {
         "id": "azure-f1",

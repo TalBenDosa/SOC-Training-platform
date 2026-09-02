@@ -1,5 +1,38 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 
+// ── Event 0b (log_analysis): unauthorized service-account KEY minted ──────────
+const createSaKeyEvent: TelemetryEvent = {
+  id: "evt-gcp-createsakey-001",
+  ts: "2026-05-19T02:41:00.000Z",
+  source: "cloud_gcp",
+  vendor: "GCP Cloud Audit Logs",
+  event_type: "cloud_api_call",
+  severity: "critical",
+  user_email: "svc-data@nexacorp.iam.gserviceaccount.com",
+  src_ip: "185.220.101.47",
+  geo: { country: "Netherlands", city: "Amsterdam" },
+  description: "A new JSON private key was minted for the svc-data service account from an unfamiliar external IP, minutes before that account escalated itself to Owner — the attacker giving themselves a durable, portable credential",
+  mitre_technique: "T1098.001",
+  mitre_tactic: "Persistence",
+  raw: {
+    "gcp.audit.method_name": "google.iam.admin.v1.CreateServiceAccountKey",
+    "gcp.audit.service_name": "iam.googleapis.com",
+    "gcp.audit.resource_name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com",
+    "gcp.audit.authentication_info.principal_email": "svc-data@nexacorp.iam.gserviceaccount.com",
+    "gcp.audit.request_metadata.caller_ip": "185.220.101.47",
+    "gcp.audit.request_metadata.caller_supplied_user_agent": "google-api-python-client/2.86.0",
+    "gcp.audit.status.code": 0,
+    "gcp.audit.status.message": "",
+    "gcp.audit.request.private_key_type": "TYPE_GOOGLE_CREDENTIALS_FILE",
+    "gcp.audit.request.key_algorithm": "KEY_ALG_RSA_2048",
+    "gcp.audit.response.name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com/keys/8f3a1c9d2e4b7f60",
+    "gcp.audit.response.key_id": "8f3a1c9d2e4b7f60",
+    "gcp.audit.response.key_type": "USER_MANAGED",
+    "cloud.account.id": "nexacorp-prod",
+    "action_result": "allowed",
+  },
+};
+
 // ── Event 1 (log_analysis): IAM privilege escalation via SetIamPolicy ─────────
 const setIamPolicyEvent: TelemetryEvent = {
   id: "evt-gcp-setiampolicy-001",
@@ -152,7 +185,7 @@ const gcpRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 70,
-  xp: 320,
+  xp: 345,
   icon: "🌐",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [
@@ -650,6 +683,32 @@ const gcpRoom = {
         answer: 0,
         explanation: "The reading states that status.code 0 means success, while a non-zero value like 7 commonly means PERMISSION_DENIED (5 commonly means NOT_FOUND) — a flood of status.code 7 calls signals an attacker probing for working permissions.",
       },
+    },
+
+    // ── Log Analysis: unauthorized SA key minted — precedes the flag ─────────
+    {
+      type: "log_analysis" as const,
+      id: "gcp-la-sakey",
+      heading: "Persistence: A New Service-Account Key Appears",
+      context:
+        "Six minutes before svc-data granted itself Owner, this IAM event fired from the same external IP. Service-account keys are long-lived credentials that work from anywhere — read what was just created.",
+      event: createSaKeyEvent,
+      questions: [
+        {
+          question:
+            "The method_name is google.iam.admin.v1.CreateServiceAccountKey, status.code is 0, and the response returns a USER_MANAGED key. Why is minting a user-managed key on a service account a persistence red flag here?",
+          options: [
+            "It is harmless routine key rotation — GCP requires a fresh user-managed key every few hours or the service account stops working, so this event appears constantly in every project",
+            "status.code 0 means it succeeded, and a USER_MANAGED JSON key is a long-lived credential the holder can use from any machine, independent of the compromised IP or session — so the attacker now has durable access that survives a session or password reset",
+            "User-managed keys can only be used from inside the same GCP project, so this changes nothing about the attacker's external access and is purely informational",
+            "A non-zero status.code would be required for the key to actually be usable; because status.code is 0 the key was rejected and no credential was issued",
+          ],
+          answer: 1,
+          explanation:
+            "CreateServiceAccountKey with status.code 0 succeeded, and a USER_MANAGED key is a downloadable JSON credential with no automatic expiry that authenticates from anywhere. Google strongly discourages user-managed keys precisely because they become long-lived, portable secrets — exactly what an attacker wants for persistence (T1098.001). Google-managed keys, by contrast, are rotated automatically and never exposed. Minting this key minutes before the Owner escalation is the attacker establishing a foothold that outlives the current session; the response.key_id identifies the specific credential to hunt for and revoke.",
+          xp: 25,
+        },
+      ],
     },
 
     // ── Flag: extract value from raw Cloud Audit Log block ──────────────────

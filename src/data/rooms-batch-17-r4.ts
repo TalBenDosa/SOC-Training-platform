@@ -11,6 +11,7 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { KQL_PRIMER } from "@/data/kqlPrimer";
 
 // ── Log analysis event 1: admin-share / named-pipe access consistent with
 //    remote service-based lateral movement ──────────────────────────────────
@@ -661,7 +662,7 @@ const winProtoRoom = {
       id: "winproto-qf1",
       heading: "Write It Yourself: Detect a Kerberoasting Sweep in KQL",
       language: "kql",
-      context:
+      context: KQL_PRIMER +
         "Using the pattern confirmed in Log Analysis 2 (one account requesting RC4-encrypted service tickets for many distinct SPNs in a short window), write the KQL a detection engineer would deploy to catch this pattern across the whole domain.",
       template:
         "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enctype}}\"\n| summarize DistinctSPNs = dcount(ServiceName) by TargetAccount = Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",

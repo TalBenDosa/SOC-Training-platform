@@ -20,6 +20,7 @@
  */
 
 import type { Room } from "@/data/rooms";
+import { KQL_PRIMER } from "@/data/kqlPrimer";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 // =============================================================================
@@ -535,7 +536,7 @@ const kerberosRoom: Room = {
       id: "krb-qf1",
       heading: "Write It Yourself: Surface Kerberoasting Candidates in KQL",
       language: "kql",
-      context:
+      context: KQL_PRIMER +
         "Using the pattern confirmed in Log Analysis 1 (RC4 encryption, high volume, broad distinct-SPN spread, from one requesting account, in a short window), write the KQL a detection engineer would ship to flag this behavior across the whole domain.",
       template:
         "SecurityEvent\n| where EventID == {{eventid}}\n| where TicketEncryptionType == \"{{enc}}\"\n| summarize RequestCount = count(), DistinctSPNs = dcount(ServiceName) by Account, bin(TimeGenerated, {{window}})\n| where DistinctSPNs > {{threshold}}",
@@ -1002,7 +1003,7 @@ const privescRoom: Room = {
       id: "privesc-qf1",
       heading: "Write It Yourself: Hunt for fodhelper-Style UAC Bypasses",
       language: "kql",
-      context:
+      context: KQL_PRIMER +
         "Using the pattern from Log Analysis 1 (an auto-elevate binary as parent, a High-integrity child, no consent.exe in the session), write the KQL that would surface candidate UAC bypasses across the fleet.",
       template:
         "DeviceProcessEvents\n| where InitiatingProcessFileName in~ (\"{{binary1}}\", \"computerdefaults.exe\", \"eventvwr.exe\", \"sdclt.exe\")\n| where ProcessIntegrityLevel == \"{{level}}\"\n| where InitiatingProcessAccountName !contains \"SYSTEM\"\n| join kind=leftanti (DeviceProcessEvents | where FileName == \"{{consentproc}}\") on DeviceId",

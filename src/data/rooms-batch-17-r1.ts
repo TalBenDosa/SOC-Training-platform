@@ -10,6 +10,7 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { KQL_PRIMER } from "@/data/kqlPrimer";
 
 // ── Log analysis event 1: SYN scan sweep captured as a NIDS flow record ────
 const synScanEvent: TelemetryEvent = {
@@ -765,7 +766,7 @@ const tcpipDeepDiveRoom = {
       id: "tcpip-qf1",
       heading: "Write It Yourself: Detect a Port Sweep in KQL",
       language: "kql",
-      context:
+      context: KQL_PRIMER +
         "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, mostly ending in S0/no reply, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule.",
       template:
         "NetworkFlowEvents\n| where ConnectionState in ({{states}})\n| summarize DistinctPorts = dcount(DestinationPort) by SourceIp, DestinationIp, bin(TimeGenerated, {{window}})\n| where DistinctPorts > {{threshold}}",

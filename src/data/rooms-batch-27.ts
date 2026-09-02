@@ -17,6 +17,7 @@
  */
 
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { KQL_PRIMER } from "@/data/kqlPrimer";
 
 // ===========================================================================
 // ROOM 1 — Remote Email Collection & Malicious Inbox Rules (T1114.002)
@@ -381,7 +382,7 @@ const remoteEmailCollectionRoom = {
       id: "remc-qf1",
       heading: "Write It Yourself: Hunt for Externally-Forwarding Inbox Rules",
       language: "kql" as const,
-      context:
+      context: KQL_PRIMER +
         "Detection engineering wants a daily hunt across the OfficeActivity table for any inbox rule that forwards or redirects mail externally, instead of relying on a single canned alert to catch every case. Fill in the operation name and both forwarding parameters from Reading 3.",
       template:
         "OfficeActivity\n| where OfficeWorkload == \"Exchange\"\n| where Operation == \"{{operation}}\"\n| where Parameters has \"{{param1}}\" or Parameters has \"{{param2}}\"\n| project TimeGenerated, UserId, ClientIP, Parameters",
@@ -785,7 +786,7 @@ const deviceRegistrationPersistenceRoom = {
       id: "devreg-qf1",
       heading: "Write It Yourself: Correlate Self-Registration With a Risky Sign-In",
       language: "kql" as const,
-      context:
+      context: KQL_PRIMER +
         "Detection engineering wants a query joining Entra ID's AuditLogs and SigninLogs tables to surface any 'User registered security info' event where the same user had a sign-in flagged with any non-'none' risk level, rather than relying on a human to manually cross-reference the two logs.",
       template:
         "AuditLogs\n| where OperationName == \"{{operation}}\"\n| where isnotempty(InitiatedBy.user.userPrincipalName)\n| where InitiatedBy.user.userPrincipalName == TargetResources[0].userPrincipalName\n| join kind=inner (\n    SigninLogs\n    | where RiskLevelDuringSignIn != \"{{riskvalue}}\"\n) on $left.InitiatedBy.user.userPrincipalName == $right.UserPrincipalName\n| project TimeGenerated, UserPrincipalName, IPAddress, RiskLevelDuringSignIn",
