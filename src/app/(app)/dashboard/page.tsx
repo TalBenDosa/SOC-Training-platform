@@ -283,7 +283,10 @@ function getCompanyEvents(sim: SimData, id: string) {
   // to select half of what was on screen. Aligning the feed to architecture.sources
   // makes "Switch Company" a real change of telemetry and makes the filter complete.
   const active = new Set(getCompanyProfile(id).architecture?.sources ?? []);
-  return base.filter(e => e.source !== "dns" && (active.size === 0 || active.has(e.source)));
+  // E-12: DNS is the most common log source in any SOC (and the platform teaches a
+  // whole room on it), so it must appear in the background noise. It is gated by the
+  // company's declared sources like every other source — no blanket exclusion.
+  return base.filter(e => active.size === 0 || active.has(e.source));
 }
 
 function getCompanyProfile(id: string) {
@@ -497,7 +500,7 @@ export default function DashboardPage() {
 
   const resolveEvents = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string): TelemetryEvent[] => {
     const o = orgMap.get(id);
-    if (o) return (o.benignEvents as TelemetryEvent[]).filter(e => e.source !== "dns");
+    if (o) return (o.benignEvents as TelemetryEvent[]);   // E-12: DNS noise is kept
     return getCompanyEvents(s, id);
   };
   // Profiles are light (companyProfilesMeta) and stay in the initial bundle — no
@@ -554,6 +557,19 @@ export default function DashboardPage() {
   // Drives the badge that pops next to the "Investigate in EDR" button.
   const edrAlertCount = (live.activeIncident && liveEdrInvestigation)
     ? liveEdrInvestigation.detections.length : 0;
+
+  // E-09: the "contained in EDR" banner must reflect only THIS shift's hosts. A host
+  // contained in a past standalone /edr practice case (FIN-WS-07, RES-SRV-02, …) is
+  // stored in shared containment state and otherwise lingered on the Dashboard before
+  // a shift even started, showing a host that matches no company's naming with 0 XP.
+  // Surface a containment only when its host appears in the current live telemetry.
+  const sessionContained = useMemo(() => {
+    if (edrContained.length === 0) return [];
+    const hosts = new Set<string>();
+    for (const e of live.events) if (e.hostname) hosts.add(e.hostname);
+    for (const e of sessionStory?.events ?? []) if (e.hostname) hosts.add(e.hostname);
+    return edrContained.filter(h => hosts.has(h));
+  }, [edrContained, live.events, sessionStory]);
 
   // When a FRESH incident opens, reset the per-incident state so the student
   // works it cleanly: report button ready again, EDR reminder cleared, and the
@@ -1067,13 +1083,13 @@ export default function DashboardPage() {
           </span>
           {/* Reflected from the EDR console: a host contained there shows as
               contained here too — one shared response state across both surfaces. */}
-          {edrContained.length > 0 && (
+          {sessionContained.length > 0 && (
             <span
               className="flex items-center gap-1.5 rounded-full border border-neon-amber/40 bg-neon-amber/10 px-2.5 py-1 text-[11px] font-semibold text-neon-amber"
-              title={`Contained in EDR: ${edrContained.join(", ")}`}
+              title={`Contained in EDR: ${sessionContained.join(", ")}`}
             >
               <ShieldCheck className="h-3.5 w-3.5" />
-              {edrContained.length === 1 ? `${edrContained[0]} contained in EDR` : `${edrContained.length} hosts contained in EDR`}
+              {sessionContained.length === 1 ? `${sessionContained[0]} contained in EDR` : `${sessionContained.length} hosts contained in EDR`}
             </span>
           )}
           {/* Session state — the analyst should never have to guess whether a

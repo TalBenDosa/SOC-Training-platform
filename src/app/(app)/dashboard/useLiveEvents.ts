@@ -152,16 +152,23 @@ function ingestionDelayMs(source: string): number {
 // no React) so scripts/validate-runtime-feed can exercise them in CI.
 
 function buildRuleId(event: TelemetryEvent, index: number): string {
-  // 1. MITRE technique map
+  // Pick the base rule that matched (technique → source/event_type → fallback).
+  let base: string;
   if (event.mitre_technique && RULE_ID_MAP[event.mitre_technique]) {
-    return RULE_ID_MAP[event.mitre_technique];
+    base = RULE_ID_MAP[event.mitre_technique];
+  } else {
+    const sourceKey = `${event.source}:${event.event_type}`;
+    base = SOURCE_EVENT_RULE[sourceKey] ?? `HTS-${60000 + (index % 9000)}`;
   }
-  // 2. Source + event_type map
-  const sourceKey = `${event.source}:${event.event_type}`;
-  if (SOURCE_EVENT_RULE[sourceKey]) return SOURCE_EVENT_RULE[sourceKey];
-  // 3. Deterministic fallback
-  const base = 60000 + (index % 9000);
-  return `HTS-${base}`;
+  // E-08: a rule's level is a property of the RULE, not the event — one rule id must
+  // never fire at two levels, or "filter by rule id" and "how often did this rule
+  // fire" return nonsense. But L-06 requires the LEVEL to track severity (so a high
+  // level appears on high-severity NOISE too, not only attacks). We reconcile both by
+  // making the level part of the rule identity, Wazuh child-rule style: a generic
+  // process-creation that matches at high severity is a distinct child rule from the
+  // same base at low severity (e.g. HTS-92400.8 vs HTS-92400.1). The level column and
+  // the rule id now agree, and the level still isn't attack-exclusive.
+  return `${base}.${calculateRuleLevel(event)}`;
 }
 
 function buildDescription(event: TelemetryEvent): string {

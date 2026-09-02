@@ -35,7 +35,7 @@ const SERVICE = /(svc[-_.]|service|system|daemon|noreply|no-reply|backup|scanner
 function getCompanyEvents(id) {
   const base = id === "nexacorp" ? BENIGN_EVENTS : COMPANY_EVENTS[id] ?? BENIGN_EVENTS;
   const active = new Set(profById.get(id)?.architecture?.sources ?? []);
-  return base.filter((e) => e.source !== "dns" && (active.size === 0 || active.has(e.source)));
+  return base.filter((e) => active.size === 0 || active.has(e.source));
 }
 
 const domainOf = (email) => (email && email.includes("@") ? email.split("@")[1].toLowerCase() : null);

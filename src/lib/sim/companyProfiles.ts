@@ -2970,8 +2970,8 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "SentinelOne", hostname: "SRV-MEDCORE-EMR01", src_ip: "192.168.10.200",
     description: "Ransomware.MedLock detected on SRV-MEDCORE-EMR01 (847 files encrypted)",
     mitre_technique: "T1486",
-    file: { path: "C:\\Windows\\Temp\\taskhost.exe", sha256: "24d004a104d4d54034dbcffc2a4b19a11f39008a575aa614ea04703480b1022c" },
-    raw: { "s1.event_type": "THREAT", "threat.name": "Ransomware.MedLock", "s1.threat_level": "critical", "action_result": "process_killed", "s1.files_encrypted": "847", "s1.network_isolated": "true", "s1.rollback_available": "true", "file.hash.sha256": "24d004a104d4d54034dbcffc2a4b19a11f39008a575aa614ea04703480b1022c" }
+    file: { path: "C:\\Windows\\Temp\\taskhost.exe", sha256: "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" },
+    raw: { "s1.event_type": "THREAT", "threat.name": "Ransomware.MedLock", "s1.threat_level": "critical", "action_result": "process_killed", "s1.files_encrypted": "847", "s1.network_isolated": "true", "s1.rollback_available": "true", "file.hash.sha256": "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" }
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
   {

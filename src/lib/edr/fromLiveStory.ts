@@ -91,10 +91,20 @@ export function buildInvestigationFromStory(
     const sha256 = p.hash?.sha256;
     const malicious = sha256 ? lookupHash(sha256)?.malicious : false;
     const userWritable = USER_WRITABLE.test(p.path ?? "");
-    // Signing is a heuristic: a known-bad hash or a binary running from a
-    // user-writable path is treated as unsigned (the classic payload tell);
-    // system/Program Files binaries are treated as signed.
-    const signed = !malicious && !userWritable;
+    // E-02: signing is authoritative when the log states it — a real EDR reads the
+    // Authenticode result off the binary, and the console must not contradict it.
+    // Prefer the explicit raw field (process.signed / file.signed / code_signature.*)
+    // over the heuristic; only when the log is silent do we fall back to it (a
+    // known-bad hash or a binary from a user-writable path is treated as unsigned,
+    // the classic payload tell; system/Program Files binaries as signed). Displaying
+    // "Signed: Yes" in green on a binary the log marks unsigned is the one finding
+    // that can teach a wrong habit, so the log always wins.
+    const rawSigned =
+      (e.raw?.["process.signed"] ?? e.raw?.["file.signed"] ?? e.raw?.["code_signature.signed"] ??
+       e.raw?.["process.code_signature.exists"] ?? e.raw?.["file.code_signature.valid"]) as unknown;
+    const signed = rawSigned != null
+      ? !/^(false|no|0|unsigned|invalid)$/i.test(String(rawSigned).trim())
+      : !malicious && !userWritable;
     const verdict: Verdict = malicious
       ? "malicious"
       : (e.mitre_technique && (e.severity === "critical" || e.severity === "high")) || userWritable
@@ -169,24 +179,65 @@ export function buildInvestigationFromStory(
     }
   }
 
-  // ── Detections: endpoint events carrying a technique + real severity ──
+  // ── Detections ────────────────────────────────────────────────────────────
+  // E-03: map EVERY EDR-source detection to a console detection, not only the ones
+  // carrying a MITRE technique. A CrowdStrike prevention/quarantine event (Kill
+  // Process + Quarantine File, pattern_disposition 128) is the decisive detection of
+  // the case yet carries no technique_id; excluding it made the console report fewer
+  // detections than the SIEM feed, score the incident a whole band too low (a
+  // critical read as Medium), and undercount the "Investigate in EDR" badge. Now the
+  // detection set == the EDR events the analyst saw in the feed, so score, severity
+  // band and count line up with the SIEM.
+  const ACTION_LABEL: Record<string, string> = {
+    quarantine: "Quarantine", kill: "Kill Process", block: "Prevention", prevent: "Prevention",
+  };
+  const detectionKind = (e: TelemetryEvent) => {
+    const hay = `${e.event_type ?? ""} ${String(e.raw?.["action_result"] ?? "")} ${String(e.raw?.["quarantine.status"] ?? "")}`.toLowerCase();
+    if (/quarantin/.test(hay)) return "quarantine";
+    if (/kill|terminat/.test(hay)) return "kill";
+    if (/block|prevent/.test(hay)) return "block";
+    return null;
+  };
+  const isDetectionEvent = (e: TelemetryEvent) =>
+    e.is_detection === true ||
+    /detection|threat|malware|ransom|quarantin|prevent/i.test(`${e.event_type ?? ""} ${String(e.raw?.["action_result"] ?? "")}`);
   const seenDet = new Set<string>();
   const detections: EdrDetection[] = [];
   for (const e of events) {
     const pid = e.process?.pid;
-    if (pid == null || !e.mitre_technique) continue;
-    if (e.severity !== "critical" && e.severity !== "high" && e.severity !== "medium") continue;
-    const key = `${pid}:${e.mitre_technique}`;
+    if (pid == null) continue;
+    const sevOk = e.severity === "critical" || e.severity === "high" || e.severity === "medium";
+    const techniqueDet = !!e.mitre_technique && sevOk;
+    const edrDet = e.source === "edr" && isDetectionEvent(e);
+    if (!techniqueDet && !edrDet) continue;
+    // A technique row keys on pid+technique; a techniqueless prevention keys on its
+    // action so it never collapses into a technique row — and so a kill AND a
+    // quarantine on the same pid both count.
+    const action = detectionKind(e);
+    const key = `${pid}:${e.mitre_technique ?? `${e.event_type}:${action ?? String(e.raw?.["action_result"] ?? "")}`}`;
     if (seenDet.has(key)) continue;
     seenDet.add(key);
+    const technique = e.mitre_technique ?? (action ? ACTION_LABEL[action] : "EDR Detection");
+    const severity = (["critical", "high", "medium", "low"].includes(e.severity as string)
+      ? e.severity : "high") as EdrDetection["severity"];
     detections.push({
       pid,
-      technique: e.mitre_technique,
+      technique,
       name: e.rule?.name ?? e.description?.split(/[.—]/)[0]?.trim().slice(0, 80) ?? e.event_type,
-      severity: e.severity as EdrDetection["severity"],
+      severity,
       ioa: e.description,
     });
   }
+
+  // ── Autoruns / persistence (E-04) — from THIS case's own registry telemetry ──
+  // The RTR shell's `reg query Run` reads these; when the case has none it truthfully
+  // reports "no autorun entries found" instead of a hard-coded key from another host.
+  const autoruns = events
+    .filter(e => (e.event_type ?? "").startsWith("registry") && e.registry)
+    .map(e => ({
+      key: e.registry!.path ?? e.registry!.key ?? "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+      value: e.registry!.value ?? e.process?.cmdline ?? "(unnamed)",
+    }));
 
   // ── Timeline (chronological, capped) ──
   const timeline: EdrTimelineEvent[] = events
@@ -221,6 +272,7 @@ export function buildInvestigationFromStory(
     processes,
     detections,
     timeline,
+    autoruns,
     answer: { pid: payload?.pid ?? -1, explanation },
   };
 }

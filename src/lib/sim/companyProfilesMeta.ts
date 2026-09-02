@@ -63,7 +63,7 @@ export const NEXACORP_PROFILE: Omit<CompanyProfile, "events"> = {
     email:    "Microsoft 365 Exchange Online",
     firewall: "Palo Alto NGFW + GlobalProtect VPN",
     vpn:      "GlobalProtect",
-    sources:  ["edr", "ad", "windows_security", "o365", "cloudtrail", "firewall", "vpn", "sysmon"]
+    sources:  ["edr", "ad", "windows_security", "o365", "cloudtrail", "firewall", "vpn", "sysmon", "dns"]
   }
 };
 
@@ -110,7 +110,7 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
       email:    "Microsoft 365 Exchange Online",
       firewall: "Check Point NGFW R81.20",
       vpn:      "Cisco AnyConnect",
-      sources:  ["edr", "ad", "o365", "cloudtrail", "firewall", "vpn"]
+      sources:  ["edr", "ad", "o365", "cloudtrail", "firewall", "vpn", "dns"]
     }
   },
   {
@@ -129,7 +129,7 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
       email:    "Microsoft 365",
       firewall: "Cisco ASA + Firepower IPS",
       vpn:      "Cisco AnyConnect",
-      sources:  ["edr", "ad", "o365", "cloudtrail", "firewall", "vpn", "sysmon"]
+      sources:  ["edr", "ad", "o365", "cloudtrail", "firewall", "vpn", "sysmon", "dns"]
     }
   },
   {
@@ -148,7 +148,7 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
       email:    "Microsoft 365 (DMARC enforced)",
       firewall: "Palo Alto NGFW (HA pair)",
       vpn:      "Zscaler Private Access",
-      sources:  ["edr", "okta", "cloudtrail", "firewall", "proxy"]
+      sources:  ["edr", "okta", "cloudtrail", "firewall", "proxy", "dns"]
     }
   },
 ];

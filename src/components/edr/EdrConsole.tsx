@@ -7,7 +7,7 @@
  * hash lookups hit the real hashDatabase so "Look up hash" returns a genuine
  * verdict.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -130,11 +130,25 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
   // surface stays isolated on both.
   const [isolated, setIsolated] = useState(() => isContained(inv.host.name));
   const isolate = (next: boolean) => { setIsolated(next); setContained(inv.host.name, next); };
-  const [hashResult, setHashResult] = useState<Record<number, string>>({});
+  const [hashResult, setHashResult] = useState<Record<number, { label: string; bad: boolean }>>({});
   const [decided, setDecided] = useState<null | { correct: boolean }>(null);
   const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
   const [rtr, setRtr] = useState<{ cmd: string; out: string }[]>([]);
   const [rtrIn, setRtrIn] = useState("");
+  // E-06: RTR takes real (simulated) action against host state. A process the EDR
+  // already killed/quarantined in this case is gone from the host from the start;
+  // `kill` removes a live one; `contain` cuts the network. `ps`/`netstat` are derived
+  // from this state so the shell can never contradict a timeline that says the payload
+  // was already quarantined. Seed from the case's prevention detections.
+  const seedKilled = (i: EdrInvestigation) => {
+    const s = new Set<number>();
+    for (const d of i.detections)
+      if (/kill|quarantine|prevention/i.test(d.technique) || /quarantin|killed|terminated|prevention/i.test(d.name)) s.add(d.pid);
+    return s;
+  };
+  const [killed, setKilled] = useState<Set<number>>(() => seedKilled(inv));
+  // Reset the shell + killed state when the analyst switches to another case.
+  useEffect(() => { setRtr([]); setKilled(seedKilled(inv)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inv.id]);
   // Browsers often refuse window.close() on a tab they didn't script-open (this
   // one is opened via a normal <a target="_blank">), and the refusal is SILENT.
   // Track it so we can escalate the "switch back manually" instruction instead of
@@ -150,7 +164,9 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
   const workbench = useMemo(() => {
     const SEV_WEIGHT: Record<string, number> = { critical: 40, high: 25, medium: 12, low: 4 };
     const score = Math.min(100, inv.detections.reduce((s, d) => s + (SEV_WEIGHT[d.severity] ?? 0), 0));
-    const techniques = Array.from(new Set(inv.detections.map(d => d.technique)));
+    // ATT&CK chips show real technique IDs only; a prevention/quarantine detection
+    // (E-03) still counts toward score/severity/detection-count but carries no T-code.
+    const techniques = Array.from(new Set(inv.detections.map(d => d.technique).filter(t => /^T\d{4}/.test(t))));
     const band = score >= 70 ? "Critical" : score >= 40 ? "High" : score >= 15 ? "Medium" : "Low";
     return { score, techniques, band };
   }, [inv]);
@@ -161,37 +177,55 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
     const cmd = raw.trim();
     if (!cmd) return;
     const [verb, ...args] = cmd.split(/\s+/);
+    // Live host state: a killed/quarantined process is off the host (E-06).
+    const liveProcs = inv.processes.filter(p => !killed.has(p.pid));
     let out = "";
     switch (verb.toLowerCase()) {
       case "help":
         out = "Commands: ps · netstat · kill <pid> · get <path> · reg query <key> · cat <path> · contain · clear"; break;
       case "ps":
-        out = ["PID    PPID   USER                 IMAGE", ...inv.processes
+        out = ["PID    PPID   USER                 IMAGE", ...liveProcs
           .slice().sort((a, b) => a.pid - b.pid)
           .map(p => `${String(p.pid).padEnd(6)} ${String(p.ppid).padEnd(6)} ${p.user.padEnd(20)} ${p.name}`)].join("\n"); break;
       case "netstat": {
-        const rows = inv.processes.flatMap(p => (p.network ?? []).map(c => `${c.proto ?? "TCP"}  ${p.name}(${p.pid}) -> ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}  ${c.direction}`));
+        // A contained host shows no analyst-visible connections; a killed process's
+        // C2 is gone with it. Both keep netstat consistent with the timeline.
+        if (isolated) { out = "Host network-contained — only sensor traffic allowed. No analyst-visible connections."; break; }
+        const rows = liveProcs.flatMap(p => (p.network ?? []).map(c => `${c.proto ?? "TCP"}  ${p.name}(${p.pid}) -> ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}  ${c.direction}`));
         out = rows.length ? rows.join("\n") : "No active connections."; break;
       }
       case "kill": {
         const pid = Number(args[0]);
         const p = inv.processes.find(x => x.pid === pid);
-        out = p ? `Process ${pid} (${p.name}) terminated.` : `No process with pid ${args[0] ?? "?"}.`; break;
+        if (!p) { out = `No process with pid ${args[0] ?? "?"}.`; break; }
+        if (killed.has(pid)) { out = `Process ${pid} (${p.name}) is already terminated — nothing to kill.`; break; }
+        setKilled(s => { const n = new Set(s); n.add(pid); return n; });
+        out = `Process ${pid} (${p.name}) terminated. It no longer appears in ps/netstat.`; break;
       }
       case "get": {
         const path = args.join(" ");
-        const hit = inv.processes.some(p => (p.files ?? []).some(f => f.path.toLowerCase() === path.toLowerCase()));
+        // E-07: accept the image path the console itself shows (p.path), not only a
+        // logged file op — otherwise the natural "pull the file for analysis" step
+        // rejects the exact path on screen and blames the analyst for a typo.
+        const hit = inv.processes.some(p =>
+          (p.path ?? "").toLowerCase() === path.toLowerCase() ||
+          (p.files ?? []).some(f => f.path.toLowerCase() === path.toLowerCase()));
         out = path ? `Queued "${path}" for upload to the cloud (password: infected).${hit ? " File captured." : " (path not seen on host — check spelling)"}` : "usage: get <full path>"; break;
       }
       case "reg":
-        out = args[0] === "query"
-          ? `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\n    Updater   REG_SZ   rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start`
-          : "usage: reg query <key>"; break;
+        // E-04: report THIS host's autoruns from its own registry telemetry; when the
+        // case has none, say so — never a hard-coded key from another host/company.
+        if (args[0] !== "query") { out = "usage: reg query <key>"; break; }
+        out = inv.autoruns && inv.autoruns.length
+          ? inv.autoruns.map(a => `${a.key}\n    ${a.value}`).join("\n")
+          : "No autorun entries found on this host."; break;
       case "cat": {
         const path = args.join(" ");
         out = path ? `(binary content) ${path} — use 'get' to pull it to the cloud for analysis.` : "usage: cat <path>"; break;
       }
-      case "contain": isolate(true); out = "Host network-contained. Only sensor traffic allowed."; break;
+      case "contain":
+        if (isolated) { out = "Host is already network-contained."; break; }
+        isolate(true); out = "Host network-contained. Only sensor traffic allowed."; break;
       case "clear": setRtr([]); return;
       default: out = `rtr: unknown command '${verb}'. Type 'help'.`;
     }
@@ -342,12 +376,22 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
                         </div>
                         <div className="mt-2 flex items-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => {
-                            const e = lookupHash(sel.sha256!);
-                            setHashResult(r => ({ ...r, [sel.pid]: e ? vtLabel(e) : "Unknown — no reputation on record" }));
+                            const hit = lookupHash(sel.sha256!);
+                            if (hit) { setHashResult(r => ({ ...r, [sel.pid]: { label: vtLabel(hit), bad: hit.malicious } })); return; }
+                            // E-05: no external reputation record for this exact hash —
+                            // but never contradict the console's own verdict. If THIS
+                            // incident already flagged the process (malicious/suspicious
+                            // verdict, or a detection fired on it), report it as known-bad
+                            // from the incident rather than a reassuring "unknown".
+                            const det = detByPid.get(sel.pid)?.[0];
+                            const flagged = sel.verdict === "malicious" || sel.verdict === "suspicious" || !!det;
+                            setHashResult(r => ({ ...r, [sel.pid]: flagged
+                              ? { label: `Malicious — flagged in this incident${det?.name ? ` (${det.name})` : ""}; no external VT record for this exact build`, bad: true }
+                              : { label: "Unknown — no reputation on record", bad: false } }));
                           }}><FileSearch className="mr-1.5 h-3.5 w-3.5" /> Look up hash</Button>
                           {hashResult[sel.pid] && (
-                            <span className={`text-[12px] font-bold ${lookupHash(sel.sha256!)?.malicious ? vtColor(lookupHash(sel.sha256!)!) : "text-slate-400"}`}>
-                              {hashResult[sel.pid]}
+                            <span className={`text-[12px] font-bold ${hashResult[sel.pid].bad ? "text-severity-critical" : "text-slate-400"}`}>
+                              {hashResult[sel.pid].label}
                             </span>
                           )}
                         </div>
@@ -441,7 +485,7 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
           </div>
           <form onSubmit={e => { e.preventDefault(); runRtr(rtrIn); setRtrIn(""); }} className="flex items-center gap-2 border-t border-border px-4 py-2.5">
             <span className="font-mono text-[12px] text-neon-green">&gt;</span>
-            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill 6388 · get <path> · reg query Run"
+            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill <pid> · get <path> · reg query Run"
               className="flex-1 bg-transparent font-mono text-[12px] text-white placeholder-slate-600 focus:outline-none" aria-label="RTR command" />
             <Button type="submit" variant="outline" size="sm">Run</Button>
           </form>

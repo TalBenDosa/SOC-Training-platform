@@ -216,7 +216,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const victim   = { hostname: "WS-FIN-2847", email: "j.smith@nexacorp.com",   ip: "10.10.20.47" };
+  const victim   = { hostname: "WS-FIN-2847", email: "j.smith@nexacorp.com",   ip: "10.10.20.14" };
   const c2Domain = "c2-cdn-update-fb76.xyz";
   const c2Ip     = "185.134.140.139";
   const attackerIp = "91.108.56.122";
@@ -258,7 +258,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "winlog.event_data.ImpersonationLevel": "%%1833",
         "winlog.event_data.ElevatedToken": "%%1843",
         // Network / process
-        "winlog.event_data.IpAddress": "10.10.20.47",
+        "winlog.event_data.IpAddress": "10.10.20.14",
         "winlog.event_data.IpPort": "0",
         "winlog.event_data.ProcessId": "0x44C",
         "winlog.event_data.ProcessName": "C:\\Windows\\System32\\winlogon.exe",
@@ -271,7 +271,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         "host.name": "WS-FIN-2847",
-        "source.ip": "10.10.20.47",
+        "source.ip": "10.10.20.14",
         "authentication.protocol": "Kerberos",
         "authentication.status": "success",
         "logon.type": "2",
@@ -387,7 +387,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
-        "host.ip": "10.10.20.47",
+        "host.ip": "10.10.20.14",
         "host.mac": "00-0C-29-AB-CD-EF",
         "host.os.name": "Windows 10 Pro",
         "host.os.version": "22H2",
@@ -504,7 +504,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
-        "host.ip": "10.10.20.47",
+        "host.ip": "10.10.20.14",
         "host.os.name": "Windows 10 Pro",
         "host.os.version": "22H2",
         "host.os.build": "19045.4291",
@@ -550,7 +550,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "dns.question.name": "dh7k2nq3x1vc9ab4fzrp.c2-cdn-update-fb76.xyz",
         "dns.question.type": "TXT",
         "dns.response_code": "NOERROR",
-        "source.ip": "10.10.20.47", "host.name": "WS-FIN-2847",
+        "source.ip": "10.10.20.14", "host.name": "WS-FIN-2847",
         "network.protocol": "dns",
       },
     },
@@ -668,7 +668,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
         // Host
         "host.name": "WS-FIN-2847",
-        "host.ip": "10.10.20.47",
+        "host.ip": "10.10.20.14",
         "host.mac": "00-0C-29-AB-CD-EF",
         "host.os.name": "Windows 10 Pro",
         "host.os.version": "22H2",

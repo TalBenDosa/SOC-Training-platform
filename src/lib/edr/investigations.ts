@@ -74,6 +74,14 @@ export interface EdrInvestigation {
   processes: EdrProcess[];
   detections: EdrDetection[];
   timeline: EdrTimelineEvent[];
+  /**
+   * Autorun/persistence entries observed on THIS host (HKCU/HKLM Run keys, scheduled
+   * tasks, services) — what `reg query Run` in the RTR shell reports. Derived from the
+   * case's own registry telemetry; absent/empty means the host has no persistence in
+   * scope, and the shell truthfully answers "no autorun entries found" rather than a
+   * hard-coded key from another host/company.
+   */
+  autoruns?: { key: string; value: string }[];
   /** The one process the analyst should isolate/flag as the payload. */
   answer: { pid: number; explanation: string };
 }
@@ -118,6 +126,9 @@ export const EDR_INVESTIGATIONS: EdrInvestigation[] = [
       { at: "09:42:01", kind: "process", pid: 6388, text: "powershell launched rundll32.exe update.dll,Start (unsigned)" },
       { at: "09:42:04", kind: "network", pid: 6388, text: "rundll32 → TLS beacon to 45.137.22.19:443 every 30s" },
       { at: "09:42:05", kind: "detection", pid: 6388, text: "Defender: Behavior:Win32/Agenttesla — quarantine FAILED (in use)" },
+    ],
+    autoruns: [
+      { key: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", value: "Updater   REG_SZ   rundll32.exe C:\\Users\\r.bakker\\AppData\\Roaming\\svc\\update.dll,Start" },
     ],
     answer: {
       pid: 6388,

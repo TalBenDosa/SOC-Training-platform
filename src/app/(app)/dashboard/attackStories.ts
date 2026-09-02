@@ -684,14 +684,43 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   storyHosts.forEach((h, i) => { const t = hostPool.length ? hostPool[i % hostPool.length] : h; if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); } });
 
   // NetBIOS/realm domain forms (NEXACORP\\user) survive the email-domain swap and
-  // still name the origin company, so map every DOMAIN\\ token to the company's short
-  // name. Case-sensitive uppercase, so it never touches the lowercase email domain.
+  // still name the origin company, so map every origin DOMAIN\\user token to the
+  // company's short name.
+  //
+  // E-01 fix: the old scan ran a "(word)\\" regex over JSON.stringify(process/raw),
+  // where a Windows path's single backslash serialises to "\\" — so it matched EVERY
+  // path segment (Users\, Downloads\, Google\, Chrome\, the Adobe folder ARM\, even
+  // the username) and rewrote each to the company name, corrupting 62% of
+  // investigations. Constraining to "uppercase word" was not enough — legitimate path
+  // folders are upper-cased too (ProgramData\Adobe\ARM\, C:\WINDOWS\). The reliable
+  // signal is WHERE the token lives: a NetBIOS domain only ever appears in an
+  // IDENTITY field (process.user, a *DomainName / *UserName / AccountName raw key),
+  // never inside a filesystem path. So we scan ONLY those fields — a path is never
+  // read — and take the DOMAIN part of a DOMAIN\<lowercase-user> token (real
+  // usernames are lowercase: l.ferreira, svc-backup — which also skips
+  // NT AUTHORITY\SYSTEM and BUILTIN\Administrators), plus any bare realm value in a
+  // *DomainName field. Known system principals are never treated as a company.
+  const SYSTEM_REALMS = new Set(["NT AUTHORITY", "AUTHORITY", "BUILTIN", "NT SERVICE", "SERVICE", "WORKGROUP", "LOCAL", "NT VIRTUAL MACHINE"]);
+  const IDENTITY_KEY = /(user\.?name|SubjectUserName|TargetUserName|AccountName|SamAccountName|DomainName|LogonDomain)/i;
   const companyNetbios = (companyId ?? companyDomain?.split(".")[0] ?? "").toUpperCase();
   if (companyNetbios) {
     const storyNetbios = new Set<string>();
+    const harvest = (v: unknown, wholeIsDomain: boolean) => {
+      if (typeof v !== "string" || !v.trim()) return;
+      // DOMAIN\<lowercase user> anywhere in the value → take the DOMAIN.
+      for (const m of v.matchAll(/([A-Za-z][A-Za-z0-9-]{1,})\\{1,2}(?=[a-z])/g)) {
+        if (!SYSTEM_REALMS.has(m[1].toUpperCase())) storyNetbios.add(m[1]);
+      }
+      // A *DomainName field's whole value is the realm (e.g. "NEXACORP"); accept it
+      // when it looks like a NetBIOS name (no dot → not a DNS/email domain).
+      if (wholeIsDomain) {
+        const t = v.trim();
+        if (/^[A-Za-z][A-Za-z0-9-]{1,}$/.test(t) && !SYSTEM_REALMS.has(t.toUpperCase())) storyNetbios.add(t);
+      }
+    };
     for (const e of s.events) {
-      const scan = `${JSON.stringify(e.process ?? {})} ${JSON.stringify(e.raw ?? {})} ${e.description ?? ""}`;
-      for (const m of scan.matchAll(/([A-Za-z][A-Za-z0-9-]{2,})\\\\/g)) storyNetbios.add(m[1]);
+      harvest(e.process?.user, false);
+      for (const [k, val] of Object.entries(e.raw ?? {})) if (IDENTITY_KEY.test(k)) harvest(val, /DomainName$/i.test(k));
     }
     for (const nb of storyNetbios) if (nb.toUpperCase() !== companyNetbios) pairs.push([nb, companyNetbios]);
   }
