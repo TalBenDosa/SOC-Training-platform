@@ -90,6 +90,14 @@ jobs:
       - name: Validate live-feed company adaptation (no cross-company leaks)
         run: npm run validate:feed:adaptation
 
+      # Data-integrity of the live feed (Sept-2026 "JSON contradictions" audit): one
+      # IP → one country, no RFC 5737 documentation IPs presented as routable, one
+      # SHA-256 → one file, and uniform millisecond timestamps (so sorting by string
+      # can't separate attacks from noise). Catches the whole class of hand-edited,
+      # drifting per-event data before it ships.
+      - name: Validate live-feed data integrity
+        run: npm run validate:feed:integrity
+
       # Malware-hash registries back the "Check Hash · VirusTotal" pivot — the
       # exact skill taught. Fails on any fabricated/synthetic SHA256 so a made-up
       # hash (which resolves to nothing on VT) can't regress in.

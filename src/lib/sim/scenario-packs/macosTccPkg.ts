@@ -93,7 +93,7 @@ export function buildMacosTccPkgScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "mtp_00_benign_notarized_pkg",
-      ts: "2026-08-27T09:15:00Z",
+      ts: "2026-08-27T09:15:00.000Z",
       source: "edr",
       vendor: "CrowdStrike Falcon",
       event_type: "process_create",
@@ -580,7 +580,7 @@ export function buildMacosTccPkgScenario(
   ];
 
   const killchain = [
-    { ts: "2026-08-27T09:15:00Z", phase: "Baseline", action: "Zoom.pkg installs cleanly — valid Developer ID Installer, notarized, Gatekeeper passed, per-user LaunchAgent: the clean-install control case" },
+    { ts: "2026-08-27T09:15:00.000Z", phase: "Baseline", action: "Zoom.pkg installs cleanly — valid Developer ID Installer, notarized, Gatekeeper passed, per-user LaunchAgent: the clean-install control case" },
     { ts: T(0), phase: "Execution", action: `${pkgName} installed via /usr/sbin/installer — Developer ID Installer signature revoked, com.apple.quarantine set (T1204.002)` },
     { ts: T(4 * SEC), phase: "Execution", action: "Package postinstall runs /bin/sh from the install sandbox as root (T1059.004)" },
     { ts: T(9 * SEC), phase: "Privilege Escalation", action: "sqlite3 writes Full Disk Access + Screen Recording allow-rows into ~/Library/Application Support/com.apple.TCC/TCC.db (T1548.006)" },

@@ -61,7 +61,7 @@ export function buildSqliDbExfilScenario(
   const dbInstance = "MSSQL-SHOP-01";
 
   // The attacker's external address — seen at the WAF (upstream of the app).
-  const attackerIp = "203.0.113.47";
+  const attackerIp = "194.36.191.47";
   // The external endpoint the staged customer dump is POSTed to via xp_cmdshell.
   const exfilIp = "45.83.192.11";
 
@@ -83,7 +83,7 @@ export function buildSqliDbExfilScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "sqli_00_benign_bi_read",
-      ts: "2026-07-14T03:00:12Z",
+      ts: "2026-07-14T03:00:12.000Z",
       source: "db_monitor",
       vendor: "IBM Guardium",
       event_type: "db_query",
@@ -137,7 +137,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "Imperva blocked a GET to /product/search from 203.0.113.47 whose q parameter carried a boolean tautology (' OR 1=1). The request was answered with HTTP 403 by the production OWASP policy.",
+        "Imperva blocked a GET to /product/search from 194.36.191.47 whose q parameter carried a boolean tautology (' OR 1=1). The request was answered with HTTP 403 by the production OWASP policy.",
       raw: {
         "event.category": "web",
         "event.action": "sql_injection_detected",
@@ -183,7 +183,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "A UNION SELECT against information_schema.tables from 203.0.113.47 matched an Imperva signature but was recorded with action_result=alerted and forwarded to the origin, which answered HTTP 200 — the matching rule sits in a staging policy running in detection mode.",
+        "A UNION SELECT against information_schema.tables from 194.36.191.47 matched an Imperva signature but was recorded with action_result=alerted and forwarded to the origin, which answered HTTP 200 — the matching rule sits in a staging policy running in detection mode.",
       raw: {
         "event.category": "web",
         "event.action": "sql_injection_detected",
@@ -228,7 +228,7 @@ export function buildSqliDbExfilScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "An error-based payload — 1=CONVERT(int,(SELECT TOP 1 name FROM sys.tables)) — from 203.0.113.47 was again alerted-only under the staging policy and forwarded to the origin (HTTP 200).",
+        "An error-based payload — 1=CONVERT(int,(SELECT TOP 1 name FROM sys.tables)) — from 194.36.191.47 was again alerted-only under the staging policy and forwarded to the origin (HTTP 200).",
       raw: {
         "event.category": "web",
         "event.action": "sql_injection_detected",
@@ -552,7 +552,7 @@ export function buildSqliDbExfilScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: attackerIp, // 203.0.113.47 — the injection source seen at the WAF
+      value: attackerIp, // 194.36.191.47 — the injection source seen at the WAF
       first_seen: T(0),
       last_seen: T(5 * MIN),
       reputation: "malicious",
@@ -632,7 +632,7 @@ export function buildSqliDbExfilScenario(
       xp: 65,
       kind: "single",
       prompt:
-        "In every database event the db.user is app_shop from WEB-APP-02 (10.30.4.15), never the attacker's 203.0.113.47. How should that shape how you read the DAM logs?",
+        "In every database event the db.user is app_shop from WEB-APP-02 (10.30.4.15), never the attacker's 194.36.191.47. How should that shape how you read the DAM logs?",
       hint: "Think about where SQL injection executes and whose session it borrows once it reaches the database.",
       options: [
         { value: "rides_app", label: "The injection runs inside the web app's own DB session, so DAM sees app_shop from the app tier; the true origin is upstream and must be tied in from the WAF and app logs" },
@@ -642,7 +642,7 @@ export function buildSqliDbExfilScenario(
       ],
       answer: "rides_app",
       explanation:
-        "SQL injection executes through the vulnerable application, so the database sees the application's connection: db.user=app_shop, source WEB-APP-02 / 10.30.4.15, application '.Net SqlClient Data Provider'. The attacker's 203.0.113.47 never appears at the DB tier — it is upstream at the WAF. That is the whole reason DAM alone understates the source: you correlate by query content and timing across the WAF and app logs to place the real origin. app_shop is the application's service login, not a human DBA (no local interactive login exists). The DB is not internet-exposed — it is reached via the app. And a DAM source IP is the TCP peer (the app server), not a value the attacker can spoof through the injected string.",
+        "SQL injection executes through the vulnerable application, so the database sees the application's connection: db.user=app_shop, source WEB-APP-02 / 10.30.4.15, application '.Net SqlClient Data Provider'. The attacker's 194.36.191.47 never appears at the DB tier — it is upstream at the WAF. That is the whole reason DAM alone understates the source: you correlate by query content and timing across the WAF and app logs to place the real origin. app_shop is the application's service login, not a human DBA (no local interactive login exists). The DB is not internet-exposed — it is reached via the app. And a DAM source IP is the TCP peer (the app server), not a value the attacker can spoof through the injected string.",
     },
     {
       id: "sqli_q4",
@@ -670,13 +670,13 @@ export function buildSqliDbExfilScenario(
       hint: "Address the passthrough, the over-privilege, the OS-command path, the egress, and the confirmed data loss — not just the source IP.",
       options: [
         { value: "full_scope", label: "Move the Imperva SQLi rules to blocking, strip sysadmin from app_shop and rotate its credentials, disable xp_cmdshell, block and hunt egress to 45.83.192.11, and treat the Customers PII as breached for notification" },
-        { value: "block_src", label: "Block 203.0.113.47 at the WAF — cutting the source address stops any further injection and closes the incident" },
+        { value: "block_src", label: "Block 194.36.191.47 at the WAF — cutting the source address stops any further injection and closes the incident" },
         { value: "reimage_web", label: "Reimage WEB-APP-02 only — the injection came through the web tier, so rebuilding it removes the vulnerability and ends the exposure" },
         { value: "reset_bi", label: "Reset the svc_powerbi account and revoke its reporting access, since the large customer read came from the same high-volume query pattern it uses" },
       ],
       answer: "full_scope",
       explanation:
-        "The evidence names each fix. The injection succeeded because the matching WAF rules were in detection mode, so they must go to blocking. app_shop being sysadmin is what enabled xp_cmdshell, so remove the role and rotate the credential, and disable xp_cmdshell. The dump was POSTed to 45.83.192.11, so block that egress and hunt for what else reached it. And because 248,915 real customer records (with password hashes and card-last-four) were successfully read and sent off-box, the PII must be handled as a confirmed breach for notification. Blocking only 203.0.113.47 leaves the detection-mode gap, the sysadmin login and xp_cmdshell in place for the next source. Reimaging the web server does not fix an over-privileged DB login or the WAF policy. And svc_powerbi is the benign control — a scheduled parameterized reporting read against a view — not the exfil path.",
+        "The evidence names each fix. The injection succeeded because the matching WAF rules were in detection mode, so they must go to blocking. app_shop being sysadmin is what enabled xp_cmdshell, so remove the role and rotate the credential, and disable xp_cmdshell. The dump was POSTed to 45.83.192.11, so block that egress and hunt for what else reached it. And because 248,915 real customer records (with password hashes and card-last-four) were successfully read and sent off-box, the PII must be handled as a confirmed breach for notification. Blocking only 194.36.191.47 leaves the detection-mode gap, the sysadmin login and xp_cmdshell in place for the next source. Reimaging the web server does not fix an over-privileged DB login or the WAF policy. And svc_powerbi is the benign control — a scheduled parameterized reporting read against a view — not the exfil path.",
     },
   ];
 
@@ -686,8 +686,8 @@ export function buildSqliDbExfilScenario(
     threat_actor: "External web attacker automating SQL injection against a public storefront",
     attack_kind: "sql_injection",
     briefing:
-      "Imperva flagged SQL-injection activity against shop.nexacorp.com's /product/search endpoint from 203.0.113.47 late on 14 Jul — one request blocked with a 403, others answered 200 by the origin. The DB team also see unusual reads on ShopDB. Work out whether anything got past the WAF, what the database actually did, and how much data is at risk.",
-    narrative: `shop.nexacorp.com is Nexacorp's internet-facing storefront, fronted by an Imperva WAF. Just before 22:40 an attacker at 203.0.113.47 began probing the product-search endpoint with automated SQL injection. The first payload — a classic ' OR 1=1 tautology — was caught cleanly: Imperva's production OWASP policy blocked it and returned HTTP 403. On a WAF dashboard alone the story could have ended there, as a blocked attempt.
+      "Imperva flagged SQL-injection activity against shop.nexacorp.com's /product/search endpoint from 194.36.191.47 late on 14 Jul — one request blocked with a 403, others answered 200 by the origin. The DB team also see unusual reads on ShopDB. Work out whether anything got past the WAF, what the database actually did, and how much data is at risk.",
+    narrative: `shop.nexacorp.com is Nexacorp's internet-facing storefront, fronted by an Imperva WAF. Just before 22:40 an attacker at 194.36.191.47 began probing the product-search endpoint with automated SQL injection. The first payload — a classic ' OR 1=1 tautology — was caught cleanly: Imperva's production OWASP policy blocked it and returned HTTP 403. On a WAF dashboard alone the story could have ended there, as a blocked attempt.
 
 It did not. The next two payloads — a UNION SELECT against information_schema.tables and an error-based CONVERT() extraction — matched Imperva signatures too, but those rules were sitting in a STAGING policy running in detection (count) mode. They alerted and then forwarded the requests to the origin, which answered HTTP 200. The malicious queries executed. This is the crux of the exercise: "the WAF logged it" is not "the WAF stopped it".
 
@@ -705,7 +705,7 @@ Because app_shop was misconfigured as sysadmin, the operator did not stop at rea
     events,
     iocs,
     killchain: [
-      { ts: "2026-07-14T03:00:12Z", phase: "Baseline", action: `Scheduled Power BI read: ${biAccount} returns 184,920 rows from a reporting view — parameterized, authorized, the benign high-volume control` },
+      { ts: "2026-07-14T03:00:12.000Z", phase: "Baseline", action: `Scheduled Power BI read: ${biAccount} returns 184,920 rows from a reporting view — parameterized, authorized, the benign high-volume control` },
       { ts: T(0), phase: "Initial Access", action: `WAF BLOCKS ' OR 1=1 probe from ${attackerIp} — 403 under the production policy (T1190)` },
       { ts: T(3 * MIN), phase: "Initial Access", action: "UNION SELECT alerted-only under a detection-mode staging policy — origin answers 200, query executes (T1190)" },
       { ts: T(5 * MIN), phase: "Initial Access", action: "Error-based CONVERT() extraction also passes through the detection-mode policy (T1190)" },

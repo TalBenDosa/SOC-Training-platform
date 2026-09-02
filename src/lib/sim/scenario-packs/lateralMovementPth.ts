@@ -73,7 +73,7 @@ export function buildLateralMovementPthScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_lm_00_benign_logon",
-      ts: "2026-08-26T13:12:04Z",
+      ts: "2026-08-26T13:12:04.000Z",
       source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",

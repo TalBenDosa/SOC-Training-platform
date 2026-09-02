@@ -89,7 +89,7 @@ export function buildContainerEscapeCryptominingScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_ce_00_benign_cni",
-      ts: "2026-08-30T09:14:52Z",
+      ts: "2026-08-30T09:14:52.000Z",
       source: "k8s_audit",
       vendor: "Kubernetes Audit",
       event_type: "k8s_pod_create",
@@ -587,7 +587,7 @@ This is deliberately not the IMDS-credential-theft breakout: nothing here reads 
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-30T09:14:52Z", phase: "Baseline", action: `Sanctioned cilium CNI pod admitted in kube-system — privileged + hostPath by design (control case)` },
+      { ts: "2026-08-30T09:14:52.000Z", phase: "Baseline", action: `Sanctioned cilium CNI pod admitted in kube-system — privileged + hostPath by design (control case)` },
       { ts: T(0), phase: "Execution", action: `${badSa} creates a privileged pod from ${badImage} — hostPID + hostPath to the node root (T1610)` },
       { ts: T(1 * MIN), phase: "Execution", action: `pods/exec into ${badPod} — interactive shell attached to the container (T1609)` },
       { ts: T(2 * MIN), phase: "Impact", action: `xmrig launches inside the container, aimed at ${poolDomain} — still contained (T1496)` },

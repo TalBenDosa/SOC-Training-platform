@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "SOC guest mode",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NEXT_PUBLIC_SUPABASE_URL=&& set NEXT_PUBLIC_SUPABASE_ANON_KEY=&& set SUPABASE_SERVICE_ROLE_KEY=&& npm run dev"],
+      "port": 3000
     }
   ]
 }

@@ -104,7 +104,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_vrmm_00_benign_screenconnect",
-      ts: "2026-06-15T14:05:00Z",
+      ts: "2026-06-15T14:05:00.000Z",
       source: "edr",
       vendor: "CrowdStrike Falcon",
       event_type: "process_create",
@@ -810,7 +810,7 @@ The case is deliberately uncomfortable for an analyst who trusts signatures: the
     events,
     iocs,
     killchain: [
-      { ts: "2026-06-15T14:05:00Z", phase: "Baseline", action: `Sanctioned ScreenConnect remote-support session on ${benign.hostname} — approved RMM, user-opened ticket ${benignTicket}, internal technician ${benignTech}` },
+      { ts: "2026-06-15T14:05:00.000Z", phase: "Baseline", action: `Sanctioned ScreenConnect remote-support session on ${benign.hostname} — approved RMM, user-opened ticket ${benignTicket}, internal technician ${benignTech}` },
       { ts: T(0), phase: "Initial Access", action: `Inbound 'IT security' call induces ${vishTicket} for ${victim.sam}: install a remote-support tool and share the session (T1566.004)` },
       { ts: T(3 * MIN), phase: "Initial Access", action: `AnyDesk.exe downloaded from ${downloadHost} through the proxy` },
       { ts: T(4 * MIN), phase: "Command and Control", action: `${victim.sam} runs AnyDesk.exe from Downloads — signed, trusted, but an RMM the bank does not deploy (T1219)` },

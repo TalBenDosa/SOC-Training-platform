@@ -95,7 +95,7 @@ export function buildPamVaultAbuseScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_pva_00_breakglass_psm",
-      ts: "2026-08-23T03:02:11Z",
+      ts: "2026-08-23T03:02:11.000Z",
       source: "iam",
       vendor: "CyberArk PAM",
       event_type: "privileged_operation",
@@ -632,7 +632,7 @@ export function buildPamVaultAbuseScenario(
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-23T03:02:11Z", phase: "Baseline", action: `Break-glass PSM checkout of ${daAccount} — dual-control confirmed, change CHG0049211, recorded PSM session: the sanctioned control case` },
+      { ts: "2026-08-23T03:02:11.000Z", phase: "Baseline", action: `Break-glass PSM checkout of ${daAccount} — dual-control confirmed, change CHG0049211, recorded PSM session: the sanctioned control case` },
       { ts: T(0), phase: "Credential Access", action: `CyberArk Retrieve Password (Copy) on ${daAccount} — no dual control, no change record, no PSM session (T1555.005)` },
       { ts: T(3 * MIN), phase: "Defense Evasion", action: `4768 TGT for ${daAccount} requested from ${engineerWs.hostname} — the copied credential authenticating (T1078.002)` },
       { ts: T(4 * MIN), phase: "Lateral Movement", action: `4624 LogonType 10 (RDP) on ${finDb.hostname} from ${engineerWs.hostname} — direct, not via the PSM proxy (T1021.001)` },

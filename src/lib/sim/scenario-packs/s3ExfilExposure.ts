@@ -84,7 +84,7 @@ export function buildS3ExfilExposureScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "s3exfil_00_benign_backup",
-      ts: "2026-08-30T02:15:00Z",
+      ts: "2026-08-30T02:15:00.000Z",
       source: "cloudtrail",
       vendor: "AWS CloudTrail",
       event_type: "cloud_api_call",
@@ -618,7 +618,7 @@ Read as a whole, the case has a clean shape: the CloudTrail management events ar
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-30T02:15:00Z", phase: "Baseline", action: `${backupRole} reads ${bucket} over VPC endpoint from inside AWS — nightly backup (control case)` },
+      { ts: "2026-08-30T02:15:00.000Z", phase: "Baseline", action: `${backupRole} reads ${bucket} over VPC endpoint from inside AWS — nightly backup (control case)` },
       { ts: T(0), phase: "Initial Access", action: `Leaked ${iamUser} access key first used from ${attackerIp} — ListBuckets (T1078.004)` },
       { ts: T(3 * MIN), phase: "Defense Evasion", action: "PutBucketPublicAccessBlock — all four Block Public Access guards set false (T1562.007)" },
       { ts: T(3 * MIN + 40 * SEC), phase: "Defense Evasion", action: "PutBucketPolicy — Principal \"*\" allowed s3:GetObject on the bucket (T1562.007)" },

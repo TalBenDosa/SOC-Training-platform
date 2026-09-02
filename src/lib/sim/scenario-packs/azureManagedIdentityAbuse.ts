@@ -110,7 +110,7 @@ export function buildAzureManagedIdentityAbuseScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "amia_00_benign_rotation",
-      ts: "2026-08-27T14:20:00Z",
+      ts: "2026-08-27T14:20:00.000Z",
       source: "o365",
       vendor: "Microsoft Entra ID",
       event_type: "account_modify",
@@ -691,7 +691,7 @@ The one legitimate comparison in the data is two days earlier: platform engineer
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-27T14:20:00Z", phase: "Baseline", action: `Platform engineer rotates ${terraformSp.displayName}'s client secret under approved change CHG-2211 — the sanctioned, attributable path (T1098.001)` },
+      { ts: "2026-08-27T14:20:00.000Z", phase: "Baseline", action: `Platform engineer rotates ${terraformSp.displayName}'s client secret under approved change CHG-2211 — the sanctioned, attributable path (T1098.001)` },
       { ts: T(0), phase: "Persistence", action: `New client secret appended to the existing ${app.displayName} app registration by ${workloadMi.displayName} (T1098.001)` },
       { ts: T(3 * MIN), phase: "Defense Evasion", action: `${app.displayName} signs in non-interactively to Microsoft Graph with the new secret (T1078.004)` },
       { ts: T(4 * MIN), phase: "Defense Evasion", action: "Same identity acquires an Azure Resource Manager token (T1078.004)" },

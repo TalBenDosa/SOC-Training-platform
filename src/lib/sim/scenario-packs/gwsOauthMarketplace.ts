@@ -61,7 +61,7 @@ export function buildGwsOauthMarketplaceScenario(
     name: "Miriam Varga",
     sam: "m.varga",
     title: "Revenue Operations Lead",
-    ip: "24.60.183.14", // her corporate egress at consent time (New York)
+    ip: "24.60.183.14", // her corporate egress at consent time (Boston)
   };
 
   // The malicious third-party app. Marketplace-style listing, unverified
@@ -195,7 +195,7 @@ export function buildGwsOauthMarketplaceScenario(
       user_email: victim.email,
       user_title: victim.title,
       src_ip: victim.ip,
-      geo: { country: "United States", city: "New York" },
+      geo: { country: "United States", city: "Boston" },
       severity: "high",
       mitre_technique: "T1528",
       mitre_tactic: "Credential Access",
@@ -227,7 +227,7 @@ export function buildGwsOauthMarketplaceScenario(
         "gws.alert.center.id": "AC-2026-0831-4471",
         "source.ip": victim.ip,
         "source.geo.country_name": "United States",
-        "source.geo.city_name": "New York",
+        "source.geo.city_name": "Boston",
         "application.name": appName,
         "application.id": clientId,
         "application.type": "oauth2_web",

@@ -82,7 +82,7 @@ export function buildGoldenSamlScenario(
   // Addresses: the attacker's external host (drives the forged sign-ins) and the
   // corporate egress the benign user comes from.
   const attackerIp = "185.220.101.61";
-  const corpEgressIp = "198.51.100.24";
+  const corpEgressIp = "91.132.92.24";
 
   // The exported token-signing certificate's private-key file (the stolen key
   // material). Its hash is the durable IOC for the theft.
@@ -101,7 +101,7 @@ export function buildGoldenSamlScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_gs_00_benign_adfs_issue",
-      ts: "2026-08-28T14:30:04Z",
+      ts: "2026-08-28T14:30:04.000Z",
       source: "ad",
       vendor: "Windows Security",
       event_type: "auth_success",
@@ -146,7 +146,7 @@ export function buildGoldenSamlScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_gs_01_benign_federated_signin",
-      ts: "2026-08-28T14:30:07Z",
+      ts: "2026-08-28T14:30:07.000Z",
       source: "o365",
       vendor: "Microsoft Entra ID",
       event_type: "auth_success",
@@ -661,7 +661,7 @@ The one legitimate comparison in the data is two days earlier: r.donovan's feder
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-28T14:30:04Z", phase: "Baseline", action: `Genuine AD FS token issuance for ${benign.sam} on ${adfs.hostname} — the attributable federation path` },
+      { ts: "2026-08-28T14:30:04.000Z", phase: "Baseline", action: `Genuine AD FS token issuance for ${benign.sam} on ${adfs.hostname} — the attributable federation path` },
       { ts: T(0), phase: "Credential Access", action: `AD FS DKM master-key object read from AD (4662 on ${dc.hostname}) — decrypts the signing certificate (T1552.004)` },
       { ts: T(2 * MIN), phase: "Credential Access", action: `Token-signing certificate private key exported off ${adfs.hostname} (5058) (T1552.004)` },
       { ts: T(11 * MIN), phase: "Credential Access", action: `Federated sign-in for Global Admin ${ga1.sam} accepted by the cloud with no on-prem AD FS issuance (T1606.002)` },

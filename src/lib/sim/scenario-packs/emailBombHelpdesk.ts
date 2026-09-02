@@ -116,7 +116,7 @@ export function buildEmailBombHelpdeskScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_ebh_00_benign_quickassist",
-      ts: "2026-08-24T15:20:00Z",
+      ts: "2026-08-24T15:20:00.000Z",
       source: "edr",
       vendor: "CrowdStrike Falcon",
       event_type: "process_create",
@@ -764,7 +764,7 @@ The case is deliberately uncomfortable for an analyst who trusts signatures and 
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-24T15:20:00Z", phase: "Baseline", action: `Sanctioned Quick Assist session on ${benign.hostname} — user-opened ticket ${benignTicket}, internal technician ${benignTech}, no mail flood` },
+      { ts: "2026-08-24T15:20:00.000Z", phase: "Baseline", action: `Sanctioned Quick Assist session on ${benign.hostname} — user-opened ticket ${benignTicket}, internal technician ${benignTech}, no mail flood` },
       { ts: T(0), phase: "Resource Development", action: `Email bomb begins — a burst of benign subscription confirmations from hundreds of distinct senders floods ${victim.email} (setup, T1585/T1566)` },
       { ts: T(11 * MIN), phase: "Observation", action: `${victim.sam} creates an inbox rule to sweep the confirmation mail — the flood corroborated from the Exchange audit log` },
       { ts: T(16 * MIN), phase: "Initial Access", action: `Unsolicited Teams call posing as the Service Desk induces ${reportTicket}: start Quick Assist and share the code (T1566.004)` },

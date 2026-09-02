@@ -75,7 +75,7 @@ export function buildGcpSaKeyTheftScenario(
   // were phished. The enumeration and the key-mint carry this principalEmail.
   const devUser = "dnash@acme-data.io";
   // The attacker's external address — outside GCP, the whole tell.
-  const attackerIp = "203.0.113.66";
+  const attackerIp = "185.129.62.66";
   const attackerUa = "google-api-python-client/2.132.0 (gzip)";
 
   // The benign control: the Terraform CI service account minting a key the
@@ -97,7 +97,7 @@ export function buildGcpSaKeyTheftScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "gcpkey_00_benign_ci_keycreate",
-      ts: "2026-08-30T02:12:00Z",
+      ts: "2026-08-30T02:12:00.000Z",
       source: "cloud_gcp",
       vendor: "GCP Cloud Audit Logs",
       event_type: "cloud_api_call",
@@ -155,7 +155,7 @@ export function buildGcpSaKeyTheftScenario(
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "ListServiceAccounts on project acme-data-prod by dnash@acme-data.io from 203.0.113.66 — the developer identity enumerating every service account in the project from an address it has not used before.",
+        "ListServiceAccounts on project acme-data-prod by dnash@acme-data.io from 185.129.62.66 — the developer identity enumerating every service account in the project from an address it has not used before.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Factivity`,
@@ -201,7 +201,7 @@ export function buildGcpSaKeyTheftScenario(
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "storage.buckets.list on project acme-data-prod by dnash@acme-data.io from 203.0.113.66 — enumerating the project's buckets, including the acme-prod-datalake store, from the same external address.",
+        "storage.buckets.list on project acme-data-prod by dnash@acme-data.io from 185.129.62.66 — enumerating the project's buckets, including the acme-prod-datalake store, from the same external address.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -247,7 +247,7 @@ export function buildGcpSaKeyTheftScenario(
       mitre_tactic: "Persistence",
       incident_id: INCIDENT,
       description:
-        "CreateServiceAccountKey on data-pipeline-sa by dnash@acme-data.io from 203.0.113.66 minted a new user-managed key (USER_MANAGED, TYPE_GOOGLE_CREDENTIALS_FILE) — a long-lived JSON credential for a service account the developer does not own.",
+        "CreateServiceAccountKey on data-pipeline-sa by dnash@acme-data.io from 185.129.62.66 minted a new user-managed key (USER_MANAGED, TYPE_GOOGLE_CREDENTIALS_FILE) — a long-lived JSON credential for a service account the developer does not own.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Factivity`,
@@ -297,7 +297,7 @@ export function buildGcpSaKeyTheftScenario(
       mitre_tactic: "Privilege Escalation",
       incident_id: INCIDENT,
       description:
-        "GenerateAccessToken on data-pipeline-sa by dnash@acme-data.io from 203.0.113.66 — the developer identity minting a short-lived token to act as the service account and inherit its storage and secret roles.",
+        "GenerateAccessToken on data-pipeline-sa by dnash@acme-data.io from 185.129.62.66 — the developer identity minting a short-lived token to act as the service account and inherit its storage and secret roles.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -347,7 +347,7 @@ export function buildGcpSaKeyTheftScenario(
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "storage.objects.list on acme-prod-datalake with principalEmail data-pipeline-sa from 203.0.113.66 — the service account now driving the calls, indexing the exports/ prefix ahead of a read.",
+        "storage.objects.list on acme-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66 — the service account now driving the calls, indexing the exports/ prefix ahead of a read.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -394,7 +394,7 @@ export function buildGcpSaKeyTheftScenario(
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "storage.objects.get repeated across the exports/ prefix on acme-prod-datalake with principalEmail data-pipeline-sa from 203.0.113.66 — a bulk read of the datalake objects, 62 GB returned over eleven minutes.",
+        "storage.objects.get repeated across the exports/ prefix on acme-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66 — a bulk read of the datalake objects, 62 GB returned over eleven minutes.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -443,7 +443,7 @@ export function buildGcpSaKeyTheftScenario(
       mitre_tactic: "Credential Access",
       incident_id: INCIDENT,
       description:
-        "AccessSecretVersion on secret prod-warehouse-dsn with principalEmail data-pipeline-sa from 203.0.113.66 — the service account reading a stored warehouse connection string from outside the project's network.",
+        "AccessSecretVersion on secret prod-warehouse-dsn with principalEmail data-pipeline-sa from 185.129.62.66 — the service account reading a stored warehouse connection string from outside the project's network.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -489,7 +489,7 @@ export function buildGcpSaKeyTheftScenario(
       is_detection: true,   // ETD flags the anomalous key creation
       edr_scope: "non_edr", // cloud control-plane only — no host to walk; investigated in SIEM / cloud
       description:
-        "Event Threat Detection raised Persistence: New Service Account Key (severity HIGH) on data-pipeline-sa: a user-managed key was created by dnash@acme-data.io from 203.0.113.66, a caller location outside the account's established pattern.",
+        "Event Threat Detection raised Persistence: New Service Account Key (severity HIGH) on data-pipeline-sa: a user-managed key was created by dnash@acme-data.io from 185.129.62.66, a caller location outside the account's established pattern.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.service_name": "securitycenter.googleapis.com",
@@ -538,7 +538,7 @@ export function buildGcpSaKeyTheftScenario(
       is_detection: true,   // ETD flags the object drain from a remote caller
       edr_scope: "non_edr", // cloud control-plane only — no host process to walk
       description:
-        "Event Threat Detection raised Exfiltration: Cloud Storage Object Read (severity CRITICAL) on acme-prod-datalake: the data-pipeline-sa identity read objects in bulk from 203.0.113.66, a remote caller outside its usual location.",
+        "Event Threat Detection raised Exfiltration: Cloud Storage Object Read (severity CRITICAL) on acme-prod-datalake: the data-pipeline-sa identity read objects in bulk from 185.129.62.66, a remote caller outside its usual location.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.service_name": "securitycenter.googleapis.com",
@@ -575,7 +575,7 @@ export function buildGcpSaKeyTheftScenario(
   const iocs: IOC[] = [
     {
       type: "ip",
-      value: attackerIp, // 203.0.113.66 — the external caller behind every enumeration, mint and read
+      value: attackerIp, // 185.129.62.66 — the external caller behind every enumeration, mint and read
       first_seen: T(0),
       last_seen: T(24 * MIN),
       reputation: "malicious",
@@ -631,7 +631,7 @@ export function buildGcpSaKeyTheftScenario(
       ],
       answer: "principal_and_ip",
       explanation:
-        "Minting a key is a routine operation — the CI account rotates keys constantly, so the method name alone proves nothing. The split is the identity and its origin: gcpkey_00 is terraform-ci-sa calling from a Google Cloud Build egress address inside a change-tracked apply, while gcpkey_03 is a human developer login (dnash@acme-data.io) reaching in from 203.0.113.66 — an internet address — to key a service account the developer has no ownership of. (b) is false: both keys are ordinary RSA-2048 GOOGLE_CREDENTIALS_FILE keys. (c) is wrong — both call the same google.iam.admin.v1.CreateServiceAccountKey. (d) invents a count difference that does not decide anything; a key-create returns a single key either way.",
+        "Minting a key is a routine operation — the CI account rotates keys constantly, so the method name alone proves nothing. The split is the identity and its origin: gcpkey_00 is terraform-ci-sa calling from a Google Cloud Build egress address inside a change-tracked apply, while gcpkey_03 is a human developer login (dnash@acme-data.io) reaching in from 185.129.62.66 — an internet address — to key a service account the developer has no ownership of. (b) is false: both keys are ordinary RSA-2048 GOOGLE_CREDENTIALS_FILE keys. (c) is wrong — both call the same google.iam.admin.v1.CreateServiceAccountKey. (d) invents a count difference that does not decide anything; a key-create returns a single key either way.",
     },
     {
       id: "gcpq2",
@@ -648,7 +648,7 @@ export function buildGcpSaKeyTheftScenario(
       ],
       answer: "acts_as_sa",
       explanation:
-        "The identity change is the whole point of the theft. By minting a user-managed key (gcpkey_03) and generating an access token for the account (gcpkey_04), the operator obtained the service account's own credentials — so every call afterward is authenticated as data-pipeline-sa and the audit log honestly records that principal. The tell that it is still the operator is the constant: the same 203.0.113.66 caller_ip carries both the developer-attributed and the SA-attributed calls. (b) is invented — the principal field reflects the real authenticated identity, it does not rotate. (c) is the trap: the SA's real work runs inside the pipeline, never from an internet address. (d) is wrong — the token call succeeded (authorization_info.granted true), it did not fall back.",
+        "The identity change is the whole point of the theft. By minting a user-managed key (gcpkey_03) and generating an access token for the account (gcpkey_04), the operator obtained the service account's own credentials — so every call afterward is authenticated as data-pipeline-sa and the audit log honestly records that principal. The tell that it is still the operator is the constant: the same 185.129.62.66 caller_ip carries both the developer-attributed and the SA-attributed calls. (b) is invented — the principal field reflects the real authenticated identity, it does not rotate. (c) is the trap: the SA's real work runs inside the pipeline, never from an internet address. (d) is wrong — the token call succeeded (authorization_info.granted true), it did not fall back.",
     },
     {
       id: "gcpq3",
@@ -658,14 +658,14 @@ export function buildGcpSaKeyTheftScenario(
         "The data-pipeline-sa is a real account that reads acme-prod-datalake every day as part of the pipeline, so its storage reads are expected. Which single observation shows this run was not the pipeline doing its job?",
       hint: "Look at request_metadata.caller_ip on the SA's reads and compare it with where this account's work normally originates.",
       options: [
-        { value: "caller_ip_external", label: "Every read on the SA carries request_metadata.caller_ip 203.0.113.66 — an internet address — where the pipeline's real work originates from inside Google's network" },
+        { value: "caller_ip_external", label: "Every read on the SA carries request_metadata.caller_ip 185.129.62.66 — an internet address — where the pipeline's real work originates from inside Google's network" },
         { value: "role_missing", label: "The SA no longer held storage.objects.get, so the reads must have been made by a different, forged identity" },
         { value: "wrong_bucket", label: "The reads targeted a bucket the SA had never been granted access to, which is what proves the run was hostile" },
         { value: "night_hours", label: "The reads happened at night, and any service-account activity outside business hours is by definition an incident" },
       ],
       answer: "caller_ip_external",
       explanation:
-        "Because the identity is genuinely authorized, the discriminator is the origin, not the permission. This account's real reads come from inside the project's network, but here storage.objects.list, storage.objects.get and AccessSecretVersion all carry request_metadata.caller_ip 203.0.113.66 — an internet address — and that same caller is what both Event Threat Detection findings report on. (b) is false: authorization_info.granted is true on every call, the role is intact — that is exactly why nothing was blocked. (c) is wrong — the datalake is a bucket the SA is entitled to, which is what makes the abuse quiet. (d) over-reads timing; a nightly pipeline legitimately runs at those hours, so the hour alone is not a verdict.",
+        "Because the identity is genuinely authorized, the discriminator is the origin, not the permission. This account's real reads come from inside the project's network, but here storage.objects.list, storage.objects.get and AccessSecretVersion all carry request_metadata.caller_ip 185.129.62.66 — an internet address — and that same caller is what both Event Threat Detection findings report on. (b) is false: authorization_info.granted is true on every call, the role is intact — that is exactly why nothing was blocked. (c) is wrong — the datalake is a bucket the SA is entitled to, which is what makes the abuse quiet. (d) over-reads timing; a nightly pipeline legitimately runs at those hours, so the hour alone is not a verdict.",
     },
     {
       id: "gcpq4",
@@ -682,7 +682,7 @@ export function buildGcpSaKeyTheftScenario(
       ],
       answer: "persist_then_exfil",
       explanation:
-        "The two findings map onto the two halves of the case. Persistence: New Service Account Key (gcpkey_08) fires on the CreateServiceAccountKey admin write — the moment a durable credential was planted on the account. Exfiltration: Cloud Storage Object Read (gcpkey_09) fires on the storage.objects.get drain — the data actually leaving. Read together they give you the foothold and the reach it bought. (b) is wrong — they key on different methods (CreateServiceAccountKey vs storage.objects.get) at different times. (c) reverses the order; the key was minted first. (d) is false — both name the same project and the same 203.0.113.66 caller, one chain.",
+        "The two findings map onto the two halves of the case. Persistence: New Service Account Key (gcpkey_08) fires on the CreateServiceAccountKey admin write — the moment a durable credential was planted on the account. Exfiltration: Cloud Storage Object Read (gcpkey_09) fires on the storage.objects.get drain — the data actually leaving. Read together they give you the foothold and the reach it bought. (b) is wrong — they key on different methods (CreateServiceAccountKey vs storage.objects.get) at different times. (c) reverses the order; the key was minted first. (d) is false — both name the same project and the same 185.129.62.66 caller, one chain.",
     },
     {
       id: "gcpq5",
@@ -694,7 +694,7 @@ export function buildGcpSaKeyTheftScenario(
       options: [
         { value: "delete_key_rotate_scope", label: "Delete the user-managed key on data-pipeline-sa, reset dnash's credentials and revoke its sessions, rotate the warehouse secret that was read, then scope the exposure to everything the SA's roles could reach and right-size those roles" },
         { value: "reset_dev_only", label: "Reset dnash@acme-data.io's password; since that login started the intrusion, changing it invalidates the key and fully closes the incident" },
-        { value: "block_ip_only", label: "Block 203.0.113.66 at the perimeter; because every call came from that one address, blocking it contains the incident and no credential change is needed" },
+        { value: "block_ip_only", label: "Block 185.129.62.66 at the perimeter; because every call came from that one address, blocking it contains the incident and no credential change is needed" },
         { value: "rotate_ci_sa", label: "Rotate the terraform-ci-sa credentials from the benign control, since it is the account that routinely creates service-account keys in this project" },
       ],
       answer: "delete_key_rotate_scope",
@@ -712,9 +712,9 @@ export function buildGcpSaKeyTheftScenario(
       "Google Cloud threat detection fired overnight: the data-pipeline service account is reading a production bucket and pulling a stored secret from an address that has never hosted it, and a new key for that account was created minutes earlier. It normally runs only inside the pipeline. Work out how the account was taken over, what it touched, and how far it reached before you contain it.",
     narrative: `The project acme-data-prod runs its analytics on a service account, data-pipeline-sa, that carries storage-admin, BigQuery-viewer and Secret Manager access — far more than it needs. Its real work only ever runs from inside the pipeline's network. The one legitimate comparison in the data is the night before: the Terraform CI account, terraform-ci-sa, mints a user-managed key during a routine apply — the same CreateServiceAccountKey call — but from a Google Cloud Build address, with a Terraform user agent, inside a change-tracked run.
 
-The incident begins with a developer whose gcloud credentials were phished. At 01:00 that identity, dnash@acme-data.io, appears from 203.0.113.66 — an internet address — and lists every service account in the project, then lists its buckets. At 01:04 it does the thing the whole case turns on: a CreateServiceAccountKey call on data-pipeline-sa mints a new long-lived, user-managed JSON key. It is one quiet line in the Admin Activity log, and it hands the operator a credential that will keep working after the developer's password is reset. A minute and a half later the same identity mints a short-lived access token for the account as well.
+The incident begins with a developer whose gcloud credentials were phished. At 01:00 that identity, dnash@acme-data.io, appears from 185.129.62.66 — an internet address — and lists every service account in the project, then lists its buckets. At 01:04 it does the thing the whole case turns on: a CreateServiceAccountKey call on data-pipeline-sa mints a new long-lived, user-managed JSON key. It is one quiet line in the Admin Activity log, and it hands the operator a credential that will keep working after the developer's password is reset. A minute and a half later the same identity mints a short-lived access token for the account as well.
 
-From 01:07 the acting principal changes: the calls that list and read acme-prod-datalake, and the one that reads the prod-warehouse-dsn secret, all carry principalEmail data-pipeline-sa — the service account itself — because the operator now holds its credentials. The constant across every step is 203.0.113.66. The storage.objects.get burst pulls roughly 62 GB out of the datalake, and the Secret Manager read lifts a warehouse connection string.
+From 01:07 the acting principal changes: the calls that list and read acme-prod-datalake, and the one that reads the prod-warehouse-dsn secret, all carry principalEmail data-pipeline-sa — the service account itself — because the operator now holds its credentials. The constant across every step is 185.129.62.66. The storage.objects.get burst pulls roughly 62 GB out of the datalake, and the Secret Manager read lifts a warehouse connection string.
 
 Event Threat Detection caught both halves: at 01:15 it raised Persistence: New Service Account Key on the mint, and at 01:24 Exfiltration: Cloud Storage Object Read on the drain, with an evidence bundle hash attached. Read as a whole, the case has a clean shape — the Admin Activity key-mint is the quiet persistence pivot, and the Data Access reads from outside the network on the service account are the blast radius. The tell throughout is a from-outside-GCP caller IP on an account whose work never leaves the project.`,
     learning_objectives: [
@@ -728,7 +728,7 @@ Event Threat Detection caught both halves: at 01:15 it raised Persistence: New S
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-30T02:12:00Z", phase: "Baseline", action: `${ciSa} mints a user-managed key during a Terraform apply from Cloud Build — routine rotation (control case)` },
+      { ts: "2026-08-30T02:12:00.000Z", phase: "Baseline", action: `${ciSa} mints a user-managed key during a Terraform apply from Cloud Build — routine rotation (control case)` },
       { ts: T(0), phase: "Discovery", action: `Compromised ${devUser} lists service accounts from ${attackerIp} (T1526)` },
       { ts: T(2 * MIN), phase: "Discovery", action: `storage.buckets.list enumerates project buckets from ${attackerIp} (T1580)` },
       { ts: T(4 * MIN), phase: "Persistence", action: `CreateServiceAccountKey mints a user-managed key on ${targetSa} (T1098.001)` },

@@ -72,7 +72,7 @@ export function buildOtNetworkAnomalyScenario(scenarioId = "ot-network-anomaly-2
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_ot_00_benign_hmi_poll",
-      ts: "2026-08-28T14:03:07Z",
+      ts: "2026-08-28T14:03:07.000Z",
       source: "ids",
       vendor: "Corelight (Zeek)",
       event_type: "net_connection",
@@ -595,7 +595,7 @@ Because there is no agent on the PLC, containment is an OT problem, not a workst
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-28T14:03:07Z", phase: "Baseline", action: `${engHmi.host} (${engHmi.ip}) polls ${plc1.host} with Modbus READ_HOLDING_REGISTERS — the authorized station's routine` },
+      { ts: "2026-08-28T14:03:07.000Z", phase: "Baseline", action: `${engHmi.host} (${engHmi.ip}) polls ${plc1.host} with Modbus READ_HOLDING_REGISTERS — the authorized station's routine` },
       { ts: T(0), phase: "Lateral Movement", action: `${attackerIp} (corporate VLAN) opens Modbus/TCP 502 to ${plc1.host} (${plc1.ip}) — IT→OT crossing (T0886)` },
       { ts: T(40 * SEC), phase: "Discovery", action: `${attackerIp} sweeps controllers 172.16.30.11-13 with short Modbus probes — point/device discovery (T0846)` },
       { ts: T(52 * SEC), phase: "Discovery", action: "Suricata ICS signature fires on Modbus enumeration from a non-engineering source" },

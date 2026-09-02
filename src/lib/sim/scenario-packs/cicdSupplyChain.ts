@@ -93,7 +93,7 @@ export function buildCicdSupplyChainScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "cicd_00_benign_pr",
-      ts: "2026-08-30T14:22:10Z",
+      ts: "2026-08-30T14:22:10.000Z",
       source: "vcs",
       vendor: "GitHub Audit Log",
       event_type: "cloud_api_call",
@@ -671,7 +671,7 @@ The one legitimate comparison in the data is d.pereira's edit to the very same w
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-30T14:22:10Z", phase: "Baseline", action: `Developer ${dev.actor} edits .github/workflows/ci.yml the sanctioned way — reviewed PR #806, branch protection satisfied (control case)` },
+      { ts: "2026-08-30T14:22:10.000Z", phase: "Baseline", action: `Developer ${dev.actor} edits .github/workflows/ci.yml the sanctioned way — reviewed PR #806, branch protection satisfied (control case)` },
       { ts: T(0), phase: "Persistence", action: `${attacker.actor} account mints a fine-grained PAT (contents+workflows) from ${attackerIp} — access that survives a password reset (T1098)` },
       { ts: T(2 * MIN), phase: "Persistence", action: `Attacker registers a self-hosted runner ${runnerName} labelled to match the deploy job (T1078)` },
       { ts: T(5 * MIN), phase: "Initial Access", action: "protected_branch.policy_override — .github/workflows/ci.yml modified on main with no review (T1195.002)" },

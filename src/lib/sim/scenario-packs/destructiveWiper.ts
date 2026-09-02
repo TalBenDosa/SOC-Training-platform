@@ -77,7 +77,7 @@ export function buildDestructiveWiperScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "dw_00_benign_secure_wipe",
-      ts: "2026-08-28T21:30:00Z",
+      ts: "2026-08-28T21:30:00.000Z",
       source: "edr",
       vendor: "CrowdStrike Falcon",
       event_type: "process_create",

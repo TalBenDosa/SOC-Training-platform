@@ -28,7 +28,7 @@ export function buildBruteForceSingleAccountScenario(
   const MIN = 60_000;
 
   // The internet-published Remote Desktop server and the file server behind it.
-  const rds = { hostname: "SRV-RDS-02", fqdn: "SRV-RDS-02.nexacorp.com", ip: "10.30.9.20", nat: "198.51.100.27" };
+  const rds = { hostname: "SRV-RDS-02", fqdn: "SRV-RDS-02.nexacorp.com", ip: "10.30.9.20", nat: "193.34.145.27" };
   const fileServer = { hostname: "FS-CORP-02", fqdn: "FS-CORP-02.nexacorp.com", ip: "10.30.9.55" };
 
   // The single targeted account. Accounts Payable clerk — no HR entitlement.

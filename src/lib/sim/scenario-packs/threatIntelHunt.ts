@@ -89,7 +89,7 @@ export function buildThreatIntelHuntScenario(scenarioId = "threat-intel-hunt-202
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_tih_00_stale_sinkhole",
-      ts: "2026-08-30T16:41:12Z",
+      ts: "2026-08-30T16:41:12.000Z",
       source: "dns",
       vendor: "Windows DNS Server",
       event_type: "dns_query",
@@ -644,7 +644,7 @@ Read end to end, the hunt did exactly what a hunt is for: it took external intel
     events,
     iocs,
     killchain: [
-      { ts: "2026-08-30T16:41:12Z", phase: "Baseline", action: `${benignHost.hostname} resolves ${staleDomain} → sinkhole ${sinkholeIp} — a stale, seized indicator, not a live hit` },
+      { ts: "2026-08-30T16:41:12.000Z", phase: "Baseline", action: `${benignHost.hostname} resolves ${staleDomain} → sinkhole ${sinkholeIp} — a stale, seized indicator, not a live hit` },
       { ts: T(0), phase: "Threat Intelligence", action: `Recorded Future promotes an indicator set (${c2Domain}, ${c2Ip}, malware hash) for the GLASSTHORN campaign` },
       { ts: T(2 * MIN), phase: "Command and Control", action: `${infected.hostname} resolves ${c2Domain} → ${c2Ip} in the DNS logs (T1071.004)` },
       { ts: T(2 * MIN + 10 * SEC), phase: "Command and Control", action: `First HTTPS callback ${infected.hostname} → ${c2Domain} (${c2Ip}), 642 bytes (T1071.001)` },

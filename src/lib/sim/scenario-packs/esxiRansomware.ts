@@ -29,7 +29,7 @@ export function buildEsxiRansomwareScenario(
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const attackerIp = "45.132.192.77";
+  const attackerIp = "45.135.232.44";
   const tunnelIp = "10.99.8.44";
   const vcenter = { host: "vcsa-01.nexacorp.local", ip: "10.20.5.20" };
   const esxi = { host: "esx-prod-03.nexacorp.local", ip: "10.20.5.33" };
@@ -56,10 +56,10 @@ export function buildEsxiRansomwareScenario(
       hostname: "FG-EDGE-01",
       user_email: "r.okonkwo@nexacorp.com",
       src_ip: attackerIp,
-      dst_ip: "198.51.100.10",
+      dst_ip: "45.86.207.10",
       dst_port: 443,
       protocol: "tcp",
-      geo: { country: "Bulgaria", city: "Sofia" },
+      geo: { country: "Bulgaria", city: "Sofia", latitude: 42.6977, longitude: 23.3219 },
       severity: "medium",
       mitre_technique: "T1133",
       mitre_tactic: "Initial Access",

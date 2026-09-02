@@ -90,7 +90,7 @@ export function buildMacosStealerDmgScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "msd_00_benign_notarized_install",
-      ts: "2026-08-23T16:20:00Z",
+      ts: "2026-08-23T16:20:00.000Z",
       source: "edr",
       vendor: "CrowdStrike Falcon",
       event_type: "process_create",
@@ -680,7 +680,7 @@ export function buildMacosStealerDmgScenario(
   ];
 
   const killchain = [
-    { ts: "2026-08-23T16:20:00Z", phase: "Baseline", action: `Notarized ${"Rectangle.app"} installs from a signed DMG — valid Developer ID, Gatekeeper passed: the clean-install control case` },
+    { ts: "2026-08-23T16:20:00.000Z", phase: "Baseline", action: `Notarized ${"Rectangle.app"} installs from a signed DMG — valid Developer ID, Gatekeeper passed: the clean-install control case` },
     { ts: T(0), phase: "Delivery", action: `PixelForge_Pro_v7.dmg downloaded from ${dlDomain} (categorised Malware) (T1204.002)` },
     { ts: T(3 * MIN), phase: "Execution", action: "DMG mounted at /Volumes/PixelForge Pro; ad-hoc-signed app runs with com.apple.quarantine set (T1204.002)" },
     { ts: T(3 * MIN + 8 * SEC), phase: "Execution", action: "osascript display dialog impersonates macOS and captures the login password (T1059.002)" },
