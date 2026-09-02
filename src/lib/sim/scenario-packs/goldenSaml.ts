@@ -57,7 +57,7 @@ export function buildGoldenSamlScenario(
   const domain = "nexacorp.com";
 
   // The compromised on-prem federation server and the DC that holds the DKM key.
-  const adfs = { hostname: "ADFS-NEXA-01", fqdn: "ADFS-NEXA-01.nexacorp.com", ip: "10.20.5.20" };
+  const adfs = { hostname: "ADFS-NEXA-01", fqdn: "ADFS-NEXA-01.nexacorp.com", ip: "10.20.5.15" };
   const dc = { hostname: "DC-NEXA-01", fqdn: "DC-NEXA-01.nexacorp.com", ip: "10.20.5.10" };
 
   // The AD FS service account whose session reads the DKM key and exports the

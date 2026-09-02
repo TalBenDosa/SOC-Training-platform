@@ -28,9 +28,19 @@ const { BENIGN_EVENTS } = await imp("src/app/(app)/dashboard/benignEvents.ts");
 
 // ── Gather every event, tagged with where it came from ───────────────────────
 const all = [];
+const chronoViolations = [];
 for (const def of SCENARIOS) {
   let b; try { b = def.build(); } catch { continue; }
-  for (const e of b.events ?? []) all.push({ e, where: `scenario:${def.slug}` });
+  const evs = b.events ?? [];
+  for (const e of evs) all.push({ e, where: `scenario:${def.slug}` });
+  // D-11: a scenario's events must be non-decreasing in time by array order, or a
+  // viewer that streams the array jumps backwards in time.
+  let worst = 0, count = 0;
+  for (let i = 1; i < evs.length; i++) {
+    const back = new Date(evs[i - 1].ts).getTime() - new Date(evs[i].ts).getTime();
+    if (back > 0) { count++; worst = Math.max(worst, back); }
+  }
+  if (count > 0) chronoViolations.push({ slug: def.slug, count, worstMin: Math.round(worst / 60000) });
 }
 for (const [cid, evs] of Object.entries(COMPANY_EVENTS)) for (const e of evs) all.push({ e, where: `benign:${cid}` });
 for (const [cid, evs] of Object.entries(COMPANY_ATTACKS)) for (const e of evs) all.push({ e, where: `attack:${cid}` });
@@ -110,11 +120,16 @@ for (const [h, m] of hashFiles) {
   }
 }
 
+// D-11: chronology per scenario
+for (const c of chronoViolations) {
+  add("ERROR", "D-11", `scenario:${c.slug}`, `${c.count} event(s) go backwards in time by array order (worst jump ${c.worstMin} min) — sort by ts`);
+}
+
 // ── Report ───────────────────────────────────────────────────────────────────
 const byCode = {};
 for (const f of findings) (byCode[f.code] ??= []).push(f);
 console.log(`\nLive-feed integrity gate — ${all.length} events materialised\n`);
-for (const code of ["D-01", "D-02", "D-03", "D-06"]) {
+for (const code of ["D-01", "D-02", "D-03", "D-06", "D-11"]) {
   const arr = byCode[code] ?? [];
   console.log(`  ${code}  ${arr.length === 0 ? "clean" : arr.length + " violation(s)"}`);
   for (const f of arr.slice(0, 20)) console.log(`      • ${f.detail}`);
