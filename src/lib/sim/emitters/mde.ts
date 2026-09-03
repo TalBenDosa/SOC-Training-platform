@@ -83,6 +83,62 @@ export function mdeDetection(o: MdeDetectionOpts): TelemetryEvent {
   };
 }
 
+// ── Incident alert (AlertEvidence / Defender incident summary) ───────────────────────
+// A behavioural incident that ties the earlier evidence together. Unlike mdeDetection it
+// carries NO process of its own — it is the alert row that opens the ticket, so the EDR
+// console shows it in the timeline/feed, not as another tree node.
+export interface MdeAlertOpts extends Ctx {
+  alertTitle: string;
+  category?: string;            // e.g. "CredentialAccess"
+  malwareName?: string;         // e.g. "Trojan:Win32/Rhadesta.SP!MTB"
+  malwareCategory?: string;     // e.g. "infostealer"
+  sha256?: string;
+  mitre?: string;               // technique id
+  techniqueName?: string;
+  remediation?: string;         // e.g. "Quarantine"
+  remediationStatus?: string;   // e.g. "Completed"
+  evidenceRole?: string;        // e.g. "Impacted"
+  mdeIncidentId?: string;       // Defender incident number (distinct from the story incident_id)
+  detectionSource?: string;     // e.g. "AntivirusBehavior"
+  alertSeverity?: string;       // Defender's own label (defaults from severity)
+  severity?: Severity;
+  expectedVerdict?: ExpectedVerdict;
+  description?: string;
+}
+export function mdeAlert(o: MdeAlertOpts): TelemetryEvent {
+  const r = resolve(o);
+  const sev = o.severity ?? "critical";
+  const a = acct(o.companyId, r.bareUser);
+  const alertSev = o.alertSeverity ?? (sev === "critical" ? "High" : sev[0].toUpperCase() + sev.slice(1));
+  return {
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "edr_alert",
+    severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, is_detection: true,
+    expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
+    description: o.description ?? `${VENDOR} raised ${o.alertTitle} on ${r.host}`,
+    raw: {
+      "mde.AlertTitle": o.alertTitle,
+      ...(o.category ? { "mde.Category": o.category } : {}),
+      ...(o.detectionSource ? { "mde.DetectionSource": o.detectionSource } : {}),
+      ...(o.evidenceRole ? { "mde.EvidenceRole": o.evidenceRole } : {}),
+      ...(o.mdeIncidentId ? { "mde.IncidentId": o.mdeIncidentId } : {}),
+      "mde.DeviceName": r.host,
+      ...(o.sha256 ? { "mde.SHA256": o.sha256 } : {}),
+      ...(o.malwareCategory ? { "malware.category": o.malwareCategory } : {}),
+      ...(o.malwareName ? { "malware.name": o.malwareName } : {}),
+      "alert.severity": alertSev,
+      ...(o.category ? { "alert.category": o.category } : {}),
+      ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...(o.techniqueName ? { "threat.technique.name": o.techniqueName } : {}),
+      ...(o.remediation ? { "remediation.action": o.remediation } : {}),
+      ...(o.remediationStatus ? { "remediation.status": o.remediationStatus } : {}),
+      "AccountName": a.AccountName,
+      "AccountDomain": a.AccountDomain,
+      "event.action": "alert",
+    },
+  };
+}
+
 // ── Process creation (DeviceProcessEvents) ───────────────────────────────────────────
 export interface MdeProcessOpts extends Ctx {
   processName: string;

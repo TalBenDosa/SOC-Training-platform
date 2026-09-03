@@ -32,7 +32,8 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
-import { mdeProcess, mdeFile } from "@/lib/sim/emitters/mde";
+import { mdeProcess, mdeFile, mdeAlert } from "@/lib/sim/emitters/mde";
+import { panWeb } from "@/lib/sim/emitters/paloalto";
 
 export function buildSeoPoisonedInstallerScenario(
   scenarioId = "seo-poisoned-installer-2026",
@@ -43,7 +44,6 @@ export function buildSeoPoisonedInstallerScenario(
 
   const host = { hostname: "LAP-3312", ip: "10.14.19.63" };
   const victim = { email: "d.avraham@nexacorp.com", name: "Dor Avraham", sam: "d.avraham" };
-  const deviceId = "224e37355dd22197935d79f9a23781bb07bd0c1a";
 
   const lookalike = "puttysoftware-download.com";
   const c2 = "cdn-assets-relay92.net";
@@ -66,108 +66,26 @@ export function buildSeoPoisonedInstallerScenario(
 
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
-    // 1. The sponsored result. Nothing here is a known-bad domain.
+    // 1-2. The sponsored result and the download from the lookalike host. (PAN emitter)
     // ---------------------------------------------------------------------
-    {
-      id: "evt_spi_01_ad_click",
-      ts: T(0),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      user_title: "Systems Administrator",
-      src_ip: host.ip,
-      severity: "medium",
-      mitre_technique: "T1608.006",
-      mitre_tactic: "Resource Development",
-      description:
-        "LAP-3312 followed the sponsored result for \"putty ssh client download\" at 14:20 and landed on puttysoftware-download.com — a domain unrelated to the official PuTTY project — carrying a Google search results page as its referer.",
-      network: {
-        url: `https://${lookalike}/download`,
-        domain: lookalike,
-        method: "GET",
-        status: 200,
-        bytes_in: 41_280,
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "url",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "146.70.108.44",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "newly-registered-domain",
-        "pan.url": `${lookalike}/download`,
-        "pan.referer": "https://www.google.com/search?q=putty+ssh+client+download",
-        "pan.http_method": "GET",
-        "pan.from_zone": "TRUST",
-        "pan.to_zone": "UNTRUST",
-        "pan.session_id": "702214",
-        "source.ip": host.ip,
-        "url.domain": lookalike,
-        "http.response.status_code": "200",
-        "action_result": "alert",
-      },
-    },
+    panWeb({
+      ...mde, id: "evt_spi_01_ad_click", ts: T(0), severity: "medium",
+      url: `https://${lookalike}/download`, domain: lookalike, category: "newly-registered-domain",
+      action: "alert", dstIp: "146.70.108.44", status: 200, bytesIn: 41_280,
+      referer: "https://www.google.com/search?q=putty+ssh+client+download",
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
+      userTitle: "Systems Administrator", mitre: "T1608.006", tactic: "Resource Development",
+      description: "LAP-3312 followed the sponsored result for \"putty ssh client download\" at 14:20 and landed on puttysoftware-download.com — a domain unrelated to the official PuTTY project — carrying a Google search results page as its referer.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 2. The download from the same lookalike host.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_spi_02_download",
-      ts: T(45_000),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "medium",
-      mitre_technique: "T1608.006",
-      mitre_tactic: "Resource Development",
-      description:
-        "Forty-five seconds later the same browser session downloaded PuTTY-0.83-installer.exe from puttysoftware-download.com.",
-      file: {
-        name: "PuTTY-0.83-installer.exe",
-        path: "/download/PuTTY-0.83-installer.exe",
-        extension: "exe",
-        size: 1_812_224,
-        sha256: installerHash,
-      },
-      network: {
-        url: `https://${lookalike}/download/PuTTY-0.83-installer.exe`,
-        domain: lookalike,
-        method: "GET",
-        status: 200,
-        bytes_in: 1_812_224,
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "file",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "146.70.108.44",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "newly-registered-domain",
-        "pan.url": `${lookalike}/download/PuTTY-0.83-installer.exe`,
-        "pan.filename": "PuTTY-0.83-installer.exe",
-        "pan.filetype": "pe",
-        "pan.file_hash": installerHash,
-        "pan.direction": "download",
-        "pan.session_id": "702214",
-        "source.ip": host.ip,
-        "url.domain": lookalike,
-        "action_result": "alert",
-      },
-    },
+    panWeb({
+      ...mde, id: "evt_spi_02_download", ts: T(45_000), severity: "medium",
+      url: `https://${lookalike}/download/PuTTY-0.83-installer.exe`, domain: lookalike,
+      category: "newly-registered-domain", action: "alert", dstIp: "146.70.108.44",
+      status: 200, bytesIn: 1_812_224, mitre: "T1608.006", tactic: "Resource Development",
+      file: { name: "PuTTY-0.83-installer.exe", path: "/download/PuTTY-0.83-installer.exe", sha256: installerHash, size: 1_812_224 },
+      description: "Forty-five seconds later the same browser session downloaded PuTTY-0.83-installer.exe from puttysoftware-download.com.",
+    }),
 
     // ---------------------------------------------------------------------
     // 3-8. The endpoint chain — Microsoft Defender for Endpoint telemetry,
@@ -196,52 +114,16 @@ export function buildSeoPoisonedInstallerScenario(
     }),
 
     // ---------------------------------------------------------------------
-    // 5. Four seconds into running, the installer fetches its real payload.
+    // 5. Four seconds into running, the installer fetches its real payload. (PAN emitter)
     // ---------------------------------------------------------------------
-    {
-      id: "evt_spi_05_stage2_fetch",
-      ts: T(3 * MIN + 14_000),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1105",
-      mitre_tactic: "Command and Control",
-      description:
-        "At 14:23:14 the installer process fetched upd_helper.exe, 3.1 MB, from cdn-assets-relay92.net — infrastructure with no relationship to puttysoftware-download.com.",
-      file: { name: "upd_helper.exe", path: "/dist/upd_helper.exe", extension: "exe", size: 3_251_712, sha256: stealerHash },
-      network: {
-        url: `https://${c2}/dist/upd_helper.exe`,
-        domain: c2,
-        method: "GET",
-        status: 200,
-        bytes_in: 3_251_712,
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "file",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "185.212.44.19",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "unknown",
-        "pan.url": `${c2}/dist/upd_helper.exe`,
-        "pan.filename": "upd_helper.exe",
-        "pan.filetype": "pe",
-        "pan.file_hash": stealerHash,
-        "pan.direction": "download",
-        "pan.session_id": "702239",
-        "source.ip": host.ip,
-        "url.domain": c2,
-        "action_result": "alert",
-      },
-    },
+    panWeb({
+      ...mde, id: "evt_spi_05_stage2_fetch", ts: T(3 * MIN + 14_000), severity: "critical",
+      url: `https://${c2}/dist/upd_helper.exe`, domain: c2, category: "unknown",
+      action: "alert", dstIp: "185.212.44.19", status: 200, bytesIn: 3_251_712,
+      mitre: "T1105", tactic: "Command and Control",
+      file: { name: "upd_helper.exe", path: "/dist/upd_helper.exe", sha256: stealerHash, size: 3_251_712 },
+      description: "At 14:23:14 the installer process fetched upd_helper.exe, 3.1 MB, from cdn-assets-relay92.net — infrastructure with no relationship to puttysoftware-download.com.",
+    }),
 
     // 6. The payload lands on disk, in a folder the installer created for itself.
     mdeFile({
@@ -272,94 +154,32 @@ export function buildSeoPoisonedInstallerScenario(
     }),
 
     // ---------------------------------------------------------------------
-    // 9. It leaves the building.
+    // 9. It leaves the building. (PAN emitter — outbound exfil POST)
     // ---------------------------------------------------------------------
-    {
-      id: "evt_spi_09_exfil",
-      ts: T(7 * MIN),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1041",
-      mitre_tactic: "Exfiltration",
-      description:
-        "At 14:27:00 the host POSTed a 340 KB multipart payload to cdn-assets-relay92.net/collect, allowed under the category unknown.",
-      network: {
-        url: `https://${c2}/collect`,
-        domain: c2,
-        method: "POST",
-        status: 200,
-        bytes_out: 348_112,
-        bytes_in: 96,
-      },
-      raw: {
-        "pan.type": "TRAFFIC",
-        "pan.subtype": "end",
-        "pan.action": "allow",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "185.212.44.19",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "unknown",
-        "pan.url": `${c2}/collect`,
-        "pan.http_method": "POST",
-        "pan.bytes_sent": "348112",
-        "pan.bytes_received": "96",
-        "pan.session_id": "702318",
-        "source.ip": host.ip,
-        "url.domain": c2,
-        "http.request.method": "POST",
-        "action_result": "allow",
-      },
-    },
+    panWeb({
+      ...mde, id: "evt_spi_09_exfil", ts: T(7 * MIN), severity: "critical",
+      method: "POST", url: `https://${c2}/collect`, domain: c2, category: "unknown",
+      action: "allow", dstIp: "185.212.44.19", status: 200, bytesOut: 348_112, bytesIn: 96,
+      mitre: "T1041", tactic: "Exfiltration",
+      description: "At 14:27:00 the host POSTed a 340 KB multipart payload to cdn-assets-relay92.net/collect, allowed under the category unknown.",
+    }),
 
     // ---------------------------------------------------------------------
-    // 10. The incident, once Defender's behavioural engine caught up.
+    // 10. The incident, once Defender's behavioural engine caught up. (MDE alert emitter —
+    //     a Defender incident summary; no process node of its own.)
     // ---------------------------------------------------------------------
     {
-      id: "evt_spi_10_alert",
-      mitre_technique: "T1555.003",
-      ts: T(7 * MIN + 20_000),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "edr_alert",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      is_detection: true,    // the Defender infostealer incident — the alert that opens the ticket
-      edr_scope: "edr",      // endpoint-primary incident → investigated in the EDR console
-      description:
-        "Defender raised a High-severity infostealer incident on LAP-3312, tying the unsigned dropper to the Chrome credential-store copy and the outbound POST, and quarantined upd_helper.exe after the transfer had already completed.",
-      raw: {
-        "mde.AlertTitle": "Infostealer detected — browser credential store copied and exfiltrated",
-        "mde.Category": "CredentialAccess",
-        "mde.DetectionSource": "AntivirusBehavior",
-        "mde.EvidenceRole": "Impacted",
-        "mde.IncidentId": "38821",
-        "mde.DeviceName": host.hostname,
-        "mde.DeviceId": deviceId,
-        "mde.ReportId": "184522",
-        "mde.SHA256": stealerHash,
-        "malware.category": "infostealer",
-        "malware.name": "Trojan:Win32/Rhadesta.SP!MTB",
-        "alert.severity": "High",
-        "alert.category": "CredentialAccess",
-        "threat.technique.id": "T1555.003",
-        "threat.technique.name": "Credentials from Web Browsers",
-        "remediation.action": "Quarantine",
-        "remediation.status": "Completed",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-        "event.action": "alert",
-      },
+      ...mdeAlert({
+        ...mde, id: "evt_spi_10_alert", ts: T(7 * MIN + 20_000), severity: "critical",
+        alertTitle: "Infostealer detected — browser credential store copied and exfiltrated",
+        category: "CredentialAccess", detectionSource: "AntivirusBehavior", evidenceRole: "Impacted",
+        mdeIncidentId: "38821", sha256: stealerHash,
+        malwareCategory: "infostealer", malwareName: "Trojan:Win32/Rhadesta.SP!MTB", alertSeverity: "High",
+        mitre: "T1555.003", techniqueName: "Credentials from Web Browsers",
+        remediation: "Quarantine", remediationStatus: "Completed", expectedVerdict: "tp",
+        description: "Defender raised a High-severity infostealer incident on LAP-3312, tying the unsigned dropper to the Chrome credential-store copy and the outbound POST, and quarantined upd_helper.exe after the transfer had already completed.",
+      }),
+      edr_scope: "edr",
     },
   ];
 
