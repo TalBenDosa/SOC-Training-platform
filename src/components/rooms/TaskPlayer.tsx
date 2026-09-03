@@ -18,6 +18,7 @@ import type {
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { MermaidDiagram } from "./MermaidDiagram";
+import { RichText } from "@/components/lessons/RichText";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
 import { shuffleSeeded } from "@/lib/lessons/shuffle";
 
@@ -329,68 +330,11 @@ function OptionButton({ label, index, selected, revealed, correctIndex, onSelect
 }
 
 // ─── Inline markdown renderer ────────────────────────────────────────────────────
-function renderInline(text: string): React.ReactNode[] {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i} className="text-white font-semibold">{part.slice(2, -2)}</strong>;
-    }
-    return <React.Fragment key={i}>{part}</React.Fragment>;
-  });
-}
-
+// The room reading renderer is the shared theory-content renderer (RichText) — the
+// same one the Learning Path lessons use — so tables, code blocks and ordered lists
+// render identically here and never fall through to raw `| pipe |` / literal `- `.
 function RichContent({ content }: { content: string }) {
-  const blocks = content.split(/\n\n+/);
-  return (
-    <div className="space-y-5">
-      {blocks.map((block, i) => {
-        const trimmed = block.trim();
-        // Horizontal rule: a line of --- / *** / ___ (markdown authors use it as
-        // a section divider). Without this it printed literally as "---".
-        if (/^([-*_])\1{2,}$/.test(trimmed)) {
-          return <hr key={i} className="border-cyber-500/15" />;
-        }
-        // ATX heading: #, ##, ### … on its own line. Previously unhandled, so a
-        // "## Heading" fell through to the paragraph branch and showed the raw
-        // "##". Render it as a styled heading, sized by level.
-        const atx = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-        if (atx && !trimmed.includes("\n")) {
-          const level = atx[1].length;
-          const size = level <= 1 ? "text-2xl" : level === 2 ? "text-lg" : "text-base";
-          return (
-            <h3 key={i} className={cn(size, "font-bold text-cyber-300 mt-6 first:mt-0 border-b border-cyber-500/20 pb-2")}>
-              {renderInline(atx[2])}
-            </h3>
-          );
-        }
-        if (/^\*\*[^*]+\*\*$/.test(trimmed)) {
-          return (
-            <h3 key={i} className="text-lg font-bold text-cyber-300 mt-6 first:mt-0 border-b border-cyber-500/20 pb-2">
-              {trimmed.slice(2, -2)}
-            </h3>
-          );
-        }
-        if (/^[-•] /m.test(trimmed)) {
-          const items = trimmed.split(/\n/).filter(Boolean);
-          return (
-            <ul key={i} className="space-y-2 pl-1">
-              {items.map((item, j) => (
-                <li key={j} className="flex gap-3 text-base text-slate-300 leading-relaxed">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyber-400" />
-                  <span>{renderInline(item.replace(/^[-•]\s*/, ""))}</span>
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        return (
-          <p key={i} className="text-base text-slate-300 leading-relaxed">
-            {renderInline(trimmed)}
-          </p>
-        );
-      })}
-    </div>
-  );
+  return <RichText content={content} className="space-y-5" />;
 }
 
 // ─── Reading Task ───────────────────────────────────────────────────────────────
