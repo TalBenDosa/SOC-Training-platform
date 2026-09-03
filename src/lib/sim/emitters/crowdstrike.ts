@@ -36,6 +36,9 @@ export interface CsDetectionOpts extends Ctx {
   severity?: Severity;
   action?: "prevented" | "killed" | "quarantined" | "detected"; // Falcon pattern disposition
   expectedVerdict?: ExpectedVerdict;
+  pid?: number;                 // pin the PID (else deterministic from id) to keep a tree stable
+  parentPid?: number;
+  eventType?: "av_detection" | "edr_alert";
   description?: string;
 }
 const DISPO: Record<NonNullable<CsDetectionOpts["action"]>, { desc: string; result: string; quarantine: string }> = {
@@ -52,14 +55,14 @@ export function csDetection(o: CsDetectionOpts): TelemetryEvent {
   const sha256 = o.sha256 ?? makeSha256(`${o.threatName}:${o.processName}`);
   const path = o.processPath ?? downloadsPath(r.bareUser, o.processName);
   const cmdline = o.cmdline ?? `"${path}"`;
-  const pid = pidFrom(o.id);
+  const pid = o.pid ?? pidFrom(o.id);
   return {
-    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "av_detection",
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: o.eventType ?? "av_detection",
     severity: sev, hostname: r.host, src_ip: r.srcIp,
     user_email: r.email, mitre_technique: o.mitre, mitre_tactic: o.tactic,
     is_detection: true, expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
     description: o.description ?? `${VENDOR} ${action === "detected" ? "detected" : "blocked"} ${o.threatName} on ${r.host}`,
-    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, user: r.domainUser, hash: { sha256 } },
+    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: { sha256 } },
     file: { name: o.processName, path, sha256 },
     raw: {
       "crowdstrike.event_simpleName": "DetectionSummaryEvent",
@@ -90,7 +93,9 @@ export interface CsProcessOpts extends Ctx {
   cmdline: string;
   parentName?: string;
   parentPid?: number;
+  pid?: number;                 // pin the PID to keep a multi-event tree stable
   sha256?: string;
+  signed?: boolean;             // authenticode result; drives the console's signed field
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -99,7 +104,7 @@ export interface CsProcessOpts extends Ctx {
 }
 export function csProcess(o: CsProcessOpts): TelemetryEvent {
   const r = resolve(o);
-  const pid = pidFrom(o.id);
+  const pid = o.pid ?? pidFrom(o.id);
   const ppid = o.parentPid ?? pidFrom(`${o.id}:parent`);
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
   const sha256 = o.sha256;
@@ -122,7 +127,100 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
       "crowdstrike.ContextProcessId_decimal": String(ppid),
       "crowdstrike.aid": r.sensorId,
       ...(sha256 ? { "process.hash.sha256": sha256 } : {}),
+      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
       "process.command_line": o.cmdline,
+    },
+  };
+}
+
+// ── Registry persistence (AsepValueUpdate — Run key, service, …) ─────────────────────
+export interface CsRegistryOpts extends Ctx {
+  keyPath: string;              // e.g. HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+  valueName: string;           // e.g. WindowsUpdateHelper
+  valueData: string;           // e.g. the path the value points at
+  writerProcess?: string;      // the process that set the value
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function csRegistry(o: CsRegistryOpts): TelemetryEvent {
+  const r = resolve(o);
+  const hive = o.keyPath.split("\\")[0].toUpperCase().replace("HKCU", "HKEY_CURRENT_USER").replace("HKLM", "HKEY_LOCAL_MACHINE");
+  return {
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "registry_set",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
+    incident_id: o.incidentId,
+    registry: { path: o.keyPath, key: o.valueName, value: o.valueData },
+    description: o.description ?? `Run value ${o.valueName} written on ${r.host}`,
+    raw: {
+      "crowdstrike.event_simpleName": "AsepValueUpdate",
+      "crowdstrike.ComputerName": r.host,
+      "crowdstrike.UserName": r.domainUser,
+      "crowdstrike.aid": r.sensorId,
+      ...(o.writerProcess ? { "crowdstrike.FileName": o.writerProcess } : {}),
+      "registry.hive": hive,
+      "registry.path": o.keyPath,
+      "registry.value": o.valueName,
+      "registry.data.strings": o.valueData,
+      "event.action": "registry_value_set",
+    },
+  };
+}
+
+// ── Cross-process access (hook / injection / LSASS read) ─────────────────────────────
+export interface CsProcessAccessOpts extends Ctx {
+  processName: string;          // the ACTING process
+  processPath?: string;
+  cmdline?: string;
+  parentName?: string;
+  parentPid?: number;
+  pid?: number;
+  sha256?: string;
+  signed?: boolean;
+  targetProcess?: string;       // the process being read/hooked/injected
+  targetPid?: number;
+  api?: string;                 // e.g. SetWindowsHookExW / OpenProcess / WriteProcessMemory
+  threatName?: string;          // detection name when this is alert-grade
+  mitre?: string;
+  tactic?: string;
+  technique?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  expectedVerdict?: ExpectedVerdict;
+  description?: string;
+}
+export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const path = o.processPath ?? `C:\\Users\\${r.bareUser}\\AppData\\Roaming\\${o.processName}`;
+  const cmdline = o.cmdline ?? o.processName;
+  return {
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "process_access",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
+    expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
+    description: o.description ?? `${o.processName} accessed ${o.targetProcess ?? "another process"} on ${r.host}`,
+    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
+    raw: {
+      "crowdstrike.event_simpleName": o.api?.startsWith("SetWindowsHook") ? "SuspiciousWindowsHook" : "CrossProcessOpen",
+      "crowdstrike.ComputerName": r.host,
+      "crowdstrike.UserName": r.domainUser,
+      "crowdstrike.aid": r.sensorId,
+      "crowdstrike.FileName": o.processName,
+      "crowdstrike.FilePath": path,
+      "crowdstrike.CommandLine": cmdline,
+      ...(o.threatName ? { "crowdstrike.DetectName": o.threatName } : {}),
+      ...(o.tactic ? { "crowdstrike.Tactic": o.tactic } : {}),
+      ...(o.technique ? { "crowdstrike.Technique": o.technique } : {}),
+      ...(o.api ? { "crowdstrike.HookApi": o.api } : {}),
+      ...(o.targetProcess ? { "crowdstrike.CrossProcessTargetName": o.targetProcess } : {}),
+      ...(o.targetPid ? { "crowdstrike.CrossProcessTargetPid": String(o.targetPid) } : {}),
+      ...(o.sha256 ? { "process.hash.sha256": o.sha256 } : {}),
+      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      "event.action": "process_access",
     },
   };
 }
@@ -205,8 +303,9 @@ export function csDns(o: CsDnsOpts): TelemetryEvent {
 // ── File write (NewExecutableWritten / file op) ──────────────────────────────────────
 export interface CsFileOpts extends Ctx {
   path: string;
-  sha256?: string;
+  sha256?: string | null;       // null → omit a hash (a growing data buffer has none)
   action?: "file_create" | "file_modify" | "file_delete";
+  signed?: boolean;
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -216,22 +315,29 @@ export interface CsFileOpts extends Ctx {
 export function csFile(o: CsFileOpts): TelemetryEvent {
   const r = resolve(o);
   const name = o.path.split(/[\\/]/).pop() ?? o.path;
-  const sha256 = o.sha256 ?? makeSha256(`file:${o.path}`);
+  const action = o.action ?? "file_create";
+  const isExe = /\.(exe|dll|sys|scr)$/i.test(name);
+  const sha256 = o.sha256 === null ? undefined : (o.sha256 ?? makeSha256(`file:${o.path}`));
+  // A new PE is "NewExecutableWritten"; anything else is a plain FileWritten/Modified.
+  const simpleName = action === "file_delete" ? "FileDeleted"
+    : action === "file_modify" ? "FileWritten"
+    : isExe ? "NewExecutableWritten" : "FileWritten";
   return {
-    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: o.action ?? "file_create",
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: action,
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
-    file: { name, path: o.path, sha256 },
+    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}) },
     description: o.description ?? `${name} written on ${r.host}`,
     raw: {
-      "crowdstrike.event_simpleName": "NewExecutableWritten",
+      "crowdstrike.event_simpleName": simpleName,
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.aid": r.sensorId,
       "file.path": o.path,
       "file.name": name,
-      "file.hash.sha256": sha256,
-      "event.action": o.action ?? "file_create",
+      ...(sha256 ? { "file.hash.sha256": sha256 } : {}),
+      ...(o.signed !== undefined ? { "file.signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      "event.action": action === "file_delete" ? "file_deleted" : action === "file_modify" ? "file_modified" : "file_created",
     },
   };
 }
