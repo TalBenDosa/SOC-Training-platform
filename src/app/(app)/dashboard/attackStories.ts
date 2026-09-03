@@ -77,7 +77,7 @@ import { buildEdgeVpnCveExploitScenario }        from "@/lib/sim/scenario-packs/
 import { buildExfilFirstExtortionScenario }      from "@/lib/sim/scenario-packs/exfilFirstExtortion";
 import { buildHelpdeskMfaResetScenario }         from "@/lib/sim/scenario-packs/helpdeskMfaReset";
 import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
-import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
+import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 /**
@@ -657,7 +657,18 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     const h = e.hostname;
     if (h && !hSeen.has(h)) { hSeen.add(h); hostPool.push(h); }
   }
-  const companyDomain = [...domainCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  let companyDomain = [...domainCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  // R-01 (CRITICAL): host + IP were never made company-specific — the shared benign
+  // pool overlaps across companies, so the same WS-OPS-2214 / 10.10.55.19 opened in
+  // the EDR console for all five, and a QuantumBank attack read as a NexaCorp London
+  // workstation the analyst could not correlate to the feed. Draw hosts, the internal
+  // subnet and the domain from the per-company asset registry, which mirrors the
+  // conventions the SIEM feed uses — so the console shows the same host + IP as the
+  // feed. Registry wins over the benign-pool inference when the company is known.
+  const assets = companyId ? COMPANY_ASSETS[companyId] : undefined;
+  const registryHostPool = assets ? assets.hosts : hostPool;
+  if (assets) companyDomain = assets.domain;
 
   const pairs: [string, string][] = [];
 
@@ -681,7 +692,31 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // Story hostnames → the company's asset pool (deterministic per distinct host).
   const storyHosts = [...new Set(s.events.map(e => e.hostname).filter((h): h is string => !!h))];
   const hostMap = new Map<string, string>();
-  storyHosts.forEach((h, i) => { const t = hostPool.length ? hostPool[i % hostPool.length] : h; if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); } });
+  // Pick each host deterministically from the pool by hashing its name (so distinct
+  // story hosts spread across the company's assets instead of all landing on the
+  // first one), but offset by its position so two story hosts never collide onto one.
+  const hostHash = (h: string) => { let x = 2166136261; for (let i = 0; i < h.length; i++) { x ^= h.charCodeAt(i); x = Math.imul(x, 16777619); } return Math.abs(x); };
+  storyHosts.forEach((h, i) => {
+    const t = registryHostPool.length ? registryHostPool[(hostHash(h) + i) % registryHostPool.length] : h;
+    if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); }
+  });
+
+  // Story INTERNAL IPs → the company's own subnet (R-01). Only RFC1918 addresses are
+  // remapped — a public C2/attacker IP is company-agnostic and must stay identical so
+  // threat-intel pivots still work. Each distinct private IP keeps its last octet and
+  // takes the company's /24, so the host's IP correlates with the feed and two events
+  // on the same source IP still share one address in the console.
+  const ipMap = new Map<string, string>();
+  if (assets) {
+    const isPrivate = (ip: string) => /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip);
+    const remapIp = (ip?: string) => {
+      if (!ip || !isPrivate(ip) || ipMap.has(ip)) return;
+      const octet = Math.min(254, Math.max(1, Number(ip.split(".")[3]) || 10));
+      const t = `${assets.subnet}.${octet}`;
+      if (t !== ip) { ipMap.set(ip, t); pairs.push([ip, t]); }
+    };
+    for (const e of s.events) { remapIp(e.src_ip); remapIp(e.dst_ip); }
+  }
 
   // NetBIOS/realm domain forms (NEXACORP\\user) survive the email-domain swap and
   // still name the origin company, so map every origin DOMAIN\\user token to the
@@ -749,8 +784,11 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
         ...e,
         user_email: victim && e.user_email === victim && replacement ? replacement : e.user_email,
         hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
+        src_ip:     e.src_ip && ipMap.has(e.src_ip) ? ipMap.get(e.src_ip)! : e.src_ip,
+        dst_ip:     e.dst_ip && ipMap.has(e.dst_ip) ? ipMap.get(e.dst_ip)! : e.dst_ip,
         description: e.description ? subStr(e.description) : e.description,
         process: e.process ? (deepReplace(e.process, clean) as typeof e.process) : e.process,
+        network: e.network ? (deepReplace(e.network, clean) as typeof e.network) : e.network,
         raw: e.raw ? (deepReplace(e.raw, clean) as typeof e.raw) : e.raw,
       };
       // Reshape a foreign-EDR raw block into the company's own vendor convention.

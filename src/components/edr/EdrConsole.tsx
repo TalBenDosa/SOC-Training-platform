@@ -191,7 +191,11 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
         // A contained host shows no analyst-visible connections; a killed process's
         // C2 is gone with it. Both keep netstat consistent with the timeline.
         if (isolated) { out = "Host network-contained — only sensor traffic allowed. No analyst-visible connections."; break; }
-        const rows = liveProcs.flatMap(p => (p.network ?? []).map(c => `${c.proto ?? "TCP"}  ${p.name}(${p.pid}) -> ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}  ${c.direction}`));
+        const rows = liveProcs.flatMap(p => (p.network ?? []).map(c => {
+          const arrow = c.direction === "inbound" ? "<-" : "->";
+          const app = c.application ? `/${c.application}` : "";
+          return `${(c.proto ?? "tcp").toUpperCase()}${app}  ${p.name}(${p.pid}) ${arrow} ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}  ${c.direction.toUpperCase()}`;
+        }));
         out = rows.length ? rows.join("\n") : "No active connections."; break;
       }
       case "kill": {
@@ -417,7 +421,12 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
                           <tr key={i}>
                             <td className="py-1.5 pr-2 font-mono text-slate-500">{c.ts}</td>
                             <td className="py-1.5 pr-2 font-mono">
-                              <span className="text-slate-400">{c.method ?? c.proto ?? "TCP"}</span>
+                              <span className={c.direction === "inbound" ? "text-neon-amber" : "text-slate-500"} title={c.direction}>{c.direction === "inbound" ? "◄ in" : "out ►"}</span>
+                            </td>
+                            <td className="py-1.5 pr-2 font-mono">
+                              <span className="text-slate-400">{(c.proto ?? "tcp").toUpperCase()}</span>
+                              {c.application && <span className="text-cyber-300">/{c.application}</span>}
+                              {c.method && <span className="text-slate-400"> {c.method}</span>}
                               {c.status != null && (
                                 <span className={c.status >= 300 && c.status < 400 ? "text-neon-amber" : "text-slate-500"}> {c.status}</span>
                               )}
@@ -549,7 +558,10 @@ function TreeNode({ p, depth, childrenOf, expanded, toggle, selPid, setSel, detB
   const open = expanded.has(p.pid);
   const dets = detByPid.get(p.pid) ?? [];
   const verdictColor = reveal
-    ? p.verdict === "malicious" ? "text-severity-critical" : p.verdict === "suspicious" ? "text-neon-amber" : "text-slate-300"
+    ? p.verdict === "malicious" ? "text-severity-critical"
+      : p.verdict === "abused" ? "text-cyber-300"        // signed binary being abused — distinct from malware-red
+      : p.verdict === "suspicious" ? "text-neon-amber"
+      : "text-slate-300"
     : "text-slate-200";
   return (
     <div>
@@ -566,6 +578,7 @@ function TreeNode({ p, depth, childrenOf, expanded, toggle, selPid, setSel, detB
         <span className={`truncate font-medium ${verdictColor}`}>{p.name}</span>
         <span className="shrink-0 text-[10px] text-slate-500">{p.pid}</span>
         {!p.signed && <span className="shrink-0 rounded bg-severity-high/15 px-1 text-[9px] font-bold text-severity-high">unsigned</span>}
+        {reveal && p.verdict === "abused" && <span className="shrink-0 rounded bg-cyber-500/15 px-1 text-[9px] font-bold text-cyber-300">abused</span>}
         {dets.length > 0 && (
           <span className={`shrink-0 rounded border px-1 text-[9px] font-bold ${SEV_STYLE[dets[0].severity]}`}>
             ⚠ {dets[0].technique}

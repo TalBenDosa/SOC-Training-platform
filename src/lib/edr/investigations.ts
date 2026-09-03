@@ -11,7 +11,12 @@
  * hashDatabase.ts, so "Look up hash" resolves to a genuine verdict.
  */
 
-export type Verdict = "benign" | "suspicious" | "malicious";
+// "abused" = a legitimately-signed system binary or LOLBin (powershell.exe, cmd.exe,
+// sqlservr.exe, rundll32.exe…) being used for malicious ends. A real EDR never labels
+// a signed Microsoft binary "malicious" — it flags it as abused and puts the malice on
+// the command line and parent chain. Kept distinct so the console teaches the same
+// distinction the LOLBins room does, instead of colouring powershell.exe as malware.
+export type Verdict = "benign" | "suspicious" | "malicious" | "abused";
 
 export interface EdrNetConn {
   ts: string;
@@ -19,7 +24,8 @@ export interface EdrNetConn {
   remote_ip: string;
   remote_port: number;
   domain?: string;
-  proto?: string;
+  proto?: string;        // TRANSPORT only — tcp / udp / icmp (never a layer-7 name)
+  application?: string;  // layer-7 protocol — TLS / HTTP / DNS … (its own column)
   bytes?: number;
   method?: string;   // HTTP method — lets a browser's activity read as a request chain
   status?: number;   // HTTP status (200 / 301 / 302 …); a 3xx marks a redirect hop

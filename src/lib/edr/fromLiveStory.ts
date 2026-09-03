@@ -157,6 +157,39 @@ function imagePathOf(p: NonNullable<TelemetryEvent["process"]>, opts?: { malicio
   return p.path ?? p.name;
 }
 
+// R-07: benign "look twice" processes seeded into an otherwise two-node tree so the
+// analyst has to actually rule suspects out rather than flag the one tagged node. All
+// are genuine signed background processes from real install paths (no bad hash, no
+// detection) — a careful reader clears them; they are never the answer.
+const DISTRACTOR_POOL: { name: string; path: string; cmdline: string }[] = [
+  { name: "OneDrive.exe",        path: "C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe",                                  cmdline: "\"C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe\" /background" },
+  { name: "Teams.exe",           path: "C:\\Users\\Public\\AppData\\Local\\Microsoft\\Teams\\current\\Teams.exe",             cmdline: "\"Teams.exe\" --type=renderer --enable-features=..." },
+  { name: "GoogleUpdate.exe",    path: "C:\\Program Files (x86)\\Google\\Update\\GoogleUpdate.exe",                            cmdline: "\"GoogleUpdate.exe\" /ua /installsource scheduler" },
+  { name: "MsMpEng.exe",         path: "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.24010.7-0\\MsMpEng.exe", cmdline: "\"MsMpEng.exe\"" },
+  { name: "SearchIndexer.exe",   path: "C:\\Windows\\System32\\SearchIndexer.exe",                                            cmdline: "C:\\Windows\\System32\\SearchIndexer.exe /Embedding" },
+  { name: "RuntimeBroker.exe",   path: "C:\\Windows\\System32\\RuntimeBroker.exe",                                            cmdline: "C:\\Windows\\System32\\RuntimeBroker.exe -Embedding" },
+  { name: "SecurityHealthService.exe", path: "C:\\Windows\\System32\\SecurityHealthService.exe",                             cmdline: "C:\\Windows\\System32\\SecurityHealthService.exe" },
+  { name: "backgroundTaskHost.exe", path: "C:\\Windows\\System32\\backgroundTaskHost.exe",                                    cmdline: "\"backgroundTaskHost.exe\" -ServerName:App.AppXmtcan0h2tfbfy7k9kn8hbxb6dmzz1zh0.mca" },
+];
+
+// Signed system binaries and interpreters an attacker "lives off the land" with. When
+// one of these is the payload and carries no known-bad hash it is ABUSED, not malware.
+const EXTRA_LOLBINS = new Set(["sqlservr.exe", "w3wp.exe", "java.exe", "java", "httpd", "nginx", "node"]);
+
+// Unix/Linux binaries — used to tell a Linux/container host from a Windows one so the
+// console never puts an explorer.exe parent over a bash/nsenter tree (R-13 OS mismatch).
+const UNIX_PROCS = new Set(["bash", "sh", "zsh", "dash", "curl", "wget", "nsenter", "docker",
+  "dockerd", "containerd", "kubectl", "cron", "crond", "sshd", "ssh", "python3", "python",
+  "sudo", "systemd", "launchd", "perl", "ruby", "xmrig", "chmod", "chown", "cat", "grep", "scp"]);
+function isLolBin(name?: string): boolean {
+  const n = name?.toLowerCase() ?? "";
+  return Object.prototype.hasOwnProperty.call(CANONICAL_IMAGE_PATHS, n) || EXTRA_LOLBINS.has(n);
+}
+
+// Compare two HH:MM:SS stamps for "latest". localeCompare is correct within a day; a
+// tree that crosses midnight is vanishingly rare in one incident, so this stays simple.
+const tsSort = (a: string, b: string) => a.localeCompare(b);
+
 // Parents that have no business launching another executable — an Office doc or
 // a script host spawning a child is the classic "living off the land" tell.
 const ANOMALOUS_PARENTS = new Set([
@@ -187,6 +220,49 @@ function whyItStandsOut(
   return "Why it stands out: " + bits.join("; ") + ".";
 }
 
+// R-11: recover a process object from an endpoint detection that carries the binary
+// only in its vendor-native raw block (CrowdStrike `crowdstrike.process_name`,
+// SentinelOne `s1.process_name`, Sysmon `Image`, MDE `process.name`…), so a case whose
+// EDR events never populated the structured `process` field still opens with a walkable
+// tree. Returns [] when nothing names a real binary — a sensor-silence or pure-network
+// detection legitimately has no process tree and stays a non-EDR investigation.
+const PROC_NAME_KEYS = ["process.name", "process.image", "crowdstrike.process_name", "crowdstrike.ImageFileName", "s1.process_name", "Image", "InitiatingProcessFileName", "proc.name", "ProcessName"];
+const CMDLINE_KEYS   = ["process.command_line", "crowdstrike.CommandLine", "s1.command_line", "CommandLine", "cmdline", "InitiatingProcessCommandLine"];
+const PARENT_KEYS    = ["process.parent.name", "crowdstrike.parent_basefilename", "ParentImage", "s1.parent_process_name", "InitiatingProcessParentFileName"];
+const PROC_USER_KEYS = ["process.user", "crowdstrike.UserName", "user.name", "s1.process_user", "User", "SubjectUserName"];
+const baseName = (v: string) => v.split(/[\\/]/).pop() ?? v;
+function pickRaw(raw: Record<string, unknown> | undefined, keys: string[]): string | undefined {
+  for (const k of keys) { const v = raw?.[k]; if (typeof v === "string" && v.trim()) return v.trim(); }
+  return undefined;
+}
+function synthesizeProcessEvents(endpointEvents: TelemetryEvent[]): TelemetryEvent[] {
+  const out: TelemetryEvent[] = [];
+  const byName = new Map<string, number>();  // name → assigned pid (dedupe)
+  let nextPid = 4000;
+  for (const e of endpointEvents) {
+    const rawName = pickRaw(e.raw, PROC_NAME_KEYS);
+    const name = rawName ? baseName(rawName) : undefined;
+    if (!name || !/^[\w.-]+$/.test(name)) continue;      // must be a real binary token
+    const cmdline = pickRaw(e.raw, CMDLINE_KEYS) ?? name;
+    const parent = pickRaw(e.raw, PARENT_KEYS);
+    const user = pickRaw(e.raw, PROC_USER_KEYS) ?? e.user_email;
+    let pid = byName.get(`${name}|${cmdline}`);
+    if (pid == null) { pid = nextPid++; byName.set(`${name}|${cmdline}`, pid); }
+    out.push({
+      ...e,
+      process: {
+        pid,
+        name,
+        cmdline,
+        parent_name: parent ? baseName(parent) : undefined,
+        user,
+        hash: e.file?.sha256 ? { sha256: e.file.sha256 } : undefined,
+      },
+    });
+  }
+  return out;
+}
+
 function timelineKind(e: TelemetryEvent): EdrTimelineEvent["kind"] {
   const t = e.event_type;
   if (t.startsWith("net") || t === "http_request" || t === "dns_query" || t === "http_blocked") return "network";
@@ -199,8 +275,57 @@ export function buildInvestigationFromStory(
   story: { id: string; title: string; events: TelemetryEvent[] },
 ): EdrInvestigation | null {
   const events = story.events ?? [];
-  const procEvents = events.filter(e => e.process?.name && typeof e.process.pid === "number");
-  if (procEvents.length === 0) return null; // no endpoint tree to walk
+
+  // R-02: a story with NO endpoint (EDR / Sysmon / host-audit / Windows Security)
+  // telemetry is not an endpoint investigation. Kerberoasting, for example, lives in
+  // AD + DB-audit + SIEM; opening an EDR console for it forces the student to flag the
+  // victim's own legitimate, signed SQL Server as "malware" — the exact opposite of
+  // what the Kerberoasting room teaches. Such cases stay identity/DB investigations.
+  const ENDPOINT_SOURCES = new Set(["edr", "sysmon", "linux_audit", "windows_security"]);
+  if (!events.some(e => ENDPOINT_SOURCES.has(e.source))) return null;
+
+  let procEvents = events.filter(e => e.process?.name && typeof e.process.pid === "number");
+
+  // R-11: endpoint telemetry exists but the EDR detections carry no process object
+  // (ESXi ransomware, k8s pod escape, some chains) — synthesise a minimal process from
+  // the endpoint detections that DO name a binary, so the case opens instead of leaving
+  // the "Investigate in EDR" button silently dead. Only synthesise when we can name a
+  // real binary (file.path/name or a process-like token in the raw); never fabricate.
+  if (procEvents.length === 0) {
+    const synth = synthesizeProcessEvents(events.filter(e => ENDPOINT_SOURCES.has(e.source)));
+    if (synth.length === 0) return null; // nothing nameable — leave it non-EDR
+    events.push(...synth);
+    procEvents = synth;
+  }
+
+  // Is this a Linux / container / macOS host? Drives OS-correct tree roots, the host
+  // header, and the user format (R-13). True when the telemetry is host-audit/k8s, the
+  // process names are predominantly unix, or an image path is POSIX-absolute.
+  const winProcCount = procEvents.filter(e => /\.exe$/i.test(e.process?.name ?? "")).length;
+  const nixProcCount = procEvents.filter(e => {
+    const n = e.process?.name?.toLowerCase() ?? "";
+    return UNIX_PROCS.has(n) || (!!n && !/\.\w{2,4}$/.test(n));
+  }).length;
+  const isLinux = events.some(e => e.source === "linux_audit" || e.source === "k8s_audit")
+    || nixProcCount > winProcCount
+    || procEvents.some(e => (e.process?.path ?? "").startsWith("/"));
+
+  // R-13: one user format across the whole tree. The console mixed "NEXACORP\r.avraham"
+  // with bare "s.patel" / "svc-mssql" on the same screen; a real EDR shows DOMAIN\user
+  // consistently on Windows. Derive the realm from the case's own identities and
+  // normalise every process owner to it (system principals like NT AUTHORITY\SYSTEM are
+  // left as-is; a Linux host keeps bare unix usernames like "root", which have no realm).
+  const caseDomain = mostCommon(events.map(e => e.user_email?.includes("@") ? e.user_email.split("@")[1] : undefined));
+  const netbios = (caseDomain?.split(".")[0] ?? "").toUpperCase();
+  const normUser = (u?: string): string => {
+    if (!u || !u.trim()) return "unknown";
+    const v = u.trim();
+    if (v.includes("\\")) return v;                              // already DOMAIN\user
+    if (/^(nt authority|builtin|nt service|nt virtual|window manager|font driver)/i.test(v)) return v;
+    const bare = v.includes("@") ? v.split("@")[0] : v;
+    if (isLinux) return bare;                        // unix has no DOMAIN\ realm
+    return netbios ? `${netbios}\\${bare}` : bare;
+  };
 
   // ── Processes (deduped by pid), plus stubs for referenced-but-unseen parents ──
   const procByPid = new Map<number, EdrProcess>();
@@ -235,7 +360,7 @@ export function buildInvestigationFromStory(
       ppid: p.parent_pid ?? 0,
       name: p.name,
       cmdline: p.cmdline ?? p.name,
-      user: p.user ?? e.user_email ?? e.user?.email ?? "unknown",
+      user: normUser(p.user ?? e.user_email ?? e.user?.email),
       path: imagePath,
       signed,
       sha256,
@@ -258,37 +383,145 @@ export function buildInvestigationFromStory(
       const parentPath = imagePathOf({ pid: p.parent_pid, name: parentName, cmdline: parentName }, { malicious: false });
       procByPid.set(p.parent_pid, {
         pid: p.parent_pid, ppid: 0, name: parentName,
-        cmdline: p.parent_name ?? "—", user: p.user ?? "unknown",
+        cmdline: p.parent_name ?? "—", user: normUser(p.user),
         path: parentPath, signed: true, startedAt: hhmmss(e.ts), verdict: "benign",
         network: [], files: [],
       });
     }
   }
+
+  // R-12: a process that never legitimately sits at the root of a tree on a real host —
+  // cmd.exe, WINWORD.EXE, chrome.exe, powershell.exe, svchost.exe — must not appear with
+  // ppid 0 (which is the System Idle Process). Give each such orphan the parent it would
+  // really have: explorer.exe for user apps, services.exe for svchost — or, on a Linux/
+  // container host, the shell (bash), never a Windows explorer.exe. One shared parent per
+  // kind keeps the tree from sprouting a forest of identical roots.
+  const LEGIT_ROOTS = new Set([
+    // Windows
+    "explorer.exe", "userinit.exe", "wininit.exe", "services.exe", "smss.exe", "csrss.exe",
+    "lsass.exe", "system", "kernel_task", "w3wp.exe",
+    // Unix / container
+    "systemd", "init", "launchd", "sshd", "bash", "sh", "zsh", "dash", "dockerd",
+    "containerd", "cron", "crond", "kubelet", "containerd-shim",
+  ]);
+  let synthPid = 90000;
+  const sharedParent = new Map<string, number>();
+  const ensureParent = (name: string, user: string, startedAt: string): number => {
+    const existing = sharedParent.get(name);
+    if (existing != null) return existing;
+    const pid = synthPid++;
+    sharedParent.set(name, pid);
+    procByPid.set(pid, {
+      pid, ppid: 0, name, cmdline: name, user,
+      path: imagePathOf({ pid, name, cmdline: name }, { malicious: false }),
+      signed: true, startedAt, verdict: "benign", network: [], files: [],
+    });
+    return pid;
+  };
+  for (const p of [...procByPid.values()]) {
+    if (p.ppid !== 0) continue;
+    const n = p.name.toLowerCase();
+    if (LEGIT_ROOTS.has(n)) continue;
+    const parentName = isLinux ? "bash" : n === "svchost.exe" ? "services.exe" : "explorer.exe";
+    p.ppid = ensureParent(parentName, p.user, p.startedAt);
+  }
+
   const processes = [...procByPid.values()];
 
   // ── Payload = the process to flag. Prefer a known-bad hash; else the highest-
   //    severity endpoint detection; else the last-started suspicious process. ──
   const byHash = processes.filter(p => p.sha256 && lookupHash(p.sha256!)?.malicious);
   const payload =
-    byHash.sort((a, b) => a.startedAt.localeCompare(b.startedAt)).at(-1)
-    ?? processes.filter(p => p.verdict !== "benign").sort((a, b) => a.startedAt.localeCompare(b.startedAt)).at(-1)
+    byHash.sort((a, b) => tsSort(a.startedAt, b.startedAt)).at(-1)
+    ?? processes.filter(p => p.verdict !== "benign").sort((a, b) => tsSort(a.startedAt, b.startedAt)).at(-1)
     ?? null;
-  if (payload) payload.verdict = "malicious";
+  // R-04: the process to flag is not always "malicious". A signed system binary or
+  // LOLBin (powershell.exe, cmd.exe, sqlservr.exe, rundll32.exe…) with no known-bad
+  // hash that is the payload is being ABUSED, not itself malware — a real EDR colours
+  // it distinctly and puts the malice on its command line and parent. Only an unsigned
+  // binary, or one whose hash matches a known-bad sample, is labelled malicious.
+  if (payload) {
+    const badHash = !!(payload.sha256 && lookupHash(payload.sha256)?.malicious);
+    payload.verdict = badHash ? "malicious"
+      : (payload.signed || isLolBin(payload.name)) ? "abused"
+      : "malicious";
+  }
+
+  // R-07: a two-node tree (payload + its parent) makes "flag the payload" a statement,
+  // not a decision — the one flagged node already wears a red ATT&CK tag. Seed a couple
+  // of BENIGN look-twice siblings — real signed background processes an untrained eye
+  // might suspect (OneDrive, Teams, a Google updater, the AV engine) — so the analyst
+  // has to actually rule them out. They carry the genuine benign tells (signed, from a
+  // real install path, no bad hash, no detection), so a careful reader clears them; they
+  // are never the answer. Deterministic per case, and only when the tree is thin AND
+  // there is a real payload (an all-benign FP case needs no manufactured suspects).
+  if (payload && processes.length <= 2) {
+    const anchorPpid = payload.ppid || processes.find(p => p.ppid !== 0)?.ppid || 0;
+    const startedAt = payload.startedAt;
+    const hash = (() => { let x = 2166136261; for (const c of story.id) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return Math.abs(x); })();
+    const chosen = [DISTRACTOR_POOL[hash % DISTRACTOR_POOL.length], DISTRACTOR_POOL[(hash + 1) % DISTRACTOR_POOL.length]];
+    let dpid = 70000;
+    for (const d of chosen) {
+      if (processes.some(p => p.name.toLowerCase() === d.name.toLowerCase())) continue; // don't duplicate a real one
+      const proc = { pid: dpid++, ppid: anchorPpid, name: d.name, cmdline: d.cmdline, user: payload.user,
+        path: d.path, signed: true, startedAt, verdict: "benign" as Verdict, network: [], files: [] };
+      procByPid.set(proc.pid, proc);
+      processes.push(proc);
+    }
+  }
 
   // ── Attach network / file activity to the owning process (orphans → payload) ──
+  // The host's own IP — needed to tell an INBOUND request (someone connecting TO the
+  // host) from an OUTBOUND one (the host reaching out). Computed here so R-05 works.
+  const hostIp = mostCommon(procEvents.map(e => e.src_ip)) ?? mostCommon(events.map(e => e.src_ip));
+  // R-06: orphan network events (a firewall/proxy line with no process) must still land
+  // somewhere or the console's netstat is empty — worst on a network-only case like a
+  // drive-by browser miner or an RDP brute force, whose correct verdict is "benign/FP"
+  // (so there is no payload) yet whose whole story IS the network traffic. Fall back to
+  // the browser / most-relevant real process so the analyst can actually see it.
+  const orphanOwner = payload
+    ?? processes.find(p => p.ppid !== 0)   // a real (non-root-stub) process — the app that browsed
+    ?? processes[0]
+    ?? null;
   for (const e of events) {
-    const owner = (e.process?.pid != null && procByPid.get(e.process.pid)) || payload;
+    const owner = (e.process?.pid != null && procByPid.get(e.process.pid)) || orphanOwner;
     if (!owner) continue;
     const net = e.network;
-    if ((net?.domain || net?.url || e.dst_ip) && (owner.network!.length < 8)) {
+    // R-06: a DNS query IS network activity — surface it (a DNS-tunnelling case is
+    // nothing BUT DNS). Pull the queried name from the structured dns/network fields
+    // or the vendor raw block, so `netstat` in the console is never empty when the
+    // story carried DNS or connection telemetry.
+    const isDns = e.source === "dns" || e.event_type === "dns_query" || (e.event_type ?? "").includes("dns");
+    const domain = net?.domain ?? hostOf(net?.url) ?? e.dns?.query
+      ?? pickRaw(e.raw, ["dns.question.name", "dns.query", "question.name", "query", "dns_query"]);
+    if ((domain || net?.url || e.dst_ip) && owner.network!.length < 8) {
+      // R-05: a connection whose DESTINATION is our own host is an INBOUND request (a
+      // web server receiving a scan or exploit), so the remote party is the SOURCE, not
+      // the host "connecting to itself". Otherwise the host is reaching out (C2/exfil).
+      const inbound = !!(e.dst_ip && hostIp && e.dst_ip === hostIp);
+      const remote_ip = inbound ? (e.src_ip ?? "—") : (e.dst_ip ?? "—");
+      // R-08: transport protocol (tcp/udp/icmp) goes in `proto`; the layer-7 protocol
+      // (TLS/HTTP/DNS) goes in its own `application` column — no netstat prints "TLS"
+      // in the protocol field.
+      const rawProto = String(e.protocol ?? "").toLowerCase();
+      const isTransport = /^(tcp|udp|icmp)$/.test(rawProto);
+      const port = e.dst_port ?? (net?.url?.startsWith("https") ? 443 : isDns ? 53 : 80);
+      const application =
+        isDns || port === 53 ? "DNS"
+        : net?.url?.startsWith("https") || port === 443 ? "TLS"
+        : net?.url?.startsWith("http") || net?.method || net?.status || port === 80 || port === 8080 ? "HTTP"
+        : !isTransport && rawProto ? rawProto.toUpperCase()
+        : undefined;
+      const proto = isTransport ? rawProto : (isDns || port === 53 ? "udp" : "tcp");
       owner.network!.push({
         ts: hhmmss(e.ts),
-        direction: "outbound",
-        remote_ip: e.dst_ip ?? "—",
-        remote_port: e.dst_port ?? (net?.url?.startsWith("https") ? 443 : 80),
-        domain: net?.domain ?? hostOf(net?.url),
-        proto: e.protocol ?? (net?.url?.startsWith("https") ? "TLS" : "HTTP"),
-        bytes: net?.bytes_out,
+        direction: inbound ? "inbound" : "outbound",
+        remote_ip,
+        remote_port: port,
+        domain,
+        proto,
+        application,
+        bytes: inbound ? (net?.bytes_in ?? net?.bytes_out) : (net?.bytes_out ?? net?.bytes_in),
         method: net?.method,
         status: net?.status,
         url: net?.url,
@@ -315,6 +548,24 @@ export function buildInvestigationFromStory(
   const ACTION_LABEL: Record<string, string> = {
     quarantine: "Quarantine", kill: "Kill Process", block: "Prevention", prevent: "Prevention",
   };
+  // R-10: the detection NAME the analyst reads. The old derivation split the
+  // description on ANY ".", so "r.avraham ran…" became the one-character name "r" (and
+  // the long ones were chopped mid-word at 80). Prefer the authored rule name, then a
+  // vendor threat name, then the first real CLAUSE of the description — split only on a
+  // sentence break (". ") / dash / semicolon, never a bare dot, so dotted usernames and
+  // domains survive. Never returns a sub-4-character name.
+  const detectionName = (e: TelemetryEvent): string => {
+    const rule = e.rule?.name?.trim();
+    if (rule && rule.length >= 4) return rule.slice(0, 80);
+    const threat = pickRaw(e.raw, ["threat.name", "crowdstrike.detection.name", "s1.threat_name", "detection_name", "alert.name"]);
+    if (threat && threat.length >= 4) return threat.slice(0, 80);
+    const d = (e.description ?? "").trim();
+    if (d) {
+      const clause = d.split(/(?:\.\s)|[—;]/)[0].trim();
+      return (clause.length >= 8 ? clause : d).slice(0, 80);
+    }
+    return e.mitre_technique ? `Detection ${e.mitre_technique}` : (e.event_type ?? "EDR Detection");
+  };
   const detectionKind = (e: TelemetryEvent) => {
     const hay = `${e.event_type ?? ""} ${String(e.raw?.["action_result"] ?? "")} ${String(e.raw?.["quarantine.status"] ?? "")}`.toLowerCase();
     if (/quarantin/.test(hay)) return "quarantine";
@@ -331,7 +582,11 @@ export function buildInvestigationFromStory(
     const pid = e.process?.pid;
     if (pid == null) continue;
     const sevOk = e.severity === "critical" || e.severity === "high" || e.severity === "medium";
-    const techniqueDet = !!e.mitre_technique && sevOk;
+    // R-03: an EDR-source event carrying a MITRE technique is a detection the analyst saw
+    // in the feed AT ANY SEVERITY — a low-severity T1204.002 process-create still fired a
+    // rule. Require medium+ only for non-EDR technique events (a firewall/AD line), so the
+    // console's detection set matches the EDR events shown in the SIEM feed.
+    const techniqueDet = !!e.mitre_technique && (sevOk || e.source === "edr");
     const edrDet = e.source === "edr" && isDetectionEvent(e);
     if (!techniqueDet && !edrDet) continue;
     // A technique row keys on pid+technique; a techniqueless prevention keys on its
@@ -347,7 +602,7 @@ export function buildInvestigationFromStory(
     detections.push({
       pid,
       technique,
-      name: e.rule?.name ?? e.description?.split(/[.—]/)[0]?.trim().slice(0, 80) ?? e.event_type,
+      name: detectionName(e),
       severity,
       ioa: e.description,
     });
@@ -375,8 +630,7 @@ export function buildInvestigationFromStory(
       text: e.description ?? e.event_type.replace(/_/g, " "),
     }));
 
-  // ── Host header ──
-  const isLinux = events.some(e => e.source === "linux_audit");
+  // ── Host header ── (isLinux computed once, above, so the OS label matches the tree)
   const host = {
     name: mostCommon(procEvents.map(e => e.hostname)) ?? mostCommon(events.map(e => e.hostname)) ?? "endpoint",
     os: isLinux ? "Linux" : "Windows",
@@ -385,7 +639,9 @@ export function buildInvestigationFromStory(
   };
 
   const explanation = payload
-    ? `${payload.name} (pid ${payload.pid}) is the payload of this attack: ${payload.signed ? "" : "an unsigned binary "}running "${payload.cmdline}"${payload.sha256 && lookupHash(payload.sha256)?.malicious ? ", with a hash that matches a known-bad sample" : ""}. It is the process in the chain that carried the malicious behaviour — the parents above it are the delivery chain that launched it.`
+    ? payload.verdict === "abused"
+      ? `${payload.name} (pid ${payload.pid}) is the process to flag — but note it is a legitimate, signed binary being ABUSED, not malware itself. The malice is in what it was made to do: "${payload.cmdline}". Contain it and its parent chain, but in your report name the technique (living-off-the-land), not the binary, as the threat — ${payload.name} is trusted and will run again.`
+      : `${payload.name} (pid ${payload.pid}) is the payload of this attack: ${payload.signed ? "" : "an unsigned binary "}running "${payload.cmdline}"${payload.sha256 && lookupHash(payload.sha256)?.malicious ? ", with a hash that matches a known-bad sample" : ""}. It is the process in the chain that carried the malicious behaviour — the parents above it are the delivery chain that launched it.`
     : "No single payload process stood out — treat the highest-severity detection in the tree as the process to contain, and correlate it with the timeline.";
 
   return {

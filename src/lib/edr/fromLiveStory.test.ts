@@ -72,10 +72,22 @@ describe("buildInvestigationFromStory", () => {
     expect(buildInvestigationFromStory({ id: "x", title: "x", events: [] })).toBeNull();
   });
 
-  // The EDR is an investigation tool — its content MUST be tied to the case the
-  // student saw in the feed. Every entity it shows (host, process names, hashes,
-  // C2 domains) has to come from the story's own telemetry, never invented.
-  it("keeps the EDR strictly tied to the log — no invented entities", () => {
+  // The EDR is an investigation tool — its ATTACK content MUST be tied to the case the
+  // student saw in the feed. Every attack entity it shows (host, the payload and any
+  // flagged process, hashes, C2 domains) has to come from the story's own telemetry,
+  // never invented. Two classes of node are LEGITIMATELY synthetic and exempt from the
+  // name check: (1) benign tree-root parents (explorer.exe / services.exe / bash) added
+  // so a child process isn't shown at PID 0, and (2) benign "look-twice" distractors
+  // seeded into a thin tree so flagging the payload is a decision — both are always
+  // verdict:"benign", carry no hash and no network, and are never the answer. Hashes and
+  // C2 domains are checked for EVERY node, so no invented IOC can slip through.
+  it("keeps the EDR strictly tied to the log — no invented attack entities", () => {
+    // process/parent names can live in the structured field OR the vendor raw block
+    // (a detection whose process was only in crowdstrike.process_name, recovered by R-11).
+    const RAW_NAME_KEYS = ["process.name", "process.image", "crowdstrike.process_name",
+      "crowdstrike.ImageFileName", "s1.process_name", "Image", "InitiatingProcessFileName",
+      "proc.name", "ProcessName", "crowdstrike.parent_basefilename", "ParentImage"];
+    const base = (v: string) => v.split(/[\\/]/).pop() ?? v;
     for (const [id, b] of ENDPOINT_STORIES) {
       const inv = buildInvestigationFromStory({ id, title: b.title, events: b.events });
       if (!inv) continue;
@@ -83,13 +95,14 @@ describe("buildInvestigationFromStory", () => {
       for (const e of b.events) {
         [e.hostname, e.src_ip, e.dst_ip, e.process?.name, e.process?.parent_name,
          e.process?.hash?.sha256, e.network?.domain].forEach(v => { if (v) log.add(v); });
+        for (const k of RAW_NAME_KEYS) { const v = e.raw?.[k]; if (typeof v === "string" && v) log.add(base(v)); }
       }
-      // Host, every process name + hash, and every C2 domain must be from the log.
+      // Host, and every FLAGGED (non-benign) process name, must be from the log.
       if (inv.host.name !== "endpoint") expect(log.has(inv.host.name)).toBe(true);
       for (const p of inv.processes) {
-        expect(log.has(p.name)).toBe(true);
-        if (p.sha256) expect(log.has(p.sha256)).toBe(true);
-        for (const c of p.network ?? []) if (c.domain) expect(log.has(c.domain)).toBe(true);
+        if (p.verdict !== "benign") expect(log.has(p.name)).toBe(true);
+        if (p.sha256) expect(log.has(p.sha256)).toBe(true);   // no invented hash, ever
+        for (const c of p.network ?? []) if (c.domain) expect(log.has(c.domain)).toBe(true); // no invented C2
       }
     }
   });

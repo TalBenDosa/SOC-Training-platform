@@ -26,7 +26,7 @@ const imp = (p) => import(pathToFileURL(path.join(ROOT, p)).href);
 const { pickStoryForCompany, instantiateStory } = await imp("src/app/(app)/dashboard/attackStories.ts");
 const { COMPANY_EVENTS } = await imp("src/lib/sim/companyProfiles.ts");
 const { BENIGN_EVENTS } = await imp("src/app/(app)/dashboard/benignEvents.ts");
-const { COMPANY_PROFILES } = await imp("src/lib/sim/companyProfilesMeta.ts");
+const { COMPANY_PROFILES, COMPANY_ASSETS } = await imp("src/lib/sim/companyProfilesMeta.ts");
 
 const profById = new Map(COMPANY_PROFILES.map((p) => [p.id, p]));
 const SERVICE = /(svc[-_.]|service|system|daemon|noreply|no-reply|backup|scanner|agent@)/i;
@@ -52,7 +52,13 @@ function ownDomain(id) {
   return [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }
 function hostSet(id) {
-  return new Set(getCompanyEvents(id).map((e) => e.hostname).filter(Boolean));
+  // Valid asset names = the company's benign-pool hostnames PLUS the explicit per-company
+  // asset registry (R-01), which instantiateStory now draws host swaps from. Registry
+  // hosts (e.g. LAP-QB-4471, prod-srv-01) are legitimate company assets, not leaks.
+  return new Set([
+    ...getCompanyEvents(id).map((e) => e.hostname).filter(Boolean),
+    ...(COMPANY_ASSETS?.[id]?.hosts ?? []),
+  ]);
 }
 
 const COMPANIES = COMPANY_PROFILES.map((p) => p.id).filter((id) => id !== "nexacorp");

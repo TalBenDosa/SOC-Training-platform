@@ -152,3 +152,46 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
     }
   },
 ];
+
+// ─── Per-company asset registry (R-01) ────────────────────────────────────────
+// The hostname convention, primary internal subnet, DNS domain and NetBIOS realm
+// each company actually uses in its SIEM feed (companyProfiles.ts COMPANY_EVENTS).
+// instantiateStory() remaps a shared attack story onto THESE, so the EDR console
+// shows the same host and IP the analyst just saw in the feed — correlation holds —
+// instead of a generic NexaCorp workstation for every company. Kept here (the light
+// module) so the adaptation layer needn't pull in the heavy event pools. Values are
+// aligned with the real conventions in COMPANY_EVENTS; a regression gate asserts it.
+export interface CompanyAssets {
+  hosts:   string[]; // distinct endpoint names this company owns
+  subnet:  string;   // dominant internal /24 (first three octets), e.g. "10.100.1"
+  domain:  string;   // DNS / email domain, e.g. "quantumbank.ch"
+  netbios: string;   // NetBIOS realm, e.g. "QUANTUMBANK"
+}
+
+export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
+  nexacorp: {
+    hosts: ["WS-HR-1182", "WS-OPS-2214", "WS-MKT-3301", "WS-ACC-4477", "WS-ENG-2093",
+            "WS-SALES-1876", "WS-FIN-1193", "WS-FIN-2847", "SRV-NXC-FS01", "SRV-NXC-DC01"],
+    subnet: "10.10.20", domain: "nexacorp.com", netbios: "NEXACORP",
+  },
+  rocketstack: {
+    hosts: ["LAP-007", "LAP-012", "LAP-003", "SRV-PROD-001", "macbook-ops-03",
+            "LAP-DEV-12", "LAP-DEV-07", "WS-ENG-3301", "prod-srv-01"],
+    subnet: "172.16.10", domain: "rocketstack.io", netbios: "ROCKETSTACK",
+  },
+  medcore: {
+    hosts: ["WS-MED-022", "WS-MED-045", "WS-MED-067", "WS-NURS-033", "WS-NURS-044",
+            "SRV-MEDCORE-EMR01", "SRV-MEDCORE-FILE01", "SRV-MEDCORE-DC01", "DC-MED-NL01", "NRS-TERM-088"],
+    subnet: "192.168.10", domain: "medcorehealth.org", netbios: "MEDCORE",
+  },
+  globallogis: {
+    hosts: ["SRV-GL-ERP01", "SRV-GL-WMS01", "WS-LOG-045", "WS-LOG-088", "WH-TERM-012",
+            "WH-TERM-005", "DC-GL-FRA01", "SRV-GL-LINUX01", "SRV-GL-APP02", "SRV-GL-SAP01"],
+    subnet: "10.50.10", domain: "globallogis.de", netbios: "GLOBALLOGIS",
+  },
+  quantumbank: {
+    hosts: ["WKS-QB-012", "WKS-QB-020", "WKS-QB-033", "WKS-QB-055", "WKS-QB-077",
+            "SRV-QB-ADMIN01", "SRV-QB-BACKUP01", "LAP-QB-4471", "LAP-QB-2290"],
+    subnet: "10.100.1", domain: "quantumbank.ch", netbios: "QUANTUMBANK",
+  },
+};
