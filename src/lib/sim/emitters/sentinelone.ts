@@ -28,6 +28,9 @@ export interface S1DetectionOpts extends Ctx {
   action?: "prevented" | "killed" | "quarantined" | "detected";
   confidence?: "malicious" | "suspicious";
   expectedVerdict?: ExpectedVerdict;
+  pid?: number;
+  parentPid?: number;
+  eventType?: "av_detection" | "edr_alert";
   description?: string;
 }
 const MITIGATION: Record<NonNullable<S1DetectionOpts["action"]>, { status: string; result: string; quarantine: string }> = {
@@ -44,14 +47,14 @@ export function s1Detection(o: S1DetectionOpts): TelemetryEvent {
   const sha256 = o.sha256 ?? makeSha256(`${o.threatName}:${o.processName}`);
   const path = o.processPath ?? downloadsPath(r.bareUser, o.processName);
   const cmdline = o.cmdline ?? `"${path}"`;
-  const pid = pidFrom(o.id);
+  const pid = o.pid ?? pidFrom(o.id);
   return {
-    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "av_detection",
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: o.eventType ?? "av_detection",
     severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: true,
     expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
     description: o.description ?? `${VENDOR} ${action === "detected" ? "detected" : "mitigated"} ${o.threatName} on ${r.host}`,
-    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, user: r.domainUser, hash: { sha256 } },
+    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: { sha256 } },
     file: { name: o.processName, path, sha256 },
     raw: {
       "s1.eventType": "Threats",
@@ -83,6 +86,10 @@ export interface S1ProcessOpts extends Ctx {
   parentPid?: number;
   sha256?: string;
   mitre?: string;
+  pid?: number;
+  signed?: boolean;
+  /** when a process ALSO writes a Run/service key (cmd reg add, reg.exe, powershell) */
+  registry?: { keyPath: string; valueName: string; valueData: string };
   tactic?: string;
   severity?: Severity;
   isDetection?: boolean;
@@ -90,18 +97,21 @@ export interface S1ProcessOpts extends Ctx {
 }
 export function s1Process(o: S1ProcessOpts): TelemetryEvent {
   const r = resolve(o);
-  const pid = pidFrom(o.id);
+  const pid = o.pid ?? pidFrom(o.id);
   const ppid = o.parentPid ?? pidFrom(`${o.id}:parent`);
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
+  const reg = o.registry;
+  const hive = reg ? reg.keyPath.split("\\")[0].toUpperCase().replace("HKCU", "HKEY_CURRENT_USER").replace("HKLM", "HKEY_LOCAL_MACHINE") : undefined;
   return {
-    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "process_create",
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: reg ? "registry_set" : "process_create",
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
     description: o.description ?? `${o.processName} launched on ${r.host}`,
     process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
+    ...(reg ? { registry: { path: reg.keyPath, key: reg.valueName, value: reg.valueData } } : {}),
     raw: {
-      "s1.eventType": "Process Creation",
+      "s1.eventType": reg ? "Registry Modification" : "Process Creation",
       "s1.agent.computerName": r.host,
       "s1.agent.uuid": r.sensorId,
       "s1.srcProcName": o.processName,
@@ -110,7 +120,62 @@ export function s1Process(o: S1ProcessOpts): TelemetryEvent {
       "s1.srcProcUser": r.domainUser,
       "s1.srcProcPid": String(pid),
       ...(o.sha256 ? { "process.hash.sha256": o.sha256 } : {}),
+      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...(reg ? { "registry.hive": hive!, "registry.path": reg.keyPath, "registry.value": reg.valueName, "registry.data.strings": reg.valueData } : {}),
       "process.command_line": o.cmdline,
+    },
+  };
+}
+
+// ── Cross-process access (hook / injection / clipboard listener / LSASS read) ────────
+export interface S1ProcessAccessOpts extends Ctx {
+  processName: string;
+  processPath?: string;
+  cmdline?: string;
+  parentName?: string;
+  parentPid?: number;
+  pid?: number;
+  sha256?: string;
+  signed?: boolean;
+  targetProcess?: string;
+  indicatorName?: string;       // S1 behavioural indicator, e.g. "Process Monitors and Modifies Clipboard Content"
+  threatName?: string;
+  mitre?: string;
+  tactic?: string;
+  technique?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  expectedVerdict?: ExpectedVerdict;
+  description?: string;
+}
+export function s1ProcessAccess(o: S1ProcessAccessOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const path = o.processPath ?? `C:\\Users\\${r.bareUser}\\AppData\\Roaming\\${o.processName}`;
+  const cmdline = o.cmdline ?? o.processName;
+  return {
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "process_access",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
+    expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
+    description: o.description ?? `${o.processName} performed suspicious cross-process activity on ${r.host}`,
+    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
+    raw: {
+      "s1.eventType": "Indicators",
+      "s1.agent.computerName": r.host,
+      "s1.agent.uuid": r.sensorId,
+      "s1.detection.classification": "Suspicious Activity",
+      "s1.detection.classification_source": "Behavioral Engine",
+      ...(o.indicatorName ? { "s1.indicator.name": o.indicatorName } : {}),
+      ...(o.tactic ? { "s1.indicator.tactic": o.tactic } : {}),
+      ...(o.technique ? { "s1.indicator.technique": o.technique } : {}),
+      ...(o.mitre ? { "s1.indicator.technique_id": o.mitre } : {}),
+      ...(o.threatName ? { "s1.threat.threatName": o.threatName } : {}),
+      ...(o.targetProcess ? { "s1.tgtProcName": o.targetProcess } : {}),
+      "s1.mitigation_status": "not_mitigated",
+      "s1.srcProcName": o.processName,
+      ...(o.sha256 ? { "process.hash.sha256": o.sha256 } : {}),
+      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
     },
   };
 }
