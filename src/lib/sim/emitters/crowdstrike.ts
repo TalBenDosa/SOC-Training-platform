@@ -17,54 +17,10 @@
  * EDR console shows the same host + IP the SIEM feed did.
  */
 import type { TelemetryEvent, Severity, ExpectedVerdict } from "../types";
-import { hashString } from "../rng";
-import { pickHost, pickUser, ipFor, netbiosUser } from "../fabric";
 import { makeSha256 } from "../iocs";
+import { type Ctx, resolve, pidFrom, SEV_NAME, downloadsPath } from "./_core";
 
 const VENDOR = "CrowdStrike Falcon";
-
-// A stable 32-hex Falcon Agent ID (aid) per host — the sensor's identity, constant for
-// a given endpoint across all its events (as real Falcon telemetry is).
-function aidFor(host: string): string {
-  return makeSha256(`aid:${host}`).slice(0, 32);
-}
-// A stable decimal PID from a seed — Falcon FDR carries a hex PID and a *_decimal twin.
-function pidFrom(seed: string): number {
-  return 1000 + (hashString(`pid:${seed}`) % 63000);
-}
-// Human severity name Falcon prints, from the platform severity.
-const SEV_NAME: Record<Severity, string> = {
-  critical: "Critical", high: "High", medium: "Medium", low: "Low", informational: "Informational",
-};
-
-// Shared identity/asset resolution: caller may pass explicit host/user/ip, else the
-// fabric supplies company-native ones keyed by the event id (stable per event).
-interface Ctx {
-  id: string;
-  ts: string;
-  companyId?: string;
-  host?: string;
-  /** login name or email; rendered as DOMAIN\user in the raw block */
-  user?: string;
-  srcIp?: string;
-  incidentId?: string;
-}
-function resolve(c: Ctx) {
-  const host = c.host ?? pickHost(c.companyId, c.id, "workstation");
-  const ru = c.user ? { name: c.user.includes("@") ? c.user.split("@")[0] : c.user, email: c.user.includes("@") ? c.user : undefined }
-                    : pickUser(c.companyId, c.id);
-  const bareUser = ru.name;
-  const email = ("email" in ru && ru.email) ? ru.email : undefined;
-  const srcIp = c.srcIp ?? ipFor(c.companyId, host);   // keyed by host → same host, same IP
-  return {
-    host,
-    bareUser,
-    email,
-    domainUser: netbiosUser(c.companyId, bareUser),
-    srcIp,
-    aid: aidFor(host),
-  };
-}
 
 // ── Detection / prevention (DetectionSummaryEvent) ───────────────────────────────────
 export interface CsDetectionOpts extends Ctx {
@@ -94,7 +50,7 @@ export function csDetection(o: CsDetectionOpts): TelemetryEvent {
   const action = o.action ?? "quarantined";
   const d = DISPO[action];
   const sha256 = o.sha256 ?? makeSha256(`${o.threatName}:${o.processName}`);
-  const path = o.processPath ?? `C:\\Users\\${r.bareUser}\\Downloads\\${o.processName}`;
+  const path = o.processPath ?? downloadsPath(r.bareUser, o.processName);
   const cmdline = o.cmdline ?? `"${path}"`;
   const pid = pidFrom(o.id);
   return {
@@ -117,7 +73,7 @@ export function csDetection(o: CsDetectionOpts): TelemetryEvent {
       "crowdstrike.FileName": o.processName,
       "crowdstrike.FilePath": path,
       "crowdstrike.CommandLine": cmdline,
-      "crowdstrike.aid": r.aid,
+      "crowdstrike.aid": r.sensorId,
       "file.hash.sha256": sha256,
       "threat.name": o.threatName,
       "action_result": d.result,
@@ -164,7 +120,7 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
       "crowdstrike.ParentProcessName": o.parentName ?? "",
       "crowdstrike.TargetProcessId_decimal": String(pid),
       "crowdstrike.ContextProcessId_decimal": String(ppid),
-      "crowdstrike.aid": r.aid,
+      "crowdstrike.aid": r.sensorId,
       ...(sha256 ? { "process.hash.sha256": sha256 } : {}),
       "process.command_line": o.cmdline,
     },
@@ -202,7 +158,7 @@ export function csNetwork(o: CsNetworkOpts): TelemetryEvent {
     raw: {
       "crowdstrike.event_simpleName": "NetworkConnectIP4",
       "crowdstrike.ComputerName": r.host,
-      "crowdstrike.aid": r.aid,
+      "crowdstrike.aid": r.sensorId,
       "source.ip": remote.src,
       "destination.ip": remote.dst,
       "destination.port": String(o.remotePort),
@@ -238,7 +194,7 @@ export function csDns(o: CsDnsOpts): TelemetryEvent {
     raw: {
       "crowdstrike.event_simpleName": "DnsRequest",
       "crowdstrike.ComputerName": r.host,
-      "crowdstrike.aid": r.aid,
+      "crowdstrike.aid": r.sensorId,
       "dns.question.name": o.domain,
       "dns.question.type": o.qtype ?? "A",
       ...(o.resolvedIp ? { "dns.resolved_ip": o.resolvedIp } : {}),
@@ -271,7 +227,7 @@ export function csFile(o: CsFileOpts): TelemetryEvent {
     raw: {
       "crowdstrike.event_simpleName": "NewExecutableWritten",
       "crowdstrike.ComputerName": r.host,
-      "crowdstrike.aid": r.aid,
+      "crowdstrike.aid": r.sensorId,
       "file.path": o.path,
       "file.name": name,
       "file.hash.sha256": sha256,
