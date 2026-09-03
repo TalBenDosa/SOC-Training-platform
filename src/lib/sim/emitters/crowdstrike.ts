@@ -22,6 +22,63 @@ import { type Ctx, resolve, pidFrom, SEV_NAME, downloadsPath } from "./_core";
 
 const VENDOR = "CrowdStrike Falcon";
 
+// ── Incident alert (DetectionSummaryEvent, no process node) ──────────────────────────
+// A behavioural Falcon detection that summarises a chain (or a browser/renderer finding)
+// and carries NO process of its own — the alert row that opens the ticket, shown in the
+// feed/timeline rather than as another tree node. Use csDetection when the alert IS a
+// concrete flagged process+hash; use csAlert when it is a behavioural summary.
+export interface CsAlertOpts extends Ctx {
+  threatName: string;           // crowdstrike.DetectName
+  detail?: string;              // crowdstrike.detection.description
+  mitre?: string;
+  tactic?: string;
+  technique?: string;
+  malwareCategory?: string;     // e.g. "cryptominer"
+  action?: "detected" | "killed" | "quarantined" | "prevented";
+  processTree?: string;
+  confidence?: number;
+  severity?: Severity;
+  expectedVerdict?: ExpectedVerdict;
+  description?: string;
+}
+export function csAlert(o: CsAlertOpts): TelemetryEvent {
+  const r = resolve(o);
+  const sev = o.severity ?? "critical";
+  const dispoDesc = o.action === "killed" ? "Detection, Process Killed"
+    : o.action === "quarantined" ? "Detection, Process Killed, Quarantine File"
+    : o.action === "prevented" ? "Prevention, process blocked"
+    : "Detection, No Action";
+  const result = o.action === "killed" || o.action === "quarantined" ? "process_killed"
+    : o.action === "prevented" ? "prevented" : "detected";
+  return {
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "edr_alert",
+    severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: true,
+    expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
+    description: o.description ?? `${VENDOR} raised ${o.threatName} on ${r.host}`,
+    raw: {
+      "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+      "crowdstrike.DetectName": o.threatName,
+      ...(o.detail ? { "crowdstrike.detection.description": o.detail } : {}),
+      ...(o.tactic ? { "crowdstrike.Tactic": o.tactic } : {}),
+      ...(o.technique ? { "crowdstrike.Technique": o.technique } : {}),
+      "crowdstrike.PatternDispositionDescription": dispoDesc,
+      "crowdstrike.SeverityName": SEV_NAME[sev],
+      ...(o.confidence !== undefined ? { "crowdstrike.detection.confidence": String(o.confidence) } : {}),
+      ...(o.processTree ? { "crowdstrike.detection.process_tree": o.processTree } : {}),
+      "crowdstrike.ComputerName": r.host,
+      "crowdstrike.UserName": r.domainUser,
+      "crowdstrike.aid": r.sensorId,
+      "threat.name": o.threatName,
+      ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...(o.technique ? { "threat.technique.name": o.technique } : {}),
+      ...(o.malwareCategory ? { "malware.category": o.malwareCategory } : {}),
+      "action_result": result,
+      "event.outcome": result === "detected" ? "detected" : "blocked",
+    },
+  };
+}
+
 // ── Detection / prevention (DetectionSummaryEvent) ───────────────────────────────────
 export interface CsDetectionOpts extends Ctx {
   processName: string;          // e.g. "update.exe"

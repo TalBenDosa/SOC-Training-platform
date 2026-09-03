@@ -95,3 +95,65 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
     },
   };
 }
+
+// ── Connection / session (net_connection) ────────────────────────────────────────────
+// A firewall connection or session-end record — a WebSocket tunnel, a raw socket, a
+// session summary with byte counts and duration. Distinct from panWeb (an HTTP request):
+// the app is not "web-browsing" and there may be no URL.
+export interface PanConnectionOpts extends Ctx {
+  domain?: string;
+  dstIp?: string;
+  remotePort?: number;
+  app?: string;                // pan.app — "websocket" | "ssl" | "ssh" …
+  transport?: "tcp" | "udp";
+  action?: "alert" | "allow" | "deny" | "block";
+  category?: string;
+  url?: string;                // optional (a WebSocket upgrade URL)
+  bytesIn?: number;
+  bytesOut?: number;
+  elapsedSec?: number;
+  end?: boolean;               // true → a TRAFFIC/end session summary (else a start/alert)
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function panConnection(o: PanConnectionOpts): TelemetryEvent {
+  const r = resolve(o);
+  const action = o.action ?? (o.end ? "allow" : "alert");
+  const dstIp = o.dstIp ?? (o.domain ? serverIpFor(o.domain) : "—");
+  const transport = o.transport ?? "tcp";
+  const port = o.remotePort ?? 443;
+  const actionStr = action === "block" ? "block-url" : action;
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: action === "deny" || action === "block" ? "net_blocked" : "net_connection",
+    severity: o.severity ?? "medium", hostname: r.host, src_ip: r.srcIp, dst_ip: dstIp,
+    dst_port: port, protocol: transport, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    network: { domain: o.domain, url: o.url, bytes_in: o.bytesIn, bytes_out: o.bytesOut },
+    description: o.description ?? `${r.host} ${o.end ? "closed" : "opened"} a ${o.app ?? transport} connection to ${o.domain ?? dstIp}`,
+    raw: {
+      "pan.type": o.end ? "TRAFFIC" : (action === "alert" ? "THREAT" : "TRAFFIC"),
+      "pan.subtype": o.end ? "end" : "url",
+      "pan.action": actionStr,
+      "pan.rule": "CORP-WEB-OUTBOUND",
+      "pan.src": r.srcIp,
+      "pan.srcuser": r.domainUser.toLowerCase(),
+      "pan.dst": dstIp,
+      "pan.dport": String(port),
+      "pan.app": o.app ?? "ssl",
+      ...(o.category ? { "pan.category": o.category } : {}),
+      ...(o.url ? { "pan.url": o.url.replace(/^https?:\/\//, "") } : {}),
+      ...(o.bytesOut !== undefined ? { "pan.bytes_sent": String(o.bytesOut) } : {}),
+      ...(o.bytesIn !== undefined ? { "pan.bytes_received": String(o.bytesIn) } : {}),
+      ...(o.elapsedSec !== undefined ? { "pan.elapsed_time": String(o.elapsedSec) } : {}),
+      "source.ip": r.srcIp,
+      ...(o.domain ? { "url.domain": o.domain } : {}),
+      "destination.ip": dstIp,
+      "destination.port": String(port),
+      "network.transport": transport,
+      "action_result": actionStr,
+    },
+  };
+}

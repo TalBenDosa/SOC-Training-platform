@@ -4,6 +4,7 @@ import path from "node:path";
 import { buildClipboardClipperScenario } from "./clipboardClipper";
 import { buildTrojanizedInstallerKeyloggerScenario } from "./trojanizedInstallerKeylogger";
 import { buildSeoPoisonedInstallerScenario } from "./seoPoisonedInstaller";
+import { buildDriveByBrowserMinerScenario } from "./driveByBrowserMiner";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -12,7 +13,7 @@ import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 // wrong; an emitter-rendered one is registry-correct by construction).
 const FULLY_EMITTER_AUTHORED = [
   "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
-  "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts",
+  "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -86,5 +87,28 @@ describe("emitter-authored scenario packs", () => {
     const exfil = s.events.find(e => e.id === "evt_spi_09_exfil");
     expect(exfil?.raw?.["pan.http_method"]).toBe("POST");
     expect(exfil?.raw?.["url.domain"]).toBe("cdn-assets-relay92.net");
+  });
+
+  it("driveByBrowserMiner still builds a coherent incident from emitters only (CS + PAN, csAlert + panConnection)", () => {
+    const s = buildDriveByBrowserMinerScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "CrowdStrike Falcon", "Palo Alto Networks PAN-OS",
+    ]));
+    // the WebSocket tunnel is a net_connection with app=websocket (panConnection)
+    const ws = s.events.find(e => e.id === "evt_dbm_05_ws_open");
+    expect(ws?.event_type).toBe("net_connection");
+    expect(ws?.raw?.["pan.app"]).toBe("websocket");
+    // the traffic-end summary carries the duration (panConnection end)
+    const wsClose = s.events.find(e => e.id === "evt_dbm_07_ws_close");
+    expect(wsClose?.raw?.["pan.elapsed_time"]).toBe("1440");
+    // the Falcon alert is a behavioural summary with no process node (csAlert)
+    const alert = s.events.find(e => e.id === "evt_dbm_08_edr_alert");
+    expect(alert?.raw?.["malware.category"]).toBe("cryptominer");
+    expect(alert?.process).toBeUndefined();
+    // the renderer process is present and the console opens on the right host
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("LAP-6690");
+    expect(inv.processes.some(p => p.name === "chrome.exe" && p.pid === 8842)).toBe(true);
   });
 });
