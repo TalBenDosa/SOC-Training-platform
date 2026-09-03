@@ -19,6 +19,17 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
+import { shuffleSeeded } from "@/lib/lessons/shuffle";
+
+// HTS-LEARN-001: room options were rendered in SOURCE order, so a correct-answer
+// position bias in the data ("b" correct in most questions) was directly clickable —
+// a student could pass by always picking the same slot. We shuffle options for DISPLAY
+// with a per-question seed while keeping each option's SOURCE index for selection,
+// submission and reveal — so the server's index-based grading contract is unchanged.
+// (Lesson quizzes and scenario questions already shuffle at render the same way.)
+type DisplayOption = { label: string; srcIdx: number };
+const displayOptions = (options: readonly string[], seed: string): DisplayOption[] =>
+  shuffleSeeded(options.map((label, srcIdx) => ({ label, srcIdx })), seed);
 
 interface TaskPlayerProps {
   roomId: string;
@@ -467,7 +478,7 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: stri
           </div>
           <p className="text-sm text-slate-200">{cp.question}</p>
           <div className="space-y-2">
-            {cp.options.map((opt, i) => {
+            {displayOptions(cp.options, `${task.id}:cp:${cp.question}`).map(({ label: opt, srcIdx: i }) => {
               const chosen = cpChoice === i;
               const isRight = cpAnswer !== null && i === cpAnswer;
               const show = cpChoice !== null && cpAnswer !== null;
@@ -595,11 +606,11 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
     <div className="space-y-5">
       <p className="text-slate-200 leading-relaxed text-base">{task.question}</p>
       <div className="space-y-2">
-        {task.options.map((opt, idx) => (
+        {displayOptions(task.options, task.id).map(({ label, srcIdx }) => (
           <OptionButton
-            key={idx} label={opt} index={idx}
-            selected={selected === idx} revealed={revealed} correctIndex={answerIndex ?? -1}
-            onSelect={() => !revealed && setSelected(idx)}
+            key={srcIdx} label={label} index={srcIdx}
+            selected={selected === srcIdx} revealed={revealed} correctIndex={answerIndex ?? -1}
+            onSelect={() => !revealed && setSelected(srcIdx)}
           />
         ))}
       </div>
@@ -738,11 +749,11 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
               )}
 
               <div className="space-y-2">
-                {q.options.map((opt, idx) => (
+                {displayOptions(q.options, `${task.id}:q${i}:${q.question}`).map(({ label, srcIdx }) => (
                   <OptionButton
-                    key={idx} label={opt} index={idx}
-                    selected={answers[i] === idx} revealed={revealed[i]} correctIndex={result?.answer ?? -1}
-                    onSelect={() => !revealed[i] && setAnswers(prev => prev.map((v, j) => j === i ? idx : v))}
+                    key={srcIdx} label={label} index={srcIdx}
+                    selected={answers[i] === srcIdx} revealed={revealed[i]} correctIndex={result?.answer ?? -1}
+                    onSelect={() => !revealed[i] && setAnswers(prev => prev.map((v, j) => j === i ? srcIdx : v))}
                   />
                 ))}
               </div>

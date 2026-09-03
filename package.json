@@ -32,7 +32,8 @@
     "validate:scenarios:integrity": "tsx scripts/validate-scenario-integrity.mjs",
     "validate:feed:adaptation": "tsx scripts/verify-l03-adaptation.mjs",
     "validate:feed:integrity": "tsx scripts/validate-feed-integrity.mjs",
-    "validate:feed:paths": "tsx scripts/verify-e01-paths.mjs"
+    "validate:feed:paths": "tsx scripts/verify-e01-paths.mjs",
+    "validate:rls": "node scripts/audit-rls.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.95.1",
