@@ -90,7 +90,10 @@ export interface MdeProcessOpts extends Ctx {
   cmdline: string;
   parentName?: string;
   parentPid?: number;
+  pid?: number;
   sha256?: string;
+  signed?: boolean;
+  integrity?: "Low" | "Medium" | "High" | "System";
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -99,7 +102,7 @@ export interface MdeProcessOpts extends Ctx {
 }
 export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
   const r = resolve(o);
-  const pid = pidFrom(o.id);
+  const pid = o.pid ?? pidFrom(o.id);
   const ppid = o.parentPid ?? pidFrom(`${o.id}:parent`);
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
   const folder = path.slice(0, path.lastIndexOf("\\")) || path;
@@ -110,7 +113,7 @@ export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
     description: o.description ?? `${o.processName} launched on ${r.host}`,
-    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
+    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: r.domainUser, integrity: o.integrity?.toLowerCase() as "low" | "medium" | "high" | "system" | undefined, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
     raw: {
       "ActionType": "ProcessCreated",
       "DeviceName": r.host,
@@ -123,6 +126,8 @@ export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
       "InitiatingProcessFileName": o.parentName ?? "",
       "InitiatingProcessId": String(ppid),
       ...(o.sha256 ? { "SHA256": o.sha256, "process.hash.sha256": o.sha256 } : {}),
+      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...(o.integrity ? { "process.integrity_level": o.integrity } : {}),
       "process.command_line": o.cmdline,
     },
   };
@@ -211,9 +216,11 @@ export function mdeDns(o: MdeDnsOpts): TelemetryEvent {
 // ── File creation (DeviceFileEvents) ─────────────────────────────────────────────────
 export interface MdeFileOpts extends Ctx {
   path: string;
-  sha256?: string;
+  sha256?: string | null;       // null → omit a hash (a copied data file has none logged)
   action?: "file_create" | "file_modify" | "file_delete";
   initiatingProcess?: string;
+  initiatingCmdline?: string;
+  signed?: boolean;
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -224,7 +231,7 @@ export function mdeFile(o: MdeFileOpts): TelemetryEvent {
   const r = resolve(o);
   const name = o.path.split(/[\\/]/).pop() ?? o.path;
   const folder = o.path.slice(0, o.path.lastIndexOf("\\")) || o.path;
-  const sha256 = o.sha256 ?? makeSha256(`file:${o.path}`);
+  const sha256 = o.sha256 === null ? undefined : (o.sha256 ?? makeSha256(`file:${o.path}`));
   const ACTION: Record<NonNullable<MdeFileOpts["action"]>, string> = {
     file_create: "FileCreated", file_modify: "FileModified", file_delete: "FileDeleted",
   };
@@ -233,18 +240,19 @@ export function mdeFile(o: MdeFileOpts): TelemetryEvent {
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
-    file: { name, path: o.path, sha256 },
+    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}) },
     description: o.description ?? `${name} written on ${r.host}`,
     raw: {
       "ActionType": ACTION[o.action ?? "file_create"],
       "DeviceName": r.host,
       "FileName": name,
       "FolderPath": folder,
-      "SHA256": sha256,
-      "InitiatingProcessFileName": o.initiatingProcess ?? "",
+      ...(sha256 ? { "SHA256": sha256, "file.hash.sha256": sha256 } : {}),
+      ...(o.initiatingProcess ? { "InitiatingProcessFileName": o.initiatingProcess } : {}),
+      ...(o.initiatingCmdline ? { "InitiatingProcessCommandLine": o.initiatingCmdline } : {}),
+      ...(o.signed !== undefined ? { "file.signature.status": o.signed ? "trusted" : "unsigned" } : {}),
       "file.path": o.path,
       "file.name": name,
-      "file.hash.sha256": sha256,
       "event.action": o.action ?? "file_create",
     },
   };
