@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { KeyRound } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -11,7 +12,13 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 /**
  * Landed on after clicking the reset-password email link. Supabase's client
  * SDK auto-exchanges the recovery token in the URL for a temporary session
- * (detectSessionInUrl, on by default) — this page just captures the new password.
+ * (detectSessionInUrl, on by default) — this page captures the new password.
+ *
+ * We verify a session actually got established before showing the form: a link
+ * that has expired, was already used, or was opened in a different browser than
+ * the one that requested it (PKCE has no code-verifier there) yields NO session,
+ * and a bare form would then fail on submit with a cryptic "Auth session
+ * missing". Instead we show a clear "request a new link" state.
  */
 export default function UpdatePasswordPage() {
   usePageTitle("Set new password");
@@ -21,6 +28,23 @@ export default function UpdatePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  // null = still checking; true = a (recovery or normal) session exists; false = no session.
+  const [linkValid, setLinkValid] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) { setLinkValid(false); return; }
+    let settled = false;
+    const finish = (ok: boolean) => { if (!settled) { settled = true; setLinkValid(ok); } };
+    // The SDK exchanges the token on load and fires PASSWORD_RECOVERY / SIGNED_IN.
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => { if (session) finish(true); });
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) finish(true);
+      // Give detectSessionInUrl a moment to exchange a `?code=` before giving up.
+      else setTimeout(() => finish(Boolean(data.session)), 2500);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +72,35 @@ export default function UpdatePasswordPage() {
       <Card className="w-full max-w-md text-center">
         <h1 className="text-lg font-bold text-neon-green">Password updated</h1>
         <p className="mt-2 text-sm text-slate-400">Taking you back in…</p>
+      </Card>
+    );
+  }
+
+  if (linkValid === null) {
+    return (
+      <Card className="w-full max-w-md text-center">
+        <p className="text-sm text-slate-400">Verifying your reset link…</p>
+      </Card>
+    );
+  }
+
+  if (linkValid === false) {
+    return (
+      <Card className="w-full max-w-md text-center">
+        <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-lg border border-cyber-500/30 bg-cyber-500/10">
+          <KeyRound className="h-5 w-5 text-cyber-300" />
+        </span>
+        <h1 className="mt-4 text-lg font-bold text-white">This reset link isn&apos;t active</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          It may have expired, already been used, or been opened in a different browser than the
+          one you requested it from. Request a fresh link and open it in the same browser.
+        </p>
+        <Link href="/reset-password" className="mt-6 inline-block">
+          <Button variant="primary">Request a new link</Button>
+        </Link>
+        <p className="mt-4 text-xs text-slate-500">
+          Already know your password? <Link href="/login" className="text-cyber-300 hover:underline">Sign in</Link>
+        </p>
       </Card>
     );
   }

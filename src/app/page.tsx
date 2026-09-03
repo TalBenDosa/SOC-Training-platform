@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/Button";
+import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
 import {
   Activity, ArrowRight, BookOpen, ClipboardCheck, Cloud, Fingerprint, Lock,
   Network, Radar, ShieldCheck, Terminal, Waypoints,
@@ -101,6 +102,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function Landing() {
   return (
     <div className="relative min-h-screen overflow-hidden">
+      {/* Salvage password-recovery links that Supabase bounced to the site root
+          (stale Site URL / redirect allowlist) — forward the token to
+          /update-password so a reset never dead-ends on the signup CTA. */}
+      <RecoveryRedirect />
       {/* Background grid + glow */}
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[900px] bg-cyber-grid" />
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[900px] bg-cyber-glow" />
