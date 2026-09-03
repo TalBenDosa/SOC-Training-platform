@@ -2,13 +2,14 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { buildClipboardClipperScenario } from "./clipboardClipper";
+import { buildTrojanizedInstallerKeyloggerScenario } from "./trojanizedInstallerKeylogger";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
 // emitter-authored — no hand-typed `raw: { … }` block may creep back in, because that
 // is exactly the drift the emitter layer exists to prevent (a hand-typed field can be
 // wrong; an emitter-rendered one is registry-correct by construction).
-const FULLY_EMITTER_AUTHORED = ["clipboardClipper.ts"];
+const FULLY_EMITTER_AUTHORED = ["clipboardClipper.ts", "trojanizedInstallerKeylogger.ts"];
 
 describe("emitter-authored scenario packs", () => {
   it.each(FULLY_EMITTER_AUTHORED)("%s contains no hand-authored raw blocks", (file) => {
@@ -37,5 +38,24 @@ describe("emitter-authored scenario packs", () => {
       if (h && nm) { const set = byHash.get(h) ?? new Set(); set.add(nm); byHash.set(h, set); }
     }
     expect([...byHash.values()].every(n => n.size === 1)).toBe(true);
+  });
+
+  it("trojanizedInstallerKeylogger still builds a coherent incident from emitters only (CrowdStrike + PAN + Sentinel)", () => {
+    const s = buildTrojanizedInstallerKeyloggerScenario();
+    expect(s.events.length).toBe(10);
+    // three vendors, all emitter-authored
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "CrowdStrike Falcon", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
+    ]));
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("LAP-2290");
+    // the exact delivery tree: explorer -> SwiftPDF_Setup(7120) -> winupd_helper(7688)
+    expect(inv.processes.some(p => p.name === "winupd_helper.exe" && p.ppid === 7120)).toBe(true);
+    const payload = inv.processes.find(p => p.pid === inv.answer.pid);
+    expect(payload?.name).toBe("winupd_helper.exe");
+    // the Sentinel enrichment carries its ExtendedProperties arrays intact
+    const ctx = s.events.find(e => e.id === "evt_tik_10_siem_context");
+    expect(ctx?.raw?.["ExtendedProperties.Local Admin Rights"]).toBe("false");
+    expect(ctx?.raw?.["AlertName"]).toBe("EndpointSoftwareChange_UnsignedPersistence");
   });
 });

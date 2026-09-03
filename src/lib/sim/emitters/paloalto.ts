@@ -38,6 +38,7 @@ export interface PanWebOpts extends Ctx {
   bytesOut?: number;
   referer?: string;
   userAgent?: string;
+  repeatCount?: number;        // PAN aggregates repeated identical sessions (repeatcnt)
   userTitle?: string;          // shown as the analyst-facing role chip in the feed
   file?: { name: string; path?: string; sha256?: string; size?: number }; // a download
   mitre?: string;
@@ -82,6 +83,7 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
       ...(o.file ? { "pan.filename": o.file.name, "pan.filetype": "pe", ...(o.file.sha256 ? { "pan.file_hash": o.file.sha256 } : {}), "pan.direction": "download" } : {}),
       ...(o.bytesOut !== undefined ? { "pan.bytes_sent": String(o.bytesOut) } : {}),
       ...(o.bytesIn !== undefined ? { "pan.bytes_received": String(o.bytesIn) } : {}),
+      ...(o.repeatCount !== undefined ? { "pan.repeat_count": String(o.repeatCount) } : {}),
       "source.ip": r.srcIp,
       "url.domain": o.domain,
       "http.request.method": method,
