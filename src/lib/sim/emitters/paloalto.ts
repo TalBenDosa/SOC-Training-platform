@@ -41,6 +41,7 @@ export interface PanWebOpts extends Ctx {
   repeatCount?: number;        // PAN aggregates repeated identical sessions (repeatcnt)
   userTitle?: string;          // shown as the analyst-facing role chip in the feed
   file?: { name: string; path?: string; sha256?: string; size?: number }; // a download
+  fileType?: string;           // pan.filetype for a download — "pe" | "script" | "pdf" …
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -56,6 +57,8 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
   const panUrl = o.url.replace(/^https?:\/\//, "");
   const srcUser = r.domainUser.toLowerCase();   // PAN logs domain\user in lower case
   const blocked = action === "deny" || action === "block";
+  // A URL-filtering block is logged as "block-url"; a policy deny as "deny".
+  const actionStr = action === "block" ? "block-url" : action;
   return {
     id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
     event_type: blocked ? "http_blocked" : "http_request",
@@ -69,8 +72,8 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
     raw: {
       "pan.type": panType,
       "pan.subtype": subtype,
-      "pan.action": action,
-      "pan.rule": "CORP-WEB-OUTBOUND",
+      "pan.action": actionStr,
+      "pan.rule": blocked ? "BLOCK-NEWLY-REGISTERED" : "CORP-WEB-OUTBOUND",
       "pan.src": r.srcIp,
       "pan.srcuser": srcUser,
       "pan.dst": dstIp,
@@ -80,7 +83,7 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
       "pan.url": panUrl,
       ...(o.referer ? { "pan.referer": o.referer } : {}),
       "pan.http_method": method,
-      ...(o.file ? { "pan.filename": o.file.name, "pan.filetype": "pe", ...(o.file.sha256 ? { "pan.file_hash": o.file.sha256 } : {}), "pan.direction": "download" } : {}),
+      ...(o.file ? { "pan.filename": o.file.name, "pan.filetype": o.fileType ?? "pe", ...(o.file.sha256 ? { "pan.file_hash": o.file.sha256 } : {}), "pan.direction": "download" } : {}),
       ...(o.bytesOut !== undefined ? { "pan.bytes_sent": String(o.bytesOut) } : {}),
       ...(o.bytesIn !== undefined ? { "pan.bytes_received": String(o.bytesIn) } : {}),
       ...(o.repeatCount !== undefined ? { "pan.repeat_count": String(o.repeatCount) } : {}),
@@ -88,7 +91,7 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
       "url.domain": o.domain,
       "http.request.method": method,
       "http.response.status_code": String(o.status ?? 200),
-      "action_result": action,
+      "action_result": actionStr,
     },
   };
 }

