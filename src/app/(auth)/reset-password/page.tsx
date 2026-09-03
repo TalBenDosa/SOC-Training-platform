@@ -5,7 +5,6 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { KeyRound, Mail } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default function ResetPasswordPage() {
@@ -18,16 +17,33 @@ export default function ResetPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setError("Not configured on this deployment yet."); return; }
-
     setSubmitting(true);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/update-password`,
-    });
-    setSubmitting(false);
-    if (resetError) { setError(resetError.message); return; }
-    setSent(true);
+    // Route through our own endpoint (Resend + a stateless recovery token) rather
+    // than Supabase's built-in email, so the reset link is immune to the project's
+    // Site-URL / redirect-allowlist config and works cross-device. See
+    // src/app/api/auth/request-reset/route.ts.
+    try {
+      const res = await fetch("/api/auth/request-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      setSubmitting(false);
+      if (res.status === 429) {
+        const b = await res.json().catch(() => ({}));
+        setError(b.error ?? "Too many reset requests. Please wait a few minutes and try again.");
+        return;
+      }
+      if (!res.ok && res.status !== 200) {
+        const b = await res.json().catch(() => ({}));
+        setError(b.error ?? "Something went wrong. Please try again.");
+        return;
+      }
+      setSent(true);
+    } catch {
+      setSubmitting(false);
+      setError("Network error. Please try again.");
+    }
   }
 
   if (!isSupabaseConfigured) {

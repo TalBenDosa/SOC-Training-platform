@@ -33,6 +33,8 @@ export function RecoveryRedirect() {
     // "request a new link" screen instead of the signup CTA.
     const looksLikeRecovery =
       query.has("code") ||
+      query.has("token_hash") ||
+      query.get("type") === "recovery" ||
       frag.get("type") === "recovery" ||
       (frag.has("access_token") && frag.get("type") === "recovery") ||
       query.get("error_code") === "otp_expired" ||

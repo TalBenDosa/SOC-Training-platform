@@ -36,14 +36,35 @@ export default function UpdatePasswordPage() {
     if (!supabase) { setLinkValid(false); return; }
     let settled = false;
     const finish = (ok: boolean) => { if (!settled) { settled = true; setLinkValid(ok); } };
-    // The SDK exchanges the token on load and fires PASSWORD_RECOVERY / SIGNED_IN.
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => { if (session) finish(true); });
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) finish(true);
-      // Give detectSessionInUrl a moment to exchange a `?code=` before giving up.
-      else setTimeout(() => finish(Boolean(data.session)), 2500);
-    });
-    return () => sub.subscription.unsubscribe();
+    const sub = supabase.auth.onAuthStateChange((_e, session) => { if (session) finish(true); });
+
+    (async () => {
+      // Preferred path: our own reset email carries a stateless recovery
+      // `token_hash`. verifyOtp needs no PKCE code-verifier, so it works even
+      // when the link is opened on a different device than it was requested from.
+      const url = new URL(window.location.href);
+      const tokenHash = url.searchParams.get("token_hash");
+      const type = url.searchParams.get("type");
+      if (tokenHash && type === "recovery") {
+        const { error } = await supabase.auth.verifyOtp({ type: "recovery", token_hash: tokenHash });
+        if (!error) {
+          // Drop the token from the address bar so a refresh / back doesn't re-verify.
+          window.history.replaceState(null, "", "/update-password");
+          finish(true);
+          return;
+        }
+      }
+      // Fallback: a legacy Supabase PKCE `?code=` (detectSessionInUrl auto-exchanges
+      // it), or an already-active session (a signed-in user changing their password).
+      const { data } = await supabase.auth.getSession();
+      if (data.session) { finish(true); return; }
+      setTimeout(async () => {
+        const { data: d2 } = await supabase.auth.getSession();
+        finish(Boolean(d2.session));
+      }, 2500);
+    })();
+
+    return () => sub.data.subscription.unsubscribe();
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

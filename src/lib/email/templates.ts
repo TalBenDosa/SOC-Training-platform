@@ -72,6 +72,32 @@ Generate a fresh one anytime from "Manage Class".
   return { subject: `Your ${orgName} environment on HACK THE SOC is ready`, html, text };
 }
 
+/**
+ * Sent when a user requests a password reset. The link carries a stateless
+ * Supabase recovery token_hash and points straight at /update-password on the
+ * origin the request came from — so it does NOT depend on the Supabase project's
+ * Site URL / redirect allowlist, and (unlike PKCE) works when opened on a
+ * different device than the one that asked. Sent via our own Resend sender.
+ */
+export function passwordResetEmail(args: { resetLink: string }): {
+  subject: string; html: string; text: string;
+} {
+  const { resetLink } = args;
+  const html = shell(
+    "Reset your password",
+    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">We received a request to reset the password for your HACK THE SOC account. Click below to choose a new one:</p>
+     <p style="margin:0 0 4px;">${button(resetLink, "Set a new password")}</p>
+     ${linkBox(resetLink)}
+     <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">This link is valid for a limited time and can be used once. If you didn't request this, you can safely ignore this email — your password won't change.</p>`,
+  );
+  const text = `Reset your HACK THE SOC password.
+
+Set a new password: ${resetLink}
+
+This link is valid for a limited time and can be used once. If you didn't request this, ignore this email — your password won't change.`;
+  return { subject: "Reset your HACK THE SOC password", html, text };
+}
+
 /** Sent to an individual invitee (roster / CSV enrollment). */
 export function studentInviteEmail(args: { orgName: string; joinLink: string }): {
   subject: string; html: string; text: string;
