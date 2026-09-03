@@ -161,37 +161,91 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
 // instead of a generic NexaCorp workstation for every company. Kept here (the light
 // module) so the adaptation layer needn't pull in the heavy event pools. Values are
 // aligned with the real conventions in COMPANY_EVENTS; a regression gate asserts it.
-export interface CompanyAssets {
-  hosts:   string[]; // distinct endpoint names this company owns
-  subnet:  string;   // dominant internal /24 (first three octets), e.g. "10.100.1"
-  domain:  string;   // DNS / email domain, e.g. "quantumbank.ch"
-  netbios: string;   // NetBIOS realm, e.g. "QUANTUMBANK"
+export interface RosterUser {
+  name:  string;   // login-style dotted name, e.g. "r.avraham"
+  title: string;   // job title, so a scenario can pick a plausible victim by role
 }
 
+export interface CompanyAssets {
+  hosts:      string[];      // distinct endpoint names this company owns
+  subnet:     string;        // dominant internal /24 (first three octets), e.g. "10.100.1"
+  domain:     string;        // DNS / email domain, e.g. "quantumbank.ch"
+  netbios:    string;        // NetBIOS realm, e.g. "QUANTUMBANK"
+  roster:     RosterUser[];  // real users, so an attack victim is a native identity
+  serviceAccounts: string[]; // svc-* principals used for lateral movement / abuse
+  dc:         string;        // the domain controller hostname
+  fileServer: string;        // the primary file server hostname
+}
+
+// The per-company asset fabric (R-01 + emitter layer). One source of truth for the
+// hostnames, internal subnet, domain, NetBIOS realm, human roster, service accounts,
+// DC and file server each company uses — aligned with COMPANY_EVENTS. instantiateStory
+// draws host/IP/domain swaps from it, and the vendor emitters (src/lib/sim/emitters/*)
+// draw a plausible native identity + asset for every generated log line. Kept in this
+// LIGHT module so both the adaptation layer and the emitters can use it without pulling
+// in the heavy event pools. A regression gate asserts it stays aligned with the feed.
 export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
   nexacorp: {
     hosts: ["WS-HR-1182", "WS-OPS-2214", "WS-MKT-3301", "WS-ACC-4477", "WS-ENG-2093",
             "WS-SALES-1876", "WS-FIN-1193", "WS-FIN-2847", "SRV-NXC-FS01", "SRV-NXC-DC01"],
     subnet: "10.10.20", domain: "nexacorp.com", netbios: "NEXACORP",
+    roster: [
+      { name: "r.avraham", title: "Financial Analyst" }, { name: "m.levi", title: "Operations" },
+      { name: "d.cohen", title: "HR Manager" }, { name: "s.patel", title: "Marketing" },
+      { name: "j.chen", title: "Accountant" }, { name: "a.kaplan", title: "Sales" },
+      { name: "l.ferreira", title: "IT Support" }, { name: "t.harris", title: "DevOps Lead" },
+    ],
+    serviceAccounts: ["svc-backup", "svc-sql", "svc-scan"],
+    dc: "SRV-NXC-DC01", fileServer: "SRV-NXC-FS01",
   },
   rocketstack: {
     hosts: ["LAP-007", "LAP-012", "LAP-003", "SRV-PROD-001", "macbook-ops-03",
             "LAP-DEV-12", "LAP-DEV-07", "WS-ENG-3301", "prod-srv-01"],
     subnet: "172.16.10", domain: "rocketstack.io", netbios: "ROCKETSTACK",
+    roster: [
+      { name: "t.levy", title: "Backend Engineer" }, { name: "s.amir", title: "Engineer" },
+      { name: "r.cohen", title: "Frontend Engineer" }, { name: "d.shapira", title: "Product" },
+      { name: "j.lee", title: "DevOps" }, { name: "n.shapiro", title: "SRE" },
+      { name: "m.ben-david", title: "Engineer" },
+    ],
+    serviceAccounts: ["ci-pipeline", "svc-dataops", "svc-deploy"],
+    dc: "prod-srv-01", fileServer: "SRV-PROD-001",
   },
   medcore: {
     hosts: ["WS-MED-022", "WS-MED-045", "WS-MED-067", "WS-NURS-033", "WS-NURS-044",
             "SRV-MEDCORE-EMR01", "SRV-MEDCORE-FILE01", "SRV-MEDCORE-DC01", "DC-MED-NL01", "NRS-TERM-088"],
     subnet: "192.168.10", domain: "medcorehealth.org", netbios: "MEDCORE",
+    roster: [
+      { name: "dr.vandijk", title: "Cardiologist" }, { name: "n.smits", title: "Clinical Nurse" },
+      { name: "k.devries", title: "Radiologist" }, { name: "p.hoekstra", title: "Physician" },
+      { name: "r.bakker", title: "Nurse" }, { name: "l.jansen", title: "Cardiologist" },
+      { name: "dr.dejong", title: "Cardiologist" },
+    ],
+    serviceAccounts: ["svc-backup", "svc-emr", "svc-mssql"],
+    dc: "SRV-MEDCORE-DC01", fileServer: "SRV-MEDCORE-FILE01",
   },
   globallogis: {
     hosts: ["SRV-GL-ERP01", "SRV-GL-WMS01", "WS-LOG-045", "WS-LOG-088", "WH-TERM-012",
             "WH-TERM-005", "DC-GL-FRA01", "SRV-GL-LINUX01", "SRV-GL-APP02", "SRV-GL-SAP01"],
     subnet: "10.50.10", domain: "globallogis.de", netbios: "GLOBALLOGIS",
+    roster: [
+      { name: "a.weber", title: "Logistics" }, { name: "k.bauer", title: "Logistics Coordinator" },
+      { name: "h.muller", title: "Warehouse" }, { name: "k.schmidt", title: "Operations" },
+      { name: "t.braun", title: "Finance" }, { name: "c.becker", title: "IT" },
+    ],
+    serviceAccounts: ["svc-sap", "svc-wms", "svc-backup"],
+    dc: "DC-GL-FRA01", fileServer: "SRV-GL-APP02",
   },
   quantumbank: {
     hosts: ["WKS-QB-012", "WKS-QB-020", "WKS-QB-033", "WKS-QB-055", "WKS-QB-077",
             "SRV-QB-ADMIN01", "SRV-QB-BACKUP01", "LAP-QB-4471", "LAP-QB-2290"],
     subnet: "10.100.1", domain: "quantumbank.ch", netbios: "QUANTUMBANK",
+    roster: [
+      { name: "f.zimmermann", title: "Equity Trader" }, { name: "e.steiner", title: "Risk Analyst" },
+      { name: "a.keller", title: "Quantitative Analyst" }, { name: "l.brunner", title: "IT Security" },
+      { name: "m.huber", title: "Compliance Officer" }, { name: "p.meier", title: "Operations Manager" },
+    ],
+    serviceAccounts: ["cyberark.svc", "svc-sql", "svc-backup"],
+    dc: "SRV-QB-ADMIN01", fileServer: "SRV-QB-BACKUP01",
   },
 };
