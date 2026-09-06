@@ -17,8 +17,9 @@ export interface Ctx {
   ts: string;
   companyId?: string;
   host?: string;
-  /** login name or email; rendered DOMAIN\user in the raw block */
-  user?: string;
+  /** login name or email; rendered DOMAIN\user in the raw block. null = no user (a
+   *  pre-auth firewall connection, a system event) — never draw one from the fabric. */
+  user?: string | null;
   srcIp?: string;
   incidentId?: string;
 }
@@ -35,16 +36,19 @@ export interface Resolved {
 /** Resolve identity + asset for an event, drawing from the fabric when not given. */
 export function resolve(c: Ctx): Resolved {
   const host = c.host ?? pickHost(c.companyId, c.id, "workstation");
-  const ru = c.user
-    ? { name: c.user.includes("@") ? c.user.split("@")[0] : c.user, email: c.user.includes("@") ? c.user : undefined }
-    : pickUser(c.companyId, c.id);
+  const noUser = c.user === null;
+  const ru = noUser
+    ? { name: "-", email: undefined }
+    : c.user
+      ? { name: c.user.includes("@") ? c.user.split("@")[0] : c.user, email: c.user.includes("@") ? c.user : undefined }
+      : pickUser(c.companyId, c.id);
   const bareUser = ru.name;
   const email = "email" in ru ? ru.email : undefined;
   return {
     host,
     bareUser,
     email,
-    domainUser: netbiosUser(c.companyId, bareUser),
+    domainUser: noUser ? "-" : netbiosUser(c.companyId, bareUser),
     srcIp: c.srcIp ?? ipFor(c.companyId, host),   // keyed by host → same host, same IP
     sensorId: makeSha256(`sensor:${host}`).slice(0, 32),
   };

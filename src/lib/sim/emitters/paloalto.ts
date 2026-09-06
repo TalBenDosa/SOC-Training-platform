@@ -139,7 +139,7 @@ export function panConnection(o: PanConnectionOpts): TelemetryEvent {
       "pan.action": actionStr,
       "pan.rule": "CORP-WEB-OUTBOUND",
       "pan.src": r.srcIp,
-      "pan.srcuser": r.domainUser.toLowerCase(),
+      ...(r.domainUser !== "-" ? { "pan.srcuser": r.domainUser.toLowerCase() } : {}),
       "pan.dst": dstIp,
       "pan.dport": String(port),
       "pan.app": o.app ?? "ssl",
