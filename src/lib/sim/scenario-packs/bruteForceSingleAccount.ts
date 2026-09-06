@@ -13,12 +13,20 @@
  * produced, the share the session mapped, and the shares the account had used
  * before. Nothing in the telemetry states the verdict.
  *
+ * TELEMETRY: fully emitter-authored (Windows Security + CrowdStrike + Palo Alto
+ * + Sentinel) — no hand-typed raw blocks, so every field is registry-correct and
+ * the host/user/realm are drawn from the company asset fabric by construction.
+ *
  * NOTE: `difficulty: "beginner"` is declared on the SCENARIOS registry entry in
  * scenarios.ts (ScenarioBundle itself carries no difficulty field).
  */
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { winFailedLogon, winLogon, winShareAccess, winObjectAccess } from "@/lib/sim/emitters/windowsSecurity";
+import { csProcess } from "@/lib/sim/emitters/crowdstrike";
+import { panConnection } from "@/lib/sim/emitters/paloalto";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 
 export function buildBruteForceSingleAccountScenario(
   scenarioId = "brute-force-single-account-2026",
@@ -49,501 +57,133 @@ export function buildBruteForceSingleAccountScenario(
   // pivot telemetry; the EDR net.exe lateral-movement detection is alert-grade.
   const INCIDENT = "inc:bf:1";
 
+  const RU = { country: "Russia", city: "Moscow" };
+  const RU_GEO = { ...RU, latitude: 55.75, longitude: 37.62 };
+  const cx = { companyId: "nexacorp" as const };
+
   const events: TelemetryEvent[] = [
-    // ---------------------------------------------------------------------
     // 1. First contact — inbound RDP from the internet, allowed by policy.
-    // ---------------------------------------------------------------------
     {
-      id: "evt_bf_01_fw_inbound",
-      ts: T(0),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "net_connection",
-      hostname: rds.hostname,
-      src_ip: attackerIp,
-      dst_ip: rds.ip,
-      dst_port: 3389,
-      protocol: "tcp",
-      severity: "medium",
-      mitre_technique: "T1133",
-      mitre_tactic: "Initial Access",
-      geo: { country: "Russia", city: "Moscow", latitude: 55.75, longitude: 37.62 },
-      description:
-        "An address in Russia opened an inbound TCP/3389 session to the published Remote Desktop server SRV-RDS-02, allowed by the rule INBOUND-RDP-PUBLISHED.",
-      network: { bytes_out: 9840, bytes_in: 26112 },
-      raw: {
-        "pan.type": "TRAFFIC",
-        "pan.subtype": "end",
-        "pan.action": "allow",
-        "pan.rule": "INBOUND-RDP-PUBLISHED",
-        "pan.src": attackerIp,
-        "pan.dst": rds.nat,
-        "pan.natdst": rds.ip,
-        "pan.sport": "49712",
-        "pan.dport": "3389",
-        "pan.proto": "tcp",
-        "pan.app": "ms-rdp",
-        "pan.from_zone": "UNTRUST",
-        "pan.to_zone": "DMZ",
-        "pan.session_id": "612440",
-        "pan.bytes_sent": "9840",
-        "pan.bytes_received": "26112",
-        "pan.packets": "184",
-        "pan.srcloc": "RU",
-        "pan.dstloc": "IL",
-        "source.ip": attackerIp,
-        "destination.ip": rds.ip,
-        "destination.port": "3389",
-        "action_result": "allow",
-      },
+      ...panConnection({
+        ...cx, id: "evt_bf_01_fw_inbound", ts: T(0), host: rds.hostname, user: null,
+        srcIp: attackerIp, dstIp: rds.ip, remotePort: 3389, app: "ms-rdp", transport: "tcp",
+        action: "allow", end: true, bytesOut: 9840, bytesIn: 26112,
+        mitre: "T1133", tactic: "Initial Access", severity: "medium",
+        description:
+          "An address in Russia opened an inbound TCP/3389 session to the published Remote Desktop server SRV-RDS-02, allowed by the firewall.",
+      }),
+      geo: RU_GEO,
     },
 
-    // ---------------------------------------------------------------------
     // 2. First failure — the username itself is wrong (0xC0000064).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bf_02_fail_wrong_user",
-      ts: T(2 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_failure",
-      hostname: rds.hostname,
-      src_ip: attackerIp,
-      severity: "low",
-      mitre_technique: "T1110.001",
-      mitre_tactic: "Credential Access",
-      geo: { country: "Russia", city: "Moscow" },
+    winFailedLogon({
+      ...cx, id: "evt_bf_02_fail_wrong_user", ts: T(2 * MIN), host: rds.hostname, fqdn: rds.fqdn,
+      targetUser: wrongFormat, userEmail: null, srcIp: attackerIp, subStatus: "0xC0000064",
+      logonType: 3, workstation: "WORKSTATION", srcPort: "49712", recordId: "3310442",
+      severity: "low", mitre: "T1110.001", tactic: "Credential Access", geo: RU,
       description:
         "The first logon failure on SRV-RDS-02 was a 4625 for the account name swolfe, over NTLM from 91.108.23.146.",
-      authentication: { method: "NTLM", result: "failure", logon_type: 3 },
-      raw: {
-        // Windows Security Event 4625 — An account failed to log on
-        "winlog.event_id": "4625",
-        "winlog.channel": "Security",
-        "winlog.computer_name": rds.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "3310442",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.SubjectLogonId": "0x0",
-        "winlog.event_data.TargetUserSid": "S-1-0-0",
-        "winlog.event_data.TargetUserName": wrongFormat,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.Status": "0xC000006D",
-        "winlog.event_data.SubStatus": "0xC0000064",
-        "winlog.event_data.FailureReason": "%%2313",
-        "winlog.event_data.LogonProcessName": "NtLmSsp ",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.WorkstationName": "WORKSTATION",
-        "winlog.event_data.IpAddress": attackerIp,
-        "winlog.event_data.IpPort": "49712",
-        "winlog.event_data.ProcessName": "-",
-        "event.code": "4625",
-        "event.action": "logon-failed",
-        "event.outcome": "failure",
-        "source.ip": attackerIp,
-        "user.name": wrongFormat,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
     // 3. The burst proper — correct account name, wrong password (0xC000006A).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bf_03_fail_burst",
-      ts: T(3 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_failure",
-      hostname: rds.hostname,
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "medium",
-      mitre_technique: "T1110.001",
-      mitre_tactic: "Credential Access",
-      geo: { country: "Russia", city: "Moscow" },
+    winFailedLogon({
+      ...cx, id: "evt_bf_03_fail_burst", ts: T(3 * MIN), host: rds.hostname, fqdn: rds.fqdn,
+      targetUser: victim.sam, srcIp: attackerIp, subStatus: "0xC000006A",
+      logonType: 3, workstation: "WORKSTATION", srcPort: "49883", recordId: "3310519",
+      severity: "medium", mitre: "T1110.001", tactic: "Credential Access", geo: RU,
       description:
         "One minute later the failures switch to the account name s.wolfe — a representative record from 214 failures written between 09:02 and 09:20, all from 91.108.23.146.",
-      authentication: { method: "NTLM", result: "failure", logon_type: 3 },
-      raw: {
-        "winlog.event_id": "4625",
-        "winlog.channel": "Security",
-        "winlog.computer_name": rds.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "3310519",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.SubjectLogonId": "0x0",
-        "winlog.event_data.TargetUserSid": "S-1-0-0",
-        "winlog.event_data.TargetUserName": victim.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.Status": "0xC000006D",
-        "winlog.event_data.SubStatus": "0xC000006A",
-        "winlog.event_data.FailureReason": "%%2313",
-        "winlog.event_data.LogonProcessName": "NtLmSsp ",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.WorkstationName": "WORKSTATION",
-        "winlog.event_data.IpAddress": attackerIp,
-        "winlog.event_data.IpPort": "49883",
-        "winlog.event_data.ProcessName": "-",
-        "event.code": "4625",
-        "event.action": "logon-failed",
-        "event.outcome": "failure",
-        "source.ip": attackerIp,
-        "user.name": victim.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
     // 4. Last failure of the burst — 40 seconds before the ticket's answer.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bf_04_fail_last",
-      ts: T(19 * MIN + 20_000),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_failure",
-      hostname: rds.hostname,
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "medium",
-      mitre_technique: "T1110.001",
-      mitre_tactic: "Credential Access",
-      geo: { country: "Russia", city: "Moscow" },
+    winFailedLogon({
+      ...cx, id: "evt_bf_04_fail_last", ts: T(19 * MIN + 20_000), host: rds.hostname, fqdn: rds.fqdn,
+      targetUser: victim.sam, srcIp: attackerIp, subStatus: "0xC000006A",
+      logonType: 3, workstation: "WORKSTATION", srcPort: "51204", recordId: "3312088",
+      severity: "medium", mitre: "T1110.001", tactic: "Credential Access", geo: RU,
       description:
         "The final 4625 of the burst, written at 09:19:20 for s.wolfe on SRV-RDS-02 from 91.108.23.146 over NTLM.",
-      authentication: { method: "NTLM", result: "failure", logon_type: 3 },
-      raw: {
-        "winlog.event_id": "4625",
-        "winlog.channel": "Security",
-        "winlog.computer_name": rds.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "3312088",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.SubjectLogonId": "0x0",
-        "winlog.event_data.TargetUserSid": "S-1-0-0",
-        "winlog.event_data.TargetUserName": victim.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.Status": "0xC000006D",
-        "winlog.event_data.SubStatus": "0xC000006A",
-        "winlog.event_data.FailureReason": "%%2313",
-        "winlog.event_data.LogonProcessName": "NtLmSsp ",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.WorkstationName": "WORKSTATION",
-        "winlog.event_data.IpAddress": attackerIp,
-        "winlog.event_data.IpPort": "51204",
-        "winlog.event_data.ProcessName": "-",
-        "event.code": "4625",
-        "event.action": "logon-failed",
-        "event.outcome": "failure",
-        "source.ip": attackerIp,
-        "user.name": victim.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
     // 5. THE EVENT THAT MATTERS — 4624 success, same account, same address.
-    //    Looks identical to any ordinary network logon.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bf_05_auth_success",
-      ts: T(20 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: rds.hostname,
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1078",
-      mitre_tactic: "Initial Access",
-      geo: { country: "Russia", city: "Moscow" },
+    winLogon({
+      ...cx, id: "evt_bf_05_auth_success", ts: T(20 * MIN), host: rds.hostname, fqdn: rds.fqdn,
+      targetUser: victim.sam, targetSid: victimSid, srcIp: attackerIp, logonType: 3,
+      logonId: "0x2F91A44", srcPort: "51377", recordId: "3312194",
+      severity: "high", mitre: "T1078", tactic: "Initial Access", geo: RU_GEO,
       description:
         "A successful 4624 network logon for s.wolfe on SRV-RDS-02 at 09:20:00, LogonType 3 over NTLM, from 91.108.23.146.",
-      authentication: { method: "NTLM", result: "success", logon_type: 3 },
-      raw: {
-        // Windows Security Event 4624 — An account was successfully logged on
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": rds.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "3312194",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.SubjectLogonId": "0x0",
-        "winlog.event_data.TargetUserSid": victimSid,
-        "winlog.event_data.TargetUserName": victim.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0x2F91A44",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.LogonProcessName": "NtLmSsp ",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.WorkstationName": "WORKSTATION",
-        "winlog.event_data.LogonGuid": "{00000000-0000-0000-0000-000000000000}",
-        "winlog.event_data.IpAddress": attackerIp,
-        "winlog.event_data.IpPort": "51377",
-        "winlog.event_data.ImpersonationLevel": "%%1833",
-        "winlog.event_data.ElevatedToken": "%%1843",
-        "winlog.event_data.ProcessName": "-",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "source.ip": attackerIp,
-        "user.name": victim.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 6. The interactive desktop that the network logon unlocked (LogonType 10).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bf_06_rdp_session",
-      ts: T(20 * MIN + 8_000),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: rds.hostname,
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1021.001",
-      mitre_tactic: "Lateral Movement",
-      geo: { country: "Russia", city: "Moscow" },
+    // 6. The interactive desktop the network logon unlocked (LogonType 10).
+    winLogon({
+      ...cx, id: "evt_bf_06_rdp_session", ts: T(20 * MIN + 8_000), host: rds.hostname, fqdn: rds.fqdn,
+      targetUser: victim.sam, targetSid: victimSid, srcIp: attackerIp, logonType: 10,
+      authPackage: "Negotiate", logonProcess: "User32 ", subjectSid: "S-1-5-18", subjectUser: "SRV-RDS-02$",
+      logonId: "0x2F92B71", srcPort: "51377", workstation: rds.hostname, recordId: "3312203",
+      processName: "C:\\Windows\\System32\\svchost.exe",
+      severity: "high", mitre: "T1021.001", tactic: "Lateral Movement", geo: RU_GEO,
       description:
         "Eight seconds later a second 4624 on SRV-RDS-02 records LogonType 10 — RemoteInteractive — for s.wolfe from the same address, over Negotiate.",
-      authentication: { method: "Negotiate", result: "success", logon_type: 10 },
-      raw: {
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": rds.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "3312203",
-        "winlog.event_data.SubjectUserSid": "S-1-5-18",
-        "winlog.event_data.SubjectUserName": "SRV-RDS-02$",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x3E7",
-        "winlog.event_data.TargetUserSid": victimSid,
-        "winlog.event_data.TargetUserName": victim.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0x2F92B71",
-        "winlog.event_data.LogonType": "10",
-        "winlog.event_data.LogonProcessName": "User32 ",
-        "winlog.event_data.AuthenticationPackageName": "Negotiate",
-        "winlog.event_data.WorkstationName": rds.hostname,
-        "winlog.event_data.IpAddress": attackerIp,
-        "winlog.event_data.IpPort": "51377",
-        "winlog.event_data.ElevatedToken": "%%1843",
-        "winlog.event_data.ProcessName": "C:\\Windows\\System32\\svchost.exe",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "source.ip": attackerIp,
-        "user.name": victim.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 7. Ordinary-looking command, wrong share for this account.
-    // ---------------------------------------------------------------------
+    // 7. Ordinary-looking command, wrong share for this account (EDR detection).
     {
-      id: "evt_bf_07_net_use",
-      ts: T(22 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: rds.hostname,
-      user_email: victim.email,
-      src_ip: rds.ip,
-      severity: "medium",
-      mitre_technique: "T1021.002",
-      mitre_tactic: "Lateral Movement",
-      is_detection: true, // alert-grade: the EDR lateral-movement detection — net.exe mapping HR-Confidential from inside the session (the crux)
-      edr_scope: "edr",   // host-primary brute-force incident → investigated in the EDR console
-      description:
-        "Inside the new desktop session cmd.exe spawned the signed net.exe, running: net use Z: \\\\FS-CORP-02\\HR-Confidential as NEXACORP\\s.wolfe.",
-      process: {
-        name: "net.exe",
-        pid: 6248,
-        path: "C:\\Windows\\System32\\net.exe",
-        parent_name: "cmd.exe",
-        parent_pid: 6112,
-        cmdline: "net use Z: \\\\FS-CORP-02\\HR-Confidential",
-        user: "NEXACORP\\s.wolfe",
-        integrity: "medium",
-        hash: { sha256: netExeHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.tactic": "Lateral Movement",
-        "crowdstrike.detection.tactic_id": "TA0008",
-        "crowdstrike.detection.technique": "Remote Services: SMB/Windows Admin Shares",
-        "crowdstrike.detection.technique_id": "T1021.002",
-        "crowdstrike.detection.severity": "Medium",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.sensor.id": "a7c1f0e93b2d4a86b5c0d1e2f3a4b5c6",
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "process_created",
-        "event.code": "1",
-        "process.name": "net.exe",
-        "process.pid": "6248",
-        "process.executable": "C:\\Windows\\System32\\net.exe",
-        "process.command_line": "net use Z: \\\\FS-CORP-02\\HR-Confidential",
-        "process.hash.sha256": netExeHash,
-        "process.signed": "true",
-        "process.parent.name": "cmd.exe",
-        "process.parent.pid": "6112",
-        "user.name": "NEXACORP\\s.wolfe",
-        "user.logon_id": "0x2F92B71",
-        "host.name": rds.hostname,
-        "host.ip": rds.ip,
-      },
+      ...csProcess({
+        ...cx, id: "evt_bf_07_net_use", ts: T(22 * MIN), host: rds.hostname, user: victim.email, srcIp: rds.ip,
+        processName: "net.exe", processPath: "C:\\Windows\\System32\\net.exe",
+        cmdline: "net use Z: \\\\FS-CORP-02\\HR-Confidential", parentName: "cmd.exe",
+        pid: 6248, parentPid: 6112, sha256: netExeHash, signed: true,
+        mitre: "T1021.002", tactic: "Lateral Movement", severity: "medium", isDetection: true,
+        description:
+          "Inside the new desktop session cmd.exe spawned the signed net.exe, running: net use Z: \\\\FS-CORP-02\\HR-Confidential as NEXACORP\\s.wolfe.",
+      }),
+      edr_scope: "edr",
     },
 
-    // ---------------------------------------------------------------------
     // 8. The share connection as the file server recorded it (5140).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bf_08_share_access",
-      ts: T(22 * MIN + 20_000),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "file_access",
-      hostname: fileServer.hostname,
-      user_email: victim.email,
-      src_ip: rds.ip,
-      severity: "medium",
+    winShareAccess({
+      ...cx, id: "evt_bf_08_share_access", ts: T(22 * MIN + 20_000), host: fileServer.hostname, fqdn: fileServer.fqdn,
+      targetUser: victim.sam, targetSid: victimSid, srcIp: rds.ip,
+      shareName: "\\\\*\\HR-Confidential", shareLocalPath: "\\??\\E:\\Shares\\HR-Confidential",
+      subjectLogonId: "0x74C2E19", recordId: "8874120", severity: "medium",
       description:
         "FS-CORP-02 recorded a 5140 connection to the HR-Confidential share under the s.wolfe logon session, with IpAddress 10.30.9.20.",
-      raw: {
-        // Windows Security Event 5140 — A network share object was accessed
-        "winlog.event_id": "5140",
-        "winlog.channel": "Security",
-        "winlog.computer_name": fileServer.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "8874120",
-        "winlog.event_data.SubjectUserSid": victimSid,
-        "winlog.event_data.SubjectUserName": victim.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x74C2E19",
-        "winlog.event_data.ObjectType": "File",
-        "winlog.event_data.IpAddress": rds.ip,
-        "winlog.event_data.IpPort": "50219",
-        "winlog.event_data.ShareName": "\\\\*\\HR-Confidential",
-        "winlog.event_data.ShareLocalPath": "\\??\\E:\\Shares\\HR-Confidential",
-        "winlog.event_data.AccessMask": "0x1",
-        "winlog.event_data.AccessList": "%%4416",
-        "event.code": "5140",
-        "event.action": "share-accessed",
-        "event.outcome": "success",
-        "source.ip": rds.ip,
-        "user.name": victim.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 9. A file is actually read off the share.
-    // ---------------------------------------------------------------------
+    // 9. A file is actually read off the share (4663).
     {
-      id: "evt_bf_09_file_read",
-      ts: T(23 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "file_access",
-      hostname: fileServer.hostname,
-      user_email: victim.email,
-      src_ip: rds.ip,
-      severity: "high",
-      mitre_technique: "T1039",
-      mitre_tactic: "Collection",
-      description:
-        "An object-access record from FS-CORP-02 showing a payroll workbook on the HR-Confidential share being opened with read access under the s.wolfe logon session.",
+      ...winObjectAccess({
+        ...cx, id: "evt_bf_09_file_read", ts: T(23 * MIN), host: fileServer.hostname, fqdn: fileServer.fqdn,
+        targetUser: victim.sam, targetSid: victimSid, srcIp: rds.ip, processName: "System",
+        objectName: "E:\\Shares\\HR-Confidential\\Payroll\\2026\\salary_bands_2026.xlsx",
+        fileName: "salary_bands_2026.xlsx", subjectLogonId: "0x74C2E19", recordId: "8874233",
+        severity: "high", mitre: "T1039", tactic: "Collection",
+        description:
+          "An object-access record from FS-CORP-02 showing a payroll workbook on the HR-Confidential share being opened with read access under the s.wolfe logon session.",
+      }),
       file: {
         path: "E:\\Shares\\HR-Confidential\\Payroll\\2026\\salary_bands_2026.xlsx",
-        name: "salary_bands_2026.xlsx",
-        extension: "xlsx",
-        size: 842_240,
-      },
-      raw: {
-        // Windows Security Event 4663 — An attempt was made to access an object
-        "winlog.event_id": "4663",
-        "winlog.channel": "Security",
-        "winlog.computer_name": fileServer.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "8874233",
-        "winlog.event_data.SubjectUserSid": victimSid,
-        "winlog.event_data.SubjectUserName": victim.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x74C2E19",
-        "winlog.event_data.ObjectServer": "Security",
-        "winlog.event_data.ObjectType": "File",
-        "winlog.event_data.ObjectName":
-          "E:\\Shares\\HR-Confidential\\Payroll\\2026\\salary_bands_2026.xlsx",
-        "winlog.event_data.HandleId": "0x1a2c",
-        "winlog.event_data.AccessMask": "0x1",
-        "winlog.event_data.AccessList": "%%4416",
-        "winlog.event_data.ProcessId": "0x4",
-        "winlog.event_data.ProcessName": "System",
-        "event.code": "4663",
-        "event.action": "file-accessed",
-        "event.outcome": "success",
-        "source.ip": rds.ip,
-        "user.name": victim.sam,
-        "user.domain": "NEXACORP",
+        name: "salary_bands_2026.xlsx", extension: "xlsx", size: 842_240,
       },
     },
 
-    // ---------------------------------------------------------------------
     // 10. The correlation that opened the ticket, plus the account's context.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bf_10_siem_context",
-      ts: T(26 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      hostname: rds.hostname,
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "high",
+    sentinelAlert({
+      ...cx, id: "evt_bf_10_siem_context", ts: T(26 * MIN), host: rds.hostname, srcIp: attackerIp, user: victim.email,
+      alertName: "ExternalAuthenticationBurst_SingleAccount", ruleId: "SEN-IDENT-0117", severity: "high",
+      fullName: "Sara Wolfe", department: "Accounts Payable", title: "Accounts Payable Clerk",
+      extendedProperties: {
+        "Window Start": T(2 * MIN),
+        "Window End": T(20 * MIN),
+        "Shares Connected (Prior 90d)": ["\\\\FS-CORP-02\\AP-Invoices", "\\\\FS-CORP-02\\Scans", "\\\\FS-CORP-02\\Finance-Reports"],
+        "Source Addresses In Window": [attackerIp],
+        "Lockout Policy Applied": "false",
+        "Group Memberships": ["Domain Users", "AP-Clerks", "Finance-Readers"],
+      },
       description:
         "Sentinel raised the alert for s.wolfe with the account's directory context attached: department, group memberships, 90-day share history and the source addresses seen in the window.",
-      raw: {
-        "AlertName": "ExternalAuthenticationBurst_SingleAccount",
-        "alert.rule.id": "SEN-IDENT-0117",
-        "target.user.name": "NEXACORP\\s.wolfe",
-        "user.full_name": "Sara Wolfe",
-        "user.department": "Accounts Payable",
-        "user.title": "Accounts Payable Clerk",
-        "user.group.name": ["Domain Users", "AP-Clerks", "Finance-Readers"],
-        "host.name": rds.hostname,
-        "ExtendedProperties.Window Start": T(2 * MIN),
-        "ExtendedProperties.Window End": T(20 * MIN),
-        "ExtendedProperties.Shares Connected (Prior 90d)": [
-          "\\\\FS-CORP-02\\AP-Invoices",
-          "\\\\FS-CORP-02\\Scans",
-          "\\\\FS-CORP-02\\Finance-Reports",
-        ],
-        "ExtendedProperties.Source Addresses In Window": [attackerIp],
-        "ExtendedProperties.Lockout Policy Applied": "false",
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-      },
-    },
+    }),
   ];
 
   // Every event belongs to the one incident.

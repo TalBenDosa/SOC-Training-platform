@@ -5,6 +5,7 @@ import { buildClipboardClipperScenario } from "./clipboardClipper";
 import { buildTrojanizedInstallerKeyloggerScenario } from "./trojanizedInstallerKeylogger";
 import { buildSeoPoisonedInstallerScenario } from "./seoPoisonedInstaller";
 import { buildDriveByBrowserMinerScenario } from "./driveByBrowserMiner";
+import { buildBruteForceSingleAccountScenario } from "./bruteForceSingleAccount";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -14,6 +15,7 @@ import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 const FULLY_EMITTER_AUTHORED = [
   "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
+  "bruteForceSingleAccount.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -110,5 +112,35 @@ describe("emitter-authored scenario packs", () => {
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("LAP-6690");
     expect(inv.processes.some(p => p.name === "chrome.exe" && p.pid === 8842)).toBe(true);
+  });
+
+  it("bruteForceSingleAccount builds a coherent AD incident from emitters only (Windows Security + CrowdStrike + PAN + Sentinel)", () => {
+    const s = buildBruteForceSingleAccountScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Palo Alto Networks PAN-OS", "Windows Security", "CrowdStrike Falcon", "Microsoft Sentinel",
+    ]));
+    // the two SubStatus codes that carry the whole lesson (no-user vs bad-password)
+    const wrongUser = s.events.find(e => e.id === "evt_bf_02_fail_wrong_user");
+    expect(wrongUser?.raw?.["winlog.event_data.SubStatus"]).toBe("0xC0000064");
+    expect(wrongUser?.user_email).toBeUndefined();      // the account never existed → no mailbox
+    const burst = s.events.find(e => e.id === "evt_bf_03_fail_burst");
+    expect(burst?.raw?.["winlog.event_data.SubStatus"]).toBe("0xC000006A");
+    // the 4624 success is the incident
+    const success = s.events.find(e => e.id === "evt_bf_05_auth_success");
+    expect(success?.event_type).toBe("auth_success");
+    expect(success?.raw?.["winlog.event_id"]).toBe("4624");
+    // the net.exe lateral-movement detection is alert-grade and lives in the EDR console
+    const netUse = s.events.find(e => e.id === "evt_bf_07_net_use");
+    expect(netUse?.is_detection).toBe(true);
+    expect(netUse?.edr_scope).toBe("edr");
+    expect(netUse?.process?.name).toBe("net.exe");
+    // the Sentinel enrichment keeps its 90-day share baseline
+    const ctx = s.events.find(e => e.id === "evt_bf_10_siem_context");
+    expect(ctx?.raw?.["AlertName"]).toBe("ExternalAuthenticationBurst_SingleAccount");
+    expect(ctx?.raw?.["ExtendedProperties.Lockout Policy Applied"]).toBe("false");
+    // one host, correlated: the EDR console opens on the RDP server
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("SRV-RDS-02");
   });
 });
