@@ -65,7 +65,7 @@ export function buildBecWireFraudScenario(
     name: "Priya Nair",
     sam: "p.nair",
     title: "Accounts Payable Specialist",
-    corpIp: "72.14.201.90", // her New York corporate egress
+    corpIp: "81.174.88.14", // her London corporate egress
   };
 
   // The real CFO the attacker impersonates. His genuine account is on nexacorp.com.
@@ -73,7 +73,7 @@ export function buildBecWireFraudScenario(
     email: "david.okonkwo@nexacorp.com",
     name: "David Okonkwo",
     title: "Chief Financial Officer",
-    corpIp: "72.14.201.61", // his usual New York corporate egress
+    corpIp: "81.174.88.27", // his usual London corporate egress
   };
 
   // The attacker infrastructure: a lookalike, newly-registered domain, a sender
@@ -312,10 +312,10 @@ export function buildBecWireFraudScenario(
       user_email: cfo.email,
       user_title: cfo.title,
       src_ip: cfo.corpIp,
-      geo: { country: "United States", city: "New York" },
+      geo: { country: "United Kingdom", city: "London" },
       severity: "informational",
       description:
-        "A Unified Audit review of the genuine CFO account david.okonkwo@nexacorp.com shows its recent sign-ins all from his usual New York corporate address with MFA satisfied, and no New-InboxRule or forwarding change in the window — his real mailbox was not accessed.",
+        "A Unified Audit review of the genuine CFO account david.okonkwo@nexacorp.com shows its recent sign-ins all from his usual London corporate address with MFA satisfied, and no New-InboxRule or forwarding change in the window — his real mailbox was not accessed.",
       raw: {
         "data.office365.Operation": "UserLoggedIn",
         "data.office365.Workload": "AzureActiveDirectory",
@@ -327,8 +327,8 @@ export function buildBecWireFraudScenario(
         "data.office365.ResultStatus": "Success",
         "data.office365.UserAgent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
-        "GeoLocation.country_name": "United States",
-        "GeoLocation.city_name": "New York",
+        "GeoLocation.country_name": "United Kingdom",
+        "GeoLocation.city_name": "London",
         "source.ip": cfo.corpIp,
       },
     },
@@ -507,7 +507,7 @@ export function buildBecWireFraudScenario(
       "Microsoft Defender for Office 365 flagged an urgent wire-transfer email to Accounts Payable that appears to come from the CFO, and Finance filed a report about a phone call chasing the same payment. No money has moved yet. Determine whether this request is genuine before any transfer is approved, and explain what the evidence shows.",
     narrative: `This is an email-fraud case with no malware, no compromised internal mailbox, and no host to walk. At 07:30 an urgent message reached Priya Nair, an Accounts Payable specialist, pressing her to send a wire "today". The From line read "David Okonkwo" — the CFO — but the actual sender was david.okonkwo@nexacorp-finance.com. That domain is a lookalike of the real corporate nexacorp.com, registered only eight days earlier, and the message failed SPF, DKIM and DMARC: nothing tied it to the domain it claimed. The envelope sender and the header From disagreed, and Microsoft Defender for Office 365's anti-phishing raised an executive-impersonation alert — the ticket you picked up. The mail carried a "beneficiary update" PDF and a link to nexacorp-finance.com/secure/beneficiary-update.
 
-The decisive check was on the genuine account. A Unified Audit review of the real david.okonkwo@nexacorp.com mailbox showed only routine sign-ins from his usual New York corporate address and no new inbox rules — his account was never touched. This was never a takeover; it was someone outside the company wearing the CFO's name.
+The decisive check was on the genuine account. A Unified Audit review of the real david.okonkwo@nexacorp.com mailbox showed only routine sign-ins from his usual London corporate address and no new inbox rules — his account was never touched. This was never a takeover; it was someone outside the company wearing the CFO's name.
 
 Twenty minutes later Finance filed a fraud report: Nair had taken a phone call from a number that was not the CFO's, from a voice that sounded exactly like him, urging her to release the wire before a "bank cut-off". The voice was a deepfake clone — a second impersonation channel, not corroboration. A convincing voice is now cheap to synthesise, which is precisely why it cannot authenticate a payment.
 

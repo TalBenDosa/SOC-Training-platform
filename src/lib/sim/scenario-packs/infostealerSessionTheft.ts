@@ -57,7 +57,7 @@ export function buildInfostealerSessionTheftScenario(
   const lureIp = "104.21.44.187";
   const c2Domain = "telemetry-cdn-relay.net";
   const c2Ip = "185.220.101.47";
-  const corpEgress = "84.110.12.9";
+  const corpEgress = "81.174.55.21"; // London corporate egress
   const replayIp = "91.243.24.19";
 
   const installerHash = makeSha256("pdf_converter_pro_setup_freeware_pdftools_2026");
@@ -94,10 +94,10 @@ export function buildInfostealerSessionTheftScenario(
       user_email: victim.email,
       user_title: "Account Executive",
       src_ip: corpEgress,
-      geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
       authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
       description:
-        "Entra ID recorded r.avidan's ordinary interactive sign-in at 07:52, MFA satisfied by a live Authenticator push, from her enrolled laptop LAP-6688 on the Tel Aviv corporate egress.",
+        "Entra ID recorded r.avidan's ordinary interactive sign-in at 07:52, MFA satisfied by a live Authenticator push, from her enrolled laptop LAP-6688 on the London corporate egress.",
       raw: {
         "azure.signinlogs.category": "SignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -114,12 +114,12 @@ export function buildInfostealerSessionTheftScenario(
         "azure.signinlogs.properties.clientAppUsed": "Browser",
         "azure.signinlogs.properties.isInteractive": true,
         "azure.signinlogs.properties.ipAddress": corpEgress,
-        "azure.signinlogs.properties.autonomousSystemNumber": 8551,
-        "azure.signinlogs.properties.location.city": "Tel Aviv",
-        "azure.signinlogs.properties.location.state": "Tel Aviv",
-        "azure.signinlogs.properties.location.countryOrRegion": "IL",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 32.0853,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": 34.7818,
+        "azure.signinlogs.properties.autonomousSystemNumber": 5378,
+        "azure.signinlogs.properties.location.city": "London",
+        "azure.signinlogs.properties.location.state": "England",
+        "azure.signinlogs.properties.location.countryOrRegion": "GB",
+        "azure.signinlogs.properties.location.geoCoordinates.latitude": 51.5074,
+        "azure.signinlogs.properties.location.geoCoordinates.longitude": -0.1278,
         "azure.signinlogs.properties.deviceDetail.deviceId": deviceIdBaseline,
         "azure.signinlogs.properties.deviceDetail.displayName": "LAP-6688",
         "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
@@ -677,7 +677,7 @@ export function buildInfostealerSessionTheftScenario(
           label: "authenticationDetails shows no password or MFA step at all — just a prior-token claim — on an unmanaged device, arriving five minutes after Falcon saw her Cookies file staged on LAP-6688",
         },
         { value: "risk_field", label: "riskLevelDuringSignIn should read \"high\" for any sign-in from Russia, so this record is clearly mislabelled" },
-        { value: "geo_alone", label: "The IP resolves outside Israel, and any sign-in from a country she has never visited is a takeover by definition" },
+        { value: "geo_alone", label: "The IP resolves outside the United Kingdom, and any sign-in from a country she has never visited is a takeover by definition" },
         { value: "ca_status", label: "conditionalAccessStatus only reads \"success\" on legitimate sign-ins — a hijacked session would show \"failure\"" },
       ],
       answer: "correlation",

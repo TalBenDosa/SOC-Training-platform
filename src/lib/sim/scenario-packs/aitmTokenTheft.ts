@@ -25,7 +25,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
   const traveller = "a.rosen@nexacorp.com";         // benign look-alike: real trip, real VPN
 
   // ── Infrastructure ─────────────────────────────────────────────────────────
-  const corpEgress = "82.80.14.6";                  // Zscaler / Bezeq egress, Tel Aviv
+  const corpEgress = "81.174.22.63";                // Zscaler / corporate egress, London
   const proxyIp = "45.87.81.126";                   // reverse-proxy front end, Amsterdam (AS60068)
   const replayIp = "91.132.139.204";                // attacker workstation, Frankfurt (AS51167)
   const vpnEgress = "194.145.227.18";               // corporate VPN concentrator, Frankfurt (AS202422)
@@ -83,10 +83,10 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       event_type: "email_clicked", severity: "medium", mitre_technique: "T1566.002",
       user_email: victim, user_title: "Financial Controller",
       src_ip: corpEgress,
-      geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
       network: { url: phishUrl, domain: phishHost, user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.2365.92" },
       description:
-        "URL Defense recorded m.delgado following the rewritten link four minutes after delivery, from the Tel Aviv corporate egress on Edge. Click status: permitted.",
+        "URL Defense recorded m.delgado following the rewritten link four minutes after delivery, from the London corporate egress on Edge. Click status: permitted.",
       raw: {
         "pps.clickTime": T(4 * MIN),
         "pps.QID": "4A2F91C037",
@@ -119,7 +119,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
         "infoblox.answer": proxyIp,
         "infoblox.ttl": 300,
         "infoblox.view": "internal",
-        "infoblox.member": "ns-tlv-01.nexacorp.com",
+        "infoblox.member": "ns-lon-01.nexacorp.com",
         "infoblox.transport": "UDP",
       },
     },
@@ -132,14 +132,14 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       event_type: "http_request", severity: "medium", mitre_technique: "T1557",
       hostname: "LT-FIN-0442", user_email: victim,
       src_ip: corpEgress, dst_ip: proxyIp, dst_port: 443, protocol: "tcp",
-      geo: { country: "Israel", city: "Tel Aviv" },
+      geo: { country: "United Kingdom", city: "London" },
       network: { url: phishUrl, domain: phishHost, method: "GET", status: 200, bytes_in: 48213, bytes_out: 1024 },
       description:
         "m.delgado's browser loaded a sign-in page from login.nexacorp-sso.com, 200 returned. Zscaler categorised the host as Newly Registered Domains and allowed it.",
       raw: {
         "zscaler.login": victim,
         "zscaler.department": "Finance",
-        "zscaler.location": "Tel Aviv HQ",
+        "zscaler.location": "London HQ",
         "zscaler.cip": "10.42.18.77",
         "zscaler.sip": proxyIp,
         "zscaler.hostname": phishHost,
@@ -167,14 +167,14 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       event_type: "http_request", severity: "high", mitre_technique: "T1557",
       hostname: "LT-FIN-0442", user_email: victim,
       src_ip: corpEgress, dst_ip: proxyIp, dst_port: 443, protocol: "tcp",
-      geo: { country: "Israel", city: "Tel Aviv" },
+      geo: { country: "United Kingdom", city: "London" },
       network: { url: `https://${phishHost}/common/login`, domain: phishHost, method: "POST", status: 302, bytes_in: 2211, bytes_out: 3874 },
       description:
         "A POST to /common/login on login.nexacorp-sso.com carried 3,874 bytes of form data and the host answered 302. Zscaler allowed the request.",
       raw: {
         "zscaler.login": victim,
         "zscaler.department": "Finance",
-        "zscaler.location": "Tel Aviv HQ",
+        "zscaler.location": "London HQ",
         "zscaler.cip": "10.42.18.77",
         "zscaler.sip": proxyIp,
         "zscaler.hostname": phishHost,
@@ -289,7 +289,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
         "Nine seconds after the sign-in completed the browser loaded www.office.com, with https://login.nexacorp-sso.com/common/login recorded as the referer.",
       raw: {
         "zscaler.login": victim,
-        "zscaler.location": "Tel Aviv HQ",
+        "zscaler.location": "London HQ",
         "zscaler.cip": "10.42.18.77",
         "zscaler.sip": "13.107.6.156",
         "zscaler.hostname": "www.office.com",
@@ -623,13 +623,13 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       kind: "single",
       options: [
         { value: "a", label: "It is 45.87.81.126 in Amsterdam — the host her browser was posting the sign-in form to" },
-        { value: "b", label: "It is 82.80.14.6 in Tel Aviv — the corporate egress, matching her own browsing traffic" },
+        { value: "b", label: "It is 81.174.22.63 in London — the corporate egress, matching her own browsing traffic" },
         { value: "c", label: "It is 91.132.139.204 in Frankfurt — the host that reuses the session six minutes later" },
         { value: "d", label: "It is a Microsoft service address, because the request was relayed inside the tenant" },
       ],
       answer: "a",
       explanation:
-        "Zscaler (aitm_04, aitm_05) shows the user's browser leaving from 82.80.14.6 in Tel Aviv, so option b describes where she really was — but that is not what Entra recorded. Entra saw 45.87.81.126, because in a reverse-proxy phish the identity provider talks to the proxy, not to the victim. Option c is the replay host, which appears later in aitm_09. Option d is not how Entra sign-in logging works: ipAddress is always the client that reached the token endpoint. The mismatch between where the user browsed from and where Entra saw the sign-in from is the first structural tell of AitM.",
+        "Zscaler (aitm_04, aitm_05) shows the user's browser leaving from 81.174.22.63 in London, so option b describes where she really was — but that is not what Entra recorded. Entra saw 45.87.81.126, because in a reverse-proxy phish the identity provider talks to the proxy, not to the victim. Option c is the replay host, which appears later in aitm_09. Option d is not how Entra sign-in logging works: ipAddress is always the client that reached the token endpoint. The mismatch between where the user browsed from and where Entra saw the sign-in from is the first structural tell of AitM.",
     },
     {
       id: "q2", xp: 25,
@@ -655,7 +655,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
         { value: "a", label: "aitm_02 and aitm_05 — the same look-alike URL appears in the click record and the proxy POST" },
         { value: "b", label: "aitm_06 and aitm_09 — one sessionId, two IPs, two autonomous systems, two browsers, six minutes" },
         { value: "c", label: "aitm_09 and aitm_11 — the mailbox bind follows the Frankfurt sign-in inside the same two minutes" },
-        { value: "d", label: "aitm_06 and aitm_08 — a Tel Aviv baseline user appearing in Europe twice in the same window" },
+        { value: "d", label: "aitm_06 and aitm_08 — a London baseline user appearing in Europe twice in the same window" },
       ],
       answer: "b",
       explanation:
@@ -663,7 +663,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
     },
     {
       id: "q4", xp: 20,
-      prompt: "aitm_08 shows a.rosen signing in from Frankfurt against a Tel Aviv baseline, which fired the same geo-change logic. What separates it from the replay in aitm_09?",
+      prompt: "aitm_08 shows a.rosen signing in from Frankfurt against a London baseline, which fired the same geo-change logic. What separates it from the replay in aitm_09?",
       hint: "Both records are in Germany. Look at what each one had to do to get its MFA claim.",
       kind: "single",
       options: [

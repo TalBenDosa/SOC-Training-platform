@@ -61,7 +61,7 @@ export function buildGwsOauthMarketplaceScenario(
     name: "Miriam Varga",
     sam: "m.varga",
     title: "Revenue Operations Lead",
-    ip: "24.60.183.14", // her corporate egress at consent time (Boston)
+    ip: "82.166.51.23", // her corporate egress at consent time (Tel Aviv)
   };
 
   // The malicious third-party app. Marketplace-style listing, unverified
@@ -86,7 +86,7 @@ export function buildGwsOauthMarketplaceScenario(
     email: "t.nowak@rocketstack.io",
     name: "Tomas Nowak",
     sam: "t.nowak",
-    ip: "24.60.183.9",
+    ip: "82.166.51.40",
   };
   const benignClientId = "556123094817-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6.apps.googleusercontent.com";
 
@@ -128,7 +128,7 @@ export function buildGwsOauthMarketplaceScenario(
         "gws.app.marketplace_verified": "true",
         "gws.app.publisher": "Calendly LLC",
         "source.ip": benign.ip,
-        "source.geo.country_name": "United States",
+        "source.geo.country_name": "Israel",
         "application.name": "Calendly",
         "application.id": benignClientId,
         "application.type": "oauth2_web",
@@ -195,7 +195,7 @@ export function buildGwsOauthMarketplaceScenario(
       user_email: victim.email,
       user_title: victim.title,
       src_ip: victim.ip,
-      geo: { country: "United States", city: "Boston" },
+      geo: { country: "Israel", city: "Tel Aviv" },
       severity: "high",
       mitre_technique: "T1528",
       mitre_tactic: "Credential Access",
@@ -226,8 +226,8 @@ export function buildGwsOauthMarketplaceScenario(
         "gws.alert.center.type": "Third-party app granted sensitive scopes",
         "gws.alert.center.id": "AC-2026-0831-4471",
         "source.ip": victim.ip,
-        "source.geo.country_name": "United States",
-        "source.geo.city_name": "Boston",
+        "source.geo.country_name": "Israel",
+        "source.geo.city_name": "Tel Aviv",
         "application.name": appName,
         "application.id": clientId,
         "application.type": "oauth2_web",

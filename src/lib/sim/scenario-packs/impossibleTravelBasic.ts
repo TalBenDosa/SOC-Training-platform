@@ -40,7 +40,7 @@ export function buildImpossibleTravelBasicScenario(
     userId: "3c9e71a8-4d20-4b6f-9a13-6e85f0c2d417",
     hostname: "LT-FIN-3390",
     corpIp: "10.10.62.114",
-    homeIp: "82.166.44.19",
+    homeIp: "86.150.23.44",
     deviceId: "6b41f0d9-2ea7-4c85-b310-97ff5c2a4e68",
   };
 
@@ -86,10 +86,10 @@ export function buildImpossibleTravelBasicScenario(
       hostname: victim.hostname,
       src_ip: victim.homeIp,
       severity: "informational",
-      geo: { country: "Israel", city: "Tel Aviv", latitude: 32.0853, longitude: 34.7818 },
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
       authentication: { method: "Password", mfa_type: "Mobile app notification", result: "success" },
       description:
-        "Dana Harel signed in to Exchange Online at 06:12 from her home address in Tel Aviv on the corporate laptop LT-FIN-3390, MFA completed by Authenticator push.",
+        "Dana Harel signed in to Exchange Online at 06:12 from her home address in London on the corporate laptop LT-FIN-3390, MFA completed by Authenticator push.",
       raw: {
         "azure.signinlogs.operationName": "Sign-in activity",
         "azure.signinlogs.category": "SignInLogs",
@@ -104,12 +104,12 @@ export function buildImpossibleTravelBasicScenario(
         "azure.signinlogs.properties.resourceDisplayName": "Office 365 Exchange Online",
         "azure.signinlogs.properties.clientAppUsed": "Browser",
         "azure.signinlogs.properties.ipAddress": victim.homeIp,
-        "azure.signinlogs.properties.autonomousSystemNumber": 12400,
-        "azure.signinlogs.properties.location.city": "Tel Aviv",
-        "azure.signinlogs.properties.location.state": "Tel Aviv",
-        "azure.signinlogs.properties.location.countryOrRegion": "IL",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 32.0853,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": 34.7818,
+        "azure.signinlogs.properties.autonomousSystemNumber": 5378,
+        "azure.signinlogs.properties.location.city": "London",
+        "azure.signinlogs.properties.location.state": "England",
+        "azure.signinlogs.properties.location.countryOrRegion": "GB",
+        "azure.signinlogs.properties.location.geoCoordinates.latitude": 51.5074,
+        "azure.signinlogs.properties.location.geoCoordinates.longitude": -0.1278,
         "azure.signinlogs.properties.userAgent": corpUserAgent,
         "azure.signinlogs.properties.conditionalAccessStatus": "success",
         "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
@@ -156,7 +156,7 @@ export function buildImpossibleTravelBasicScenario(
       src_ip: victim.homeIp,
       severity: "informational",
       description:
-        "d.harel connected to the corporate remote-access VPN from 82.166.44.19 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 194.90.7.20.",
+        "d.harel connected to the corporate remote-access VPN from 86.150.23.44 and was assigned 10.99.14.62. The gateway VPN-GW-01 egresses from the public address 194.90.7.20.",
       raw: {
         "event.action": "vpn-session-established",
         "cisco.asa.message_id": "722022",
@@ -172,8 +172,8 @@ export function buildImpossibleTravelBasicScenario(
         "observer.name": "VPN-GW-01",
         "observer.ip": vpnGatewayPublicIp,
         "observer.egress.interface.name": "outside",
-        "source.geo.country_iso_code": "IL",
-        "source.geo.city_name": "Tel Aviv",
+        "source.geo.country_iso_code": "GB",
+        "source.geo.city_name": "London",
         "event.outcome": "success",
       },
     },
@@ -254,7 +254,7 @@ export function buildImpossibleTravelBasicScenario(
         "zscaler.threatname": "None",
         "zscaler.malwarecategory": "None",
         "zscaler.department": "Finance",
-        "zscaler.location": "TLV-HQ",
+        "zscaler.location": "LON-HQ",
         "zscaler.login": victim.email,
         "zscaler.url": `https://${phishDomain}/auth/session-check`,
         "zscaler.hostname": phishDomain,
@@ -317,10 +317,10 @@ export function buildImpossibleTravelBasicScenario(
       severity: "high",
       mitre_technique: "T1078.004",
       mitre_tactic: "Initial Access",
-      geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 },
+      geo: { country: "United States", city: "New York", latitude: 40.7128, longitude: -74.006 },
       authentication: { method: "Previously satisfied", result: "success" },
       description:
-        "The same account signed in successfully to Exchange Online at 08:27 from 146.190.62.117 in Amsterdam, on AutonomousSystemNumber 14061.",
+        "The same account signed in successfully to Exchange Online at 08:27 from 146.190.62.117 in New York, on AutonomousSystemNumber 14061.",
       raw: {
         "azure.signinlogs.operationName": "Sign-in activity",
         "azure.signinlogs.category": "SignInLogs",
@@ -336,11 +336,11 @@ export function buildImpossibleTravelBasicScenario(
         "azure.signinlogs.properties.clientAppUsed": "Browser",
         "azure.signinlogs.properties.ipAddress": attackerIp,
         "azure.signinlogs.properties.autonomousSystemNumber": 14061,
-        "azure.signinlogs.properties.location.city": "Amsterdam",
-        "azure.signinlogs.properties.location.state": "North Holland",
-        "azure.signinlogs.properties.location.countryOrRegion": "NL",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 52.3702,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": 4.8952,
+        "azure.signinlogs.properties.location.city": "New York",
+        "azure.signinlogs.properties.location.state": "New York",
+        "azure.signinlogs.properties.location.countryOrRegion": "US",
+        "azure.signinlogs.properties.location.geoCoordinates.latitude": 40.7128,
+        "azure.signinlogs.properties.location.geoCoordinates.longitude": -74.006,
         "azure.signinlogs.properties.networkLocationDetails.networkType": "",
         "azure.signinlogs.properties.userAgent": hostileUserAgent,
         "azure.signinlogs.properties.conditionalAccessStatus": "success",
@@ -385,7 +385,7 @@ export function buildImpossibleTravelBasicScenario(
       mitre_tactic: "Initial Access",
       edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
       description:
-        "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly: 3,290 km in 135 minutes, implied speed 1,462 km/h.",
+        "Sentinel joined the 06:12 and 08:27 sign-ins for d.harel and raised an impossible-travel anomaly: 5,570 km in 135 minutes, implied speed 2,476 km/h — no commercial flight plus airport time covers London to New York in that window.",
       raw: {
         "AlertName": "Impossible travel to an atypical location",
         "alert.rule.id": "SEN-IDN-0114",
@@ -394,12 +394,12 @@ export function buildImpossibleTravelBasicScenario(
         "source.ip": attackerIp,
         "ExtendedProperties.Prior Sign-in Time": T(0),
         "ExtendedProperties.Prior Sign-in IP": victim.homeIp,
-        "ExtendedProperties.Prior Sign-in Location": "Tel Aviv, IL",
+        "ExtendedProperties.Prior Sign-in Location": "London, GB",
         "ExtendedProperties.Current Sign-in Time": T(135 * MIN),
-        "ExtendedProperties.Current Sign-in Location": "Amsterdam, NL",
-        "ExtendedProperties.Distance (km)": 3290,
+        "ExtendedProperties.Current Sign-in Location": "New York, US",
+        "ExtendedProperties.Distance (km)": 5570,
         "ExtendedProperties.Elapsed Minutes": 135,
-        "ExtendedProperties.Implied Speed (km/h)": 1462,
+        "ExtendedProperties.Implied Speed (km/h)": 2476,
         "ExtendedProperties.Linked Sign-in IDs": ["evt_itb_01_morning_signin", "evt_itb_06_foreign_signin"],
         "event.action": "correlation-alert",
         "event.outcome": "alerted",
@@ -566,7 +566,7 @@ export function buildImpossibleTravelBasicScenario(
       first_seen: T(0),
       last_seen: T(88 * MIN),
       reputation: "clean",
-      tags: ["home-isp", "asn-12400", "user-baseline"],
+      tags: ["home-isp", "asn-5378", "user-baseline"],
     },
     {
       type: "host",
@@ -610,7 +610,7 @@ export function buildImpossibleTravelBasicScenario(
       answer: "vpnend_foreign",
       xp: 50,
       explanation:
-        "\"Probably a VPN\" is a claim you can check, and checking it is the job. The gateway log shows the d.harel tunnel torn down at 07:40 with no later session, so at 08:27 there was nothing to be on. And traffic that does leave through that gateway appears on the internet as 194.90.7.20, whereas the 08:27 sign-in came from 146.190.62.117 on AutonomousSystemNumber 14061 — a hosting provider, not the corporate gateway and not her ISP's 12400. Pair (b) is the ordinary baseline. Pair (c) matters for how the account was taken, not for the VPN question. Pair (d) is the alarm plus a consequence of the compromise.",
+        "\"Probably a VPN\" is a claim you can check, and checking it is the job. The gateway log shows the d.harel tunnel torn down at 07:40 with no later session, so at 08:27 there was nothing to be on. And traffic that does leave through that gateway appears on the internet as 194.90.7.20, whereas the 08:27 sign-in came from 146.190.62.117 on AutonomousSystemNumber 14061 — a hosting provider, not the corporate gateway and not her ISP's 5378. Pair (b) is the ordinary baseline. Pair (c) matters for how the account was taken, not for the VPN question. Pair (d) is the alarm plus a consequence of the compromise.",
     },
     {
       id: "q2",
@@ -658,7 +658,7 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "geo_city",
           label:
-            "LocationDetails places the sign-in in Amsterdam rather than in the Tel Aviv area she normally works from",
+            "LocationDetails places the sign-in in New York rather than in the London area she normally works from",
         },
         {
           value: "risk_level",
@@ -691,7 +691,7 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "distance",
           label:
-            "Sentinel computed 3,290 km in 135 minutes, an implied travel speed no commercial aircraft achieves",
+            "Sentinel computed 5,570 km in 135 minutes, an implied travel speed no commercial aircraft achieves",
         },
         {
           value: "phish_delivered",
@@ -717,12 +717,12 @@ export function buildImpossibleTravelBasicScenario(
     threat_actor: "Business Email Compromise operator (financially motivated)",
     attack_kind: "impossible_travel_basic",
     briefing:
-      "Microsoft Sentinel opened a ticket at 08:29 on an impossible-travel anomaly for d.harel@nexacorp.com: a successful Exchange Online sign-in from Tel Aviv at 06:12 and another successful sign-in from Amsterdam at 08:27. Finance say Dana is at her desk in the Tel Aviv office today. Determine whether the account is compromised and what was done with it.",
-    narrative: `At 06:12 Dana Harel, an accounts payable clerk, signed in to Exchange Online the way she signs in every morning: from her home address 82.166.44.19 on her corporate laptop LT-FIN-3390, an Entra-joined and Intune-managed Windows 11 machine, with an Authenticator push answered on her phone. Six minutes later she brought up the corporate VPN through VPN-GW-01.
+      "Microsoft Sentinel opened a ticket at 08:29 on an impossible-travel anomaly for d.harel@nexacorp.com: a successful Exchange Online sign-in from London at 06:12 and another successful sign-in from New York at 08:27. Finance say Dana is at her desk in the London office today. Determine whether the account is compromised and what was done with it.",
+    narrative: `At 06:12 Dana Harel, an accounts payable clerk, signed in to Exchange Online the way she signs in every morning: from her home address 86.150.23.44 on her corporate laptop LT-FIN-3390, an Entra-joined and Intune-managed Windows 11 machine, with an Authenticator push answered on her phone. Six minutes later she brought up the corporate VPN through VPN-GW-01.
 
 At 07:26 a message reached her inbox claiming her sign-in session needed re-verifying, with a link to nexacorp-signin-verify.com — a lookalike domain that failed SPF and DMARC and was delivered anyway (T1566.002). Five minutes later the proxy recorded her laptop POSTing form data to that page, which the proxy filed under "Newly Registered and Observed Domains" and allowed. That request is where her authenticated session left the building (T1539). At 07:40 the VPN session closed after one hour and twenty-two minutes.
 
-At 08:27 the same account signed in successfully to Exchange Online from 146.190.62.117 in Amsterdam, on AutonomousSystemNumber 14061 — a hosting provider, not her ISP and not the 194.90.7.20 address the corporate gateway uses. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the token rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
+At 08:27 the same account signed in successfully to Exchange Online from 146.190.62.117 in New York, on AutonomousSystemNumber 14061 — a hosting provider, not her ISP and not the 194.90.7.20 address the corporate gateway uses. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the token rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
 
 What the intruder did next removes any doubt. Everything from 08:27 onwards shares SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504. At 08:33 a rule called "AP sync" was created on the mailbox, forwarding anything matching invoice, remittance, bank details, IBAN or payment to ap-archive.2026@securemaildrop.net and moving the originals into RSS Subscriptions marked as read (T1114.003). At 08:41 the Vendor Banking folder was read in bulk — 812 items in a single sync (T1114.002). At 08:52 a message went out to a supplier contact at ridgeline-supply.com with new remittance details attached, composed and sent inside the same session as the inbox rule and the bulk read.
 
@@ -739,7 +739,7 @@ Containment is an identity action, not a host action: revoke the account's refre
     events,
     iocs,
     killchain: [
-      { ts: T(0), phase: "Baseline", action: "d.harel signs in from Tel Aviv on LT-FIN-3390 with an Authenticator push" },
+      { ts: T(0), phase: "Baseline", action: "d.harel signs in from London on LT-FIN-3390 with an Authenticator push" },
       { ts: T(74 * MIN), phase: "Initial Access", action: "Lookalike re-verification email delivered to the inbox" },
       { ts: T(79 * MIN), phase: "Credential Access", action: "Laptop POSTs to nexacorp-signin-verify.com — session token captured" },
       { ts: T(88 * MIN), phase: "Context", action: "Corporate VPN session ends — nothing after this came through the gateway" },

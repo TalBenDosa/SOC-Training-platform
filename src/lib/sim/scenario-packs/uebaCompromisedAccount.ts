@@ -64,7 +64,7 @@ export function buildUebaCompromisedAccountScenario(
     title: "Finance Manager",
     dept: "Finance",
     userId: "a7f3c210-9b64-4e18-8d02-51c9e4a7b330",
-    homeIp: "72.14.201.88",           // his usual corporate/home egress (New York)
+    homeIp: "81.174.71.19",           // his usual corporate/home egress (London)
   };
 
   // The attacker's session origin: a hosting/VPS ASN in Sofia, Bulgaria.
@@ -113,7 +113,7 @@ export function buildUebaCompromisedAccountScenario(
       fp_explanation:
         "Benign. r.laurent tripped ImpossibleTravelActivity the same night, but the sign-in is corroborated: an approved travel record for Singapore, egress over the known corporate-VPN ASN, a compliant managed device, and a satisfied MFA requirement. The anomaly score is real, the verdict is not a compromise — a UEBA score is a reason to look, not a conclusion. Contrast with j.almeida, whose sign-in has none of that corroboration.",
       description:
-        "Sentinel raised an impossible-travel anomaly for r.laurent (New York → Singapore), but the Singapore sign-in came over the corporate VPN egress on a compliant, managed device with MFA satisfied, and matches an approved travel record.",
+        "Sentinel raised an impossible-travel anomaly for r.laurent (London → Singapore), but the Singapore sign-in came over the corporate VPN egress on a compliant, managed device with MFA satisfied, and matches an approved travel record.",
       raw: {
         "AlertName": "Atypical travel",
         "AlertSeverity": "Informational",
@@ -131,7 +131,7 @@ export function buildUebaCompromisedAccountScenario(
         "anomaly.score": "22",
         "anomaly.type": "AtypicalTravel",
         "anomaly.reason": "Sign-in from a new country for this account",
-        "ExtendedProperties.Prior Sign-in Location": "New York, US",
+        "ExtendedProperties.Prior Sign-in Location": "London, GB",
         "ExtendedProperties.Current Sign-in Location": "Singapore, SG",
         "ExtendedProperties.Egress ASN": "AS9498 corporate VPN (sanctioned)",
         "ExtendedProperties.Device Compliance": "Compliant / Managed",
@@ -143,7 +143,7 @@ export function buildUebaCompromisedAccountScenario(
 
     // ─────────────────────────────────────────────────────────────────────
     // 1. THE BASELINE SIGN-IN — j.almeida's own normal Entra logon earlier that
-    //    evening from New York, compliant/managed device, MFA satisfied. This is
+    //    evening from London, compliant/managed device, MFA satisfied. This is
     //    the reference point the "impossible travel" is measured against.
     // ─────────────────────────────────────────────────────────────────────
     {
@@ -155,10 +155,10 @@ export function buildUebaCompromisedAccountScenario(
       user_email: victim.email,
       user_title: victim.title,
       src_ip: victim.homeIp,
-      geo: { country: "United States", city: "New York", latitude: 40.7128, longitude: -74.006 },
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
       severity: "informational",
       description:
-        "A normal interactive Entra sign-in for j.almeida at 23:00 from New York (72.14.201.88), on his compliant, managed Windows workstation with MFA satisfied — his usual session.",
+        "A normal interactive Entra sign-in for j.almeida at 23:00 from London (81.174.71.19), on his compliant, managed Windows workstation with MFA satisfied — his usual session.",
       raw: {
         "azure.signinlogs.category": "SignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -173,11 +173,11 @@ export function buildUebaCompromisedAccountScenario(
         "azure.signinlogs.properties.isInteractive": true,
         "azure.signinlogs.properties.ipAddress": victim.homeIp,
         "azure.signinlogs.properties.autonomousSystemNumber": 6128,
-        "azure.signinlogs.properties.location.city": "New York",
-        "azure.signinlogs.properties.location.state": "New York",
-        "azure.signinlogs.properties.location.countryOrRegion": "US",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 40.7128,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": -74.006,
+        "azure.signinlogs.properties.location.city": "London",
+        "azure.signinlogs.properties.location.state": "England",
+        "azure.signinlogs.properties.location.countryOrRegion": "GB",
+        "azure.signinlogs.properties.location.geoCoordinates.latitude": 51.5074,
+        "azure.signinlogs.properties.location.geoCoordinates.longitude": -0.1278,
         "azure.signinlogs.properties.deviceDetail.displayName": "FIN-LT-Almeida",
         "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
         "azure.signinlogs.properties.deviceDetail.browser": "Edge 128.0",
@@ -274,7 +274,7 @@ export function buildUebaCompromisedAccountScenario(
       mitre_tactic: "Initial Access",
       incident_id: INCIDENT,
       description:
-        "Sentinel joined the 23:00 New York sign-in and the 23:40 Sofia sign-in for j.almeida and raised an impossible-travel anomaly with unfamiliar sign-in properties: ~7,900 km in 40 minutes.",
+        "Sentinel joined the 23:00 London sign-in and the 23:40 Sofia sign-in for j.almeida and raised an impossible-travel anomaly with unfamiliar sign-in properties: ~2,020 km in 40 minutes.",
       raw: {
         "AlertName": "Impossible travel to an atypical location",
         "AlertSeverity": "High",
@@ -290,10 +290,10 @@ export function buildUebaCompromisedAccountScenario(
         "anomaly.score": "78",
         "anomaly.reason": "Two sign-ins from distant locations within an impossible window",
         "ExtendedProperties.Prior Sign-in Time": T(-40 * MIN),
-        "ExtendedProperties.Prior Sign-in Location": "New York, US",
+        "ExtendedProperties.Prior Sign-in Location": "London, GB",
         "ExtendedProperties.Current Sign-in Time": T(0),
         "ExtendedProperties.Current Sign-in Location": "Sofia, BG",
-        "ExtendedProperties.Distance (km)": 7900,
+        "ExtendedProperties.Distance (km)": 2020,
         "ExtendedProperties.Elapsed Minutes": 40,
         "ExtendedProperties.Egress ASN": "AS200651 hosting provider (unmanaged device)",
         "ExtendedProperties.Linked Sign-in IDs": ["evt_uca_01_baseline_signin", "evt_uca_02_atypical_signin"],
@@ -550,12 +550,12 @@ export function buildUebaCompromisedAccountScenario(
       id: "q2",
       prompt:
         "You pivot from the score into the two Entra sign-ins (evt_uca_01 baseline, evt_uca_02 atypical). Which combination of sign-in fields confirms the Sofia session is a compromise rather than a benign anomaly?",
-      hint: "Compare autonomousSystemNumber, deviceDetail.isManaged/isCompliant, and authenticationRequirement between the New York and Sofia sign-ins.",
+      hint: "Compare autonomousSystemNumber, deviceDetail.isManaged/isCompliant, and authenticationRequirement between the London and Sofia sign-ins.",
       kind: "single",
       options: [
         { value: "asn_device_token", label: "The Sofia sign-in is from a hosting ASN (AS200651) on an unmanaged, non-compliant device, and MFA was met single-factor by a token claim — while the baseline is a corporate ASN, a compliant managed device, and a full MFA requirement" },
         { value: "resulttype", label: "The Sofia sign-in has resultType 0, and any sign-in with resultType 0 is by definition a compromised logon" },
-        { value: "country_alone", label: "The Sofia sign-in is from Bulgaria and the baseline from the US — a sign-in from a different country than the baseline is on its own proof of compromise" },
+        { value: "country_alone", label: "The Sofia sign-in is from Bulgaria and the baseline from the UK — a sign-in from a different country than the baseline is on its own proof of compromise" },
         { value: "appdisplayname", label: "The appDisplayName differs between the two sign-ins, and a change of application between logons is what identifies account takeover" },
       ],
       answer: "asn_device_token",
@@ -624,11 +624,11 @@ export function buildUebaCompromisedAccountScenario(
       "Microsoft Sentinel UEBA raised the risk score of j.almeida (Finance Manager) to High overnight after correlating several sign-in and mailbox anomalies. There is no malware verdict and nothing was blocked — only a score. Pivot from the score into the underlying Entra and O365 telemetry and decide whether the account is compromised or the anomalies are benign.",
     narrative: `This is the SOC's first anomaly-driven case: it opens not with a signature alert but with a number. At 00:05 Microsoft Sentinel UEBA raised Jordan Almeida, a Finance Manager, to a High entity risk score — a value built by correlating four behaviours from the preceding half hour, none of them alarming on its own.
 
-At 23:00 Almeida had signed in normally from New York, on his compliant, managed workstation, MFA satisfied — the baseline. At 23:40 a second Entra sign-in for the same account arrived from 45.135.232.71 in Sofia, Bulgaria, on a hosting-provider ASN (AS200651), from an unmanaged device — and the MFA requirement was met single-factor, satisfied by a claim already inside a presented token. No password was typed and no push was sent: a stolen session cookie was replayed. Sentinel joined the two sign-ins into an impossible-travel anomaly (~7,900 km in 40 minutes) and separately flagged the Sofia session as an anonymous-IP token replay.
+At 23:00 Almeida had signed in normally from London, on his compliant, managed workstation, MFA satisfied — the baseline. At 23:40 a second Entra sign-in for the same account arrived from 45.135.232.71 in Sofia, Bulgaria, on a hosting-provider ASN (AS200651), from an unmanaged device — and the MFA requirement was met single-factor, satisfied by a claim already inside a presented token. No password was typed and no push was sent: a stolen session cookie was replayed. Sentinel joined the two sign-ins into an impossible-travel anomaly (~2,020 km in 40 minutes) and separately flagged the Sofia session as an anonymous-IP token replay.
 
 From that session the attacker acted. At 23:52 the Finance SharePoint/OneDrive logged a burst of 340+ FileSyncDownloadedFull operations — far above Almeida's ~15-files-a-day norm. At 23:58 a new Exchange inbox rule, "Ext backup", was created: mail mentioning invoice, wire, IBAN, remittance or budget is forwarded to acct.archive.9y@gmail.com and the originals moved to RSS Subscriptions and marked read — a quiet, durable channel that survives a password reset. At 00:05 UEBA rolled all four signals into the risky-user score that opened this ticket.
 
-The instructive comparison is Renée Laurent, a Sales director, who tripped the SAME impossible-travel anomaly the same night — New York to Singapore. But her far-away sign-in came over the sanctioned corporate-VPN ASN, on a compliant managed device, with MFA satisfied and an approved travel record on file, so her anomaly resolves benign. Same score-shape, opposite verdict. The lesson of a UEBA hunt is exactly that: a high score is a reason to look, and the verdict is reached from the primary sign-in and audit telemetry underneath it — not from the alert title.`,
+The instructive comparison is Renée Laurent, a Sales director, who tripped the SAME impossible-travel anomaly the same night — London to Singapore. But her far-away sign-in came over the sanctioned corporate-VPN ASN, on a compliant managed device, with MFA satisfied and an approved travel record on file, so her anomaly resolves benign. Same score-shape, opposite verdict. The lesson of a UEBA hunt is exactly that: a high score is a reason to look, and the verdict is reached from the primary sign-in and audit telemetry underneath it — not from the alert title.`,
     learning_objectives: [
       "Run an anomaly-driven (UEBA-led) investigation: start from a Sentinel entity risk score built by correlation, then pivot DOWN into the primary Entra and O365 telemetry to confirm or dismiss it",
       "Confirm a compromised sign-in (T1078) from Entra fields — hosting ASN, unmanaged/non-compliant device, and an MFA requirement satisfied single-factor by a replayed session token (T1539) — read against the account's own baseline sign-in",
@@ -641,7 +641,7 @@ The instructive comparison is Renée Laurent, a Sales director, who tripped the 
     iocs,
     killchain: [
       { ts: T(-3 * HOUR), phase: "Context", action: "Benign control — r.laurent trips ImpossibleTravel but is corroborated (corporate VPN, compliant device, MFA, approved travel)" },
-      { ts: T(-40 * MIN), phase: "Baseline", action: `Normal Entra sign-in for ${victim.sam} from New York — compliant managed device, MFA satisfied` },
+      { ts: T(-40 * MIN), phase: "Baseline", action: `Normal Entra sign-in for ${victim.sam} from London — compliant managed device, MFA satisfied` },
       { ts: T(0), phase: "Initial Access", action: `Atypical Entra sign-in for ${victim.sam} from Sofia (AS200651), unmanaged device, token-satisfied MFA (T1078)` },
       { ts: T(3 * MIN), phase: "Detection", action: "Sentinel raises impossible-travel + unfamiliar-properties anomaly" },
       { ts: T(4 * MIN), phase: "Credential Access", action: "Sentinel flags the Sofia session as an anonymous-IP replayed-token sign-in (T1539)" },

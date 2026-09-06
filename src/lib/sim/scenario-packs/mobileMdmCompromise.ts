@@ -68,7 +68,7 @@ export function buildMobileMdmCompromiseScenario(
     id: "7c2f0ae4-91b8-46d3-a5e1-08db3f27c604",
     platform: "Android",
     osVersion: "14.0",
-    homeIp: "104.28.51.19",     // his usual US mobile-carrier egress (baseline)
+    homeIp: "81.174.62.30",     // his usual UK mobile-carrier egress (baseline)
   };
 
   // The foreign hosting/VPS egress the compromised app relays the session through.
@@ -139,7 +139,7 @@ export function buildMobileMdmCompromiseScenario(
     // ─────────────────────────────────────────────────────────────────────
     // 1. BASELINE — the victim's normal Entra sign-in earlier that evening from
     //    the SAME phone while it was still healthy: compliant, managed, MFA
-    //    satisfied, from his usual US carrier IP. The reference point.
+    //    satisfied, from his usual UK carrier IP. The reference point.
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_mmc_01_baseline_signin",
@@ -150,10 +150,10 @@ export function buildMobileMdmCompromiseScenario(
       user_email: victim.upn,
       user_title: victim.title,
       src_ip: device.homeIp,
-      geo: { country: "United States", city: "Chicago", latitude: 41.8781, longitude: -87.6298 },
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
       severity: "informational",
       description:
-        "A normal Entra sign-in for d.okafor at 20:20 from Chicago (104.28.51.19) on his enrolled Android phone — compliant, managed, MFA satisfied, into the Outlook mobile app.",
+        "A normal Entra sign-in for d.okafor at 20:20 from London (81.174.62.30) on his enrolled Android phone — compliant, managed, MFA satisfied, into the Outlook mobile app.",
       raw: {
         "azure.signinlogs.category": "SignInLogs",
         "azure.signinlogs.operationName": "Sign-in activity",
@@ -166,9 +166,9 @@ export function buildMobileMdmCompromiseScenario(
         "azure.signinlogs.properties.clientAppUsed": "Mobile Apps and Desktop clients",
         "azure.signinlogs.properties.isInteractive": true,
         "azure.signinlogs.properties.ipAddress": device.homeIp,
-        "azure.signinlogs.properties.location.city": "Chicago",
-        "azure.signinlogs.properties.location.state": "Illinois",
-        "azure.signinlogs.properties.location.countryOrRegion": "US",
+        "azure.signinlogs.properties.location.city": "London",
+        "azure.signinlogs.properties.location.state": "England",
+        "azure.signinlogs.properties.location.countryOrRegion": "GB",
         "azure.signinlogs.properties.deviceDetail.deviceId": device.id,
         "azure.signinlogs.properties.deviceDetail.displayName": device.name,
         "azure.signinlogs.properties.deviceDetail.operatingSystem": "Android 14.0",
@@ -496,7 +496,7 @@ export function buildMobileMdmCompromiseScenario(
       answer: "noncompliant_ca_gap",
       xp: 60,
       explanation:
-        "The verdict comes from the fields, read against the baseline. evt_mmc_05 is isCompliant false, from 45.148.10.62 in the Netherlands, with riskState atRisk — and yet conditionalAccessStatus is success. That last pairing is the whole point: a require-compliant-device Conditional-Access policy did not cover this app, so the sign-in from a phone Intune had just failed was allowed anyway — a CA gap. The baseline (evt_mmc_01) is the opposite: isCompliant true, from the US carrier IP, risk none. (b) over-reads one field — resultType 0 only means the sign-in succeeded, and both did. (c) is false: isManaged is still true (the phone stayed enrolled; it went non-compliant, not unenrolled). (d) is noise.",
+        "The verdict comes from the fields, read against the baseline. evt_mmc_05 is isCompliant false, from 45.148.10.62 in the Netherlands, with riskState atRisk — and yet conditionalAccessStatus is success. That last pairing is the whole point: a require-compliant-device Conditional-Access policy did not cover this app, so the sign-in from a phone Intune had just failed was allowed anyway — a CA gap. The baseline (evt_mmc_01) is the opposite: isCompliant true, from the UK carrier IP, risk none. (b) over-reads one field — resultType 0 only means the sign-in succeeded, and both did. (c) is false: isManaged is still true (the phone stayed enrolled; it went non-compliant, not unenrolled). (d) is noise.",
     },
     {
       id: "q3",
