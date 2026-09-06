@@ -10,6 +10,7 @@ import type { WorldState, GeneratedEvent } from "@/lib/sim/engine";
 import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
+import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 
 export interface ActiveIncident {
   id: string;
@@ -703,32 +704,9 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
   }
 
   // ── GeoLocation — auto-fill from event.geo struct OR src_ip ─────────────
-  const KNOWN_GEO: Record<string, { country: string; city: string; lat: number; lon: number }> = {
-    "203.0.113.": { country: "China",       city: "Shenzhen",   lat: 22.5,  lon: 114.1 },
-    "91.108.":    { country: "Russia",      city: "Moscow",     lat: 55.7,  lon:  37.6 },
-    "185.220.":   { country: "Netherlands", city: "Amsterdam",  lat: 52.3,  lon:   4.9 },
-    "45.142.":    { country: "Ukraine",     city: "Kyiv",       lat: 50.4,  lon:  30.5 },
-    "62.210.":    { country: "France",      city: "Paris",      lat: 48.8,  lon:   2.3 },
-    "52.230.":    { country: "United States", city: "Seattle",  lat: 47.6,  lon: -122.3 },
-    "20.190.":    { country: "United States", city: "Redmond",  lat: 47.7,  lon: -122.1 },
-    "196.251.":   { country: "Nigeria",     city: "Lagos",      lat:  6.5,  lon:   3.4 },
-    "194.26.":    { country: "Russia",      city: "St. Petersburg", lat: 59.9, lon: 30.3 },
-    "5.188.":     { country: "Russia",      city: "Moscow",     lat: 55.7,  lon:  37.6 },
-    "23.129.":    { country: "United States", city: "Tor Exit — Unknown", lat: 39.0, lon: -77.5 },
-    "104.16.":    { country: "United States", city: "San Francisco (Cloudflare)", lat: 37.8, lon: -122.4 },
-    "140.82.":    { country: "United States", city: "San Francisco (GitHub)", lat: 37.8, lon: -122.4 },
-    "151.101.":   { country: "United States", city: "San Francisco (Fastly)", lat: 37.8, lon: -122.4 },
-    "52.216.":    { country: "United States", city: "Ashburn (AWS S3)", lat: 39.0, lon: -77.5 },
-    "3.120.":     { country: "Germany",     city: "Frankfurt (AWS)", lat: 50.1, lon: 8.7 },
-    "34.107.":    { country: "Germany",     city: "Frankfurt (GCP)", lat: 50.1, lon: 8.7 },
-    "178.62.":    { country: "Netherlands", city: "Amsterdam (DigitalOcean)", lat: 52.3, lon: 4.9 },
-    "159.89.":    { country: "India",       city: "Bangalore",  lat: 12.9,  lon:  77.6 },
-    "168.196.":   { country: "Brazil",      city: "São Paulo",  lat: -23.5, lon: -46.6 },
-    "103.75.":    { country: "Hong Kong",   city: "Hong Kong",  lat: 22.3,  lon: 114.2 },
-    "80.94.":     { country: "Romania",     city: "Bucharest",  lat: 44.4,  lon:  26.1 },
-    "207.154.":   { country: "United Kingdom", city: "London",  lat: 51.5,  lon:  -0.1 },
-  };
-
+  // The deterministic IP→location map lives in @/lib/geo/resolveGeo so the
+  // threat-intel pivot resolves the SAME country/city as the feed (one IP → one
+  // place, never a per-view divergence).
   if (!raw["GeoLocation.country_name"]) {
     if (event.geo) {
       if (event.geo.country) raw["GeoLocation.country_name"] = event.geo.country;
@@ -736,9 +714,8 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
       if (event.geo.latitude  != null) raw["GeoLocation.location.lat"] = event.geo.latitude;
       if (event.geo.longitude != null) raw["GeoLocation.location.lon"] = event.geo.longitude;
     } else if (event.src_ip) {
-      const prefix = Object.keys(KNOWN_GEO).find(k => (event.src_ip as string).startsWith(k));
-      if (prefix) {
-        const geo = KNOWN_GEO[prefix];
+      const geo = knownGeoForIp(event.src_ip);
+      if (geo) {
         raw["GeoLocation.country_name"]  = geo.country;
         raw["GeoLocation.city_name"]     = geo.city;
         raw["GeoLocation.location.lat"]  = geo.lat;

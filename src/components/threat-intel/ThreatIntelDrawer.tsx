@@ -15,6 +15,7 @@ import { motion } from "framer-motion";
 import { Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { resolveCountry } from "@/lib/geo/resolveGeo";
 // ─── Threat Intel types ────────────────────────────────────────────────────────
 
 export type ThreatQuery =
@@ -320,7 +321,12 @@ function buildIpIntel(ip: string, event: TelemetryEvent): IpIntelData {
   const threatIndicator = String(raw["threat.indicator"]        ?? "").toLowerCase();
   const idsCategory     = String(raw["ids.category"]            ?? "").toLowerCase();
   const wafAttack       = String(raw["waf.attack_type"]         ?? "").toLowerCase();
-  const country         = String(raw["source.geo.country_name"] ?? raw["destination.geo.country_name"] ?? "");
+  // Resolve the country the SAME way the live feed does (authored geo → any vendor
+  // geo key → deterministic per-IP map) so the pivot never contradicts the feed —
+  // previously this read only source.geo.country_name and, when absent, each branch
+  // below substituted a country hardcoded per THREAT CATEGORY, so one IP showed two
+  // different countries in two views.
+  const country         = resolveCountry(event);
   const sessionBlocked  = String(raw["session.blocked"]         ?? "").toLowerCase();
   const eventAction     = String(raw["event.action"]            ?? "").toLowerCase();
   const isBlocked = sessionBlocked === "true" || eventAction === "block" || eventAction === "deny" ||
