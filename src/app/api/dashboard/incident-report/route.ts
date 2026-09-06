@@ -19,6 +19,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
+import { analyseIndicators } from "@/lib/dashboard/indicatorAnalysis";
 
 export const runtime = "nodejs";
 
@@ -51,44 +52,8 @@ export interface IncidentReportResponse {
   graded_by: "ai" | "deterministic";
 }
 
-// ── Fabrication / citation analysis ───────────────────────────────────────────
-
-/**
- * Compare the indicators the student CLAIMED in their write-up against the real
- * indicators from the attack. Returns which real ones they correctly cited and
- * which claimed values are fabricated (invented — not in the logs at all).
- */
-function analyseIndicators(summary: string, real: string[], evidenceText = "") {
-  const t = summary.toLowerCase();
-  const realLower = real.map(r => r.toLowerCase());
-  const evidence = evidenceText.toLowerCase();
-  const isReal = (v: string) => {
-    const lv = v.toLowerCase();
-    // Real if it matches a discrete ground-truth indicator OR appears anywhere in
-    // the serialized evidence (raw log blocks included). The evidence-substring
-    // arm is what stops a genuinely-observable value — an MD5/SHA1, a private host
-    // IP, a vendor-keyed raw field the discrete list doesn't enumerate — from
-    // being branded "fabricated". Same rule as the (clean) scenario grader.
-    return (evidence.length > 0 && evidence.includes(lv)) ||
-      realLower.some(r => r === lv || r.includes(lv) || lv.includes(r));
-  };
-
-  // Which real indicators did they quote?
-  const cited = real.filter(r => {
-    const lr = r.toLowerCase();
-    return t.includes(lr) || t.includes(lr.split("@")[0]); // full value or username part
-  });
-
-  // Extract indicator-shaped claims from the student's text
-  const claimed = new Set<string>();
-  for (const m of summary.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g))        claimed.add(m[0]); // IPv4
-  for (const m of summary.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g))       claimed.add(m[0]); // email
-  for (const m of summary.matchAll(/\bhost(?:name)?\s*[:=]?\s*([a-z0-9][\w.-]{1,})/gi)) claimed.add(m[1]); // host: X
-  for (const m of summary.matchAll(/\b[0-9a-f]{32,64}\b/gi))              claimed.add(m[0]); // hash
-
-  const fabricated = [...claimed].filter(v => !isReal(v));
-  return { cited, fabricated };
-}
+// Fabrication / citation analysis lives in a pure, unit-tested module
+// (src/lib/dashboard/indicatorAnalysis.ts) — see analyseIndicators import above.
 
 // ── Heuristic fallback ────────────────────────────────────────────────────────
 
