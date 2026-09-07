@@ -547,3 +547,95 @@ export function adfsTokenIssue(o: AdfsTokenIssueOpts): TelemetryEvent {
     },
   };
 }
+
+// ── 4720 — a user account was created ─────────────────────────────────────────────────
+export interface WinAccountCreateOpts extends WinCtx {
+  subjectUser: string;          // the creator (SubjectUserName)
+  subjectSid: string;
+  subjectLogonId?: string;
+  displayName?: string;
+  upn?: string;
+  samAccountName?: string;      // defaults to targetUser
+  primaryGroupId?: string;
+  uac?: string;                 // UserAccountControl (%%2080…)
+  recordId?: string;
+}
+export function winAccountCreate(o: WinAccountCreateOpts): TelemetryEvent {
+  const nb = realm(o);
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "account_create",
+    severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
+    description: o.description ?? `4720 — ${o.subjectUser} created the account ${o.targetUser} on ${o.host}`,
+    raw: {
+      "winlog.event_id": "4720",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.subjectSid,
+      "winlog.event_data.SubjectUserName": o.subjectUser,
+      "winlog.event_data.SubjectDomainName": nb,
+      ...(o.subjectLogonId ? { "winlog.event_data.SubjectLogonId": o.subjectLogonId } : {}),
+      ...(o.targetSid ? { "winlog.event_data.TargetSid": o.targetSid } : {}),
+      "winlog.event_data.TargetUserName": o.targetUser,
+      "winlog.event_data.TargetDomainName": nb,
+      "winlog.event_data.SamAccountName": o.samAccountName ?? o.targetUser,
+      ...(o.displayName ? { "winlog.event_data.DisplayName": o.displayName } : {}),
+      ...(o.upn ? { "winlog.event_data.UserPrincipalName": o.upn } : {}),
+      ...(o.primaryGroupId ? { "winlog.event_data.PrimaryGroupId": o.primaryGroupId } : {}),
+      ...(o.uac ? { "winlog.event_data.UserAccountControl": o.uac } : {}),
+      "event.code": "4720",
+      "event.action": "user-account-created",
+      "event.outcome": "success",
+      "user.name": o.subjectUser,
+      "user.domain": nb,
+    },
+  };
+}
+
+// ── 4728 / 4732 / 4756 — a member was added to a security-enabled group ────────────────
+export interface WinGroupMemberAddOpts extends WinCtx {
+  eventId?: "4728" | "4732" | "4756"; // global / local / universal (default 4728)
+  subjectUser: string;
+  subjectSid: string;
+  subjectLogonId?: string;
+  memberName: string;           // MemberName (DN or "-")
+  memberSid: string;
+  groupName: string;            // TargetUserName (the group)
+  groupDomain?: string;         // TargetDomainName (NEXACORP | Builtin)
+  groupSid: string;             // TargetSid
+  recordId?: string;
+}
+export function winGroupMemberAdd(o: WinGroupMemberAddOpts): TelemetryEvent {
+  const nb = realm(o);
+  const eid = o.eventId ?? "4728";
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "group_modify",
+    severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
+    description: o.description ?? `${eid} — ${o.subjectUser} added ${o.memberName} to ${o.groupName} on ${o.host}`,
+    raw: {
+      "winlog.event_id": eid,
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.subjectSid,
+      "winlog.event_data.SubjectUserName": o.subjectUser,
+      "winlog.event_data.SubjectDomainName": nb,
+      ...(o.subjectLogonId ? { "winlog.event_data.SubjectLogonId": o.subjectLogonId } : {}),
+      "winlog.event_data.MemberName": o.memberName,
+      "winlog.event_data.MemberSid": o.memberSid,
+      "winlog.event_data.TargetUserName": o.groupName,
+      "winlog.event_data.TargetDomainName": o.groupDomain ?? nb,
+      "winlog.event_data.TargetSid": o.groupSid,
+      "event.code": eid,
+      "event.action": "added-member-to-group",
+      "event.outcome": "success",
+      "group.name": o.groupName,
+      "user.name": o.subjectUser,
+      "user.domain": nb,
+    },
+  };
+}

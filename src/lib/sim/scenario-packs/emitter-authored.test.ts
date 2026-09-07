@@ -24,6 +24,7 @@ import { buildS3ExfilExposureScenario } from "./s3ExfilExposure";
 import { buildCicdSupplyChainScenario } from "./cicdSupplyChain";
 import { buildContainerEscapeCryptominingScenario } from "./containerEscapeCryptomining";
 import { buildHelpdeskMfaResetScenario } from "./helpdeskMfaReset";
+import { buildRogueAdminAccountScenario } from "./rogueAdminAccount";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -39,7 +40,7 @@ const FULLY_EMITTER_AUTHORED = [
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
   "infostealerSessionTheft.ts", "macosTccPkg.ts", "macosStealerDmg.ts",
   "s3ExfilExposure.ts", "cicdSupplyChain.ts", "containerEscapeCryptomining.ts",
-  "helpdeskMfaReset.ts",
+  "helpdeskMfaReset.ts", "rogueAdminAccount.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -785,5 +786,37 @@ describe("emitter-authored scenario packs", () => {
     const vdi = s.events.find(e => e.id === "evt_hmr_08_vdi_session");
     expect(vdi?.hostname).toBe("VDI-POOL-014");
     expect(vdi?.process?.parent_name).toBe("userinit.exe");
+  });
+
+  it("rogueAdminAccount builds a coherent rogue-admin case from emitters only (ServiceNow + Windows Security + Sentinel)", () => {
+    const s = buildRogueAdminAccountScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "ServiceNow ITSM", "Windows Security", "Microsoft Sentinel",
+    ]));
+    // control: the daylight 4720 tied to an approved onboarding request
+    const baseline = s.events.find(e => e.id === "evt_ra_02_baseline_create");
+    expect(baseline?.raw?.["winlog.event_id"]).toBe("4720");
+    expect(baseline?.it_verify_result).toBe("confirmed");
+    // the rogue 4720 — same creator, no ticket
+    const rogue = s.events.find(e => e.id === "evt_ra_05_acct_create");
+    expect(rogue?.raw?.["winlog.event_id"]).toBe("4720");
+    expect(rogue?.raw?.["winlog.event_data.TargetUserName"]).toBe("s.katz");
+    expect(rogue?.it_verify_result).toBe("unverified");
+    // the crux: added to Domain Admins (4728), directory-plane
+    const grp = s.events.find(e => e.id === "evt_ra_06_group_add_domain");
+    expect(grp?.raw?.["winlog.event_id"]).toBe("4728");
+    expect(grp?.raw?.["winlog.event_data.TargetUserName"]).toBe("Domain Admins");
+    expect(grp?.edr_scope).toBe("non_edr");
+    // local Administrators add (4732) on the member server
+    expect(s.events.find(e => e.id === "evt_ra_07_group_add_local")?.raw?.["winlog.event_id"]).toBe("4732");
+    // the Sentinel correlation carries the "no linked request" directory context
+    const corr = s.events.find(e => e.id === "evt_ra_10_siem_context");
+    expect(corr?.raw?.["ExtendedProperties.Linked Onboarding Request"]).toBe("none");
+    expect(corr?.raw?.["ExtendedProperties.Groups Added"]).toEqual(["NEXACORP\\Domain Admins", "SRV-ADM-07\\Administrators"]);
+    // the rogue account then uses itself — a Type-10 logon from the same origin host
+    const logon = s.events.find(e => e.id === "evt_ra_08_new_acct_logon");
+    expect(logon?.raw?.["winlog.event_data.LogonType"]).toBe("10");
+    expect(logon?.raw?.["winlog.event_data.IpAddress"]).toBe("10.10.44.61");
   });
 });

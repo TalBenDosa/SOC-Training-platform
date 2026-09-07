@@ -19,6 +19,9 @@
  */
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { winAccountCreate, winGroupMemberAdd, winLogon, winSpecialPrivileges } from "@/lib/sim/emitters/windowsSecurity";
+import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 
 export function buildRogueAdminAccountScenario(
   scenarioId = "rogue-admin-account-2026",
@@ -56,414 +59,121 @@ export function buildRogueAdminAccountScenario(
   // rogue account landing in Domain Admins is the alert-grade behavioural crux.
   const INCIDENT = "inc:ra:1";
 
+  const cx = "nexacorp" as const;
+
   const events: TelemetryEvent[] = [
-    // ---------------------------------------------------------------------
-    // 1. CONTROL part 1 — what an authorised account creation looks like.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ra_01_ticket",
-      ts: T(0),
-      source: "soar",
-      vendor: "ServiceNow ITSM",
-      event_type: "policy_modification",
-      severity: "informational",
-      description:
-        "New-hire onboarding request RITM0092416 was approved by HR Operations and assigned to the Service Desk queue, requested for n.peretz@nexacorp.com and assigned to t.aharoni.",
-      raw: {
-        "servicenow.table": "sc_req_item",
-        "servicenow.number": onboardingTicket,
-        "servicenow.short_description": "New hire onboarding — standard user account",
-        "servicenow.catalog_item": "Employee Onboarding — Account Provisioning",
-        "servicenow.state": "Work in Progress",
-        "servicenow.approval": "Approved",
-        "servicenow.requested_for": newHire.email,
-        "servicenow.approved_by": "HR Operations",
-        "servicenow.assignment_group": "Service Desk",
-        "servicenow.assigned_to": admin.email,
-        "servicenow.opened_at": "2026-06-11 09:42:00",
-        "servicenow.sys_updated_on": "2026-06-11 14:10:00",
+    // 1. CONTROL part 1 — an authorised onboarding request.
+    serviceNowRecord({
+      companyId: cx, id: "evt_ra_01_ticket", ts: T(0), table: "sc_req_item", number: onboardingTicket, state: "Work in Progress",
+      shortDescription: "New hire onboarding — standard user account", severity: "informational",
+      extra: {
+        "servicenow.catalog_item": "Employee Onboarding — Account Provisioning", "servicenow.approval": "Approved",
+        "servicenow.requested_for": newHire.email, "servicenow.approved_by": "HR Operations", "servicenow.assignment_group": "Service Desk",
+        "servicenow.assigned_to": admin.email, "servicenow.opened_at": "2026-06-11 09:42:00", "servicenow.sys_updated_on": "2026-06-11 14:10:00",
       },
-    },
+      description: "New-hire onboarding request RITM0092416 was approved by HR Operations and assigned to the Service Desk queue, requested for n.peretz@nexacorp.com and assigned to t.aharoni.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 2. CONTROL part 2 — the 4720 that the ticket authorised, in daylight.
-    // ---------------------------------------------------------------------
+    // 2. CONTROL part 2 — the 4720 the ticket authorised, in daylight (confirmed).
     {
-      id: "evt_ra_02_baseline_create",
-      ts: T(6 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "account_create",
-      hostname: dc.hostname,
-      user_email: admin.email,
-      severity: "informational",
+      ...winAccountCreate({
+        companyId: cx, id: "evt_ra_02_baseline_create", ts: T(6 * MIN), host: dc.hostname, fqdn: dc.fqdn, userEmail: admin.email,
+        subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0x8A31C05", targetUser: newHire.sam, targetSid: newHireSid,
+        samAccountName: newHire.sam, displayName: "Noa Peretz", upn: newHire.email, primaryGroupId: "513", uac: "%%2080\n\t\t%%2082\n\t\t%%2084",
+        recordId: "5540118", severity: "informational",
+        description: "t.aharoni created the domain account n.peretz on DC01 at 14:16 (Event 4720), six minutes after the onboarding request reached the Service Desk queue.",
+      }),
       it_verify_result: "confirmed",
-      it_verify_message:
-        "Service Desk confirms this account was provisioned under approved onboarding request RITM0092416.",
-      description:
-        "t.aharoni created the domain account n.peretz on DC01 at 14:16 (Event 4720), six minutes after the onboarding request reached the Service Desk queue.",
-      raw: {
-        // Windows Security Event 4720 — A user account was created
-        "winlog.event_id": "4720",
-        "winlog.channel": "Security",
-        "winlog.computer_name": dc.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5540118",
-        "winlog.event_data.SubjectUserSid": adminSid,
-        "winlog.event_data.SubjectUserName": admin.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x8A31C05",
-        "winlog.event_data.TargetSid": newHireSid,
-        "winlog.event_data.TargetUserName": newHire.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.SamAccountName": newHire.sam,
-        "winlog.event_data.DisplayName": "Noa Peretz",
-        "winlog.event_data.UserPrincipalName": newHire.email,
-        "winlog.event_data.PrimaryGroupId": "513",
-        "winlog.event_data.UserAccountControl": "%%2080\n\t\t%%2082\n\t\t%%2084",
-        "event.code": "4720",
-        "event.action": "user-account-created",
-        "event.outcome": "success",
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
+      it_verify_message: "Service Desk confirms this account was provisioned under approved onboarding request RITM0092416.",
     },
 
-    // ---------------------------------------------------------------------
-    // 3. 22:47 — the administrator's session opens from an unexpected place.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ra_03_admin_logon",
-      ts: T(N),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: adminServer.hostname,
-      user_email: admin.email,
-      src_ip: originHost.ip,
-      severity: "medium",
-      mitre_technique: "T1078",
-      mitre_tactic: "Initial Access",
-      description:
-        "At 22:47 the t.aharoni account opened a LogonType 10 Remote Desktop session on the administrative server SRV-ADM-07, WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
-      authentication: { method: "Kerberos", result: "success", logon_type: 10 },
-      raw: {
-        // Windows Security Event 4624 — An account was successfully logged on
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": adminServer.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "2214905",
-        "winlog.event_data.SubjectUserSid": "S-1-5-18",
-        "winlog.event_data.SubjectUserName": "SRV-ADM-07$",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x3E7",
-        "winlog.event_data.TargetUserSid": adminSid,
-        "winlog.event_data.TargetUserName": admin.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0xB17C440",
-        "winlog.event_data.LogonType": "10",
-        "winlog.event_data.LogonProcessName": "User32 ",
-        "winlog.event_data.AuthenticationPackageName": "Negotiate",
-        "winlog.event_data.WorkstationName": originHost.hostname,
-        "winlog.event_data.IpAddress": originHost.ip,
-        "winlog.event_data.IpPort": "58114",
-        "winlog.event_data.ElevatedToken": "%%1842",
-        "winlog.event_data.ProcessName": "C:\\Windows\\System32\\svchost.exe",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "source.ip": originHost.ip,
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    // 3. 22:47 — the administrator's session opens from an unexpected place (T1078).
+    winLogon({
+      companyId: cx, id: "evt_ra_03_admin_logon", ts: T(N), host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: admin.email,
+      targetUser: admin.sam, targetSid: adminSid, subjectUser: "SRV-ADM-07$", subjectSid: "S-1-5-18", logonId: "0xB17C440",
+      logonType: 10, authPackage: "Negotiate", logonProcess: "User32 ", workstation: originHost.hostname, srcIp: originHost.ip, srcPort: "58114",
+      processName: "C:\\Windows\\System32\\svchost.exe", recordId: "2214905", severity: "medium", mitre: "T1078", tactic: "Initial Access",
+      description: "At 22:47 the t.aharoni account opened a LogonType 10 Remote Desktop session on the administrative server SRV-ADM-07, WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 4. The rights that make everything after this technically permitted.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ra_04_admin_privs",
-      ts: T(N + 2 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "privileged_operation",
-      hostname: adminServer.hostname,
-      user_email: admin.email,
-      severity: "low",
-      description:
-        "The t.aharoni logon session on SRV-ADM-07 was issued its privilege set (Event 4672), including SeSecurityPrivilege, SeTakeOwnershipPrivilege and SeLoadDriverPrivilege.",
-      raw: {
-        // Windows Security Event 4672 — Special privileges assigned to new logon
-        "winlog.event_id": "4672",
-        "winlog.channel": "Security",
-        "winlog.computer_name": adminServer.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "2214906",
-        "winlog.event_data.SubjectUserSid": adminSid,
-        "winlog.event_data.SubjectUserName": admin.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0xB17C440",
-        "winlog.event_data.PrivilegeList":
-          "SeSecurityPrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeLoadDriverPrivilege\n\t\t\tSeSystemtimePrivilege\n\t\t\tSeRemoteShutdownPrivilege",
-        "event.code": "4672",
-        "event.action": "special-privileges-assigned",
-        "event.outcome": "success",
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    // 4. The privilege set the admin session is issued (4672).
+    winSpecialPrivileges({
+      companyId: cx, id: "evt_ra_04_admin_privs", ts: T(N + 2 * MIN), host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: admin.email,
+      targetUser: admin.sam, targetSid: adminSid, logonId: "0xB17C440",
+      privilegeList: "SeSecurityPrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeLoadDriverPrivilege\n\t\t\tSeSystemtimePrivilege\n\t\t\tSeRemoteShutdownPrivilege",
+      recordId: "2214906", severity: "low",
+      description: "The t.aharoni logon session on SRV-ADM-07 was issued its privilege set (Event 4672), including SeSecurityPrivilege, SeTakeOwnershipPrivilege and SeLoadDriverPrivilege.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 5. 22:51 — the account at the centre of the ticket is created.
-    // ---------------------------------------------------------------------
+    // 5. 22:51 — the account at the centre of the ticket is created (unverified) (T1136.002).
     {
-      id: "evt_ra_05_acct_create",
-      ts: T(N + 4 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "account_create",
-      hostname: dc.hostname,
-      user_email: admin.email,
-      severity: "high",
-      mitre_technique: "T1136.002",
-      mitre_tactic: "Persistence",
+      ...winAccountCreate({
+        companyId: cx, id: "evt_ra_05_acct_create", ts: T(N + 4 * MIN), host: dc.hostname, fqdn: dc.fqdn, userEmail: admin.email,
+        subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0xB17C440", targetUser: rogue.sam, targetSid: rogueSid,
+        samAccountName: rogue.sam, displayName: "S. Katz", upn: rogue.email, primaryGroupId: "513", uac: "%%2080\n\t\t%%2082\n\t\t%%2084",
+        recordId: "5548907", severity: "high", mitre: "T1136.002", tactic: "Persistence",
+        description: "At 22:51 the same t.aharoni session created the domain user s.katz on DC01 — Event 4720, same creator and same directory as the record written at 14:16.",
+      }),
       it_verify_result: "unverified",
-      it_verify_message:
-        "Service Desk searched the request and change queues for the last 30 days and found no record referencing this account name.",
-      description:
-        "At 22:51 the same t.aharoni session created the domain user s.katz on DC01 — Event 4720, same creator and same directory as the record written at 14:16.",
-      raw: {
-        "winlog.event_id": "4720",
-        "winlog.channel": "Security",
-        "winlog.computer_name": dc.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5548907",
-        "winlog.event_data.SubjectUserSid": adminSid,
-        "winlog.event_data.SubjectUserName": admin.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0xB17C440",
-        "winlog.event_data.TargetSid": rogueSid,
-        "winlog.event_data.TargetUserName": rogue.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.SamAccountName": rogue.sam,
-        "winlog.event_data.DisplayName": "S. Katz",
-        "winlog.event_data.UserPrincipalName": rogue.email,
-        "winlog.event_data.PrimaryGroupId": "513",
-        "winlog.event_data.UserAccountControl": "%%2080\n\t\t%%2082\n\t\t%%2084",
-        "event.code": "4720",
-        "event.action": "user-account-created",
-        "event.outcome": "success",
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
+      it_verify_message: "Service Desk searched the request and change queues for the last 30 days and found no record referencing this account name.",
     },
 
-    // ---------------------------------------------------------------------
-    // 6. 22:54 — three minutes old and already in a domain-wide group.
-    // ---------------------------------------------------------------------
+    // 6. 22:54 — three minutes old and already in Domain Admins (4728) (T1098).
     {
-      id: "evt_ra_06_group_add_domain",
-      ts: T(N + 7 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "group_modify",
-      hostname: dc.hostname,
-      user_email: admin.email,
-      severity: "critical",
-      mitre_technique: "T1098",
-      mitre_tactic: "Persistence",
-      edr_scope: "non_edr", // AD/directory-plane incident (rogue account → Domain Admins) — no host process tree to walk; investigated in AD/SIEM, not the EDR console
-      description:
-        "Three minutes after it was created, s.katz was added to the security-enabled global group Domain Admins on DC01 (Event 4728), by t.aharoni.",
-      raw: {
-        // Windows Security Event 4728 — A member was added to a security-enabled global group
-        "winlog.event_id": "4728",
-        "winlog.channel": "Security",
-        "winlog.computer_name": dc.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5548931",
-        "winlog.event_data.SubjectUserSid": adminSid,
-        "winlog.event_data.SubjectUserName": admin.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0xB17C440",
-        "winlog.event_data.MemberName": "CN=s.katz,OU=Users,OU=Corp,DC=nexacorp,DC=com",
-        "winlog.event_data.MemberSid": rogueSid,
-        "winlog.event_data.TargetUserName": "Domain Admins",
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-512",
-        "event.code": "4728",
-        "event.action": "added-member-to-group",
-        "event.outcome": "success",
-        "group.name": "Domain Admins",
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
+      ...winGroupMemberAdd({
+        companyId: cx, id: "evt_ra_06_group_add_domain", ts: T(N + 7 * MIN), eventId: "4728", host: dc.hostname, fqdn: dc.fqdn, userEmail: admin.email,
+        targetUser: admin.sam, subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0xB17C440",
+        memberName: "CN=s.katz,OU=Users,OU=Corp,DC=nexacorp,DC=com", memberSid: rogueSid, groupName: "Domain Admins",
+        groupSid: "S-1-5-21-3421479547-3897544621-1789562108-512", recordId: "5548931", severity: "critical", mitre: "T1098", tactic: "Persistence",
+        description: "Three minutes after it was created, s.katz was added to the security-enabled global group Domain Admins on DC01 (Event 4728), by t.aharoni.",
+      }),
+      edr_scope: "non_edr",
     },
 
-    // ---------------------------------------------------------------------
-    // 7. 22:56 — and into the local Administrators group on the jump server.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ra_07_group_add_local",
-      ts: T(N + 9 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "group_modify",
-      hostname: adminServer.hostname,
-      user_email: admin.email,
-      severity: "high",
-      mitre_technique: "T1098",
-      mitre_tactic: "Persistence",
-      description:
-        "Two minutes later s.katz was added to the local Administrators group on SRV-ADM-07, recorded as Event 4732 on the member server itself.",
-      raw: {
-        // Windows Security Event 4732 — A member was added to a security-enabled local group
-        "winlog.event_id": "4732",
-        "winlog.channel": "Security",
-        "winlog.computer_name": adminServer.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "2215044",
-        "winlog.event_data.SubjectUserSid": adminSid,
-        "winlog.event_data.SubjectUserName": admin.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0xB17C440",
-        "winlog.event_data.MemberName": "-",
-        "winlog.event_data.MemberSid": rogueSid,
-        "winlog.event_data.TargetUserName": "Administrators",
-        "winlog.event_data.TargetDomainName": "Builtin",
-        "winlog.event_data.TargetSid": "S-1-5-32-544",
-        "event.code": "4732",
-        "event.action": "added-member-to-group",
-        "event.outcome": "success",
-        "group.name": "Administrators",
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    // 7. 22:56 — and into local Administrators on the jump server (4732) (T1098).
+    winGroupMemberAdd({
+      companyId: cx, id: "evt_ra_07_group_add_local", ts: T(N + 9 * MIN), eventId: "4732", host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: admin.email,
+      targetUser: admin.sam, subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0xB17C440",
+      memberName: "-", memberSid: rogueSid, groupName: "Administrators", groupDomain: "Builtin", groupSid: "S-1-5-32-544",
+      recordId: "2215044", severity: "high", mitre: "T1098", tactic: "Persistence",
+      description: "Two minutes later s.katz was added to the local Administrators group on SRV-ADM-07, recorded as Event 4732 on the member server itself.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 8. 23:02 — the new account uses itself, from a familiar-looking place.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ra_08_new_acct_logon",
-      ts: T(N + 15 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: adminServer.hostname,
-      user_email: rogue.email,
-      src_ip: originHost.ip,
-      severity: "critical",
-      mitre_technique: "T1078",
-      mitre_tactic: "Initial Access",
-      description:
-        "At 23:02 s.katz logged on to SRV-ADM-07 with LogonType 10, eleven minutes after the account was created — WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
-      authentication: { method: "Kerberos", result: "success", logon_type: 10 },
-      raw: {
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": adminServer.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "2215190",
-        "winlog.event_data.SubjectUserSid": "S-1-5-18",
-        "winlog.event_data.SubjectUserName": "SRV-ADM-07$",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x3E7",
-        "winlog.event_data.TargetUserSid": rogueSid,
-        "winlog.event_data.TargetUserName": rogue.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0xB18F2A9",
-        "winlog.event_data.LogonType": "10",
-        "winlog.event_data.LogonProcessName": "User32 ",
-        "winlog.event_data.AuthenticationPackageName": "Negotiate",
-        "winlog.event_data.WorkstationName": originHost.hostname,
-        "winlog.event_data.IpAddress": originHost.ip,
-        "winlog.event_data.IpPort": "58622",
-        "winlog.event_data.ElevatedToken": "%%1842",
-        "winlog.event_data.ProcessName": "C:\\Windows\\System32\\svchost.exe",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "source.ip": originHost.ip,
-        "user.name": rogue.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    // 8. 23:02 — the new account uses itself, from the same host (T1078).
+    winLogon({
+      companyId: cx, id: "evt_ra_08_new_acct_logon", ts: T(N + 15 * MIN), host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: rogue.email,
+      targetUser: rogue.sam, targetSid: rogueSid, subjectUser: "SRV-ADM-07$", subjectSid: "S-1-5-18", logonId: "0xB18F2A9",
+      logonType: 10, authPackage: "Negotiate", logonProcess: "User32 ", workstation: originHost.hostname, srcIp: originHost.ip, srcPort: "58622",
+      processName: "C:\\Windows\\System32\\svchost.exe", recordId: "2215190", severity: "critical", mitre: "T1078", tactic: "Initial Access",
+      description: "At 23:02 s.katz logged on to SRV-ADM-07 with LogonType 10, eleven minutes after the account was created — WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 9. The group membership takes effect — visible in the new logon's rights.
-    // ---------------------------------------------------------------------
+    // 9. The group membership takes effect — the new logon's rights (4672) (unverified).
     {
-      id: "evt_ra_09_new_acct_privs",
-      ts: T(N + 16 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "privileged_operation",
-      hostname: adminServer.hostname,
-      user_email: rogue.email,
-      severity: "high",
+      ...winSpecialPrivileges({
+        companyId: cx, id: "evt_ra_09_new_acct_privs", ts: T(N + 16 * MIN), host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: rogue.email,
+        targetUser: rogue.sam, targetSid: rogueSid, logonId: "0xB18F2A9",
+        privilegeList: "SeDebugPrivilege\n\t\t\tSeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeLoadDriverPrivilege\n\t\t\tSeSecurityPrivilege",
+        recordId: "2215191", severity: "high",
+        description: "The s.katz logon session on SRV-ADM-07 was issued SeDebugPrivilege, SeBackupPrivilege, SeRestorePrivilege and SeLoadDriverPrivilege among others (Event 4672).",
+      }),
       it_verify_result: "unverified",
-      it_verify_message:
-        "Service Desk has no change or onboarding record for s.katz (the 4720 that created the account was already flagged with no ticket). Privileges exercised by an account created out-of-hours with no authorisation must be escalated, not cleared.",
-      description:
-        "The s.katz logon session on SRV-ADM-07 was issued SeDebugPrivilege, SeBackupPrivilege, SeRestorePrivilege and SeLoadDriverPrivilege among others (Event 4672).",
-      raw: {
-        "winlog.event_id": "4672",
-        "winlog.channel": "Security",
-        "winlog.computer_name": adminServer.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "2215191",
-        "winlog.event_data.SubjectUserSid": rogueSid,
-        "winlog.event_data.SubjectUserName": rogue.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0xB18F2A9",
-        "winlog.event_data.PrivilegeList":
-          "SeDebugPrivilege\n\t\t\tSeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeLoadDriverPrivilege\n\t\t\tSeSecurityPrivilege",
-        "event.code": "4672",
-        "event.action": "special-privileges-assigned",
-        "event.outcome": "success",
-        "user.name": rogue.sam,
-        "user.domain": "NEXACORP",
-      },
+      it_verify_message: "Service Desk has no change or onboarding record for s.katz (the 4720 that created the account was already flagged with no ticket). Privileges exercised by an account created out-of-hours with no authorisation must be escalated, not cleared.",
     },
 
-    // ---------------------------------------------------------------------
-    // 10. The correlation that opened the ticket, with the directory context.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ra_10_siem_context",
-      ts: T(N + 21 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      hostname: dc.hostname,
-      user_email: admin.email,
-      severity: "high",
-      description:
-        "Sentinel raised the alert at 23:08 with directory context attached: request-record lookups for s.katz, the acting administrator's assigned device and logon history, and WS-ENG-2208's owner.",
-      raw: {
-        "AlertName": "PrivilegedGroupAddition_RecentlyCreatedAccount",
-        "alert.rule.id": "SEN-IDENT-0244",
-        "alert.severity": "High",
-        "ExtendedProperties.Window Start": T(N + 4 * MIN),
-        "ExtendedProperties.Window End": T(N + 16 * MIN),
-        "ExtendedProperties.New Account": "NEXACORP\\s.katz",
-        "ExtendedProperties.New Account Created By": "NEXACORP\\t.aharoni",
-        "ExtendedProperties.Groups Added": ["NEXACORP\\Domain Admins", "SRV-ADM-07\\Administrators"],
-        "ExtendedProperties.Linked Change Request": "none",
-        "ExtendedProperties.Linked Onboarding Request": "none",
-        "ExtendedProperties.Standard Change Window": "Mon-Thu 09:00-17:00 Asia/Jerusalem",
-        "ExtendedProperties.Actor Department": "Service Desk",
-        "ExtendedProperties.Actor Assigned Device": "WS-ITS-1140",
-        "ExtendedProperties.Actor Logon Hosts (Prior 30d)": ["WS-ITS-1140"],
-        "ExtendedProperties.Source Host Observed": originHost.hostname,
-        "ExtendedProperties.Source Host Department": "Engineering",
-        "ExtendedProperties.Source Host Primary User": "y.dagan@nexacorp.com",
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
+    // 10. The Sentinel correlation that opened the ticket, with directory context.
+    sentinelAlert({
+      companyId: cx, id: "evt_ra_10_siem_context", ts: T(N + 21 * MIN), host: dc.hostname, user: admin.email,
+      eventType: "ueba_anomaly", alertName: "PrivilegedGroupAddition_RecentlyCreatedAccount", ruleId: "SEN-IDENT-0244", severity: "high",
+      extendedProperties: {
+        "Window Start": T(N + 4 * MIN), "Window End": T(N + 16 * MIN), "New Account": "NEXACORP\\s.katz",
+        "New Account Created By": "NEXACORP\\t.aharoni", "Groups Added": ["NEXACORP\\Domain Admins", "SRV-ADM-07\\Administrators"],
+        "Linked Change Request": "none", "Linked Onboarding Request": "none", "Standard Change Window": "Mon-Thu 09:00-17:00 Asia/Jerusalem",
+        "Actor Department": "Service Desk", "Actor Assigned Device": "WS-ITS-1140", "Actor Logon Hosts (Prior 30d)": ["WS-ITS-1140"],
+        "Source Host Observed": originHost.hostname, "Source Host Department": "Engineering", "Source Host Primary User": "y.dagan@nexacorp.com",
       },
-    },
+      description: "Sentinel raised the alert at 23:08 with directory context attached: request-record lookups for s.katz, the acting administrator's assigned device and logon history, and WS-ENG-2208's owner.",
+    }),
   ];
 
   // Every event belongs to the one incident.
