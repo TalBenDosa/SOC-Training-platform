@@ -12,6 +12,7 @@ import { buildScheduledTaskPersistenceScenario } from "./scheduledTaskPersistenc
 import { buildBundledCryptominerScenario } from "./bundledCryptominer";
 import { buildLateralMovementPthScenario } from "./lateralMovementPth";
 import { buildWindowsPrivescTokenScenario } from "./windowsPrivescToken";
+import { buildMultiHostIntrusionScenario } from "./multiHostIntrusion";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -23,7 +24,7 @@ const FULLY_EMITTER_AUTHORED = [
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
-  "windowsPrivescToken.ts",
+  "windowsPrivescToken.ts", "multiHostIntrusion.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -325,5 +326,50 @@ describe("emitter-authored scenario packs", () => {
     // one host, correlated: the EDR console opens on the web server
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("WEB-APP-04");
+  });
+
+  it("multiHostIntrusion builds a coherent 3-host campaign from emitters only (PAN + CrowdStrike + WinSec)", () => {
+    const s = buildMultiHostIntrusionScenario();
+    expect(s.events.length).toBe(13);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Palo Alto Networks PAN-OS", "CrowdStrike Falcon", "Windows Security",
+    ]));
+    // the foothold crux: encoded PowerShell beacon under Office, one stable tree
+    const beacon = s.events.find(e => e.id === "evt_mhi_ws3_beacon");
+    expect(beacon?.is_detection).toBe(true);
+    expect(beacon?.process?.hash?.sha256).toBeTruthy();
+    expect(beacon?.process?.parent_pid).toBe(6112);
+    // the C2 heartbeat is an aggregated TLS session (repeat_count), not a bare GET
+    const c2 = s.events.find(e => e.id === "evt_mhi_ws4_c2");
+    expect(c2?.event_type).toBe("net_connection");
+    expect(c2?.raw?.["pan.app"]).toBe("ssl");
+    expect(c2?.raw?.["pan.repeat_count"]).toBe("14");
+    // the lateral hop lands as a Type-3 NTLM logon from the foothold host
+    const logon = s.events.find(e => e.id === "evt_mhi_fs1_logon");
+    expect(logon?.raw?.["winlog.event_data.LogonType"]).toBe("3");
+    expect(logon?.raw?.["winlog.event_data.AuthenticationPackageName"]).toBe("NTLM");
+    expect(logon?.raw?.["winlog.event_data.IpAddress"]).toBe("10.20.6.28");
+    // the credential-theft crux: LSASS full-access read (0x1FFFFF)
+    const lsass = s.events.find(e => e.id === "evt_mhi_fs3_lsass");
+    expect(lsass?.event_type).toBe("process_access");
+    expect(lsass?.raw?.["crowdstrike.GrantedAccess"]).toBe("0x1FFFFF");
+    expect(lsass?.raw?.["crowdstrike.CrossProcessTargetName"]).toBe("lsass.exe");
+    // the rename tell: OriginalFileName rclone.exe on an unsigned ProgramData binary
+    const stage = s.events.find(e => e.id === "evt_mhi_bk1_stage");
+    expect(stage?.raw?.["process.original_file_name"]).toBe("rclone.exe");
+    expect(stage?.raw?.["process.code_signature.status"]).toBe("unsigned");
+    // the exfil crux: the same binary pushing to the cloud-storage host
+    const exfil = s.events.find(e => e.id === "evt_mhi_bk2_exfil_proc");
+    expect(exfil?.is_detection).toBe(true);
+    expect(exfil?.process?.name).toBe("svchost-update.exe");
+    expect(exfil?.raw?.["destination.domain"]).toBe("store.filedrop-transfer.net");
+    // the three summary alerts carry their scoping hints
+    expect(s.events.find(e => e.id === "evt_mhi_ws5_alert")?.edr_scope).toBe("edr");
+    expect(s.events.find(e => e.id === "evt_mhi_fs4_alert")?.edr_scope).toBe("hybrid");
+    expect(s.events.find(e => e.id === "evt_mhi_bk4_alert")?.edr_scope).toBe("edr");
+    // three hosts → three isolated EDR incidents, all correlated by the campaign
+    const invs = buildInvestigationsFromScenario({ title: s.title, events: s.events });
+    const hosts = new Set(invs.map(i => i.host.name));
+    expect(hosts).toEqual(new Set(["FIN-WS-08", "FS-SRV-03", "BKP-SRV-02"]));
   });
 });

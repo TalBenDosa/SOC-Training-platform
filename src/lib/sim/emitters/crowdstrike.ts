@@ -154,6 +154,7 @@ export interface CsProcessOpts extends Ctx {
   pid?: number;                 // pin the PID to keep a multi-event tree stable
   sha256?: string;
   signed?: boolean;             // authenticode result; drives the console's signed field
+  originalFileName?: string;    // PE embedded OriginalFileName — the rename tell (rclone → svchost-update)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -187,6 +188,7 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
       "crowdstrike.aid": r.sensorId,
       ...(sha256 ? { "process.hash.sha256": sha256 } : {}),
       ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...(o.originalFileName ? { "process.original_file_name": o.originalFileName } : {}),
       "process.command_line": o.cmdline,
     },
   };
@@ -241,6 +243,8 @@ export interface CsProcessAccessOpts extends Ctx {
   signed?: boolean;
   targetProcess?: string;       // the process being read/hooked/injected
   targetPid?: number;
+  grantedAccess?: string;       // access mask, e.g. 0x1FFFFF (PROCESS_ALL_ACCESS) — the LSASS tell
+  simpleName?: string;          // override the Falcon event name (e.g. "ProcessAccessIOC" for a MiniDump)
   api?: string;                 // e.g. SetWindowsHookExW / OpenProcess / WriteProcessMemory
   threatName?: string;          // detection name when this is alert-grade
   mitre?: string;
@@ -264,7 +268,7 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
     description: o.description ?? `${o.processName} accessed ${o.targetProcess ?? "another process"} on ${r.host}`,
     process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
     raw: {
-      "crowdstrike.event_simpleName": o.api?.startsWith("SetWindowsHook") ? "SuspiciousWindowsHook" : "CrossProcessOpen",
+      "crowdstrike.event_simpleName": o.simpleName ?? (o.api?.startsWith("SetWindowsHook") ? "SuspiciousWindowsHook" : "CrossProcessOpen"),
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.UserName": r.domainUser,
       "crowdstrike.aid": r.sensorId,
@@ -277,6 +281,7 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
       ...(o.api ? { "crowdstrike.HookApi": o.api } : {}),
       ...(o.targetProcess ? { "crowdstrike.CrossProcessTargetName": o.targetProcess } : {}),
       ...(o.targetPid ? { "crowdstrike.CrossProcessTargetPid": String(o.targetPid) } : {}),
+      ...(o.grantedAccess ? { "crowdstrike.GrantedAccess": o.grantedAccess } : {}),
       ...(o.sha256 ? { "process.hash.sha256": o.sha256 } : {}),
       ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
       "event.action": "process_access",
@@ -292,7 +297,15 @@ export interface CsNetworkOpts extends Ctx {
   transport?: "tcp" | "udp";
   application?: "tls" | "http" | "dns" | "ssh";  // layer-7, its own field (not proto)
   domain?: string;
-  processName?: string;
+  processName?: string;         // the connecting process (Falcon ContextBaseFileName)
+  processPath?: string;
+  cmdline?: string;
+  pid?: number;
+  parentName?: string;
+  parentPid?: number;
+  sha256?: string;
+  bytesOut?: number;            // transferred volume — shown in the console, not a CS raw field
+  bytesIn?: number;
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -304,18 +317,21 @@ export function csNetwork(o: CsNetworkOpts): TelemetryEvent {
   const dir = o.direction ?? "outbound";
   const transport = o.transport ?? "tcp";
   const remote = dir === "inbound" ? { src: o.remoteIp, dst: r.srcIp } : { src: r.srcIp, dst: o.remoteIp };
+  const pid = o.processName ? (o.pid ?? pidFrom(o.id)) : undefined;
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "net_connection",
     severity: o.severity ?? "medium", hostname: r.host, user_email: r.email,
     src_ip: remote.src, dst_ip: remote.dst, dst_port: o.remotePort, protocol: transport,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
-    network: { domain: o.domain },
+    ...(o.processName ? { process: { pid: pid!, name: o.processName, path: o.processPath ?? `C:\\Windows\\System32\\${o.processName}`, cmdline: o.cmdline ?? o.processName, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined } } : {}),
+    network: { domain: o.domain, ...(o.bytesOut !== undefined ? { bytes_out: o.bytesOut } : {}), ...(o.bytesIn !== undefined ? { bytes_in: o.bytesIn } : {}) },
     description: o.description ?? `${dir === "inbound" ? "Inbound" : "Outbound"} ${transport.toUpperCase()} connection ${dir === "inbound" ? "to" : "from"} ${r.host} ${dir === "inbound" ? "from" : "to"} ${o.remoteIp}:${o.remotePort}`,
     raw: {
       "crowdstrike.event_simpleName": "NetworkConnectIP4",
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.aid": r.sensorId,
+      ...(o.processName ? { "crowdstrike.ContextBaseFileName": o.processName, "crowdstrike.ContextProcessId_decimal": String(pid) } : {}),
       "source.ip": remote.src,
       "destination.ip": remote.dst,
       "destination.port": String(o.remotePort),
