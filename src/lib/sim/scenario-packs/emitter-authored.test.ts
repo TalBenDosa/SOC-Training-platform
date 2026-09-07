@@ -9,6 +9,7 @@ import { buildBruteForceSingleAccountScenario } from "./bruteForceSingleAccount"
 import { buildOktaPasswordBurstScenario } from "./oktaPasswordBurst";
 import { buildUebaCompromisedAccountScenario } from "./uebaCompromisedAccount";
 import { buildScheduledTaskPersistenceScenario } from "./scheduledTaskPersistence";
+import { buildBundledCryptominerScenario } from "./bundledCryptominer";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -19,7 +20,7 @@ const FULLY_EMITTER_AUTHORED = [
   "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
-  "scheduledTaskPersistence.ts",
+  "scheduledTaskPersistence.ts", "bundledCryptominer.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -228,5 +229,34 @@ describe("emitter-authored scenario packs", () => {
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("WS-7742");
     expect(inv.processes.some(p => p.name === "schtasks.exe")).toBe(true);
+  });
+
+  it("bundledCryptominer builds a coherent coinminer incident from emitters only (CS + PAN + Sentinel)", () => {
+    const s = buildBundledCryptominerScenario();
+    expect(s.events.length).toBe(9);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "CrowdStrike Falcon", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
+    ]));
+    // the miner's identity is in its command line (stratum + wallet)
+    const miner = s.events.find(e => e.id === "evt_bcm_05_miner_start");
+    expect(miner?.process?.cmdline).toContain("stratum+tcp://");
+    expect(miner?.is_detection).toBe(true);
+    // persistence: schtasks WinHostSync at logon
+    const task = s.events.find(e => e.id === "evt_bcm_04_scheduled_task");
+    expect(task?.event_type).toBe("scheduled_task");
+    expect(String(task?.process?.cmdline)).toContain("WinHostSync");
+    // long-lived unknown-tcp pool session
+    const pool = s.events.find(e => e.id === "evt_bcm_06_pool_connection");
+    expect(pool?.raw?.["pan.app"]).toBe("unknown-tcp");
+    expect(pool?.raw?.["pan.elapsed_time"]).toBe("39602");
+    // the ticket-opener is the second Falcon detection; the precursor is not
+    expect(s.events.find(e => e.id === "evt_bcm_07_perf_telemetry")?.is_detection).toBe(false);
+    const alert = s.events.find(e => e.id === "evt_bcm_08_edr_alert");
+    expect(alert?.is_detection).toBe(true);
+    expect(alert?.edr_scope).toBe("edr");
+    // one host, correlated: EDR console opens on LAP-1806 with the miner tree
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("LAP-1806");
+    expect(inv.processes.some(p => p.name === "svchost_helper.exe")).toBe(true);
   });
 });

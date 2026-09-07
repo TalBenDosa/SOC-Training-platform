@@ -16,7 +16,7 @@
  * (fabric.ts) when not given, so a whole scenario reads as one company's estate and the
  * EDR console shows the same host + IP the SIEM feed did.
  */
-import type { TelemetryEvent, Severity, ExpectedVerdict } from "../types";
+import type { TelemetryEvent, Severity, ExpectedVerdict, EventType } from "../types";
 import { makeSha256 } from "../iocs";
 import { type Ctx, resolve, pidFrom, SEV_NAME, downloadsPath } from "./_core";
 
@@ -39,6 +39,7 @@ export interface CsAlertOpts extends Ctx {
   confidence?: number;
   severity?: Severity;
   expectedVerdict?: ExpectedVerdict;
+  isDetection?: boolean;        // default true; set false for a precursor summary that isn't the ticket-opener
   description?: string;
 }
 export function csAlert(o: CsAlertOpts): TelemetryEvent {
@@ -53,7 +54,7 @@ export function csAlert(o: CsAlertOpts): TelemetryEvent {
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "edr_alert",
     severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
-    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: true,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? true,
     expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
     description: o.description ?? `${VENDOR} raised ${o.threatName} on ${r.host}`,
     raw: {
@@ -157,6 +158,7 @@ export interface CsProcessOpts extends Ctx {
   tactic?: string;
   severity?: Severity;
   isDetection?: boolean;        // true → shows as a feed alert; else pivot-only tree telemetry
+  eventType?: EventType;        // override (e.g. "scheduled_task" for a schtasks.exe run)
   description?: string;
 }
 export function csProcess(o: CsProcessOpts): TelemetryEvent {
@@ -166,7 +168,7 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
   const sha256 = o.sha256;
   return {
-    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "process_create",
+    id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: o.eventType ?? "process_create",
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,

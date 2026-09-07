@@ -20,6 +20,9 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { csProcess, csFile, csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { panWeb, panConnection } from "@/lib/sim/emitters/paloalto";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 
 export function buildBundledCryptominerScenario(
   scenarioId = "bundled-cryptominer-2026",
@@ -45,412 +48,108 @@ export function buildBundledCryptominerScenario(
   // crux). The rest is pivot-only telemetry in the process tree.
   const INCIDENT = "inc:bcm:1";
 
+  const cx = { companyId: "nexacorp" as const, host: host.hostname, user: victim.email, srcIp: host.ip };
+  const INSTALLER = "C:\\Users\\o.mizrahi\\Downloads\\VideoConvertPro_Setup.exe";
+  const AGENT = "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe";
+
   const events: TelemetryEvent[] = [
-    // ---------------------------------------------------------------------
-    // 1. The download, at the end of the working day.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_01_download",
-      ts: T(0),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      user_title: "Marketing Manager",
-      src_ip: host.ip,
-      severity: "low",
+    // 1. The download.
+    panWeb({
+      ...cx, id: "evt_bcm_01_download", ts: T(0), url: `https://${downloadSite}/get/VideoConvertPro_Setup.exe`,
+      domain: downloadSite, method: "GET", action: "alert", category: "shareware-and-freeware",
+      dstIp: "104.21.44.190", status: 200, bytesIn: 42_991_616, userTitle: "Marketing Manager", severity: "low",
+      file: { name: "VideoConvertPro_Setup.exe", path: "/get/VideoConvertPro_Setup.exe", sha256: installerHash, size: 42_991_616 },
+      fileType: "pe",
       description:
         "LAP-1806 downloaded VideoConvertPro_Setup.exe from videoconvert-pro.net at 17:52, allowed under the category shareware-and-freeware.",
-      file: { name: "VideoConvertPro_Setup.exe", path: "/get/VideoConvertPro_Setup.exe", extension: "exe", size: 42_991_616, sha256: installerHash },
-      network: {
-        url: `https://${downloadSite}/get/VideoConvertPro_Setup.exe`,
-        domain: downloadSite,
-        method: "GET",
-        status: 200,
-        bytes_in: 42_991_616,
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "file",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "104.21.44.190",
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "shareware-and-freeware",
-        "pan.url": `${downloadSite}/get/VideoConvertPro_Setup.exe`,
-        "pan.filename": "VideoConvertPro_Setup.exe",
-        "pan.filetype": "pe",
-        "pan.file_hash": installerHash,
-        "pan.direction": "download",
-        "pan.session_id": "941188",
-        "source.ip": host.ip,
-        "url.domain": downloadSite,
-        "action_result": "alert",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
     // 2. Installation.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_02_install",
-      ts: T(4 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "low",
-      mitre_technique: "T1204.002",
-      mitre_tactic: "Execution",
-      description:
-        "VideoConvertPro_Setup.exe ran from Downloads at 17:56, started by explorer.exe.",
-      process: {
-        name: "VideoConvertPro_Setup.exe",
-        pid: 10_244,
-        path: "C:\\Users\\o.mizrahi\\Downloads\\VideoConvertPro_Setup.exe",
-        parent_name: "explorer.exe",
-        parent_pid: 4108,
-        cmdline: '"C:\\Users\\o.mizrahi\\Downloads\\VideoConvertPro_Setup.exe"',
-        user: `NEXACORP\\${victim.sam}`,
-        integrity: "high",
-        hash: { sha256: installerHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
-        "event.action": "process_created",
-        "process.name": "VideoConvertPro_Setup.exe",
-        "process.pid": "10244",
-        "process.executable": "C:\\Users\\o.mizrahi\\Downloads\\VideoConvertPro_Setup.exe",
-        "process.hash.sha256": installerHash,
-        "process.signed": "false",
-        "process.code_signature.status": "unsigned",
-        "process.parent.name": "explorer.exe",
-        "process.parent.pid": "4108",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    csProcess({
+      ...cx, id: "evt_bcm_02_install", ts: T(4 * MIN), processName: "VideoConvertPro_Setup.exe", processPath: INSTALLER,
+      cmdline: '"C:\\Users\\o.mizrahi\\Downloads\\VideoConvertPro_Setup.exe"', parentName: "explorer.exe", pid: 10_244, parentPid: 4108,
+      sha256: installerHash, signed: false, mitre: "T1204.002", tactic: "Execution", severity: "low",
+      description: "VideoConvertPro_Setup.exe ran from Downloads at 17:56, started by explorer.exe.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 3. A second binary, named to blend into a process list.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_03_miner_written",
-      ts: T(4 * MIN + 40_000),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "medium",
-      mitre_technique: "T1036.005",
-      mitre_tactic: "Defense Evasion",
-      description:
-        "The installer wrote C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe, unsigned, 6.4 MB.",
-      file: {
-        name: "svchost_helper.exe",
-        path: "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
-        extension: "exe",
-        size: 6_710_886,
-        sha256: minerHash,
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "PeFileWritten",
-        "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
-        "event.action": "file_created",
-        "file.name": "svchost_helper.exe",
-        "file.path": "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
-        "file.size": "6710886",
-        "file.hash.sha256": minerHash,
-        "file.code_signature.status": "unsigned",
-        "process.name": "VideoConvertPro_Setup.exe",
-        "process.pid": "10244",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-      },
-    },
+    // 3. The miner binary, masqueraded (T1036.005).
+    csFile({
+      ...cx, id: "evt_bcm_03_miner_written", ts: T(4 * MIN + 40_000), path: AGENT, sha256: minerHash, signed: false,
+      mitre: "T1036.005", tactic: "Defense Evasion", severity: "medium",
+      description: "The installer wrote C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe, unsigned, 6.4 MB.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 4. Persistence via a scheduled task at logon.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_04_scheduled_task",
-      ts: T(4 * MIN + 45_000),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "scheduled_task",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1053.005",
-      mitre_tactic: "Persistence",
+    // 4. Persistence via a scheduled task at logon (T1053.005).
+    csProcess({
+      ...cx, id: "evt_bcm_04_scheduled_task", ts: T(4 * MIN + 45_000), processName: "schtasks.exe", eventType: "scheduled_task",
+      cmdline: 'schtasks /create /tn "WinHostSync" /tr "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe" /sc onlogon /delay 0005:00 /f',
+      parentName: "VideoConvertPro_Setup.exe", pid: 10_388, parentPid: 10_244, sha256: schtasksHash, signed: true,
+      mitre: "T1053.005", tactic: "Persistence", severity: "high",
       description:
         "schtasks.exe registered a task named WinHostSync to run the AppData binary at every logon, with a five-minute delay.",
-      process: {
-        name: "schtasks.exe",
-        pid: 10_388,
-        path: "C:\\Windows\\System32\\schtasks.exe",
-        parent_name: "VideoConvertPro_Setup.exe",
-        parent_pid: 10_244,
-        cmdline:
-          'schtasks /create /tn "WinHostSync" /tr "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe" /sc onlogon /delay 0005:00 /f',
-        user: `NEXACORP\\${victim.sam}`,
-        integrity: "high",
-        hash: { sha256: schtasksHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ScheduledTaskRegistered",
-        "crowdstrike.detection.tactic": "Persistence",
-        "crowdstrike.detection.tactic_id": "TA0003",
-        "crowdstrike.detection.technique": "Scheduled Task/Job: Scheduled Task",
-        "crowdstrike.detection.technique_id": "T1053.005",
-        "crowdstrike.detection.severity": "Medium",
-        "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
-        "event.action": "scheduled_task_created",
-        "process.name": "schtasks.exe",
-        "process.pid": "10388",
-        "process.command_line":
-          'schtasks /create /tn "WinHostSync" /tr "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe" /sc onlogon /delay 0005:00 /f',
-        "process.hash.sha256": schtasksHash,
-        "process.parent.name": "VideoConvertPro_Setup.exe",
-        "process.parent.pid": "10244",
-        // Falcon's own ScheduledTaskRegistered fields — not winlog.*, which is
-        // the Windows Event Log shipper's namespace and is absent here because
-        // this estate has no Sysmon/WEF on the endpoint.
-        "crowdstrike.task_name": "WinHostSync",
-        "crowdstrike.task_exec_command":
-          "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
-        "crowdstrike.task_author": `NEXACORP\\${victim.sam}`,
-        "crowdstrike.task_trigger": "AtLogon",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 5. The miner starts, and immediately looks for its pool.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_05_miner_start",
-      ts: T(10 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1496",
-      mitre_tactic: "Impact",
-      is_detection: true, // alert-grade: the Resource Hijacking behavioural detection (the crux)
+    // 5. The miner starts with pool + wallet arguments (T1496).
+    csProcess({
+      ...cx, id: "evt_bcm_05_miner_start", ts: T(10 * MIN), processName: "svchost_helper.exe", processPath: AGENT,
+      cmdline: "svchost_helper.exe -o stratum+tcp://eu1.pool-relay-mining.com:3333 -u 48Hn2QkP9cRxVaLmT4dW --cpu-max-threads-hint=70 --background",
+      parentName: "VideoConvertPro_Setup.exe", pid: 11_020, parentPid: 10_244, sha256: minerHash, signed: false, isDetection: true,
+      mitre: "T1496", tactic: "Impact", severity: "high",
       description:
         "svchost_helper.exe started at 18:02 with pool and wallet arguments on its command line, launched by the installer VideoConvertPro_Setup.exe.",
-      process: {
-        name: "svchost_helper.exe",
-        pid: 11_020,
-        path: "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
-        parent_name: "VideoConvertPro_Setup.exe",
-        parent_pid: 10_244,
-        cmdline:
-          "svchost_helper.exe -o stratum+tcp://eu1.pool-relay-mining.com:3333 -u 48Hn2QkP9cRxVaLmT4dW --cpu-max-threads-hint=70 --background",
-        user: `NEXACORP\\${victim.sam}`,
-        integrity: "medium",
-        hash: { sha256: minerHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.tactic": "Impact",
-        "crowdstrike.detection.tactic_id": "TA0040",
-        "crowdstrike.detection.technique": "Resource Hijacking",
-        "crowdstrike.detection.technique_id": "T1496",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
-        "event.action": "process_created",
-        "process.name": "svchost_helper.exe",
-        "process.pid": "11020",
-        "process.executable": "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
-        "process.command_line":
-          "svchost_helper.exe -o stratum+tcp://eu1.pool-relay-mining.com:3333 -u 48Hn2QkP9cRxVaLmT4dW --cpu-max-threads-hint=70 --background",
-        "process.hash.sha256": minerHash,
-        "process.code_signature.status": "unsigned",
-        "process.parent.name": "VideoConvertPro_Setup.exe",
-        "process.parent.pid": "10244",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 6. The pool connection — long-lived, on a non-web port, and allowed.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_06_pool_connection",
-      ts: T(10 * MIN + 6_000),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "net_connection",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      dst_port: 3333,
-      protocol: "tcp",
-      severity: "high",
-      mitre_technique: "T1496",
-      mitre_tactic: "Impact",
+    // 6. The mining-pool connection — long-lived, non-web port, allowed.
+    panConnection({
+      ...cx, id: "evt_bcm_06_pool_connection", ts: T(10 * MIN + 6_000), domain: pool, dstIp: "51.15.204.88", remotePort: 3333,
+      app: "unknown-tcp", transport: "tcp", action: "allow", end: true, bytesOut: 2_884_112, bytesIn: 941_320,
+      elapsedSec: 39_602, category: "any", mitre: "T1496", tactic: "Impact", severity: "high",
       description:
         "A TCP/3333 session opened from LAP-1806 to eu1.pool-relay-mining.com and stayed up for 11 hours, allowed by the default outbound rule.",
-      network: { domain: pool, bytes_out: 2_884_112, bytes_in: 941_320 },
-      raw: {
-        "pan.type": "TRAFFIC",
-        "pan.subtype": "end",
-        "pan.action": "allow",
-        "pan.rule": "CORP-ANY-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": "51.15.204.88",
-        "pan.dport": "3333",
-        "pan.proto": "tcp",
-        "pan.app": "unknown-tcp",
-        "pan.category": "any",
-        "pan.session_id": "941402",
-        "pan.bytes_sent": "2884112",
-        "pan.bytes_received": "941320",
-        "pan.elapsed_time": "39602",
-        "pan.dstloc": "FR",
-        "source.ip": host.ip,
-        "destination.port": "3333",
-        "url.domain": pool,
-        "action_result": "allow",
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 7. The service-desk ticket. This is how the SOC actually finds out.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_07_perf_telemetry",
-      ts: T(15 * HOUR + 8 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1496",
-      mitre_tactic: "Impact",
+    // 7. Falcon Resource-Hijacking summary (precursor — not the ticket-opener).
+    csAlert({
+      ...cx, id: "evt_bcm_07_perf_telemetry", ts: T(15 * HOUR + 8 * MIN), threatName: "CryptocurrencyMining",
+      mitre: "T1496", tactic: "Impact", technique: "Resource Hijacking", malwareCategory: "cryptominer",
+      confidence: 90, action: "detected", isDetection: false, severity: "high",
+      detail:
+        "svchost_helper.exe (PID 11020) has run uninterrupted for roughly 15 hours, spanning overnight, and maintains a stratum connection to eu1.pool-relay-mining.com. The sustained, off-hours execution with a mining-pool session is consistent with unauthorised cryptocurrency mining.",
       description:
         "Falcon raised a Resource Hijacking detection on LAP-1806: svchost_helper.exe has run continuously since it launched the previous evening — through the night — holding a persistent mining-pool connection, a resource profile consistent with cryptomining.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "CryptocurrencyMining",
-        "crowdstrike.detection.description":
-          "svchost_helper.exe (PID 11020) has run uninterrupted for roughly 15 hours, spanning overnight, and maintains a stratum connection to eu1.pool-relay-mining.com. The sustained, off-hours execution with a mining-pool session is consistent with unauthorised cryptocurrency mining.",
-        "crowdstrike.detection.tactic": "Impact",
-        "crowdstrike.detection.tactic_id": "TA0040",
-        "crowdstrike.detection.technique": "Resource Hijacking",
-        "crowdstrike.detection.technique_id": "T1496",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.detection.confidence": "90",
-        "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
-        "event.action": "detection",
-        "process.name": "svchost_helper.exe",
-        "process.pid": "11020",
-        "process.executable": "C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe",
-        "host.name": host.hostname,
-        "user.name": `NEXACORP\\${victim.sam}`,
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 8. The detection, with the asset context that decides severity.
-    // ---------------------------------------------------------------------
+    // 8. The detection that opens the ticket.
     {
-      id: "evt_bcm_08_edr_alert",
-      ts: T(15 * HOUR + 20 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      is_detection: true,    // the DetectionSummaryEvent — the alert that opens the ticket
-      edr_scope: "edr",      // endpoint-primary → investigated in the EDR console
-      description:
-        "Falcon raised a High detection for an unsigned AppData process holding a long-lived stratum connection, with the host's asset context attached.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "UnsignedProcessSustainedStratumConnection",
-        "crowdstrike.detection.description":
+      ...csAlert({
+        ...cx, id: "evt_bcm_08_edr_alert", ts: T(15 * HOUR + 20 * MIN), threatName: "UnsignedProcessSustainedStratumConnection",
+        mitre: "T1496", tactic: "Impact", technique: "Resource Hijacking", malwareCategory: "cryptominer",
+        confidence: 90, action: "detected", severity: "high",
+        processTree: "VideoConvertPro_Setup.exe > svchost_helper.exe",
+        detail:
           "An unsigned binary in a user AppData directory maintained a long-lived TCP/3333 session and sustained high CPU utilisation.",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.detection.confidence": "90",
-        "crowdstrike.detection.tactic": "Impact",
-        "crowdstrike.detection.technique": "Resource Hijacking",
-        "crowdstrike.detection.technique_id": "T1496",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.detection.process_tree": "VideoConvertPro_Setup.exe > svchost_helper.exe",
-        "crowdstrike.sensor.id": "d5f31c8072ba4e17a9026b41ce7d8355",
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "alert",
-        "event.outcome": "detected",
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-        "user.name": `NEXACORP\\${victim.sam}`,
-      },
+        description:
+          "Falcon raised a High detection for an unsigned AppData process holding a long-lived stratum connection, with the host's asset context attached.",
+      }),
+      edr_scope: "edr",
     },
 
-    // ---------------------------------------------------------------------
-    // 9. Asset and blast-radius context. This is a SIEM enrichment record, not
-    //    an EDR one — the EDR knows what ran on the host, but only the SIEM
-    //    joins it to who else uses the machine and what the account touched.
-    //    It is the event that decides severity, which is why it is separate.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bcm_09_siem_context",
-      ts: T(15 * HOUR + 24 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "medium",
+    // 9. SIEM asset + blast-radius context — the record that decides severity.
+    sentinelAlert({
+      ...cx, id: "evt_bcm_09_siem_context", ts: T(15 * HOUR + 24 * MIN), alertName: "HostResourceAnomaly_UnsignedProcess",
+      ruleId: "SEN-IMPACT-0071", severity: "medium", eventType: "ueba_anomaly",
+      fullName: victim.name, department: "Marketing",
+      extendedProperties: {
+        "Asset Criticality": "Medium",
+        "Host Role": "Shared marketing laptop — also used for month-end close by Finance",
+        "Software Installed Yesterday": ["VideoConvert Pro 9.1 (unsigned)"],
+        "Persistence Added": ["Scheduled Task: WinHostSync"],
+        "Accounts Touched": "1 (o.mizrahi — local session only)",
+        "Data Accessed Outside Baseline": "none",
+      },
       description:
         "Sentinel attached the host's asset context to the detection: criticality, who else uses the machine, what was installed, and what the account touched in the window.",
-      raw: {
-        "AlertName": "HostResourceAnomaly_UnsignedProcess",
-        "alert.rule.id": "SEN-IMPACT-0071",
-        "alert.severity": "Medium",
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-        "target.user.name": `NEXACORP\\${victim.sam}`,
-        "user.full_name": victim.name,
-        "user.department": "Marketing",
-        "ExtendedProperties.Asset Criticality": "Medium",
-        "ExtendedProperties.Host Role": "Shared marketing laptop — also used for month-end close by Finance",
-        "ExtendedProperties.Software Installed Yesterday": ["VideoConvert Pro 9.1 (unsigned)"],
-        "ExtendedProperties.Persistence Added": ["Scheduled Task: WinHostSync"],
-        "ExtendedProperties.Accounts Touched": "1 (o.mizrahi — local session only)",
-        "ExtendedProperties.Data Accessed Outside Baseline": "none",
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-      },
-    },
+    }),
   ];
 
   // Every event belongs to the one incident.
