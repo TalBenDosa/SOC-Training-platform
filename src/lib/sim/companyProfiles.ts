@@ -29,28 +29,28 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     user_title: "Backend Engineer",
     hostname: undefined,
     description: "t.levy signed in to Okta (MFA push approved)",
-    raw: { "okta.event_type": "user.session.start", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "allowed", "okta.device.profile.platform": "MacOS", "okta.device.managed": "true" }
+    raw: { "okta.eventType": "user.session.start", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "allowed", "okta.device.profile.platform": "MacOS", "okta.device.managed": "true" }
   },
   {
     id: "rs_okta_002", ts: "2026-05-10T08:15:00.000Z",
     source: "okta", event_type: "auth_success", severity: "informational",
     vendor: "Okta", user_email: "r.cohen@rocketstack.io", src_ip: "94.188.12.51",
     description: "r.cohen signed in to Okta (TOTP)",
-    raw: { "okta.event_type": "user.session.start", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "GOOGLE_OTP", "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.session.start", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "GOOGLE_OTP", "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "allowed" }
   },
   {
     id: "rs_okta_003", ts: "2026-05-10T09:10:00.000Z",
     source: "okta", event_type: "auth_success", severity: "informational",
     vendor: "Okta", user_email: "s.amir@rocketstack.io", src_ip: "94.188.12.67",
     description: "s.amir signed in to GitHub Enterprise via Okta",
-    raw: { "okta.event_type": "app.oauth2.as.token.grant", "okta.target.display_name": "GitHub Enterprise", "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "allowed" }
+    raw: { "okta.eventType": "app.oauth2.as.token.grant", "okta.target.displayName": "GitHub Enterprise", "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "allowed" }
   },
   {
     id: "rs_okta_004", ts: "2026-05-10T10:45:00.000Z",
     source: "okta", event_type: "mfa_challenge", severity: "low",
     vendor: "Okta", user_email: "n.shapiro@rocketstack.io", src_ip: "94.188.12.80",
     description: "n.shapiro MFA push for Slack approved",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "action_result": "allowed" }
   },
   // ── CrowdStrike Falcon (macOS) ────────────────────────────────────────────
   {
@@ -164,7 +164,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "okta", event_type: "auth_success", severity: "low",
     vendor: "Okta", user_email: "d.shapira@rocketstack.io", src_ip: "176.34.22.9",
     description: "d.shapira signed in from new country (BE)",
-    raw: { "okta.event_type": "user.session.start", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "okta.debug_context.debug_data.risk_level": "MEDIUM", "okta.client.geographical_context.country": "BE", "okta.debug_context.debug_data.behaviors": "New Device=POSITIVE", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.session.start", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "MEDIUM", "okta.client.geographicalContext.country": "BE", "okta.debugContext.debugData.behaviors": "New Device=POSITIVE", "action_result": "allowed" }
   },
   {
     id: "rs_okta_006", ts: "2026-05-10T13:05:00.000Z",
@@ -172,15 +172,15 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "admin@rocketstack.io", src_ip: "94.188.12.1",
     description: "admin added d.shapira to Okta Admins group",
     raw: {
-      "okta.event_type": "group.user_membership.add",
-      "okta.actor.alternate_id": "admin@rocketstack.io",
-      "okta.actor.display_name": "RS Admin",
+      "okta.eventType": "group.user_membership.add",
+      "okta.actor.alternateId": "admin@rocketstack.io",
+      "okta.actor.displayName": "RS Admin",
       "okta.actor.type": "User",
-      "okta.target.alternate_id": "d.shapira@rocketstack.io",
-      "okta.target.display_name": "Okta Administrators",
+      "okta.target.alternateId": "d.shapira@rocketstack.io",
+      "okta.target.displayName": "Okta Administrators",
       "okta.target.type": "UserGroup",
       "okta.outcome.result": "SUCCESS",
-      "okta.debug_context.debug_data.risk_level": "LOW",
+      "okta.debugContext.debugData.riskLevel": "LOW",
       "action_result": "allowed"
     }
   },
@@ -189,7 +189,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "okta", event_type: "auth_failure", severity: "medium",
     vendor: "Okta", user_email: "m.ben-david@rocketstack.io", src_ip: "185.176.44.10",
     description: "m.ben-david Okta sign-in denied — device not recognised, source 185.176.44.10 (UA)",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "DENY", "okta.outcome.reason": "Sign-on policy evaluation resulted in DENY", "okta.debug_context.debug_data.risk_level": "HIGH", "okta.debug_context.debug_data.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE", "okta.client.ip_address": "185.176.44.10", "okta.client.geographical_context.country": "UA", "action_result": "blocked" }
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "DENY", "okta.outcome.reason": "Sign-on policy evaluation resulted in DENY", "okta.debugContext.debugData.riskLevel": "HIGH", "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE", "okta.client.ipAddress": "185.176.44.10", "okta.client.geographicalContext.country": "UA", "action_result": "blocked" }
   },
   // ── CrowdStrike — additional macOS events ─────────────────────────────────
   {
@@ -317,7 +317,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     expected_verdict: "fp",
     fp_explanation: "s.amir is connecting through RocketStack's office VPN exit node in Amsterdam (5.79.64.10). The IP is the egress of the company's ZeroTier mesh — it appears foreign because the VPN exit is in the Netherlands, but all employees use this IP when tunnelling. Okta recognised the device as compliant and MFA was approved.",
     description: "s.amir authenticated via RocketStack VPN from Netherlands exit IP — known egress node",
-    raw: { "okta.event_type": "user.session.start", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "okta.debug_context.debug_data.risk_level": "MEDIUM", "okta.client.geographical_context.country": "NL", "okta.debug_context.debug_data.behaviors": "New Device=NEGATIVE", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.session.start", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "MEDIUM", "okta.client.geographicalContext.country": "NL", "okta.debugContext.debugData.behaviors": "New Device=NEGATIVE", "action_result": "allowed" }
   },
 
   // ── IT Verify events — RocketStack ──────────────────────────────────────────
@@ -330,9 +330,9 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Change ticket CHG-RS-190 opened by Engineering Lead (Tom B.) on 2026-05-09. d.kim was promoted to Senior Engineer and requires Production-Deployers group membership for release pipelines. Approved by CTO and documented in the access review.",
     raw: {
-      "okta.event_type": "group.user_membership.add", "okta.target.display_name": "Production-Deployers",
-      "okta.actor.alternate_id": "ops-admin@rocketstack.io", "okta.target.alternate_id": "d.kim@rocketstack.io",
-      "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "success"
+      "okta.eventType": "group.user_membership.add", "okta.target.displayName": "Production-Deployers",
+      "okta.actor.alternateId": "ops-admin@rocketstack.io", "okta.target.alternateId": "d.kim@rocketstack.io",
+      "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "success"
     }
   },
   {
@@ -344,12 +344,12 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     it_verify_result: "unverified",
     it_verify_message: "IT has no record of a request to elevate m.nguyen to Okta Super Admin. m.nguyen is a mid-level developer with no business need for this role. No open or recently approved change ticket exists. This event occurred outside business hours. Investigate immediately — possible account compromise.",
     raw: {
-      "okta.event_type": "user.account.privilege.grant", "okta.target.alternate_id": "m.nguyen@rocketstack.io",
+      "okta.eventType": "user.account.privilege.grant", "okta.target.alternateId": "m.nguyen@rocketstack.io",
       "okta.target.type": "User",
-      "okta.target.display_name": "Super Organization Admin",
-      "okta.actor.alternate_id": "m.nguyen@rocketstack.io", "okta.actor.type": "User",
+      "okta.target.displayName": "Super Organization Admin",
+      "okta.actor.alternateId": "m.nguyen@rocketstack.io", "okta.actor.type": "User",
       "okta.outcome.result": "SUCCESS",
-      "okta.debug_context.debug_data.risk_level": "HIGH",
+      "okta.debugContext.debugData.riskLevel": "HIGH",
       "action_result": "success"
     }
   },
@@ -362,10 +362,10 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Helpdesk ticket INC-RS-4421. a.sharma lost their phone and submitted an MFA reset request with identity verification. IT verified via video call. MFA reset performed under standard lost-device procedure.",
     raw: {
-      "okta.event_type": "user.mfa.factor.deactivate", "okta.target.alternate_id": "a.sharma@rocketstack.io",
+      "okta.eventType": "user.mfa.factor.deactivate", "okta.target.alternateId": "a.sharma@rocketstack.io",
       "okta.target.type": "User",
-      "okta.actor.alternate_id": "ops-admin@rocketstack.io", "okta.actor.type": "User",
-      "okta.debug_context.debug_data.factor": "GOOGLE_OTP",
+      "okta.actor.alternateId": "ops-admin@rocketstack.io", "okta.actor.type": "User",
+      "okta.debugContext.debugData.factor": "GOOGLE_OTP",
       "okta.outcome.result": "SUCCESS", "action_result": "success"
     }
   },
@@ -377,18 +377,18 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "j.lee@rocketstack.io", src_ip: "10.20.1.33",
     user_title: "DevOps",
     description: "j.lee failed Okta login — incorrect password, reset pending",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "FAILURE",
-           "okta.outcome.reason": "INVALID_CREDENTIALS", "okta.debug_context.debug_data.risk_level": "LOW",
-           "okta.client.geographical_context.country": "IL", "action_result": "deny" }
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
+           "okta.outcome.reason": "INVALID_CREDENTIALS", "okta.debugContext.debugData.riskLevel": "LOW",
+           "okta.client.geographicalContext.country": "IL", "action_result": "deny" }
   },
   {
     id: "rs_fail_02", ts: "2026-05-10T10:55:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "low",
     vendor: "Okta", user_email: "b.cohen@rocketstack.io", src_ip: "10.20.2.55",
     description: "b.cohen Okta MFA challenge timed out — re-authentication required",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
-           "okta.outcome.reason": "SESSION_EXPIRED", "okta.debug_context.debug_data.factor": "GOOGLE_TOTP",
-           "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "deny" }
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
+           "okta.outcome.reason": "SESSION_EXPIRED", "okta.debugContext.debugData.factor": "GOOGLE_TOTP",
+           "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "deny" }
   },
   {
     id: "rs_fail_03", ts: "2026-05-10T14:20:00.000Z",
@@ -413,17 +413,17 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "a.kim@rocketstack.io", src_ip: "185.64.44.10",
     description: "a.kim logged in from Tel Aviv — normal morning login",
     raw: {
-      "okta.event_type":             "user.session.start",
+      "okta.eventType":             "user.session.start",
       "okta.outcome.result":         "SUCCESS",
-      "okta.actor.alternate_id":            "a.kim@rocketstack.io",
-      "okta.client.ip_address":      "185.64.44.10",
-      "okta.client.geographical_context.country": "IL",
-      "okta.client.geographical_context.city": "Tel Aviv",
-      "okta.authentication_context.credential_type": "PASSWORD",
-      "okta.authentication_context.credential_provider": "OKTA_CREDENTIAL_PROVIDER",
-      "okta.debug_context.debug_data.risk_level":             "LOW",
-      "okta.debug_context.debug_data.behaviors": "New Device=NEGATIVE, New Geo-Location=NEGATIVE",
-      "okta.security_context.is_proxy": "false",
+      "okta.actor.alternateId":            "a.kim@rocketstack.io",
+      "okta.client.ipAddress":      "185.64.44.10",
+      "okta.client.geographicalContext.country": "IL",
+      "okta.client.geographicalContext.city": "Tel Aviv",
+      "okta.authenticationContext.credentialType": "PASSWORD",
+      "okta.authenticationContext.credentialProvider": "OKTA_CREDENTIAL_PROVIDER",
+      "okta.debugContext.debugData.riskLevel":             "LOW",
+      "okta.debugContext.debugData.behaviors": "New Device=NEGATIVE, New Geo-Location=NEGATIVE",
+      "okta.securityContext.isProxy": "false",
       "event.action": "logged-in", "event.outcome": "success", "source.ip": "185.64.44.10"
     }
   },
@@ -433,13 +433,13 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "admin@rocketstack.io", src_ip: "94.188.12.1",
     description: "admin suspended the a.kim account from the Okta admin console",
     raw: {
-      "okta.event_type":             "user.lifecycle.suspend",
-      "okta.actor.alternate_id":     "admin@rocketstack.io",
-      "okta.actor.display_name":     "RS Admin",
+      "okta.eventType":             "user.lifecycle.suspend",
+      "okta.actor.alternateId":     "admin@rocketstack.io",
+      "okta.actor.displayName":     "RS Admin",
       "okta.actor.type":             "User",
-      "okta.target.alternate_id":    "a.kim@rocketstack.io",
+      "okta.target.alternateId":    "a.kim@rocketstack.io",
       "okta.target.type":            "User",
-      "okta.client.ip_address":      "94.188.12.1",
+      "okta.client.ipAddress":      "94.188.12.1",
       "okta.outcome.result":         "SUCCESS",
       "okta.transaction.id":         "Yj1kQmFkbWluMDUxMA",
       "event.action":                "account-suspend",
@@ -708,9 +708,9 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "t.levy@rocketstack.io", src_ip: "94.188.12.44",
     description: "t.levy authenticated to Slack via Okta SSO",
     raw: {
-      "okta.event_type": "app.oauth2.token.grant.id_token",
-      "okta.target.display_name": "Slack", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH",
-      "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "allowed" }
+      "okta.eventType": "app.oauth2.token.grant.id_token",
+      "okta.target.displayName": "Slack", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH",
+      "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "allowed" }
   },
   {
     id: "rs_slack_002", ts: "2026-05-10T10:30:00.000Z",
@@ -718,9 +718,9 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "m.ben-david@rocketstack.io", src_ip: "94.188.12.82",
     description: "m.ben-david accessed Notion workspace via Okta SSO",
     raw: {
-      "okta.event_type": "app.oauth2.as.token.grant",
-      "okta.target.display_name": "Notion", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "GOOGLE_OTP",
-      "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "allowed" }
+      "okta.eventType": "app.oauth2.as.token.grant",
+      "okta.target.displayName": "Notion", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "GOOGLE_OTP",
+      "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "allowed" }
   },
 
   // ── AWS CloudWatch / Cost Management ─────────────────────────────────────
@@ -2312,7 +2312,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     user_title: "Equity Trader",
     hostname: "WKS-QB-055",
     description: "f.zimmermann signed in to Okta (FIDO2) on WKS-QB-055",
-    raw: { "okta.event_type": "user.session.start", "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.factor": "WEBAUTHN", "okta.debug_context.debug_data.risk_level": "LOW", "okta.device.managed": "true", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.session.start", "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.factor": "WEBAUTHN", "okta.debugContext.debugData.riskLevel": "LOW", "okta.device.managed": "true", "action_result": "allowed" }
   },
   {
     id: "qb_okta_002", ts: "2026-05-10T08:30:00.000Z",
@@ -2320,7 +2320,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "e.steiner@quantumbank.ch", src_ip: "10.100.1.33",
     user_title: "Risk Analyst",
     description: "e.steiner signed in to CoreBanking-System via Okta",
-    raw: { "okta.event_type": "app.oauth2.as.token.grant", "okta.target.display_name": "CoreBanking-System", "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "allowed" }
+    raw: { "okta.eventType": "app.oauth2.as.token.grant", "okta.target.displayName": "CoreBanking-System", "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "allowed" }
   },
   {
     id: "qb_okta_003", ts: "2026-05-10T09:15:00.000Z",
@@ -2328,7 +2328,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "a.keller@quantumbank.ch", src_ip: "10.100.1.44",
     user_title: "Quantitative Analyst",
     description: "a.keller MFA push for trading platform approved",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "okta.debug_context.debug_data.risk_level": "LOW", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "LOW", "action_result": "allowed" }
   },
   {
     id: "qb_okta_004", ts: "2026-05-10T11:00:00.000Z",
@@ -2336,7 +2336,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "m.huber@quantumbank.ch", src_ip: "91.234.100.22",
     user_title: "Compliance Officer",
     description: "m.huber Okta MFA timed out (unrecognized IP)",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.outcome.reason": "MFA_PUSH_TIMEOUT", "okta.debug_context.debug_data.risk_level": "MEDIUM", "action_result": "blocked" }
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.outcome.reason": "MFA_PUSH_TIMEOUT", "okta.debugContext.debugData.riskLevel": "MEDIUM", "action_result": "blocked" }
   },
   // ── CyberArk PAM ─────────────────────────────────────────────────────────
   {
@@ -2449,7 +2449,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     expected_verdict: "fp",
     fp_explanation: "CyberArk PAM checks out privileged credentials on behalf of an authorised admin every day at 11:30 for routine maintenance. The Okta event is the PAM service authenticating to retrieve the vaulted credential — not a human login. The source IP (10.100.200.5) is the CyberArk appliance and is whitelisted in Okta's IP policy.",
     description: "CyberArk PAM credential checkout at 11:30 (scheduled admin task)",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.actor.display_name": "CyberArk PAM Service", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "okta.debug_context.debug_data.risk_level": "LOW", "okta.client.geographical_context.country": "CH", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.actor.displayName": "CyberArk PAM Service", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "LOW", "okta.client.geographicalContext.country": "CH", "action_result": "allowed" }
   },
   {
     id: "qb_fp_003", ts: "2026-05-10T03:15:00.000Z",
@@ -2471,10 +2471,10 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Access request AR-QB-0302 approved by CISO and Head of IT Risk. h.weber (Senior Security Engineer) promoted to Privileged Vault Admin for a time-limited DR rehearsal (2026-05-10 only). Role will be revoked automatically at 18:00 via CyberArk JIT policy.",
     raw: {
-      "okta.event_type": "user.account.privilege.grant", "okta.target.alternate_id": "h.weber@quantumbank.ch",
+      "okta.eventType": "user.account.privilege.grant", "okta.target.alternateId": "h.weber@quantumbank.ch",
       "okta.privilege.name": "CyberArk Privileged Vault Admin",
-      "okta.actor.alternate_id": "security-admin@quantumbank.ch",
-      "cyberark.safe_name": "QB-PROD-SECRETS", "okta.debug_context.debug_data.risk_level": "HIGH",
+      "okta.actor.alternateId": "security-admin@quantumbank.ch",
+      "cyberark.safe_name": "QB-PROD-SECRETS", "okta.debugContext.debugData.riskLevel": "HIGH",
       "action_result": "success"
     }
   },
@@ -2487,10 +2487,10 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     it_verify_result: "unverified",
     it_verify_message: "IT has no record of a request to add n.schulz to Core-Banking-DB-Admins. n.schulz is in Application Development — not a DBA role. This group grants direct read/write access to transaction tables in the core banking database, which is subject to PCI-DSS segregation-of-duties controls. No open change ticket, no CAB approval. Escalate to CISO immediately.",
     raw: {
-      "okta.event_type": "group.user_membership.add", "okta.target.display_name": "Core-Banking-DB-Admins",
-      "okta.target.alternate_id": "n.schulz@quantumbank.ch",
-      "okta.actor.alternate_id": "security-admin@quantumbank.ch",
-      "okta.debug_context.debug_data.risk_level": "HIGH", "action_result": "success"
+      "okta.eventType": "group.user_membership.add", "okta.target.displayName": "Core-Banking-DB-Admins",
+      "okta.target.alternateId": "n.schulz@quantumbank.ch",
+      "okta.actor.alternateId": "security-admin@quantumbank.ch",
+      "okta.debugContext.debugData.riskLevel": "HIGH", "action_result": "success"
     }
   },
   {
@@ -2502,10 +2502,10 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Request INC-QB-1188 from HR (Talent Acquisition). e.fischer rejoined as a contractor for a 6-month project after extended leave. Background check completed, NDA re-signed. Access scoped to read-only analytics dashboards per new role definition.",
     raw: {
-      "okta.event_type": "user.lifecycle.activate", "okta.target.alternate_id": "e.fischer@quantumbank.ch",
-      "okta.actor.alternate_id": "security-admin@quantumbank.ch",
+      "okta.eventType": "user.lifecycle.activate", "okta.target.alternateId": "e.fischer@quantumbank.ch",
+      "okta.actor.alternateId": "security-admin@quantumbank.ch",
       "okta.target.type": "User", "okta.outcome.result": "SUCCESS",
-      "okta.debug_context.debug_data.risk_level": "MEDIUM", "action_result": "success"
+      "okta.debugContext.debugData.riskLevel": "MEDIUM", "action_result": "success"
     }
   },
 
@@ -2516,9 +2516,9 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "r.keller@quantumbank.ch", src_ip: "10.100.1.33",
     hostname: "WKS-QB-033",
     description: "r.keller failed Okta login on WKS-QB-012 — FIDO2 key not present on new laptop",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "FAILURE",
-           "okta.outcome.reason": "INVALID_CREDENTIALS", "okta.debug_context.debug_data.factor": "FIDO2",
-           "okta.debug_context.debug_data.risk_level": "LOW", "okta.device.managed": "false",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
+           "okta.outcome.reason": "INVALID_CREDENTIALS", "okta.debugContext.debugData.factor": "FIDO2",
+           "okta.debugContext.debugData.riskLevel": "LOW", "okta.device.managed": "false",
            "source.ip": "10.100.1.33", "action_result": "deny" }
   },
   {
@@ -2527,17 +2527,17 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", user_email: "b.schwarzer@quantumbank.ch", src_ip: "10.100.1.77",
     hostname: "WKS-QB-077",
     description: "b.schwarzer failed OTP challenge on CyberArk PAM — wrong code, possible time drift",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
-           "okta.outcome.reason": "PASSCODE_INVALID", "okta.debug_context.debug_data.factor": "TOTP",
-           "okta.debug_context.debug_data.risk_level": "LOW", "source.ip": "10.100.1.77", "action_result": "deny" }
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
+           "okta.outcome.reason": "PASSCODE_INVALID", "okta.debugContext.debugData.factor": "TOTP",
+           "okta.debugContext.debugData.riskLevel": "LOW", "source.ip": "10.100.1.77", "action_result": "deny" }
   },
   {
     id: "qb_fail_03", ts: "2026-05-10T15:30:00.000Z",
     source: "okta", event_type: "auth_failure", severity: "low",
     vendor: "Okta", user_email: "cyberark.svc@quantumbank.ch", src_ip: "10.100.200.5",
     description: "CyberArk PAM session token expired for privileged account — re-authentication required",
-    raw: { "okta.event_type": "user.session.expire", "okta.outcome.result": "FAILURE",
-           "okta.outcome.reason": "SESSION_EXPIRED", "okta.debug_context.debug_data.risk_level": "LOW",
+    raw: { "okta.eventType": "user.session.expire", "okta.outcome.result": "FAILURE",
+           "okta.outcome.reason": "SESSION_EXPIRED", "okta.debugContext.debugData.riskLevel": "LOW",
            "source.ip": "10.100.200.5", "action_result": "deny" }
   },
 
@@ -2548,9 +2548,9 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", src_ip: "5.188.210.100",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
     description: "Okta recorded 52 password-guessing attempts targeting treasury team accounts",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "FAILURE",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS",
-           "okta.debug_context.debug_data.risk_level": "HIGH", "okta.client.geographical_context.country": "RU",
+           "okta.debugContext.debugData.riskLevel": "HIGH", "okta.client.geographicalContext.country": "RU",
            "source.ip": "5.188.210.100",
            "action_result": "deny" }
   },
@@ -2560,9 +2560,9 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", src_ip: "5.188.210.100",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
     description: "Failures from 5.188.210.100 now target the SWIFT-Operators group; 3 MFA pushes were sent",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "MAX_RETRIES_EXCEEDED",
-           "okta.debug_context.debug_data.risk_level": "HIGH",
+           "okta.debugContext.debugData.riskLevel": "HIGH",
            "source.ip": "5.188.210.100", "action_result": "deny" }
   },
   {
@@ -2571,10 +2571,10 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     vendor: "Okta", src_ip: "5.188.210.100",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
     description: "Okta locked the f.zimmermann account after exceeding the failed-login threshold",
-    raw: { "okta.event_type": "user.account.lock",
-           "okta.target.alternate_id": "f.zimmermann@quantumbank.ch", "okta.target.type": "User",
+    raw: { "okta.eventType": "user.account.lock",
+           "okta.target.alternateId": "f.zimmermann@quantumbank.ch", "okta.target.type": "User",
            "okta.outcome.result": "SUCCESS", "okta.outcome.reason": "LOCKED_OUT",
-           "okta.client.ip_address": "5.188.210.100", "action_result": "deny" }
+           "okta.client.ipAddress": "5.188.210.100", "action_result": "deny" }
   },
   {
     id: "qb_bf_04", ts: "2026-05-10T13:12:00.000Z",
@@ -3091,9 +3091,9 @@ export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
     vendor: "Okta", src_ip: "89.248.171.44",
     mitre_technique: "T1110.004", mitre_tactic: "Credential Access",
     description: "63 Okta sign-in failures from 89.248.171.44 across 21 different usernames in four minutes",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "FAILURE",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS",
-           "okta.debug_context.debug_data.risk_level": "HIGH", "okta.client.geographical_context.country": "CN",
+           "okta.debugContext.debugData.riskLevel": "HIGH", "okta.client.geographicalContext.country": "CN",
            "source.ip": "89.248.171.44", "action_result": "deny" }
   },
   {
@@ -3102,10 +3102,10 @@ export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
     vendor: "Okta", src_ip: "89.248.171.44",
     mitre_technique: "T1110.004", mitre_tactic: "Credential Access",
     description: "Okta ThreatInsight denied further requests from 89.248.171.44; three accounts were sent MFA challenges",
-    raw: { "okta.event_type": "security.threat.detected",
+    raw: { "okta.eventType": "security.threat.detected",
            "okta.outcome.result": "DENY",
            "okta.outcome.reason": "BLOCKED_BY_THREATINSIGHT",
-           "okta.debug_context.debug_data.risk_level": "HIGH", "source.ip": "89.248.171.44",
+           "okta.debugContext.debugData.riskLevel": "HIGH", "source.ip": "89.248.171.44",
            "source.geo.country_iso_code": "CN", "action_result": "deny" }
   },
   {
@@ -3114,10 +3114,10 @@ export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
     vendor: "Okta", src_ip: "89.248.171.44",
     mitre_technique: "T1110.004", mitre_tactic: "Credential Access",
     description: "Okta locked the ops-admin account after repeated failed passwords from 89.248.171.44",
-    raw: { "okta.event_type": "user.account.lock",
-           "okta.target.alternate_id": "ops-admin@rocketstack.io", "okta.target.type": "User",
+    raw: { "okta.eventType": "user.account.lock",
+           "okta.target.alternateId": "ops-admin@rocketstack.io", "okta.target.type": "User",
            "okta.outcome.result": "SUCCESS", "okta.outcome.reason": "LOCKED_OUT",
-           "okta.client.ip_address": "89.248.171.44", "okta.client.geographical_context.country": "CN",
+           "okta.client.ipAddress": "89.248.171.44", "okta.client.geographicalContext.country": "CN",
            "action_result": "deny" }
   },
   {
@@ -3140,20 +3140,20 @@ export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
     mitre_technique: "T1078", mitre_tactic: "Initial Access",
     description: "a.kim signed in successfully from 89.248.171.44 (Shenzhen, CN) using a python-requests client",
     raw: {
-      "okta.event_type":             "user.session.start",
+      "okta.eventType":             "user.session.start",
       "okta.outcome.result":         "SUCCESS",
-      "okta.actor.alternate_id":            "a.kim@rocketstack.io",
+      "okta.actor.alternateId":            "a.kim@rocketstack.io",
       "okta.actor.type":             "User",
-      "okta.client.ip_address":      "89.248.171.44",
-      "okta.client.user_agent.raw_user_agent":      "python-requests/2.28.2",
-      "okta.client.geographical_context.country": "CN",
-      "okta.client.geographical_context.city": "Shenzhen",
-      "okta.authentication_context.credential_type": "PASSWORD",
-      "okta.security_context.is_proxy": "false",
-      "okta.debug_context.debug_data.risk_level":             "HIGH",
-      "okta.debug_context.debug_data.risk_reasons":           "IpHighRisk,ThreatIntelligenceNetwork",
-      "okta.authentication_context.external_session_id":             "idx4xfg7haKimShenzhen8823",
-      "okta.debug_context.debug_data.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE, New IP=POSITIVE",
+      "okta.client.ipAddress":      "89.248.171.44",
+      "okta.client.userAgent.rawUserAgent":      "python-requests/2.28.2",
+      "okta.client.geographicalContext.country": "CN",
+      "okta.client.geographicalContext.city": "Shenzhen",
+      "okta.authenticationContext.credentialType": "PASSWORD",
+      "okta.securityContext.isProxy": "false",
+      "okta.debugContext.debugData.riskLevel":             "HIGH",
+      "okta.debugContext.debugData.riskReasons":           "IpHighRisk,ThreatIntelligenceNetwork",
+      "okta.authenticationContext.externalSessionId":             "idx4xfg7haKimShenzhen8823",
+      "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE, New IP=POSITIVE",
       "event.action":                "logged-in",
       "event.outcome":               "success",
       "source.ip":                   "89.248.171.44",
@@ -3169,21 +3169,21 @@ export const ROCKETSTACK_CRED_STUFFING_CHAIN: TelemetryEvent[] = [
     mitre_technique: "T1098.005", mitre_tactic: "Persistence",
     description: "A new Okta Verify push factor was activated for a.kim from 89.248.171.44 (Shenzhen, CN)",
     raw: {
-      "okta.event_type":                          "user.mfa.factor.activate",
-      "okta.actor.alternate_id":                         "a.kim@rocketstack.io",
+      "okta.eventType":                          "user.mfa.factor.activate",
+      "okta.actor.alternateId":                         "a.kim@rocketstack.io",
       "okta.actor.type":                          "User",
-      "okta.client.ip_address":                   "89.248.171.44",
-      "okta.client.user_agent.raw_user_agent":                   "python-requests/2.28.2",
-      "okta.client.geographical_context.country":   "CN",
-      "okta.client.geographical_context.city":      "Shenzhen",
-      "okta.debug_context.debug_data.factor":     "OKTA_VERIFY_PUSH",
-      "okta.target.alternate_id":                 "a.kim@rocketstack.io",
+      "okta.client.ipAddress":                   "89.248.171.44",
+      "okta.client.userAgent.rawUserAgent":                   "python-requests/2.28.2",
+      "okta.client.geographicalContext.country":   "CN",
+      "okta.client.geographicalContext.city":      "Shenzhen",
+      "okta.debugContext.debugData.factor":     "OKTA_VERIFY_PUSH",
+      "okta.target.alternateId":                 "a.kim@rocketstack.io",
       "okta.target.type":                         "User",
       "okta.outcome.result":                      "SUCCESS",
-      "okta.debug_context.debug_data.risk_level":                          "HIGH",
-      "okta.debug_context.debug_data.risk_reasons":                        "NewDevice,IpHighRisk,GeoVelocityAnomaly",
-      "okta.authentication_context.external_session_id":                          "idx4xfg7haKimShenzhen8823",
-      "okta.debug_context.debug_data.behaviors":  "New Device=POSITIVE, New Geo-Location=POSITIVE",
+      "okta.debugContext.debugData.riskLevel":                          "HIGH",
+      "okta.debugContext.debugData.riskReasons":                        "NewDevice,IpHighRisk,GeoVelocityAnomaly",
+      "okta.authenticationContext.externalSessionId":                          "idx4xfg7haKimShenzhen8823",
+      "okta.debugContext.debugData.behaviors":  "New Device=POSITIVE, New Geo-Location=POSITIVE",
       "event.action":                             "mfa-enroll",
       "event.outcome":                            "success",
       "source.ip":                                "89.248.171.44",
@@ -3259,7 +3259,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Okta", user_email: "t.levy@rocketstack.io", src_ip: "185.220.101.15",
     description: "t.levy signed in from 185.220.101.15 four minutes after a sign-in from Tel Aviv; Okta flagged the IP as a proxy",
     mitre_technique: "T1078",
-    raw: { "okta.event_type": "user.session.start", "okta.debug_context.debug_data.risk_level": "HIGH", "okta.debug_context.debug_data.risk_reasons": "ImpossibleTravel,TorIpAddress", "okta.client.ip_address": "185.220.101.15", "okta.outcome.result": "SUCCESS", "okta.authentication_context.credential_type": "PASSWORD", "okta.security_context.is_proxy": "true", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.session.start", "okta.debugContext.debugData.riskLevel": "HIGH", "okta.debugContext.debugData.riskReasons": "ImpossibleTravel,TorIpAddress", "okta.client.ipAddress": "185.220.101.15", "okta.outcome.result": "SUCCESS", "okta.authenticationContext.credentialType": "PASSWORD", "okta.securityContext.isProxy": "true", "action_result": "allowed" }
   },
   {
     id: "rs_a2", ts: "2026-05-10T10:14:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -3351,9 +3351,9 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Okta", src_ip: "89.248.171.44",
     description: "Okta recorded 78 failed sign-ins from 89.248.171.44 across 24 usernames in three minutes",
     mitre_technique: "T1110.004", mitre_tactic: "Credential Access",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "FAILURE",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS",
-           "okta.debug_context.debug_data.risk_level": "HIGH",
+           "okta.debugContext.debugData.riskLevel": "HIGH",
            "source.ip": "89.248.171.44", "source.geo.country_iso_code": "CN", "action_result": "deny" }
   },
   {
@@ -3361,11 +3361,11 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Okta", src_ip: "89.248.171.44",
     description: "Okta locked the j.lee account; ThreatInsight also flagged the source IP",
     mitre_technique: "T1110.004", mitre_tactic: "Credential Access",
-    raw: { "okta.event_type": "user.account.lock",
-           "okta.target.alternate_id": "j.lee@rocketstack.io", "okta.target.type": "User",
+    raw: { "okta.eventType": "user.account.lock",
+           "okta.target.alternateId": "j.lee@rocketstack.io", "okta.target.type": "User",
            "okta.outcome.result": "SUCCESS", "okta.outcome.reason": "LOCKED_OUT",
            "source.ip": "89.248.171.44",
-           "okta.debug_context.debug_data.risk_level": "HIGH", "action_result": "deny" }
+           "okta.debugContext.debugData.riskLevel": "HIGH", "action_result": "deny" }
   },
   {
     id: "rs_d3", ts: "2026-05-10T18:15:00.000Z", source: "okta", event_type: "auth_success",
@@ -3373,9 +3373,9 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     user_email: "s.amir@rocketstack.io",
     description: "Okta sign-in succeeded for s.amir from 89.248.171.44, the same IP as the preceding failures",
     mitre_technique: "T1078", mitre_tactic: "Initial Access",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "SUCCESS",
-           "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.risk_level": "HIGH",
-           "okta.debug_context.debug_data.behaviors": "New Device=POSITIVE", "source.ip": "89.248.171.44",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS",
+           "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.riskLevel": "HIGH",
+           "okta.debugContext.debugData.behaviors": "New Device=POSITIVE", "source.ip": "89.248.171.44",
            "source.geo.country_iso_code": "CN", "source.geo.city_name": "Shenzhen",
            "action_result": "allowed" }
   },
@@ -3571,7 +3571,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Okta", user_email: "m.huber@quantumbank.ch", src_ip: "91.234.100.22",
     description: "m.huber — 14 MFA pushes from Moldova, approved on #14 (MFA fatigue)",
     mitre_technique: "T1621",
-    raw: { "okta.event_type": "user.authentication.auth_via_mfa", "okta.debug_context.debug_data.factor": "OKTA_VERIFY_PUSH", "okta.debug_context.debug_data.risk_level": "CRITICAL", "okta.outcome.result": "SUCCESS", "okta.client.ip_address": "91.234.100.22", "okta.client.geographical_context.country": "MD", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.authentication.auth_via_mfa", "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH", "okta.debugContext.debugData.riskLevel": "CRITICAL", "okta.outcome.result": "SUCCESS", "okta.client.ipAddress": "91.234.100.22", "okta.client.geographicalContext.country": "MD", "action_result": "allowed" }
   },
   {
     id: "qb_a2", ts: "2026-05-10T09:02:00.000Z", source: "edr", event_type: "process_create",
@@ -3593,7 +3593,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "Okta", user_email: "m.huber@quantumbank.ch", src_ip: "91.234.100.22",
     description: "An OAuth token for CoreBanking-System was granted to m.huber's existing session from 91.234.100.22 (MD)",
     mitre_technique: "T1528",
-    raw: { "okta.event_type": "app.oauth2.as.token.grant", "okta.target.display_name": "CoreBanking-System", "okta.debug_context.debug_data.risk_level": "CRITICAL", "okta.client.ip_address": "91.234.100.22", "okta.outcome.result": "SUCCESS", "okta.authentication_context.external_session_id": "102aK7pQzX2mNvBc9wRt4Yz1D", "action_result": "allowed" }
+    raw: { "okta.eventType": "app.oauth2.as.token.grant", "okta.target.displayName": "CoreBanking-System", "okta.debugContext.debugData.riskLevel": "CRITICAL", "okta.client.ipAddress": "91.234.100.22", "okta.outcome.result": "SUCCESS", "okta.authenticationContext.externalSessionId": "102aK7pQzX2mNvBc9wRt4Yz1D", "action_result": "allowed" }
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
   {
@@ -3631,7 +3631,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Okta", user_email: "a.keller@quantumbank.ch", src_ip: "10.100.1.44",
     description: "The same Okta session id for a.keller is in use from 10.100.1.44 and from an Amsterdam IP at the same time",
     mitre_technique: "T1563",
-    raw: { "okta.event_type": "user.session.start", "okta.client.ip_address": "10.100.1.44", "okta.debug_context.debug_data.risk_level": "LOW", "okta.outcome.result": "SUCCESS", "okta.authentication_context.external_session_id": "102TnZ8pQzWQdOBcAnJ3wKk1A", "okta.debug_context.debug_data.behaviors": "New IP=POSITIVE", "action_result": "allowed" }
+    raw: { "okta.eventType": "user.session.start", "okta.client.ipAddress": "10.100.1.44", "okta.debugContext.debugData.riskLevel": "LOW", "okta.outcome.result": "SUCCESS", "okta.authenticationContext.externalSessionId": "102TnZ8pQzWQdOBcAnJ3wKk1A", "okta.debugContext.debugData.behaviors": "New IP=POSITIVE", "action_result": "allowed" }
   },
   {
     id: "qb_c2", ts: "2026-05-10T13:38:00.000Z", source: "proxy", event_type: "http_request",
@@ -3660,9 +3660,9 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Okta", src_ip: "5.188.210.100",
     description: "Okta recorded 94 password-guessing attempts targeting the SWIFT-Operators group",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "FAILURE",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "FAILURE",
            "okta.outcome.reason": "INVALID_CREDENTIALS",
-           "okta.debug_context.debug_data.risk_level": "HIGH", "source.ip": "5.188.210.100",
+           "okta.debugContext.debugData.riskLevel": "HIGH", "source.ip": "5.188.210.100",
            "source.geo.country_iso_code": "RU", "action_result": "deny" }
   },
   {
@@ -3670,8 +3670,8 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Okta", src_ip: "5.188.210.100",
     description: "Okta locked the b.schwarzer SWIFT account after exceeding the failed-login threshold",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
-    raw: { "okta.event_type": "user.account.lock",
-           "okta.target.alternate_id": "b.schwarzer@quantumbank.ch", "okta.target.type": "User",
+    raw: { "okta.eventType": "user.account.lock",
+           "okta.target.alternateId": "b.schwarzer@quantumbank.ch", "okta.target.type": "User",
            "okta.outcome.result": "SUCCESS", "okta.outcome.reason": "LOCKED_OUT",
            "source.ip": "5.188.210.100", "action_result": "deny" }
   },
@@ -3681,9 +3681,9 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     user_email: "h.weber@quantumbank.ch",
     description: "Okta sign-in succeeded for h.weber from 5.188.210.100 (RU) on a device not seen before",
     mitre_technique: "T1078", mitre_tactic: "Initial Access",
-    raw: { "okta.event_type": "user.session.start", "okta.outcome.result": "SUCCESS",
-           "okta.authentication_context.credential_type": "PASSWORD", "okta.debug_context.debug_data.risk_level": "CRITICAL",
-           "okta.debug_context.debug_data.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS",
+           "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.riskLevel": "CRITICAL",
+           "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New Geo-Location=POSITIVE",
            "source.ip": "5.188.210.100", "source.geo.country_iso_code": "RU",
            "source.geo.city_name": "Saint Petersburg",
            "action_result": "allowed" }

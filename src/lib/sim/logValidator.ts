@@ -83,7 +83,7 @@ const VENDOR_SCHEMAS = {
     correctPrefixes: ["okta."],
     legacyPrefixes: [],
     requiredAny: [
-      "okta.event_type",
+      "okta.eventType",
       "okta.actor.login",
       "okta.outcome.result",
       "okta.target.user",
