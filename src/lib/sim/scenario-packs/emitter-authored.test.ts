@@ -19,6 +19,7 @@ import { buildEdgeVpnCveExploitScenario } from "./edgeVpnCveExploit";
 import { buildGoldenSamlScenario } from "./goldenSaml";
 import { buildInfostealerSessionTheftScenario } from "./infostealerSessionTheft";
 import { buildMacosTccPkgScenario } from "./macosTccPkg";
+import { buildMacosStealerDmgScenario } from "./macosStealerDmg";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -32,7 +33,7 @@ const FULLY_EMITTER_AUTHORED = [
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
-  "infostealerSessionTheft.ts", "macosTccPkg.ts",
+  "infostealerSessionTheft.ts", "macosTccPkg.ts", "macosStealerDmg.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -610,5 +611,42 @@ describe("emitter-authored scenario packs", () => {
     // one host, correlated
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("MB-PM-07");
+  });
+
+  it("macosStealerDmg builds a coherent macOS infostealer chain from emitters only (CrowdStrike + Zscaler + MDE)", () => {
+    const s = buildMacosStealerDmgScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "CrowdStrike Falcon", "Zscaler Internet Access", "Microsoft Defender for Endpoint",
+    ]));
+    // benign control: valid Developer ID DMG install, fp
+    const benign = s.events.find(e => e.id === "msd_00_benign_notarized_install");
+    expect(benign?.expected_verdict).toBe("fp");
+    expect(benign?.raw?.["file.signature.status"]).toBe("valid");
+    // delivery: proxy sees the malware-categorised download as a threat
+    const dl = s.events.find(e => e.id === "msd_01_dmg_download");
+    expect(dl?.is_detection).toBe(true);
+    expect(dl?.raw?.["zscaler.urlcategory"]).toBe("Malware");
+    expect(dl?.raw?.["threat.name"]).toBe("OSX/InfoStealer");
+    // execution: ad-hoc signed app from the mounted volume, matching the download hash
+    const run = s.events.find(e => e.id === "msd_02_dmg_mount_run");
+    expect(run?.raw?.["process.code_signature.status"]).toBe("adhoc");
+    expect(run?.process?.hash?.sha256).toBeTruthy();
+    // the fake password prompt: osascript spawned by the payload
+    expect(s.events.find(e => e.id === "msd_03_osascript_password_prompt")?.process?.parent_name).toBe("PixelForge Pro");
+    // credential theft: keychain read + browser cookie read
+    expect(s.events.find(e => e.id === "msd_05_keychain_access")?.file?.name).toBe("login.keychain-db");
+    expect(s.events.find(e => e.id === "msd_06_browser_cookie_theft")?.file?.name).toBe("Cookies");
+    // exfil: proxy POST to the collection host (not itself a threat block)
+    const exfil = s.events.find(e => e.id === "msd_08_exfil_upload");
+    expect(exfil?.event_type).toBe("http_request");
+    expect(exfil?.raw?.["zscaler.reqmethod"] ?? exfil?.raw?.["http.request.method"]).toBe("POST");
+    // the detection spans host + proxy
+    const alert = s.events.find(e => e.id === "msd_09_edr_detection");
+    expect(alert?.is_detection).toBe(true);
+    expect(alert?.edr_scope).toBe("hybrid");
+    // one host, correlated
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("MB-CR-14");
   });
 });

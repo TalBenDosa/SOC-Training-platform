@@ -38,6 +38,9 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { csProcess, csFile, csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { mdeProcess } from "@/lib/sim/emitters/mde";
+import { zscalerWeb } from "@/lib/sim/emitters/zscaler";
 
 export function buildMacosStealerDmgScenario(
   scenarioId = "macos-stealer-dmg-2026",
@@ -81,540 +84,111 @@ export function buildMacosStealerDmgScenario(
   const sensorId = "8b2e5c17a9d0426f81c3e7449af61b0d";
   const aid = "3f9a7c2140b64e8db5c19a03f77e2c6a";
 
+  const cx = "meridianstudios" as const;
+  const osx = { "host.os.name": host.os, "host.os.version": host.osVersion };
+  const SAF = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15";
+  const VOL = "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro";
+  const OSA = "osascript -e display dialog \"PixelForge Pro needs your password to finish installation.\" default answer \"\" with hidden answer with icon caution buttons {\"OK\"} default button \"OK\"";
+
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — a legitimately-signed, notarized DMG install.
-    //    Same shape as the attack (mount an image, run an app), opposite
-    //    verdict: valid Developer ID, Gatekeeper passed, no osascript, no
-    //    Keychain, no network. This is what a clean DMG install looks like.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_00_benign_notarized_install",
-      ts: "2026-08-23T16:20:00.000Z",
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "informational",
-      expected_verdict: "fp",
-      fp_explanation:
-        "The control case for the whole scenario. Rectangle.app was installed from a downloaded disk image the day before — the same 'mount a DMG, run an app' shape as the intrusion. What makes it benign is written in the signature and the behaviour: the binary carries a valid Developer ID Application signature, it is notarized, and the Gatekeeper assessment passed, so macOS let it run without the user having to override anything. It also does nothing a stealer does — no osascript password prompt, no read of login.keychain-db, no browser cookie access, no outbound upload. An analyst who alerts on 'an app ran from a disk image' alone will flag this and be wrong; the discriminator is Developer ID + notarization + quiet behaviour, not the install shape.",
-      description:
-        "Rectangle.app launched from /Applications after a disk-image install. Falcon recorded a valid Developer ID Application signature and a passed Gatekeeper assessment; the com.apple.quarantine attribute was cleared because the app is notarized. No child processes, credential-store reads, or network activity followed.",
-      process: {
-        name: "Rectangle",
-        pid: 2871,
-        path: "/Applications/Rectangle.app/Contents/MacOS/Rectangle",
-        parent_name: "launchd",
-        parent_pid: 1,
-        cmdline: "/Applications/Rectangle.app/Contents/MacOS/Rectangle",
-        user: user.sam,
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "Rectangle",
-        "crowdstrike.FilePath": "/Applications/Rectangle.app/Contents/MacOS/",
-        "crowdstrike.ParentProcessName": "launchd",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "Rectangle",
-        "process.executable": "/Applications/Rectangle.app/Contents/MacOS/Rectangle",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)",
-        "file.name": "Rectangle",
-        "file.path": "/Applications/Rectangle.app",
-        "file.signature.status": "valid",
-        "file.signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)",
-        "file.signature.trusted": "true",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": user.sam,
-        "event.outcome": "success",
-      },
-    },
+    // 0. BENIGN CONTROL — a legitimately-signed, notarized DMG install (fp).
+    csProcess({
+      companyId: cx, id: "msd_00_benign_notarized_install", ts: "2026-08-23T16:20:00.000Z", host: host.name, user: user.email,
+      runAsUser: user.sam, processName: "Rectangle", processPath: "/Applications/Rectangle.app/Contents/MacOS/Rectangle",
+      cmdline: "/Applications/Rectangle.app/Contents/MacOS/Rectangle", parentName: "launchd", parentPid: 1, pid: 2871,
+      severity: "informational", expectedVerdict: "fp",
+      fpExplanation: "The control case for the whole scenario. Rectangle.app was installed from a downloaded disk image the day before — the same 'mount a DMG, run an app' shape as the intrusion. What makes it benign is written in the signature and the behaviour: the binary carries a valid Developer ID Application signature, it is notarized, and the Gatekeeper assessment passed, so macOS let it run without the user having to override anything. It also does nothing a stealer does — no osascript password prompt, no read of login.keychain-db, no browser cookie access, no outbound upload. An analyst who alerts on 'an app ran from a disk image' alone will flag this and be wrong; the discriminator is Developer ID + notarization + quiet behaviour, not the install shape.",
+      extra: { ...osx, "process.code_signature.status": "valid", "process.code_signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)", "file.name": "Rectangle", "file.path": "/Applications/Rectangle.app", "file.signature.status": "valid", "file.signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)", "file.signature.trusted": "true" },
+      description: "Rectangle.app launched from /Applications after a disk-image install. Falcon recorded a valid Developer ID Application signature and a passed Gatekeeper assessment; the com.apple.quarantine attribute was cleared because the app is notarized. No child processes, credential-store reads, or network activity followed.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. DELIVERY — the DMG download session, seen at the web proxy.
-    //    Zscaler logs the GET that pulled PixelForge_Pro_v7.dmg from the
-    //    pirate-app domain, and hashes the payload (T1204.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_01_dmg_download",
-      ts: T(0),
-      source: "proxy",
-      vendor: "Zscaler Internet Access",
-      event_type: "http_request",
-      hostname: host.name,
-      user_email: user.email,
-      src_ip: host.ip,
-      dst_ip: dlServerIp,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "medium",
-      mitre_technique: "T1204.002",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "Zscaler logged a.fontaine downloading PixelForge_Pro_v7.dmg (30 MB) from pixelforge-crack.top over HTTPS. The site is categorised Malware and the payload hash matches what later runs on the host.",
-      raw: {
-        "zscaler.login": user.sam,
-        "zscaler.url": dlUrl,
-        "zscaler.hostname": dlDomain,
-        "zscaler.urlcategory": "Malware",
-        "zscaler.reqmethod": "GET",
-        "zscaler.respcode": 200,
-        "zscaler.useragent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
-        "zscaler.cip": host.ip,
-        "zscaler.sip": dlServerIp,
-        "zscaler.serverip": dlServerIp,
-        "zscaler.respsize": 31_457_280,
-        "zscaler.action": "Allowed",
-        "zscaler.threatname": "OSX/InfoStealer",
-        "user.name": user.sam,
-        "threat.file.hash.sha256": stealerHash,
-        "threat.category": "Malware",
-        "threat.name": "OSX/InfoStealer",
-        "threat.technique.id": "T1204.002",
-        "threat.technique.name": "User Execution: Malicious File",
-        "threat.tactic.name": "Execution",
-        "threat.tactic.id": "TA0002",
-      },
-    },
+    // 1. DELIVERY — the DMG download session, seen at the web proxy (T1204.002).
+    zscalerWeb({
+      companyId: cx, id: "msd_01_dmg_download", ts: T(0), host: host.name, srcIp: host.ip, user: user.email,
+      url: dlUrl, domain: dlDomain, method: "GET", action: "allowed", category: "Malware", status: 200, bytesReceived: 31_457_280,
+      userAgent: SAF, threatName: "OSX/InfoStealer", malwareCategory: "Malware",
+      mitre: "T1204.002", tactic: "Execution", severity: "medium", incidentId: INCIDENT,
+      description: "Zscaler logged a.fontaine downloading PixelForge_Pro_v7.dmg (30 MB) from pixelforge-crack.top over HTTPS. The site is categorised Malware and the payload hash matches what later runs on the host.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. EXECUTION — the DMG is mounted and the app runs from /Volumes.
-    //    Ad-hoc signature (no Developer ID), the payload hash matches the
-    //    download. The com.apple.quarantine attribute is present (T1204.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_02_dmg_mount_run",
-      ts: T(3 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "high",
-      mitre_technique: "T1204.002",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "The disk image mounted at /Volumes/PixelForge Pro and its app launched from that mount point. Falcon recorded the binary as ad-hoc signed (no Developer ID, not notarized) and still carrying the com.apple.quarantine attribute; its SHA256 matches the downloaded DMG payload.",
-      process: {
-        name: "PixelForge Pro",
-        pid: 4102,
-        path: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        parent_name: "launchd",
-        parent_pid: 1,
-        cmdline: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        user: user.sam,
-        hash: { sha256: stealerHash },
-      },
-      file: {
-        name: "PixelForge Pro.app",
-        path: "/Volumes/PixelForge Pro/PixelForge Pro.app",
-        sha256: stealerHash,
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "PixelForge Pro",
-        "crowdstrike.FilePath": "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/",
-        "crowdstrike.CommandLine": "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        "crowdstrike.ParentProcessName": "launchd",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "PixelForge Pro",
-        "process.executable": "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        "process.hash.sha256": stealerHash,
-        "process.code_signature.status": "adhoc",
-        "process.code_signature.subject_name": "-",
-        "file.name": "PixelForge Pro.app",
-        "file.path": "/Volumes/PixelForge Pro/PixelForge Pro.app",
-        "file.hash.sha256": stealerHash,
-        "file.signature.status": "unsigned",
-        "file.signature.trusted": "false",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": user.sam,
-        "threat.technique.id": "T1204.002",
-        "threat.technique.name": "User Execution: Malicious File",
-        "threat.tactic.name": "Execution",
-        "threat.tactic.id": "TA0002",
-        "event.outcome": "success",
-      },
-    },
+    // 2. EXECUTION — the DMG is mounted and the ad-hoc-signed app runs (T1204.002).
+    csProcess({
+      companyId: cx, id: "msd_02_dmg_mount_run", ts: T(3 * MIN), host: host.name, user: user.email, runAsUser: user.sam,
+      processName: "PixelForge Pro", processPath: VOL, cmdline: VOL, parentName: "launchd", parentPid: 1, pid: 4102,
+      sha256: stealerHash, mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      extra: { ...osx, "process.code_signature.status": "adhoc", "process.code_signature.subject_name": "-", "file.name": "PixelForge Pro.app", "file.path": "/Volumes/PixelForge Pro/PixelForge Pro.app", "file.hash.sha256": stealerHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      description: "The disk image mounted at /Volumes/PixelForge Pro and its app launched from that mount point. Falcon recorded the binary as ad-hoc signed (no Developer ID, not notarized) and still carrying the com.apple.quarantine attribute; its SHA256 matches the downloaded DMG payload.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. THE FAKE PASSWORD PROMPT — osascript display dialog (AppleScript).
-    //    The app spawns /usr/bin/osascript to impersonate macOS and capture
-    //    the login password in cleartext (T1059.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_03_osascript_password_prompt",
-      ts: T(3 * MIN + 8 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "high",
-      mitre_technique: "T1059.002",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "The PixelForge Pro binary spawned /usr/bin/osascript running a `display dialog ... with hidden answer` AppleScript — a prompt styled to look like a macOS system request, asking the user to type their login password to 'finish installation'.",
-      process: {
-        name: "osascript",
-        pid: 4118,
-        path: "/usr/bin/osascript",
-        parent_name: "PixelForge Pro",
-        parent_pid: 4102,
-        cmdline:
-          "osascript -e display dialog \"PixelForge Pro needs your password to finish installation.\" default answer \"\" with hidden answer with icon caution buttons {\"OK\"} default button \"OK\"",
-        user: user.sam,
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "osascript",
-        "crowdstrike.FilePath": "/usr/bin/",
-        "crowdstrike.CommandLine":
-          "osascript -e display dialog \"PixelForge Pro needs your password to finish installation.\" default answer \"\" with hidden answer with icon caution buttons {\"OK\"} default button \"OK\"",
-        "crowdstrike.ParentProcessName": "PixelForge Pro",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "osascript",
-        "process.executable": "/usr/bin/osascript",
-        "process.parent.name": "PixelForge Pro",
-        "process.parent.pid": "4102",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Software Signing",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "user.name": user.sam,
-        "threat.technique.id": "T1059.002",
-        "threat.technique.name": "Command and Scripting Interpreter: AppleScript",
-        "threat.tactic.name": "Execution",
-        "threat.tactic.id": "TA0002",
-        "event.outcome": "success",
-      },
-    },
+    // 3. THE FAKE PASSWORD PROMPT — osascript display dialog (T1059.002).
+    csProcess({
+      companyId: cx, id: "msd_03_osascript_password_prompt", ts: T(3 * MIN + 8 * SEC), host: host.name, user: user.email, runAsUser: user.sam,
+      processName: "osascript", processPath: "/usr/bin/osascript", cmdline: OSA, parentName: "PixelForge Pro", parentPid: 4102, pid: 4118,
+      mitre: "T1059.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      extra: { ...osx, "process.code_signature.status": "valid", "process.code_signature.subject_name": "Software Signing", "threat.technique.id": "T1059.002", "threat.technique.name": "Command and Scripting Interpreter: AppleScript", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      description: "The PixelForge Pro binary spawned /usr/bin/osascript running a `display dialog ... with hidden answer` AppleScript — a prompt styled to look like a macOS system request, asking the user to type their login password to 'finish installation'.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. CORROBORATION — Microsoft Defender for Endpoint sees the same run.
-    //    Cross-platform sensor also on the Mac; native Advanced Hunting
-    //    DeviceProcessEvents schema confirms the osascript child (T1059.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_04_mde_osascript_corroboration",
-      ts: T(3 * MIN + 9 * SEC),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "high",
-      mitre_technique: "T1059.002",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "Defender for Endpoint, also deployed on this Mac, independently recorded the same osascript child of PixelForge Pro. Its DeviceProcessEvents row ties the osascript process to the same initiating binary and payload SHA256.",
-      raw: {
-        "Timestamp": T(3 * MIN + 9 * SEC),
-        "DeviceName": host.name,
-        "DeviceId": host.id,
-        "ActionType": "ProcessCreated",
-        "FileName": "osascript",
-        "FolderPath": "/usr/bin/osascript",
-        "ProcessCommandLine":
-          "osascript -e display dialog \"PixelForge Pro needs your password to finish installation.\" default answer \"\" with hidden answer",
-        "ProcessId": "4118",
-        "InitiatingProcessFileName": "PixelForge Pro",
-        "InitiatingProcessFolderPath":
-          "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        "InitiatingProcessCommandLine":
-          "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        "InitiatingProcessId": "4102",
-        "InitiatingProcessSHA256": stealerHash,
-        "AccountName": user.sam,
-        "AccountDomain": user.domain,
-        "ReportId": "70418822",
-        "threat.technique.id": "T1059.002",
-        "threat.technique.name": "Command and Scripting Interpreter: AppleScript",
-        "threat.tactic.name": "Execution",
-        "threat.tactic.id": "TA0002",
-      },
-    },
+    // 4. CORROBORATION — Microsoft Defender for Endpoint sees the same osascript run (T1059.002).
+    mdeProcess({
+      companyId: cx, id: "msd_04_mde_osascript_corroboration", ts: T(3 * MIN + 9 * SEC), host: host.name,
+      processName: "osascript", processPath: "/usr/bin/osascript",
+      cmdline: 'osascript -e display dialog "PixelForge Pro needs your password to finish installation." default answer "" with hidden answer',
+      parentName: "PixelForge Pro", pid: 4118, parentPid: 4102, runAsUser: user.sam, accountName: user.sam, accountDomain: user.domain,
+      mitre: "T1059.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      extra: { "Timestamp": T(3 * MIN + 9 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": VOL, "InitiatingProcessCommandLine": VOL, "InitiatingProcessId": "4102", "InitiatingProcessSHA256": stealerHash, "ReportId": "70418822", "threat.technique.id": "T1059.002", "threat.technique.name": "Command and Scripting Interpreter: AppleScript", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      description: "Defender for Endpoint, also deployed on this Mac, independently recorded the same osascript child of PixelForge Pro. Its DeviceProcessEvents row ties the osascript process to the same initiating binary and payload SHA256.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. KEYCHAIN THEFT — /usr/bin/security reads login.keychain-db.
-    //    With the captured password the stealer unlocks and reads the login
-    //    Keychain and pulls the Chrome Safe Storage key (T1555.001).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_05_keychain_access",
-      ts: T(3 * MIN + 40 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_access",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "critical",
-      mitre_technique: "T1555.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
-      description:
-        "The payload invoked /usr/bin/security to read ~/Library/Keychains/login.keychain-db and extract the Chrome Safe Storage key. Falcon recorded the security process, spawned by PixelForge Pro, opening the login Keychain file.",
-      process: {
-        name: "security",
-        pid: 4131,
-        path: "/usr/bin/security",
-        parent_name: "PixelForge Pro",
-        parent_pid: 4102,
-        cmdline: "security 2>&1 >/dev/null find-generic-password -wa Chrome",
-        user: user.sam,
-      },
-      file: {
-        name: "login.keychain-db",
-        path: "/Users/a.fontaine/Library/Keychains/login.keychain-db",
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "login.keychain-db",
-        "crowdstrike.FilePath": "/Users/a.fontaine/Library/Keychains/",
-        "crowdstrike.CommandLine": "security 2>&1 >/dev/null find-generic-password -wa Chrome",
-        "crowdstrike.ParentProcessName": "PixelForge Pro",
-        "crowdstrike.OperationType": "FileOpenInfo",
-        "process.name": "security",
-        "process.executable": "/usr/bin/security",
-        "process.parent.name": "PixelForge Pro",
-        "process.parent.pid": "4102",
-        "file.name": "login.keychain-db",
-        "file.path": "/Users/a.fontaine/Library/Keychains/login.keychain-db",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "user.name": user.sam,
-        "threat.technique.id": "T1555.001",
-        "threat.technique.name": "Credentials from Password Stores: Keychain",
-        "threat.tactic.name": "Credential Access",
-        "threat.tactic.id": "TA0006",
-        "event.outcome": "success",
-      },
-    },
+    // 5. KEYCHAIN THEFT — /usr/bin/security reads login.keychain-db (T1555.001).
+    csFile({
+      companyId: cx, id: "msd_05_keychain_access", ts: T(3 * MIN + 40 * SEC), host: host.name, user: user.email, action: "file_access",
+      path: "/Users/a.fontaine/Library/Keychains/login.keychain-db", sha256: null,
+      actorProcess: "security", actorPath: "/usr/bin/security", actorPid: 4131, actorParentName: "PixelForge Pro", actorParentPid: 4102, runAsUser: user.sam,
+      mitre: "T1555.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
+      extra: { ...osx, "crowdstrike.CommandLine": "security 2>&1 >/dev/null find-generic-password -wa Chrome", "threat.technique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      description: "The payload invoked /usr/bin/security to read ~/Library/Keychains/login.keychain-db and extract the Chrome Safe Storage key. Falcon recorded the security process, spawned by PixelForge Pro, opening the login Keychain file.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. BROWSER SESSION + PASSWORD THEFT — Chrome Cookies and Login Data.
-    //    The payload reads the browser cookie store and saved-login database
-    //    (T1539 — steal web session cookies).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_06_browser_cookie_theft",
-      ts: T(3 * MIN + 55 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_access",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "critical",
-      mitre_technique: "T1539",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
-      description:
-        "The payload read ~/Library/Application Support/Google/Chrome/Default/Cookies and the matching Login Data database, and the equivalent Safari stores. These hold live web session cookies and saved passwords.",
-      process: {
-        name: "PixelForge Pro",
-        pid: 4102,
-        path: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        parent_name: "launchd",
-        parent_pid: 1,
-        cmdline: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        user: user.sam,
-        hash: { sha256: stealerHash },
-      },
-      file: {
-        name: "Cookies",
-        path: "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/Cookies",
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "Cookies",
-        "crowdstrike.FilePath": "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/",
-        "crowdstrike.OperationType": "FileOpenInfo",
-        "process.name": "PixelForge Pro",
-        "process.executable": "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        "process.hash.sha256": stealerHash,
-        "file.name": "Cookies",
-        "file.path": "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/Cookies",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "user.name": user.sam,
-        "threat.technique.id": "T1539",
-        "threat.technique.name": "Steal Web Session Cookie",
-        "threat.tactic.name": "Credential Access",
-        "threat.tactic.id": "TA0006",
-        "event.outcome": "success",
-      },
-    },
+    // 6. BROWSER SESSION + PASSWORD THEFT — Chrome Cookies + Login Data (T1539).
+    csFile({
+      companyId: cx, id: "msd_06_browser_cookie_theft", ts: T(3 * MIN + 55 * SEC), host: host.name, user: user.email, action: "file_access",
+      path: "/Users/a.fontaine/Library/Application Support/Google/Chrome/Default/Cookies", sha256: null,
+      actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
+      mitre: "T1539", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
+      extra: { ...osx, "threat.technique.id": "T1539", "threat.technique.name": "Steal Web Session Cookie", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      description: "The payload read ~/Library/Application Support/Google/Chrome/Default/Cookies and the matching Login Data database, and the equivalent Safari stores. These hold live web session cookies and saved passwords.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
     // 7. WALLET THEFT — local crypto-wallet files read (T1552.001).
-    //    Exodus / Electrum wallet files under ~/Library/Application Support.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_07_wallet_file_theft",
-      ts: T(4 * MIN + 10 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_access",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "critical",
-      mitre_technique: "T1552.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
-      description:
-        "The payload read local cryptocurrency-wallet files, including ~/Library/Application Support/Exodus/exodus.wallet and Electrum wallet data — files that store wallet seeds and keys on disk.",
-      process: {
-        name: "PixelForge Pro",
-        pid: 4102,
-        path: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        parent_name: "launchd",
-        parent_pid: 1,
-        cmdline: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        user: user.sam,
-        hash: { sha256: stealerHash },
-      },
-      file: {
-        name: "exodus.wallet",
-        path: "/Users/a.fontaine/Library/Application Support/Exodus/exodus.wallet",
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "exodus.wallet",
-        "crowdstrike.FilePath": "/Users/a.fontaine/Library/Application Support/Exodus/",
-        "crowdstrike.OperationType": "FileOpenInfo",
-        "process.name": "PixelForge Pro",
-        "process.executable": "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        "process.hash.sha256": stealerHash,
-        "file.name": "exodus.wallet",
-        "file.path": "/Users/a.fontaine/Library/Application Support/Exodus/exodus.wallet",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "user.name": user.sam,
-        "threat.technique.id": "T1552.001",
-        "threat.technique.name": "Unsecured Credentials: Credentials In Files",
-        "threat.tactic.name": "Credential Access",
-        "threat.tactic.id": "TA0006",
-        "event.outcome": "success",
-      },
-    },
+    csFile({
+      companyId: cx, id: "msd_07_wallet_file_theft", ts: T(4 * MIN + 10 * SEC), host: host.name, user: user.email, action: "file_access",
+      path: "/Users/a.fontaine/Library/Application Support/Exodus/exodus.wallet", sha256: null,
+      actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
+      mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
+      extra: { ...osx, "threat.technique.id": "T1552.001", "threat.technique.name": "Unsecured Credentials: Credentials In Files", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      description: "The payload read local cryptocurrency-wallet files, including ~/Library/Application Support/Exodus/exodus.wallet and Electrum wallet data — files that store wallet seeds and keys on disk.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 8. EXFILTRATION — the collected data leaves the host as one zip upload.
-    //    Zscaler logs an outbound POST to the attacker endpoint (T1567.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "msd_08_exfil_upload",
-      ts: T(4 * MIN + 30 * SEC),
-      source: "proxy",
-      vendor: "Zscaler Internet Access",
-      event_type: "http_request",
-      hostname: host.name,
-      user_email: user.email,
-      src_ip: host.ip,
-      dst_ip: exfilIp,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "critical",
-      mitre_technique: "T1567.002",
-      mitre_tactic: "Exfiltration",
-      incident_id: INCIDENT,
-      description:
-        "Zscaler logged an outbound POST from MB-CR-14 uploading an ~8 MB archive to gate-collect.top (45.147.230.88), sent with a curl user-agent moments after the credential-store reads.",
-      raw: {
-        "zscaler.login": user.sam,
-        "zscaler.url": "https://gate-collect.top/api/upload",
-        "zscaler.hostname": exfilDomain,
-        "zscaler.urlcategory": "Malware",
-        "zscaler.reqmethod": "POST",
-        "zscaler.respcode": 200,
-        "zscaler.useragent": "curl/8.4.0",
-        "zscaler.cip": host.ip,
-        "zscaler.sip": exfilIp,
-        "zscaler.serverip": exfilIp,
-        "zscaler.reqsize": 8_734_096,
-        "zscaler.action": "Allowed",
-        "zscaler.threatname": "None",
-        "user.name": user.sam,
-        "threat.technique.id": "T1567.002",
-        "threat.technique.name": "Exfiltration Over Web Service: Exfiltration to Cloud Storage",
-        "threat.tactic.name": "Exfiltration",
-        "threat.tactic.id": "TA0010",
-      },
-    },
+    // 8. EXFILTRATION — the collected data leaves as one upload (T1567.002).
+    zscalerWeb({
+      companyId: cx, id: "msd_08_exfil_upload", ts: T(4 * MIN + 30 * SEC), host: host.name, srcIp: host.ip, user: user.email,
+      url: "https://gate-collect.top/api/upload", domain: exfilDomain, method: "POST", action: "allowed", category: "Malware", status: 200,
+      bytesSent: 8_734_096, userAgent: "curl/8.4.0", mitre: "T1567.002", tactic: "Exfiltration", severity: "critical", incidentId: INCIDENT,
+      description: "Zscaler logged an outbound POST from MB-CR-14 uploading an ~8 MB archive to gate-collect.top (45.147.230.88), sent with a curl user-agent moments after the credential-store reads.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 9. THE DETECTION — Falcon raises the alert-grade detection tying the
-    //    osascript prompt, the Keychain read and the exfil into one case.
-    //    is_detection + edr_scope "hybrid" (host artifacts + a proxy facet).
-    // ─────────────────────────────────────────────────────────────────────
+    // 9. THE DETECTION — Falcon ties the stealer chain into one case.
     {
-      id: "msd_09_edr_detection",
-      ts: T(5 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "critical",
-      mitre_technique: "T1555.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
-      is_detection: true,   // the Falcon detection that opened the incident
-      edr_scope: "hybrid",  // host artifacts (osascript, Keychain, wallet reads) + the proxy-observed upload — pivot into EDR for MB-CR-14
-      description:
-        "Falcon raised a Critical detection on MB-CR-14: an ad-hoc-signed app from a mounted disk image spawned osascript to prompt for the password, then read the login Keychain, browser cookie stores and wallet files and uploaded an archive — a macOS credential-stealer pattern.",
-      process: {
-        name: "PixelForge Pro",
-        pid: 4102,
-        path: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        parent_name: "launchd",
-        parent_pid: 1,
-        cmdline: "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/PixelForge Pro",
-        user: user.sam,
-        hash: { sha256: stealerHash },
-      },
-      raw: {
-        "crowdstrike.DetectName": "MacOS_Infostealer_OsascriptCredentialAccess",
-        "crowdstrike.Tactic": "Credential Access",
-        "crowdstrike.Technique": "Keychain",
-        "crowdstrike.Objective": "Falcon Detection Method",
-        "crowdstrike.SeverityName": "Critical",
-        "crowdstrike.PatternDispositionDescription": "Detection, No Action",
-        "crowdstrike.IncidentType": "MacOS Credential Theft",
-        "crowdstrike.SensorId": sensorId,
-        "crowdstrike.aid": aid,
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "PixelForge Pro",
-        "crowdstrike.FilePath": "/Volumes/PixelForge Pro/PixelForge Pro.app/Contents/MacOS/",
-        "process.hash.sha256": stealerHash,
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": user.sam,
-        "threat.technique.id": "T1555.001",
-        "threat.technique.name": "Credentials from Password Stores: Keychain",
-        "threat.tactic.name": "Credential Access",
-        "threat.tactic.id": "TA0006",
-        "event.outcome": "success",
-      },
+      ...csAlert({
+        companyId: cx, id: "msd_09_edr_detection", ts: T(5 * MIN), host: host.name, user: user.email, runAsUser: user.sam,
+        threatName: "MacOS_Infostealer_OsascriptCredentialAccess", mitre: "T1555.001", tactic: "Credential Access", technique: "Keychain",
+        action: "detected", severity: "critical", incidentId: INCIDENT,
+        extra: { ...osx, "crowdstrike.IncidentType": "MacOS Credential Theft", "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+        detail: "An ad-hoc-signed app from a mounted disk image spawned osascript to prompt for the password, then read the login Keychain, browser cookie stores and wallet files and uploaded an archive.",
+        description: "Falcon raised a Critical detection on MB-CR-14: an ad-hoc-signed app from a mounted disk image spawned osascript to prompt for the password, then read the login Keychain, browser cookie stores and wallet files and uploaded an archive — a macOS credential-stealer pattern.",
+      }),
+      edr_scope: "hybrid",
     },
   ];
 
