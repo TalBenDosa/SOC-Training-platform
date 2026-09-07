@@ -27,8 +27,8 @@ export interface SentinelAlertOpts extends Ctx {
   fullName?: string;           // user.full_name
   department?: string;
   title?: string;
-  /** ExtendedProperties.<Name> — string or string[] enrichment values */
-  extendedProperties?: Record<string, string | string[]>;
+  /** ExtendedProperties.<Name> — string, number or string[] enrichment values */
+  extendedProperties?: Record<string, string | number | string[]>;
   eventAction?: string;        // default "correlation-alert"
   eventOutcome?: string;       // default "alerted"
   description?: string;
@@ -36,7 +36,7 @@ export interface SentinelAlertOpts extends Ctx {
 export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
   const r = resolve(o);
   const sev = o.severity ?? "high";
-  const ext: Record<string, string | string[]> = {};
+  const ext: Record<string, string | string[] | number> = {};
   for (const [k, v] of Object.entries(o.extendedProperties ?? {})) ext[`ExtendedProperties.${k}`] = v;
   return {
     id: o.id, ts: o.ts, source: "siem", vendor: VENDOR, event_type: o.eventType ?? "ueba_anomaly",

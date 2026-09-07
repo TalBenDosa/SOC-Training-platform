@@ -101,6 +101,7 @@ export interface MdeAlertOpts extends Ctx {
   mdeIncidentId?: string;       // Defender incident number (distinct from the story incident_id)
   detectionSource?: string;     // e.g. "AntivirusBehavior"
   alertSeverity?: string;       // Defender's own label (defaults from severity)
+  extra?: Record<string, string | number>; // extra valid mde.* / AH fields (ReportId, mde.DetectorId…)
   severity?: Severity;
   expectedVerdict?: ExpectedVerdict;
   description?: string;
@@ -135,6 +136,7 @@ export function mdeAlert(o: MdeAlertOpts): TelemetryEvent {
       "AccountName": a.AccountName,
       "AccountDomain": a.AccountDomain,
       "event.action": "alert",
+      ...(o.extra ?? {}),
     },
   };
 }
@@ -280,10 +282,12 @@ export function mdeDns(o: MdeDnsOpts): TelemetryEvent {
 export interface MdeFileOpts extends Ctx {
   path: string;
   sha256?: string | null;       // null → omit a hash (a copied data file has none logged)
+  size?: number;                // FileSize (+ structured file.size)
   action?: "file_create" | "file_modify" | "file_delete";
   initiatingProcess?: string;
   initiatingCmdline?: string;
   signed?: boolean;
+  extra?: Record<string, string | number>; // extra AH / mde.* fields (ShareName-style via mde.*, ReportId…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -303,13 +307,14 @@ export function mdeFile(o: MdeFileOpts): TelemetryEvent {
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
-    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}) },
+    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}), ...(o.size ? { size: o.size } : {}) },
     description: o.description ?? `${name} written on ${r.host}`,
     raw: {
       "ActionType": ACTION[o.action ?? "file_create"],
       "DeviceName": r.host,
       "FileName": name,
       "FolderPath": folder,
+      ...(o.size ? { "FileSize": String(o.size) } : {}),
       ...(sha256 ? { "SHA256": sha256, "file.hash.sha256": sha256 } : {}),
       ...(o.initiatingProcess ? { "InitiatingProcessFileName": o.initiatingProcess } : {}),
       ...(o.initiatingCmdline ? { "InitiatingProcessCommandLine": o.initiatingCmdline } : {}),
@@ -317,6 +322,7 @@ export function mdeFile(o: MdeFileOpts): TelemetryEvent {
       "file.path": o.path,
       "file.name": name,
       "event.action": o.action ?? "file_create",
+      ...(o.extra ?? {}),
     },
   };
 }

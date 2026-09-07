@@ -25,6 +25,7 @@ import { buildCicdSupplyChainScenario } from "./cicdSupplyChain";
 import { buildContainerEscapeCryptominingScenario } from "./containerEscapeCryptomining";
 import { buildHelpdeskMfaResetScenario } from "./helpdeskMfaReset";
 import { buildRogueAdminAccountScenario } from "./rogueAdminAccount";
+import { buildBackupFalsePositiveScenario } from "./backupFalsePositive";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -40,7 +41,7 @@ const FULLY_EMITTER_AUTHORED = [
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
   "infostealerSessionTheft.ts", "macosTccPkg.ts", "macosStealerDmg.ts",
   "s3ExfilExposure.ts", "cicdSupplyChain.ts", "containerEscapeCryptomining.ts",
-  "helpdeskMfaReset.ts", "rogueAdminAccount.ts",
+  "helpdeskMfaReset.ts", "rogueAdminAccount.ts", "backupFalsePositive.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -818,5 +819,38 @@ describe("emitter-authored scenario packs", () => {
     const logon = s.events.find(e => e.id === "evt_ra_08_new_acct_logon");
     expect(logon?.raw?.["winlog.event_data.LogonType"]).toBe("10");
     expect(logon?.raw?.["winlog.event_data.IpAddress"]).toBe("10.10.44.61");
+  });
+
+  it("backupFalsePositive builds a coherent benign-backup case from emitters only (ServiceNow + WinSec + MDE + PAN + Sentinel)", () => {
+    const s = buildBackupFalsePositiveScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "ServiceNow ITSM", "Windows Security", "Microsoft Defender for Endpoint", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
+    ]));
+    // the change ticket that authorised the new schedule
+    const chg = s.events.find(e => e.id === "evt_bkpfp_01_change");
+    expect(chg?.raw?.["servicenow.table"]).toBe("change_request");
+    expect(chg?.raw?.["servicenow.number"]).toBe("CHG0041887");
+    // the agent is a signed vendor binary (the FP tell)
+    const agent = s.events.find(e => e.id === "evt_bkpfp_04_agent_start");
+    expect(agent?.raw?.["mde.Signer"]).toBe("Veeam Software Group GmbH");
+    expect(agent?.raw?.["process.code_signature.status"]).toBe("trusted");
+    // VSS CREATE (inverse of ransomware delete-shadows)
+    expect(String(s.events.find(e => e.id === "evt_bkpfp_05_vss")?.process?.cmdline)).toContain("create shadow");
+    // 4663 is a ReadData (0x1), not a write
+    expect(s.events.find(e => e.id === "evt_bkpfp_06_file_read")?.raw?.["winlog.event_data.AccessMask"]).toBe("0x1");
+    // the .vbk write to the dedicated backup share, 26 GB
+    const vbk = s.events.find(e => e.id === "evt_bkpfp_07_vbk_write");
+    expect(vbk?.file?.name).toContain(".vbk");
+    expect(vbk?.raw?.["FileSize"]).toBe("26548912128");
+    // the false-positive ransomware alert
+    const alert = s.events.find(e => e.id === "evt_bkpfp_09_edr_alert");
+    expect(alert?.raw?.["mde.AlertTitle"]).toBe("Ransomware behavior detected");
+    expect(alert?.is_detection).toBe(true);
+    expect(alert?.edr_scope).toBe("edr");
+    // the correlation shows zero writes/deletes — the record that clears it
+    const corr = s.events.find(e => e.id === "evt_bkpfp_10_correlation");
+    expect(corr?.raw?.["ExtendedProperties.Event 4663 WriteData Count"]).toBe(0);
+    expect(corr?.raw?.["ExtendedProperties.Linked Change Request"]).toBe("CHG0041887");
   });
 });
