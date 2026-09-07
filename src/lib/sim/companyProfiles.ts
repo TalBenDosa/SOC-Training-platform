@@ -3424,7 +3424,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     description: "Opening an Excel attachment on WS-LOG-088 triggered a hidden command line and then a hidden PowerShell command",
     mitre_technique: "T1059.001",
     process: { name: "powershell.exe", pid: 5541, parent_name: "cmd.exe", parent_pid: 5540, user: "k.schmidt", cmdline: "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUA..." },
-    raw: { "sophos.detection_name": "Mal/Exploit-AV", "sophos.event_type": "ExploitPrevention", "sophos.action": "detect", "action_result": "allowed" }
+    raw: { "sophos.detection_name": "Troj/DocDl-ADEF", "sophos.event_type": "Malware", "sophos.action": "detect", "action_result": "allowed" }
   },
   {
     id: "gl_a3", ts: "2026-05-10T09:45:00.000Z", source: "ad", event_type: "auth_success",
@@ -3612,9 +3612,9 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
   {
     id: "qb_b3", ts: "2026-05-10T11:20:00.000Z", source: "proxy", event_type: "http_request",
     severity: "high", vendor: "Zscaler Internet Access", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
-    description: "l.brunner attempted upload of trading-positions-may2026.pdf to transfer.sh — blocked by DLP, PCI data violation",
+    description: "l.brunner attempted upload of trading-positions-may2026.pdf to transfer.sh — blocked by DLP, confidential financial data violation",
     mitre_technique: "T1567",
-    raw: { "zscaler.action": "Blocked", "zscaler.dlp_scan": "pci_violation", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Credit Card Number (4812 matches)", "session.blocked": "true", "action_result": "blocked" }
+    raw: { "zscaler.action": "Blocked", "zscaler.dlp_scan": "confidential_financial_data", "zscaler.filename": "trading-positions-may2026.pdf", "zscaler.dlp_dict_matches": "Confidential — Financial Records / Trading Positions (312 matches)", "session.blocked": "true", "action_result": "blocked" }
   },
   {
     id: "qb_b4", ts: "2026-05-10T11:32:00.000Z", source: "edr", event_type: "process_create",
