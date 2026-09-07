@@ -35,6 +35,9 @@
  */
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
+import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
+import { csProcess } from "@/lib/sim/emitters/crowdstrike";
 
 export function buildHelpdeskMfaResetScenario(
   scenarioId = "helpdesk-mfa-reset-2026",
@@ -78,439 +81,121 @@ export function buildHelpdeskMfaResetScenario(
   // ticket — the new-geo, unmanaged-device sign-in on the reset account.
   const INCIDENT = "inc:hmr:1";
 
+  const cx = "nexacorp" as const;
+  const pwPush = (t: string) => [
+    { authenticationStepDateTime: t, authenticationMethod: "Password", authenticationMethodDetail: "Password in the cloud", succeeded: true, authenticationStepResultDetail: "Correct password", authenticationStepRequirement: "Primary authentication" },
+    { authenticationStepDateTime: t, authenticationMethod: "Mobile app notification", authenticationMethodDetail: "Microsoft Authenticator", succeeded: true, authenticationStepResultDetail: "MFA completed in Azure AD", authenticationStepRequirement: "Multifactor authentication" },
+  ];
+
   const events: TelemetryEvent[] = [
-    // ---------------------------------------------------------------------
-    // 1. BASELINE — a completely ordinary morning sign-in.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_01_baseline_signin",
-      ts: T(0),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "auth_success",
-      severity: "informational",
-      user_email: victim.email,
-      user_title: "Trade Settlements Analyst",
-      hostname: victim.hostname,
-      src_ip: victim.homeIp,
-      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
-      authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
-      description:
-        "l.ferreira signed in to Microsoft Office at 09:00 from her usual London address on the corporate laptop LT-OPS-2214, MFA completed by an Authenticator push.",
-      raw: {
-        "azure.signinlogs.category": "SignInLogs",
-        "azure.signinlogs.operationName": "Sign-in activity",
-        "azure.signinlogs.properties.id": "5b2d7e4a-8c31-4b0d-9f5a-1c37a0e59d84",
-        "azure.signinlogs.properties.createdDateTime": T(0),
-        "azure.signinlogs.properties.userPrincipalName": victim.email,
-        "azure.signinlogs.properties.userDisplayName": victim.display,
-        "azure.signinlogs.properties.userId": victim.id,
-        "azure.signinlogs.properties.correlationId": "5b2d7e4a-8c31-4b0d-9f5a-1c37a0e59d84",
-        "azure.signinlogs.properties.sessionId": baselineSessionId1,
-        "azure.signinlogs.properties.appDisplayName": "Microsoft Office",
-        "azure.signinlogs.properties.appId": "d3590ed6-52b3-4102-aeff-aad2292ab01c",
-        "azure.signinlogs.properties.resourceDisplayName": "Microsoft Graph",
-        "azure.signinlogs.properties.clientAppUsed": "Browser",
-        "azure.signinlogs.properties.isInteractive": true,
-        "azure.signinlogs.properties.ipAddress": victim.homeIp,
-        "azure.signinlogs.properties.autonomousSystemNumber": 5378,
-        "azure.signinlogs.properties.location.city": "London",
-        "azure.signinlogs.properties.location.state": "England",
-        "azure.signinlogs.properties.location.countryOrRegion": "GB",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 51.5074,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": -0.1278,
-        "azure.signinlogs.properties.deviceDetail.deviceId": victim.deviceId,
-        "azure.signinlogs.properties.deviceDetail.displayName": victim.hostname,
-        "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
-        "azure.signinlogs.properties.deviceDetail.browser": "Edge 125.0.2535",
-        "azure.signinlogs.properties.deviceDetail.isCompliant": true,
-        "azure.signinlogs.properties.deviceDetail.isManaged": true,
-        "azure.signinlogs.properties.deviceDetail.trustType": "Azure AD joined",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51",
-        "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
-        "azure.signinlogs.properties.authenticationDetails": [
-          {
-            authenticationStepDateTime: T(0),
-            authenticationMethod: "Password",
-            authenticationMethodDetail: "Password in the cloud",
-            succeeded: true,
-            authenticationStepResultDetail: "Correct password",
-            authenticationStepRequirement: "Primary authentication",
-          },
-          {
-            authenticationStepDateTime: T(0),
-            authenticationMethod: "Mobile app notification",
-            authenticationMethodDetail: "Microsoft Authenticator",
-            succeeded: true,
-            authenticationStepResultDetail: "MFA completed in Azure AD",
-            authenticationStepRequirement: "Multifactor authentication",
-          },
-        ],
-        "azure.signinlogs.properties.conditionalAccessStatus": "success",
-        "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
-        "azure.signinlogs.properties.riskDetail": "none",
-        "azure.signinlogs.properties.riskState": "none",
-        "azure.signinlogs.properties.riskEventTypes_v2": [],
-        "azure.signinlogs.properties.tokenIssuerType": "AzureAD",
-        "azure.signinlogs.properties.incomingTokenType": "none",
-        "azure.signinlogs.properties.status.errorCode": 0,
-        "azure.signinlogs.resultType": "0",
-      },
-    },
+    // 1. BASELINE — an ordinary morning sign-in.
+    entraSignIn({
+      companyId: cx, id: "evt_hmr_01_baseline_signin", ts: T(0), srcIp: victim.homeIp, user: victim.email, displayName: victim.display,
+      userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "5b2d7e4a-8c31-4b0d-9f5a-1c37a0e59d84", sessionId: baselineSessionId1,
+      app: "Microsoft Office", appId: "d3590ed6-52b3-4102-aeff-aad2292ab01c", resource: "Microsoft Graph", mfa: true, isInteractive: true,
+      managed: true, compliant: true, deviceId: victim.deviceId, deviceName: victim.hostname, os: "Windows 11", browser: "Edge 125.0.2535",
+      trustType: "Azure AD joined", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51", asn: 5378, tokenIssuerType: "AzureAD", incomingTokenType: "none",
+      riskLevel: "none", riskDetail: "none", riskEventTypes: [], conditionalAccess: "success",
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 }, severity: "informational",
+      extra: { "azure.signinlogs.properties.location.state": "England", "azure.signinlogs.properties.authenticationDetails": pwPush(T(0)) },
+      description: "l.ferreira signed in to Microsoft Office at 09:00 from her usual London address on the corporate laptop LT-OPS-2214, MFA completed by an Authenticator push.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 2. The call. A ticket that looks like every other MFA-reset call.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_02_ticket_created",
-      ts: T(41 * MIN),
-      source: "soar",
-      vendor: "ServiceNow ITSM",
-      event_type: "policy_modification",
-      severity: "low",
-      mitre_technique: "T1656",
-      mitre_tactic: "Defense Evasion",
-      user_email: victim.email,
-      description:
-        "Ticket INC0048217 was opened by the IT Service Desk: caller reports being locked out and having lost the mobile device enrolled for Microsoft Authenticator, requesting a password and MFA reset.",
-      raw: {
-        "servicenow.table": "incident",
-        "servicenow.number": ticket,
-        "servicenow.short_description": "Locked out — lost phone, needs password and MFA reset",
-        "servicenow.description":
-          "Caller states she is locked out of her account and lost the mobile device used for Microsoft Authenticator. Requesting password reset and MFA re-registration to regain access before the EOD trading window.",
-        "servicenow.category": "Access",
-        "servicenow.subcategory": "Password Reset",
-        "servicenow.contact_type": "Phone",
-        "servicenow.priority": "3 - Moderate",
-        "servicenow.urgency": "2 - High",
-        "servicenow.impact": "3 - Low",
-        "servicenow.state": "New",
-        "servicenow.caller_id": victim.email,
-        "servicenow.opened_by": helpdesk.email,
-        "servicenow.assignment_group": "IT Service Desk",
-        "servicenow.assigned_to": helpdesk.email,
-        "servicenow.opened_at": "2026-07-14 09:41:00",
-        "servicenow.u_identity_verification": "Employee ID and date of birth confirmed over the phone",
-        "servicenow.u_verification_result": "Passed",
-        "servicenow.sys_created_on": "2026-07-14 09:41:00",
+    // 2. THE CALL — a ticket that looks like every other MFA-reset call.
+    serviceNowRecord({
+      companyId: cx, id: "evt_hmr_02_ticket_created", ts: T(41 * MIN), table: "incident", number: ticket, state: "New",
+      shortDescription: "Locked out — lost phone, needs password and MFA reset", callerId: victim.email,
+      mitre: "T1656", tactic: "Defense Evasion", severity: "low",
+      extra: {
+        "servicenow.description": "Caller states she is locked out of her account and lost the mobile device used for Microsoft Authenticator. Requesting password reset and MFA re-registration to regain access before the EOD trading window.",
+        "servicenow.category": "Access", "servicenow.subcategory": "Password Reset", "servicenow.contact_type": "Phone",
+        "servicenow.priority": "3 - Moderate", "servicenow.urgency": "2 - High", "servicenow.impact": "3 - Low",
+        "servicenow.opened_by": helpdesk.email, "servicenow.assignment_group": "IT Service Desk", "servicenow.assigned_to": helpdesk.email,
+        "servicenow.opened_at": "2026-07-14 09:41:00", "servicenow.u_identity_verification": "Employee ID and date of birth confirmed over the phone",
+        "servicenow.u_verification_result": "Passed", "servicenow.sys_created_on": "2026-07-14 09:41:00",
       },
-    },
+      description: "Ticket INC0048217 was opened by the IT Service Desk: caller reports being locked out and having lost the mobile device enrolled for Microsoft Authenticator, requesting a password and MFA reset.",
+    }),
 
-    // ---------------------------------------------------------------------
     // 3. The real employee, still working — the impossible-coexistence tell.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_03_second_baseline_signin",
-      ts: T(45 * MIN),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "auth_success",
-      severity: "informational",
-      user_email: victim.email,
-      user_title: "Trade Settlements Analyst",
-      hostname: victim.hostname,
-      src_ip: victim.homeIp,
-      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
-      authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
-      description:
-        "l.ferreira signed in to SharePoint Online at 09:45 from the same London address and the same laptop, MFA completed by an Authenticator push — seven minutes before the ticket taken on her behalf is resolved.",
-      raw: {
-        "azure.signinlogs.category": "SignInLogs",
-        "azure.signinlogs.operationName": "Sign-in activity",
-        "azure.signinlogs.properties.id": "d3f7c9a1-4b8e-40d2-9c6a-71f3b28e5c40",
-        "azure.signinlogs.properties.createdDateTime": T(45 * MIN),
-        "azure.signinlogs.properties.userPrincipalName": victim.email,
-        "azure.signinlogs.properties.userDisplayName": victim.display,
-        "azure.signinlogs.properties.userId": victim.id,
-        "azure.signinlogs.properties.correlationId": "d3f7c9a1-4b8e-40d2-9c6a-71f3b28e5c40",
-        "azure.signinlogs.properties.sessionId": baselineSessionId2,
-        "azure.signinlogs.properties.appDisplayName": "SharePoint Online",
-        "azure.signinlogs.properties.appId": "00000003-0000-0ff1-ce00-000000000000",
-        "azure.signinlogs.properties.resourceDisplayName": "Office 365 SharePoint Online",
-        "azure.signinlogs.properties.clientAppUsed": "Browser",
-        "azure.signinlogs.properties.isInteractive": true,
-        "azure.signinlogs.properties.ipAddress": victim.homeIp,
-        "azure.signinlogs.properties.autonomousSystemNumber": 5378,
-        "azure.signinlogs.properties.location.city": "London",
-        "azure.signinlogs.properties.location.state": "England",
-        "azure.signinlogs.properties.location.countryOrRegion": "GB",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 51.5074,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": -0.1278,
-        "azure.signinlogs.properties.deviceDetail.deviceId": victim.deviceId,
-        "azure.signinlogs.properties.deviceDetail.displayName": victim.hostname,
-        "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
-        "azure.signinlogs.properties.deviceDetail.browser": "Edge 125.0.2535",
-        "azure.signinlogs.properties.deviceDetail.isCompliant": true,
-        "azure.signinlogs.properties.deviceDetail.isManaged": true,
-        "azure.signinlogs.properties.deviceDetail.trustType": "Azure AD joined",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51",
-        "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
-        "azure.signinlogs.properties.authenticationDetails": [
-          {
-            authenticationStepDateTime: T(45 * MIN),
-            authenticationMethod: "Password",
-            authenticationMethodDetail: "Password in the cloud",
-            succeeded: true,
-            authenticationStepResultDetail: "Correct password",
-            authenticationStepRequirement: "Primary authentication",
-          },
-          {
-            authenticationStepDateTime: T(45 * MIN),
-            authenticationMethod: "Mobile app notification",
-            authenticationMethodDetail: "Microsoft Authenticator",
-            succeeded: true,
-            authenticationStepResultDetail: "MFA completed in Azure AD",
-            authenticationStepRequirement: "Multifactor authentication",
-          },
-        ],
-        "azure.signinlogs.properties.conditionalAccessStatus": "success",
-        "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
-        "azure.signinlogs.properties.riskDetail": "none",
-        "azure.signinlogs.properties.riskState": "none",
-        "azure.signinlogs.properties.tokenIssuerType": "AzureAD",
-        "azure.signinlogs.properties.incomingTokenType": "none",
-        "azure.signinlogs.properties.status.errorCode": 0,
-        "azure.signinlogs.resultType": "0",
-      },
-    },
+    entraSignIn({
+      companyId: cx, id: "evt_hmr_03_second_baseline_signin", ts: T(45 * MIN), srcIp: victim.homeIp, user: victim.email, displayName: victim.display,
+      userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "d3f7c9a1-4b8e-40d2-9c6a-71f3b28e5c40", sessionId: baselineSessionId2,
+      app: "SharePoint Online", appId: "00000003-0000-0ff1-ce00-000000000000", resource: "Office 365 SharePoint Online", mfa: true, isInteractive: true,
+      managed: true, compliant: true, deviceId: victim.deviceId, deviceName: victim.hostname, os: "Windows 11", browser: "Edge 125.0.2535",
+      trustType: "Azure AD joined", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51", asn: 5378, tokenIssuerType: "AzureAD", incomingTokenType: "none",
+      riskLevel: "none", riskDetail: "none", conditionalAccess: "success",
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 }, severity: "informational",
+      extra: { "azure.signinlogs.properties.location.state": "England", "azure.signinlogs.properties.authenticationDetails": pwPush(T(45 * MIN)) },
+      description: "l.ferreira signed in to SharePoint Online at 09:45 from the same London address and the same laptop, MFA completed by an Authenticator push — seven minutes before the ticket taken on her behalf is resolved.",
+    }),
 
-    // ---------------------------------------------------------------------
     // 4. Ticket resolved — routine close, on its face.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_04_ticket_resolved",
-      ts: T(52 * MIN),
-      source: "soar",
-      vendor: "ServiceNow ITSM",
-      event_type: "policy_modification",
-      severity: "low",
-      user_email: victim.email,
-      description:
-        "Ticket INC0048217 was resolved by James Oduya: password reset via the admin portal, MFA requirement cleared per the caller's report of a lost device, caller instructed to re-register Microsoft Authenticator on next sign-in.",
-      raw: {
-        "servicenow.table": "incident",
-        "servicenow.number": ticket,
-        "servicenow.state": "Resolved",
+    serviceNowRecord({
+      companyId: cx, id: "evt_hmr_04_ticket_resolved", ts: T(52 * MIN), table: "incident", number: ticket, state: "Resolved",
+      callerId: victim.email, severity: "low",
+      extra: {
         "servicenow.close_code": "Solved (Permanently)",
-        "servicenow.close_notes":
-          "Password reset via admin portal. MFA requirement cleared for re-registration per caller's report of a lost device. Caller instructed to re-enroll Microsoft Authenticator on next sign-in.",
+        "servicenow.close_notes": "Password reset via admin portal. MFA requirement cleared for re-registration per caller's report of a lost device. Caller instructed to re-enroll Microsoft Authenticator on next sign-in.",
         "servicenow.work_notes": "Caller verified by phone with employee ID and date of birth; no video verification performed.",
-        "servicenow.resolved_by": helpdesk.email,
-        "servicenow.resolved_at": "2026-07-14 09:52:00",
-        "servicenow.assignment_group": "IT Service Desk",
-        "servicenow.assigned_to": helpdesk.email,
-        "servicenow.sys_updated_on": "2026-07-14 09:52:00",
+        "servicenow.resolved_by": helpdesk.email, "servicenow.resolved_at": "2026-07-14 09:52:00",
+        "servicenow.assignment_group": "IT Service Desk", "servicenow.assigned_to": helpdesk.email, "servicenow.sys_updated_on": "2026-07-14 09:52:00",
       },
-    },
+      description: "Ticket INC0048217 was resolved by James Oduya: password reset via the admin portal, MFA requirement cleared per the caller's report of a lost device, caller instructed to re-register Microsoft Authenticator on next sign-in.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 5. The MFA reset actually lands in the directory.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_05_mfa_reset",
-      ts: T(53 * MIN),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "account_modify",
-      severity: "medium",
-      mitre_technique: "T1556.006",
-      mitre_tactic: "Defense Evasion",
-      user_email: victim.email,
-      src_ip: helpdesk.ip,
-      description:
-        "James Oduya (Helpdesk Administrator) cleared l.ferreira's registered authentication methods from the internal help desk network, one minute after the ticket was closed.",
-      raw: {
-        "azure.auditlogs.category": "AuditLogs",
-        "azure.auditlogs.operationName": "Update user",
-        "azure.auditlogs.properties.activityDisplayName": "Update user",
-        "azure.auditlogs.properties.activityDateTime": T(53 * MIN),
-        "azure.auditlogs.properties.category": "UserManagement",
-        "azure.auditlogs.properties.loggedByService": "Core Directory",
-        "azure.auditlogs.properties.operationType": "Update",
-        "azure.auditlogs.properties.result": "success",
-        "azure.auditlogs.properties.resultReason": "Authentication methods reset by administrator",
-        "azure.auditlogs.properties.correlationId": "c7e29a4d-1f8b-4306-9a52-3d7e08c4f1a6",
-        "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": helpdesk.email,
-        "azure.auditlogs.properties.initiatedBy.user.id": helpdesk.id,
-        "azure.auditlogs.properties.initiatedBy.user.ipAddress": helpdesk.ip,
-        "azure.auditlogs.properties.initiatedBy.user.roles": ["Helpdesk Administrator"],
-        "azure.auditlogs.properties.targetResources[0].type": "User",
-        "azure.auditlogs.properties.targetResources[0].userPrincipalName": victim.email,
-        "azure.auditlogs.properties.targetResources[0].id": victim.id,
+    // 5. The MFA reset lands in the directory (T1556.006).
+    entraAudit({
+      companyId: cx, id: "evt_hmr_05_mfa_reset", ts: T(53 * MIN), operationName: "Update user", loggedByService: "Core Directory",
+      result: "success", resultReason: "Authentication methods reset by administrator", correlationId: "c7e29a4d-1f8b-4306-9a52-3d7e08c4f1a6",
+      initiatedByUpn: helpdesk.email, initiatedById: helpdesk.id, initiatedByIp: helpdesk.ip, initiatedByRoles: ["Helpdesk Administrator"],
+      targetUpn: victim.email, targetId: victim.id, mitre: "T1556.006", tactic: "Defense Evasion", severity: "medium",
+      extra: {
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
-        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue":
-          "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[]",
-        "source.ip": helpdesk.ip,
       },
-    },
+      description: "James Oduya (Helpdesk Administrator) cleared l.ferreira's registered authentication methods from the internal help desk network, one minute after the ticket was closed.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 6. A NEW authenticator is registered — but from where?
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_06_new_device_registered",
-      ts: T(58 * MIN),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "account_modify",
-      severity: "high",
-      mitre_technique: "T1098.005",
-      mitre_tactic: "Persistence",
-      user_email: victim.email,
-      src_ip: attackerIp,
-      geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 },
-      description:
-        "A new Microsoft Authenticator app was registered as l.ferreira's security info five minutes after the reset — the initiating identity is l.ferreira, but the IP address is 185.220.101.47 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
-      raw: {
-        "azure.auditlogs.category": "AuditLogs",
-        "azure.auditlogs.operationName": "User registered security info",
-        "azure.auditlogs.properties.activityDisplayName": "User registered security info",
-        "azure.auditlogs.properties.activityDateTime": T(58 * MIN),
-        "azure.auditlogs.properties.category": "UserManagement",
-        "azure.auditlogs.properties.loggedByService": "Authentication Methods",
-        "azure.auditlogs.properties.operationType": "Update",
-        "azure.auditlogs.properties.result": "success",
-        "azure.auditlogs.properties.resultReason": "User registered security info: Microsoft Authenticator app",
-        "azure.auditlogs.properties.correlationId": "9a1d3f6e-52c8-4b70-8e94-1f6b0a7c3d58",
-        "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": victim.email,
-        "azure.auditlogs.properties.initiatedBy.user.id": victim.id,
-        "azure.auditlogs.properties.initiatedBy.user.ipAddress": attackerIp,
-        "azure.auditlogs.properties.initiatedBy.user.roles": [],
-        "azure.auditlogs.properties.targetResources[0].type": "User",
-        "azure.auditlogs.properties.targetResources[0].userPrincipalName": victim.email,
-        "azure.auditlogs.properties.targetResources[0].id": victim.id,
+    // 6. A NEW authenticator is registered — but from the attacker's address (T1098.005).
+    entraAudit({
+      companyId: cx, id: "evt_hmr_06_new_device_registered", ts: T(58 * MIN), operationName: "User registered security info",
+      loggedByService: "Authentication Methods", result: "success", resultReason: "User registered security info: Microsoft Authenticator app",
+      correlationId: "9a1d3f6e-52c8-4b70-8e94-1f6b0a7c3d58", initiatedByUpn: victim.email, initiatedById: victim.id, initiatedByIp: attackerIp, initiatedByRoles: [],
+      targetUpn: victim.email, targetId: victim.id, geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 },
+      mitre: "T1098.005", tactic: "Persistence", severity: "high",
+      extra: {
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[]",
-        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue":
-          "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
-        "source.ip": attackerIp,
+        "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
       },
+      description: "A new Microsoft Authenticator app was registered as l.ferreira's security info five minutes after the reset — the initiating identity is l.ferreira, but the IP address is 185.220.101.47 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
+    }),
+
+    // 7. The sign-in — MFA genuinely satisfied, on the attacker's phone (T1078.004).
+    {
+      ...entraSignIn({
+        companyId: cx, id: "evt_hmr_07_new_geo_signin", ts: T(61 * MIN), srcIp: attackerIp, user: victim.email, displayName: victim.display,
+        userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "2f8a6d31-9c47-4e05-8b19-5d3a70c1e894", sessionId: attackerSessionId,
+        app: "Office 365 Exchange Online", appId: "00000002-0000-0ff1-ce00-000000000000", resource: "Office 365 Exchange Online", mfa: true, isInteractive: true,
+        managed: false, compliant: false, deviceId: "", os: "Windows 10", browser: "Chrome 124.0.0", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", asn: 60068,
+        tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none", riskEventTypes: [], conditionalAccess: "success",
+        geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 }, severity: "critical",
+        mitre: "T1078.004", tactic: "Initial Access",
+        extra: { "azure.signinlogs.properties.location.state": "North Holland", "azure.signinlogs.properties.authenticationDetails": pwPush(T(61 * MIN)) },
+        description: "l.ferreira's account signed in to Office 365 Exchange Online at 10:01 from 185.220.101.47 in Amsterdam, on an unmanaged Windows 10 / Chrome device. Password and MFA both completed successfully.",
+      }),
+      edr_scope: "non_edr",
     },
 
-    // ---------------------------------------------------------------------
-    // 7. The sign-in. MFA genuinely satisfied — on the attacker's own phone.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_07_new_geo_signin",
-      ts: T(61 * MIN),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "auth_success",
-      severity: "critical",
-      mitre_technique: "T1078.004",
-      mitre_tactic: "Initial Access",
-      edr_scope: "non_edr", // primary identity detection that opens the ticket; control-plane only, no EDR to pivot to
-      user_email: victim.email,
-      user_title: "Trade Settlements Analyst",
-      src_ip: attackerIp,
-      geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 },
-      authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
-      description:
-        "l.ferreira's account signed in to Office 365 Exchange Online at 10:01 from 185.220.101.47 in Amsterdam, on an unmanaged Windows 10 / Chrome device. Password and MFA both completed successfully.",
-      raw: {
-        "azure.signinlogs.category": "SignInLogs",
-        "azure.signinlogs.operationName": "Sign-in activity",
-        "azure.signinlogs.properties.id": "2f8a6d31-9c47-4e05-8b19-5d3a70c1e894",
-        "azure.signinlogs.properties.createdDateTime": T(61 * MIN),
-        "azure.signinlogs.properties.userPrincipalName": victim.email,
-        "azure.signinlogs.properties.userDisplayName": victim.display,
-        "azure.signinlogs.properties.userId": victim.id,
-        "azure.signinlogs.properties.correlationId": "2f8a6d31-9c47-4e05-8b19-5d3a70c1e894",
-        "azure.signinlogs.properties.sessionId": attackerSessionId,
-        "azure.signinlogs.properties.appDisplayName": "Office 365 Exchange Online",
-        "azure.signinlogs.properties.appId": "00000002-0000-0ff1-ce00-000000000000",
-        "azure.signinlogs.properties.resourceDisplayName": "Office 365 Exchange Online",
-        "azure.signinlogs.properties.clientAppUsed": "Browser",
-        "azure.signinlogs.properties.isInteractive": true,
-        "azure.signinlogs.properties.ipAddress": attackerIp,
-        "azure.signinlogs.properties.autonomousSystemNumber": 60068,
-        "azure.signinlogs.properties.location.city": "Amsterdam",
-        "azure.signinlogs.properties.location.state": "North Holland",
-        "azure.signinlogs.properties.location.countryOrRegion": "NL",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 52.3702,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": 4.8952,
-        "azure.signinlogs.properties.deviceDetail.deviceId": "",
-        "azure.signinlogs.properties.deviceDetail.displayName": "",
-        "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 10",
-        "azure.signinlogs.properties.deviceDetail.browser": "Chrome 124.0.0",
-        "azure.signinlogs.properties.deviceDetail.isCompliant": false,
-        "azure.signinlogs.properties.deviceDetail.isManaged": false,
-        "azure.signinlogs.properties.deviceDetail.trustType": "",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
-        "azure.signinlogs.properties.authenticationDetails": [
-          {
-            authenticationStepDateTime: T(61 * MIN),
-            authenticationMethod: "Password",
-            authenticationMethodDetail: "Password in the cloud",
-            succeeded: true,
-            authenticationStepResultDetail: "Correct password",
-            authenticationStepRequirement: "Primary authentication",
-          },
-          {
-            authenticationStepDateTime: T(61 * MIN),
-            authenticationMethod: "Mobile app notification",
-            authenticationMethodDetail: "Microsoft Authenticator",
-            succeeded: true,
-            authenticationStepResultDetail: "MFA completed in Azure AD",
-            authenticationStepRequirement: "Multifactor authentication",
-          },
-        ],
-        "azure.signinlogs.properties.conditionalAccessStatus": "success",
-        "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
-        "azure.signinlogs.properties.riskDetail": "none",
-        "azure.signinlogs.properties.riskState": "none",
-        "azure.signinlogs.properties.riskEventTypes_v2": [],
-        "azure.signinlogs.properties.tokenIssuerType": "AzureAD",
-        "azure.signinlogs.properties.incomingTokenType": "none",
-        "azure.signinlogs.properties.status.errorCode": 0,
-        "azure.signinlogs.resultType": "0",
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 8. The session lands on an internal VDI host.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_hmr_08_vdi_session",
-      ts: T(66 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      severity: "high",
-      hostname: vdiHost.hostname,
-      user_email: victim.email,
-      src_ip: vdiHost.ip,
-      description:
-        "Five minutes after the Amsterdam sign-in, a new interactive session started on VDI-POOL-014 under l.ferreira's account — userinit.exe launched explorer.exe, the standard start of a fresh logon session.",
-      process: {
-        name: "explorer.exe",
-        pid: 4488,
-        path: "C:\\Windows\\explorer.exe",
-        parent_name: "userinit.exe",
-        parent_pid: 3312,
-        cmdline: "C:\\Windows\\explorer.exe",
-        user: "NEXACORP\\l.ferreira",
-        integrity: "medium",
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.sensor.id": "d92f5e1b7c3a4680b2ce6f9a1d0873e5",
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "process_created",
-        "process.name": "explorer.exe",
-        "process.pid": "4488",
-        "process.executable": "C:\\Windows\\explorer.exe",
-        "process.command_line": "C:\\Windows\\explorer.exe",
-        "process.parent.name": "userinit.exe",
-        "process.parent.pid": "3312",
-        "user.name": "NEXACORP\\l.ferreira",
-        "host.name": vdiHost.hostname,
-        "host.ip": vdiHost.ip,
-      },
-    },
+    // 8. The session lands on an internal VDI host (benign logon start).
+    csProcess({
+      companyId: cx, id: "evt_hmr_08_vdi_session", ts: T(66 * MIN), host: vdiHost.hostname, srcIp: vdiHost.ip, user: victim.email,
+      processName: "explorer.exe", processPath: "C:\\Windows\\explorer.exe", cmdline: "C:\\Windows\\explorer.exe",
+      parentName: "userinit.exe", parentPid: 3312, pid: 4488, integrity: "medium", severity: "high",
+      description: "Five minutes after the Amsterdam sign-in, a new interactive session started on VDI-POOL-014 under l.ferreira's account — userinit.exe launched explorer.exe, the standard start of a fresh logon session.",
+    }),
   ];
 
   // Every event belongs to the one helpdesk-MFA-reset account-takeover incident

@@ -23,6 +23,7 @@ import { buildMacosStealerDmgScenario } from "./macosStealerDmg";
 import { buildS3ExfilExposureScenario } from "./s3ExfilExposure";
 import { buildCicdSupplyChainScenario } from "./cicdSupplyChain";
 import { buildContainerEscapeCryptominingScenario } from "./containerEscapeCryptomining";
+import { buildHelpdeskMfaResetScenario } from "./helpdeskMfaReset";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -38,6 +39,7 @@ const FULLY_EMITTER_AUTHORED = [
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
   "infostealerSessionTheft.ts", "macosTccPkg.ts", "macosStealerDmg.ts",
   "s3ExfilExposure.ts", "cicdSupplyChain.ts", "containerEscapeCryptomining.ts",
+  "helpdeskMfaReset.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -752,5 +754,36 @@ describe("emitter-authored scenario packs", () => {
     expect(gd?.raw?.["aws.guardduty.type"]).toBe("CryptoCurrency:EC2/BitcoinTool.B!DNS");
     expect(gd?.raw?.["aws.guardduty.service.action.actionType"]).toBe("DNS_REQUEST");
     expect(gd?.is_detection).toBe(true);
+  });
+
+  it("helpdeskMfaReset builds a coherent helpdesk-social-engineering case from emitters only (Entra + ServiceNow + CrowdStrike)", () => {
+    const s = buildHelpdeskMfaResetScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Microsoft Entra ID", "ServiceNow ITSM", "CrowdStrike Falcon",
+    ]));
+    // the ServiceNow ticket (source soar) with the verification note
+    const ticket = s.events.find(e => e.id === "evt_hmr_02_ticket_created");
+    expect(ticket?.source).toBe("soar");
+    expect(ticket?.raw?.["servicenow.number"]).toBe("INC0048217");
+    expect(ticket?.raw?.["servicenow.u_verification_result"]).toBe("Passed");
+    expect(s.events.find(e => e.id === "evt_hmr_04_ticket_resolved")?.raw?.["servicenow.state"]).toBe("Resolved");
+    // the MFA reset is an Entra audit-log directory change by the helpdesk admin
+    const reset = s.events.find(e => e.id === "evt_hmr_05_mfa_reset");
+    expect(reset?.raw?.["azure.auditlogs.operationName"]).toBe("Update user");
+    expect(reset?.raw?.["azure.auditlogs.properties.initiatedBy.user.userPrincipalName"]).toBe("j.oduya@nexacorp.com");
+    // THE tell: a "user registered security info" whose initiating identity is the
+    // victim but whose IP is the attacker's, not either of her real sign-in IPs
+    const reg = s.events.find(e => e.id === "evt_hmr_06_new_device_registered");
+    expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.userPrincipalName"]).toBe("l.ferreira@nexacorp.com");
+    expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.ipAddress"]).toBe("185.220.101.47");
+    // the takeover sign-in: unmanaged device, new geo, control-plane detection
+    const takeover = s.events.find(e => e.id === "evt_hmr_07_new_geo_signin");
+    expect(takeover?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("false");
+    expect(takeover?.edr_scope).toBe("non_edr");
+    // the trailing VDI logon is a benign session start on the internal host
+    const vdi = s.events.find(e => e.id === "evt_hmr_08_vdi_session");
+    expect(vdi?.hostname).toBe("VDI-POOL-014");
+    expect(vdi?.process?.parent_name).toBe("userinit.exe");
   });
 });

@@ -164,3 +164,61 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
     },
   };
 }
+
+// ── Entra ID audit log (directory change) ────────────────────────────────────────────
+// The Entra AuditLogs stream (distinct from SignInLogs): a directory change an analyst
+// reads for account takeover and persistence — an admin resetting MFA methods, a user
+// registering new security info, a role assignment. Uses the azure.auditlogs.* schema.
+export interface EntraAuditOpts extends Ctx {
+  operationName: string;            // e.g. "Update user", "User registered security info"
+  activityDisplayName?: string;     // default = operationName
+  category?: string;                // properties.category (default "UserManagement")
+  loggedByService?: string;         // e.g. "Core Directory", "Authentication Methods"
+  operationType?: string;           // default "Update"
+  result?: "success" | "failure";
+  resultReason?: string;
+  correlationId?: string;
+  initiatedByUpn: string;           // initiatedBy.user.userPrincipalName
+  initiatedById?: string;
+  initiatedByIp?: string;           // initiatedBy.user.ipAddress (also src_ip)
+  initiatedByRoles?: string[];
+  targetUpn?: string;               // targetResources[0].userPrincipalName
+  targetId?: string;
+  eventType?: import("../types").EventType; // default "account_modify"
+  geo?: EntraGeo;
+  /** targetResources[0].modifiedProperties[*] and any other azure.auditlogs.* fields */
+  extra?: Record<string, unknown>;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function entraAudit(o: EntraAuditOpts): TelemetryEvent {
+  const result = o.result ?? "success";
+  return {
+    id: o.id, ts: o.ts, source: "o365", vendor: VENDOR, event_type: o.eventType ?? "account_modify",
+    severity: o.severity ?? "medium", src_ip: o.initiatedByIp, user_email: o.targetUpn ?? o.initiatedByUpn,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId, geo: o.geo,
+    description: o.description ?? `${o.initiatedByUpn} performed ${o.operationName}${o.targetUpn ? ` on ${o.targetUpn}` : ""}`,
+    raw: {
+      "azure.auditlogs.category": "AuditLogs",
+      "azure.auditlogs.operationName": o.operationName,
+      "azure.auditlogs.properties.activityDisplayName": o.activityDisplayName ?? o.operationName,
+      "azure.auditlogs.properties.activityDateTime": o.ts,
+      "azure.auditlogs.properties.category": o.category ?? "UserManagement",
+      ...(o.loggedByService ? { "azure.auditlogs.properties.loggedByService": o.loggedByService } : {}),
+      "azure.auditlogs.properties.operationType": o.operationType ?? "Update",
+      "azure.auditlogs.properties.result": result,
+      ...(o.resultReason ? { "azure.auditlogs.properties.resultReason": o.resultReason } : {}),
+      ...(o.correlationId ? { "azure.auditlogs.properties.correlationId": o.correlationId } : {}),
+      "azure.auditlogs.properties.initiatedBy.user.userPrincipalName": o.initiatedByUpn,
+      ...(o.initiatedById ? { "azure.auditlogs.properties.initiatedBy.user.id": o.initiatedById } : {}),
+      ...(o.initiatedByIp ? { "azure.auditlogs.properties.initiatedBy.user.ipAddress": o.initiatedByIp } : {}),
+      ...(o.initiatedByRoles ? { "azure.auditlogs.properties.initiatedBy.user.roles": o.initiatedByRoles } : {}),
+      ...(o.targetUpn ? { "azure.auditlogs.properties.targetResources[0].type": "User", "azure.auditlogs.properties.targetResources[0].userPrincipalName": o.targetUpn } : {}),
+      ...(o.targetId ? { "azure.auditlogs.properties.targetResources[0].id": o.targetId } : {}),
+      ...((o.extra ?? {}) as Record<string, string>),
+      ...(o.initiatedByIp ? { "source.ip": o.initiatedByIp } : {}),
+    },
+  };
+}
