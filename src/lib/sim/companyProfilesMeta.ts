@@ -185,6 +185,19 @@ export interface CompanyAssets {
 // LIGHT module so both the adaptation layer and the emitters can use it without pulling
 // in the heavy event pools. A regression gate asserts it stays aligned with the feed.
 export const COMPANY_ASSETS: Record<string, CompanyAssets> = {
+  // vantageindustrial appears only in scenario packs (e.g. destructiveWiper), not in
+  // the live feed, but it is registered here so the emitters resolve its netbios/domain
+  // deterministically — the same single-source-of-truth every other company uses.
+  vantageindustrial: {
+    hosts: ["VNT-WKS-27", "VNT-WKS-19", "VNT-WKS-11", "VNT-SRV-FS01", "VNT-SRV-DC01"],
+    subnet: "10.60.8", domain: "vantageindustrial.com", netbios: "VANTAGE",
+    roster: [
+      { name: "a.novak", title: "Systems Administrator" }, { name: "m.reyes", title: "Operations Manager" },
+      { name: "it.deploy", title: "IT Deployment" }, { name: "s.kowalski", title: "Plant Engineer" },
+    ],
+    serviceAccounts: ["svc-deploy", "svc-backup"],
+    dc: "VNT-SRV-DC01", fileServer: "VNT-SRV-FS01",
+  },
   nexacorp: {
     hosts: ["WS-HR-1182", "WS-OPS-2214", "WS-MKT-3301", "WS-ACC-4477", "WS-ENG-2093",
             "WS-SALES-1876", "WS-FIN-1193", "WS-FIN-2847", "SRV-NXC-FS01", "SRV-NXC-DC01"],

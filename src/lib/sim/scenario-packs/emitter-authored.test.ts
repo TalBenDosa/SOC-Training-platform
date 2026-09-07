@@ -14,6 +14,7 @@ import { buildLateralMovementPthScenario } from "./lateralMovementPth";
 import { buildWindowsPrivescTokenScenario } from "./windowsPrivescToken";
 import { buildMultiHostIntrusionScenario } from "./multiHostIntrusion";
 import { buildIsoContainerSmugglingScenario } from "./isoContainerSmuggling";
+import { buildDestructiveWiperScenario } from "./destructiveWiper";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -26,6 +27,7 @@ const FULLY_EMITTER_AUTHORED = [
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
+  "destructiveWiper.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -410,5 +412,46 @@ describe("emitter-authored scenario packs", () => {
     // one host, correlated
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("LAP-5528");
+  });
+
+  it("destructiveWiper builds a coherent wiper chain from emitters only (CrowdStrike + Sysmon + MDE)", () => {
+    const s = buildDestructiveWiperScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "CrowdStrike Falcon", "Microsoft Sysmon", "Microsoft Defender for Endpoint",
+    ]));
+    // benign control: signed sdelete, high integrity, resolves fp
+    const benign = s.events.find(e => e.id === "dw_00_benign_secure_wipe");
+    expect(benign?.expected_verdict).toBe("fp");
+    expect(benign?.raw?.["process.code_signature.subject_name"]).toBe("Microsoft Corporation");
+    // the wiper runs as SYSTEM off the SCM
+    const exec = s.events.find(e => e.id === "dw_01_wiper_exec");
+    expect(exec?.process?.user).toBe("NT AUTHORITY\\SYSTEM");
+    expect(exec?.raw?.["process.integrity_level"]).toBe("System");
+    // BYOVD: Sysmon Event 6 driver load, validly signed 3rd-party driver
+    const drv = s.events.find(e => e.id === "dw_02_driver_load");
+    expect(drv?.raw?.["winlog.event_id"]).toBe("6");
+    expect(drv?.raw?.["winlog.event_data.ImageLoaded"]).toContain("epmntdrv.sys");
+    expect(drv?.raw?.["winlog.event_data.Signed"]).toBe("true");
+    // shadow-copy deletion: Sysmon 1 vssadmin under the wiper
+    const vss = s.events.find(e => e.id === "dw_03_vssadmin_delete");
+    expect(vss?.raw?.["winlog.event_id"]).toBe("1");
+    expect(String(vss?.raw?.["winlog.event_data.ParentImage"])).toContain("cl64.exe");
+    // MDE corroboration ties the same initiating payload SHA256
+    const mde = s.events.find(e => e.id === "dw_08_mde_corroboration");
+    expect(mde?.raw?.["ActionType"]).toBe("ProcessCreated");
+    expect(mde?.raw?.["InitiatingProcessSHA256"]).toBe(exec?.process?.hash?.sha256);
+    // the disk-structure wipe is a RawDiskAccess to PhysicalDrive0
+    const raw = s.events.find(e => e.id === "dw_06_raw_disk_write");
+    expect(raw?.raw?.["crowdstrike.event_simpleName"]).toBe("RawDiskAccess");
+    expect(String(raw?.raw?.["crowdstrike.TargetDevice"])).toContain("PhysicalDrive0");
+    // the detection attributes the deploying account in the company netbios realm
+    const alert = s.events.find(e => e.id === "dw_09_edr_detection");
+    expect(alert?.is_detection).toBe(true);
+    expect(alert?.edr_scope).toBe("edr");
+    expect(alert?.raw?.["crowdstrike.UserName"]).toBe("VANTAGE\\a.novak");
+    // one host, correlated
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("VNT-WKS-27");
   });
 });

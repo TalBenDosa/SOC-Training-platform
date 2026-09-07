@@ -389,3 +389,46 @@ export function sysmonPipe(o: SysmonPipeOpts): TelemetryEvent {
     },
   };
 }
+
+// ── Event 6 — Driver loaded (BYOVD / kernel driver load) ──────────────────────────────
+// A kernel driver is loaded — the tell for Bring-Your-Own-Vulnerable-Driver and for a
+// signed third-party driver abused to reach the raw disk from kernel mode.
+export interface SysmonDriverOpts extends Ctx {
+  image: string;                   // ImageLoaded — the .sys path
+  sha256?: string;
+  signed?: boolean;
+  signature?: string;              // signer subject (e.g. the vendor)
+  signatureStatus?: string;        // "Valid" | "Expired" | …
+  eventType?: EventType;           // default "service_install"
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonDriver(o: SysmonDriverOpts): TelemetryEvent {
+  const r = resolve(o);
+  const name = o.image.split(/[\/]/).pop() ?? o.image;
+  const sha256 = o.sha256 ?? makeSha256(`sysmondriver:${o.image}`);
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: o.eventType ?? "service_install",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    file: { name, path: o.image, sha256 },
+    description: o.description ?? `Kernel driver ${name} loaded on ${r.host} (Sysmon 6)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "6",
+      "winlog.event_data.ImageLoaded": o.image,
+      "winlog.event_data.Hashes": `SHA256=${sha256}`,
+      ...(o.signed !== undefined ? { "winlog.event_data.Signed": String(o.signed) } : {}),
+      ...(o.signature ? { "winlog.event_data.Signature": o.signature } : {}),
+      ...(o.signatureStatus ? { "winlog.event_data.SignatureStatus": o.signatureStatus } : {}),
+      "file.hash.sha256": sha256,
+      "event.code": "6",
+      "event.category": "driver",
+      "event.action": "driver-loaded",
+      "host.name": r.host,
+    },
+  };
+}

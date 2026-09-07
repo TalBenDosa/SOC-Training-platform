@@ -32,6 +32,9 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { csProcess, csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { sysmonProcess, sysmonFile, sysmonDriver } from "@/lib/sim/emitters/sysmon";
+import { mdeProcess } from "@/lib/sim/emitters/mde";
 
 export function buildDestructiveWiperScenario(
   scenarioId = "destructive-wiper-2026",
@@ -68,525 +71,111 @@ export function buildDestructiveWiperScenario(
   const sensorId = "a1f7c3e290b64d58b2c419e037f8a6c1";
   const aid = "6b2d9c4715a04e83b9f1c60a28e7d54f";
 
+  const cx = "vantageindustrial" as const;
+  const cl64Path = "C:\\Users\\Public\\cl64.exe";
+  const osExtra = { "host.os.name": host.os, "host.os.version": host.osVersion };
+
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — an authorised, change-ticketed secure wipe.
-    //    IT running signed Sysinternals sdelete against a decommissioned host
-    //    inside a maintenance window. Same "the disk is being overwritten"
-    //    shape as the attack, opposite verdict.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_00_benign_secure_wipe",
-      ts: "2026-08-28T21:30:00.000Z",
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: decommHost.name,
-      user_email: "it.deploy@vantageindustrial.com",
-      severity: "informational",
-      expected_verdict: "fp",
-      fp_explanation:
-        "The control case for the whole scenario. Under change ticket CHG-20418, the IT decommissioning team ran signed Sysinternals sdelete to securely erase VNT-WKS-19 before it left the estate — the same 'a disk is being overwritten' shape as the intrusion. What makes it benign is written in the authorisation and the surrounding behaviour: a signed Microsoft-published tool, run by a named IT account, at high integrity, inside a maintenance window, on a host slated for disposal. It does NOT delete this host's shadow copies to block recovery, does NOT disable boot recovery, and does NOT clear the Security log. An analyst who alerts on 'a disk got wiped' alone will flag this and be wrong; the discriminator is who ran it, under what ticket, and whether backups and logs were destroyed alongside — not the wipe itself.",
-      description:
-        "sdelete64.exe (signed Sysinternals, Microsoft-published) ran on VNT-WKS-19 under the it.deploy account at high integrity, overwriting the drive of a host being decommissioned under change ticket CHG-20418. No shadow-copy deletion, boot-config change, or log clearing followed.",
-      process: {
-        name: "sdelete64.exe",
-        pid: 5120,
-        path: "C:\\Tools\\Sysinternals\\sdelete64.exe",
-        parent_name: "cmd.exe",
-        parent_pid: 4880,
-        cmdline: "sdelete64.exe -p 3 -c -z C:",
-        user: "VANTAGE\\it.deploy",
-        integrity: "high",
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.ComputerName": decommHost.name,
-        "crowdstrike.UserName": "VANTAGE\\it.deploy",
-        "crowdstrike.FileName": "sdelete64.exe",
-        "crowdstrike.FilePath": "C:\\Tools\\Sysinternals\\",
-        "crowdstrike.CommandLine": "sdelete64.exe -p 3 -c -z C:",
-        "crowdstrike.ParentProcessName": "cmd.exe",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "sdelete64.exe",
-        "process.executable": "C:\\Tools\\Sysinternals\\sdelete64.exe",
-        "process.command_line": "sdelete64.exe -p 3 -c -z C:",
-        "process.parent.name": "cmd.exe",
-        "process.integrity_level": "High",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Microsoft Corporation",
-        "file.name": "sdelete64.exe",
-        "file.path": "C:\\Tools\\Sysinternals\\sdelete64.exe",
-        "file.signature.status": "valid",
-        "file.signature.subject_name": "Microsoft Corporation",
-        "file.signature.trusted": "true",
-        "host.name": decommHost.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "it.deploy",
-        "event.outcome": "success",
-      },
-    },
+    // 0. BENIGN CONTROL — an authorised, change-ticketed secure wipe (signed sdelete).
+    csProcess({
+      companyId: cx, id: "dw_00_benign_secure_wipe", ts: "2026-08-28T21:30:00.000Z", host: decommHost.name,
+      user: "it.deploy@vantageindustrial.com", processName: "sdelete64.exe", processPath: "C:\\Tools\\Sysinternals\\sdelete64.exe",
+      cmdline: "sdelete64.exe -p 3 -c -z C:", parentName: "cmd.exe", parentPid: 4880, pid: 5120,
+      signed: true, signatureSubject: "Microsoft Corporation", integrity: "high", severity: "informational",
+      expectedVerdict: "fp",
+      fpExplanation: "The control case for the whole scenario. Under change ticket CHG-20418, the IT decommissioning team ran signed Sysinternals sdelete to securely erase VNT-WKS-19 before it left the estate — the same 'a disk is being overwritten' shape as the intrusion. What makes it benign is written in the authorisation and the surrounding behaviour: a signed Microsoft-published tool, run by a named IT account, at high integrity, inside a maintenance window, on a host slated for disposal. It does NOT delete this host's shadow copies to block recovery, does NOT disable boot recovery, and does NOT clear the Security log. An analyst who alerts on 'a disk got wiped' alone will flag this and be wrong; the discriminator is who ran it, under what ticket, and whether backups and logs were destroyed alongside — not the wipe itself.",
+      extra: { ...osExtra, "file.signature.status": "valid", "file.signature.subject_name": "Microsoft Corporation", "file.signature.trusted": "true" },
+      description: "sdelete64.exe (signed Sysinternals, Microsoft-published) ran on VNT-WKS-19 under the it.deploy account at high integrity, overwriting the drive of a host being decommissioned under change ticket CHG-20418. No shadow-copy deletion, boot-config change, or log clearing followed.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. THE WIPER EXECUTES — cl64.exe runs as SYSTEM, launched by the SCM
-    //    (services.exe) after being pushed as a remote service. Unsigned,
-    //    dropped in C:\Users\Public (T1485 Data Destruction).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_01_wiper_exec",
-      ts: T(0),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1485",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Falcon recorded services.exe on VNT-WKS-27 spawning an unsigned binary, C:\\Users\\Public\\cl64.exe, as NT AUTHORITY\\SYSTEM at 03:12 — a payload started by the Service Control Manager immediately before a burst of destructive activity.",
-      process: {
-        name: "cl64.exe",
-        pid: 6620,
-        path: "C:\\Users\\Public\\cl64.exe",
-        parent_name: "services.exe",
-        parent_pid: 720,
-        cmdline: "C:\\Users\\Public\\cl64.exe",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-        hash: { sha256: wiperHash },
-      },
-      file: {
-        name: "cl64.exe",
-        path: "C:\\Users\\Public\\cl64.exe",
-        sha256: wiperHash,
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "NT AUTHORITY\\SYSTEM",
-        "crowdstrike.FileName": "cl64.exe",
-        "crowdstrike.FilePath": "C:\\Users\\Public\\",
-        "crowdstrike.CommandLine": "C:\\Users\\Public\\cl64.exe",
-        "crowdstrike.ParentProcessName": "services.exe",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "cl64.exe",
-        "process.executable": "C:\\Users\\Public\\cl64.exe",
-        "process.command_line": "C:\\Users\\Public\\cl64.exe",
-        "process.parent.name": "services.exe",
-        "process.integrity_level": "System",
-        "process.hash.sha256": wiperHash,
-        "file.name": "cl64.exe",
-        "file.path": "C:\\Users\\Public\\cl64.exe",
-        "file.hash.sha256": wiperHash,
-        "file.signature.status": "unsigned",
-        "file.signature.trusted": "false",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "SYSTEM",
-        "threat.technique.id": "T1485",
-        "threat.technique.name": "Data Destruction",
-        "threat.tactic.name": "Impact",
-        "threat.tactic.id": "TA0040",
-        "event.outcome": "success",
-      },
-    },
+    // 1. THE WIPER EXECUTES — cl64.exe as SYSTEM, launched by the SCM (services.exe).
+    csProcess({
+      companyId: cx, id: "dw_01_wiper_exec", ts: T(0), host: host.name, srcIp: host.ip,
+      processName: "cl64.exe", processPath: cl64Path, cmdline: cl64Path, parentName: "services.exe", parentPid: 720, pid: 6620,
+      sha256: wiperHash, signed: false, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
+      mitre: "T1485", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
+      extra: { ...osExtra, "file.name": "cl64.exe", "file.hash.sha256": wiperHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1485", "threat.technique.name": "Data Destruction", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
+      description: "Falcon recorded services.exe on VNT-WKS-27 spawning an unsigned binary, C:\\Users\\Public\\cl64.exe, as NT AUTHORITY\\SYSTEM at 03:12 — a payload started by the Service Control Manager immediately before a burst of destructive activity.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. THE ABUSED DRIVER — Sysmon Event 6 (DriverLoad). A validly-signed
-    //    third-party partition-management driver (epmntdrv.sys) is loaded to
-    //    obtain kernel-mode raw disk access (T1543.003).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_02_driver_load",
-      ts: T(4 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "service_install",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1543.003",
-      mitre_tactic: "Privilege Escalation",
-      incident_id: INCIDENT,
-      description:
-        "Sysmon Event 6 recorded the kernel driver epmntdrv.sys loading on VNT-WKS-27 seconds after cl64.exe started. The driver is validly signed by a third-party storage-tool vendor; it is loaded to reach the physical disk from kernel mode.",
-      file: {
-        name: "epmntdrv.sys",
-        path: "C:\\Windows\\System32\\drivers\\epmntdrv.sys",
-        sha256: driverHash,
-      },
-      raw: {
-        "winlog.event_id": "6",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.computer_name": host.fqdn,
-        "winlog.event_data.ImageLoaded": "C:\\Windows\\System32\\drivers\\epmntdrv.sys",
-        "winlog.event_data.Hashes": `SHA256=${driverHash}`,
-        "winlog.event_data.Signed": "true",
-        "winlog.event_data.Signature": "CHENGDU YIWO Tech Development Co., Ltd.",
-        "winlog.event_data.SignatureStatus": "Valid",
-        "file.hash.sha256": driverHash,
-        "host.name": host.name,
-        "event.code": "6",
-      },
-    },
+    // 2. THE ABUSED DRIVER — Sysmon Event 6 (DriverLoad), a signed 3rd-party partition driver.
+    sysmonDriver({
+      companyId: cx, id: "dw_02_driver_load", ts: T(4 * SEC), host: host.name, srcIp: host.ip,
+      image: "C:\\Windows\\System32\\drivers\\epmntdrv.sys", sha256: driverHash, signed: true,
+      signature: "CHENGDU YIWO Tech Development Co., Ltd.", signatureStatus: "Valid", eventType: "service_install",
+      mitre: "T1543.003", tactic: "Privilege Escalation", severity: "high", incidentId: INCIDENT,
+      description: "Sysmon Event 6 recorded the kernel driver epmntdrv.sys loading on VNT-WKS-27 seconds after cl64.exe started. The driver is validly signed by a third-party storage-tool vendor; it is loaded to reach the physical disk from kernel mode.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. SHADOW COPIES DELETED — Sysmon Event 1. cl64.exe spawns vssadmin to
-    //    remove the Volume Shadow Copies (T1490 Inhibit System Recovery).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_03_vssadmin_delete",
-      ts: T(20 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_create",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1490",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Sysmon Event 1 shows cl64.exe spawning vssadmin.exe with 'delete shadows /all /quiet' as SYSTEM on VNT-WKS-27 — the on-disk restore points being removed.",
-      process: {
-        name: "vssadmin.exe",
-        pid: 6712,
-        path: "C:\\Windows\\System32\\vssadmin.exe",
-        parent_name: "cl64.exe",
-        parent_pid: 6620,
-        cmdline: "vssadmin.exe delete shadows /all /quiet",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-      },
-      raw: {
-        "winlog.event_id": "1",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.computer_name": host.fqdn,
-        "winlog.event_data.Image": "C:\\Windows\\System32\\vssadmin.exe",
-        "winlog.event_data.OriginalFileName": "VSSADMIN.EXE",
-        "winlog.event_data.CommandLine": "vssadmin.exe delete shadows /all /quiet",
-        "winlog.event_data.CurrentDirectory": "C:\\Windows\\System32\\",
-        "winlog.event_data.ParentImage": "C:\\Users\\Public\\cl64.exe",
-        "winlog.event_data.ParentCommandLine": "C:\\Users\\Public\\cl64.exe",
-        "winlog.event_data.ProcessId": "6712",
-        "winlog.event_data.ParentProcessId": "6620",
-        "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
-        "winlog.event_data.IntegrityLevel": "System",
-        "host.name": host.name,
-        "event.code": "1",
-      },
-    },
+    // 3. SHADOW COPIES DELETED — Sysmon Event 1, cl64 spawns vssadmin (T1490).
+    sysmonProcess({
+      companyId: cx, id: "dw_03_vssadmin_delete", ts: T(20 * SEC), host: host.name, srcIp: host.ip,
+      processName: "vssadmin.exe", processPath: "C:\\Windows\\System32\\vssadmin.exe", cmdline: "vssadmin.exe delete shadows /all /quiet",
+      parentName: "cl64.exe", parentPath: cl64Path, parentCmdline: cl64Path, pid: 6712, parentPid: 6620,
+      integrity: "System", originalFileName: "VSSADMIN.EXE", runAsUser: "NT AUTHORITY\\SYSTEM",
+      mitre: "T1490", tactic: "Impact", severity: "high", incidentId: INCIDENT,
+      description: "Sysmon Event 1 shows cl64.exe spawning vssadmin.exe with 'delete shadows /all /quiet' as SYSTEM on VNT-WKS-27 — the on-disk restore points being removed.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 8. CORROBORATION — Microsoft Defender for Endpoint sees the same run.
-    //    DeviceProcessEvents ties the vssadmin shadow-deletion to the same
-    //    initiating payload SHA256 (T1490).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_08_mde_corroboration",
-      ts: T(21 * SEC),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "process_create",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1490",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Defender for Endpoint, also on VNT-WKS-27, independently recorded the vssadmin shadow deletion. Its DeviceProcessEvents row ties the vssadmin child to the same initiating cl64.exe binary and payload SHA256 as Falcon saw.",
-      raw: {
-        "Timestamp": T(21 * SEC),
-        "DeviceName": host.name,
-        "DeviceId": host.id,
-        "ActionType": "ProcessCreated",
-        "FileName": "vssadmin.exe",
-        "FolderPath": "C:\\Windows\\System32\\vssadmin.exe",
-        "ProcessCommandLine": "vssadmin.exe delete shadows /all /quiet",
-        "ProcessId": "6712",
-        "InitiatingProcessFileName": "cl64.exe",
-        "InitiatingProcessFolderPath": "C:\\Users\\Public\\cl64.exe",
-        "InitiatingProcessCommandLine": "C:\\Users\\Public\\cl64.exe",
-        "InitiatingProcessId": "6620",
-        "InitiatingProcessSHA256": wiperHash,
-        "AccountName": "system",
-        "AccountDomain": "nt authority",
-        "ReportId": "51830744",
-        "threat.technique.id": "T1490",
-        "threat.technique.name": "Inhibit System Recovery",
-        "threat.tactic.name": "Impact",
-        "threat.tactic.id": "TA0040",
-      },
-    },
+    // 4. CORROBORATION — Microsoft Defender for Endpoint sees the same vssadmin run (T1490).
+    mdeProcess({
+      companyId: cx, id: "dw_08_mde_corroboration", ts: T(21 * SEC), host: host.name, srcIp: host.ip,
+      processName: "vssadmin.exe", processPath: "C:\\Windows\\System32\\vssadmin.exe", cmdline: "vssadmin.exe delete shadows /all /quiet",
+      parentName: "cl64.exe", pid: 6712, parentPid: 6620, runAsUser: "NT AUTHORITY\\SYSTEM", accountName: "system", accountDomain: "nt authority",
+      mitre: "T1490", tactic: "Impact", severity: "high", incidentId: INCIDENT,
+      extra: { "Timestamp": T(21 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": cl64Path, "InitiatingProcessCommandLine": cl64Path, "InitiatingProcessId": "6620", "InitiatingProcessSHA256": wiperHash, "ReportId": "51830744", "threat.technique.id": "T1490", "threat.technique.name": "Inhibit System Recovery", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
+      description: "Defender for Endpoint, also on VNT-WKS-27, independently recorded the vssadmin shadow deletion. Its DeviceProcessEvents row ties the vssadmin child to the same initiating cl64.exe binary and payload SHA256 as Falcon saw.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. BOOT RECOVERY DISABLED — Sysmon Event 1. bcdedit turns off Windows
-    //    recovery so the machine cannot self-heal (T1490).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_04_bcdedit_norecovery",
-      ts: T(35 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_create",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1490",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Sysmon Event 1 shows cl64.exe spawning bcdedit.exe to set recoveryenabled to no and ignore boot failures on VNT-WKS-27 — the Windows recovery environment being switched off.",
-      process: {
-        name: "bcdedit.exe",
-        pid: 6744,
-        path: "C:\\Windows\\System32\\bcdedit.exe",
-        parent_name: "cl64.exe",
-        parent_pid: 6620,
-        cmdline: "bcdedit.exe /set {default} recoveryenabled no",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-      },
-      raw: {
-        "winlog.event_id": "1",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.computer_name": host.fqdn,
-        "winlog.event_data.Image": "C:\\Windows\\System32\\bcdedit.exe",
-        "winlog.event_data.OriginalFileName": "bcdedit.exe",
-        "winlog.event_data.CommandLine": "bcdedit.exe /set {default} recoveryenabled no",
-        "winlog.event_data.CurrentDirectory": "C:\\Windows\\System32\\",
-        "winlog.event_data.ParentImage": "C:\\Users\\Public\\cl64.exe",
-        "winlog.event_data.ParentCommandLine": "C:\\Users\\Public\\cl64.exe",
-        "winlog.event_data.ProcessId": "6744",
-        "winlog.event_data.ParentProcessId": "6620",
-        "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
-        "winlog.event_data.IntegrityLevel": "System",
-        "host.name": host.name,
-        "event.code": "1",
-      },
-    },
+    // 5. BOOT RECOVERY DISABLED — Sysmon Event 1, bcdedit (T1490).
+    sysmonProcess({
+      companyId: cx, id: "dw_04_bcdedit_norecovery", ts: T(35 * SEC), host: host.name, srcIp: host.ip,
+      processName: "bcdedit.exe", processPath: "C:\\Windows\\System32\\bcdedit.exe", cmdline: "bcdedit.exe /set {default} recoveryenabled no",
+      parentName: "cl64.exe", parentPath: cl64Path, parentCmdline: cl64Path, pid: 6744, parentPid: 6620,
+      integrity: "System", originalFileName: "bcdedit.exe", runAsUser: "NT AUTHORITY\\SYSTEM",
+      mitre: "T1490", tactic: "Impact", severity: "high", incidentId: INCIDENT,
+      description: "Sysmon Event 1 shows cl64.exe spawning bcdedit.exe to set recoveryenabled to no and ignore boot failures on VNT-WKS-27 — the Windows recovery environment being switched off.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. EVENT LOG CLEARED — Falcon process_create. wevtutil clears the
-    //    Security log to erase the trail (T1070.001 Clear Windows Event Logs).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_05_wevtutil_clear",
-      ts: T(50 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1070.001",
-      mitre_tactic: "Defense Evasion",
-      incident_id: INCIDENT,
-      description:
-        "Falcon recorded cl64.exe spawning wevtutil.exe with 'cl Security' as SYSTEM on VNT-WKS-27 — the Security event log being emptied.",
-      process: {
-        name: "wevtutil.exe",
-        pid: 6790,
-        path: "C:\\Windows\\System32\\wevtutil.exe",
-        parent_name: "cl64.exe",
-        parent_pid: 6620,
-        cmdline: "wevtutil.exe cl Security",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "NT AUTHORITY\\SYSTEM",
-        "crowdstrike.FileName": "wevtutil.exe",
-        "crowdstrike.FilePath": "C:\\Windows\\System32\\",
-        "crowdstrike.CommandLine": "wevtutil.exe cl Security",
-        "crowdstrike.ParentProcessName": "cl64.exe",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "wevtutil.exe",
-        "process.executable": "C:\\Windows\\System32\\wevtutil.exe",
-        "process.command_line": "wevtutil.exe cl Security",
-        "process.parent.name": "cl64.exe",
-        "process.integrity_level": "System",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "threat.technique.id": "T1070.001",
-        "threat.technique.name": "Clear Windows Event Logs",
-        "threat.tactic.name": "Defense Evasion",
-        "threat.tactic.id": "TA0005",
-        "event.outcome": "success",
-      },
-    },
+    // 6. EVENT LOG CLEARED — Falcon process_create, wevtutil (T1070.001).
+    csProcess({
+      companyId: cx, id: "dw_05_wevtutil_clear", ts: T(50 * SEC), host: host.name, srcIp: host.ip,
+      processName: "wevtutil.exe", processPath: "C:\\Windows\\System32\\wevtutil.exe", cmdline: "wevtutil.exe cl Security",
+      parentName: "cl64.exe", parentPid: 6620, pid: 6790, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
+      mitre: "T1070.001", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+      extra: { ...osExtra, "threat.technique.id": "T1070.001", "threat.technique.name": "Clear Windows Event Logs", "threat.tactic.name": "Defense Evasion", "threat.tactic.id": "TA0005" },
+      description: "Falcon recorded cl64.exe spawning wevtutil.exe with 'cl Security' as SYSTEM on VNT-WKS-27 — the Security event log being emptied.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. THE DISK STRUCTURE WIPE — Falcon file_modify. Through the loaded
-    //    driver, cl64.exe writes over the raw physical disk (\\.\PhysicalDrive0
-    //    / \Device\Harddisk0), destroying the MBR and partition table
-    //    (T1561.002 Disk Structure Wipe).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_06_raw_disk_write",
-      ts: T(70 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_modify",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1561.002",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Falcon recorded cl64.exe issuing raw writes to \\\\.\\PhysicalDrive0 (\\Device\\Harddisk0\\DR0) on VNT-WKS-27 — the master boot record and partition table region of the physical disk being overwritten directly, not through the file system.",
-      process: {
-        name: "cl64.exe",
-        pid: 6620,
-        path: "C:\\Users\\Public\\cl64.exe",
-        parent_name: "services.exe",
-        parent_pid: 720,
-        cmdline: "C:\\Users\\Public\\cl64.exe",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-        hash: { sha256: wiperHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "RawDiskAccess",
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "NT AUTHORITY\\SYSTEM",
-        "crowdstrike.FileName": "cl64.exe",
-        "crowdstrike.FilePath": "C:\\Users\\Public\\",
-        "crowdstrike.CommandLine": "C:\\Users\\Public\\cl64.exe",
-        "crowdstrike.OperationType": "DiskWrite",
-        "crowdstrike.TargetDevice": "\\\\.\\PhysicalDrive0",
-        "crowdstrike.VolumeDevice": "\\Device\\Harddisk0\\DR0",
-        "process.name": "cl64.exe",
-        "process.executable": "C:\\Users\\Public\\cl64.exe",
-        "process.hash.sha256": wiperHash,
-        "process.integrity_level": "System",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "threat.technique.id": "T1561.002",
-        "threat.technique.name": "Disk Wipe: Disk Structure Wipe",
-        "threat.tactic.name": "Impact",
-        "threat.tactic.id": "TA0040",
-        "event.outcome": "success",
-      },
-    },
+    // 7. THE DISK STRUCTURE WIPE — Falcon RawDiskAccess, raw write to PhysicalDrive0 (T1561.002).
+    csProcess({
+      companyId: cx, id: "dw_06_raw_disk_write", ts: T(70 * SEC), host: host.name, srcIp: host.ip,
+      processName: "cl64.exe", processPath: cl64Path, cmdline: cl64Path, parentName: "services.exe", parentPid: 720, pid: 6620,
+      sha256: wiperHash, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM", simpleName: "RawDiskAccess", eventType: "file_modify",
+      mitre: "T1561.002", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
+      extra: { ...osExtra, "crowdstrike.OperationType": "DiskWrite", "crowdstrike.TargetDevice": "\\\\.\\PhysicalDrive0", "crowdstrike.VolumeDevice": "\\Device\\Harddisk0\\DR0", "threat.technique.id": "T1561.002", "threat.technique.name": "Disk Wipe: Disk Structure Wipe", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
+      description: "Falcon recorded cl64.exe issuing raw writes to \\\\.\\PhysicalDrive0 (\\Device\\Harddisk0\\DR0) on VNT-WKS-27 — the master boot record and partition table region of the physical disk being overwritten directly, not through the file system.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 7. FILE CONTENT WIPE — Sysmon Event 11 (FileCreate). cl64.exe overwrites
-    //    user documents with junk (T1561.001 Disk Content Wipe).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "dw_07_file_overwrite",
-      ts: T(80 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "file_modify",
-      hostname: host.name,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1561.001",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Sysmon Event 11 shows cl64.exe writing over user files on VNT-WKS-27, including C:\\Users\\m.reyes\\Documents\\Q3-forecast.xlsx — the file contents being replaced with junk rather than encrypted.",
-      process: {
-        name: "cl64.exe",
-        pid: 6620,
-        path: "C:\\Users\\Public\\cl64.exe",
-        parent_name: "services.exe",
-        parent_pid: 720,
-        cmdline: "C:\\Users\\Public\\cl64.exe",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-        hash: { sha256: wiperHash },
-      },
-      file: {
-        name: "Q3-forecast.xlsx",
-        path: "C:\\Users\\m.reyes\\Documents\\Q3-forecast.xlsx",
-      },
-      raw: {
-        "winlog.event_id": "11",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.computer_name": host.fqdn,
-        "winlog.event_data.Image": "C:\\Users\\Public\\cl64.exe",
-        "winlog.event_data.TargetFilename": "C:\\Users\\m.reyes\\Documents\\Q3-forecast.xlsx",
-        "winlog.event_data.CreationUtcTime": "2026-08-29 03:13:20.114",
-        "winlog.event_data.ProcessId": "6620",
-        "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
-        "host.name": host.name,
-        "event.code": "11",
-      },
-    },
+    // 8. FILE CONTENT WIPE — Sysmon Event 11, cl64 overwrites user documents (T1561.001).
+    sysmonFile({
+      companyId: cx, id: "dw_07_file_overwrite", ts: T(80 * SEC), host: host.name, srcIp: host.ip,
+      processName: "cl64.exe", processPath: cl64Path, pid: 6620,
+      path: "C:\\Users\\m.reyes\\Documents\\Q3-forecast.xlsx", sha256: null,
+      mitre: "T1561.001", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
+      description: "Sysmon Event 11 shows cl64.exe writing over user files on VNT-WKS-27, including C:\\Users\\m.reyes\\Documents\\Q3-forecast.xlsx — the file contents being replaced with junk rather than encrypted.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 9. THE DETECTION — Falcon raises the Critical destructive-attack
-    //    detection, and attributes the deploying account. is_detection +
-    //    edr_scope "edr" (endpoint-only; there is no control-plane facet).
-    // ─────────────────────────────────────────────────────────────────────
+    // 9. THE DETECTION — Falcon Critical destructive-attack detection, attributes the deploy account.
     {
-      id: "dw_09_edr_detection",
-      ts: T(2 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.name,
-      user_email: deployAdmin.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1485",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      is_detection: true,
+      ...csAlert({
+        companyId: cx, id: "dw_09_edr_detection", ts: T(2 * MIN), host: host.name, srcIp: host.ip, user: deployAdmin.email,
+        threatName: "WindowsWiper_DestructiveDiskWrite", mitre: "T1485", tactic: "Impact", technique: "Data Destruction",
+        action: "detected", processTree: "services.exe > cl64.exe", severity: "critical", incidentId: INCIDENT,
+        detail: "A SYSTEM binary loaded a signed disk driver, deleted the shadow copies, disabled boot recovery, cleared the Security log, and wrote over the raw disk and user files. The remote service that launched it was created under the a.novak account.",
+        description: "Falcon raised a Critical detection on VNT-WKS-27: a SYSTEM binary loaded a signed disk driver, deleted the shadow copies, disabled boot recovery, cleared the Security log, and wrote over the raw disk and user files. The remote service that launched it was created under the a.novak account.",
+      }),
       edr_scope: "edr",
-      description:
-        "Falcon raised a Critical detection on VNT-WKS-27: a SYSTEM binary loaded a signed disk driver, deleted the shadow copies, disabled boot recovery, cleared the Security log, and wrote over the raw disk and user files. The remote service that launched it was created under the a.novak account.",
-      process: {
-        name: "cl64.exe",
-        pid: 6620,
-        path: "C:\\Users\\Public\\cl64.exe",
-        parent_name: "services.exe",
-        parent_pid: 720,
-        cmdline: "C:\\Users\\Public\\cl64.exe",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-        hash: { sha256: wiperHash },
-      },
-      raw: {
-        "crowdstrike.DetectName": "WindowsWiper_DestructiveDiskWrite",
-        "crowdstrike.Tactic": "Impact",
-        "crowdstrike.Technique": "Data Destruction",
-        "crowdstrike.Objective": "Falcon Detection Method",
-        "crowdstrike.SeverityName": "Critical",
-        "crowdstrike.PatternDispositionDescription": "Detection, No Action",
-        "crowdstrike.IncidentType": "Destructive Attack",
-        "crowdstrike.SensorId": sensorId,
-        "crowdstrike.aid": aid,
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": `VANTAGE\\${deployAdmin.sam}`,
-        "crowdstrike.FileName": "cl64.exe",
-        "crowdstrike.FilePath": "C:\\Users\\Public\\",
-        "process.hash.sha256": wiperHash,
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": deployAdmin.sam,
-        "threat.technique.id": "T1485",
-        "threat.technique.name": "Data Destruction",
-        "threat.tactic.name": "Impact",
-        "threat.tactic.id": "TA0040",
-        "event.outcome": "success",
-      },
     },
   ];
 

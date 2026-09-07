@@ -154,7 +154,14 @@ export interface CsProcessOpts extends Ctx {
   pid?: number;                 // pin the PID to keep a multi-event tree stable
   sha256?: string;
   signed?: boolean;             // authenticode result; drives the console's signed field
+  signatureSubject?: string;    // code_signature.subject_name (e.g. "Microsoft Corporation")
   originalFileName?: string;    // PE embedded OriginalFileName — the rename tell (rclone → svchost-update)
+  runAsUser?: string;           // token owner override (verbatim DOMAIN\user, e.g. "NT AUTHORITY\\SYSTEM")
+  integrity?: "low" | "medium" | "high" | "system";
+  simpleName?: string;          // override crowdstrike.event_simpleName (e.g. "RawDiskAccess")
+  expectedVerdict?: ExpectedVerdict;
+  fpExplanation?: string;       // benign-control rationale (a decoy that resolves fp)
+  extra?: Record<string, string | number>; // extra registry-valid raw fields (threat.*, host.os.*, OperationType…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -162,23 +169,27 @@ export interface CsProcessOpts extends Ctx {
   eventType?: EventType;        // override (e.g. "scheduled_task" for a schtasks.exe run)
   description?: string;
 }
+const INTEG_LABEL = { low: "Low", medium: "Medium", high: "High", system: "System" } as const;
 export function csProcess(o: CsProcessOpts): TelemetryEvent {
   const r = resolve(o);
   const pid = o.pid ?? pidFrom(o.id);
   const ppid = o.parentPid ?? pidFrom(`${o.id}:parent`);
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
   const sha256 = o.sha256;
+  const userFull = o.runAsUser ?? r.domainUser;
+  const userBare = o.runAsUser ? (o.runAsUser.split("\\").pop() ?? o.runAsUser) : r.bareUser;
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: o.eventType ?? "process_create",
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
+    expected_verdict: o.expectedVerdict, ...(o.fpExplanation ? { fp_explanation: o.fpExplanation } : {}),
     incident_id: o.incidentId,
     description: o.description ?? `${o.processName} launched on ${r.host}`,
-    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: r.domainUser, hash: sha256 ? { sha256 } : undefined },
+    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: userFull, ...(o.integrity ? { integrity: o.integrity } : {}), hash: sha256 ? { sha256 } : undefined },
     raw: {
-      "crowdstrike.event_simpleName": "ProcessRollup2",
+      "crowdstrike.event_simpleName": o.simpleName ?? "ProcessRollup2",
       "crowdstrike.ComputerName": r.host,
-      "crowdstrike.UserName": r.domainUser,
+      "crowdstrike.UserName": userFull,
       "crowdstrike.FileName": o.processName,
       "crowdstrike.FilePath": path,
       "crowdstrike.CommandLine": o.cmdline,
@@ -188,8 +199,12 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
       "crowdstrike.aid": r.sensorId,
       ...(sha256 ? { "process.hash.sha256": sha256 } : {}),
       ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...(o.signatureSubject ? { "process.code_signature.subject_name": o.signatureSubject } : {}),
+      ...(o.integrity ? { "process.integrity_level": INTEG_LABEL[o.integrity] } : {}),
       ...(o.originalFileName ? { "process.original_file_name": o.originalFileName } : {}),
       "process.command_line": o.cmdline,
+      "user.name": userBare,
+      ...(o.extra ?? {}),
     },
   };
 }
