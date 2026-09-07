@@ -98,6 +98,7 @@ const SOURCES = [
   { value: "firewall",   label: "Firewall" },
   { value: "dns",        label: "DNS" },
   { value: "cloudtrail", label: "Cloud Trail" },
+  { value: "cloud_azure", label: "Azure Activity Log" },
   { value: "vpn",        label: "VPN" },
   { value: "sysmon",     label: "Sysmon" },
   { value: "proxy",      label: "Proxy" },

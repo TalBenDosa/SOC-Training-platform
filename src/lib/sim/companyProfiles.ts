@@ -1320,12 +1320,12 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   },
   {
     id: "mc_fp_002", ts: "2026-05-10T10:30:00.000Z",
-    source: "cloudtrail", event_type: "cloud_api_call", severity: "medium",
-    vendor: "AWS CloudTrail", user_email: undefined, src_ip: undefined,
+    source: "cloud_azure", event_type: "cloud_api_call", severity: "medium",
+    vendor: "Azure Activity Log", user_email: undefined, src_ip: undefined,
     expected_verdict: "fp",
-    fp_explanation: "The MedCore nightly backup job (scheduled Lambda function) downloads a full S3 snapshot of patient records to the DR bucket. The 8 GB transfer at 10:30 is the tail end of the overnight backup window. The IAM role (medcore-backup-lambda) only has S3 read + DR-bucket write. This is scheduled infrastructure, not exfiltration.",
-    description: "medcore-backup-lambda copied 8GB patient snapshot to DR bucket",
-    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "medcore-backup-lambda", "aws.cloudtrail.request_parameters.destination_bucket": "medcore-dr-eu-west-1", "aws.cloudtrail.additional_event_data.bytes_transferred_out": "8589934592", "action_result": "allowed" }
+    fp_explanation: "The MedCore nightly backup job (Azure Backup / Recovery Services vault) copies a full snapshot of patient records to the DR storage account. The 8 GB transfer at 10:30 is the tail end of the overnight backup window. The managed identity (id-medcore-backup) only has blob read + DR-account write. This is scheduled infrastructure, not exfiltration.",
+    description: "id-medcore-backup copied 8GB patient snapshot to the DR storage account",
+    raw: { "azure.activitylogs.operationName": "MICROSOFT.STORAGE/STORAGEACCOUNTS/BLOBSERVICES/CONTAINERS/BLOBS/WRITE", "azure.activitylogs.event_category": "DataPlane", "azure.activitylogs.resultType": "Success", "azure.activitylogs.identity.claims_initiated_by_user.name": "id-medcore-backup", "azure.resource.group": "rg-medcore-dr", "azure.resource.provider": "MICROSOFT.STORAGE", "azure.resource.name": "stmedcoredreuw", "azure.bytes_transferred": "8589934592", "event.outcome": "success" }
   },
   {
     id: "mc_fp_003", ts: "2026-05-10T14:45:00.000Z",
