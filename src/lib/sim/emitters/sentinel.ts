@@ -19,6 +19,7 @@ const VENDOR = "Microsoft Sentinel";
 export interface SentinelAlertOpts extends Ctx {
   alertName: string;
   ruleId?: string;
+  detail?: string;                 // alert.description
   severity?: Severity;
   eventType?: EventType;       // default "ueba_anomaly"
   mitre?: string;
@@ -45,6 +46,7 @@ export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
     raw: {
       "AlertName": o.alertName,
       ...(o.ruleId ? { "alert.rule.id": o.ruleId } : {}),
+      ...(o.detail ? { "alert.description": o.detail } : {}),
       "alert.severity": SEV_NAME[sev],
       "host.name": r.host,
       "host.ip": r.srcIp,

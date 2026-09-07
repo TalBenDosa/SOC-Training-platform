@@ -8,6 +8,7 @@ import { buildDriveByBrowserMinerScenario } from "./driveByBrowserMiner";
 import { buildBruteForceSingleAccountScenario } from "./bruteForceSingleAccount";
 import { buildOktaPasswordBurstScenario } from "./oktaPasswordBurst";
 import { buildUebaCompromisedAccountScenario } from "./uebaCompromisedAccount";
+import { buildScheduledTaskPersistenceScenario } from "./scheduledTaskPersistence";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -18,6 +19,7 @@ const FULLY_EMITTER_AUTHORED = [
   "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
+  "scheduledTaskPersistence.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -201,5 +203,30 @@ describe("emitter-authored scenario packs", () => {
     expect(score?.edr_scope).toBe("non_edr");
     expect(score?.raw?.["RiskyUser"]).toBe("true");
     expect(score?.raw?.["behavior.name"]).toBe("account_takeover_pattern");
+  });
+
+  it("scheduledTaskPersistence builds a coherent persistence incident from emitters only (Sysmon + PAN + Sentinel)", () => {
+    const s = buildScheduledTaskPersistenceScenario();
+    expect(s.events.length).toBe(9);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Microsoft Sysmon", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
+    ]));
+    // the schtasks registration is the alert-grade persistence crux
+    const task = s.events.find(e => e.id === "evt_stp_04_scheduled_task");
+    expect(task?.event_type).toBe("scheduled_task");
+    expect(task?.is_detection).toBe(true);
+    expect(task?.edr_scope).toBe("edr");
+    expect(task?.raw?.["winlog.event_data.ProcessGuid"]).toBeTruthy();
+    // the relaunch at logon proves the task fired — parent is the Schedule svchost
+    const relaunch = s.events.find(e => e.id === "evt_stp_07_relaunch_at_logon");
+    expect(String(relaunch?.raw?.["winlog.event_data.ParentCommandLine"])).toContain("-s Schedule");
+    expect(relaunch?.process?.hash?.sha256).toBe(task && s.events.find(e => e.id === "evt_stp_03_payload_written")?.file?.sha256);
+    // the ProcessGuid join key is present on the SIEM correlation
+    const det = s.events.find(e => e.id === "evt_stp_08_detection");
+    expect(det?.raw?.["ExtendedProperties.Query"]).toContain("ParentProcessGuid");
+    // one host, correlated: the EDR console opens on WS-7742 with the schtasks tree
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("WS-7742");
+    expect(inv.processes.some(p => p.name === "schtasks.exe")).toBe(true);
   });
 });

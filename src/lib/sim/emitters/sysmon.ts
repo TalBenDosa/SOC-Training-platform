@@ -12,7 +12,7 @@
  * Sysmon is source:"sysmon". Process/network/file events carry a process node so
  * the EDR console can still reconstruct the tree.
  */
-import type { TelemetryEvent, Severity } from "../types";
+import type { TelemetryEvent, Severity, EventType } from "../types";
 import { makeSha256 } from "../iocs";
 import { resolve, pidFrom, type Ctx } from "./_core";
 
@@ -42,6 +42,9 @@ export interface SysmonProcessOpts extends Ctx {
   signed?: boolean;
   integrity?: "Low" | "Medium" | "High" | "System";
   originalFileName?: string;
+  processGuid?: string;            // Sysmon ProcessGuid — the SIEM join key
+  parentGuid?: string;             // ParentProcessGuid
+  eventType?: EventType;           // override (e.g. "scheduled_task" for a schtasks.exe run)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -56,7 +59,7 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
   const parentPath = o.parentPath ?? (o.parentName ? `C:\\Windows\\explorer.exe` : undefined);
   const sha256 = o.sha256 ?? makeSha256(`sysmon:${o.processName}:${o.cmdline}`);
   return {
-    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "process_create",
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: o.eventType ?? "process_create",
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
     process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: r.domainUser, hash: { sha256 } },
@@ -64,12 +67,15 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
     raw: {
       ...base(o, r),
       "winlog.event_id": "1",
+      "winlog.event_data.UtcTime": o.ts,
       "winlog.event_data.Image": path,
       "winlog.event_data.CommandLine": o.cmdline,
       "winlog.event_data.ProcessId": String(pid),
+      ...(o.processGuid ? { "winlog.event_data.ProcessGuid": o.processGuid } : {}),
       ...(o.parentName ? { "winlog.event_data.ParentImage": parentPath ?? o.parentName } : {}),
       ...(o.parentCmdline ? { "winlog.event_data.ParentCommandLine": o.parentCmdline } : {}),
       "winlog.event_data.ParentProcessId": String(ppid),
+      ...(o.parentGuid ? { "winlog.event_data.ParentProcessGuid": o.parentGuid } : {}),
       "winlog.event_data.User": r.domainUser,
       "winlog.event_data.Hashes": `SHA256=${sha256}`,
       "winlog.event_data.IntegrityLevel": o.integrity ?? "Medium",
@@ -153,7 +159,10 @@ export interface SysmonFileOpts extends Ctx {
   processName: string;
   processPath?: string;
   pid?: number;
+  processGuid?: string;
   path: string;                    // TargetFilename
+  sha256?: string | null;          // null = omit a hash; string pins it
+  fileSize?: number;
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -165,11 +174,12 @@ export function sysmonFile(o: SysmonFileOpts): TelemetryEvent {
   const pid = o.pid ?? pidFrom(o.id);
   const image = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
   const name = o.path.split(/[\\/]/).pop() ?? o.path;
+  const sha256 = o.sha256 === null ? undefined : (o.sha256 ?? makeSha256(`sysmonfile:${o.path}`));
   return {
     id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "file_create",
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
-    file: { name, path: o.path },
+    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}), ...(o.fileSize ? { size: o.fileSize } : {}), extension: name.split(".").pop() },
     description: o.description ?? `${name} written by ${o.processName} on ${r.host} (Sysmon 11)`,
     raw: {
       ...base(o, r),
@@ -177,7 +187,9 @@ export function sysmonFile(o: SysmonFileOpts): TelemetryEvent {
       "winlog.event_data.Image": image,
       "winlog.event_data.TargetFilename": o.path,
       "winlog.event_data.ProcessId": String(pid),
+      ...(o.processGuid ? { "winlog.event_data.ProcessGuid": o.processGuid } : {}),
       "winlog.event_data.CreationUtcTime": o.ts,
+      ...(sha256 ? { "winlog.event_data.Hashes": `SHA256=${sha256}`, "file.hash.sha256": sha256 } : {}),
       "event.code": "11",
       "event.category": "file",
       "event.type": "creation",
@@ -197,6 +209,7 @@ export interface SysmonDnsOpts extends Ctx {
   processName: string;
   processPath?: string;
   pid?: number;
+  processGuid?: string;
   domain: string;
   resolvedIp?: string;
   mitre?: string;
@@ -220,8 +233,9 @@ export function sysmonDns(o: SysmonDnsOpts): TelemetryEvent {
       "winlog.event_id": "22",
       "winlog.event_data.Image": image,
       "winlog.event_data.ProcessId": String(pid),
+      ...(o.processGuid ? { "winlog.event_data.ProcessGuid": o.processGuid } : {}),
       "winlog.event_data.QueryName": o.domain,
-      ...(o.resolvedIp ? { "winlog.event_data.QueryResults": `::ffff:${o.resolvedIp};` } : {}),
+      ...(o.resolvedIp ? { "winlog.event_data.QueryResults": `type:  1 ${o.resolvedIp};` } : {}),
       "winlog.event_data.QueryStatus": "0",
       "event.code": "22",
       "event.category": "network",
