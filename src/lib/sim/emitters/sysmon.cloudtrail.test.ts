@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { sysmonProcess, sysmonNetwork, sysmonFile, sysmonDns, sysmonRegistry } from "./sysmon";
-import { cloudTrailEvent } from "./cloudtrail";
+import { cloudTrailEvent, guardDutyFinding } from "./cloudtrail";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 
 const REG = JSON.parse(fs.readFileSync(path.resolve("scripts/log-field-registry.json"), "utf-8"));
@@ -67,17 +67,39 @@ describe("AWS CloudTrail emitter", () => {
   it("maps eventName → the right event type and source", () => {
     const [login, get, key, stop] = events;
     expect(login.event_type).toBe("auth_success");
-    expect(login.raw?.["aws.cloudtrail.event_source"]).toBe("signin.amazonaws.com");
+    expect(login.raw?.["aws.cloudtrail.eventSource"]).toBe("signin.amazonaws.com");
     expect(get.event_type).toBe("cloud_storage_access");
-    expect(get.raw?.["aws.s3.bucket.name"]).toBe("qb-customer-exports");
+    expect(get.raw?.["aws.cloudtrail.requestParameters.bucketName"]).toBe("qb-customer-exports");
     expect(key.event_type).toBe("cloud_role_change");
-    expect(key.raw?.["aws.cloudtrail.event_source"]).toBe("iam.amazonaws.com");
+    expect(key.raw?.["aws.cloudtrail.eventSource"]).toBe("iam.amazonaws.com");
     expect(stop.event_type).toBe("audit_log_cleared");
   });
   it("resolves geo deterministically from the IP, and marks failures", () => {
     expect(events[0].geo?.country).toBe("Ukraine");      // 45.142. → Kyiv
     expect(events[4].event_type).toBe("cloud_storage_access");
     expect(events[4].raw?.["event.outcome"]).toBe("failure");
-    expect(events[4].raw?.["event.reason"]).toBe("AccessDenied");
+    expect(events[4].raw?.["aws.cloudtrail.errorCode"]).toBe("AccessDenied");
+  });
+});
+
+describe("AWS GuardDuty emitter", () => {
+  const keyValid = validatorFor("aws-cloudtrail"); // GuardDuty rides the aws-cloudtrail registry key
+  const finding = guardDutyFinding({
+    id: "g1", ts: T(9), findingType: "Exfiltration:S3/ObjectRead.Unusual", gdSeverity: 8,
+    title: "An IAM identity read objects from a bucket from a remote host", srcIp: "91.242.217.35",
+    api: "GetObject", serviceName: "s3.amazonaws.com", callerType: "Remote IP", resourceType: "S3Bucket",
+    bucketName: "medcore-patient-exports-prod", userType: "IAMUser", userName: "reporting-export-svc",
+    accessKeyId: "AKIA4MC2X7QF9ZB3RLTD", count: 20000, mitre: "T1567", tactic: "Exfiltration",
+  });
+  it("emits only registry-valid GuardDuty fields under the right vendor", () => {
+    expect(finding.vendor).toBe("AWS GuardDuty");
+    expect(finding.source).toBe("cloudtrail");
+    expect(finding.is_detection).toBe(true);
+    for (const k of Object.keys(finding.raw ?? {})) expect(keyValid(k), `invalid GuardDuty field "${k}"`).toBe(true);
+  });
+  it("carries the finding type + severity", () => {
+    expect(finding.raw?.["aws.guardduty.type"]).toBe("Exfiltration:S3/ObjectRead.Unusual");
+    expect(finding.raw?.["aws.guardduty.severity"]).toBe("8");
+    expect(finding.severity).toBe("high");
   });
 });

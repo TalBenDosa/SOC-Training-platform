@@ -40,6 +40,7 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
 
 export function buildS3ExfilExposureScenario(
   scenarioId = "s3-exfil-exposure-2026",
@@ -76,406 +77,125 @@ export function buildS3ExfilExposureScenario(
   // A content hash of one drained object — concrete evidence of what left.
   const objectSha = makeSha256("s3exfil_patient_exports_object_2026");
 
+  const cx = "medcore" as const;
+
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — the sanctioned high-volume read of the SAME bucket.
-    //    The backup role pulling objects from inside AWS over a VPC endpoint,
-    //    no public-access change. Same "many GetObject" shape as the attack.
-    // ─────────────────────────────────────────────────────────────────────
+    // 0. BENIGN CONTROL — the sanctioned high-volume read (backup role, VPC endpoint).
     {
-      id: "s3exfil_00_benign_backup",
-      ts: "2026-08-30T02:15:00.000Z",
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_title: "Automated Service",
-      src_ip: backupPrivateIp,
-      severity: "informational",
+      ...cloudTrailEvent({
+        companyId: cx, id: "s3exfil_00_benign_backup", ts: "2026-08-30T02:15:00.000Z", eventName: "GetObject",
+        srcIp: backupPrivateIp, region, accountId: awsAccount, actorType: "AssumedRole", sessionIssuerName: backupRole, arn: backupAssumedArn,
+        s3Bucket: bucket, s3Key: "exports/2026-08-29/patients-000417.parquet", bytes: 10_485_760, readOnly: true, managementEvent: false,
+        userAgent: "aws-sdk-java/2.25.11 Linux/5.15 vendor/Amazon.com", userTitle: "Automated Service", severity: "informational",
+        extra: { "aws.cloudtrail.vpcEndpointId": vpcEndpointId },
+        description: "GetObject at volume on medcore-patient-exports-prod by the medcore-backup-replicator role over VPC endpoint vpce-0a1b2c3d4e5f6a7b8, sourced from the private address 10.0.42.17 — the nightly replication job.",
+      }),
       expected_verdict: "fp",
-      fp_explanation:
-        "This is the control the whole scenario is measured against. The SAME bucket is read at high volume — a nightly job pulling hundreds of objects — but every difference that matters points the other way: the caller is the expected medcore-backup-replicator assumed-role session (not a standalone access key), the traffic originates INSIDE AWS over an S3 VPC endpoint (vpcEndpointId set, a private 10.x source address), and nothing anywhere near it touched the bucket's public-access settings. An analyst who alerts on 'a lot of GetObject on the exports bucket' will flag this and be wrong — the read volume is normal for backup; what makes the later activity an incident is where it came from and what preceded it.",
-      description:
-        "GetObject at volume on medcore-patient-exports-prod by the medcore-backup-replicator role over VPC endpoint vpce-0a1b2c3d4e5f6a7b8, sourced from the private address 10.0.42.17 — the nightly replication job.",
-      raw: {
-        "aws.cloudtrail.eventName": "GetObject",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "AssumedRole",
-        "aws.cloudtrail.userIdentity.arn": backupAssumedArn,
-        "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.userName": backupRole,
-        "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.type": "Role",
-        "aws.cloudtrail.requestParameters.bucketName": bucket,
-        "aws.cloudtrail.requestParameters.key": "exports/2026-08-29/patients-000417.parquet",
-        "aws.cloudtrail.vpcEndpointId": vpcEndpointId,
-        "aws.cloudtrail.additional_event_data.bytes_transferred_out": "10485760",
-        "aws.cloudtrail.sourceIPAddress": backupPrivateIp,
-        "aws.cloudtrail.userAgent": "aws-sdk-java/2.25.11 Linux/5.15 vendor/Amazon.com",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "aws.cloudtrail.managementEvent": "false",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
+      fp_explanation: "This is the control the whole scenario is measured against. The SAME bucket is read at high volume — a nightly job pulling hundreds of objects — but every difference that matters points the other way: the caller is the expected medcore-backup-replicator assumed-role session (not a standalone access key), the traffic originates INSIDE AWS over an S3 VPC endpoint (vpcEndpointId set, a private 10.x source address), and nothing anywhere near it touched the bucket's public-access settings. An analyst who alerts on 'a lot of GetObject on the exports bucket' will flag this and be wrong — the read volume is normal for backup; what makes the later activity an incident is where it came from and what preceded it.",
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. FIRST USE OF THE LEAKED KEY — ListBuckets from an external address.
-    //    An IAMUser access key enumerating the account's buckets, from an
-    //    internet source. The stolen-credential foothold (T1078.004).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_01_list_buckets",
-      ts: T(0),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_title: "Service Account",
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1078.004",
-      mitre_tactic: "Initial Access",
-      incident_id: INCIDENT,
-      description:
-        "ListBuckets on account 612498330517 by the reporting-export-svc access key AKIA4MC2X7QF9ZB3RLTD from 91.242.217.35 — the first call this long-lived key has made from an internet address.",
-      raw: {
-        "aws.cloudtrail.eventName": "ListBuckets",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamUserArn,
-        "aws.cloudtrail.userIdentity.accessKeyId": accessKeyId,
-        "aws.cloudtrail.userIdentity.accountId": awsAccount,
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "aws.cloudtrail.managementEvent": "true",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
+    // 1. FIRST USE OF THE LEAKED KEY — ListBuckets from an external address (T1078.004).
+    cloudTrailEvent({
+      companyId: cx, id: "s3exfil_01_list_buckets", ts: T(0), eventName: "ListBuckets", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, readOnly: true, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
+      userTitle: "Service Account", mitre: "T1078.004", tactic: "Initial Access", severity: "high", incidentId: INCIDENT,
+      description: "ListBuckets on account 612498330517 by the reporting-export-svc access key AKIA4MC2X7QF9ZB3RLTD from 91.242.217.35 — the first call this long-lived key has made from an internet address.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. CONFIG ORIGIN #1 — PutBucketPublicAccessBlock turns OFF Block Public
-    //    Access. All four account-level guards flipped to false. The single
-    //    change that lets a public policy take effect (T1562.007).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_02_disable_bpa",
-      ts: T(3 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_title: "Service Account",
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1562.007",
-      mitre_tactic: "Defense Evasion",
-      incident_id: INCIDENT,
-      description:
-        "PutBucketPublicAccessBlock on medcore-patient-exports-prod set all four BlockPublicAcls / IgnorePublicAcls / BlockPublicPolicy / RestrictPublicBuckets flags to false, by the reporting-export-svc key from 91.242.217.35.",
-      raw: {
-        "aws.cloudtrail.eventName": "PutBucketPublicAccessBlock",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamUserArn,
-        "aws.cloudtrail.userIdentity.accessKeyId": accessKeyId,
-        "aws.cloudtrail.requestParameters.bucketName": bucket,
+    // 2. CONFIG ORIGIN #1 — PutBucketPublicAccessBlock turns OFF Block Public Access (T1562.007).
+    cloudTrailEvent({
+      companyId: cx, id: "s3exfil_02_disable_bpa", ts: T(3 * MIN), eventName: "PutBucketPublicAccessBlock", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, s3Bucket: bucket, readOnly: false, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
+      userTitle: "Service Account", mitre: "T1562.007", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+      extra: {
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.BlockPublicAcls": "false",
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.IgnorePublicAcls": "false",
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.BlockPublicPolicy": "false",
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.RestrictPublicBuckets": "false",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "false",
-        "aws.cloudtrail.managementEvent": "true",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
       },
-    },
+      description: "PutBucketPublicAccessBlock on medcore-patient-exports-prod set all four BlockPublicAcls / IgnorePublicAcls / BlockPublicPolicy / RestrictPublicBuckets flags to false, by the reporting-export-svc key from 91.242.217.35.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. CONFIG ORIGIN #2 — PutBucketPolicy attaches an allow-anyone policy
-    //    (Principal "*", s3:GetObject on the whole bucket). Now anonymous.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_03_public_policy",
-      ts: T(3 * MIN + 40 * SEC),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_title: "Service Account",
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1562.007",
-      mitre_tactic: "Defense Evasion",
-      incident_id: INCIDENT,
-      description:
-        "PutBucketPolicy on medcore-patient-exports-prod attached a statement with Principal \"*\" allowing s3:GetObject on every object, by the reporting-export-svc key from 91.242.217.35.",
-      raw: {
-        "aws.cloudtrail.eventName": "PutBucketPolicy",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamUserArn,
-        "aws.cloudtrail.userIdentity.accessKeyId": accessKeyId,
-        "aws.cloudtrail.requestParameters.bucketName": bucket,
+    // 3. CONFIG ORIGIN #2 — PutBucketPolicy attaches an allow-anyone policy (T1562.007).
+    cloudTrailEvent({
+      companyId: cx, id: "s3exfil_03_public_policy", ts: T(3 * MIN + 40 * SEC), eventName: "PutBucketPolicy", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, s3Bucket: bucket, readOnly: false, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
+      userTitle: "Service Account", mitre: "T1562.007", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+      extra: {
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Effect": "Allow",
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Principal": "*",
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Action": "s3:GetObject",
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Resource": `arn:aws:s3:::${bucket}/*`,
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "false",
-        "aws.cloudtrail.managementEvent": "true",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
       },
-    },
+      description: "PutBucketPolicy on medcore-patient-exports-prod attached a statement with Principal \"*\" allowing s3:GetObject on every object, by the reporting-export-svc key from 91.242.217.35.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. CONFIG ORIGIN #3 — PutBucketAcl grants the AllUsers group READ, a
-    //    second, ACL-level path to the same open state (T1562.007).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_04_public_acl",
-      ts: T(4 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_title: "Service Account",
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1562.007",
-      mitre_tactic: "Defense Evasion",
-      incident_id: INCIDENT,
-      description:
-        "PutBucketAcl on medcore-patient-exports-prod added a grant giving the AllUsers group (http://acs.amazonaws.com/groups/global/AllUsers) READ, by the reporting-export-svc key from 91.242.217.35.",
-      raw: {
-        "aws.cloudtrail.eventName": "PutBucketAcl",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.accessKeyId": accessKeyId,
-        "aws.cloudtrail.requestParameters.bucketName": bucket,
-        "aws.cloudtrail.requestParameters.AccessControlPolicy.AccessControlList.Grant.Grantee.URI":
-          "http://acs.amazonaws.com/groups/global/AllUsers",
+    // 4. CONFIG ORIGIN #3 — PutBucketAcl grants the AllUsers group READ (T1562.007).
+    cloudTrailEvent({
+      companyId: cx, id: "s3exfil_04_public_acl", ts: T(4 * MIN), eventName: "PutBucketAcl", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "IAMUser", actorName: iamUser, accessKeyId, s3Bucket: bucket, readOnly: false, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
+      userTitle: "Service Account", mitre: "T1562.007", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+      extra: {
+        "aws.cloudtrail.requestParameters.AccessControlPolicy.AccessControlList.Grant.Grantee.URI": "http://acs.amazonaws.com/groups/global/AllUsers",
         "aws.cloudtrail.requestParameters.AccessControlPolicy.AccessControlList.Grant.Permission": "READ",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "false",
-        "aws.cloudtrail.managementEvent": "true",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
       },
+      description: "PutBucketAcl on medcore-patient-exports-prod added a grant giving the AllUsers group (http://acs.amazonaws.com/groups/global/AllUsers) READ, by the reporting-export-svc key from 91.242.217.35.",
+    }),
+
+    // 5. GuardDuty — the anonymous-access finding on the policy change.
+    {
+      ...guardDutyFinding({
+        companyId: cx, id: "s3exfil_05_gd_anon_access", ts: T(9 * MIN), findingType: "Policy:S3/BucketAnonymousAccessGranted", gdSeverity: 8,
+        title: "S3 bucket medcore-patient-exports-prod grants access to the internet through a bucket policy", srcIp: attackerIp, region, accountId: awsAccount,
+        api: "PutBucketPolicy", serviceName: "s3.amazonaws.com", callerType: "Remote IP", asnOrg: "Serverius Holding B.V.",
+        resourceType: "S3Bucket", bucketName: bucket, effectivePermission: "PUBLIC", userType: "IAMUser", userName: iamUser, accessKeyId, count: 1,
+        mitre: "T1562.007", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+        description: "GuardDuty raised Policy:S3/BucketAnonymousAccessGranted (severity 8) on medcore-patient-exports-prod: the bucket's policy now grants access to the AllUsers group after the reporting-export-svc key changed it.",
+      }),
+      edr_scope: "non_edr",
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. GuardDuty — the anonymous-access finding on the policy change. Alert
-    //    grade: the bucket now grants access to anyone (T1562.007).
-    // ─────────────────────────────────────────────────────────────────────
+    // 6. THE BLAST RADIUS BEGINS — ListObjectsV2 enumerates the now-open bucket (T1619).
+    cloudTrailEvent({
+      companyId: cx, id: "s3exfil_06_list_objects", ts: T(11 * MIN), eventName: "ListObjectsV2", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "IAMUser", actorName: iamUser, accessKeyId, s3Bucket: bucket, readOnly: true, managementEvent: false, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
+      userTitle: "Service Account", mitre: "T1619", tactic: "Discovery", severity: "high", incidentId: INCIDENT,
+      extra: { "aws.cloudtrail.requestParameters.prefix": "exports/", "aws.cloudtrail.requestParameters.maxKeys": "1000", "aws.cloudtrail.additional_event_data.keys_returned": "20000" },
+      description: "ListObjectsV2 on medcore-patient-exports-prod returned 20,000 keys to the reporting-export-svc key from 91.242.217.35 — a full index of the exports prefix ahead of the download.",
+    }),
+
+    // 7. THE DRAIN — a GetObject burst pulls the objects down from outside AWS (T1530).
+    cloudTrailEvent({
+      companyId: cx, id: "s3exfil_07_getobject_burst", ts: T(12 * MIN), eventName: "GetObject", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "IAMUser", actorName: iamUser, accessKeyId, s3Bucket: bucket, s3Key: "exports/2026-08-30/patients-000001.parquet", bytes: 44_023_414_784,
+      readOnly: true, managementEvent: false, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64", userTitle: "Service Account",
+      mitre: "T1530", tactic: "Collection", severity: "critical", incidentId: INCIDENT,
+      extra: { "aws.cloudtrail.additional_event_data.objects_returned": "20000", "aws.cloudtrail.additional_event_data.object_sha256": objectSha },
+      description: "GetObject repeated across the exports/ prefix on medcore-patient-exports-prod by the reporting-export-svc key from 91.242.217.35 — 20,000 objects, 41 GB returned over eight minutes.",
+    }),
+
+    // 8. THE DETECTION — GuardDuty flags the object-read as anomalous egress (T1567).
     {
-      id: "s3exfil_05_gd_anon_access",
-      ts: T(9 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS GuardDuty",
-      event_type: "cloud_api_call",
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1562.007",
-      mitre_tactic: "Defense Evasion",
-      incident_id: INCIDENT,
-      is_detection: true,   // GuardDuty flags the bucket as anonymously accessible
-      edr_scope: "non_edr", // cloud control-plane only — no host to walk; investigated in SIEM / cloud
-      description:
-        "GuardDuty raised Policy:S3/BucketAnonymousAccessGranted (severity 8) on medcore-patient-exports-prod: the bucket's policy now grants access to the AllUsers group after the reporting-export-svc key changed it.",
-      raw: {
-        "aws.guardduty.type": "Policy:S3/BucketAnonymousAccessGranted",
-        "aws.guardduty.severity": "8",
-        "aws.guardduty.title": "S3 bucket medcore-patient-exports-prod grants access to the internet through a bucket policy",
-        "aws.guardduty.service.action.actionType": "AWS_API_CALL",
-        "aws.guardduty.service.action.awsApiCallAction.api": "PutBucketPolicy",
-        "aws.guardduty.service.action.awsApiCallAction.serviceName": "s3.amazonaws.com",
-        "aws.guardduty.service.action.awsApiCallAction.callerType": "Remote IP",
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.ipAddressV4": attackerIp,
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.organization.asnOrg": "Serverius Holding B.V.",
-        "aws.guardduty.resource.resourceType": "S3Bucket",
-        "aws.guardduty.resource.s3BucketDetails.name": bucket,
-        "aws.guardduty.resource.s3BucketDetails.publicAccess.effectivePermission": "PUBLIC",
-        "aws.guardduty.resource.accessKeyDetails.userType": "IAMUser",
-        "aws.guardduty.resource.accessKeyDetails.userName": iamUser,
-        "aws.guardduty.resource.accessKeyDetails.accessKeyId": accessKeyId,
-        "aws.guardduty.service.count": "1",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
+      ...guardDutyFinding({
+        companyId: cx, id: "s3exfil_08_gd_object_read", ts: T(20 * MIN), findingType: "Exfiltration:S3/ObjectRead.Unusual", gdSeverity: 8,
+        title: "An IAM identity invoked an S3 API to read objects from medcore-patient-exports-prod from a remote host", srcIp: attackerIp, region, accountId: awsAccount,
+        api: "GetObject", serviceName: "s3.amazonaws.com", callerType: "Remote IP", remoteCountry: "Netherlands", asnOrg: "Serverius Holding B.V.",
+        resourceType: "S3Bucket", bucketName: bucket, userType: "IAMUser", userName: iamUser, accessKeyId, count: 20000,
+        mitre: "T1567", tactic: "Exfiltration", severity: "critical", incidentId: INCIDENT,
+        description: "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual (severity 8) on medcore-patient-exports-prod: the reporting-export-svc identity read objects at a volume and from a location outside its established pattern, sourced from 91.242.217.35.",
+      }),
+      edr_scope: "non_edr",
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. THE BLAST RADIUS BEGINS — ListObjectsV2 enumerates the now-open
-    //    bucket from the external address (T1619 — Cloud Storage Object
-    //    Discovery, not the broader T1580 Cloud Infrastructure Discovery,
-    //    since this is specifically object enumeration inside a bucket).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_06_list_objects",
-      ts: T(11 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_title: "Service Account",
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1619",
-      mitre_tactic: "Discovery",
-      incident_id: INCIDENT,
-      description:
-        "ListObjectsV2 on medcore-patient-exports-prod returned 20,000 keys to the reporting-export-svc key from 91.242.217.35 — a full index of the exports prefix ahead of the download.",
-      raw: {
-        "aws.cloudtrail.eventName": "ListObjectsV2",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.accessKeyId": accessKeyId,
-        "aws.cloudtrail.requestParameters.bucketName": bucket,
-        "aws.cloudtrail.requestParameters.prefix": "exports/",
-        "aws.cloudtrail.requestParameters.maxKeys": "1000",
-        "aws.cloudtrail.additional_event_data.keys_returned": "20000",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "aws.cloudtrail.managementEvent": "false",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 7. THE DRAIN — a GetObject burst pulls the objects down from outside
-    //    AWS. The payoff: regulated data leaving via the S3 REST API (T1530).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_07_getobject_burst",
-      ts: T(12 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_title: "Service Account",
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1530",
-      mitre_tactic: "Collection",
-      incident_id: INCIDENT,
-      description:
-        "GetObject repeated across the exports/ prefix on medcore-patient-exports-prod by the reporting-export-svc key from 91.242.217.35 — 20,000 objects, 41 GB returned over eight minutes.",
-      raw: {
-        "aws.cloudtrail.eventName": "GetObject",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.accessKeyId": accessKeyId,
-        "aws.cloudtrail.requestParameters.bucketName": bucket,
-        "aws.cloudtrail.requestParameters.key": "exports/2026-08-30/patients-000001.parquet",
-        "aws.cloudtrail.additional_event_data.bytes_transferred_out": "44023414784",
-        "aws.cloudtrail.additional_event_data.objects_returned": "20000",
-        "aws.cloudtrail.additional_event_data.object_sha256": objectSha,
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "aws.cloudtrail.managementEvent": "false",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 8. THE DETECTION — GuardDuty flags the object-read as anomalous data
-    //    egress over the S3 API. This is what opens the ticket (T1567).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_08_gd_object_read",
-      ts: T(20 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS GuardDuty",
-      event_type: "cloud_api_call",
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1567",
-      mitre_tactic: "Exfiltration",
-      incident_id: INCIDENT,
-      is_detection: true,   // the object-read finding that opens the incident
-      edr_scope: "non_edr", // cloud control-plane only — no host process to walk
-      description:
-        "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual (severity 8) on medcore-patient-exports-prod: the reporting-export-svc identity read objects at a volume and from a location outside its established pattern, sourced from 91.242.217.35.",
-      raw: {
-        "aws.guardduty.type": "Exfiltration:S3/ObjectRead.Unusual",
-        "aws.guardduty.severity": "8",
-        "aws.guardduty.title": "An IAM identity invoked an S3 API to read objects from medcore-patient-exports-prod from a remote host",
-        "aws.guardduty.service.action.actionType": "AWS_API_CALL",
-        "aws.guardduty.service.action.awsApiCallAction.api": "GetObject",
-        "aws.guardduty.service.action.awsApiCallAction.serviceName": "s3.amazonaws.com",
-        "aws.guardduty.service.action.awsApiCallAction.callerType": "Remote IP",
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.ipAddressV4": attackerIp,
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.country.countryName": "Netherlands",
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.organization.asnOrg": "Serverius Holding B.V.",
-        "aws.guardduty.resource.resourceType": "S3Bucket",
-        "aws.guardduty.resource.s3BucketDetails.name": bucket,
-        "aws.guardduty.resource.accessKeyDetails.userType": "IAMUser",
-        "aws.guardduty.resource.accessKeyDetails.userName": iamUser,
-        "aws.guardduty.resource.accessKeyDetails.accessKeyId": accessKeyId,
-        "aws.guardduty.service.count": "20000",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 9. GuardDuty — the anomalous-API-behavior finding on the same key,
-    //    tying the enumeration + reads into a single discovery pattern (T1526).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "s3exfil_09_gd_anomalous",
-      ts: T(21 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS GuardDuty",
-      event_type: "cloud_api_call",
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1526",
-      mitre_tactic: "Discovery",
-      incident_id: INCIDENT,
-      description:
-        "GuardDuty raised Discovery:S3/AnomalousBehavior (severity 6) on the reporting-export-svc key: an S3 API pattern — bucket listing then broad object listing — outside the key's established behaviour, from 91.242.217.35.",
-      raw: {
-        "aws.guardduty.type": "Discovery:S3/AnomalousBehavior",
-        "aws.guardduty.severity": "6",
-        "aws.guardduty.title": "An IAM identity invoked S3 APIs to enumerate medcore-patient-exports-prod from a remote host",
-        "aws.guardduty.service.action.actionType": "AWS_API_CALL",
-        "aws.guardduty.service.action.awsApiCallAction.api": "ListObjectsV2",
-        "aws.guardduty.service.action.awsApiCallAction.serviceName": "s3.amazonaws.com",
-        "aws.guardduty.service.action.awsApiCallAction.callerType": "Remote IP",
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.ipAddressV4": attackerIp,
-        "aws.guardduty.resource.resourceType": "AccessKey",
-        "aws.guardduty.resource.accessKeyDetails.userType": "IAMUser",
-        "aws.guardduty.resource.accessKeyDetails.userName": iamUser,
-        "aws.guardduty.resource.accessKeyDetails.accessKeyId": accessKeyId,
-        "aws.guardduty.service.count": "2",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
+    // 9. GuardDuty — the anomalous-API-behavior finding on the same key (T1526).
+    guardDutyFinding({
+      companyId: cx, id: "s3exfil_09_gd_anomalous", ts: T(21 * MIN), findingType: "Discovery:S3/AnomalousBehavior", gdSeverity: 6, isDetection: false,
+      title: "An IAM identity invoked S3 APIs to enumerate medcore-patient-exports-prod from a remote host", srcIp: attackerIp, region, accountId: awsAccount,
+      api: "ListObjectsV2", serviceName: "s3.amazonaws.com", callerType: "Remote IP", resourceType: "AccessKey",
+      userType: "IAMUser", userName: iamUser, accessKeyId, count: 2,
+      mitre: "T1526", tactic: "Discovery", severity: "high", incidentId: INCIDENT,
+      description: "GuardDuty raised Discovery:S3/AnomalousBehavior (severity 6) on the reporting-export-svc key: an S3 API pattern — bucket listing then broad object listing — outside the key's established behaviour, from 91.242.217.35.",
+    }),
   ];
 
   const iocs: IOC[] = [

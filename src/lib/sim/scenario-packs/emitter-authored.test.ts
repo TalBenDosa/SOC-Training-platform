@@ -20,6 +20,7 @@ import { buildGoldenSamlScenario } from "./goldenSaml";
 import { buildInfostealerSessionTheftScenario } from "./infostealerSessionTheft";
 import { buildMacosTccPkgScenario } from "./macosTccPkg";
 import { buildMacosStealerDmgScenario } from "./macosStealerDmg";
+import { buildS3ExfilExposureScenario } from "./s3ExfilExposure";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -34,6 +35,7 @@ const FULLY_EMITTER_AUTHORED = [
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
   "infostealerSessionTheft.ts", "macosTccPkg.ts", "macosStealerDmg.ts",
+  "s3ExfilExposure.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -648,5 +650,39 @@ describe("emitter-authored scenario packs", () => {
     // one host, correlated
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("MB-CR-14");
+  });
+
+  it("s3ExfilExposure builds a coherent cloud bucket-exposure case from emitters only (CloudTrail + GuardDuty)", () => {
+    const s = buildS3ExfilExposureScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["AWS CloudTrail", "AWS GuardDuty"]));
+    // benign backup: assumed-role over a VPC endpoint from inside AWS — fp
+    const benign = s.events.find(e => e.id === "s3exfil_00_benign_backup");
+    expect(benign?.expected_verdict).toBe("fp");
+    expect(benign?.raw?.["aws.cloudtrail.userIdentity.type"]).toBe("AssumedRole");
+    expect(benign?.raw?.["aws.cloudtrail.vpcEndpointId"]).toBeTruthy();
+    // authentic CloudTrail camelCase schema, not the old snake_case
+    const bpa = s.events.find(e => e.id === "s3exfil_02_disable_bpa");
+    expect(bpa?.raw?.["aws.cloudtrail.eventName"]).toBe("PutBucketPublicAccessBlock");
+    expect(bpa?.raw?.["aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.BlockPublicAcls"]).toBe("false");
+    expect(s.events.find(e => e.id === "s3exfil_03_public_policy")?.raw?.["aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Principal"]).toBe("*");
+    // GuardDuty anonymous-access finding: alert-grade, cloud control-plane
+    const gdAnon = s.events.find(e => e.id === "s3exfil_05_gd_anon_access");
+    expect(gdAnon?.vendor).toBe("AWS GuardDuty");
+    expect(gdAnon?.raw?.["aws.guardduty.type"]).toBe("Policy:S3/BucketAnonymousAccessGranted");
+    expect(gdAnon?.is_detection).toBe(true);
+    expect(gdAnon?.edr_scope).toBe("non_edr");
+    expect(gdAnon?.raw?.["aws.guardduty.resource.s3BucketDetails.publicAccess.effectivePermission"]).toBe("PUBLIC");
+    // the drain: 41 GB of GetObject, and the GuardDuty exfil finding
+    expect(s.events.find(e => e.id === "s3exfil_07_getobject_burst")?.raw?.["aws.cloudtrail.additional_event_data.bytes_transferred_out"]).toBe("44023414784");
+    const gdRead = s.events.find(e => e.id === "s3exfil_08_gd_object_read");
+    expect(gdRead?.raw?.["aws.guardduty.type"]).toBe("Exfiltration:S3/ObjectRead.Unusual");
+    expect(gdRead?.is_detection).toBe(true);
+    // the supporting anomaly finding is not the ticket-opener
+    expect(s.events.find(e => e.id === "s3exfil_09_gd_anomalous")?.is_detection).toBe(false);
+    // the tell: every attacker action is sourced from the external IP; the backup is private
+    const attackerIps = new Set(s.events.filter(e => e.id !== "s3exfil_00_benign_backup").map(e => e.src_ip));
+    expect(attackerIps).toEqual(new Set(["91.242.217.35"]));
+    expect(benign?.src_ip).toBe("10.0.42.17");
   });
 });
