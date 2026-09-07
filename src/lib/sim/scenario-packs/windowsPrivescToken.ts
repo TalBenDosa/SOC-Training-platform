@@ -32,6 +32,10 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256, makeMd5 } from "@/lib/sim/iocs";
+import { winLogon, winSpecialPrivileges, winSensitivePrivUse, winProcessCreate } from "@/lib/sim/emitters/windowsSecurity";
+import { sysmonProcess, sysmonProcessAccess, sysmonPipe } from "@/lib/sim/emitters/sysmon";
+import { mdeProcess } from "@/lib/sim/emitters/mde";
+import { sentinelUeba } from "@/lib/sim/emitters/sentinel";
 
 export function buildWindowsPrivescTokenScenario(
   scenarioId = "windows-privesc-token-2026",
@@ -67,521 +71,142 @@ export function buildWindowsPrivescTokenScenario(
   // there is a real process tree to walk from w3wp.exe down to the SYSTEM shell.
   const INCIDENT = "inc:wpe:1";
 
+  const cxN = "nexacorp" as const;
+  const regSha = makeSha256("windows_system32_reg_exe_signed_microsoft");
+  const cmdSha = makeSha256("windows_system32_cmd_exe_signed_microsoft");
+
   const events: TelemetryEvent[] = [
-    // ---------------------------------------------------------------------
-    // 1. Routine baseline — the IIS app-pool identity logs on as a service.
-    //    LogonType 5. Hundreds of these a week; entirely normal on its own.
-    // ---------------------------------------------------------------------
+    // 1. Routine baseline — the IIS app-pool identity logs on as a service (Type 5).
+    winLogon({
+      companyId: cxN, id: "evt_wpe_01_service_logon", ts: T(0), host: host.hostname, fqdn: host.fqdn,
+      targetUser: svc.sam, targetSid: svcSid, subjectUser: "WEB-APP-04$", subjectSid: "S-1-5-18",
+      logonType: 5, authPackage: "Negotiate", logonProcess: "Advapi  ", logonId: svcLogonId, workstation: "-",
+      processName: "C:\\Windows\\System32\\services.exe", recordId: "5540911", severity: "informational",
+      mitre: "T1078.003", tactic: "Persistence",
+      description: "A 4624 LogonType 5 on WEB-APP-04 for the service account NEXACORP\\svc-web — the IIS application pool starting under its assigned identity.",
+    }),
+
+    // 2. THE PRECONDITION — 4672 enumerates SeImpersonatePrivilege on the svc-web session.
+    winSpecialPrivileges({
+      companyId: cxN, id: "evt_wpe_02_special_privs", ts: T(1 * SEC), host: host.hostname, fqdn: host.fqdn,
+      targetUser: svc.sam, targetSid: svcSid, logonId: svcLogonId, eventType: "privileged_operation", eventAction: "special-privileges-assigned",
+      privilegeList: "SeAssignPrimaryTokenPrivilege\n\t\t\tSeImpersonatePrivilege\n\t\t\tSeCreateGlobalPrivilege\n\t\t\tSeChangeNotifyPrivilege\n\t\t\tSeIncreaseWorkingSetPrivilege",
+      recordId: "5540912", severity: "low", mitre: "T1078.003", tactic: "Privilege Escalation",
+      description: "A 4672 on WEB-APP-04 for the svc-web logon session (0x8F41C2), enumerating the special privileges assigned to it at logon.",
+    }),
+
+    // 3. The webshell speaks — w3wp.exe spawns cmd.exe (Sysmon 1).
+    sysmonProcess({
+      companyId: cxN, id: "evt_wpe_03_w3wp_spawns_cmd", ts: T(3 * MIN), host: host.hostname, user: "svc-web",
+      processName: "cmd.exe", processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: "cmd.exe /c whoami /priv",
+      parentName: "w3wp.exe", parentPath: "C:\\Windows\\System32\\inetsrv\\w3wp.exe", parentCmdline: "c:\\windows\\system32\\inetsrv\\w3wp.exe -ap \"NexaWebAppPool\"",
+      pid: 7724, parentPid: 4188, integrity: "High", processGuid: "{a1b2c3d4-1f10-64dc-2e01-000000005e00}", parentGuid: "{a1b2c3d4-0c40-64dc-1a01-000000005e00}",
+      ruleName: "technique_id=T1505.003,technique_name=Web Shell", mitre: "T1505.003", tactic: "Persistence", severity: "high",
+      description: "Sysmon Event 1 on WEB-APP-04: the IIS worker w3wp.exe spawned cmd.exe under the svc-web identity.",
+    }),
+
+    // 4. The tool is dropped and run (Sysmon 1, hashes recorded).
+    sysmonProcess({
+      companyId: cxN, id: "evt_wpe_04_tool_launch", ts: T(3 * MIN + 40 * SEC), host: host.hostname, user: "svc-web",
+      processName: "spf.exe", processPath: toolPath, cmdline: "spf.exe -i -c cmd.exe",
+      parentName: "cmd.exe", parentPath: "C:\\Windows\\System32\\cmd.exe", parentCmdline: "cmd.exe /c whoami /priv",
+      pid: 7810, parentPid: 7724, sha256: toolSha256, md5: toolMd5, imphash: toolImphash, signed: false, integrity: "High",
+      originalFileName: "-", processGuid: "{a1b2c3d4-1f28-64dc-3001-000000005e00}", parentGuid: "{a1b2c3d4-1f10-64dc-2e01-000000005e00}", ruleName: "-",
+      mitre: "T1068", tactic: "Privilege Escalation", severity: "high",
+      description: "Sysmon Event 1: cmd.exe launched C:\\Windows\\Temp\\spf.exe. The binary is unsigned and its SHA256 is recorded in the event.",
+    }),
+
+    // 5. The coercion — spoolsv.exe (SYSTEM) connects to the attacker pipe (Sysmon 18).
+    sysmonPipe({
+      companyId: cxN, id: "evt_wpe_05_pipe_connect", ts: T(3 * MIN + 44 * SEC), host: host.hostname, user: null,
+      image: "C:\\Windows\\System32\\spoolsv.exe", pid: 1996, pipeName: "\\spoolss", runAsUser: "NT AUTHORITY\\SYSTEM",
+      mitre: "T1134.001", tactic: "Privilege Escalation", severity: "high",
+      description: "Sysmon Event 18 (Pipe Connected) on WEB-APP-04: spoolsv.exe connected to the named pipe \\spoolss — the Print Spooler being coerced toward an attacker-controlled endpoint.",
+    }),
+
+    // 6. The token handle — spf.exe opens spoolsv.exe with 0x1410 (Sysmon 10).
+    sysmonProcessAccess({
+      companyId: cxN, id: "evt_wpe_06_process_access", ts: T(3 * MIN + 45 * SEC), host: host.hostname, user: "svc-web",
+      sourceImage: toolPath, sourcePid: 7810, targetImage: "C:\\Windows\\System32\\spoolsv.exe", targetPid: 1996, grantedAccess: "0x1410",
+      callTrace: "C:\\Windows\\SYSTEM32\\ntdll.dll+9d2b4|C:\\Windows\\System32\\KERNELBASE.dll+2d51e|C:\\Windows\\Temp\\spf.exe+3a17",
+      mitre: "T1134.001", tactic: "Privilege Escalation", severity: "high",
+      description: "Sysmon Event 10 (ProcessAccess): C:\\Windows\\Temp\\spf.exe opened a handle to spoolsv.exe with GrantedAccess 0x1410.",
+    }),
+
+    // 7. The privilege is exercised — 4673 SeImpersonatePrivilege by spf.exe.
+    winSensitivePrivUse({
+      companyId: cxN, id: "evt_wpe_07_sensitive_priv_use", ts: T(3 * MIN + 45 * SEC + 400), host: host.hostname, fqdn: host.fqdn,
+      targetUser: svc.sam, targetSid: svcSid, logonId: svcLogonId, privilegeUsed: "SeImpersonatePrivilege",
+      processName: toolPath, processId: "0x1e82", recordId: "5541190", mitre: "T1134.001", tactic: "Privilege Escalation", severity: "high",
+      description: "A 4673 on WEB-APP-04 recording sensitive-privilege use: SeImpersonatePrivilege exercised by the process C:\\Windows\\Temp\\spf.exe under the svc-web session.",
+    }),
+
+    // 8. ESCALATION SUCCEEDS — 4688 for a SYSTEM cmd.exe with a full token.
+    winProcessCreate({
+      companyId: cxN, id: "evt_wpe_08_system_shell", ts: T(3 * MIN + 46 * SEC), host: host.hostname, fqdn: host.fqdn,
+      targetUser: svc.sam, processName: "cmd.exe", processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: "cmd.exe", parentPath: toolPath,
+      pid: 7864, subjectUser: "WEB-APP-04$", subjectSid: "S-1-5-18", runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system",
+      tokenElevation: "%%1937", eventType: "privilege_escalation", recordId: "5541204", mitre: "T1134.002", tactic: "Privilege Escalation", severity: "critical",
+      description: "A 4688 on WEB-APP-04: spf.exe created cmd.exe running as NT AUTHORITY\\SYSTEM (SID S-1-5-18) with TokenElevationType %%1937 (full token).",
+    }),
+
+    // 9. THE PAYOFF — reg.exe exports the SAM hive; MDE raises the detection.
     {
-      id: "evt_wpe_01_service_logon",
-      ts: T(0),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: host.hostname,
-      severity: "informational",
-      mitre_technique: "T1078.003",
-      mitre_tactic: "Persistence",
-      description:
-        "A 4624 LogonType 5 on WEB-APP-04 for the service account NEXACORP\\svc-web — the IIS application pool starting under its assigned identity.",
-      authentication: { method: "Negotiate", result: "success", logon_type: 5 },
-      raw: {
-        // Windows Security Event 4624 — An account was successfully logged on
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": host.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5540911",
-        "winlog.event_data.SubjectUserSid": "S-1-5-18",
-        "winlog.event_data.SubjectUserName": "WEB-APP-04$",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x3E7",
-        "winlog.event_data.TargetUserSid": svcSid,
-        "winlog.event_data.TargetUserName": svc.sam,
-        "winlog.event_data.TargetDomainName": svc.domain,
-        "winlog.event_data.TargetLogonId": svcLogonId,
-        "winlog.event_data.LogonType": "5",
-        "winlog.event_data.LogonProcessName": "Advapi  ",
-        "winlog.event_data.AuthenticationPackageName": "Negotiate",
-        "winlog.event_data.WorkstationName": "-",
-        "winlog.event_data.LogonGuid": "{00000000-0000-0000-0000-000000000000}",
-        "winlog.event_data.ProcessId": "0x2f4",
-        "winlog.event_data.ProcessName": "C:\\Windows\\System32\\services.exe",
-        "winlog.event_data.IpAddress": "-",
-        "winlog.event_data.IpPort": "-",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "host.name": host.hostname,
-        "user.name": svc.sam,
-        "user.domain": svc.domain,
-      },
+      ...mdeProcess({
+        companyId: cxN, id: "evt_wpe_09_sam_dump", ts: T(4 * MIN + 30 * SEC), host: host.hostname,
+        processName: "reg.exe", processPath: "C:\\Windows\\System32\\reg.exe", cmdline: `reg  save hklm\\sam ${samDumpPath}`,
+        parentName: "cmd.exe", pid: 7902, parentPid: 7864, sha256: regSha, integrity: "System", isDetection: true,
+        runAsUser: "NT AUTHORITY\\SYSTEM", accountName: "system", accountDomain: "nt authority",
+        mitre: "T1003.002", tactic: "Credential Access", severity: "critical",
+        extra: {
+          "Timestamp": "2026-08-14T02:18:30.7742100Z",
+          "DeviceId": "b91c4de2a7f0451c9d3e6f2a1b8c0d4e5f6a7b8c",
+          "ProcessIntegrityLevel": "System",
+          "ProcessTokenElevation": "TokenElevationTypeDefault",
+          "AccountSid": "S-1-5-18",
+          "InitiatingProcessCommandLine": "cmd.exe",
+          "InitiatingProcessFolderPath": "C:\\Windows\\System32\\cmd.exe",
+          "InitiatingProcessParentFileName": "spf.exe",
+          "InitiatingProcessParentId": "7810",
+          "InitiatingProcessIntegrityLevel": "System",
+          "InitiatingProcessTokenElevation": "TokenElevationTypeFull",
+          "InitiatingProcessAccountName": "system",
+          "InitiatingProcessAccountDomain": "nt authority",
+          "InitiatingProcessSHA256": cmdSha,
+          "ReportId": "84421907",
+          "mde.AlertTitle": "Sensitive registry hive (SAM) exported by a SYSTEM process",
+          "mde.Category": "CredentialAccess",
+          "mde.DetectionSource": "EDR",
+          "mde.DeviceName": "web-app-04.nexacorp.com",
+          "mde.IncidentId": "39714",
+          "mde.InitiatingProcessFileName": "cmd.exe",
+          "mde.InitiatingProcessCommandLine": "cmd.exe",
+          "threat.tactic.name": "Credential Access",
+          "threat.technique.id": "T1003.002",
+          "threat.technique.name": "OS Credential Dumping: Security Account Manager",
+        },
+        description: "Microsoft Defender for Endpoint raised a detection on WEB-APP-04: reg.exe, launched by the SYSTEM cmd.exe, exported the SAM registry hive to C:\\Windows\\Temp\\sam.save.",
+      }),
+      edr_scope: "edr",
     },
 
-    // ---------------------------------------------------------------------
-    // 2. THE PRECONDITION — 4672 records the privileges that logon holds.
-    //    SeImpersonatePrivilege is in the list. This is the entire reason the
-    //    rest of the chain is possible, and it looks like boilerplate.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_02_special_privs",
-      ts: T(1 * SEC),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "privileged_operation",
-      hostname: host.hostname,
-      severity: "low",
-      mitre_technique: "T1078.003",
-      mitre_tactic: "Privilege Escalation",
-      description:
-        "A 4672 on WEB-APP-04 for the svc-web logon session (0x8F41C2), enumerating the special privileges assigned to it at logon.",
-      raw: {
-        // Windows Security Event 4672 — Special privileges assigned to new logon
-        "winlog.event_id": "4672",
-        "winlog.channel": "Security",
-        "winlog.computer_name": host.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5540912",
-        "winlog.event_data.SubjectUserSid": svcSid,
-        "winlog.event_data.SubjectUserName": svc.sam,
-        "winlog.event_data.SubjectDomainName": svc.domain,
-        "winlog.event_data.SubjectLogonId": svcLogonId,
-        // The privilege that PrintSpoofer/potato attacks require. Present here on
-        // a NON-admin service account — exactly the dangerous-but-common grant.
-        "winlog.event_data.PrivilegeList":
-          "SeAssignPrimaryTokenPrivilege\n\t\t\tSeImpersonatePrivilege\n\t\t\tSeCreateGlobalPrivilege\n\t\t\tSeChangeNotifyPrivilege\n\t\t\tSeIncreaseWorkingSetPrivilege",
-        "event.code": "4672",
-        "event.action": "special-privileges-assigned",
-        "event.outcome": "success",
-        "host.name": host.hostname,
-        "user.name": svc.sam,
-        "user.domain": svc.domain,
+    // 10. The Sentinel correlation that opened the ticket.
+    sentinelUeba({
+      companyId: cxN, id: "evt_wpe_10_sentinel_corr", ts: T(6 * MIN), user: "svc-web", userSam: "svc-web",
+      alertName: "PrivilegeEscalation_TokenImpersonation_ServiceToSYSTEM", alertSeverity: "High", ruleId: "SEN-PRIVESC-0042",
+      severity: "high", eventType: "ueba_anomaly", indicators: ["RarePrivilegeElevation", "UnusualProcessExecution"],
+      fullName: "IIS Application Pool — NexaWebAppPool", department: "IT — Web Platform", title: "Service Account (IIS App Pool Identity)",
+      mitre: "T1134.001", threatTechnique: "Access Token Manipulation: Token Impersonation/Theft", threatTactic: "Privilege Escalation",
+      extendedProperties: {
+        "Window Start": T(0),
+        "Window End": T(4 * MIN + 30 * SEC),
+        "Baseline Processes (Prior 30d)": "w3wp.exe, inetinfo.exe, wmiprvse.exe",
+        "Observed Privilege": "SeImpersonatePrivilege",
+        "SYSTEM Process Observed": "cmd.exe (parent spf.exe)",
+        "Local Admin Priv On Host": "false",
       },
-    },
-
-    // ---------------------------------------------------------------------
-    // 3. The webshell speaks — the IIS worker spawns a shell. Parent is w3wp.exe.
-    //    A web app should never launch cmd.exe. This is the foothold surfacing.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_03_w3wp_spawns_cmd",
-      ts: T(3 * MIN),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      severity: "high",
-      mitre_technique: "T1505.003",
-      mitre_tactic: "Persistence",
-      description:
-        "Sysmon Event 1 on WEB-APP-04: the IIS worker w3wp.exe spawned cmd.exe under the svc-web identity.",
-      process: {
-        name: "cmd.exe",
-        pid: 7724,
-        path: "C:\\Windows\\System32\\cmd.exe",
-        parent_name: "w3wp.exe",
-        parent_pid: 4188,
-        cmdline: "cmd.exe /c whoami /priv",
-        user: "NEXACORP\\svc-web",
-        integrity: "high",
-      },
-      raw: {
-        // Sysmon Event ID 1 — Process creation
-        "winlog.event_id": "1",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.record_id": "9912044",
-        "winlog.event_data.RuleName": "technique_id=T1505.003,technique_name=Web Shell",
-        "winlog.event_data.UtcTime": "2026-08-14 02:17:00.114",
-        "winlog.event_data.ProcessGuid": "{a1b2c3d4-1f10-64dc-2e01-000000005e00}",
-        "winlog.event_data.ProcessId": "7724",
-        "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
-        "winlog.event_data.CommandLine": "cmd.exe /c whoami /priv",
-        "winlog.event_data.CurrentDirectory": "C:\\Windows\\System32\\inetsrv\\",
-        "winlog.event_data.User": "NEXACORP\\svc-web",
-        "winlog.event_data.LogonId": svcLogonId,
-        "winlog.event_data.IntegrityLevel": "High",
-        "winlog.event_data.ParentProcessGuid": "{a1b2c3d4-0c40-64dc-1a01-000000005e00}",
-        "winlog.event_data.ParentProcessId": "4188",
-        "winlog.event_data.ParentImage": "C:\\Windows\\System32\\inetsrv\\w3wp.exe",
-        "winlog.event_data.ParentCommandLine": "c:\\windows\\system32\\inetsrv\\w3wp.exe -ap \"NexaWebAppPool\"",
-        "winlog.event_data.ParentUser": "NEXACORP\\svc-web",
-        "event.code": "1",
-        "event.action": "process-created",
-        "event.outcome": "success",
-        "host.name": host.hostname,
-        "user.name": svc.sam,
-        "user.domain": svc.domain,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 4. The tool is dropped and run. Sysmon 1 carries the hashes — the one
-    //    citable file IOC of the incident. Signed by nobody, in C:\Windows\Temp.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_04_tool_launch",
-      ts: T(3 * MIN + 40 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      severity: "high",
-      mitre_technique: "T1068",
-      mitre_tactic: "Privilege Escalation",
-      description:
-        "Sysmon Event 1: cmd.exe launched C:\\Windows\\Temp\\spf.exe. The binary is unsigned and its SHA256 is recorded in the event.",
-      process: {
-        name: "spf.exe",
-        pid: 7810,
-        path: toolPath,
-        parent_name: "cmd.exe",
-        parent_pid: 7724,
-        cmdline: "spf.exe -i -c cmd.exe",
-        user: "NEXACORP\\svc-web",
-        integrity: "high",
-        hash: { sha256: toolSha256, md5: toolMd5 },
-      },
-      raw: {
-        "winlog.event_id": "1",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.record_id": "9912051",
-        "winlog.event_data.RuleName": "-",
-        "winlog.event_data.UtcTime": "2026-08-14 02:17:40.502",
-        "winlog.event_data.ProcessGuid": "{a1b2c3d4-1f28-64dc-3001-000000005e00}",
-        "winlog.event_data.ProcessId": "7810",
-        "winlog.event_data.Image": toolPath,
-        "winlog.event_data.FileVersion": "-",
-        "winlog.event_data.Product": "-",
-        "winlog.event_data.Company": "-",
-        "winlog.event_data.OriginalFileName": "-",
-        "winlog.event_data.CommandLine": "spf.exe -i -c cmd.exe",
-        "winlog.event_data.CurrentDirectory": "C:\\Windows\\Temp\\",
-        "winlog.event_data.User": "NEXACORP\\svc-web",
-        "winlog.event_data.LogonId": svcLogonId,
-        "winlog.event_data.IntegrityLevel": "High",
-        "winlog.event_data.Hashes": `SHA256=${toolSha256},MD5=${toolMd5},IMPHASH=${toolImphash}`,
-        "winlog.event_data.ParentProcessGuid": "{a1b2c3d4-1f10-64dc-2e01-000000005e00}",
-        "winlog.event_data.ParentProcessId": "7724",
-        "winlog.event_data.ParentImage": "C:\\Windows\\System32\\cmd.exe",
-        "winlog.event_data.ParentCommandLine": "cmd.exe /c whoami /priv",
-        "winlog.event_data.ParentUser": "NEXACORP\\svc-web",
-        "event.code": "1",
-        "event.action": "process-created",
-        "event.outcome": "success",
-        "process.name": "spf.exe",
-        "process.executable": toolPath,
-        "process.command_line": "spf.exe -i -c cmd.exe",
-        "process.hash.sha256": toolSha256,
-        "process.code_signature.status": "not signed",
-        "host.name": host.hostname,
-        "user.name": svc.sam,
-        "user.domain": svc.domain,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 5. The coercion — the Print Spooler (SYSTEM) connects to the attacker's
-    //    named pipe. Sysmon Event 18: Image is spoolsv.exe, PipeName \spoolss.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_05_pipe_connect",
-      ts: T(3 * MIN + 44 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_access",
-      hostname: host.hostname,
-      severity: "high",
-      mitre_technique: "T1134.001",
-      mitre_tactic: "Privilege Escalation",
-      description:
-        "Sysmon Event 18 (Pipe Connected) on WEB-APP-04: spoolsv.exe connected to the named pipe \\spoolss — the Print Spooler being coerced toward an attacker-controlled endpoint.",
-      raw: {
-        // Sysmon Event ID 18 — Pipe Connected
-        "winlog.event_id": "18",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.record_id": "9912066",
-        "winlog.event_data.RuleName": "-",
-        "winlog.event_data.UtcTime": "2026-08-14 02:17:44.881",
-        "winlog.event_data.EventType": "ConnectPipe",
-        "winlog.event_data.ProcessGuid": "{a1b2c3d4-0b90-64dc-0d00-000000005e00}",
-        "winlog.event_data.ProcessId": "1996",
-        "winlog.event_data.PipeName": "\\spoolss",
-        "winlog.event_data.Image": "C:\\Windows\\System32\\spoolsv.exe",
-        "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
-        "event.code": "18",
-        "event.action": "pipe-connected",
-        "event.outcome": "success",
-        "host.name": host.hostname,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 6. The token handle — spf.exe opens spoolsv.exe with GrantedAccess 0x1410,
-    //    enough to read/duplicate the process token. Sysmon Event 10.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_06_process_access",
-      ts: T(3 * MIN + 45 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_access",
-      hostname: host.hostname,
-      severity: "high",
-      mitre_technique: "T1134.001",
-      mitre_tactic: "Privilege Escalation",
-      description:
-        "Sysmon Event 10 (ProcessAccess): C:\\Windows\\Temp\\spf.exe opened a handle to spoolsv.exe with GrantedAccess 0x1410.",
-      process: {
-        name: "spf.exe",
-        pid: 7810,
-        path: toolPath,
-        user: "NEXACORP\\svc-web",
-        integrity: "high",
-      },
-      raw: {
-        // Sysmon Event ID 10 — Process accessed
-        "winlog.event_id": "10",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.record_id": "9912071",
-        "winlog.event_data.RuleName": "technique_id=T1134,technique_name=Access Token Manipulation",
-        "winlog.event_data.UtcTime": "2026-08-14 02:17:45.203",
-        "winlog.event_data.SourceProcessGUID": "{a1b2c3d4-1f28-64dc-3001-000000005e00}",
-        "winlog.event_data.SourceProcessId": "7810",
-        "winlog.event_data.SourceThreadId": "8140",
-        "winlog.event_data.SourceImage": toolPath,
-        "winlog.event_data.TargetProcessGUID": "{a1b2c3d4-0b90-64dc-0d00-000000005e00}",
-        "winlog.event_data.TargetProcessId": "1996",
-        "winlog.event_data.TargetImage": "C:\\Windows\\System32\\spoolsv.exe",
-        "winlog.event_data.GrantedAccess": "0x1410",
-        "winlog.event_data.CallTrace":
-          "C:\\Windows\\SYSTEM32\\ntdll.dll+9d2b4|C:\\Windows\\System32\\KERNELBASE.dll+2d51e|C:\\Windows\\Temp\\spf.exe+3a17",
-        "winlog.event_data.SourceUser": "NEXACORP\\svc-web",
-        "winlog.event_data.TargetUser": "NT AUTHORITY\\SYSTEM",
-        "event.code": "10",
-        "event.action": "process-accessed",
-        "event.outcome": "success",
-        "host.name": host.hostname,
-        "user.name": svc.sam,
-        "user.domain": svc.domain,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 7. The privilege is exercised — 4673 records SeImpersonatePrivilege being
-    //    used by spf.exe. This is the impersonation call itself.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_07_sensitive_priv_use",
-      ts: T(3 * MIN + 45 * SEC + 400),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "privileged_operation",
-      hostname: host.hostname,
-      severity: "high",
-      mitre_technique: "T1134.001",
-      mitre_tactic: "Privilege Escalation",
-      description:
-        "A 4673 on WEB-APP-04 recording sensitive-privilege use: SeImpersonatePrivilege exercised by the process C:\\Windows\\Temp\\spf.exe under the svc-web session.",
-      raw: {
-        // Windows Security Event 4673 — A privileged service was called
-        "winlog.event_id": "4673",
-        "winlog.channel": "Security",
-        "winlog.computer_name": host.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5541190",
-        "winlog.event_data.SubjectUserSid": svcSid,
-        "winlog.event_data.SubjectUserName": svc.sam,
-        "winlog.event_data.SubjectDomainName": svc.domain,
-        "winlog.event_data.SubjectLogonId": svcLogonId,
-        "winlog.event_data.ObjectServer": "Security",
-        "winlog.event_data.Service": "-",
-        "winlog.event_data.PrivilegeList": "SeImpersonatePrivilege",
-        "winlog.event_data.ProcessId": "0x1e82",
-        "winlog.event_data.ProcessName": toolPath,
-        "event.code": "4673",
-        "event.action": "sensitive-privilege-use",
-        "event.outcome": "success",
-        "host.name": host.hostname,
-        "user.name": svc.sam,
-        "user.domain": svc.domain,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 8. ESCALATION SUCCEEDS — 4688 for a cmd.exe now owned by SYSTEM, spawned
-    //    by spf.exe, with a FULL token (TokenElevationType %%1937). svc-web is
-    //    gone; this process is NT AUTHORITY\SYSTEM.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_08_system_shell",
-      ts: T(3 * MIN + 46 * SEC),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "privilege_escalation",
-      hostname: host.hostname,
-      severity: "critical",
-      mitre_technique: "T1134.002",
-      mitre_tactic: "Privilege Escalation",
-      description:
-        "A 4688 on WEB-APP-04: spf.exe created cmd.exe running as NT AUTHORITY\\SYSTEM (SID S-1-5-18) with TokenElevationType %%1937 (full token).",
-      process: {
-        name: "cmd.exe",
-        pid: 7864,
-        path: "C:\\Windows\\System32\\cmd.exe",
-        parent_name: "spf.exe",
-        parent_pid: 7810,
-        cmdline: "cmd.exe",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-      },
-      raw: {
-        // Windows Security Event 4688 — A new process has been created
-        "winlog.event_id": "4688",
-        "winlog.channel": "Security",
-        "winlog.computer_name": host.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5541204",
-        "winlog.event_data.SubjectUserSid": "S-1-5-18",
-        "winlog.event_data.SubjectUserName": "WEB-APP-04$",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x3E7",
-        "winlog.event_data.NewProcessId": "0x1eb8",
-        "winlog.event_data.NewProcessName": "C:\\Windows\\System32\\cmd.exe",
-        "winlog.event_data.TokenElevationType": "%%1937",
-        "winlog.event_data.MandatoryLabel": "S-1-16-16384",
-        "winlog.event_data.ProcessId": "0x1e82",
-        "winlog.event_data.CommandLine": "cmd.exe",
-        "winlog.event_data.CreatorProcessName": toolPath,
-        "winlog.event_data.TargetUserSid": "S-1-5-18",
-        "winlog.event_data.TargetLogonId": "0x3E7",
-        "event.code": "4688",
-        "event.action": "process-created",
-        "event.outcome": "success",
-        "host.name": host.hostname,
-        "user.name": "SYSTEM",
-        "user.domain": "NT AUTHORITY",
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 9. THE PAYOFF — from SYSTEM, reg.exe exports the SAM hive. MDE raises the
-    //    detection. This is the alert-grade event; the rest surfaces in the tree.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_09_sam_dump",
-      ts: T(4 * MIN + 30 * SEC),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "process_create",
-      hostname: host.hostname,
-      severity: "critical",
-      mitre_technique: "T1003.002",
-      mitre_tactic: "Credential Access",
-      is_detection: true, // alert-grade: SYSTEM-context export of the SAM hive — the crux the SOC actually receives
-      edr_scope: "edr",   // fully host-observable → investigated in the EDR console (walkable process tree)
-      description:
-        "Microsoft Defender for Endpoint raised a detection on WEB-APP-04: reg.exe, launched by the SYSTEM cmd.exe, exported the SAM registry hive to C:\\Windows\\Temp\\sam.save.",
-      process: {
-        name: "reg.exe",
-        pid: 7902,
-        path: "C:\\Windows\\System32\\reg.exe",
-        parent_name: "cmd.exe",
-        parent_pid: 7864,
-        cmdline: "reg save hklm\\sam C:\\Windows\\Temp\\sam.save",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-      },
-      raw: {
-        // MDE Advanced Hunting — DeviceProcessEvents projection
-        "Timestamp": "2026-08-14T02:18:30.7742100Z",
-        "DeviceId": "b91c4de2a7f0451c9d3e6f2a1b8c0d4e5f6a7b8c",
-        "DeviceName": "web-app-04.nexacorp.com",
-        "ActionType": "ProcessCreated",
-        "FileName": "reg.exe",
-        "FolderPath": "C:\\Windows\\System32\\reg.exe",
-        "ProcessCommandLine": "reg  save hklm\\sam C:\\Windows\\Temp\\sam.save",
-        "ProcessId": "7902",
-        "ProcessIntegrityLevel": "System",
-        "ProcessTokenElevation": "TokenElevationTypeDefault",
-        "SHA256": makeSha256("windows_system32_reg_exe_signed_microsoft"),
-        "AccountName": "system",
-        "AccountDomain": "nt authority",
-        "AccountSid": "S-1-5-18",
-        "InitiatingProcessFileName": "cmd.exe",
-        "InitiatingProcessCommandLine": "cmd.exe",
-        "InitiatingProcessFolderPath": "C:\\Windows\\System32\\cmd.exe",
-        "InitiatingProcessId": "7864",
-        "InitiatingProcessParentFileName": "spf.exe",
-        "InitiatingProcessParentId": "7810",
-        "InitiatingProcessIntegrityLevel": "System",
-        "InitiatingProcessTokenElevation": "TokenElevationTypeFull",
-        "InitiatingProcessAccountName": "system",
-        "InitiatingProcessAccountDomain": "nt authority",
-        "InitiatingProcessSHA256": makeSha256("windows_system32_cmd_exe_signed_microsoft"),
-        "ReportId": "84421907",
-        "mde.AlertTitle": "Sensitive registry hive (SAM) exported by a SYSTEM process",
-        "mde.Category": "CredentialAccess",
-        "mde.DetectionSource": "EDR",
-        "mde.DeviceName": "web-app-04.nexacorp.com",
-        "mde.IncidentId": "39714",
-        "mde.InitiatingProcessFileName": "cmd.exe",
-        "mde.InitiatingProcessCommandLine": "cmd.exe",
-        "event.code": "1",
-        "event.action": "process-created",
-        "event.outcome": "success",
-        "threat.tactic.name": "Credential Access",
-        "threat.technique.id": "T1003.002",
-        "threat.technique.name": "OS Credential Dumping: Security Account Manager",
-        "host.name": host.hostname,
-      },
-    },
-
-    // ---------------------------------------------------------------------
-    // 10. The correlation that opened the ticket — Sentinel ties the rare
-    //     privilege elevation on svc-web to the SYSTEM process and SAM export,
-    //     with the account's baseline attached.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_wpe_10_sentinel_corr",
-      ts: T(6 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      hostname: host.hostname,
-      severity: "high",
-      mitre_technique: "T1134.001",
-      mitre_tactic: "Privilege Escalation",
-      description:
-        "Microsoft Sentinel raised a High incident correlating a rare privilege elevation and an unusual process execution on WEB-APP-04 for NEXACORP\\svc-web, with the service account's baseline attached.",
-      raw: {
-        "AlertName": "PrivilegeEscalation_TokenImpersonation_ServiceToSYSTEM",
-        "AlertSeverity": "High",
-        "TimeGenerated": T(6 * MIN),
-        "RarePrivilegeElevation": "true",
-        "UnusualProcessExecution": "true",
-        "alert.rule.id": "SEN-PRIVESC-0042",
-        "target.user.name": "NEXACORP\\svc-web",
-        "user.full_name": "IIS Application Pool — NexaWebAppPool",
-        "user.department": "IT — Web Platform",
-        "user.title": "Service Account (IIS App Pool Identity)",
-        "host.name": host.hostname,
-        "threat.tactic.name": "Privilege Escalation",
-        "threat.technique.id": "T1134.001",
-        "threat.technique.name": "Access Token Manipulation: Token Impersonation/Theft",
-        "ExtendedProperties.Window Start": T(0),
-        "ExtendedProperties.Window End": T(4 * MIN + 30 * SEC),
-        "ExtendedProperties.Baseline Processes (Prior 30d)": "w3wp.exe, inetinfo.exe, wmiprvse.exe",
-        "ExtendedProperties.Observed Privilege": "SeImpersonatePrivilege",
-        "ExtendedProperties.SYSTEM Process Observed": "cmd.exe (parent spf.exe)",
-        "ExtendedProperties.Local Admin Priv On Host": "false",
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-      },
-    },
+      description: "Microsoft Sentinel raised a High incident correlating a rare privilege elevation and an unusual process execution on WEB-APP-04 for NEXACORP\\svc-web, with the service account's baseline attached.",
+    }),
   ];
 
   // Every event belongs to the one incident.

@@ -25,7 +25,7 @@ interface WinCtx {
   targetSid?: string;
   /** override the derived mailbox; null = no mailbox (a 0xC0000064 no-such-user 4625) */
   userEmail?: string | null;
-  srcIp: string;
+  srcIp?: string;               // remote source; omit for a host-local event (service logon, 4672/4673)
   domain?: string;              // NetBIOS realm; defaults from the fabric
   geo?: { country?: string; city?: string; latitude?: number; longitude?: number };
   mitre?: string;
@@ -84,13 +84,13 @@ export function winFailedLogon(o: WinFailedLogonOpts): TelemetryEvent {
       "winlog.event_data.LogonProcessName": "NtLmSsp ",
       "winlog.event_data.AuthenticationPackageName": pkg,
       "winlog.event_data.WorkstationName": o.workstation ?? "WORKSTATION",
-      "winlog.event_data.IpAddress": o.srcIp,
+      "winlog.event_data.IpAddress": o.srcIp ?? "-",
       "winlog.event_data.IpPort": o.srcPort ?? "0",
       "winlog.event_data.ProcessName": "-",
       "event.code": "4625",
       "event.action": "logon-failed",
       "event.outcome": "failure",
-      "source.ip": o.srcIp,
+      ...(o.srcIp ? { "source.ip": o.srcIp } : {}),
       "user.name": o.targetUser,
       "user.domain": nb,
     },
@@ -141,13 +141,13 @@ export function winLogon(o: WinLogonOpts): TelemetryEvent {
       ...(o.lmPackage ? { "winlog.event_data.LmPackageName": o.lmPackage } : {}),
       ...(o.keyLength ? { "winlog.event_data.KeyLength": o.keyLength } : {}),
       "winlog.event_data.WorkstationName": o.workstation ?? "WORKSTATION",
-      "winlog.event_data.IpAddress": o.srcIp,
+      "winlog.event_data.IpAddress": o.srcIp ?? "-",
       "winlog.event_data.IpPort": o.srcPort ?? "0",
       "winlog.event_data.ProcessName": o.processName ?? "-",
       "event.code": "4624",
       "event.action": "logged-in",
       "event.outcome": "success",
-      "source.ip": o.srcIp,
+      ...(o.srcIp ? { "source.ip": o.srcIp } : {}),
       "user.name": o.targetUser,
       "user.domain": nb,
     },
@@ -179,7 +179,7 @@ export function winShareAccess(o: WinShareAccessOpts): TelemetryEvent {
       "winlog.event_data.SubjectDomainName": nb,
       ...(o.subjectLogonId ? { "winlog.event_data.SubjectLogonId": o.subjectLogonId } : {}),
       "winlog.event_data.ObjectType": "File",
-      "winlog.event_data.IpAddress": o.srcIp,
+      "winlog.event_data.IpAddress": o.srcIp ?? "-",
       "winlog.event_data.ShareName": o.shareName,
       ...(o.shareLocalPath ? { "winlog.event_data.ShareLocalPath": o.shareLocalPath } : {}),
       "winlog.event_data.AccessMask": "0x1",
@@ -187,7 +187,7 @@ export function winShareAccess(o: WinShareAccessOpts): TelemetryEvent {
       "event.code": "5140",
       "event.action": "share-accessed",
       "event.outcome": "success",
-      "source.ip": o.srcIp,
+      ...(o.srcIp ? { "source.ip": o.srcIp } : {}),
       "user.name": o.targetUser,
       "user.domain": nb,
     },
@@ -231,7 +231,7 @@ export function winObjectAccess(o: WinObjectAccessOpts): TelemetryEvent {
       "event.code": "4663",
       "event.action": "file-accessed",
       "event.outcome": "success",
-      "source.ip": o.srcIp,
+      ...(o.srcIp ? { "source.ip": o.srcIp } : {}),
       "user.name": o.targetUser,
       "user.domain": nb,
     },
@@ -243,12 +243,14 @@ const ADMIN_PRIVS = "SeSecurityPrivilege\n\t\t\tSeBackupPrivilege\n\t\t\tSeResto
 export interface WinSpecialPrivsOpts extends WinCtx {
   logonId?: string;
   privilegeList?: string;
+  eventType?: EventType;           // default privilege_escalation
+  eventAction?: string;            // default "logged-in-special"
   recordId?: string;
 }
 export function winSpecialPrivileges(o: WinSpecialPrivsOpts): TelemetryEvent {
   const nb = realm(o);
   return {
-    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "privilege_escalation",
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: o.eventType ?? "privilege_escalation",
     severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
     description: o.description ?? `4672 — special privileges assigned to ${o.targetUser} on ${o.host}`,
@@ -264,7 +266,47 @@ export function winSpecialPrivileges(o: WinSpecialPrivsOpts): TelemetryEvent {
       ...(o.logonId ? { "winlog.event_data.SubjectLogonId": o.logonId } : {}),
       "winlog.event_data.PrivilegeList": o.privilegeList ?? ADMIN_PRIVS,
       "event.code": "4672",
-      "event.action": "logged-in-special",
+      "event.action": o.eventAction ?? "logged-in-special",
+      "event.outcome": "success",
+      "user.name": o.targetUser,
+      "user.domain": nb,
+    },
+  };
+}
+
+// ── 4673 — a privileged service was called (sensitive-privilege use) ──────────────────
+export interface WinSensitivePrivUseOpts extends WinCtx {
+  logonId?: string;
+  privilegeUsed?: string;          // e.g. "SeImpersonatePrivilege"
+  processName: string;             // full path of the calling process
+  processId?: string;              // hex
+  service?: string;
+  recordId?: string;
+}
+export function winSensitivePrivUse(o: WinSensitivePrivUseOpts): TelemetryEvent {
+  const nb = realm(o);
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "privileged_operation",
+    severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    description: o.description ?? `4673 — ${o.privilegeUsed ?? "SeImpersonatePrivilege"} used by ${o.processName} on ${o.host}`,
+    raw: {
+      "winlog.event_id": "4673",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.targetSid ?? NO_SID,
+      "winlog.event_data.SubjectUserName": o.targetUser,
+      "winlog.event_data.SubjectDomainName": nb,
+      ...(o.logonId ? { "winlog.event_data.SubjectLogonId": o.logonId } : {}),
+      "winlog.event_data.ObjectServer": "Security",
+      "winlog.event_data.Service": o.service ?? "-",
+      "winlog.event_data.PrivilegeList": o.privilegeUsed ?? "SeImpersonatePrivilege",
+      ...(o.processId ? { "winlog.event_data.ProcessId": o.processId } : {}),
+      "winlog.event_data.ProcessName": o.processName,
+      "event.code": "4673",
+      "event.action": "sensitive-privilege-use",
       "event.outcome": "success",
       "user.name": o.targetUser,
       "user.domain": nb,

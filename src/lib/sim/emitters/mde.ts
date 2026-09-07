@@ -150,10 +150,16 @@ export interface MdeProcessOpts extends Ctx {
   sha256?: string;
   signed?: boolean;
   integrity?: "Low" | "Medium" | "High" | "System";
+  runAsUser?: string;              // process.user override (e.g. "NT AUTHORITY\\SYSTEM")
+  accountName?: string;            // AccountName override (else the fabric user)
+  accountDomain?: string;          // AccountDomain override
   mitre?: string;
   tactic?: string;
   severity?: Severity;
   isDetection?: boolean;
+  /** any other Advanced-Hunting / mde.* / threat.* fields (InitiatingProcess chain,
+   *  DeviceId, ProcessTokenElevation, mde.AlertTitle, …) — registry-validated. */
+  extra?: Record<string, string | number>;
   description?: string;
 }
 export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
@@ -169,12 +175,12 @@ export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
     description: o.description ?? `${o.processName} launched on ${r.host}`,
-    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: r.domainUser, integrity: o.integrity?.toLowerCase() as "low" | "medium" | "high" | "system" | undefined, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
+    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: o.runAsUser ?? r.domainUser, integrity: o.integrity?.toLowerCase() as "low" | "medium" | "high" | "system" | undefined, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
     raw: {
       "ActionType": "ProcessCreated",
       "DeviceName": r.host,
-      "AccountName": a.AccountName,
-      "AccountDomain": a.AccountDomain,
+      "AccountName": o.accountName ?? a.AccountName,
+      "AccountDomain": o.accountDomain ?? a.AccountDomain,
       "FileName": o.processName,
       "FolderPath": folder,
       "ProcessCommandLine": o.cmdline,
@@ -183,7 +189,8 @@ export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
       "InitiatingProcessId": String(ppid),
       ...(o.sha256 ? { "SHA256": o.sha256, "process.hash.sha256": o.sha256 } : {}),
       ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
-      ...(o.integrity ? { "process.integrity_level": o.integrity } : {}),
+      ...(o.integrity ? { "process.integrity_level": o.integrity.toLowerCase() } : {}),
+      ...(o.extra ?? {}),
       "process.command_line": o.cmdline,
     },
   };

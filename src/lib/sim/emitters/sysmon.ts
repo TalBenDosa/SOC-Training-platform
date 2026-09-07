@@ -46,6 +46,9 @@ export interface SysmonProcessOpts extends Ctx {
   parentGuid?: string;             // ParentProcessGuid
   eventType?: EventType;           // override (e.g. "scheduled_task" for a schtasks.exe run)
   runAsUser?: string;              // token owner override (e.g. "NT AUTHORITY\\SYSTEM"); else the fabric user
+  md5?: string;                    // add MD5 to the Hashes field + process.hash.md5
+  imphash?: string;                // add IMPHASH to the Hashes field
+  ruleName?: string;               // winlog.event_data.RuleName (Sysmon config rule)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -70,6 +73,7 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
     raw: {
       ...base(o, r),
       "winlog.event_id": "1",
+      ...(o.ruleName ? { "winlog.event_data.RuleName": o.ruleName } : {}),
       "winlog.event_data.UtcTime": o.ts,
       "winlog.event_data.Image": path,
       "winlog.event_data.CommandLine": o.cmdline,
@@ -80,7 +84,8 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
       "winlog.event_data.ParentProcessId": String(ppid),
       ...(o.parentGuid ? { "winlog.event_data.ParentProcessGuid": o.parentGuid } : {}),
       "winlog.event_data.User": usr,
-      "winlog.event_data.Hashes": `SHA256=${sha256}`,
+      "winlog.event_data.Hashes": `SHA256=${sha256}${o.md5 ? `,MD5=${o.md5}` : ""}${o.imphash ? `,IMPHASH=${o.imphash}` : ""}`,
+      ...(o.md5 ? { "process.hash.md5": o.md5 } : {}),
       "winlog.event_data.IntegrityLevel": o.integrity ?? "Medium",
       ...(o.originalFileName ? { "winlog.event_data.OriginalFileName": o.originalFileName } : {}),
       "event.code": "1",
@@ -342,6 +347,44 @@ export function sysmonProcessAccess(o: SysmonProcessAccessOpts): TelemetryEvent 
       "process.executable": o.sourceImage,
       "process.name": name,
       "process.pid": String(pid),
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 18 — Pipe connected (named-pipe coercion, e.g. PrintSpoofer \spoolss) ───────
+export interface SysmonPipeOpts extends Ctx {
+  image: string;                   // the process on the pipe (e.g. spoolsv.exe path)
+  pid?: number;
+  pipeName: string;                // e.g. "\spoolss"
+  pipeEventType?: string;          // default "ConnectPipe"
+  runAsUser?: string;              // the process token owner (default NT AUTHORITY\SYSTEM)
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonPipe(o: SysmonPipeOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const name = o.image.split(/[\/]/).pop() ?? o.image;
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "process_access",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    description: o.description ?? `${name} connected to pipe ${o.pipeName} on ${r.host} (Sysmon 18)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "18",
+      "winlog.event_data.EventType": o.pipeEventType ?? "ConnectPipe",
+      "winlog.event_data.ProcessId": String(pid),
+      "winlog.event_data.PipeName": o.pipeName,
+      "winlog.event_data.Image": o.image,
+      "winlog.event_data.User": o.runAsUser ?? "NT AUTHORITY\SYSTEM",
+      "event.code": "18",
+      "event.category": "process",
+      "event.action": "pipe-connected",
       "host.name": r.host,
     },
   };

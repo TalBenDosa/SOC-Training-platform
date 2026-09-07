@@ -11,6 +11,7 @@ import { buildUebaCompromisedAccountScenario } from "./uebaCompromisedAccount";
 import { buildScheduledTaskPersistenceScenario } from "./scheduledTaskPersistence";
 import { buildBundledCryptominerScenario } from "./bundledCryptominer";
 import { buildLateralMovementPthScenario } from "./lateralMovementPth";
+import { buildWindowsPrivescTokenScenario } from "./windowsPrivescToken";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -22,6 +23,7 @@ const FULLY_EMITTER_AUTHORED = [
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
+  "windowsPrivescToken.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -290,5 +292,38 @@ describe("emitter-authored scenario packs", () => {
     // one incident, correlated: EDR console opens on the file server
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("SRV-FILE-03");
+  });
+
+  it("windowsPrivescToken builds a coherent SeImpersonate privesc from emitters only (WinSec + Sysmon + MDE + Sentinel)", () => {
+    const s = buildWindowsPrivescTokenScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Windows Security", "Microsoft Sysmon", "Microsoft Defender for Endpoint", "Microsoft Sentinel",
+    ]));
+    // the precondition: 4672 enumerates SeImpersonatePrivilege on the svc-web session
+    const privs = s.events.find(e => e.id === "evt_wpe_02_special_privs");
+    expect(privs?.raw?.["winlog.event_id"]).toBe("4672");
+    expect(String(privs?.raw?.["winlog.event_data.PrivilegeList"])).toContain("SeImpersonatePrivilege");
+    // the coercion + token theft: spoolsv on the pipe (18), spf opens spoolsv 0x1410 (10)
+    const pipe = s.events.find(e => e.id === "evt_wpe_05_pipe_connect");
+    expect(pipe?.raw?.["winlog.event_data.PipeName"]).toBe("\\spoolss");
+    const pa = s.events.find(e => e.id === "evt_wpe_06_process_access");
+    expect(pa?.event_type).toBe("process_access");
+    expect(pa?.raw?.["winlog.event_data.GrantedAccess"]).toBe("0x1410");
+    // 4673 sensitive-privilege use by the tool
+    const spu = s.events.find(e => e.id === "evt_wpe_07_sensitive_priv_use");
+    expect(spu?.raw?.["winlog.event_id"]).toBe("4673");
+    // escalation succeeds: 4688 SYSTEM cmd with a full token
+    const sys = s.events.find(e => e.id === "evt_wpe_08_system_shell");
+    expect(sys?.raw?.["winlog.event_id"]).toBe("4688");
+    expect(sys?.raw?.["winlog.event_data.TokenElevationType"]).toBe("%%1937");
+    // the payoff: reg.exe SAM export is the MDE detection
+    const sam = s.events.find(e => e.id === "evt_wpe_09_sam_dump");
+    expect(sam?.is_detection).toBe(true);
+    expect(sam?.edr_scope).toBe("edr");
+    expect(sam?.mitre_technique).toBe("T1003.002");
+    // one host, correlated: the EDR console opens on the web server
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("WEB-APP-04");
   });
 });
