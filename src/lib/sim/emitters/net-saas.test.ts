@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { fgTraffic, fgThreat, fgVpn, fgWeb } from "./fortigate";
+import { fgTraffic, fgThreat, fgVpn, fgWeb, fgWaf } from "./fortigate";
 import { cpTraffic, cpThreat } from "./checkpoint";
 import { zscalerWeb } from "./zscaler";
 import { m365Operation, m365Dlp } from "./m365";
@@ -28,19 +28,29 @@ describe("FortiGate emitters", () => {
   const events = [
     fgTraffic({ id: "t", ts: T(1), companyId: c, remoteIp: "45.135.232.44", remotePort: 443, domain: "cdn-metrics-eu.com", service: "HTTPS", action: "accept", bytesSent: 1200, bytesReceived: 40000 }),
     fgThreat({ id: "h", ts: T(2), companyId: c, remoteIp: "45.135.232.44", subtype: "ips", threatName: "Backdoor.CobaltStrike", action: "blocked", mitre: "T1071.001" }),
-    fgVpn({ id: "v", ts: T(3), companyId: c, user: "t.levy@rocketstack.io", remoteIp: "91.108.23.7", assignedIp: "10.212.134.9", outcome: "success" }),
     fgWeb({ id: "w", ts: T(4), companyId: c, remoteIp: "104.21.61.90", url: "https://invoice-doc-share.net/dl/x.iso", domain: "invoice-doc-share.net", subtype: "filefilter", action: "log-only", file: { name: "x.iso", sha256: "a".repeat(64), size: 7_129_088, type: "iso" }, policyId: 14 }),
     fgWeb({ id: "wf", ts: T(5), companyId: c, remoteIp: "193.106.191.42", url: "https://cdn-x.net/mod/core.dll", domain: "cdn-x.net", subtype: "webfilter", eventtype: "ftgd_allow", action: "passthrough", category: "Uncategorized", categoryId: "26", file: { name: "core.dll", type: "dll" } }),
+    fgWaf({ id: "wa", ts: T(6), companyId: c, host: "FGT-VPN-01", attackerIp: "185.220.101.47", applianceIp: "156.146.62.14", portal: "vpn.x.io", url: "/api/v2/cmdb/system/admin/", method: "GET", status: 200, action: "pass", requester: "", userAgent: "curl/8.4.0", country: "Netherlands", logid: "0347028704", mitre: "T1190" }),
   ];
+  // SSL-VPN is its own product line (vendor "FortiGate SSL-VPN", source vpn) so it maps
+  // to a distinct source from the firewall/UTM logs — its raw still uses fortigate fields.
+  const vpn = fgVpn({ id: "v", ts: T(3), companyId: c, user: "t.levy@rocketstack.io", remoteIp: "91.108.23.7", assignedIp: "10.212.134.9", outcome: "success" });
   it("registry-valid", () => assertValid(events, "fortigate", "FortiGate"));
+  it("SSL-VPN is registry-valid under its own product vendor", () => {
+    expect(vpn.vendor).toBe("FortiGate SSL-VPN");
+    const ok = validatorFor("fortigate");
+    for (const k of Object.keys(vpn.raw ?? {})) expect(ok(k), `invalid field "${k}"`).toBe(true);
+  });
   it("maps outcomes", () => {
     expect(events[0].event_type).toBe("net_connection");
     expect(events[1].event_type).toBe("ids_blocked");
-    expect(events[2].event_type).toBe("vpn_login");
-    expect(events[2].geo?.country).toBe("Russia");
-    expect(events[3].event_type).toBe("http_request");
-    expect(events[3].raw?.["data.subtype"]).toBe("filefilter");
-    expect(events[4].raw?.["data.catdesc"]).toBe("Uncategorized");
+    expect(vpn.event_type).toBe("vpn_login");
+    expect(vpn.geo?.country).toBe("Russia");
+    expect(events[2].event_type).toBe("http_request");
+    expect(events[2].raw?.["data.subtype"]).toBe("filefilter");
+    expect(events[3].raw?.["data.catdesc"]).toBe("Uncategorized");
+    expect(events[4].raw?.["data.user"]).toBe("");
+    expect(events[4].raw?.["http.response.status_code"]).toBe("200");
   });
 });
 

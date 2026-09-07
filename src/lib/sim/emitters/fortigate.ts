@@ -242,6 +242,77 @@ export function fgWeb(o: FgWebOpts): TelemetryEvent {
   };
 }
 
+// ── WAF / admin-API request TO the appliance (inbound, edge-exploitation) ─────────────
+// FortiGate's own WAF log for a request hitting the appliance's management/API surface
+// from an external client. Unlike fgWeb (a company host reaching OUT), here the source is
+// an external address and the "host" is the appliance itself; a blank `requester` on a
+// 200 to an admin path is the pre-auth-bypass tell. Optionally carries a written file
+// (a portal web-shell) → event_type file_create.
+export interface FgWafOpts extends Ctx {
+  attackerIp: string;              // data.srcip — the external source
+  applianceIp: string;             // data.dstip — the appliance WAN IP
+  portal?: string;                 // data.hostname — the portal fqdn
+  url: string;                     // data.url — the API/admin path
+  method?: "GET" | "POST" | "PUT" | "DELETE";
+  status?: number;                 // http.response.status_code
+  action?: "pass" | "block" | "detected";
+  requester?: string;              // data.user — blank ("") on a pre-auth bypass
+  userAgent?: string;              // data.agent
+  country?: string;                // data.srccountry
+  bytesSent?: number;              // data.sentbyte (a write/PUT)
+  bytesReceived?: number;          // data.rcvdbyte (a config read)
+  logid?: string;
+  msg?: string;
+  wafSeverity?: string;            // data.severity ("medium" …)
+  file?: { name: string; path?: string; sha256?: string; size?: number }; // a written portal shell
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgWaf(o: FgWafOpts): TelemetryEvent {
+  const r = resolve({ ...o, host: o.host, user: null }); // appliance host; no company user
+  const method = o.method ?? "GET";
+  const action = o.action ?? "pass";
+  const blocked = action === "block";
+  const status = o.status ?? 200;
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: o.file ? "file_create" : (blocked ? "http_blocked" : "http_request"),
+    severity: o.severity ?? (blocked ? "high" : "medium"), hostname: r.host,
+    src_ip: o.attackerIp, dst_ip: o.applianceIp, dst_port: 443, protocol: "tcp",
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    network: { url: `https://${o.portal ?? o.applianceIp}${o.url}`, domain: o.portal, method, status },
+    ...(o.file ? { file: { name: o.file.name, path: o.file.path ?? `/${o.file.name}`, ...(o.file.sha256 ? { sha256: o.file.sha256 } : {}), ...(o.file.size ? { size: o.file.size } : {}), extension: o.file.name.split(".").pop() } } : {}),
+    description: o.description ?? `FortiGate WAF: ${method} ${o.url} on ${r.host} from ${o.attackerIp} → ${status}`,
+    raw: {
+      "data.type": "utm",
+      "data.subtype": "waf",
+      ...(o.logid ? { "data.logid": o.logid } : {}),
+      "data.level": "warning",
+      "data.action": action,
+      "data.url": o.url,
+      "data.method": method,
+      ...(o.userAgent ? { "data.agent": o.userAgent } : {}),
+      "data.user": o.requester ?? "",
+      "data.srcip": o.attackerIp,
+      ...(o.country ? { "data.srccountry": o.country } : {}),
+      "data.dstip": o.applianceIp,
+      "data.dstport": "443",
+      ...(o.portal ? { "data.hostname": o.portal } : {}),
+      ...(o.msg ? { "data.msg": o.msg } : {}),
+      ...(o.wafSeverity ? { "data.severity": o.wafSeverity } : {}),
+      ...(o.bytesSent !== undefined ? { "data.sentbyte": String(o.bytesSent) } : {}),
+      ...(o.bytesReceived !== undefined ? { "data.rcvdbyte": String(o.bytesReceived) } : {}),
+      ...(o.file?.sha256 ? { "file.hash.sha256": o.file.sha256 } : {}),
+      "http.response.status_code": String(status),
+      "source.ip": o.attackerIp,
+      "event.action": blocked ? "blocked" : "allowed",
+      "action_result": blocked ? "blocked" : "allow",
+    },
+  };
+}
+
 // ── SSL-VPN login ─────────────────────────────────────────────────────────────────────
 export interface FgVpnOpts extends Ctx {
   remoteIp: string;                // the client's public IP
@@ -253,11 +324,14 @@ export interface FgVpnOpts extends Ctx {
   severity?: Severity;
   description?: string;
 }
+// The SSL-VPN service is logged as its own product line, so it maps to source "vpn"
+// distinctly from the firewall/UTM logs (vendor "FortiGate" → source "firewall"/"ids").
+const VPN_VENDOR = "FortiGate SSL-VPN";
 export function fgVpn(o: FgVpnOpts): TelemetryEvent {
   const r = resolve(o);
   const ok = (o.outcome ?? "success") === "success";
   return {
-    id: o.id, ts: o.ts, source: "vpn", vendor: VENDOR,
+    id: o.id, ts: o.ts, source: "vpn", vendor: VPN_VENDOR,
     event_type: ok ? "vpn_login" : "vpn_failed",
     severity: o.severity ?? (ok ? "medium" : "low"), hostname: r.host, src_ip: o.remoteIp,
     user_email: r.email, mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,

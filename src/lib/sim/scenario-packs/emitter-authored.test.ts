@@ -15,6 +15,7 @@ import { buildWindowsPrivescTokenScenario } from "./windowsPrivescToken";
 import { buildMultiHostIntrusionScenario } from "./multiHostIntrusion";
 import { buildIsoContainerSmugglingScenario } from "./isoContainerSmuggling";
 import { buildDestructiveWiperScenario } from "./destructiveWiper";
+import { buildEdgeVpnCveExploitScenario } from "./edgeVpnCveExploit";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -27,7 +28,7 @@ const FULLY_EMITTER_AUTHORED = [
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
-  "destructiveWiper.ts",
+  "destructiveWiper.ts", "edgeVpnCveExploit.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -453,5 +454,46 @@ describe("emitter-authored scenario packs", () => {
     // one host, correlated
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("VNT-WKS-27");
+  });
+
+  it("edgeVpnCveExploit builds a coherent edge-appliance→internal chain from emitters only (FortiGate + SSL-VPN + CrowdStrike + Sentinel)", () => {
+    const s = buildEdgeVpnCveExploitScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "FortiGate", "FortiGate SSL-VPN", "CrowdStrike Falcon", "Microsoft Sentinel",
+    ]));
+    // initial access: pre-auth admin API hit, blank data.user, 200
+    const exploit = s.events.find(e => e.id === "evt_01_preauth_exploit");
+    expect(exploit?.raw?.["data.user"]).toBe("");
+    expect(exploit?.raw?.["http.response.status_code"]).toBe("200");
+    // persistence: portal web-shell written via the WAF PUT
+    const shell = s.events.find(e => e.id === "evt_02_webshell_write");
+    expect(shell?.event_type).toBe("file_create");
+    expect(shell?.file?.name).toBe("healthcheck.cgi");
+    // the pivot: SSL-VPN login under its own product vendor + source
+    const vpn = s.events.find(e => e.id === "evt_04_vpn_session");
+    expect(vpn?.vendor).toBe("FortiGate SSL-VPN");
+    expect(vpn?.event_type).toBe("vpn_login");
+    expect(vpn?.raw?.["data.user"]).toBe("j.alvarez");
+    // discovery: remote-WMI parented cmd (not an interactive shell)
+    const disc = s.events.find(e => e.id === "evt_05_internal_discovery");
+    expect(disc?.process?.parent_name).toBe("WmiPrvSE.exe");
+    // the crux: SAM-hive dump is the ticket-opening EDR detection
+    const sam = s.events.find(e => e.id === "evt_06_credential_access_sam");
+    expect(sam?.is_detection).toBe(true);
+    expect(sam?.edr_scope).toBe("edr");
+    expect(String(sam?.process?.cmdline)).toContain("save hklm\\sam");
+    // lateral: SMB to the file server, process-attributed
+    const smb = s.events.find(e => e.id === "evt_07_lateral_smb");
+    expect(smb?.event_type).toBe("net_connection");
+    expect(smb?.dst_port).toBe(445);
+    expect(smb?.process?.name).toBe("net.exe");
+    // the correlation joins the three planes by the external IP
+    const corr = s.events.find(e => e.id === "evt_08_siem_correlation");
+    expect(corr?.event_type).toBe("ioc_hit");
+    expect(corr?.raw?.["ExtendedProperties.Linked Event IDs"]).toEqual(["evt_01_preauth_exploit", "evt_04_vpn_session", "evt_05_internal_discovery"]);
+    // the internal foothold is where the EDR console opens
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("SRV-JUMP-03");
   });
 });
