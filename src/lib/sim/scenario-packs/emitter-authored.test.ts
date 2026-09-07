@@ -18,6 +18,7 @@ import { buildDestructiveWiperScenario } from "./destructiveWiper";
 import { buildEdgeVpnCveExploitScenario } from "./edgeVpnCveExploit";
 import { buildGoldenSamlScenario } from "./goldenSaml";
 import { buildInfostealerSessionTheftScenario } from "./infostealerSessionTheft";
+import { buildMacosTccPkgScenario } from "./macosTccPkg";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -31,7 +32,7 @@ const FULLY_EMITTER_AUTHORED = [
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
-  "infostealerSessionTheft.ts",
+  "infostealerSessionTheft.ts", "macosTccPkg.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -569,5 +570,45 @@ describe("emitter-authored scenario packs", () => {
     // one host, correlated
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("LAP-6688");
+  });
+
+  it("macosTccPkg builds a coherent macOS TCC-bypass chain from emitters only (CrowdStrike + MDE)", () => {
+    const s = buildMacosTccPkgScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "CrowdStrike Falcon", "Microsoft Defender for Endpoint",
+    ]));
+    // benign control: valid Developer ID, runs as the user, resolves fp
+    const benign = s.events.find(e => e.id === "mtp_00_benign_notarized_pkg");
+    expect(benign?.expected_verdict).toBe("fp");
+    expect(benign?.raw?.["file.signature.status"]).toBe("valid");
+    expect(benign?.process?.user).toBe("j.okafor");
+    // the malicious install: revoked Developer ID, runs as root
+    const install = s.events.find(e => e.id === "mtp_01_pkg_install");
+    expect(install?.raw?.["file.signature.status"]).toBe("revoked");
+    expect(install?.process?.user).toBe("root");
+    // root postinstall shell, child of installer (MDE corroborates by SHA256)
+    expect(s.events.find(e => e.id === "mtp_02_postinstall_root_shell")?.process?.parent_name).toBe("installer");
+    const mde = s.events.find(e => e.id === "mtp_03_mde_postinstall_corroboration");
+    expect(mde?.raw?.["InitiatingProcessSHA256"]).toBe(install?.process?.hash?.sha256);
+    // TCC manipulation: sqlite3 writes the privacy DB with a kTCCService allow-row
+    const tcc = s.events.find(e => e.id === "mtp_04_tcc_db_write");
+    expect(tcc?.event_type).toBe("file_modify");
+    expect(tcc?.file?.name).toBe("TCC.db");
+    expect(String(tcc?.raw?.["crowdstrike.CommandLine"])).toContain("kTCCServiceSystemPolicyAllFiles");
+    // persistence: a root LaunchDaemon plist
+    expect(s.events.find(e => e.id === "mtp_05_launchdaemon_persist")?.raw?.["file.path"]).toContain("/Library/LaunchDaemons/");
+    // protected-data read via the granted Full Disk Access
+    const read = s.events.find(e => e.id === "mtp_06_protected_data_read");
+    expect(read?.event_type).toBe("file_access");
+    expect(read?.process?.name).toBe("meetsyncd");
+    // the detection is host-scoped and attributed to root
+    const alert = s.events.find(e => e.id === "mtp_07_edr_detection");
+    expect(alert?.is_detection).toBe(true);
+    expect(alert?.edr_scope).toBe("edr");
+    expect(alert?.raw?.["crowdstrike.UserName"]).toBe("root");
+    // one host, correlated
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("MB-PM-07");
   });
 });

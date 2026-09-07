@@ -39,6 +39,8 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { csProcess, csFile, csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { mdeProcess } from "@/lib/sim/emitters/mde";
 
 export function buildMacosTccPkgScenario(
   scenarioId = "macos-tcc-pkg-2026",
@@ -83,472 +85,93 @@ export function buildMacosTccPkgScenario(
   const sensorId = "6d0b93a41f7c4e28b5a2c907e13f8a44";
   const aid = "9c17e5b280d34af6a1b70e2c4f9d3651";
 
+  const cx = "northwind-collab" as const;
+  const osx = { "host.os.name": host.os, "host.os.version": host.osVersion };
+  const appleSigned = { "process.code_signature.status": "valid", "process.code_signature.subject_name": "Software Signing" };
+
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — a legitimately-signed, notarized .pkg install.
-    //    Same shape as the attack (an installer runs, a launch item is
-    //    registered), opposite verdict: valid Developer ID Installer,
-    //    Gatekeeper passed, a per-user LaunchAgent, no root script, no TCC
-    //    rewrite. This is what a clean package install looks like.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "mtp_00_benign_notarized_pkg",
-      ts: "2026-08-27T09:15:00.000Z",
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "informational",
-      expected_verdict: "fp",
-      fp_explanation:
-        "The control case for the whole scenario. Zoom was installed the day before from a downloaded .pkg — the same 'an installer runs and registers a launch item' shape as the intrusion. What makes it benign is written in the signature and the script behaviour: the package carries a VALID Developer ID Installer signature, it is notarized, and Gatekeeper passed, so macOS let it install cleanly. Its postinstall did nothing unusual — it registered a per-user LaunchAgent under ~/Library/LaunchAgents for auto-update and never ran as root against the privacy database. An analyst who alerts on 'a .pkg installed an app and a launch item' alone will flag this and be wrong; the discriminator is Developer ID + notarization + a benign per-user script, not the install shape.",
-      description:
-        "/usr/sbin/installer installed Zoom.pkg to the system. Falcon recorded a valid Developer ID Installer signature (Zoom Video Communications) and a passed Gatekeeper assessment; the package is notarized. Its postinstall registered a per-user LaunchAgent for the updater and touched no root-owned locations or the TCC database.",
-      process: {
-        name: "installer",
-        pid: 3182,
-        path: "/usr/sbin/installer",
-        parent_name: "Installer",
-        parent_pid: 1,
-        cmdline: "installer -pkg /Users/j.okafor/Downloads/Zoom.pkg -target /",
-        user: user.sam,
-      },
-      file: {
-        name: "Zoom.pkg",
-        path: "/Users/j.okafor/Downloads/Zoom.pkg",
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": user.sam,
-        "crowdstrike.FileName": "installer",
-        "crowdstrike.FilePath": "/usr/sbin/",
-        "crowdstrike.CommandLine": "installer -pkg /Users/j.okafor/Downloads/Zoom.pkg -target /",
-        "crowdstrike.ParentProcessName": "Installer",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "installer",
-        "process.executable": "/usr/sbin/installer",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Software Signing",
-        "file.name": "Zoom.pkg",
-        "file.path": "/Users/j.okafor/Downloads/Zoom.pkg",
-        "file.signature.status": "valid",
-        "file.signature.subject_name": "Developer ID Installer: Zoom Video Communications, Inc. (BJ4HAAB9B3)",
-        "file.signature.trusted": "true",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": user.sam,
-        "event.outcome": "success",
-      },
-    },
+    // 0. BENIGN CONTROL — a legitimately-signed, notarized .pkg install (fp).
+    csProcess({
+      companyId: cx, id: "mtp_00_benign_notarized_pkg", ts: "2026-08-27T09:15:00.000Z", host: host.name, user: user.email,
+      runAsUser: user.sam, processName: "installer", processPath: "/usr/sbin/installer",
+      cmdline: "installer -pkg /Users/j.okafor/Downloads/Zoom.pkg -target /", parentName: "Installer", parentPid: 1, pid: 3182,
+      severity: "informational", expectedVerdict: "fp",
+      fpExplanation: "The control case for the whole scenario. Zoom was installed the day before from a downloaded .pkg — the same 'an installer runs and registers a launch item' shape as the intrusion. What makes it benign is written in the signature and the script behaviour: the package carries a VALID Developer ID Installer signature, it is notarized, and Gatekeeper passed, so macOS let it install cleanly. Its postinstall did nothing unusual — it registered a per-user LaunchAgent under ~/Library/LaunchAgents for auto-update and never ran as root against the privacy database. An analyst who alerts on 'a .pkg installed an app and a launch item' alone will flag this and be wrong; the discriminator is Developer ID + notarization + a benign per-user script, not the install shape.",
+      extra: { ...osx, ...appleSigned, "file.name": "Zoom.pkg", "file.path": "/Users/j.okafor/Downloads/Zoom.pkg", "file.signature.status": "valid", "file.signature.subject_name": "Developer ID Installer: Zoom Video Communications, Inc. (BJ4HAAB9B3)", "file.signature.trusted": "true" },
+      description: "/usr/sbin/installer installed Zoom.pkg to the system. Falcon recorded a valid Developer ID Installer signature (Zoom Video Communications) and a passed Gatekeeper assessment; the package is notarized. Its postinstall registered a per-user LaunchAgent for the updater and touched no root-owned locations or the TCC database.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. EXECUTION — the malicious .pkg is installed. /usr/sbin/installer
-    //    runs it to the system root; the package's Developer ID Installer
-    //    signature is REVOKED and it still carries com.apple.quarantine.
-    //    The Apple installer binary itself is validly signed (T1204.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "mtp_01_pkg_install",
-      ts: T(0),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "high",
-      mitre_technique: "T1204.002",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "/usr/sbin/installer installed MeetSync-Installer.pkg (from ~/Downloads) to the system. Falcon recorded the package's Developer ID Installer signature as REVOKED and the file still carrying the com.apple.quarantine attribute; the payload SHA256 is the one seen again in the later events.",
-      process: {
-        name: "installer",
-        pid: 4207,
-        path: "/usr/sbin/installer",
-        parent_name: "Installer",
-        parent_pid: 1,
-        cmdline: `installer -pkg ${pkgPath} -target /`,
-        user: "root",
-        hash: { sha256: pkgHash },
-      },
-      file: {
-        name: pkgName,
-        path: pkgPath,
-        sha256: pkgHash,
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "root",
-        "crowdstrike.FileName": "installer",
-        "crowdstrike.FilePath": "/usr/sbin/",
-        "crowdstrike.CommandLine": `installer -pkg ${pkgPath} -target /`,
-        "crowdstrike.ParentProcessName": "Installer",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "installer",
-        "process.executable": "/usr/sbin/installer",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Software Signing",
-        "file.name": pkgName,
-        "file.path": pkgPath,
-        "file.hash.sha256": pkgHash,
-        "file.signature.status": "revoked",
-        "file.signature.subject_name": "Developer ID Installer: Bright Meridian Ltd (7Q9K2M4X8Z)",
-        "file.signature.trusted": "false",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "root",
-        "threat.technique.id": "T1204.002",
-        "threat.technique.name": "User Execution: Malicious File",
-        "threat.tactic.name": "Execution",
-        "threat.tactic.id": "TA0002",
-        "event.outcome": "success",
-      },
-    },
+    // 1. EXECUTION — the malicious .pkg is installed (revoked Developer ID) (T1204.002).
+    csProcess({
+      companyId: cx, id: "mtp_01_pkg_install", ts: T(0), host: host.name, user: user.email, runAsUser: "root",
+      processName: "installer", processPath: "/usr/sbin/installer", cmdline: `installer -pkg ${pkgPath} -target /`,
+      parentName: "Installer", parentPid: 1, pid: 4207, sha256: pkgHash,
+      mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      extra: { ...osx, ...appleSigned, "file.name": pkgName, "file.path": pkgPath, "file.hash.sha256": pkgHash, "file.signature.status": "revoked", "file.signature.subject_name": "Developer ID Installer: Bright Meridian Ltd (7Q9K2M4X8Z)", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      description: "/usr/sbin/installer installed MeetSync-Installer.pkg (from ~/Downloads) to the system. Falcon recorded the package's Developer ID Installer signature as REVOKED and the file still carrying the com.apple.quarantine attribute; the payload SHA256 is the one seen again in the later events.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. ROOT INSTALL SCRIPT — the package postinstall runs as root.
-    //    installer executes the package's postinstall shell script; it runs
-    //    /bin/sh from the install sandbox as the root user (T1059.004).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "mtp_02_postinstall_root_shell",
-      ts: T(4 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "high",
-      mitre_technique: "T1059.004",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "The installer executed the package's postinstall script: /bin/sh running from the PKInstallSandbox Scripts directory, spawned by installer and running as root. Package install scripts run with root privilege, so anything this script does inherits it.",
-      process: {
-        name: "sh",
-        pid: 4221,
-        path: "/bin/sh",
-        parent_name: "installer",
-        parent_pid: 4207,
-        cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
-        user: "root",
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "root",
-        "crowdstrike.FileName": "sh",
-        "crowdstrike.FilePath": "/bin/",
-        "crowdstrike.CommandLine": `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
-        "crowdstrike.ParentProcessName": "installer",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "sh",
-        "process.executable": "/bin/sh",
-        "process.parent.name": "installer",
-        "process.parent.pid": "4207",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Software Signing",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "root",
-        "threat.technique.id": "T1059.004",
-        "threat.technique.name": "Command and Scripting Interpreter: Unix Shell",
-        "threat.tactic.name": "Execution",
-        "threat.tactic.id": "TA0002",
-        "event.outcome": "success",
-      },
-    },
+    // 2. ROOT INSTALL SCRIPT — the package postinstall runs as root (T1059.004).
+    csProcess({
+      companyId: cx, id: "mtp_02_postinstall_root_shell", ts: T(4 * SEC), host: host.name, user: user.email, runAsUser: "root",
+      processName: "sh", processPath: "/bin/sh", cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
+      parentName: "installer", parentPid: 4207, pid: 4221,
+      mitre: "T1059.004", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      extra: { ...osx, ...appleSigned, "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      description: "The installer executed the package's postinstall script: /bin/sh running from the PKInstallSandbox Scripts directory, spawned by installer and running as root. Package install scripts run with root privilege, so anything this script does inherits it.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. CORROBORATION — Microsoft Defender for Endpoint sees the same root
-    //    script. Cross-platform sensor also on the Mac; native Advanced
-    //    Hunting DeviceProcessEvents schema confirms the /bin/sh postinstall
-    //    child of installer running as root (T1059.004).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "mtp_03_mde_postinstall_corroboration",
-      ts: T(5 * SEC),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "high",
-      mitre_technique: "T1059.004",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "Defender for Endpoint, also deployed on this Mac, independently recorded the same postinstall /bin/sh child of the installer running under the root account. Its DeviceProcessEvents row ties the shell to the same initiating package payload SHA256.",
-      raw: {
-        "Timestamp": T(5 * SEC),
-        "DeviceName": host.name,
-        "DeviceId": host.id,
-        "ActionType": "ProcessCreated",
-        "FileName": "sh",
-        "FolderPath": "/bin/sh",
-        "ProcessCommandLine": `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
-        "ProcessId": "4221",
-        "InitiatingProcessFileName": "installer",
-        "InitiatingProcessFolderPath": "/usr/sbin/installer",
-        "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`,
-        "InitiatingProcessId": "4207",
-        "InitiatingProcessSHA256": pkgHash,
-        "AccountName": "root",
-        "AccountDomain": host.name,
-        "ReportId": "88301744",
-        "threat.technique.id": "T1059.004",
-        "threat.technique.name": "Command and Scripting Interpreter: Unix Shell",
-        "threat.tactic.name": "Execution",
-        "threat.tactic.id": "TA0002",
-      },
-    },
+    // 3. CORROBORATION — Microsoft Defender for Endpoint sees the same root script (T1059.004).
+    mdeProcess({
+      companyId: cx, id: "mtp_03_mde_postinstall_corroboration", ts: T(5 * SEC), host: host.name,
+      processName: "sh", processPath: "/bin/sh", cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
+      parentName: "installer", pid: 4221, parentPid: 4207, runAsUser: "root", accountName: "root", accountDomain: host.name,
+      mitre: "T1059.004", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      extra: { "Timestamp": T(5 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": "/usr/sbin/installer", "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`, "InitiatingProcessId": "4207", "InitiatingProcessSHA256": pkgHash, "ReportId": "88301744", "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      description: "Defender for Endpoint, also deployed on this Mac, independently recorded the same postinstall /bin/sh child of the installer running under the root account. Its DeviceProcessEvents row ties the shell to the same initiating package payload SHA256.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. TCC MANIPULATION — the root script writes directly into TCC.db.
-    //    sqlite3 inserts allow-rows into the user's TCC privacy database for
-    //    Full Disk Access and Screen Recording, so the app is "granted" those
-    //    protected permissions with no consent prompt (T1548.006).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "mtp_04_tcc_db_write",
-      ts: T(9 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_modify",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "critical",
-      mitre_technique: "T1548.006",
-      mitre_tactic: "Privilege Escalation",
-      incident_id: INCIDENT,
-      description:
-        "The root postinstall used /usr/bin/sqlite3 to write allow-rows into the user's TCC privacy database at ~/Library/Application Support/com.apple.TCC/TCC.db — one for kTCCServiceSystemPolicyAllFiles (Full Disk Access) and one for kTCCServiceScreenCapture (Screen Recording), keyed to the com.meetsync.app bundle. No macOS consent prompt was shown to the user.",
-      process: {
-        name: "sqlite3",
-        pid: 4238,
-        path: "/usr/bin/sqlite3",
-        parent_name: "sh",
-        parent_pid: 4221,
-        cmdline: `sqlite3 ${tccDb} INSERT OR REPLACE INTO access VALUES('kTCCServiceSystemPolicyAllFiles','${bundleId}',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);`,
-        user: "root",
-      },
-      file: {
-        name: "TCC.db",
-        path: tccDb,
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "root",
-        "crowdstrike.FileName": "TCC.db",
-        "crowdstrike.FilePath": "/Users/j.okafor/Library/Application Support/com.apple.TCC/",
-        "crowdstrike.CommandLine": `sqlite3 ${tccDb} INSERT OR REPLACE INTO access VALUES('kTCCServiceSystemPolicyAllFiles','${bundleId}',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);`,
-        "crowdstrike.ParentProcessName": "sh",
-        "crowdstrike.OperationType": "FileWritten",
-        "process.name": "sqlite3",
-        "process.executable": "/usr/bin/sqlite3",
-        "process.parent.name": "sh",
-        "process.parent.pid": "4221",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Software Signing",
-        "file.name": "TCC.db",
-        "file.path": tccDb,
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "root",
-        "threat.technique.id": "T1548.006",
-        "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation",
-        "threat.tactic.name": "Privilege Escalation",
-        "threat.tactic.id": "TA0004",
-        "event.outcome": "success",
-      },
-    },
+    // 4. TCC MANIPULATION — the root script writes allow-rows into TCC.db (T1548.006).
+    csFile({
+      companyId: cx, id: "mtp_04_tcc_db_write", ts: T(9 * SEC), host: host.name, user: user.email, action: "file_modify",
+      path: tccDb, sha256: null, actorProcess: "sqlite3", actorPath: "/usr/bin/sqlite3", actorPid: 4238,
+      actorParentName: "sh", actorParentPid: 4221, actorSigned: "valid", runAsUser: "root",
+      mitre: "T1548.006", tactic: "Privilege Escalation", severity: "critical", incidentId: INCIDENT,
+      extra: { ...osx, "crowdstrike.CommandLine": `sqlite3 ${tccDb} INSERT OR REPLACE INTO access VALUES('kTCCServiceSystemPolicyAllFiles','${bundleId}',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);`, "process.code_signature.subject_name": "Software Signing", "threat.technique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
+      description: "The root postinstall used /usr/bin/sqlite3 to write allow-rows into the user's TCC privacy database at ~/Library/Application Support/com.apple.TCC/TCC.db — one for kTCCServiceSystemPolicyAllFiles (Full Disk Access) and one for kTCCServiceScreenCapture (Screen Recording), keyed to the com.meetsync.app bundle. No macOS consent prompt was shown to the user.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. PERSISTENCE — a LaunchDaemon is installed and loaded. The root
-    //    script writes /Library/LaunchDaemons/com.meetsync.helper.plist
-    //    (pointing at an ad-hoc-signed root helper) and launchctl loads it,
-    //    so it starts at every boot as root (T1543.004).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "mtp_05_launchdaemon_persist",
-      ts: T(15 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "high",
-      mitre_technique: "T1543.004",
-      mitre_tactic: "Persistence",
-      incident_id: INCIDENT,
-      description:
-        "The root script wrote a system LaunchDaemon plist at /Library/LaunchDaemons/com.meetsync.helper.plist and ran launchctl load -w on it. The plist's Program points at /Library/Application Support/MeetSync/meetsyncd, an ad-hoc-signed binary that now runs as root; a LaunchDaemon in this directory is started by launchd on every boot, before any user logs in.",
-      process: {
-        name: "launchctl",
-        pid: 4256,
-        path: "/bin/launchctl",
-        parent_name: "sh",
-        parent_pid: 4221,
-        cmdline: `launchctl load -w ${daemonPlist}`,
-        user: "root",
-      },
-      file: {
-        name: "com.meetsync.helper.plist",
-        path: daemonPlist,
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "root",
-        "crowdstrike.FileName": "launchctl",
-        "crowdstrike.FilePath": "/bin/",
-        "crowdstrike.CommandLine": `launchctl load -w ${daemonPlist}`,
-        "crowdstrike.ParentProcessName": "sh",
-        "crowdstrike.OperationType": "ProcessRollup2",
-        "process.name": "launchctl",
-        "process.executable": "/bin/launchctl",
-        "process.parent.name": "sh",
-        "process.parent.pid": "4221",
-        "process.code_signature.status": "valid",
-        "process.code_signature.subject_name": "Software Signing",
-        "file.name": "com.meetsync.helper.plist",
-        "file.path": daemonPlist,
-        "file.signature.status": "adhoc",
-        "file.signature.subject_name": "-",
-        "file.signature.trusted": "false",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "root",
-        "threat.technique.id": "T1543.004",
-        "threat.technique.name": "Create or Modify System Process: Launch Daemon",
-        "threat.tactic.name": "Persistence",
-        "threat.tactic.id": "TA0003",
-        "event.outcome": "success",
-      },
-    },
+    // 5. PERSISTENCE — a root LaunchDaemon is installed and loaded (T1543.004).
+    csProcess({
+      companyId: cx, id: "mtp_05_launchdaemon_persist", ts: T(15 * SEC), host: host.name, user: user.email, runAsUser: "root",
+      processName: "launchctl", processPath: "/bin/launchctl", cmdline: `launchctl load -w ${daemonPlist}`,
+      parentName: "sh", parentPid: 4221, pid: 4256,
+      mitre: "T1543.004", tactic: "Persistence", severity: "high", incidentId: INCIDENT,
+      extra: { ...osx, ...appleSigned, "file.name": "com.meetsync.helper.plist", "file.path": daemonPlist, "file.signature.status": "adhoc", "file.signature.trusted": "false", "threat.technique.id": "T1543.004", "threat.technique.name": "Create or Modify System Process: Launch Daemon", "threat.tactic.name": "Persistence", "threat.tactic.id": "TA0003" },
+      description: "The root script wrote a system LaunchDaemon plist at /Library/LaunchDaemons/com.meetsync.helper.plist and ran launchctl load -w on it. The plist's Program points at /Library/Application Support/MeetSync/meetsyncd, an ad-hoc-signed binary that now runs as root; a LaunchDaemon in this directory is started by launchd on every boot, before any user logs in.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. PROTECTED-DATA ACCESS — the root helper reads the user's files.
-    //    With Full Disk Access granted via the rewritten TCC.db, meetsyncd
-    //    (started by launchd) reads ~/Documents, ~/Desktop and ~/Downloads —
-    //    protected locations a normal app cannot reach (T1005).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "mtp_06_protected_data_read",
-      ts: T(40 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_access",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "critical",
-      mitre_technique: "T1005",
-      mitre_tactic: "Collection",
-      incident_id: INCIDENT,
-      description:
-        "meetsyncd, launched by launchd from /Library/Application Support/MeetSync, read files under the user's ~/Documents and ~/Desktop — including Q3-Roadmap.pdf. These are TCC-protected locations; the reads succeed because the earlier TCC.db write granted the bundle Full Disk Access.",
-      process: {
-        name: "meetsyncd",
-        pid: 4290,
-        path: daemonBin,
-        parent_name: "launchd",
-        parent_pid: 1,
-        cmdline: daemonBin,
-        user: "root",
-        hash: { sha256: pkgHash },
-      },
-      file: {
-        name: "Q3-Roadmap.pdf",
-        path: "/Users/j.okafor/Documents/Q3-Roadmap.pdf",
-      },
-      raw: {
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "root",
-        "crowdstrike.FileName": "Q3-Roadmap.pdf",
-        "crowdstrike.FilePath": "/Users/j.okafor/Documents/",
-        "crowdstrike.ParentProcessName": "launchd",
-        "crowdstrike.OperationType": "FileOpenInfo",
-        "process.name": "meetsyncd",
-        "process.executable": daemonBin,
-        "process.parent.name": "launchd",
-        "process.hash.sha256": pkgHash,
-        "process.code_signature.status": "adhoc",
-        "process.code_signature.subject_name": "-",
-        "file.name": "Q3-Roadmap.pdf",
-        "file.path": "/Users/j.okafor/Documents/Q3-Roadmap.pdf",
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "root",
-        "threat.technique.id": "T1005",
-        "threat.technique.name": "Data from Local System",
-        "threat.tactic.name": "Collection",
-        "threat.tactic.id": "TA0009",
-        "event.outcome": "success",
-      },
-    },
+    // 6. PROTECTED-DATA ACCESS — the root helper reads the user's files via Full Disk Access (T1005).
+    csFile({
+      companyId: cx, id: "mtp_06_protected_data_read", ts: T(40 * SEC), host: host.name, user: user.email, action: "file_access",
+      path: "/Users/j.okafor/Documents/Q3-Roadmap.pdf", sha256: null, actorProcess: "meetsyncd", actorPath: daemonBin, actorPid: 4290,
+      actorParentName: "launchd", actorParentPid: 1, actorSha256: pkgHash, actorSigned: "adhoc", runAsUser: "root",
+      mitre: "T1005", tactic: "Collection", severity: "critical", incidentId: INCIDENT,
+      extra: { ...osx, "threat.technique.id": "T1005", "threat.technique.name": "Data from Local System", "threat.tactic.name": "Collection", "threat.tactic.id": "TA0009" },
+      description: "meetsyncd, launched by launchd from /Library/Application Support/MeetSync, read files under the user's ~/Documents and ~/Desktop — including Q3-Roadmap.pdf. These are TCC-protected locations; the reads succeed because the earlier TCC.db write granted the bundle Full Disk Access.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 7. THE DETECTION — Falcon raises the alert-grade detection tying the
-    //    revoked-signature install, the root postinstall, the TCC.db write
-    //    and the LaunchDaemon into one case. is_detection + edr_scope "edr"
-    //    (endpoint-observable only — no control-plane facet).
-    // ─────────────────────────────────────────────────────────────────────
+    // 7. THE DETECTION — Falcon ties the chain into one macOS TCC-manipulation case.
     {
-      id: "mtp_07_edr_detection",
-      ts: T(1 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.name,
-      user_email: user.email,
-      severity: "critical",
-      mitre_technique: "T1548.006",
-      mitre_tactic: "Privilege Escalation",
-      incident_id: INCIDENT,
-      is_detection: true, // the Falcon detection that opened the incident
-      edr_scope: "edr",   // pure host chain (installer → root script → TCC.db → LaunchDaemon) — investigate in the EDR console
-      description:
-        "Falcon raised a Critical detection on MB-PM-07: a package with a revoked Developer ID installer signature ran a root postinstall that wrote to the TCC privacy database and installed a root LaunchDaemon, followed by reads of the user's protected folders — a macOS TCC-manipulation and persistence pattern.",
-      process: {
-        name: "sh",
-        pid: 4221,
-        path: "/bin/sh",
-        parent_name: "installer",
-        parent_pid: 4207,
-        cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
-        user: "root",
-        hash: { sha256: pkgHash },
-      },
-      raw: {
-        "crowdstrike.DetectName": "MacOS_PkgPostinstall_TCCManipulation_LaunchDaemon",
-        "crowdstrike.Tactic": "Privilege Escalation",
-        "crowdstrike.Technique": "TCC Manipulation",
-        "crowdstrike.Objective": "Falcon Detection Method",
-        "crowdstrike.SeverityName": "Critical",
-        "crowdstrike.PatternDispositionDescription": "Detection, No Action",
-        "crowdstrike.IncidentType": "MacOS Privilege Escalation",
-        "crowdstrike.SensorId": sensorId,
-        "crowdstrike.aid": aid,
-        "crowdstrike.ComputerName": host.name,
-        "crowdstrike.UserName": "root",
-        "crowdstrike.FileName": "sh",
-        "crowdstrike.FilePath": "/bin/",
-        "process.hash.sha256": pkgHash,
-        "host.name": host.name,
-        "host.os.name": host.os,
-        "host.os.version": host.osVersion,
-        "user.name": "root",
-        "threat.technique.id": "T1548.006",
-        "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation",
-        "threat.tactic.name": "Privilege Escalation",
-        "threat.tactic.id": "TA0004",
-        "event.outcome": "success",
-      },
+      ...csAlert({
+        companyId: cx, id: "mtp_07_edr_detection", ts: T(1 * MIN), host: host.name, user: user.email, runAsUser: "root",
+        threatName: "MacOS_PkgPostinstall_TCCManipulation_LaunchDaemon", mitre: "T1548.006", tactic: "Privilege Escalation",
+        technique: "TCC Manipulation", action: "detected", severity: "critical", incidentId: INCIDENT,
+        extra: { ...osx, "crowdstrike.IncidentType": "MacOS Privilege Escalation", "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
+        detail: "A package with a revoked Developer ID installer signature ran a root postinstall that wrote to the TCC privacy database and installed a root LaunchDaemon, followed by reads of the user's protected folders.",
+        description: "Falcon raised a Critical detection on MB-PM-07: a package with a revoked Developer ID installer signature ran a root postinstall that wrote to the TCC privacy database and installed a root LaunchDaemon, followed by reads of the user's protected folders — a macOS TCC-manipulation and persistence pattern.",
+      }),
+      edr_scope: "edr",
     },
   ];
 

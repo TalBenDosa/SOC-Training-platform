@@ -40,6 +40,8 @@ export interface CsAlertOpts extends Ctx {
   severity?: Severity;
   expectedVerdict?: ExpectedVerdict;
   isDetection?: boolean;        // default true; set false for a precursor summary that isn't the ticket-opener
+  runAsUser?: string;           // UserName override (verbatim, e.g. "root")
+  extra?: Record<string, string | number>; // extra registry-valid raw fields (host.os.*, crowdstrike.*)
   description?: string;
 }
 export function csAlert(o: CsAlertOpts): TelemetryEvent {
@@ -68,9 +70,10 @@ export function csAlert(o: CsAlertOpts): TelemetryEvent {
       ...(o.confidence !== undefined ? { "crowdstrike.detection.confidence": String(o.confidence) } : {}),
       ...(o.processTree ? { "crowdstrike.detection.process_tree": o.processTree } : {}),
       "crowdstrike.ComputerName": r.host,
-      "crowdstrike.UserName": r.domainUser,
+      "crowdstrike.UserName": o.runAsUser ?? r.domainUser,
       "crowdstrike.aid": r.sensorId,
       "threat.name": o.threatName,
+      ...(o.extra ?? {}),
       ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
       ...(o.technique ? { "threat.technique.name": o.technique } : {}),
       ...(o.malwareCategory ? { "malware.category": o.malwareCategory } : {}),
@@ -400,7 +403,13 @@ export interface CsFileOpts extends Ctx {
   actorProcess?: string;        // the process that wrote/opened the file (Falcon ContextBaseFileName)
   actorPid?: number;
   actorPath?: string;
+  actorParentName?: string;     // the actor's parent (keeps the tree linked)
+  actorParentPid?: number;
+  actorSha256?: string;
+  actorSigned?: "trusted" | "unsigned" | "adhoc" | "valid" | "revoked";
   actorIntegrity?: "high" | "medium" | "low" | "system";
+  runAsUser?: string;           // actor token owner (verbatim, e.g. "root" / "NT AUTHORITY\\SYSTEM")
+  extra?: Record<string, string | number>; // extra registry-valid raw fields (threat.*, host.os.*, code_signature…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -428,20 +437,25 @@ export function csFile(o: CsFileOpts): TelemetryEvent {
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
     file: { name, path: o.path, ...(sha256 ? { sha256 } : {}), ...(o.size ? { size: o.size } : {}), ...(ext ? { extension: ext } : {}) },
-    ...(o.actorProcess ? { process: { pid: o.actorPid ?? pidFrom(o.id), name: o.actorProcess, path: o.actorPath ?? `C:\\Windows\\System32\\${o.actorProcess}`, user: r.domainUser, ...(o.actorIntegrity ? { integrity: o.actorIntegrity } : {}) } } : {}),
+    ...(o.actorProcess ? { process: { pid: o.actorPid ?? pidFrom(o.id), name: o.actorProcess, path: o.actorPath ?? `C:\\Windows\\System32\\${o.actorProcess}`, ...(o.actorParentName ? { parent_name: o.actorParentName } : {}), ...(o.actorParentPid ? { parent_pid: o.actorParentPid } : {}), user: o.runAsUser ?? r.domainUser, ...(o.actorSha256 ? { hash: { sha256: o.actorSha256 } } : {}), ...(o.actorIntegrity ? { integrity: o.actorIntegrity } : {}) } } : {}),
     description: o.description ?? `${name} ${action === "file_access" ? "opened" : "written"} on ${r.host}`,
     raw: {
       "crowdstrike.event_simpleName": simpleName,
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.aid": r.sensorId,
       ...(o.actorProcess ? { "crowdstrike.ContextBaseFileName": o.actorProcess, "crowdstrike.ContextProcessId_decimal": String(o.actorPid ?? pidFrom(o.id)) } : {}),
+      ...(o.actorParentName ? { "crowdstrike.ParentProcessName": o.actorParentName } : {}),
+      ...(o.runAsUser ? { "crowdstrike.UserName": o.runAsUser, "user.name": o.runAsUser.split("\\").pop() ?? o.runAsUser } : {}),
       "file.path": o.path,
       "file.name": name,
       ...(ext ? { "file.extension": ext } : {}),
       ...(o.size ? { "file.size": String(o.size) } : {}),
       ...(sha256 ? { "file.hash.sha256": sha256 } : {}),
+      ...(o.actorSha256 ? { "process.hash.sha256": o.actorSha256 } : {}),
       ...(o.signed !== undefined ? { "file.signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...(o.actorSigned ? { "process.code_signature.status": o.actorSigned } : {}),
       "event.action": actionResult,
+      ...(o.extra ?? {}),
     },
   };
 }
