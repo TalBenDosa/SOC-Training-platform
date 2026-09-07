@@ -66,7 +66,11 @@ export interface EntraSignInOpts extends Ctx {
   sessionId?: string;
   deviceName?: string;              // deviceDetail.displayName
   incomingTokenType?: string;       // e.g. "primaryRefreshToken" — the token-replay tell
-  tokenIssuerType?: string;         // e.g. "AzureAD"
+  tokenIssuerType?: string;         // e.g. "AzureAD" | "ADFSFederated"
+  tokenIssuerName?: string;         // federation issuer URI (ADFSFederated sign-ins)
+  federatedTokenId?: string;        // pairs a cloud sign-in with an on-prem AD FS issuance
+  authenticationProtocol?: string;  // e.g. "saml20"
+  authStepResultDetail?: string;    // authenticationDetails step detail (e.g. MFA-by-claim)
   userId?: string;
   geo?: EntraGeo;                   // else resolved deterministically from srcIp
   severity?: Severity;
@@ -140,6 +144,10 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
       ...(o.sessionId ? { "azure.signinlogs.properties.sessionId": o.sessionId } : {}),
       ...(o.incomingTokenType ? { "azure.signinlogs.properties.incomingTokenType": o.incomingTokenType } : {}),
       "azure.signinlogs.properties.tokenIssuerType": o.tokenIssuerType ?? "AzureAD",
+      ...(o.tokenIssuerName ? { "azure.signinlogs.properties.tokenIssuerName": o.tokenIssuerName } : {}),
+      ...(o.federatedTokenId ? { "azure.signinlogs.properties.federatedTokenId": o.federatedTokenId } : {}),
+      ...(o.authenticationProtocol ? { "azure.signinlogs.properties.authenticationProtocol": o.authenticationProtocol } : {}),
+      ...(o.authStepResultDetail ? { "azure.signinlogs.properties.authenticationDetails.authenticationStepResultDetail": o.authStepResultDetail } : {}),
       "azure.signinlogs.properties.status.errorCode": errorCode,
       // Shared geo (what the feed enrichment + threat-intel pivot read).
       ...(geo?.country ? { "GeoLocation.country_name": geo.country } : {}),

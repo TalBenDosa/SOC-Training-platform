@@ -16,6 +16,7 @@ import { buildMultiHostIntrusionScenario } from "./multiHostIntrusion";
 import { buildIsoContainerSmugglingScenario } from "./isoContainerSmuggling";
 import { buildDestructiveWiperScenario } from "./destructiveWiper";
 import { buildEdgeVpnCveExploitScenario } from "./edgeVpnCveExploit";
+import { buildGoldenSamlScenario } from "./goldenSaml";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -28,7 +29,7 @@ const FULLY_EMITTER_AUTHORED = [
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
-  "destructiveWiper.ts", "edgeVpnCveExploit.ts",
+  "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -495,5 +496,39 @@ describe("emitter-authored scenario packs", () => {
     // the internal foothold is where the EDR console opens
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("SRV-JUMP-03");
+  });
+
+  it("goldenSaml builds a coherent federation-abuse case from emitters only (Windows Security + Entra + Sentinel)", () => {
+    const s = buildGoldenSamlScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Windows Security", "Microsoft Entra ID", "Microsoft Sentinel",
+    ]));
+    // benign control: a real AD FS 1200 issuance, fp
+    const issue = s.events.find(e => e.id === "evt_gs_00_benign_adfs_issue");
+    expect(issue?.raw?.["winlog.event_id"]).toBe("1200");
+    expect(issue?.raw?.["winlog.channel"]).toBe("AD FS/Admin");
+    expect(issue?.expected_verdict).toBe("fp");
+    // the DKM read (4662) and the signing-key export (5058) — the pair that steals the key
+    expect(s.events.find(e => e.id === "evt_gs_02_dkm_object_access")?.raw?.["winlog.event_id"]).toBe("4662");
+    const exp = s.events.find(e => e.id === "evt_gs_03_signing_key_export");
+    expect(exp?.raw?.["winlog.event_id"]).toBe("5058");
+    expect(exp?.raw?.["winlog.event_data.ExportedKeyFileSha256"]).toBeTruthy();
+    // THE tell: the benign federated sign-in pairs with an on-prem AD FS issuance
+    // (same InstanceId/federatedTokenId); the malicious ones pair with none.
+    const issuedIds = new Set(s.events.filter(e => e.raw?.["winlog.event_id"] === "1200").map(e => e.raw?.["winlog.event_data.InstanceId"]));
+    const benignSignin = s.events.find(e => e.id === "evt_gs_01_benign_federated_signin");
+    const gaSignin = s.events.find(e => e.id === "evt_gs_04_signin_ga_whitfield");
+    expect(benignSignin?.raw?.["azure.signinlogs.properties.tokenIssuerType"]).toBe("ADFSFederated");
+    expect(issuedIds.has(benignSignin?.raw?.["azure.signinlogs.properties.federatedTokenId"])).toBe(true);
+    expect(gaSignin?.raw?.["azure.signinlogs.properties.tokenIssuerType"]).toBe("ADFSFederated");
+    expect(issuedIds.has(gaSignin?.raw?.["azure.signinlogs.properties.federatedTokenId"])).toBe(false);
+    // the token is then exchanged into the directory (incoming SAML)
+    expect(s.events.find(e => e.id === "evt_gs_06_token_use_directory")?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("saml");
+    // the correlation is identity-plane (no endpoint tree) and flags the missing issuance
+    const corr = s.events.find(e => e.id === "evt_gs_07_sentinel_correlation");
+    expect(corr?.is_detection).toBe(true);
+    expect(corr?.edr_scope).toBe("non_edr");
+    expect(corr?.raw?.["ExtendedProperties.Matching AD FS Issuance"]).toBe("none");
   });
 });

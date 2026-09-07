@@ -9,7 +9,7 @@
  * winlog.event_data. prefixes + the shared ECS fields), with the domain drawn from the
  * company fabric. These are control-plane events (source:"ad"), so they carry no process.
  */
-import type { TelemetryEvent, Severity, EventType } from "../types";
+import type { TelemetryEvent, Severity, EventType, ExpectedVerdict } from "../types";
 import { assetsFor } from "../fabric";
 
 const VENDOR = "Windows Security";
@@ -395,6 +395,154 @@ export function winProcessCreate(o: WinProcessCreateOpts): TelemetryEvent {
       "event.action": "created-process",
       "event.outcome": "success",
       "user.name": subj,
+      "user.domain": nb,
+    },
+  };
+}
+
+// ── 4662 — an operation was performed on a directory-service object ───────────────────
+// The DACL-audited AD object read/write (DCSync source object, AD FS DKM key, …). The
+// acting principal is the subject; there is no target user, so `targetUser` carries the
+// subject account name.
+export interface WinDirectoryAccessOpts extends WinCtx {
+  subjectSid?: string;
+  subjectLogonId?: string;
+  objectServer?: string;        // default "DS"
+  operationType?: string;       // default "Object Access"
+  objectType: string;           // schema GUID / class
+  objectName: string;           // the DN of the object
+  accessList?: string;          // e.g. "%%7688" (Read Property)
+  accessMask?: string;          // e.g. "0x10"
+  properties?: string;          // the specific attribute(s) touched
+  recordId?: string;
+}
+export function winDirectoryAccess(o: WinDirectoryAccessOpts): TelemetryEvent {
+  const nb = realm(o);
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "file_access",
+    severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
+    description: o.description ?? `4662 — directory-service object accessed on ${o.host} by ${o.targetUser}`,
+    raw: {
+      "winlog.event_id": "4662",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.subjectSid ?? NO_SID,
+      "winlog.event_data.SubjectUserName": o.targetUser,
+      "winlog.event_data.SubjectDomainName": nb,
+      ...(o.subjectLogonId ? { "winlog.event_data.SubjectLogonId": o.subjectLogonId } : {}),
+      "winlog.event_data.ObjectServer": o.objectServer ?? "DS",
+      "winlog.event_data.OperationType": o.operationType ?? "Object Access",
+      "winlog.event_data.ObjectType": o.objectType,
+      "winlog.event_data.ObjectName": o.objectName,
+      ...(o.accessList ? { "winlog.event_data.AccessList": o.accessList } : {}),
+      ...(o.accessMask ? { "winlog.event_data.AccessMask": o.accessMask } : {}),
+      ...(o.properties ? { "winlog.event_data.Properties": o.properties } : {}),
+      "event.code": "4662",
+      "event.action": "directory-service-object-accessed",
+      "event.outcome": "success",
+      ...(o.srcIp ? { "source.ip": o.srcIp } : {}),
+      "user.name": o.targetUser,
+      "user.domain": nb,
+    },
+  };
+}
+
+// ── 5058 — key file operation (CNG/private-key read/export) ───────────────────────────
+export interface WinKeyFileOpOpts extends WinCtx {
+  subjectSid?: string;
+  subjectLogonId?: string;
+  operation?: string;           // e.g. "Read persisted key from file."
+  keyName: string;              // KeyName
+  keyType?: string;             // e.g. "Machine key."
+  providerName?: string;        // e.g. "Microsoft Software Key Storage Provider"
+  algorithmName?: string;       // e.g. "RSA"
+  returnCode?: string;          // e.g. "0x0"
+  keyFilePath?: string;
+  exportedSha256?: string;
+  recordId?: string;
+}
+export function winKeyFileOp(o: WinKeyFileOpOpts): TelemetryEvent {
+  const nb = realm(o);
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "file_access",
+    severity: o.severity ?? "critical", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
+    ...(o.keyFilePath ? { file: { name: o.keyFilePath.split("\\").pop() ?? o.keyFilePath, path: o.keyFilePath, ...(o.exportedSha256 ? { sha256: o.exportedSha256 } : {}) } } : {}),
+    description: o.description ?? `5058 — key file operation on ${o.host} by ${o.targetUser}`,
+    raw: {
+      "winlog.event_id": "5058",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.subjectSid ?? NO_SID,
+      "winlog.event_data.SubjectUserName": o.targetUser,
+      "winlog.event_data.SubjectDomainName": nb,
+      ...(o.subjectLogonId ? { "winlog.event_data.SubjectLogonId": o.subjectLogonId } : {}),
+      "winlog.event_data.Operation": o.operation ?? "Read persisted key from file.",
+      "winlog.event_data.KeyName": o.keyName,
+      "winlog.event_data.KeyType": o.keyType ?? "Machine key.",
+      "winlog.event_data.ProviderName": o.providerName ?? "Microsoft Software Key Storage Provider",
+      "winlog.event_data.AlgorithmName": o.algorithmName ?? "RSA",
+      "winlog.event_data.ReturnCode": o.returnCode ?? "0x0",
+      ...(o.keyFilePath ? { "winlog.event_data.KeyFilePath": o.keyFilePath } : {}),
+      ...(o.exportedSha256 ? { "winlog.event_data.ExportedKeyFileSha256": o.exportedSha256, "file.hash.sha256": o.exportedSha256 } : {}),
+      "event.code": "5058",
+      "event.action": "key-file-operation",
+      "event.outcome": "success",
+      ...(o.srcIp ? { "source.ip": o.srcIp } : {}),
+      "user.name": o.targetUser,
+      "user.domain": nb,
+    },
+  };
+}
+
+// ── AD FS 1200 — a federation token was issued (AD FS/Admin audit) ────────────────────
+// The attributable record every genuine federation token leaves on the AD FS server; its
+// ABSENCE is the Golden-SAML tell. Distinct channel/provider from the Security log.
+export interface AdfsTokenIssueOpts extends WinCtx {
+  instanceId: string;           // correlates to the Entra federatedTokenId
+  relyingParty: string;
+  tokenType?: string;           // default the SAML 2.0 assertion URN
+  authnMethods?: string;        // AuthnMethodsReferences
+  issuerUri: string;
+  clientIp?: string;
+  resultStatus?: string;        // default "Success"
+  recordId?: string;
+  expectedVerdict?: ExpectedVerdict;
+  fpExplanation?: string;
+}
+export function adfsTokenIssue(o: AdfsTokenIssueOpts): TelemetryEvent {
+  const nb = realm(o);
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "auth_success",
+    severity: o.severity ?? "informational", hostname: o.host, src_ip: o.srcIp ?? o.clientIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
+    expected_verdict: o.expectedVerdict, ...(o.fpExplanation ? { fp_explanation: o.fpExplanation } : {}),
+    authentication: { method: "Federation", result: "success" },
+    description: o.description ?? `AD FS 1200 — token issued for ${o.targetUser} to ${o.relyingParty} on ${o.host}`,
+    raw: {
+      "winlog.event_id": "1200",
+      "winlog.channel": "AD FS/Admin",
+      "winlog.provider_name": "AD FS Auditing",
+      "winlog.computer_name": fqdnOf(o),
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.InstanceId": o.instanceId,
+      "winlog.event_data.RelyingParty": o.relyingParty,
+      "winlog.event_data.TokenType": o.tokenType ?? "urn:oasis:names:tc:SAML:2.0:assertion",
+      "winlog.event_data.UserId": `${nb}\\${o.targetUser}`,
+      ...(o.authnMethods ? { "winlog.event_data.AuthnMethodsReferences": o.authnMethods } : {}),
+      "winlog.event_data.IssuerUri": o.issuerUri,
+      ...(o.clientIp ? { "winlog.event_data.ClientIpAddress": o.clientIp } : {}),
+      "winlog.event_data.ResultStatus": o.resultStatus ?? "Success",
+      "event.code": "1200",
+      "event.action": "adfs-token-issued",
+      "event.outcome": "success",
+      ...(o.clientIp ? { "source.ip": o.clientIp } : {}),
+      "user.name": o.targetUser,
       "user.domain": nb,
     },
   };
