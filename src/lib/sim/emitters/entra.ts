@@ -42,6 +42,8 @@ const ISO2: Record<string, string> = {
 
 export interface EntraSignInOpts extends Ctx {
   srcIp: string;
+  displayName?: string;             // userDisplayName
+  userTitle?: string;
   result?: "success" | "failure";   // default success
   errorCode?: string;               // resultType on failure (default 50126)
   app?: string;                     // appDisplayName (default "Office 365 Exchange Online")
@@ -58,8 +60,14 @@ export interface EntraSignInOpts extends Ctx {
   userAgent?: string;
   asn?: number | string;            // autonomousSystemNumber
   riskLevel?: "none" | "low" | "medium" | "high";
+  riskDetail?: string;
+  riskEventTypes?: string[];        // riskEventTypes_v2 (e.g. unfamiliarFeatures, anonymizedIPAddress)
   conditionalAccess?: "success" | "failure" | "notApplicable";
   sessionId?: string;
+  deviceName?: string;              // deviceDetail.displayName
+  incomingTokenType?: string;       // e.g. "primaryRefreshToken" — the token-replay tell
+  tokenIssuerType?: string;         // e.g. "AzureAD"
+  userId?: string;
   geo?: EntraGeo;                   // else resolved deterministically from srcIp
   severity?: Severity;
   mitre?: string;
@@ -89,7 +97,7 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "o365", vendor: VENDOR,
     event_type: success ? "auth_success" : "auth_failure",
     severity: o.severity ?? (success ? "medium" : "low"),
-    src_ip: o.srcIp, user_email: email, mitre_technique: o.mitre, mitre_tactic: o.tactic,
+    src_ip: o.srcIp, user_email: email, user_title: o.userTitle, mitre_technique: o.mitre, mitre_tactic: o.tactic,
     incident_id: o.incidentId, geo,
     authentication: { method: o.mfa ? "MFA" : "Password", result: ecsOutcome, ...(o.mfa ? { mfa_type: "Authenticator" } : {}) },
     description: o.description ?? `Entra sign-in ${success ? "success" : `failure (${errorCode})`} for ${email} from ${o.srcIp}`,
@@ -102,7 +110,8 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
       "azure.signinlogs.properties.correlationId": corr,
       "azure.signinlogs.properties.createdDateTime": o.ts,
       "azure.signinlogs.properties.userPrincipalName": email,
-      "azure.signinlogs.properties.userDisplayName": r.bareUser,
+      "azure.signinlogs.properties.userDisplayName": o.displayName ?? r.bareUser,
+      ...(o.userId ? { "azure.signinlogs.properties.userId": o.userId } : {}),
       "azure.signinlogs.properties.appDisplayName": app,
       ...(o.appId ? { "azure.signinlogs.properties.appId": o.appId } : {}),
       ...(o.resource ? { "azure.signinlogs.properties.resourceDisplayName": o.resource } : {}),
@@ -118,14 +127,19 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
       "azure.signinlogs.properties.authenticationRequirement": authReq,
       "azure.signinlogs.properties.conditionalAccessStatus": o.conditionalAccess ?? (success ? "success" : "notApplicable"),
       "azure.signinlogs.properties.deviceDetail.deviceId": o.deviceId ?? "",
+      ...(o.deviceName ? { "azure.signinlogs.properties.deviceDetail.displayName": o.deviceName } : {}),
       "azure.signinlogs.properties.deviceDetail.isManaged": String(o.managed ?? false),
       "azure.signinlogs.properties.deviceDetail.isCompliant": String(o.compliant ?? false),
       ...(o.os ? { "azure.signinlogs.properties.deviceDetail.operatingSystem": o.os } : {}),
       ...(o.browser ? { "azure.signinlogs.properties.deviceDetail.browser": o.browser } : {}),
       ...(o.trustType ? { "azure.signinlogs.properties.deviceDetail.trustType": o.trustType } : {}),
       "azure.signinlogs.properties.riskLevelDuringSignIn": o.riskLevel ?? "none",
+      ...(o.riskDetail ? { "azure.signinlogs.properties.riskDetail": o.riskDetail } : {}),
+      ...(o.riskEventTypes ? { "azure.signinlogs.properties.riskEventTypes_v2": o.riskEventTypes } : {}),
       "azure.signinlogs.properties.riskState": (o.riskLevel && o.riskLevel !== "none") ? "atRisk" : "none",
       ...(o.sessionId ? { "azure.signinlogs.properties.sessionId": o.sessionId } : {}),
+      ...(o.incomingTokenType ? { "azure.signinlogs.properties.incomingTokenType": o.incomingTokenType } : {}),
+      "azure.signinlogs.properties.tokenIssuerType": o.tokenIssuerType ?? "AzureAD",
       "azure.signinlogs.properties.status.errorCode": errorCode,
       // Shared geo (what the feed enrichment + threat-intel pivot read).
       ...(geo?.country ? { "GeoLocation.country_name": geo.country } : {}),

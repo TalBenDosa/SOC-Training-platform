@@ -7,6 +7,7 @@ import { buildSeoPoisonedInstallerScenario } from "./seoPoisonedInstaller";
 import { buildDriveByBrowserMinerScenario } from "./driveByBrowserMiner";
 import { buildBruteForceSingleAccountScenario } from "./bruteForceSingleAccount";
 import { buildOktaPasswordBurstScenario } from "./oktaPasswordBurst";
+import { buildUebaCompromisedAccountScenario } from "./uebaCompromisedAccount";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -16,7 +17,7 @@ import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 const FULLY_EMITTER_AUTHORED = [
   "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
-  "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts",
+  "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -169,5 +170,36 @@ describe("emitter-authored scenario packs", () => {
     // the Sentinel correlation keeps the zero-sessions fact
     const ctx = s.events.find(e => e.id === "evt_okb_10_siem_context");
     expect(ctx?.raw?.["ExtendedProperties.Sessions Created In Window"]).toBe("0");
+  });
+
+  it("uebaCompromisedAccount builds a coherent anomaly-led hunt from emitters only (Sentinel UEBA + Entra + M365)", () => {
+    const s = buildUebaCompromisedAccountScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Microsoft Sentinel", "Microsoft Entra ID", "Microsoft 365 Unified Audit Log",
+    ]));
+    // baseline vs atypical: the token-replay tell separates them
+    const atypical = s.events.find(e => e.id === "evt_uca_02_atypical_signin");
+    expect(atypical?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("primaryRefreshToken");
+    expect(atypical?.raw?.["azure.signinlogs.properties.authenticationRequirement"]).toBe("singleFactorAuthentication");
+    expect(atypical?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("false");
+    // the benign control resolves fp (a high score is not a verdict)
+    const benign = s.events.find(e => e.id === "evt_uca_00_benign_impossible_travel");
+    expect(benign?.expected_verdict).toBe("fp");
+    expect(benign?.raw?.["ImpossibleTravelActivity"]).toBe("true");
+    expect(benign?.raw?.["risk.state"]).toBe("dismissed");
+    // the mass download + forwarding rule are the acted-on collection
+    const dl = s.events.find(e => e.id === "evt_uca_05_mass_download");
+    expect(dl?.event_type).toBe("cloud_storage_access");
+    expect(dl?.raw?.["data.office365.Operation"]).toBe("FileSyncDownloadedFull");
+    const rule = s.events.find(e => e.id === "evt_uca_06_inbox_rule");
+    expect(rule?.raw?.["data.office365.Operation"]).toBe("New-InboxRule");
+    expect(rule?.raw?.["data.office365.Parameters.ForwardAsAttachmentTo"]).toBe("acct.archive.9y@gmail.com");
+    // the case-opening entity risk score rolls the four indicators together
+    const score = s.events.find(e => e.id === "evt_uca_07_entity_risk_score");
+    expect(score?.is_detection).toBe(true);
+    expect(score?.edr_scope).toBe("non_edr");
+    expect(score?.raw?.["RiskyUser"]).toBe("true");
+    expect(score?.raw?.["behavior.name"]).toBe("account_takeover_pattern");
   });
 });

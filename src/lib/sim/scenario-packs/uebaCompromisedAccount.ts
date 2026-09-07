@@ -44,6 +44,9 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { entraSignIn } from "@/lib/sim/emitters/entra";
+import { m365Operation } from "@/lib/sim/emitters/m365";
+import { sentinelUeba } from "@/lib/sim/emitters/sentinel";
 
 export function buildUebaCompromisedAccountScenario(
   scenarioId = "ueba-compromised-account-2026",
@@ -92,397 +95,152 @@ export function buildUebaCompromisedAccountScenario(
   };
 
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — a UEBA impossible-travel anomaly that resolves BENIGN.
-    //    Same anomaly shape as the incident: a sign-in from far away flagged
-    //    ImpossibleTravel. But it is corroborated (approved travel, corporate
-    //    VPN ASN, compliant managed device, MFA satisfied), so the score is a
-    //    false anomaly. This is what a high UEBA score can also mean.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_00_benign_impossible_travel",
-      ts: T(-3 * HOUR),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      user_email: benign.email,
-      user_title: benign.title,
-      src_ip: benign.ip,
-      severity: "informational",
-      expected_verdict: "fp",
-      fp_explanation:
+    // 0. BENIGN CONTROL — same ImpossibleTravel anomaly, resolves BENIGN.
+    sentinelUeba({
+      companyId: "nexacorp", id: "evt_uca_00_benign_impossible_travel", ts: T(-3 * HOUR),
+      user: benign.email, userSam: benign.sam, userTitle: benign.title, srcIp: benign.ip,
+      alertName: "Atypical travel", alertSeverity: "Informational", severity: "informational",
+      indicators: ["ImpossibleTravelActivity"],
+      anomaly: { type: "AtypicalTravel", score: 22, reason: "Sign-in from a new country for this account" },
+      risk: { level: "low", state: "dismissed" },
+      geoCountry: "Singapore", authStatus: "success", mfa: true, deviceCompliant: true,
+      expectedVerdict: "fp",
+      fpExplanation:
         "Benign. r.laurent tripped ImpossibleTravelActivity the same night, but the sign-in is corroborated: an approved travel record for Singapore, egress over the known corporate-VPN ASN, a compliant managed device, and a satisfied MFA requirement. The anomaly score is real, the verdict is not a compromise — a UEBA score is a reason to look, not a conclusion. Contrast with j.almeida, whose sign-in has none of that corroboration.",
+      extendedProperties: {
+        "Prior Sign-in Location": "London, GB",
+        "Current Sign-in Location": "Singapore, SG",
+        "Egress ASN": "AS9498 corporate VPN (sanctioned)",
+        "Device Compliance": "Compliant / Managed",
+        "Travel Record": "Approved — Sales offsite, Singapore",
+      },
       description:
         "Sentinel raised an impossible-travel anomaly for r.laurent (London → Singapore), but the Singapore sign-in came over the corporate VPN egress on a compliant, managed device with MFA satisfied, and matches an approved travel record.",
-      raw: {
-        "AlertName": "Atypical travel",
-        "AlertSeverity": "Informational",
-        "ImpossibleTravelActivity": "true",
-        "entity.name": benign.sam,
-        "entity.type": "user",
-        "user.name": `NEXACORP\\${benign.sam}`,
-        "user.email": benign.email,
-        "source.geo.country_name": "Singapore",
-        "authentication.status": "success",
-        "authentication.mfa": "true",
-        "device.compliant": "true",
-        "risk.level": "low",
-        "risk.state": "dismissed",
-        "anomaly.score": "22",
-        "anomaly.type": "AtypicalTravel",
-        "anomaly.reason": "Sign-in from a new country for this account",
-        "ExtendedProperties.Prior Sign-in Location": "London, GB",
-        "ExtendedProperties.Current Sign-in Location": "Singapore, SG",
-        "ExtendedProperties.Egress ASN": "AS9498 corporate VPN (sanctioned)",
-        "ExtendedProperties.Device Compliance": "Compliant / Managed",
-        "ExtendedProperties.Travel Record": "Approved — Sales offsite, Singapore",
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. THE BASELINE SIGN-IN — j.almeida's own normal Entra logon earlier that
-    //    evening from London, compliant/managed device, MFA satisfied. This is
-    //    the reference point the "impossible travel" is measured against.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_01_baseline_signin",
-      ts: T(-40 * MIN),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "auth_success",
-      user_email: victim.email,
-      user_title: victim.title,
-      src_ip: victim.homeIp,
-      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
-      severity: "informational",
+    // 1. THE BASELINE SIGN-IN — j.almeida's normal London logon.
+    entraSignIn({
+      companyId: "nexacorp", id: "evt_uca_01_baseline_signin", ts: T(-40 * MIN),
+      user: victim.email, displayName: victim.name, userTitle: victim.title, userId: victim.userId,
+      srcIp: victim.homeIp, geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
+      result: "success", severity: "informational", app: "Office 365",
+      mfa: true, managed: true, compliant: true, os: "Windows 11", browser: "Edge 128.0",
+      trustType: "Azure AD joined", deviceName: "FIN-LT-Almeida", asn: 6128,
+      sessionId: "0d21b7a9-4e6c-41f8-90a3-2c5b8e14d7a2", isInteractive: true,
+      riskLevel: "none", conditionalAccess: "success",
       description:
         "A normal interactive Entra sign-in for j.almeida at 23:00 from London (81.174.71.19), on his compliant, managed Windows workstation with MFA satisfied — his usual session.",
-      raw: {
-        "azure.signinlogs.category": "SignInLogs",
-        "azure.signinlogs.operationName": "Sign-in activity",
-        "azure.signinlogs.properties.id": "3b8e1c04-77a2-4d19-9c53-0a1e6f27b481",
-        "azure.signinlogs.properties.createdDateTime": T(-40 * MIN),
-        "azure.signinlogs.properties.userPrincipalName": victim.email,
-        "azure.signinlogs.properties.userDisplayName": victim.name,
-        "azure.signinlogs.properties.userId": victim.userId,
-        "azure.signinlogs.properties.sessionId": "0d21b7a9-4e6c-41f8-90a3-2c5b8e14d7a2",
-        "azure.signinlogs.properties.appDisplayName": "Office 365",
-        "azure.signinlogs.properties.clientAppUsed": "Browser",
-        "azure.signinlogs.properties.isInteractive": true,
-        "azure.signinlogs.properties.ipAddress": victim.homeIp,
-        "azure.signinlogs.properties.autonomousSystemNumber": 6128,
-        "azure.signinlogs.properties.location.city": "London",
-        "azure.signinlogs.properties.location.state": "England",
-        "azure.signinlogs.properties.location.countryOrRegion": "GB",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 51.5074,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": -0.1278,
-        "azure.signinlogs.properties.deviceDetail.displayName": "FIN-LT-Almeida",
-        "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
-        "azure.signinlogs.properties.deviceDetail.browser": "Edge 128.0",
-        "azure.signinlogs.properties.deviceDetail.isCompliant": true,
-        "azure.signinlogs.properties.deviceDetail.isManaged": true,
-        "azure.signinlogs.properties.deviceDetail.trustType": "Azure AD joined",
-        "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
-        "azure.signinlogs.properties.conditionalAccessStatus": "success",
-        "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
-        "azure.signinlogs.properties.riskState": "none",
-        "azure.signinlogs.properties.tokenIssuerType": "AzureAD",
-        "azure.signinlogs.resultType": "0",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. THE ATYPICAL SIGN-IN — the same account, minutes later, from Sofia over
-    //    a hosting ASN, on an unmanaged/non-compliant device, and MFA is NOT
-    //    prompted: the requirement is satisfied single-factor because a session
-    //    token was replayed. Valid Accounts (T1078); the enabling technique is
-    //    the stolen web-session cookie recorded separately.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_02_atypical_signin",
-      ts: T(0),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "auth_success",
-      user_email: victim.email,
-      user_title: victim.title,
-      src_ip: attackerIp,
-      geo: { country: "Bulgaria", city: "Sofia", latitude: 42.6977, longitude: 23.3219 },
-      severity: "high",
-      mitre_technique: "T1078",
-      mitre_tactic: "Initial Access",
-      incident_id: INCIDENT,
+    // 2. THE ATYPICAL SIGN-IN — Sofia, hosting ASN, unmanaged, token-satisfied MFA.
+    entraSignIn({
+      companyId: "nexacorp", id: "evt_uca_02_atypical_signin", ts: T(0),
+      user: victim.email, displayName: victim.name, userTitle: victim.title, userId: victim.userId,
+      srcIp: attackerIp, geo: { country: "Bulgaria", city: "Sofia", latitude: 42.6977, longitude: 23.3219 },
+      result: "success", severity: "high", app: "Office 365 Exchange Online",
+      mfa: false, managed: false, compliant: false, os: "Windows 10", browser: "Chrome 127.0",
+      asn: attackerAsn, sessionId: hostileSession, isInteractive: false,
+      riskLevel: "high", riskDetail: "none", riskEventTypes: ["unfamiliarFeatures", "anonymizedIPAddress"],
+      incomingTokenType: "primaryRefreshToken", conditionalAccess: "success",
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+      mitre: "T1078", tactic: "Initial Access", incidentId: INCIDENT,
       description:
         "A second Entra sign-in for j.almeida arrived at 23:40 from 45.135.232.71 in Sofia, Bulgaria (AS200651, a hosting provider), on an unmanaged device — and the MFA requirement was met single-factor, satisfied by a claim already in the presented token.",
-      raw: {
-        "azure.signinlogs.category": "SignInLogs",
-        "azure.signinlogs.operationName": "Sign-in activity",
-        "azure.signinlogs.properties.id": "e91c7f52-3d84-4a6b-b210-6c8f0a91d374",
-        "azure.signinlogs.properties.createdDateTime": T(0),
-        "azure.signinlogs.properties.userPrincipalName": victim.email,
-        "azure.signinlogs.properties.userDisplayName": victim.name,
-        "azure.signinlogs.properties.userId": victim.userId,
-        "azure.signinlogs.properties.sessionId": hostileSession,
-        "azure.signinlogs.properties.appDisplayName": "Office 365 Exchange Online",
-        "azure.signinlogs.properties.clientAppUsed": "Browser",
-        "azure.signinlogs.properties.isInteractive": false,
-        "azure.signinlogs.properties.ipAddress": attackerIp,
-        "azure.signinlogs.properties.autonomousSystemNumber": attackerAsn,
-        "azure.signinlogs.properties.location.city": "Sofia",
-        "azure.signinlogs.properties.location.state": "Sofia-grad",
-        "azure.signinlogs.properties.location.countryOrRegion": "BG",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 42.6977,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": 23.3219,
-        "azure.signinlogs.properties.deviceDetail.deviceId": "",
-        "azure.signinlogs.properties.deviceDetail.displayName": "",
-        "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 10",
-        "azure.signinlogs.properties.deviceDetail.browser": "Chrome 127.0",
-        "azure.signinlogs.properties.deviceDetail.isCompliant": false,
-        "azure.signinlogs.properties.deviceDetail.isManaged": false,
-        "azure.signinlogs.properties.deviceDetail.trustType": "",
-        "azure.signinlogs.properties.userAgent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "azure.signinlogs.properties.authenticationRequirement": "singleFactorAuthentication",
-        "azure.signinlogs.properties.conditionalAccessStatus": "success",
-        "azure.signinlogs.properties.riskLevelDuringSignIn": "high",
-        "azure.signinlogs.properties.riskDetail": "none",
-        "azure.signinlogs.properties.riskState": "atRisk",
-        "azure.signinlogs.properties.riskEventTypes_v2": ["unfamiliarFeatures", "anonymizedIPAddress"],
-        "azure.signinlogs.properties.tokenIssuerType": "AzureAD",
-        "azure.signinlogs.properties.incomingTokenType": "primaryRefreshToken",
-        "azure.signinlogs.resultType": "0",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. UEBA ANOMALY #1 — Sentinel joins the two sign-ins and raises an
-    //    impossible-travel / unfamiliar-properties anomaly. This is one of the
-    //    inputs that will accumulate into the entity risk score. (T1078)
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_03_ueba_impossible_travel",
-      ts: T(3 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1078",
-      mitre_tactic: "Initial Access",
-      incident_id: INCIDENT,
+    // 3. UEBA ANOMALY #1 — impossible travel.
+    sentinelUeba({
+      companyId: "nexacorp", id: "evt_uca_03_ueba_impossible_travel", ts: T(3 * MIN),
+      user: victim.email, userSam: victim.sam, srcIp: attackerIp,
+      alertName: "Impossible travel to an atypical location", alertSeverity: "High", severity: "high",
+      indicators: ["ImpossibleTravelActivity", "UnfamiliarSignInProperties"],
+      anomaly: { type: "ImpossibleTravel", score: 78, reason: "Two sign-ins from distant locations within an impossible window" },
+      geoCountry: "Bulgaria", mitre: "T1078", tactic: "Initial Access", incidentId: INCIDENT,
+      extendedProperties: {
+        "Prior Sign-in Time": T(-40 * MIN),
+        "Prior Sign-in Location": "London, GB",
+        "Current Sign-in Time": T(0),
+        "Current Sign-in Location": "Sofia, BG",
+        "Distance (km)": 2020,
+        "Elapsed Minutes": 40,
+        "Egress ASN": "AS200651 hosting provider (unmanaged device)",
+        "Linked Sign-in IDs": ["evt_uca_01_baseline_signin", "evt_uca_02_atypical_signin"],
+      },
       description:
         "Sentinel joined the 23:00 London sign-in and the 23:40 Sofia sign-in for j.almeida and raised an impossible-travel anomaly with unfamiliar sign-in properties: ~2,020 km in 40 minutes.",
-      raw: {
-        "AlertName": "Impossible travel to an atypical location",
-        "AlertSeverity": "High",
-        "ImpossibleTravelActivity": "true",
-        "UnfamiliarSignInProperties": "true",
-        "entity.name": victim.sam,
-        "entity.type": "user",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "user.email": victim.email,
-        "source.ip": attackerIp,
-        "source.geo.country_name": "Bulgaria",
-        "anomaly.type": "ImpossibleTravel",
-        "anomaly.score": "78",
-        "anomaly.reason": "Two sign-ins from distant locations within an impossible window",
-        "ExtendedProperties.Prior Sign-in Time": T(-40 * MIN),
-        "ExtendedProperties.Prior Sign-in Location": "London, GB",
-        "ExtendedProperties.Current Sign-in Time": T(0),
-        "ExtendedProperties.Current Sign-in Location": "Sofia, BG",
-        "ExtendedProperties.Distance (km)": 2020,
-        "ExtendedProperties.Elapsed Minutes": 40,
-        "ExtendedProperties.Egress ASN": "AS200651 hosting provider (unmanaged device)",
-        "ExtendedProperties.Linked Sign-in IDs": ["evt_uca_01_baseline_signin", "evt_uca_02_atypical_signin"],
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. UEBA ANOMALY #2 — the token angle. The Sofia session presented a
-    //    pre-existing refresh token from an anonymized IP, so no MFA prompt was
-    //    raised: a stolen web-session cookie replayed (T1539).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_04_ueba_token_replay",
-      ts: T(4 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1539",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
+    // 4. UEBA ANOMALY #2 — anonymous-IP token replay (T1539).
+    sentinelUeba({
+      companyId: "nexacorp", id: "evt_uca_04_ueba_token_replay", ts: T(4 * MIN),
+      user: victim.email, userSam: victim.sam, srcIp: attackerIp,
+      alertName: "Sign-in from an anonymous IP address", alertSeverity: "High", severity: "high",
+      indicators: ["AnonymousIPAccess", "RiskySignIn"],
+      anomaly: { type: "AnonymousIPAddress", score: 74, confidence: "high", reason: "Session presented a pre-existing refresh token from an anonymized IP" },
+      geoCountry: "Bulgaria", authStatus: "success", mfa: false, sessionId: hostileSession,
+      mitre: "T1539", tactic: "Credential Access", incidentId: INCIDENT,
+      extendedProperties: {
+        "Incoming Token Type": "primaryRefreshToken",
+        "Authentication Requirement": "singleFactorAuthentication",
+        "Session ID": hostileSession,
+      },
       description:
         "Sentinel flagged the Sofia session for j.almeida as an anonymized-IP sign-in that met MFA with a claim already in the token — the session was authenticated by a presented cookie, not a fresh credential prompt.",
-      raw: {
-        "AlertName": "Sign-in from an anonymous IP address",
-        "AlertSeverity": "High",
-        "AnonymousIPAccess": "true",
-        "RiskySignIn": "true",
-        "entity.name": victim.sam,
-        "entity.type": "user",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "user.email": victim.email,
-        "source.ip": attackerIp,
-        "source.geo.country_name": "Bulgaria",
-        "authentication.status": "success",
-        "authentication.mfa": "false",
-        "session.id": hostileSession,
-        "anomaly.type": "AnonymousIPAddress",
-        "anomaly.score": "74",
-        "anomaly.confidence": "high",
-        "anomaly.reason": "Session presented a pre-existing refresh token from an anonymized IP",
-        "ExtendedProperties.Incoming Token Type": "primaryRefreshToken",
-        "ExtendedProperties.Authentication Requirement": "singleFactorAuthentication",
-        "ExtendedProperties.Session ID": hostileSession,
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. THE MASS DOWNLOAD — from the hostile session, OneDrive/SharePoint logs
-    //    a burst of FileSyncDownloadedFull far above this account's norm. This
-    //    is the primary telemetry behind the MassDownloadActivity anomaly.
-    //    Data from Information Repositories: SharePoint (T1213.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_05_mass_download",
-      ts: T(12 * MIN),
-      source: "o365",
-      vendor: "Microsoft 365 Unified Audit Log",
-      event_type: "cloud_storage_access",
-      user_email: victim.email,
-      user_title: victim.title,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1213.002",
-      mitre_tactic: "Collection",
-      incident_id: INCIDENT,
+    // 5. THE MASS DOWNLOAD — OneDrive/SharePoint burst (T1213.002).
+    m365Operation({
+      companyId: "nexacorp", id: "evt_uca_05_mass_download", ts: T(12 * MIN),
+      user: victim.email, userTitle: victim.title, srcIp: attackerIp,
+      operation: "FileSyncDownloadedFull", workload: "OneDrive", eventType: "cloud_storage_access",
+      objectId: `https://nexacorp.sharepoint.com/sites/Finance/Shared Documents/Budget/${marqueeFile}`,
+      fileName: marqueeFile, fileExtension: "xlsx", fileSha256: marqueeFileHash, fileSize: 8_734_208,
+      siteUrl: "https://nexacorp.sharepoint.com/sites/Finance/", sessionId: hostileSession,
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+      extra: { RecordType: "6", UserType: "Regular", SourceRelativeUrl: "Shared Documents/Budget" },
+      mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
       description:
         "Beginning 23:52, the j.almeida OneDrive/SharePoint recorded 340+ FileSyncDownloadedFull operations from the Finance site in about six minutes, from 45.135.232.71 — a representative record from a burst far above his usual download volume.",
-      file: { name: marqueeFile, path: `/sites/Finance/Shared Documents/Budget/${marqueeFile}`, extension: "xlsx", size: 8_734_208, sha256: marqueeFileHash },
-      raw: {
-        "data.office365.Operation": "FileSyncDownloadedFull",
-        "data.office365.Workload": "OneDrive",
-        "data.office365.RecordType": "6",
-        "data.office365.UserId": victim.email,
-        "data.office365.UserType": "Regular",
-        "data.office365.ClientIP": attackerIp,
-        "data.office365.SessionId": hostileSession,
-        "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/Finance/",
-        "data.office365.SourceRelativeUrl": "Shared Documents/Budget",
-        "data.office365.SourceFileName": marqueeFile,
-        "data.office365.SourceFileExtension": "xlsx",
-        "data.office365.ObjectId": `https://nexacorp.sharepoint.com/sites/Finance/Shared Documents/Budget/${marqueeFile}`,
-        "data.office365.FileHashSha256": marqueeFileHash,
-        "data.office365.FileSizeBytes": "8734208",
-        "data.office365.UserAgent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-        "data.office365.ResultStatus": "Succeeded",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. THE FORWARDING RULE — the hostile session creates an Exchange inbox
-    //    rule that ships finance mail to an external address and hides the
-    //    originals. Email Collection: Email Forwarding Rule (T1114.003).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_06_inbox_rule",
-      ts: T(18 * MIN),
-      source: "o365",
-      vendor: "Microsoft 365 Unified Audit Log",
-      event_type: "account_modify",
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1114.003",
-      mitre_tactic: "Collection",
-      incident_id: INCIDENT,
+    // 6. THE FORWARDING RULE — New-InboxRule (T1114.003).
+    m365Operation({
+      companyId: "nexacorp", id: "evt_uca_06_inbox_rule", ts: T(18 * MIN),
+      user: victim.email, srcIp: attackerIp,
+      operation: "New-InboxRule", workload: "Exchange", eventType: "account_modify",
+      objectId: "nexacorp.com/Users/Jordan Almeida/Ext backup", sessionId: hostileSession,
+      extra: {
+        RecordType: "1", UserType: "Regular", ClientIPAddress: attackerIp,
+        ClientInfoString: "Client=OWA;Action=ViaProxy", ExternalAccess: "false",
+        "Parameters.Name": "Ext backup",
+        "Parameters.SubjectOrBodyContainsWords": "invoice;wire;IBAN;remittance;budget",
+        "Parameters.ForwardAsAttachmentTo": dropAddress,
+        "Parameters.MoveToFolder": "RSS Subscriptions",
+        "Parameters.MarkAsRead": "True",
+        "Parameters.StopProcessingRules": "True",
+      },
+      mitre: "T1114.003", tactic: "Collection", severity: "high", incidentId: INCIDENT,
       description:
         "An inbox rule named \"Ext backup\" was created on the j.almeida mailbox from 45.135.232.71: mail whose subject or body mentions finance keywords is forwarded to acct.archive.9y@gmail.com and the originals moved to RSS Subscriptions and marked read.",
-      raw: {
-        "data.office365.Operation": "New-InboxRule",
-        "data.office365.Workload": "Exchange",
-        "data.office365.RecordType": "1",
-        "data.office365.UserId": victim.email,
-        "data.office365.UserType": "Regular",
-        "data.office365.ObjectId": "nexacorp.com/Users/Jordan Almeida/Ext backup",
-        "data.office365.ClientIPAddress": attackerIp,
-        "data.office365.ClientInfoString": "Client=OWA;Action=ViaProxy",
-        "data.office365.SessionId": hostileSession,
-        "data.office365.ExternalAccess": "false",
-        "data.office365.Parameters.Name": "Ext backup",
-        "data.office365.Parameters.SubjectOrBodyContainsWords": "invoice;wire;IBAN;remittance;budget",
-        "data.office365.Parameters.ForwardAsAttachmentTo": dropAddress,
-        "data.office365.Parameters.MoveToFolder": "RSS Subscriptions",
-        "data.office365.Parameters.MarkAsRead": "True",
-        "data.office365.Parameters.StopProcessingRules": "True",
-        "data.office365.ResultStatus": "True",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 7. THE ENTITY RISK SCORE — the case-opening detection. Sentinel UEBA rolls
-    //    the impossible travel, the anonymous-IP token session, the mass download
-    //    and the new inbox rule into ONE risky-user score. This is where the hunt
-    //    begins: an anomaly-driven detection, not a signature. is_detection +
-    //    edr_scope "non_edr" (control-plane only — no host process to walk).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_uca_07_entity_risk_score",
-      ts: T(25 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "risk_score_change",
-      user_email: victim.email,
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1078",
-      mitre_tactic: "Initial Access",
-      incident_id: INCIDENT,
-      is_detection: true,   // the anomaly-driven detection that opens the case
-      edr_scope: "non_edr", // control-plane only — identity/SaaS, no EDR to pivot to
+    // 7. THE ENTITY RISK SCORE — the case-opening anomaly-driven detection.
+    sentinelUeba({
+      companyId: "nexacorp", id: "evt_uca_07_entity_risk_score", ts: T(25 * MIN),
+      user: victim.email, userSam: victim.sam, srcIp: attackerIp,
+      alertName: "User risk level increased to High", alertSeverity: "High", severity: "critical",
+      eventType: "risk_score_change", eventAction: "risk-score-update",
+      indicators: ["RiskyUser", "ImpossibleTravelActivity", "AnonymousIPAccess", "MassDownloadActivity", "SuspiciousInboxRule", "UnfamiliarSignInProperties"],
+      anomaly: { score: 94 },
+      risk: { level: "high", score: 94, state: "atRisk" },
+      behavior: { name: "account_takeover_pattern", category: "identity", score: 212 },
+      department: victim.dept, title: victim.title,
+      mitre: "T1078", tactic: "Initial Access", threatTactic: "Initial Access",
+      isDetection: true, edrScope: "non_edr", incidentId: INCIDENT,
+      extendedProperties: { "Score Window": "25 minutes" },
       description:
         "Sentinel UEBA raised j.almeida to a high entity risk score, correlating four behaviours in 25 minutes: an impossible-travel sign-in, an anonymous-IP token session, a download burst from the Finance site, and a new mailbox forwarding rule.",
-      raw: {
-        "AlertName": "User risk level increased to High",
-        "AlertSeverity": "High",
-        "RiskyUser": "true",
-        "ImpossibleTravelActivity": "true",
-        "AnonymousIPAccess": "true",
-        "MassDownloadActivity": "true",
-        "SuspiciousInboxRule": "true",
-        "UnfamiliarSignInProperties": "true",
-        "entity.name": victim.sam,
-        "entity.type": "user",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "user.email": victim.email,
-        "user.department": victim.dept,
-        "user.title": victim.title,
-        "source.ip": attackerIp,
-        "behavior.name": "account_takeover_pattern",
-        "behavior.category": "identity",
-        "behavior.score": "212",
-        "anomaly.score": "94",
-        "risk.level": "high",
-        "risk.score": "94",
-        "risk.state": "atRisk",
-        "threat.technique.id": "T1078",
-        "threat.tactic.name": "Initial Access",
-        "ExtendedProperties.Score Window": "25 minutes",
-        "event.action": "risk-score-update",
-        "event.outcome": "alerted",
-      },
-    },
+    }),
   ];
 
   const iocs: IOC[] = [

@@ -34,6 +34,14 @@ export interface M365OperationOpts extends Ctx {
   userAgent?: string;
   targetUser?: string;             // for permission/impersonation ops
   parameters?: string;            // rule parameters etc. (free text)
+  userTitle?: string;
+  sessionId?: string;
+  fileSha256?: string;
+  fileSize?: number;
+  fileExtension?: string;
+  /** any other data.office365.<suffix> fields (Parameters.*, RecordType, UserType,
+   *  SourceRelativeUrl, ClientInfoString, …) — the prefix is prepended for you. */
+  extra?: Record<string, string>;
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -58,10 +66,10 @@ export function m365Operation(o: M365OperationOpts): TelemetryEvent {
   return {
     id: o.id, ts: o.ts, source: "o365", vendor: VENDOR,
     event_type: o.eventType ?? inferType(o.operation),
-    severity: o.severity ?? "medium", src_ip: o.srcIp, user_email: email,
+    severity: o.severity ?? "medium", src_ip: o.srcIp, user_email: email, user_title: o.userTitle,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     geo: knownGeoForIp(o.srcIp) ? { country: knownGeoForIp(o.srcIp)!.country, city: knownGeoForIp(o.srcIp)!.city } : undefined,
-    ...(name ? { file: { name, path: o.objectId ?? name } } : {}),
+    ...(name ? { file: { name, path: o.objectId ?? name, ...(o.fileSha256 ? { sha256: o.fileSha256 } : {}), ...(o.fileSize ? { size: o.fileSize } : {}), ...(o.fileExtension ? { extension: o.fileExtension } : {}) } } : {}),
     description: o.description ?? `M365 ${o.operation} (${workload}) by ${email} — ${ok ? "Succeeded" : "Failed"}`,
     raw: {
       "data.office365.Operation": o.operation,
@@ -72,12 +80,17 @@ export function m365Operation(o: M365OperationOpts): TelemetryEvent {
       "data.office365.ActorIpAddress": o.srcIp,
       "data.office365.ResultStatus": ok ? "Succeeded" : "Failed",
       "data.office365.CreationTime": o.ts,
+      ...(o.sessionId ? { "data.office365.SessionId": o.sessionId } : {}),
       ...(o.objectId ? { "data.office365.ObjectId": o.objectId } : {}),
       ...(o.fileName ? { "data.office365.SourceFileName": o.fileName } : {}),
+      ...(o.fileExtension ? { "data.office365.SourceFileExtension": o.fileExtension } : {}),
+      ...(o.fileSha256 ? { "data.office365.FileHashSha256": o.fileSha256 } : {}),
+      ...(o.fileSize !== undefined ? { "data.office365.FileSizeBytes": String(o.fileSize) } : {}),
       ...(o.siteUrl ? { "data.office365.SiteUrl": o.siteUrl } : {}),
       ...(o.userAgent ? { "data.office365.UserAgent": o.userAgent } : {}),
       ...(o.targetUser ? { "data.office365.TargetUser": o.targetUser } : {}),
       ...(o.parameters ? { "data.office365.Parameters": o.parameters } : {}),
+      ...Object.fromEntries(Object.entries(o.extra ?? {}).map(([k, v]) => [`data.office365.${k}`, v])),
       ...geoFields(o.srcIp),
       // outcome/action live in the vendor's own Operation + ResultStatus fields;
       // event.* are not valid M365 keys. source.ip is a shared common field.
