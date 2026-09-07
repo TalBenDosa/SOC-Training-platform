@@ -17,6 +17,7 @@ import { buildIsoContainerSmugglingScenario } from "./isoContainerSmuggling";
 import { buildDestructiveWiperScenario } from "./destructiveWiper";
 import { buildEdgeVpnCveExploitScenario } from "./edgeVpnCveExploit";
 import { buildGoldenSamlScenario } from "./goldenSaml";
+import { buildInfostealerSessionTheftScenario } from "./infostealerSessionTheft";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -30,6 +31,7 @@ const FULLY_EMITTER_AUTHORED = [
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
+  "infostealerSessionTheft.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -530,5 +532,42 @@ describe("emitter-authored scenario packs", () => {
     expect(corr?.is_detection).toBe(true);
     expect(corr?.edr_scope).toBe("non_edr");
     expect(corr?.raw?.["ExtendedProperties.Matching AD FS Issuance"]).toBe("none");
+  });
+
+  it("infostealerSessionTheft builds a coherent cookie-theft→replay case from emitters only (Entra + PAN + CrowdStrike + M365)", () => {
+    const s = buildInfostealerSessionTheftScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Microsoft Entra ID", "Palo Alto Networks PAN-OS", "CrowdStrike Falcon", "Microsoft 365 Unified Audit Log",
+    ]));
+    // baseline: interactive, managed device, a 2-step (password + Authenticator) auth
+    const base = s.events.find(e => e.id === "evt_ist_01_baseline_signin");
+    expect(base?.raw?.["azure.signinlogs.properties.isInteractive"]).toBe("true");
+    expect(base?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("true");
+    expect((base?.raw?.["azure.signinlogs.properties.authenticationDetails"] as unknown[]).length).toBe(2);
+    // the crux: the Cookies (session) copy is the alert-grade theft
+    const cookies = s.events.find(e => e.id === "evt_ist_06_cookies_copy");
+    expect(cookies?.is_detection).toBe(true);
+    expect(cookies?.file?.name).toBe("Cookies");
+    expect(cookies?.file?.path).toContain("Network\\Cookies");
+    // the replay: non-interactive, unmanaged device, MFA satisfied by a prior token
+    const replay = s.events.find(e => e.id === "evt_ist_08_session_replay");
+    expect(replay?.raw?.["azure.signinlogs.properties.isInteractive"]).toBe("false");
+    expect(replay?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("false");
+    expect(replay?.raw?.["azure.signinlogs.properties.incomingTokenType"]).toBe("primaryRefreshToken");
+    const steps = replay?.raw?.["azure.signinlogs.properties.authenticationDetails"] as Array<{ authenticationStepResultDetail: string }>;
+    expect(steps.length).toBe(1);
+    expect(steps[0].authenticationStepResultDetail).toContain("satisfied by claim");
+    // the EDR alert spans host + identity
+    const alert = s.events.find(e => e.id === "evt_ist_09_edr_alert");
+    expect(alert?.is_detection).toBe(true);
+    expect(alert?.edr_scope).toBe("hybrid");
+    // the replayed session reaches SharePoint on the SAME session id — the correlation key
+    const sp = s.events.find(e => e.id === "evt_ist_10_sharepoint_access");
+    expect(sp?.raw?.["data.office365.Operation"]).toBe("FileAccessed");
+    expect(sp?.raw?.["data.office365.SessionId"]).toBe(replay?.raw?.["azure.signinlogs.properties.sessionId"]);
+    // one host, correlated
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("LAP-6688");
   });
 });

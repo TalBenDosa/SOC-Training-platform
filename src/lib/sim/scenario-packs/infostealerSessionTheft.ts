@@ -39,6 +39,10 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { entraSignIn } from "@/lib/sim/emitters/entra";
+import { panWeb } from "@/lib/sim/emitters/paloalto";
+import { csProcess, csFile, csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { m365Operation } from "@/lib/sim/emitters/m365";
 
 export function buildInfostealerSessionTheftScenario(
   scenarioId = "infostealer-session-theft-2026",
@@ -80,516 +84,128 @@ export function buildInfostealerSessionTheftScenario(
   // theft crux and the Falcon detection; the rest of the EDR events are pivot-only.
   const INCIDENT = "inc:ist:1";
 
+  const cx = "nexacorp" as const;
+  const caPolicy = [{ id: mfaPolicyId, displayName: "Require MFA for all users", result: "success", enforcedGrantControls: ["Mfa"], enforcedSessionControls: [] }];
+
   const events: TelemetryEvent[] = [
-    // ---------------------------------------------------------------------
-    // 1. Baseline. Her own morning sign-in — real MFA, her own device.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_01_baseline_signin",
-      ts: T(0),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "auth_success",
-      severity: "informational",
-      user_email: victim.email,
-      user_title: "Account Executive",
-      src_ip: corpEgress,
-      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
-      authentication: { method: "Password + Microsoft Authenticator", mfa_type: "push", result: "success" },
-      description:
-        "Entra ID recorded r.avidan's ordinary interactive sign-in at 07:52, MFA satisfied by a live Authenticator push, from her enrolled laptop LAP-6688 on the London corporate egress.",
-      raw: {
-        "azure.signinlogs.category": "SignInLogs",
-        "azure.signinlogs.operationName": "Sign-in activity",
-        "azure.signinlogs.properties.id": "1a7c9f04-3e82-4b16-9d05-7a4c2e8f6b91",
-        "azure.signinlogs.properties.createdDateTime": T(0),
-        "azure.signinlogs.properties.userPrincipalName": victim.email,
-        "azure.signinlogs.properties.userDisplayName": victim.name,
-        "azure.signinlogs.properties.userId": userId,
-        "azure.signinlogs.properties.correlationId": "4a8f1c92-6d37-4e05-b8a1-9f2c6d4e7a13",
-        "azure.signinlogs.properties.sessionId": sessionIdBaseline,
-        "azure.signinlogs.properties.appDisplayName": "Microsoft Office",
-        "azure.signinlogs.properties.appId": officeAppId,
-        "azure.signinlogs.properties.resourceDisplayName": "Microsoft Graph",
-        "azure.signinlogs.properties.clientAppUsed": "Browser",
-        "azure.signinlogs.properties.isInteractive": true,
-        "azure.signinlogs.properties.ipAddress": corpEgress,
-        "azure.signinlogs.properties.autonomousSystemNumber": 5378,
-        "azure.signinlogs.properties.location.city": "London",
+    // 1. Baseline — her own morning sign-in: real MFA, her enrolled device.
+    entraSignIn({
+      companyId: cx, id: "evt_ist_01_baseline_signin", ts: T(0), srcIp: corpEgress, user: victim.email,
+      displayName: victim.name, userTitle: "Account Executive", userId, correlationId: "4a8f1c92-6d37-4e05-b8a1-9f2c6d4e7a13",
+      sessionId: sessionIdBaseline, app: "Microsoft Office", appId: officeAppId, resource: "Microsoft Graph",
+      mfa: true, isInteractive: true, managed: true, compliant: true, deviceId: deviceIdBaseline, deviceName: "LAP-6688",
+      os: "Windows 11", browser: "Edge 125.0.2535", trustType: "Azure AD joined", asn: 5378,
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51",
+      tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", conditionalAccess: "success",
+      geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 }, severity: "informational",
+      extra: {
         "azure.signinlogs.properties.location.state": "England",
-        "azure.signinlogs.properties.location.countryOrRegion": "GB",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 51.5074,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": -0.1278,
-        "azure.signinlogs.properties.deviceDetail.deviceId": deviceIdBaseline,
-        "azure.signinlogs.properties.deviceDetail.displayName": "LAP-6688",
-        "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 11",
-        "azure.signinlogs.properties.deviceDetail.browser": "Edge 125.0.2535",
-        "azure.signinlogs.properties.deviceDetail.isCompliant": true,
-        "azure.signinlogs.properties.deviceDetail.isManaged": true,
-        "azure.signinlogs.properties.deviceDetail.trustType": "Azure AD joined",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.2535.51",
-        "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
-        "azure.signinlogs.properties.authenticationDetails": [
-          {
-            authenticationStepDateTime: T(0 - 12 * SEC),
-            authenticationMethod: "Password",
-            authenticationMethodDetail: "Password in the cloud",
-            succeeded: true,
-            authenticationStepResultDetail: "Correct password",
-            authenticationStepRequirement: "Primary authentication",
-          },
-          {
-            authenticationStepDateTime: T(0 - 3 * SEC),
-            authenticationMethod: "Mobile app notification",
-            authenticationMethodDetail: "Microsoft Authenticator",
-            succeeded: true,
-            authenticationStepResultDetail: "MFA completed in Azure AD",
-            authenticationStepRequirement: "Multifactor authentication",
-          },
-        ],
-        "azure.signinlogs.properties.conditionalAccessStatus": "success",
-        "azure.signinlogs.properties.appliedConditionalAccessPolicies": [
-          {
-            id: mfaPolicyId,
-            displayName: "Require MFA for all users",
-            result: "success",
-            enforcedGrantControls: ["Mfa"],
-            enforcedSessionControls: [],
-          },
-        ],
-        "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
         "azure.signinlogs.properties.riskDetail": "none",
-        "azure.signinlogs.properties.riskState": "none",
-        "azure.signinlogs.properties.tokenIssuerType": "AzureAD",
-        "azure.signinlogs.properties.incomingTokenType": "none",
-        "azure.signinlogs.properties.status.errorCode": 0,
-        "azure.signinlogs.resultType": "0",
+        "azure.signinlogs.properties.authenticationDetails": [
+          { authenticationStepDateTime: T(0 - 12 * SEC), authenticationMethod: "Password", authenticationMethodDetail: "Password in the cloud", succeeded: true, authenticationStepResultDetail: "Correct password", authenticationStepRequirement: "Primary authentication" },
+          { authenticationStepDateTime: T(0 - 3 * SEC), authenticationMethod: "Mobile app notification", authenticationMethodDetail: "Microsoft Authenticator", succeeded: true, authenticationStepResultDetail: "MFA completed in Azure AD", authenticationStepRequirement: "Multifactor authentication" },
+        ],
+        "azure.signinlogs.properties.appliedConditionalAccessPolicies": caPolicy,
       },
-    },
+      description: "Entra ID recorded r.avidan's ordinary interactive sign-in at 07:52, MFA satisfied by a live Authenticator push, from her enrolled laptop LAP-6688 on the London corporate egress.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 2. She downloads a free converter from a freeware aggregator.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_02_lure_download",
-      ts: T(3 * HOUR + 41 * MIN),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "medium",
-      description:
-        "At 11:33 LAP-6688 downloaded PDF_Converter_Pro_Setup.exe from freeware-pdftools.net, referred by a Google search for a free PDF-to-Word converter.",
-      file: { name: "PDF_Converter_Pro_Setup.exe", path: "/download/PDF_Converter_Pro_Setup.exe", extension: "exe", size: 2_894_336, sha256: installerHash },
-      network: {
-        url: `https://${lureDomain}/download/PDF_Converter_Pro_Setup.exe`,
-        domain: lureDomain,
-        method: "GET",
-        status: 200,
-        bytes_in: 2_894_336,
-      },
-      raw: {
-        "pan.type": "THREAT",
-        "pan.subtype": "file",
-        "pan.action": "alert",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": lureIp,
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "shareware-download",
-        "pan.url": `${lureDomain}/download/PDF_Converter_Pro_Setup.exe`,
-        "pan.referer": "https://www.google.com/search?q=free+pdf+to+word+converter+download",
-        "pan.filename": "PDF_Converter_Pro_Setup.exe",
-        "pan.filetype": "pe",
-        "pan.file_hash": installerHash,
-        "pan.direction": "download",
-        "pan.session_id": "551204",
-        "source.ip": host.ip,
-        "url.domain": lureDomain,
-        "action_result": "alert",
-      },
-    },
+    // 2. She downloads a free converter from a freeware aggregator (PAN).
+    panWeb({
+      companyId: cx, id: "evt_ist_02_lure_download", ts: T(3 * HOUR + 41 * MIN), host: host.hostname, srcIp: host.ip, user: victim.email,
+      url: `https://${lureDomain}/download/PDF_Converter_Pro_Setup.exe`, domain: lureDomain, category: "shareware-download",
+      method: "GET", action: "alert", dstIp: lureIp, bytesIn: 2_894_336,
+      referer: "https://www.google.com/search?q=free+pdf+to+word+converter+download",
+      file: { name: "PDF_Converter_Pro_Setup.exe", path: "/download/PDF_Converter_Pro_Setup.exe", sha256: installerHash, size: 2_894_336 }, fileType: "pe",
+      severity: "medium", incidentId: INCIDENT,
+      description: "At 11:33 LAP-6688 downloaded PDF_Converter_Pro_Setup.exe from freeware-pdftools.net, referred by a Google search for a free PDF-to-Word converter.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 3. The file lands in Downloads, as the endpoint saw it.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_03_file_write",
-      ts: T(3 * HOUR + 41 * MIN + 6 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "low",
+    // 3. The installer lands in Downloads (chrome writes it).
+    csFile({
+      companyId: cx, id: "evt_ist_03_file_write", ts: T(3 * HOUR + 41 * MIN + 6 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
+      path: "C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe", sha256: installerHash, size: 2_894_336, action: "file_create",
+      actorProcess: "chrome.exe", actorPid: 6204, severity: "low", incidentId: INCIDENT,
       description: "chrome.exe wrote C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe at 11:33:06.",
-      file: {
-        name: "PDF_Converter_Pro_Setup.exe",
-        path: "C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe",
-        extension: "exe",
-        size: 2_894_336,
-        sha256: installerHash,
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "NewExecutableWritten",
-        "crowdstrike.sensor.id": sensorId,
-        "event.action": "file_created",
-        "file.name": "PDF_Converter_Pro_Setup.exe",
-        "file.path": "C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe",
-        "file.extension": "exe",
-        "file.size": "2894336",
-        "file.hash.sha256": installerHash,
-        "process.name": "chrome.exe",
-        "process.pid": "6204",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 4. She runs it. Unsigned, from Downloads, parent explorer.exe.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_04_execute",
-      ts: T(3 * HOUR + 47 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "high",
-      mitre_technique: "T1204.002",
-      mitre_tactic: "Execution",
+    // 4. She runs it — unsigned, from Downloads, parent explorer.exe.
+    csProcess({
+      companyId: cx, id: "evt_ist_04_execute", ts: T(3 * HOUR + 47 * MIN), host: host.hostname, srcIp: host.ip, user: victim.email,
+      processName: "PDF_Converter_Pro_Setup.exe", processPath: "C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe",
+      cmdline: '"C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe"', parentName: "explorer.exe", parentPid: 3844, pid: 7188,
+      sha256: installerHash, signed: false, integrity: "medium", mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
       description: "At 11:39:00 explorer.exe started the unsigned PDF_Converter_Pro_Setup.exe from Downloads.",
-      process: {
-        name: "PDF_Converter_Pro_Setup.exe",
-        pid: 7188,
-        path: "C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe",
-        parent_name: "explorer.exe",
-        parent_pid: 3844,
-        cmdline: '"C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe"',
-        user: `NEXACORP\\${victim.sam}`,
-        integrity: "medium",
-        hash: { sha256: installerHash },
-      },
-      raw: {
-        "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.tactic_id": "TA0002",
-        "crowdstrike.detection.technique": "User Execution: Malicious File",
-        "crowdstrike.detection.technique_id": "T1204.002",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.sensor.id": sensorId,
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "process_created",
-        "process.name": "PDF_Converter_Pro_Setup.exe",
-        "process.pid": "7188",
-        "process.executable": "C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe",
-        "process.command_line": '"C:\\Users\\r.avidan\\Downloads\\PDF_Converter_Pro_Setup.exe"',
-        "process.hash.sha256": installerHash,
-        "process.signed": "false",
-        "process.parent.name": "explorer.exe",
-        "process.parent.pid": "3844",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    }),
 
-    // ---------------------------------------------------------------------
-    // 5. Login Data copied out of the locked Chrome profile — passwords.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_05_logindata_copy",
-      ts: T(3 * HOUR + 47 * MIN + 4 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1555.003",
-      mitre_tactic: "Credential Access",
-      description:
-        "PDF_Converter_Pro_Setup.exe created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Login Data, 104 KB — the same filename Chrome uses for its own saved-password SQLite database, which was still open and locked in the running browser. Local State, which holds the key Chrome uses to decrypt that database, was written to the same folder seconds earlier.",
-      file: {
-        name: "Login Data",
-        path: "C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Login Data",
-        size: 106_496,
-      },
-      raw: {
-        "crowdstrike.sensor.id": sensorId,
-        "event.action": "file_created",
-        "file.name": "Login Data",
-        "file.path": "C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Login Data",
-        "file.size": "106496",
-        "process.name": "PDF_Converter_Pro_Setup.exe",
-        "process.pid": "7188",
-        "process.parent.name": "explorer.exe",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    // 5. Login Data copied out of the locked Chrome profile — saved passwords (T1555.003).
+    csFile({
+      companyId: cx, id: "evt_ist_05_logindata_copy", ts: T(3 * HOUR + 47 * MIN + 4 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
+      path: "C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Login Data", sha256: null, size: 106_496, action: "file_create",
+      actorProcess: "PDF_Converter_Pro_Setup.exe", actorPid: 7188, mitre: "T1555.003", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
+      description: "PDF_Converter_Pro_Setup.exe created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Login Data, 104 KB — the same filename Chrome uses for its own saved-password SQLite database, which was still open and locked in the running browser. Local State, which holds the key Chrome uses to decrypt that database, was written to the same folder seconds earlier.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 6. Cookies database copied — this is the session, not just passwords.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_06_cookies_copy",
-      ts: T(3 * HOUR + 47 * MIN + 9 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "file_create",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1539",
-      mitre_tactic: "Credential Access",
-      is_detection: true, // alert-grade: the session-cookie theft (the crux that enables the replay)
-      description:
-        "Five seconds later the same process created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies, 60 KB — Chrome's own cookie store, copied out of its locked location in the same staging folder as Login Data.",
-      file: {
-        name: "Cookies",
-        path: "C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies",
-        size: 61_440,
-      },
-      raw: {
-        "crowdstrike.sensor.id": sensorId,
-        "event.action": "file_created",
-        "file.name": "Cookies",
-        "file.path": "C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies",
-        "file.size": "61440",
-        "process.name": "PDF_Converter_Pro_Setup.exe",
-        "process.pid": "7188",
-        "process.parent.name": "explorer.exe",
-        "user.name": `NEXACORP\\${victim.sam}`,
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-      },
-    },
+    // 6. Cookies database copied — the live session, not just passwords (T1539). The crux.
+    csFile({
+      companyId: cx, id: "evt_ist_06_cookies_copy", ts: T(3 * HOUR + 47 * MIN + 9 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
+      path: "C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies", sha256: null, size: 61_440, action: "file_create",
+      actorProcess: "PDF_Converter_Pro_Setup.exe", actorPid: 7188, isDetection: true, mitre: "T1539", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
+      description: "Five seconds later the same process created C:\\Users\\r.avidan\\AppData\\Local\\Temp\\7zSC3A19\\Chrome\\Default\\Network\\Cookies, 60 KB — Chrome's own cookie store, copied out of its locked location in the same staging folder as Login Data.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 7. It leaves the building.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_07_exfil",
-      ts: T(3 * HOUR + 47 * MIN + 24 * SEC),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "http_request",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1041",
-      mitre_tactic: "Exfiltration",
-      description:
-        "At 11:39:24 the host POSTed a 178 KB archive to telemetry-cdn-relay.net/api/v2/upload, allowed under the category unknown.",
-      network: {
-        url: `https://${c2Domain}/api/v2/upload`,
-        domain: c2Domain,
-        method: "POST",
-        status: 200,
-        bytes_out: 182_304,
-        bytes_in: 54,
-      },
-      raw: {
-        "pan.type": "TRAFFIC",
-        "pan.subtype": "end",
-        "pan.action": "allow",
-        "pan.rule": "CORP-WEB-OUTBOUND",
-        "pan.src": host.ip,
-        "pan.srcuser": `nexacorp\\${victim.sam}`,
-        "pan.dst": c2Ip,
-        "pan.dport": "443",
-        "pan.app": "web-browsing",
-        "pan.category": "unknown",
-        "pan.url": `${c2Domain}/api/v2/upload`,
-        "pan.http_method": "POST",
-        "pan.bytes_sent": "182304",
-        "pan.bytes_received": "54",
-        "pan.session_id": "551247",
-        "source.ip": host.ip,
-        "url.domain": c2Domain,
-        "http.request.method": "POST",
-        "action_result": "allow",
-      },
-    },
+    // 7. It leaves the building — a small POST to the collection endpoint (T1041).
+    panWeb({
+      companyId: cx, id: "evt_ist_07_exfil", ts: T(3 * HOUR + 47 * MIN + 24 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
+      url: `https://${c2Domain}/api/v2/upload`, domain: c2Domain, category: "unknown", method: "POST", action: "allow",
+      dstIp: c2Ip, bytesOut: 182_304, bytesIn: 54, mitre: "T1041", tactic: "Exfiltration", severity: "critical", incidentId: INCIDENT,
+      description: "At 11:39:24 the host POSTed a 178 KB archive to telemetry-cdn-relay.net/api/v2/upload, allowed under the category unknown.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 8. THE CRUX — a new session, five minutes later, no MFA interaction.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_08_session_replay",
-      ts: T(3 * HOUR + 52 * MIN + 40 * SEC),
-      source: "o365",
-      vendor: "Microsoft Entra ID",
-      event_type: "auth_success",
-      severity: "critical",
-      mitre_technique: "T1550.004",
-      mitre_tactic: "Defense Evasion",
-      user_email: victim.email,
-      user_title: "Account Executive",
-      src_ip: replayIp,
+    // 8. THE CRUX — a new session five minutes later, no interactive MFA (T1550.004).
+    entraSignIn({
+      companyId: cx, id: "evt_ist_08_session_replay", ts: T(3 * HOUR + 52 * MIN + 40 * SEC), srcIp: replayIp, user: victim.email,
+      displayName: victim.name, userTitle: "Account Executive", userId, correlationId: correlationIdReplay, sessionId: sessionIdReplay,
+      app: "Microsoft Office", appId: officeAppId, resource: "Microsoft Graph", mfa: true, isInteractive: false,
+      managed: false, compliant: false, deviceId: "", os: "Windows 10", browser: "Chrome 124.0.6367", asn: 197695,
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      tokenIssuerType: "AzureAD", incomingTokenType: "primaryRefreshToken", riskLevel: "none", conditionalAccess: "success", riskEventTypes: [],
       geo: { country: "Russia", city: "Moscow", latitude: 55.7558, longitude: 37.6173 },
-      description:
-        "A second, non-interactive Entra sign-in for r.avidan completed from 91.243.24.19 in Moscow on an unmanaged Windows 10 / Chrome 124 device — five minutes after Falcon saw her Cookies database copied on LAP-6688. Multifactor was satisfied by a claim already present in the token.",
-      raw: {
-        "azure.signinlogs.category": "SignInLogs",
-        "azure.signinlogs.operationName": "Sign-in activity",
-        "azure.signinlogs.properties.id": "6d1c8f30-9a54-4b27-8e16-3c7a2d5f804b",
-        "azure.signinlogs.properties.createdDateTime": T(3 * HOUR + 52 * MIN + 40 * SEC),
-        "azure.signinlogs.properties.userPrincipalName": victim.email,
-        "azure.signinlogs.properties.userDisplayName": victim.name,
-        "azure.signinlogs.properties.userId": userId,
-        "azure.signinlogs.properties.correlationId": correlationIdReplay,
-        "azure.signinlogs.properties.sessionId": sessionIdReplay,
-        "azure.signinlogs.properties.appDisplayName": "Microsoft Office",
-        "azure.signinlogs.properties.appId": officeAppId,
-        "azure.signinlogs.properties.resourceDisplayName": "Microsoft Graph",
-        "azure.signinlogs.properties.clientAppUsed": "Browser",
-        "azure.signinlogs.properties.isInteractive": false,
-        "azure.signinlogs.properties.ipAddress": replayIp,
-        "azure.signinlogs.properties.autonomousSystemNumber": 197695,
-        "azure.signinlogs.properties.location.city": "Moscow",
+      mitre: "T1550.004", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+      extra: {
         "azure.signinlogs.properties.location.state": "Moscow",
-        "azure.signinlogs.properties.location.countryOrRegion": "RU",
-        "azure.signinlogs.properties.location.geoCoordinates.latitude": 55.7558,
-        "azure.signinlogs.properties.location.geoCoordinates.longitude": 37.6173,
-        "azure.signinlogs.properties.deviceDetail.deviceId": "",
-        "azure.signinlogs.properties.deviceDetail.displayName": "",
-        "azure.signinlogs.properties.deviceDetail.operatingSystem": "Windows 10",
-        "azure.signinlogs.properties.deviceDetail.browser": "Chrome 124.0.6367",
-        "azure.signinlogs.properties.deviceDetail.isCompliant": false,
-        "azure.signinlogs.properties.deviceDetail.isManaged": false,
-        "azure.signinlogs.properties.deviceDetail.trustType": "",
-        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "azure.signinlogs.properties.authenticationRequirement": "multiFactorAuthentication",
-        "azure.signinlogs.properties.authenticationDetails": [
-          {
-            authenticationStepDateTime: T(3 * HOUR + 52 * MIN + 40 * SEC),
-            authenticationMethod: "Previously satisfied",
-            authenticationMethodDetail: "",
-            succeeded: true,
-            authenticationStepResultDetail: "MFA requirement satisfied by claim in the token",
-            authenticationStepRequirement: "Multifactor authentication",
-          },
-        ],
-        "azure.signinlogs.properties.conditionalAccessStatus": "success",
-        "azure.signinlogs.properties.appliedConditionalAccessPolicies": [
-          {
-            id: mfaPolicyId,
-            displayName: "Require MFA for all users",
-            result: "success",
-            enforcedGrantControls: ["Mfa"],
-            enforcedSessionControls: [],
-          },
-        ],
-        "azure.signinlogs.properties.riskLevelDuringSignIn": "none",
         "azure.signinlogs.properties.riskDetail": "none",
-        "azure.signinlogs.properties.riskState": "none",
-        "azure.signinlogs.properties.riskEventTypes_v2": [],
-        "azure.signinlogs.properties.tokenIssuerType": "AzureAD",
-        "azure.signinlogs.properties.incomingTokenType": "primaryRefreshToken",
-        "azure.signinlogs.properties.status.errorCode": 0,
-        "azure.signinlogs.resultType": "0",
+        "azure.signinlogs.properties.authenticationDetails": [
+          { authenticationStepDateTime: T(3 * HOUR + 52 * MIN + 40 * SEC), authenticationMethod: "Previously satisfied", authenticationMethodDetail: "", succeeded: true, authenticationStepResultDetail: "MFA requirement satisfied by claim in the token", authenticationStepRequirement: "Multifactor authentication" },
+        ],
+        "azure.signinlogs.properties.appliedConditionalAccessPolicies": caPolicy,
       },
-    },
+      description: "A second, non-interactive Entra sign-in for r.avidan completed from 91.243.24.19 in Moscow on an unmanaged Windows 10 / Chrome 124 device — five minutes after Falcon saw her Cookies database copied on LAP-6688. Multifactor was satisfied by a claim already present in the token.",
+    }),
 
-    // ---------------------------------------------------------------------
     // 9. The endpoint verdict, arriving after the transfer and the replay.
-    // ---------------------------------------------------------------------
     {
-      id: "evt_ist_09_edr_alert",
-      ts: T(3 * HOUR + 53 * MIN + 10 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: host.hostname,
-      user_email: victim.email,
-      src_ip: host.ip,
-      severity: "critical",
-      mitre_technique: "T1555.003",
-      mitre_tactic: "Credential Access",
-      is_detection: true,    // the Falcon detection — the endpoint alert that opens the ticket
-      edr_scope: "hybrid",   // spans host (infostealer) + identity (replayed session) → pivot to EDR for the host
-      description:
-        "Falcon raised a Critical detection on LAP-6688 for browser-credential-store staging and killed PDF_Converter_Pro_Setup.exe — after the archive had already left the host and the stolen session had already been used.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "BrowserCredentialStoreStagingAndTransfer",
-        "crowdstrike.detection.description":
-          "An unsigned process copied Chrome's Login Data and Cookies databases out of the browser profile and transferred data to external infrastructure shortly afterward.",
-        "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.detection.severity_name": "Critical",
-        "crowdstrike.detection.confidence": "85",
-        "crowdstrike.detection.tactic": "Credential Access",
-        "crowdstrike.detection.technique": "Credentials from Web Browsers",
-        "crowdstrike.detection.technique_id": "T1555.003",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, Process Killed",
-        "crowdstrike.detection.parent_process": "explorer.exe",
-        "crowdstrike.detection.process_tree": "explorer.exe > PDF_Converter_Pro_Setup.exe",
-        "crowdstrike.sensor.id": sensorId,
-        "crowdstrike.network_containment_state": "Not Contained",
-        "crowdstrike.falcon_host_link": "https://falcon.crowdstrike.com/activity/detections/detail/9e21a7c4",
-        "event.action": "alert",
-        "event.outcome": "blocked",
-        "host.name": host.hostname,
-        "host.ip": host.ip,
-        "user.name": `NEXACORP\\${victim.sam}`,
-      },
+      ...csAlert({
+        companyId: cx, id: "evt_ist_09_edr_alert", ts: T(3 * HOUR + 53 * MIN + 10 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
+        threatName: "BrowserCredentialStoreStagingAndTransfer", action: "killed", confidence: 85,
+        mitre: "T1555.003", tactic: "Credential Access", technique: "Credentials from Web Browsers",
+        processTree: "explorer.exe > PDF_Converter_Pro_Setup.exe", severity: "critical", incidentId: INCIDENT,
+        detail: "An unsigned process copied Chrome's Login Data and Cookies databases out of the browser profile and transferred data to external infrastructure shortly afterward.",
+        description: "Falcon raised a Critical detection on LAP-6688 for browser-credential-store staging and killed PDF_Converter_Pro_Setup.exe — after the archive had already left the host and the stolen session had already been used.",
+      }),
+      edr_scope: "hybrid",
     },
 
-    // ---------------------------------------------------------------------
-    // 10. The replayed session reaches into SharePoint.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_ist_10_sharepoint_access",
-      ts: T(3 * HOUR + 53 * MIN + 55 * SEC),
-      source: "o365",
-      vendor: "Microsoft 365 Unified Audit Log",
-      event_type: "cloud_api_call",
-      severity: "high",
-      mitre_technique: "T1213.002",
-      mitre_tactic: "Collection",
-      user_email: victim.email,
-      src_ip: replayIp,
-      geo: { country: "Russia", city: "Moscow" },
-      cloud: { provider: "Microsoft", service: "SharePoint Online", api_call: "FileAccessed", resource: "sites/Sales/Shared Documents/Q3_Pipeline_Forecast.xlsx" },
-      description:
-        "The replayed session opened Q3_Pipeline_Forecast.xlsx under /sites/Sales/Shared Documents from 91.243.24.19 — the same account, the same unmanaged Chrome 124 session that signed in a minute earlier.",
-      raw: {
-        "data.office365.Operation": "FileAccessed",
-        "data.office365.RecordType": "6",
-        "data.office365.Workload": "SharePoint",
-        "data.office365.UserId": victim.email,
-        "data.office365.UserType": "0",
-        "data.office365.ResultStatus": "Succeeded",
-        "data.office365.ClientIP": replayIp,
-        "data.office365.UserAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/Sales",
-        "data.office365.SourceRelativeUrl": "Shared Documents",
-        "data.office365.SourceFileName": "Q3_Pipeline_Forecast.xlsx",
-        "data.office365.ObjectId": "https://nexacorp.sharepoint.com/sites/Sales/Shared Documents/Q3_Pipeline_Forecast.xlsx",
-        "data.office365.ItemType": "File",
-        "data.office365.EventSource": "SharePoint",
-        "data.office365.SessionId": sessionIdReplay,
-        "data.office365.CorrelationId": correlationIdReplay,
-        "source.ip": replayIp,
-      },
-    },
+    // 10. The replayed session reaches into SharePoint (T1213.002).
+    m365Operation({
+      companyId: cx, id: "evt_ist_10_sharepoint_access", ts: T(3 * HOUR + 53 * MIN + 55 * SEC), srcIp: replayIp, user: victim.email,
+      operation: "FileAccessed", workload: "SharePoint", objectId: "https://nexacorp.sharepoint.com/sites/Sales/Shared Documents/Q3_Pipeline_Forecast.xlsx",
+      fileName: "Q3_Pipeline_Forecast.xlsx", siteUrl: "https://nexacorp.sharepoint.com/sites/Sales", sessionId: sessionIdReplay,
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      mitre: "T1213.002", tactic: "Collection", severity: "high", incidentId: INCIDENT,
+      extra: { "RecordType": "6", "UserType": "0", "ResultStatus": "Succeeded", "SourceRelativeUrl": "Shared Documents", "EventSource": "SharePoint", "CorrelationId": correlationIdReplay, "ItemType": "File" },
+      description: "The replayed session opened Q3_Pipeline_Forecast.xlsx under /sites/Sales/Shared Documents from 91.243.24.19 — the same account, the same unmanaged Chrome 124 session that signed in a minute earlier.",
+    }),
   ];
 
   // Every event — host EDR and identity-plane alike — belongs to the one

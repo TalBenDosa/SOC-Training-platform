@@ -71,6 +71,8 @@ export interface EntraSignInOpts extends Ctx {
   federatedTokenId?: string;        // pairs a cloud sign-in with an on-prem AD FS issuance
   authenticationProtocol?: string;  // e.g. "saml20"
   authStepResultDetail?: string;    // authenticationDetails step detail (e.g. MFA-by-claim)
+  correlationId?: string;           // pin the correlationId (else deterministic)
+  extra?: Record<string, unknown>;  // rich nested fields (authenticationDetails[], appliedConditionalAccessPolicies[], …)
   userId?: string;
   geo?: EntraGeo;                   // else resolved deterministically from srcIp
   severity?: Severity;
@@ -94,7 +96,7 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
   const errorCode = success ? "0" : (o.errorCode ?? "50126");
   const app = o.app ?? "Office 365 Exchange Online";
   const authReq = o.mfa ? "multiFactorAuthentication" : "singleFactorAuthentication";
-  const corr = `${hashString(`corr:${o.id}`).toString(16).padStart(8, "0")}-0000-0000-0000-000000000000`;
+  const corr = o.correlationId ?? `${hashString(`corr:${o.id}`).toString(16).padStart(8, "0")}-0000-0000-0000-000000000000`;
   const signInId = `${hashString(`sid:${o.id}`).toString(16).padStart(8, "0")}-1111-2222-3333-444455556666`;
   const ecsOutcome = success ? "success" : "failure";
   return {
@@ -158,6 +160,7 @@ export function entraSignIn(o: EntraSignInOpts): TelemetryEvent {
       // outcome in resultType and identity in userPrincipalName); source.ip is a
       // shared common field, kept so cross-source IP pivots still resolve.
       "source.ip": o.srcIp,
+      ...((o.extra ?? {}) as Record<string, string>),
     },
   };
 }
