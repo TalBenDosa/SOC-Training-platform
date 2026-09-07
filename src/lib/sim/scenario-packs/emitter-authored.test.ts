@@ -22,6 +22,7 @@ import { buildMacosTccPkgScenario } from "./macosTccPkg";
 import { buildMacosStealerDmgScenario } from "./macosStealerDmg";
 import { buildS3ExfilExposureScenario } from "./s3ExfilExposure";
 import { buildCicdSupplyChainScenario } from "./cicdSupplyChain";
+import { buildContainerEscapeCryptominingScenario } from "./containerEscapeCryptomining";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -36,7 +37,7 @@ const FULLY_EMITTER_AUTHORED = [
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
   "infostealerSessionTheft.ts", "macosTccPkg.ts", "macosStealerDmg.ts",
-  "s3ExfilExposure.ts", "cicdSupplyChain.ts",
+  "s3ExfilExposure.ts", "cicdSupplyChain.ts", "containerEscapeCryptomining.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -717,5 +718,39 @@ describe("emitter-authored scenario packs", () => {
     const atkIps = new Set(s.events.filter(e => e.id !== "cicd_00_benign_pr" && e.src_ip).map(e => e.src_ip));
     expect(atkIps).toEqual(new Set(["45.156.128.19"]));
     expect(benign?.src_ip).toBe("94.188.12.44");
+  });
+
+  it("containerEscapeCryptomining builds a coherent K8s escape+mining case from emitters only (Kubernetes + CrowdStrike + GuardDuty)", () => {
+    const s = buildContainerEscapeCryptominingScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Kubernetes Audit", "CrowdStrike Falcon", "AWS GuardDuty",
+    ]));
+    // benign control: a legitimately-privileged CNI DaemonSet pod, fp
+    const benign = s.events.find(e => e.id === "evt_ce_00_benign_cni");
+    expect(benign?.expected_verdict).toBe("fp");
+    expect(benign?.source).toBe("k8s_audit");
+    expect(benign?.raw?.["kubernetes.audit.user.username"]).toContain("cilium");
+    // the escape origin: a privileged pod mounting the node root fs
+    const pod = s.events.find(e => e.id === "evt_ce_01_privileged_pod_create");
+    expect(pod?.raw?.["kubernetes.audit.requestObject.spec.hostPID"]).toBe(true);
+    expect(pod?.raw?.["kubernetes.audit.requestObject.spec.volumes[0].hostPath.path"]).toBe("/");
+    // pods/exec drives the pod
+    expect(s.events.find(e => e.id === "evt_ce_02_pod_exec")?.raw?.["kubernetes.audit.objectRef.resource"]).toBe("pods/exec");
+    // the miner (contained) then the nsenter escape (the crux)
+    expect(s.events.find(e => e.id === "evt_ce_03_xmrig_launch")?.raw?.["crowdstrike.ContainerId"]).toBeTruthy();
+    const escape = s.events.find(e => e.id === "evt_ce_04_nsenter_escape");
+    expect(escape?.raw?.["crowdstrike.DetectName"]).toBe("Container Escape to Host");
+    expect(escape?.edr_scope).toBe("hybrid");
+    expect(escape?.is_detection).toBe(true);
+    // the pool connection carries the mining IOCs
+    const pool = s.events.find(e => e.id === "evt_ce_06_pool_connection");
+    expect(pool?.raw?.["destination.domain"]).toBe("pool.supportxmr.com");
+    expect(pool?.dst_port).toBe(3333);
+    // GuardDuty corroborates from the cloud plane with a DNS finding
+    const gd = s.events.find(e => e.id === "evt_ce_07_guardduty_node");
+    expect(gd?.raw?.["aws.guardduty.type"]).toBe("CryptoCurrency:EC2/BitcoinTool.B!DNS");
+    expect(gd?.raw?.["aws.guardduty.service.action.actionType"]).toBe("DNS_REQUEST");
+    expect(gd?.is_detection).toBe(true);
   });
 });

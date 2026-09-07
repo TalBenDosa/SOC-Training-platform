@@ -43,6 +43,9 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { k8sAudit } from "@/lib/sim/emitters/kubernetes";
+import { csProcess, csNetwork } from "@/lib/sim/emitters/crowdstrike";
+import { guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
 
 export function buildContainerEscapeCryptominingScenario(
   scenarioId = "container-escape-cryptomining-2026",
@@ -79,75 +82,38 @@ export function buildContainerEscapeCryptominingScenario(
   const minerHash = makeSha256("container_escape_cryptomining_xmrig_binary_2026");
   const sensorId = "d41e9a2b7c8f45031e6a2d90bc74f158";
 
+  const cx = "rocketstack" as const;
+
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — a sanctioned privileged DaemonSet pod.
-    //    The cilium CNI agent is privileged and mounts a hostPath BY DESIGN,
-    //    created by the kube-system cilium service account. Same "privileged
-    //    pod on the node" shape as the attack, opposite verdict: no miner, no
-    //    external pool connection.
-    // ─────────────────────────────────────────────────────────────────────
+    // 0. BENIGN CONTROL — a sanctioned privileged CNI DaemonSet pod (fp).
     {
-      id: "evt_ce_00_benign_cni",
-      ts: "2026-08-30T09:14:52.000Z",
-      source: "k8s_audit",
-      vendor: "Kubernetes Audit",
-      event_type: "k8s_pod_create",
-      hostname: benignPod,
-      severity: "informational",
+      ...k8sAudit({
+        companyId: cx, id: "evt_ce_00_benign_cni", ts: "2026-08-30T09:14:52.000Z", verb: "create", resource: "pods",
+        namespace: "kube-system", name: benignPod, username: cniSa, podName: benignPod, srcIp: "10.0.42.17",
+        userAgent: "cilium-operator/v1.15.6 (linux/amd64)", responseCode: 201, eventType: "k8s_pod_create", severity: "informational",
+        extra: {
+          "kubernetes.audit.user.groups[0]": "system:serviceaccounts:kube-system",
+          "kubernetes.audit.requestObject.metadata.ownerReferences[0].kind": "DaemonSet",
+          "kubernetes.audit.requestObject.metadata.ownerReferences[0].name": "cilium",
+          "kubernetes.audit.requestObject.spec.containers[0].image": "quay.io/cilium/cilium:v1.15.6",
+          "kubernetes.audit.requestObject.spec.containers[0].securityContext.privileged": true,
+          "kubernetes.audit.requestObject.spec.volumes[0].name": "cni-path",
+          "kubernetes.audit.requestObject.spec.volumes[0].hostPath.path": "/opt/cni/bin",
+        },
+        description: "A create for the cilium-7g4mp pod in kube-system: privileged with hostPath mounts, admitted for the cilium DaemonSet by the kube-system cilium service account.",
+      }),
       expected_verdict: "fp",
-      fp_explanation:
-        "This is the control case, and what every privileged pod should be measured against. The cilium CNI agent is a cluster-wide DaemonSet that legitimately runs privileged and mounts hostPath paths so it can program the node's networking — that is how the CNI works. It is created by the kube-system cilium service account, from an in-cluster address, and it runs no miner and opens no external connection. An analyst who alerts on 'a privileged pod with a hostPath was created' alone will flag this and be wrong: the signal is the workload's behaviour and who owns it, not the privileged flag.",
-      description:
-        "A create for the cilium-7g4mp pod in kube-system: privileged with hostPath mounts, admitted for the cilium DaemonSet by the kube-system cilium service account.",
-      raw: {
-        "kubernetes.audit.verb": "create",
-        "kubernetes.audit.objectRef.resource": "pods",
-        "kubernetes.audit.objectRef.namespace": "kube-system",
-        "kubernetes.audit.objectRef.name": benignPod,
-        "kubernetes.audit.user.username": cniSa,
-        "kubernetes.audit.user.groups[0]": "system:serviceaccounts:kube-system",
-        "kubernetes.audit.sourceIPs[0]": "10.0.42.17",
-        "kubernetes.audit.requestObject.metadata.ownerReferences[0].kind": "DaemonSet",
-        "kubernetes.audit.requestObject.metadata.ownerReferences[0].name": "cilium",
-        "kubernetes.audit.requestObject.spec.containers[0].image": "quay.io/cilium/cilium:v1.15.6",
-        "kubernetes.audit.requestObject.spec.containers[0].securityContext.privileged": true,
-        "kubernetes.audit.requestObject.spec.volumes[0].name": "cni-path",
-        "kubernetes.audit.requestObject.spec.volumes[0].hostPath.path": "/opt/cni/bin",
-        "kubernetes.audit.responseStatus.code": 201,
-        "kubernetes.audit.stage": "ResponseComplete",
-        "kubernetes.audit.userAgent": "cilium-operator/v1.15.6 (linux/amd64)",
-      },
+      fp_explanation: "This is the control case, and what every privileged pod should be measured against. The cilium CNI agent is a cluster-wide DaemonSet that legitimately runs privileged and mounts hostPath paths so it can program the node's networking — that is how the CNI works. It is created by the kube-system cilium service account, from an in-cluster address, and it runs no miner and opens no external connection. An analyst who alerts on 'a privileged pod with a hostPath was created' alone will flag this and be wrong: the signal is the workload's behaviour and who owns it, not the privileged flag.",
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. THE ESCAPE ORIGIN — an over-permissive pod is created from a poisoned
-    //    image by an application service account. privileged, hostPID, and a
-    //    hostPath mounting the node root filesystem. This is the pod spec that
-    //    makes a breakout to the node possible (T1610 Deploy Container).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_ce_01_privileged_pod_create",
-      ts: T(0),
-      source: "k8s_audit",
-      vendor: "Kubernetes Audit",
-      event_type: "k8s_pod_create",
-      hostname: badPod,
-      src_ip: opIp,
-      severity: "high",
-      mitre_technique: "T1610",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "A create for the etl-metrics-agent-xk29d pod in data-pipeline from the etl-runner service account: privileged true, hostPID true, and a hostPath volume mapping the node root filesystem into the container.",
-      raw: {
-        "kubernetes.audit.verb": "create",
-        "kubernetes.audit.objectRef.resource": "pods",
-        "kubernetes.audit.objectRef.namespace": "data-pipeline",
-        "kubernetes.audit.objectRef.name": badPod,
-        "kubernetes.audit.user.username": badSa,
+    // 1. THE ESCAPE ORIGIN — an over-permissive pod from a poisoned image (T1610).
+    k8sAudit({
+      companyId: cx, id: "evt_ce_01_privileged_pod_create", ts: T(0), verb: "create", resource: "pods",
+      namespace: "data-pipeline", name: badPod, username: badSa, podName: badPod, srcIp: opIp,
+      userAgent: "kubectl/v1.28.4 (linux/amd64) kubernetes/8b3644d", responseCode: 201, eventType: "k8s_pod_create",
+      mitre: "T1610", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      extra: {
         "kubernetes.audit.user.groups[0]": "system:serviceaccounts:data-pipeline",
-        "kubernetes.audit.sourceIPs[0]": opIp,
         "kubernetes.audit.requestObject.spec.hostPID": true,
         "kubernetes.audit.requestObject.spec.hostNetwork": true,
         "kubernetes.audit.requestObject.spec.containers[0].image": badImage,
@@ -156,267 +122,73 @@ export function buildContainerEscapeCryptominingScenario(
         "kubernetes.audit.requestObject.spec.containers[0].volumeMounts[0].mountPath": "/host",
         "kubernetes.audit.requestObject.spec.volumes[0].name": "host-root",
         "kubernetes.audit.requestObject.spec.volumes[0].hostPath.path": "/",
-        "kubernetes.audit.responseStatus.code": 201,
-        "kubernetes.audit.stage": "ResponseComplete",
-        "kubernetes.audit.userAgent": "kubectl/v1.28.4 (linux/amd64) kubernetes/8b3644d",
       },
-    },
+      description: "A create for the etl-metrics-agent-xk29d pod in data-pipeline from the etl-runner service account: privileged true, hostPID true, and a hostPath volume mapping the node root filesystem into the container.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. THE OPERATOR DRIVES THE POD — a pods/exec into the privileged pod.
-    //    A shell inside the container the operator will break out of
-    //    (T1609 Container Administration Command).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_ce_02_pod_exec",
-      ts: T(1 * MIN),
-      source: "k8s_audit",
-      vendor: "Kubernetes Audit",
-      event_type: "k8s_exec",
-      hostname: badPod,
-      src_ip: opIp,
-      severity: "high",
-      mitre_technique: "T1609",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
-      description:
-        "A pods/exec into etl-metrics-agent-xk29d in data-pipeline by the etl-runner service account from 45.83.192.44, attaching an interactive shell to the container.",
-      raw: {
-        "kubernetes.audit.verb": "create",
-        "kubernetes.audit.objectRef.resource": "pods/exec",
-        "kubernetes.audit.objectRef.subresource": "exec",
-        "kubernetes.audit.objectRef.namespace": "data-pipeline",
-        "kubernetes.audit.objectRef.name": badPod,
-        "kubernetes.audit.user.username": badSa,
-        "kubernetes.audit.sourceIPs[0]": opIp,
-        "kubernetes.audit.requestURI":
-          "/api/v1/namespaces/data-pipeline/pods/etl-metrics-agent-xk29d/exec?command=sh&container=agent&stdin=true&stdout=true&tty=true",
-        "kubernetes.audit.responseStatus.code": 101,
-        "kubernetes.audit.stage": "ResponseComplete",
-        "kubernetes.audit.userAgent": "kubectl/v1.28.4 (linux/amd64) kubernetes/8b3644d",
-      },
-    },
+    // 2. THE OPERATOR DRIVES THE POD — a pods/exec into the privileged pod (T1609).
+    k8sAudit({
+      companyId: cx, id: "evt_ce_02_pod_exec", ts: T(1 * MIN), verb: "create", resource: "pods/exec", subresource: "exec",
+      namespace: "data-pipeline", name: badPod, username: badSa, podName: badPod, srcIp: opIp,
+      requestUri: "/api/v1/namespaces/data-pipeline/pods/etl-metrics-agent-xk29d/exec?command=sh&container=agent&stdin=true&stdout=true&tty=true",
+      responseCode: 101, userAgent: "kubectl/v1.28.4 (linux/amd64) kubernetes/8b3644d", eventType: "k8s_exec",
+      mitre: "T1609", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      description: "A pods/exec into etl-metrics-agent-xk29d in data-pipeline by the etl-runner service account from 45.83.192.44, attaching an interactive shell to the container.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. THE MINER — xmrig launches inside the container, pointed at an
-    //    external Monero pool. Note the populated ContainerId: at this point
-    //    the process is still CONTAINED inside the pod (T1496).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_ce_03_xmrig_launch",
-      ts: T(2 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: node.name,
-      src_ip: opIp,
-      severity: "high",
-      mitre_technique: "T1496",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      is_detection: true,
-      description:
-        "Falcon flagged an xmrig process starting in container 3f9a2c7e1b4d from the etl-metrics image, its command line pointed at pool.supportxmr.com over stratum with a Monero wallet.",
-      process: {
-        name: "xmrig",
-        pid: 24817,
-        path: "/tmp/.xmr/xmrig",
-        parent_name: "sh",
-        parent_pid: 24790,
-        cmdline: `./xmrig -o ${poolUrl} -u ${wallet} -k --tls --coin monero`,
-        user: "root",
-        hash: { sha256: minerHash },
-      },
-      raw: {
-        "crowdstrike.DetectName": "Cryptocurrency Mining Tool",
-        "crowdstrike.Tactic": "Impact",
-        "crowdstrike.Technique": "Resource Hijacking",
-        "crowdstrike.Objective": "Follow Through",
-        "crowdstrike.SeverityName": "High",
-        "crowdstrike.ComputerName": node.name,
-        "crowdstrike.ContainerId": containerId,
-        "crowdstrike.ContainerImageName": badImage,
-        "crowdstrike.FileName": "xmrig",
-        "crowdstrike.FilePath": "/tmp/.xmr/xmrig",
-        "crowdstrike.CommandLine": `./xmrig -o ${poolUrl} -u ${wallet} -k --tls --coin monero`,
-        "crowdstrike.ParentProcessName": "sh",
-        "crowdstrike.UserName": "root",
-        "process.hash.sha256": minerHash,
-        "crowdstrike.SensorId": sensorId,
-        "crowdstrike.aid": sensorId,
-      },
-    },
+    // 3. THE MINER — xmrig launches inside the container (still contained) (T1496).
+    csProcess({
+      companyId: cx, id: "evt_ce_03_xmrig_launch", ts: T(2 * MIN), host: node.name, user: null, runAsUser: "root", srcIp: opIp,
+      processName: "xmrig", processPath: "/tmp/.xmr/xmrig", cmdline: `./xmrig -o ${poolUrl} -u ${wallet} -k --tls --coin monero`, parentName: "sh", parentPid: 24790, pid: 24817,
+      sha256: minerHash, isDetection: true, mitre: "T1496", tactic: "Impact", severity: "high", incidentId: INCIDENT,
+      extra: { "crowdstrike.DetectName": "Cryptocurrency Mining Tool", "crowdstrike.Tactic": "Impact", "crowdstrike.Technique": "Resource Hijacking", "crowdstrike.Objective": "Follow Through", "crowdstrike.SeverityName": "High", "crowdstrike.ContainerId": containerId, "crowdstrike.ContainerImageName": badImage, "crowdstrike.SensorId": sensorId },
+      description: "Falcon flagged an xmrig process starting in container 3f9a2c7e1b4d from the etl-metrics image, its command line pointed at pool.supportxmr.com over stratum with a Monero wallet.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. THE ESCAPE — nsenter joins the HOST's namespaces (--target 1, the
-    //    node's init) and drops a bash shell onto the worker node. THIS is the
-    //    crossing of the container boundary: the shell runs in the node's own
-    //    mount/PID/net namespaces, not the pod's (T1611 Escape to Host).
-    //    Primary detection → is_detection + edr_scope "hybrid".
-    // ─────────────────────────────────────────────────────────────────────
+    // 4. THE ESCAPE — nsenter joins the host's namespaces and drops a node shell (T1611).
     {
-      id: "evt_ce_04_nsenter_escape",
-      ts: T(4 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: node.name,
-      src_ip: opIp,
-      severity: "critical",
-      mitre_technique: "T1611",
-      mitre_tactic: "Privilege Escalation",
-      incident_id: INCIDENT,
-      is_detection: true,
+      ...csProcess({
+        companyId: cx, id: "evt_ce_04_nsenter_escape", ts: T(4 * MIN), host: node.name, user: null, runAsUser: "root", srcIp: opIp,
+        processName: "nsenter", processPath: "/usr/bin/nsenter", cmdline: "nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/bash",
+        parentName: "sh", parentPid: 24790, pid: 24990, isDetection: true, mitre: "T1611", tactic: "Privilege Escalation", severity: "critical", incidentId: INCIDENT,
+        extra: { "crowdstrike.DetectName": "Container Escape to Host", "crowdstrike.Tactic": "Privilege Escalation", "crowdstrike.Technique": "Escape to Host", "crowdstrike.Objective": "Gain Access", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Detection, No Action", "crowdstrike.ParentBaseFileName": "sh", "crowdstrike.TargetNamespacePid": "1", "crowdstrike.SensorId": sensorId },
+        description: "Falcon detected nsenter run from inside container 3f9a2c7e1b4d joining the host's namespaces via --target 1 and spawning /bin/bash, which then executed against the node's own filesystem outside the pod.",
+      }),
       edr_scope: "hybrid",
-      description:
-        "Falcon detected nsenter run from inside container 3f9a2c7e1b4d joining the host's namespaces via --target 1 and spawning /bin/bash, which then executed against the node's own filesystem outside the pod.",
-      process: {
-        name: "nsenter",
-        pid: 24990,
-        path: "/usr/bin/nsenter",
-        parent_name: "sh",
-        parent_pid: 24790,
-        cmdline: "nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/bash",
-        user: "root",
-      },
-      raw: {
-        "crowdstrike.DetectName": "Container Escape to Host",
-        "crowdstrike.Tactic": "Privilege Escalation",
-        "crowdstrike.Technique": "Escape to Host",
-        "crowdstrike.Objective": "Gain Access",
-        "crowdstrike.SeverityName": "Critical",
-        "crowdstrike.PatternDispositionDescription": "Detection, No Action",
-        "crowdstrike.ComputerName": node.name,
-        "crowdstrike.FileName": "nsenter",
-        "crowdstrike.FilePath": "/usr/bin/nsenter",
-        "crowdstrike.CommandLine": "nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/bash",
-        "crowdstrike.ParentProcessName": "sh",
-        "crowdstrike.ParentBaseFileName": "sh",
-        "crowdstrike.TargetNamespacePid": "1",
-        "crowdstrike.UserName": "root",
-        "crowdstrike.SensorId": sensorId,
-        "crowdstrike.aid": sensorId,
-      },
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. DISCOVERY ON THE NODE — from the host shell the operator enumerates
-    //    the node's other containers and workloads (T1613 Container and
-    //    Resource Discovery).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_ce_05_node_discovery",
-      ts: T(5 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "process_create",
-      hostname: node.name,
-      src_ip: opIp,
-      severity: "medium",
-      mitre_technique: "T1613",
-      mitre_tactic: "Discovery",
-      incident_id: INCIDENT,
-      description:
-        "From the node shell, crictl was run to list every running container on ip-10-0-42-17, enumerating the other workloads scheduled on the worker.",
-      process: {
-        name: "crictl",
-        pid: 25044,
-        path: "/usr/bin/crictl",
-        parent_name: "bash",
-        parent_pid: 24991,
-        cmdline: "crictl ps -a -o json",
-        user: "root",
-      },
-      raw: {
-        "crowdstrike.DetectName": "Container Enumeration On Host",
-        "crowdstrike.Tactic": "Discovery",
-        "crowdstrike.Technique": "Container and Resource Discovery",
-        "crowdstrike.SeverityName": "Medium",
-        "crowdstrike.ComputerName": node.name,
-        "crowdstrike.FileName": "crictl",
-        "crowdstrike.CommandLine": "crictl ps -a -o json",
-        "crowdstrike.ParentProcessName": "bash",
-        "crowdstrike.UserName": "root",
-        "crowdstrike.SensorId": sensorId,
-        "crowdstrike.aid": sensorId,
-      },
-    },
+    // 5. DISCOVERY ON THE NODE — crictl enumerates the node's containers (T1613).
+    csProcess({
+      companyId: cx, id: "evt_ce_05_node_discovery", ts: T(5 * MIN), host: node.name, user: null, runAsUser: "root", srcIp: opIp,
+      processName: "crictl", processPath: "/usr/bin/crictl", cmdline: "crictl ps -a -o json", parentName: "bash", parentPid: 24991, pid: 25044,
+      mitre: "T1613", tactic: "Discovery", severity: "medium", incidentId: INCIDENT,
+      extra: { "crowdstrike.DetectName": "Container Enumeration On Host", "crowdstrike.Tactic": "Discovery", "crowdstrike.Technique": "Container and Resource Discovery", "crowdstrike.SeverityName": "Medium", "crowdstrike.SensorId": sensorId },
+      description: "From the node shell, crictl was run to list every running container on ip-10-0-42-17, enumerating the other workloads scheduled on the worker.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. THE IMPACT ON THE WIRE — the miner's outbound connection to the
-    //    Monero pool, from the node (T1496). Surfaces the pool domain/IP/URL.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_ce_06_pool_connection",
-      ts: T(6 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "net_connection",
-      hostname: node.name,
-      src_ip: "10.0.42.17",
-      dst_ip: poolIp,
-      dst_port: 3333,
-      protocol: "tcp",
-      severity: "high",
-      mitre_technique: "T1496",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      description:
-        "Falcon recorded xmrig on ip-10-0-42-17 opening a persistent outbound TCP/3333 session to pool.supportxmr.com (185.65.244.9) — the Monero mining pool the wallet pays out to.",
-      raw: {
-        "crowdstrike.DetectName": "Cryptocurrency Mining Network Activity",
-        "crowdstrike.Tactic": "Impact",
-        "crowdstrike.Technique": "Resource Hijacking",
-        "crowdstrike.SeverityName": "High",
-        "crowdstrike.ComputerName": node.name,
-        "crowdstrike.FileName": "xmrig",
-        "crowdstrike.CommandLine": `./xmrig -o ${poolUrl} -u ${wallet} -k --tls --coin monero`,
-        "crowdstrike.DomainName": poolDomain,
-        "crowdstrike.RemoteAddressIP4": poolIp,
-        "crowdstrike.RemotePort": "3333",
-        "crowdstrike.ConnectionDirection": "outbound",
-        "crowdstrike.Protocol": "tcp",
-        "crowdstrike.UserName": "root",
-        "crowdstrike.SensorId": sensorId,
-        "crowdstrike.aid": sensorId,
-      },
-    },
+    // 6. THE IMPACT ON THE WIRE — the miner's outbound pool connection (T1496).
+    csNetwork({
+      companyId: cx, id: "evt_ce_06_pool_connection", ts: T(6 * MIN), host: node.name, srcIp: "10.0.42.17",
+      remoteIp: poolIp, remotePort: 3333, transport: "tcp", domain: poolDomain, processName: "xmrig", cmdline: `./xmrig -o ${poolUrl} -u ${wallet} -k --tls --coin monero`,
+      mitre: "T1496", tactic: "Impact", severity: "high", incidentId: INCIDENT,
+      extra: { "crowdstrike.DetectName": "Cryptocurrency Mining Network Activity", "crowdstrike.Tactic": "Impact", "crowdstrike.Technique": "Resource Hijacking", "crowdstrike.SeverityName": "High", "crowdstrike.DomainName": poolDomain, "crowdstrike.RemoteAddressIP4": poolIp, "crowdstrike.RemotePort": "3333", "crowdstrike.ConnectionDirection": "outbound", "crowdstrike.Protocol": "tcp", "crowdstrike.UserName": "root", "crowdstrike.SensorId": sensorId },
+      description: "Falcon recorded xmrig on ip-10-0-42-17 opening a persistent outbound TCP/3333 session to pool.supportxmr.com (185.65.244.9) — the Monero mining pool the wallet pays out to.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 7. NODE / CLOUD CONTEXT — GuardDuty independently flags the EKS worker
-    //    EC2 instance querying a cryptocurrency-associated domain. Corroborates
-    //    the mining impact from the cloud control plane (T1496).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_ce_07_guardduty_node",
-      ts: T(9 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS GuardDuty",
-      event_type: "cloud_api_call",
-      hostname: node.name,
-      severity: "high",
-      mitre_technique: "T1496",
-      mitre_tactic: "Impact",
-      incident_id: INCIDENT,
-      is_detection: true,
-      description:
-        "GuardDuty raised CryptoCurrency:EC2/BitcoinTool.B!DNS: the EKS worker instance i-0a4b7c2e9f13d5a80 resolved pool.supportxmr.com, a domain associated with cryptocurrency mining.",
-      raw: {
-        "aws.guardduty.type": "CryptoCurrency:EC2/BitcoinTool.B!DNS",
-        "aws.guardduty.severity": "8",
-        "aws.guardduty.title":
-          "EC2 instance i-0a4b7c2e9f13d5a80 is querying a domain name associated with a known cryptocurrency mining pool.",
-        "aws.guardduty.service.action.actionType": "DNS_REQUEST",
+    // 7. NODE / CLOUD CONTEXT — GuardDuty flags the EKS worker querying a mining domain (T1496).
+    guardDutyFinding({
+      companyId: cx, id: "evt_ce_07_guardduty_node", ts: T(9 * MIN), findingType: "CryptoCurrency:EC2/BitcoinTool.B!DNS", gdSeverity: 8,
+      title: "EC2 instance i-0a4b7c2e9f13d5a80 is querying a domain name associated with a known cryptocurrency mining pool.",
+      actionType: "DNS_REQUEST", resourceType: "Instance", count: 6, accountId: "402183776925", region: "us-east-1",
+      mitre: "T1496", tactic: "Impact", severity: "high", incidentId: INCIDENT,
+      extra: {
         "aws.guardduty.service.action.dnsRequestAction.domain": poolDomain,
         "aws.guardduty.service.action.dnsRequestAction.protocol": "UDP",
-        "aws.guardduty.resource.resourceType": "Instance",
         "aws.guardduty.resource.instanceDetails.instanceId": node.instanceId,
         "aws.guardduty.resource.instanceDetails.tags.eks:cluster-name": cluster,
-        "aws.guardduty.service.count": "6",
-        "cloud.account.id": "402183776925",
-        "cloud.region": "us-east-1",
       },
-    },
+      description: "GuardDuty raised CryptoCurrency:EC2/BitcoinTool.B!DNS: the EKS worker instance i-0a4b7c2e9f13d5a80 resolved pool.supportxmr.com, a domain associated with cryptocurrency mining.",
+    }),
   ];
 
   const iocs: IOC[] = [

@@ -131,6 +131,7 @@ export interface GuardDutyFindingOpts extends Ctx {
   findingType: string;              // e.g. "Exfiltration:S3/ObjectRead.Unusual"
   gdSeverity: number;               // GuardDuty 1-10 severity score
   title: string;
+  actionType?: string;              // service.action.actionType (default "AWS_API_CALL"; e.g. "DNS_REQUEST")
   srcIp?: string;                   // remoteIpDetails.ipAddressV4
   api?: string;                     // awsApiCallAction.api
   serviceName?: string;             // awsApiCallAction.serviceName
@@ -167,7 +168,7 @@ export function guardDutyFinding(o: GuardDutyFindingOpts): TelemetryEvent {
       "aws.guardduty.type": o.findingType,
       "aws.guardduty.severity": String(o.gdSeverity),
       "aws.guardduty.title": o.title,
-      "aws.guardduty.service.action.actionType": "AWS_API_CALL",
+      "aws.guardduty.service.action.actionType": o.actionType ?? "AWS_API_CALL",
       ...(o.api ? { "aws.guardduty.service.action.awsApiCallAction.api": o.api } : {}),
       ...(o.serviceName ? { "aws.guardduty.service.action.awsApiCallAction.serviceName": o.serviceName } : {}),
       ...(o.callerType ? { "aws.guardduty.service.action.awsApiCallAction.callerType": o.callerType } : {}),

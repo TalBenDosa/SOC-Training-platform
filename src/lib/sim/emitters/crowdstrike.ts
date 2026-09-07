@@ -324,6 +324,7 @@ export interface CsNetworkOpts extends Ctx {
   sha256?: string;
   bytesOut?: number;            // transferred volume — shown in the console, not a CS raw field
   bytesIn?: number;
+  extra?: Record<string, string | number>; // extra crowdstrike.* fields (DetectName, threat.*…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -357,6 +358,7 @@ export function csNetwork(o: CsNetworkOpts): TelemetryEvent {
       "network.transport": transport,
       ...(o.application ? { "network.application": o.application } : {}),
       ...(o.domain ? { "destination.domain": o.domain } : {}),
+      ...(o.extra ?? {}),
     },
   };
 }
