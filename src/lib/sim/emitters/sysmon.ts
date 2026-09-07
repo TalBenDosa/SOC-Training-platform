@@ -45,6 +45,7 @@ export interface SysmonProcessOpts extends Ctx {
   processGuid?: string;            // Sysmon ProcessGuid — the SIEM join key
   parentGuid?: string;             // ParentProcessGuid
   eventType?: EventType;           // override (e.g. "scheduled_task" for a schtasks.exe run)
+  runAsUser?: string;              // token owner override (e.g. "NT AUTHORITY\\SYSTEM"); else the fabric user
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -58,11 +59,13 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
   const parentPath = o.parentPath ?? (o.parentName ? `C:\\Windows\\explorer.exe` : undefined);
   const sha256 = o.sha256 ?? makeSha256(`sysmon:${o.processName}:${o.cmdline}`);
+  const usr = o.runAsUser ?? r.domainUser;
+  const usrName = o.runAsUser ? (o.runAsUser.split("\\").pop() ?? o.runAsUser) : r.bareUser;
   return {
     id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: o.eventType ?? "process_create",
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
-    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: r.domainUser, hash: { sha256 } },
+    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: usr, hash: { sha256 } },
     description: o.description ?? `${o.processName} created on ${r.host} (Sysmon 1)`,
     raw: {
       ...base(o, r),
@@ -76,7 +79,7 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
       ...(o.parentCmdline ? { "winlog.event_data.ParentCommandLine": o.parentCmdline } : {}),
       "winlog.event_data.ParentProcessId": String(ppid),
       ...(o.parentGuid ? { "winlog.event_data.ParentProcessGuid": o.parentGuid } : {}),
-      "winlog.event_data.User": r.domainUser,
+      "winlog.event_data.User": usr,
       "winlog.event_data.Hashes": `SHA256=${sha256}`,
       "winlog.event_data.IntegrityLevel": o.integrity ?? "Medium",
       ...(o.originalFileName ? { "winlog.event_data.OriginalFileName": o.originalFileName } : {}),
@@ -92,7 +95,8 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
       "process.parent.pid": String(ppid),
       "process.hash.sha256": sha256,
       ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
-      "user.name": r.bareUser,
+      ...(o.signed !== undefined ? { "winlog.event_data.Signed": String(o.signed) } : {}),
+      "user.name": usrName,
       "host.name": r.host,
     },
   };
@@ -291,6 +295,52 @@ export function sysmonRegistry(o: SysmonRegistryOpts): TelemetryEvent {
       "event.action": "registry-value-set",
       "process.executable": image,
       "process.name": o.processName,
+      "process.pid": String(pid),
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 10 — Process access (LSASS read / credential dumping) ───────────────────────
+export interface SysmonProcessAccessOpts extends Ctx {
+  sourceImage: string;             // the ACCESSING process (e.g. C:\Windows\Temp\svchost.exe)
+  sourcePid?: number;
+  targetImage?: string;            // default lsass.exe
+  targetPid?: number;
+  grantedAccess: string;           // e.g. "0x1410"
+  callTrace?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonProcessAccess(o: SysmonProcessAccessOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.sourcePid ?? pidFrom(o.id);
+  const name = o.sourceImage.split(/[\/]/).pop() ?? o.sourceImage;
+  const target = o.targetImage ?? "C:\Windows\System32\lsass.exe";
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "process_access",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    process: { pid, name, path: o.sourceImage, cmdline: o.sourceImage, user: r.domainUser },
+    description: o.description ?? `${name} opened ${target.split(/[\/]/).pop()} on ${r.host} (Sysmon 10, GrantedAccess ${o.grantedAccess})`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "10",
+      "winlog.event_data.SourceImage": o.sourceImage,
+      "winlog.event_data.SourceProcessId": String(pid),
+      "winlog.event_data.TargetImage": target,
+      ...(o.targetPid ? { "winlog.event_data.TargetProcessId": String(o.targetPid) } : {}),
+      "winlog.event_data.GrantedAccess": o.grantedAccess,
+      ...(o.callTrace ? { "winlog.event_data.CallTrace": o.callTrace } : {}),
+      "winlog.event_data.User": r.domainUser,
+      "event.code": "10",
+      "event.category": "process",
+      "event.action": "process-access",
+      "process.executable": o.sourceImage,
+      "process.name": name,
       "process.pid": String(pid),
       "host.name": r.host,
     },

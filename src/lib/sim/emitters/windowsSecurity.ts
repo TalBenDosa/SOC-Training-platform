@@ -9,7 +9,7 @@
  * winlog.event_data. prefixes + the shared ECS fields), with the domain drawn from the
  * company fabric. These are control-plane events (source:"ad"), so they carry no process.
  */
-import type { TelemetryEvent, Severity } from "../types";
+import type { TelemetryEvent, Severity, EventType } from "../types";
 import { assetsFor } from "../fabric";
 
 const VENDOR = "Windows Security";
@@ -109,6 +109,8 @@ export interface WinLogonOpts extends WinCtx {
   subjectSid?: string;          // the caller (e.g. SRV$ for a RemoteInteractive)
   subjectUser?: string;
   processName?: string;
+  lmPackage?: string;           // LmPackageName (e.g. "NTLM V2") — an NTLM-logon tell
+  keyLength?: string;           // KeyLength (e.g. "0" for NTLM)
 }
 export function winLogon(o: WinLogonOpts): TelemetryEvent {
   const nb = realm(o);
@@ -136,6 +138,8 @@ export function winLogon(o: WinLogonOpts): TelemetryEvent {
       "winlog.event_data.LogonType": String(logonType),
       "winlog.event_data.LogonProcessName": o.logonProcess ?? "NtLmSsp ",
       "winlog.event_data.AuthenticationPackageName": pkg,
+      ...(o.lmPackage ? { "winlog.event_data.LmPackageName": o.lmPackage } : {}),
+      ...(o.keyLength ? { "winlog.event_data.KeyLength": o.keyLength } : {}),
       "winlog.event_data.WorkstationName": o.workstation ?? "WORKSTATION",
       "winlog.event_data.IpAddress": o.srcIp,
       "winlog.event_data.IpPort": o.srcPort ?? "0",
@@ -229,6 +233,126 @@ export function winObjectAccess(o: WinObjectAccessOpts): TelemetryEvent {
       "event.outcome": "success",
       "source.ip": o.srcIp,
       "user.name": o.targetUser,
+      "user.domain": nb,
+    },
+  };
+}
+
+// ── 4672 — special privileges assigned to a new logon ─────────────────────────────────
+const ADMIN_PRIVS = "SeSecurityPrivilege\n\t\t\tSeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeDebugPrivilege\n\t\t\tSeTcbPrivilege";
+export interface WinSpecialPrivsOpts extends WinCtx {
+  logonId?: string;
+  privilegeList?: string;
+  recordId?: string;
+}
+export function winSpecialPrivileges(o: WinSpecialPrivsOpts): TelemetryEvent {
+  const nb = realm(o);
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "privilege_escalation",
+    severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
+    description: o.description ?? `4672 — special privileges assigned to ${o.targetUser} on ${o.host}`,
+    raw: {
+      "winlog.event_id": "4672",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.targetSid ?? NO_SID,
+      "winlog.event_data.SubjectUserName": o.targetUser,
+      "winlog.event_data.SubjectDomainName": nb,
+      ...(o.logonId ? { "winlog.event_data.SubjectLogonId": o.logonId } : {}),
+      "winlog.event_data.PrivilegeList": o.privilegeList ?? ADMIN_PRIVS,
+      "event.code": "4672",
+      "event.action": "logged-in-special",
+      "event.outcome": "success",
+      "user.name": o.targetUser,
+      "user.domain": nb,
+    },
+  };
+}
+
+// ── 7045 — a new service was installed (SCM; the PsExec / remote-service pattern) ──────
+export interface WinServiceInstallOpts extends WinCtx {
+  serviceName: string;
+  imagePath: string;
+  accountName?: string;            // default LocalSystem
+  serviceType?: string;            // default "user mode service"
+  startType?: string;              // default "auto start"
+  recordId?: string;
+}
+export function winServiceInstall(o: WinServiceInstallOpts): TelemetryEvent {
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "service_install",
+    severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    description: o.description ?? `7045 — service ${o.serviceName} installed on ${o.host} (${o.imagePath})`,
+    raw: {
+      "winlog.event_id": "7045",
+      "winlog.channel": "System",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Service Control Manager",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.AccountName": o.accountName ?? "LocalSystem",
+      "winlog.event_data.ServiceName": o.serviceName,
+      "winlog.event_data.ImagePath": o.imagePath,
+      "winlog.event_data.ServiceType": o.serviceType ?? "user mode service",
+      "winlog.event_data.StartType": o.startType ?? "auto start",
+      "event.code": "7045",
+      "event.action": "service-installed",
+      "event.outcome": "success",
+    },
+  };
+}
+
+// ── 4688 — a new process was created (Windows Security process-creation auditing) ──────
+export interface WinProcessCreateOpts extends WinCtx {
+  processName: string;
+  processPath: string;
+  cmdline: string;
+  parentPath: string;
+  pid?: number;
+  subjectUser?: string;            // the creating principal (e.g. "SRV-FILE-03$")
+  subjectSid?: string;             // default S-1-5-18 (SYSTEM)
+  runAsUser?: string;              // the process token owner (process.user), default subjectUser
+  integrity?: "low" | "medium" | "high" | "system";
+  tokenElevation?: string;         // %%1936 (full) / %%1937 / %%1938
+  eventType?: EventType;           // override (default process_create)
+  recordId?: string;
+}
+const MAND_LABEL: Record<string, string> = { low: "S-1-16-4096", medium: "S-1-16-8192", high: "S-1-16-12288", system: "S-1-16-16384" };
+export function winProcessCreate(o: WinProcessCreateOpts): TelemetryEvent {
+  const nb = realm(o);
+  const pid = o.pid ?? 4096;
+  const subj = o.subjectUser ?? `${o.host}$`;
+  const runAs = o.runAsUser ?? "NT AUTHORITY\SYSTEM";
+  const integrity = o.integrity ?? "system";
+  return {
+    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: o.eventType ?? "process_create",
+    severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    process: { pid, name: o.processName, path: o.processPath, cmdline: o.cmdline, parent_name: o.parentPath.split(/[\/]/).pop(), user: runAs },
+    description: o.description ?? `4688 — ${o.processName} created on ${o.host}`,
+    raw: {
+      "winlog.event_id": "4688",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.subjectSid ?? "S-1-5-18",
+      "winlog.event_data.SubjectUserName": subj,
+      "winlog.event_data.SubjectDomainName": nb,
+      "winlog.event_data.SubjectLogonId": "0x3E7",
+      "winlog.event_data.NewProcessId": `0x${pid.toString(16)}`,
+      "winlog.event_data.NewProcessName": o.processPath,
+      "winlog.event_data.CommandLine": o.cmdline,
+      "winlog.event_data.ParentProcessName": o.parentPath,
+      "winlog.event_data.TokenElevationType": o.tokenElevation ?? "%%1936",
+      "winlog.event_data.MandatoryLabel": MAND_LABEL[integrity],
+      "event.code": "4688",
+      "event.action": "created-process",
+      "event.outcome": "success",
+      "user.name": subj,
       "user.domain": nb,
     },
   };

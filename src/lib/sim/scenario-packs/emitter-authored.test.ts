@@ -10,6 +10,7 @@ import { buildOktaPasswordBurstScenario } from "./oktaPasswordBurst";
 import { buildUebaCompromisedAccountScenario } from "./uebaCompromisedAccount";
 import { buildScheduledTaskPersistenceScenario } from "./scheduledTaskPersistence";
 import { buildBundledCryptominerScenario } from "./bundledCryptominer";
+import { buildLateralMovementPthScenario } from "./lateralMovementPth";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -20,7 +21,7 @@ const FULLY_EMITTER_AUTHORED = [
   "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
-  "scheduledTaskPersistence.ts", "bundledCryptominer.ts",
+  "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -258,5 +259,36 @@ describe("emitter-authored scenario packs", () => {
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("LAP-1806");
     expect(inv.processes.some(p => p.name === "svchost_helper.exe")).toBe(true);
+  });
+
+  it("lateralMovementPth builds a coherent PtH intrusion from emitters only (WinSec + Sysmon + CS + Sentinel)", () => {
+    const s = buildLateralMovementPthScenario();
+    expect(s.events.length).toBe(12);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "Windows Security", "Microsoft Sysmon", "CrowdStrike Falcon", "Microsoft Sentinel",
+    ]));
+    // benign control: Kerberos + fp explanation; attack landing: NTLM
+    const benign = s.events.find(e => e.id === "evt_lm_00_benign_logon");
+    expect(benign?.raw?.["winlog.event_data.AuthenticationPackageName"]).toBe("Kerberos");
+    expect(benign?.fp_explanation).toBeTruthy();
+    const pth = s.events.find(e => e.id === "evt_lm_02_pth_logon");
+    expect(pth?.raw?.["winlog.event_data.AuthenticationPackageName"]).toBe("NTLM");
+    // the LSASS dump is the origin of the hash (Sysmon 10)
+    const lsass = s.events.find(e => e.id === "evt_lm_01_lsass_access");
+    expect(lsass?.event_type).toBe("process_access");
+    expect(lsass?.raw?.["winlog.event_data.GrantedAccess"]).toBe("0x1410");
+    // 4672 privesc + 7045 service install
+    expect(s.events.find(e => e.id === "evt_lm_03_special_privs")?.raw?.["winlog.event_id"]).toBe("4672");
+    expect(s.events.find(e => e.id === "evt_lm_05_service_install")?.raw?.["winlog.event_data.ServiceName"]).toBe("WinSvcUpdate");
+    // the service binary runs as SYSTEM
+    const svc = s.events.find(e => e.id === "evt_lm_06_service_exec");
+    expect(svc?.process?.user).toBe("NT AUTHORITY\\SYSTEM");
+    // the second hop reaches the DC
+    const dcLogon = s.events.find(e => e.id === "evt_lm_10_dc_logon");
+    expect(dcLogon?.hostname).toBe("DC-NEXA-01");
+    expect(dcLogon?.raw?.["winlog.event_data.AuthenticationPackageName"]).toBe("NTLM");
+    // one incident, correlated: EDR console opens on the file server
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("SRV-FILE-03");
   });
 });
