@@ -379,8 +379,13 @@ export function csDns(o: CsDnsOpts): TelemetryEvent {
 export interface CsFileOpts extends Ctx {
   path: string;
   sha256?: string | null;       // null → omit a hash (a growing data buffer has none)
-  action?: "file_create" | "file_modify" | "file_delete";
+  size?: number;
+  action?: "file_create" | "file_modify" | "file_delete" | "file_access";
   signed?: boolean;
+  actorProcess?: string;        // the process that wrote/opened the file (Falcon ContextBaseFileName)
+  actorPid?: number;
+  actorPath?: string;
+  actorIntegrity?: "high" | "medium" | "low" | "system";
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -393,26 +398,35 @@ export function csFile(o: CsFileOpts): TelemetryEvent {
   const action = o.action ?? "file_create";
   const isExe = /\.(exe|dll|sys|scr)$/i.test(name);
   const sha256 = o.sha256 === null ? undefined : (o.sha256 ?? makeSha256(`file:${o.path}`));
-  // A new PE is "NewExecutableWritten"; anything else is a plain FileWritten/Modified.
+  const ext = name.includes(".") ? name.split(".").pop() : undefined;
+  // A new PE is "NewExecutableWritten"; a read/mount is FileOpenInfo; else FileWritten/Deleted.
   const simpleName = action === "file_delete" ? "FileDeleted"
+    : action === "file_access" ? "FileOpenInfo"
     : action === "file_modify" ? "FileWritten"
     : isExe ? "NewExecutableWritten" : "FileWritten";
+  const actionResult = action === "file_delete" ? "file_deleted"
+    : action === "file_access" ? "file_opened"
+    : action === "file_modify" ? "file_modified" : "file_created";
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: action,
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
-    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}) },
-    description: o.description ?? `${name} written on ${r.host}`,
+    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}), ...(o.size ? { size: o.size } : {}), ...(ext ? { extension: ext } : {}) },
+    ...(o.actorProcess ? { process: { pid: o.actorPid ?? pidFrom(o.id), name: o.actorProcess, path: o.actorPath ?? `C:\\Windows\\System32\\${o.actorProcess}`, user: r.domainUser, ...(o.actorIntegrity ? { integrity: o.actorIntegrity } : {}) } } : {}),
+    description: o.description ?? `${name} ${action === "file_access" ? "opened" : "written"} on ${r.host}`,
     raw: {
       "crowdstrike.event_simpleName": simpleName,
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.aid": r.sensorId,
+      ...(o.actorProcess ? { "crowdstrike.ContextBaseFileName": o.actorProcess, "crowdstrike.ContextProcessId_decimal": String(o.actorPid ?? pidFrom(o.id)) } : {}),
       "file.path": o.path,
       "file.name": name,
+      ...(ext ? { "file.extension": ext } : {}),
+      ...(o.size ? { "file.size": String(o.size) } : {}),
       ...(sha256 ? { "file.hash.sha256": sha256 } : {}),
       ...(o.signed !== undefined ? { "file.signature.status": o.signed ? "trusted" : "unsigned" } : {}),
-      "event.action": action === "file_delete" ? "file_deleted" : action === "file_modify" ? "file_modified" : "file_created",
+      "event.action": actionResult,
     },
   };
 }

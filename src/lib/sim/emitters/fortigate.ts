@@ -149,6 +149,99 @@ export function fgThreat(o: FgThreatOpts): TelemetryEvent {
   };
 }
 
+// ── Web request (UTM webfilter / filefilter — allowed or logged, not a block) ─────────
+// The allowed-but-logged half of FortiGate's UTM: a file-filter record for a download
+// that isn't on the block list, or a web-filter passthrough for an uncategorised URL.
+// Distinct from fgThreat (a block/detection, is_detection true): this is transport
+// evidence an analyst correlates against the endpoint tree, carrying the URL, the
+// downloaded filename, and the web-filter category verdict.
+export interface FgWebOpts extends Ctx {
+  remoteIp: string;
+  remotePort?: number;
+  url: string;
+  domain: string;
+  subtype?: "webfilter" | "filefilter";
+  eventtype?: string;              // data.eventtype — "ftgd_allow" | "filefilter" …
+  action?: "passthrough" | "log-only" | "blocked";
+  msg?: string;
+  logid?: string;
+  level?: string;                  // data.level — "notice" | "warning" …
+  category?: string;               // data.catdesc (human) — e.g. "Uncategorized"
+  categoryId?: string;             // data.cat (numeric) — e.g. "26"
+  method?: "GET" | "POST";
+  status?: number;
+  bytesIn?: number;
+  bytesOut?: number;
+  file?: { name: string; sha256?: string; size?: number; type?: string };
+  policyId?: number;
+  userTitle?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgWeb(o: FgWebOpts): TelemetryEvent {
+  const r = resolve(o);
+  const subtype = o.subtype ?? "webfilter";
+  const action = o.action ?? "passthrough";
+  const blocked = action === "blocked";
+  const method = o.method ?? "GET";
+  const port = o.remotePort ?? 443;
+  const country = geoCountry(o.remoteIp);
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: blocked ? "http_blocked" : "http_request",
+    severity: o.severity ?? (blocked ? "high" : "low"), hostname: r.host,
+    src_ip: r.srcIp, dst_ip: o.remoteIp, dst_port: port, protocol: "tcp",
+    user_email: r.email, user_title: o.userTitle,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    network: { url: o.url, domain: o.domain, method, status: o.status ?? 200, bytes_in: o.bytesIn, bytes_out: o.bytesOut },
+    ...(o.file ? { file: { name: o.file.name, path: `/${o.file.name}`, ...(o.file.sha256 ? { sha256: o.file.sha256 } : {}), ...(o.file.size ? { size: o.file.size } : {}), extension: o.file.name.split(".").pop() } } : {}),
+    description: o.description ?? `FortiGate ${subtype} ${action} — ${r.host} ${method === "POST" ? "POSTed to" : "requested"} ${o.domain}`,
+    raw: {
+      "data.type": "utm",
+      "data.subtype": subtype,
+      "data.eventtype": o.eventtype ?? (subtype === "filefilter" ? "filefilter" : "ftgd_allow"),
+      ...(o.logid ? { "data.logid": o.logid } : {}),
+      "data.level": o.level ?? (blocked ? "warning" : "notice"),
+      "data.action": action,
+      ...(o.msg ? { "data.msg": o.msg } : {}),
+      ...(subtype === "filefilter" ? { "data.logdesc": "File filter" } : {}),
+      ...(o.file ? { "data.filename": o.file.name, "data.filetype": o.file.type ?? o.file.name.split(".").pop() ?? "unknown" } : {}),
+      ...(o.categoryId ? { "data.cat": o.categoryId } : {}),
+      ...(o.category ? { "data.catdesc": o.category } : {}),
+      "data.url": o.url.replace(/^https?:\/\//, ""),
+      "data.hostname": o.domain,
+      "data.srcip": r.srcIp,
+      "data.dstip": o.remoteIp,
+      "data.dstport": String(port),
+      "data.proto": "6",
+      "data.service": port === 443 ? "HTTPS" : "HTTP",
+      ...(o.policyId !== undefined ? { "data.policyid": String(o.policyId) } : {}),
+      "data.devname": "FGT-CORE-01",
+      "data.devid": "FGT60F1234567890",
+      "data.vd": "root",
+      "data.srccountry": "Reserved",
+      ...(country ? { "data.dstcountry": country } : {}),
+      // shared ECS
+      "action": action,
+      "action_result": blocked ? "blocked" : "allowed",
+      "event.action": subtype,
+      "event.category": "network",
+      "event.outcome": blocked ? "success" : "success",
+      "source.ip": r.srcIp,
+      "destination.ip": o.remoteIp,
+      "destination.port": String(port),
+      "url.domain": o.domain,
+      "url.full": o.url,
+      "http.request.method": method,
+      "http.response.status_code": String(o.status ?? 200),
+      ...(o.file?.sha256 ? { "threat.file.hash.sha256": o.file.sha256 } : {}),
+      ...(country ? { "destination.geo.country_name": country } : {}),
+    },
+  };
+}
+
 // ── SSL-VPN login ─────────────────────────────────────────────────────────────────────
 export interface FgVpnOpts extends Ctx {
   remoteIp: string;                // the client's public IP
