@@ -50,8 +50,8 @@ export interface CloudTrailOpts extends Ctx {
   srcIp: string;                    // sourceIPAddress
   region?: string;                  // default us-east-1
   accountId?: string;
-  actorType?: "IAMUser" | "AssumedRole" | "Root" | "AWSService";
-  actorName?: string;               // IAM user / role name
+  actorType?: "IAMUser" | "AssumedRole" | "Root" | "AWSService" | "WebIdentityUser";
+  actorName?: string;               // IAM user / role name (or the OIDC subject for WebIdentityUser)
   arn?: string;                     // userIdentity.arn
   accessKeyId?: string;             // userIdentity.accessKeyId
   sessionIssuerName?: string;       // sessionContext.sessionIssuer.userName (AssumedRole)
@@ -95,7 +95,7 @@ export function cloudTrailEvent(o: CloudTrailOpts): TelemetryEvent {
       "aws.cloudtrail.eventSource": eventSource,
       "aws.cloudtrail.awsRegion": region,
       "aws.cloudtrail.userIdentity.type": actorType,
-      ...(actorType === "IAMUser" ? { "aws.cloudtrail.userIdentity.userName": actorName } : {}),
+      ...(actorName && actorType !== "AssumedRole" ? { "aws.cloudtrail.userIdentity.userName": actorName } : {}),
       ...(o.arn ? { "aws.cloudtrail.userIdentity.arn": o.arn } : {}),
       ...(o.accessKeyId ? { "aws.cloudtrail.userIdentity.accessKeyId": o.accessKeyId } : {}),
       "aws.cloudtrail.userIdentity.accountId": account,

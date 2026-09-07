@@ -45,6 +45,8 @@
  */
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { githubAudit } from "@/lib/sim/emitters/github";
+import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
 
 export function buildCicdSupplyChainScenario(
   scenarioId = "cicd-supply-chain-2026",
@@ -84,435 +86,114 @@ export function buildCicdSupplyChainScenario(
   const artifactBucket = "rocketstack-deploy-artifacts";
   const secretId = `arn:aws:secretsmanager:${region}:${awsAccount}:secret:prod/payments/db-Ab12Cd`;
 
+  const cx = "rocketstack" as const;
+
   const events: TelemetryEvent[] = [
-    // ─────────────────────────────────────────────────────────────────────
-    // 0. BENIGN CONTROL — the sanctioned way to change the workflow file.
-    //    A prior-day pull_request.merge: the SAME `.github/workflows/ci.yml`
-    //    edited, but through an approved, reviewed PR that satisfied branch
-    //    protection, merged by the author from an ordinary developer IP.
-    // ─────────────────────────────────────────────────────────────────────
+    // 0. BENIGN CONTROL — the sanctioned reviewed-PR path to the same file (fp).
     {
-      id: "cicd_00_benign_pr",
-      ts: "2026-08-30T14:22:10.000Z",
-      source: "vcs",
-      vendor: "GitHub Audit Log",
-      event_type: "cloud_api_call",
-      user_email: dev.email,
-      user_title: "Platform Engineer",
-      src_ip: dev.ip,
-      severity: "informational",
+      ...githubAudit({
+        companyId: cx, id: "cicd_00_benign_pr", ts: "2026-08-30T14:22:10.000Z", action: "pull_request.merge",
+        actor: dev.actor, actorIp: dev.ip, userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15",
+        org, repo, visibility: "private", category: "web", user: dev.email, userTitle: "Platform Engineer", severity: "informational",
+        extra: {
+          "github.pull_request.number": "806", "github.pull_request.title": "ci: pin actions/checkout to v4.2.2",
+          "github.pull_request.base": "main", "github.pull_request.head": "chore/pin-actions", "github.pull_request.merged_by": dev.actor,
+          "github.pull_request.review_decision": "approved", "github.pull_request.approving_reviewer": "s.rahman",
+          "github.protected_branch.name": "main", "github.protected_branch.required_reviews": "1", "github.protected_branch.checks_passed": "true",
+        },
+        description: "pull_request.merge on rocketstack/payments-api: PR #806 ('ci: pin actions/checkout to v4.2.2') editing .github/workflows/ci.yml, approved by a reviewer and merged by d.pereira from 94.188.12.44.",
+      }),
       expected_verdict: "fp",
-      fp_explanation:
-        "This is the control case for the whole scenario, and what every later workflow change should be measured against. The SAME file (.github/workflows/ci.yml) is edited, but it reaches main the sanctioned way: through pull request #806, reviewed and approved by a second engineer (review_decision=approved), with branch protection satisfied (checks_passed=true, required_reviews met), merged by the author from an ordinary corporate IP during business hours. There is a review record, a second human in the loop, and no branch-protection override. An analyst who alerts on 'a workflow file was modified' alone will flag this and be wrong — the event is not the edit, it is HOW the edit reached main.",
-      description:
-        "pull_request.merge on rocketstack/payments-api: PR #806 ('ci: pin actions/checkout to v4.2.2') editing .github/workflows/ci.yml, approved by a reviewer and merged by d.pereira from 94.188.12.44.",
-      raw: {
-        "github.action": "pull_request.merge",
-        "github.actor": dev.actor,
-        "github.actor.ip": dev.ip,
-        "github.actor.user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15",
-        "github.org": org,
-        "github.repo": repo,
-        "github.visibility": "private",
-        "github.pull_request.number": "806",
-        "github.pull_request.title": "ci: pin actions/checkout to v4.2.2",
-        "github.pull_request.base": "main",
-        "github.pull_request.head": "chore/pin-actions",
-        "github.pull_request.merged_by": dev.actor,
-        "github.pull_request.review_decision": "approved",
-        "github.pull_request.approving_reviewer": "s.rahman",
-        "github.protected_branch.name": "main",
-        "github.protected_branch.required_reviews": "1",
-        "github.protected_branch.checks_passed": "true",
-        "github.at": "2026-08-30T14:22:10.000Z",
-        "github.transport_protocol_name": "https",
-        "event.category": "web",
-        "event.action": "pull_request.merge",
-        "event.outcome": "success",
-      },
+      fp_explanation: "This is the control case for the whole scenario, and what every later workflow change should be measured against. The SAME file (.github/workflows/ci.yml) is edited, but it reaches main the sanctioned way: through pull request #806, reviewed and approved by a second engineer (review_decision=approved), with branch protection satisfied (checks_passed=true, required_reviews met), merged by the author from an ordinary corporate IP during business hours. There is a review record, a second human in the loop, and no branch-protection override. An analyst who alerts on 'a workflow file was modified' alone will flag this and be wrong — the event is not the edit, it is HOW the edit reached main.",
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 1. PERSISTENCE — the compromised account mints a fine-grained PAT.
-    //    A token that keeps repository access even if the account password is
-    //    reset. Registered from the attacker's external IP.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_01_pat_create",
-      ts: T(0),
-      source: "vcs",
-      vendor: "GitHub Audit Log",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1098",
-      mitre_tactic: "Persistence",
-      description:
-        "personal_access_token.create for m.duarte on rocketstack/payments-api from 45.156.128.19 — a fine-grained PAT scoped to contents and workflows, created outside the account's usual location.",
-      raw: {
-        "github.action": "personal_access_token.create",
-        "github.actor": attacker.actor,
-        "github.actor.ip": attackerIp,
-        "github.actor.user_agent": "python-requests/2.31.0",
-        "github.org": org,
-        "github.repo": repo,
-        "github.programmatic_access_type": "Fine-grained personal access token",
-        "github.token.name": "ci-cache-helper",
-        "github.token.permissions": "contents:write,workflows:write,secrets:read",
-        "github.token.expires_at": "2027-08-31T00:00:00.000Z",
-        "github.geo.country_code": "NL",
-        "github.geo.city": "Amsterdam",
-        "github.at": T(0),
-        "github.transport_protocol_name": "https",
-        "event.category": "authentication",
-        "event.action": "personal_access_token.create",
-        "event.outcome": "success",
-      },
-    },
+    // 1. PERSISTENCE — the compromised account mints a fine-grained PAT (T1098).
+    githubAudit({
+      companyId: cx, id: "cicd_01_pat_create", ts: T(0), action: "personal_access_token.create", actor: attacker.actor, actorIp: attackerIp,
+      userAgent: "python-requests/2.31.0", org, repo, category: "authentication", user: attacker.email, geoCountryCode: "NL", geoCity: "Amsterdam",
+      mitre: "T1098", tactic: "Persistence", severity: "high",
+      extra: { "github.programmatic_access_type": "Fine-grained personal access token", "github.token.name": "ci-cache-helper", "github.token.permissions": "contents:write,workflows:write,secrets:read", "github.token.expires_at": "2027-08-31T00:00:00.000Z" },
+      description: "personal_access_token.create for m.duarte on rocketstack/payments-api from 45.156.128.19 — a fine-grained PAT scoped to contents and workflows, created outside the account's usual location.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 2. THE MALICIOUS RUNNER — a self-hosted Actions runner the attacker
-    //    controls, labelled to match the deploy job so a job lands on it.
-    //    This is where the job's secrets and OIDC token become readable.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_02_runner_register",
-      ts: T(2 * MIN),
-      source: "vcs",
-      vendor: "GitHub Audit Log",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1078",
-      mitre_tactic: "Persistence",
-      description:
-        "self_hosted_runner.register on rocketstack/payments-api: a new runner 'rs-deploy-runner-x' with labels self-hosted,linux,deploy was added by m.duarte from 45.156.128.19.",
-      raw: {
-        "github.action": "self_hosted_runner.register",
-        "github.actor": attacker.actor,
-        "github.actor.ip": attackerIp,
-        "github.org": org,
-        "github.repo": repo,
-        "github.runner.name": runnerName,
-        "github.runner.id": "77",
-        "github.runner.labels": "self-hosted,linux,deploy",
-        "github.runner.os": "Linux",
-        "github.runner.group": "Default",
-        "github.at": T(2 * MIN),
-        "github.transport_protocol_name": "https",
-        "event.category": "configuration",
-        "event.action": "self_hosted_runner.register",
-        "event.outcome": "success",
-      },
-    },
+    // 2. THE MALICIOUS RUNNER — a self-hosted Actions runner labelled for the deploy job (T1078).
+    githubAudit({
+      companyId: cx, id: "cicd_02_runner_register", ts: T(2 * MIN), action: "self_hosted_runner.register", actor: attacker.actor, actorIp: attackerIp,
+      org, repo, category: "configuration", user: attacker.email, mitre: "T1078", tactic: "Persistence", severity: "high",
+      extra: { "github.runner.name": runnerName, "github.runner.id": "77", "github.runner.labels": "self-hosted,linux,deploy", "github.runner.os": "Linux", "github.runner.group": "Default" },
+      description: "self_hosted_runner.register on rocketstack/payments-api: a new runner 'rs-deploy-runner-x' with labels self-hosted,linux,deploy was added by m.duarte from 45.156.128.19.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 3. THE SUPPLY-CHAIN COMPROMISE — the workflow file is changed on main
-    //    with a branch-protection override: no pull request, no review. This
-    //    is the origin event and the point to remediate against recurrence.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_03_workflow_override",
-      ts: T(5 * MIN),
-      source: "vcs",
-      vendor: "GitHub Audit Log",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1195.002",
-      mitre_tactic: "Initial Access",
-      incident_id: INCIDENT,
-      description:
-        "protected_branch.policy_override on rocketstack/payments-api: a push to refs/heads/main modified .github/workflows/ci.yml, bypassing the required review — commit message 'ci: cache node_modules', actor m.duarte from 45.156.128.19.",
-      raw: {
-        "github.action": "protected_branch.policy_override",
-        "github.actor": attacker.actor,
-        "github.actor.ip": attackerIp,
-        "github.actor.user_agent": "git/2.44.0",
-        "github.org": org,
-        "github.repo": repo,
-        "github.ref": "refs/heads/main",
-        "github.protected_branch.name": "main",
-        "github.before": "3f1a9c2e7b4d05a1e6f8c0b9d2a7e4c1f6b3d8a0",
-        "github.after": "9c4d71e0a2f3b8c6d5e40917a2b3c4d5e6f70819",
-        "github.head_commit.message": "ci: cache node_modules",
-        "github.head_commit.modified": ".github/workflows/ci.yml",
-        "github.programmatic_access_type": "Fine-grained personal access token",
-        "github.at": T(5 * MIN),
-        "github.transport_protocol_name": "https",
-        "event.category": "configuration",
-        "event.action": "protected_branch.policy_override",
-        "event.outcome": "success",
-      },
-    },
+    // 3. THE SUPPLY-CHAIN COMPROMISE — workflow file changed on main via a branch-protection override (T1195.002).
+    githubAudit({
+      companyId: cx, id: "cicd_03_workflow_override", ts: T(5 * MIN), action: "protected_branch.policy_override", actor: attacker.actor, actorIp: attackerIp,
+      userAgent: "git/2.44.0", org, repo, category: "configuration", user: attacker.email, incidentId: INCIDENT,
+      mitre: "T1195.002", tactic: "Initial Access", severity: "critical",
+      extra: { "github.ref": "refs/heads/main", "github.protected_branch.name": "main", "github.before": "3f1a9c2e7b4d05a1e6f8c0b9d2a7e4c1f6b3d8a0", "github.after": "9c4d71e0a2f3b8c6d5e40917a2b3c4d5e6f70819", "github.head_commit.message": "ci: cache node_modules", "github.head_commit.modified": ".github/workflows/ci.yml", "github.programmatic_access_type": "Fine-grained personal access token" },
+      description: "protected_branch.policy_override on rocketstack/payments-api: a push to refs/heads/main modified .github/workflows/ci.yml, bypassing the required review — commit message 'ci: cache node_modules', actor m.duarte from 45.156.128.19.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 4. THE OUT-OF-BAND CHANNEL — a repository webhook to an external host.
-    //    Surfaces the attacker endpoint (URL / domain) as concrete evidence.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_04_webhook_create",
-      ts: T(6 * MIN),
-      source: "vcs",
-      vendor: "GitHub Audit Log",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1567",
-      mitre_tactic: "Exfiltration",
-      incident_id: INCIDENT,
-      description:
-        "hook.create on rocketstack/payments-api: a repository webhook posting push and workflow_run events as JSON to https://telemetry-sync.deploystatus.io/collect was added by m.duarte.",
-      raw: {
-        "github.action": "hook.create",
-        "github.actor": attacker.actor,
-        "github.actor.ip": attackerIp,
-        "github.org": org,
-        "github.repo": repo,
-        "github.hook.id": "552348771",
-        "github.hook.config.url": exfilUrl,
-        "github.hook.config.content_type": "json",
-        "github.hook.config.insecure_ssl": "0",
-        "github.hook.events": "push,workflow_run",
-        "github.hook.active": "true",
-        "github.at": T(6 * MIN),
-        "github.transport_protocol_name": "https",
-        "event.category": "configuration",
-        "event.action": "hook.create",
-        "event.outcome": "success",
-      },
-    },
+    // 4. THE OUT-OF-BAND CHANNEL — a repository webhook to an external host (T1567).
+    githubAudit({
+      companyId: cx, id: "cicd_04_webhook_create", ts: T(6 * MIN), action: "hook.create", actor: attacker.actor, actorIp: attackerIp,
+      org, repo, category: "configuration", user: attacker.email, incidentId: INCIDENT, mitre: "T1567", tactic: "Exfiltration", severity: "high",
+      extra: { "github.hook.id": "552348771", "github.hook.config.url": exfilUrl, "github.hook.config.content_type": "json", "github.hook.config.insecure_ssl": "0", "github.hook.events": "push,workflow_run", "github.hook.active": "true" },
+      description: "hook.create on rocketstack/payments-api: a repository webhook posting push and workflow_run events as JSON to https://telemetry-sync.deploystatus.io/collect was added by m.duarte.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 5. THE RUN — the modified workflow completes on the attacker's runner.
-    //    Where the job's repo secrets and the GitHub OIDC token are readable.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_05_workflow_run",
-      ts: T(8 * MIN),
-      source: "vcs",
-      vendor: "GitHub Audit Log",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1552.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
-      description:
-        "workflows.completed_workflow_run on rocketstack/payments-api: run #5127 of the 'CI' workflow, triggered by the push to main, executed on the self-hosted runner rs-deploy-runner-x and concluded success.",
-      raw: {
-        "github.action": "workflows.completed_workflow_run",
-        "github.actor": attacker.actor,
-        "github.org": org,
-        "github.repo": repo,
-        "github.workflow_run.name": "CI",
-        "github.workflow_run.head_branch": "main",
-        "github.workflow_run.head_sha": "9c4d71e0a2f3b8c6d5e40917a2b3c4d5e6f70819",
-        "github.workflow_run.event": "push",
-        "github.workflow_run.run_number": "5127",
-        "github.workflow_run.run_attempt": "1",
-        "github.workflow_run.conclusion": "success",
-        "github.workflow_run.actor": attacker.actor,
-        "github.workflow_run.runner_group_name": "Default",
-        "github.workflow_run.runner_name": runnerName,
-        "github.at": T(8 * MIN),
-        "github.transport_protocol_name": "https",
-        "event.category": "web",
-        "event.action": "workflows.completed_workflow_run",
-        "event.outcome": "success",
-      },
-    },
+    // 5. THE RUN — the modified workflow completes on the attacker's runner (T1552.001).
+    githubAudit({
+      companyId: cx, id: "cicd_05_workflow_run", ts: T(8 * MIN), action: "workflows.completed_workflow_run", actor: attacker.actor,
+      org, repo, category: "web", user: attacker.email, incidentId: INCIDENT, mitre: "T1552.001", tactic: "Credential Access", severity: "high",
+      extra: { "github.workflow_run.name": "CI", "github.workflow_run.head_branch": "main", "github.workflow_run.head_sha": "9c4d71e0a2f3b8c6d5e40917a2b3c4d5e6f70819", "github.workflow_run.event": "push", "github.workflow_run.run_number": "5127", "github.workflow_run.run_attempt": "1", "github.workflow_run.conclusion": "success", "github.workflow_run.actor": attacker.actor, "github.workflow_run.runner_group_name": "Default", "github.workflow_run.runner_name": runnerName },
+      description: "workflows.completed_workflow_run on rocketstack/payments-api: run #5127 of the 'CI' workflow, triggered by the push to main, executed on the self-hosted runner rs-deploy-runner-x and concluded success.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 6. THE BLAST RADIUS BEGINS — AssumeRoleWithWebIdentity. The pipeline's
-    //    GitHub OIDC token is exchanged for the github-actions-deploy role.
-    //    The legitimate mechanism — but the exchange is on the attacker's
-    //    runner, so the source address is already outside AWS.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_06_assume_role_oidc",
-      ts: T(8 * MIN + 20 * SEC),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1078.004",
-      mitre_tactic: "Defense Evasion",
-      incident_id: INCIDENT,
-      description:
-        "AssumeRoleWithWebIdentity (sts.amazonaws.com): the GitHub OIDC subject repo:rocketstack/payments-api:ref:refs/heads/main exchanged its token for github-actions-deploy, sourced from 45.156.128.19.",
-      raw: {
-        "aws.cloudtrail.eventName": "AssumeRoleWithWebIdentity",
-        "aws.cloudtrail.eventSource": "sts.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "WebIdentityUser",
-        "aws.cloudtrail.userIdentity.identityProvider": "token.actions.githubusercontent.com",
-        "aws.cloudtrail.userIdentity.userName": "repo:rocketstack/payments-api:ref:refs/heads/main",
-        "aws.cloudtrail.requestParameters.roleArn": deployRoleArn,
-        "aws.cloudtrail.requestParameters.roleSessionName": "github-actions-payments-deploy",
-        "aws.cloudtrail.responseElements.assumedRoleUser.arn": assumedRoleArn,
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-sdk-nodejs/2.1580.0 linux/18.20.4",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "aws.cloudtrail.requestID": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
+    // 6. THE BLAST RADIUS BEGINS — AssumeRoleWithWebIdentity on the attacker's runner (T1078.004).
+    cloudTrailEvent({
+      companyId: cx, id: "cicd_06_assume_role_oidc", ts: T(8 * MIN + 20 * SEC), eventName: "AssumeRoleWithWebIdentity", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "WebIdentityUser", actorName: "repo:rocketstack/payments-api:ref:refs/heads/main", userAgent: "aws-sdk-nodejs/2.1580.0 linux/18.20.4", readOnly: true, user: attacker.email,
+      mitre: "T1078.004", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+      extra: { "aws.cloudtrail.userIdentity.identityProvider": "token.actions.githubusercontent.com", "aws.cloudtrail.requestParameters.roleArn": deployRoleArn, "aws.cloudtrail.requestParameters.roleSessionName": "github-actions-payments-deploy", "aws.cloudtrail.responseElements.assumedRoleUser.arn": assumedRoleArn, "aws.cloudtrail.requestID": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" },
+      description: "AssumeRoleWithWebIdentity (sts.amazonaws.com): the GitHub OIDC subject repo:rocketstack/payments-api:ref:refs/heads/main exchanged its token for github-actions-deploy, sourced from 45.156.128.19.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 7. S3 enumeration — the deploy role lists a bucket. Collection.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_07_s3_list",
-      ts: T(15 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "high",
-      mitre_technique: "T1530",
-      mitre_tactic: "Collection",
-      incident_id: INCIDENT,
-      description:
-        "ListObjectsV2 on the rocketstack-deploy-artifacts bucket by the github-actions-deploy assumed-role session, from 45.156.128.19.",
-      raw: {
-        "aws.cloudtrail.eventName": "ListObjectsV2",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "AssumedRole",
-        "aws.cloudtrail.userIdentity.arn": assumedRoleArn,
-        "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.userName": "github-actions-deploy",
-        "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.type": "Role",
-        "aws.cloudtrail.requestParameters.bucketName": artifactBucket,
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-sdk-nodejs/2.1580.0 linux/18.20.4",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
+    // 7. S3 enumeration — the deploy role lists a bucket (T1530).
+    cloudTrailEvent({
+      companyId: cx, id: "cicd_07_s3_list", ts: T(15 * MIN), eventName: "ListObjectsV2", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "AssumedRole", arn: assumedRoleArn, sessionIssuerName: "github-actions-deploy", s3Bucket: artifactBucket, readOnly: true, userAgent: "aws-sdk-nodejs/2.1580.0 linux/18.20.4", user: attacker.email,
+      mitre: "T1530", tactic: "Collection", severity: "high", incidentId: INCIDENT,
+      description: "ListObjectsV2 on the rocketstack-deploy-artifacts bucket by the github-actions-deploy assumed-role session, from 45.156.128.19.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 8. S3 object read — a secrets file is pulled out of the bucket.
-    //    Private-key / credential material in a file. Credential Access.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_08_s3_getobject",
-      ts: T(16 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1552.004",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
-      description:
-        "GetObject on rocketstack-deploy-artifacts/backups/prod/.env.production by the github-actions-deploy assumed-role session, from 45.156.128.19 — 48 KB returned.",
-      raw: {
-        "aws.cloudtrail.eventName": "GetObject",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "AssumedRole",
-        "aws.cloudtrail.userIdentity.arn": assumedRoleArn,
-        "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.userName": "github-actions-deploy",
-        "aws.cloudtrail.requestParameters.bucketName": artifactBucket,
-        "aws.cloudtrail.requestParameters.key": "backups/prod/.env.production",
-        "aws.cloudtrail.additional_event_data.bytes_transferred_out": "48213",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-sdk-nodejs/2.1580.0 linux/18.20.4",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
+    // 8. S3 object read — a secrets file is pulled out of the bucket (T1552.004).
+    cloudTrailEvent({
+      companyId: cx, id: "cicd_08_s3_getobject", ts: T(16 * MIN), eventName: "GetObject", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "AssumedRole", arn: assumedRoleArn, sessionIssuerName: "github-actions-deploy", s3Bucket: artifactBucket, s3Key: "backups/prod/.env.production", bytes: 48_213,
+      readOnly: true, userAgent: "aws-sdk-nodejs/2.1580.0 linux/18.20.4", user: attacker.email, mitre: "T1552.004", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
+      description: "GetObject on rocketstack-deploy-artifacts/backups/prod/.env.production by the github-actions-deploy assumed-role session, from 45.156.128.19 — 48 KB returned.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 9. Secrets Manager — a production database secret is read. The payoff.
-    // ─────────────────────────────────────────────────────────────────────
-    {
-      id: "cicd_09_get_secret_value",
-      ts: T(18 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1552.001",
-      mitre_tactic: "Credential Access",
-      incident_id: INCIDENT,
-      description:
-        "GetSecretValue (secretsmanager.amazonaws.com) on prod/payments/db by the github-actions-deploy assumed-role session, from 45.156.128.19.",
-      raw: {
-        "aws.cloudtrail.eventName": "GetSecretValue",
-        "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com",
-        "aws.cloudtrail.awsRegion": region,
-        "aws.cloudtrail.userIdentity.type": "AssumedRole",
-        "aws.cloudtrail.userIdentity.arn": assumedRoleArn,
-        "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.userName": "github-actions-deploy",
-        "aws.cloudtrail.requestParameters.secretId": secretId,
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-sdk-nodejs/2.1580.0 linux/18.20.4",
-        "aws.cloudtrail.eventType": "AwsApiCall",
-        "aws.cloudtrail.readOnly": "true",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
-    },
+    // 9. Secrets Manager — a production database secret is read (T1552.001).
+    cloudTrailEvent({
+      companyId: cx, id: "cicd_09_get_secret_value", ts: T(18 * MIN), eventName: "GetSecretValue", srcIp: attackerIp, region, accountId: awsAccount,
+      actorType: "AssumedRole", arn: assumedRoleArn, sessionIssuerName: "github-actions-deploy", readOnly: true, userAgent: "aws-sdk-nodejs/2.1580.0 linux/18.20.4", user: attacker.email,
+      mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
+      extra: { "aws.cloudtrail.requestParameters.secretId": secretId },
+      description: "GetSecretValue (secretsmanager.amazonaws.com) on prod/payments/db by the github-actions-deploy assumed-role session, from 45.156.128.19.",
+    }),
 
-    // ─────────────────────────────────────────────────────────────────────
-    // 10. THE DETECTION — GuardDuty flags the deploy role's temporary
-    //     credentials being used from an address outside AWS. This is what
-    //     opens the ticket. Control-plane only → edr_scope "non_edr".
-    // ─────────────────────────────────────────────────────────────────────
+    // 10. THE DETECTION — GuardDuty flags the deploy role's temp creds used outside AWS (T1078.004).
     {
-      id: "cicd_10_guardduty_finding",
-      ts: T(22 * MIN),
-      source: "cloudtrail",
-      vendor: "AWS GuardDuty",
-      event_type: "cloud_api_call",
-      user_email: attacker.email,
-      src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1078.004",
-      mitre_tactic: "Defense Evasion",
-      incident_id: INCIDENT,
-      is_detection: true,   // the finding that opened the incident
-      edr_scope: "non_edr", // cloud control-plane only — no host process to walk; investigated in SIEM / cloud
-      description:
-        "GuardDuty raised InstanceCredentialExfiltration.OutsideAWS (severity 8): the github-actions-deploy role's temporary credentials making API calls from 45.156.128.19, an address outside AWS.",
-      raw: {
-        "aws.guardduty.type": "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS",
-        "aws.guardduty.severity": "8",
-        "aws.guardduty.title": "Credentials for the role github-actions-deploy are being used from a remote host outside AWS",
-        "aws.guardduty.service.action.actionType": "AWS_API_CALL",
-        "aws.guardduty.service.action.awsApiCallAction.api": "GetSecretValue",
-        "aws.guardduty.service.action.awsApiCallAction.serviceName": "secretsmanager.amazonaws.com",
-        "aws.guardduty.service.action.awsApiCallAction.callerType": "Remote IP",
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.ipAddressV4": attackerIp,
-        "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.organization.asnOrg": "M247 Europe SRL",
-        "aws.guardduty.resource.resourceType": "AccessKey",
-        "aws.guardduty.resource.accessKeyDetails.userType": "AssumedRole",
-        "aws.guardduty.resource.accessKeyDetails.userName": "github-actions-deploy",
-        "aws.guardduty.resource.accessKeyDetails.accessKeyId": "ASIAY7RCX2NLP4Q8ZK3D",
-        "aws.guardduty.service.count": "3",
-        "cloud.account.id": awsAccount,
-        "cloud.region": region,
-      },
+      ...guardDutyFinding({
+        companyId: cx, id: "cicd_10_guardduty_finding", ts: T(22 * MIN), findingType: "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", gdSeverity: 8,
+        title: "Credentials for the role github-actions-deploy are being used from a remote host outside AWS", srcIp: attackerIp, region, accountId: awsAccount,
+        api: "GetSecretValue", serviceName: "secretsmanager.amazonaws.com", callerType: "Remote IP", asnOrg: "M247 Europe SRL",
+        resourceType: "AccessKey", userType: "AssumedRole", userName: "github-actions-deploy", accessKeyId: "ASIAY7RCX2NLP4Q8ZK3D", count: 3,
+        mitre: "T1078.004", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+        description: "GuardDuty raised InstanceCredentialExfiltration.OutsideAWS (severity 8): the github-actions-deploy role's temporary credentials making API calls from 45.156.128.19, an address outside AWS.",
+      }),
+      edr_scope: "non_edr",
     },
   ];
 

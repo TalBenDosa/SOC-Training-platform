@@ -21,6 +21,7 @@ import { buildInfostealerSessionTheftScenario } from "./infostealerSessionTheft"
 import { buildMacosTccPkgScenario } from "./macosTccPkg";
 import { buildMacosStealerDmgScenario } from "./macosStealerDmg";
 import { buildS3ExfilExposureScenario } from "./s3ExfilExposure";
+import { buildCicdSupplyChainScenario } from "./cicdSupplyChain";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -35,7 +36,7 @@ const FULLY_EMITTER_AUTHORED = [
   "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
   "destructiveWiper.ts", "edgeVpnCveExploit.ts", "goldenSaml.ts",
   "infostealerSessionTheft.ts", "macosTccPkg.ts", "macosStealerDmg.ts",
-  "s3ExfilExposure.ts",
+  "s3ExfilExposure.ts", "cicdSupplyChain.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -684,5 +685,37 @@ describe("emitter-authored scenario packs", () => {
     const attackerIps = new Set(s.events.filter(e => e.id !== "s3exfil_00_benign_backup").map(e => e.src_ip));
     expect(attackerIps).toEqual(new Set(["91.242.217.35"]));
     expect(benign?.src_ip).toBe("10.0.42.17");
+  });
+
+  it("cicdSupplyChain builds a coherent CI/CD supply-chain case from emitters only (GitHub + CloudTrail + GuardDuty)", () => {
+    const s = buildCicdSupplyChainScenario();
+    expect(s.events.length).toBe(11);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
+      "GitHub Audit Log", "AWS CloudTrail", "AWS GuardDuty",
+    ]));
+    // benign control: the reviewed-PR path, fp
+    const benign = s.events.find(e => e.id === "cicd_00_benign_pr");
+    expect(benign?.expected_verdict).toBe("fp");
+    expect(benign?.raw?.["github.pull_request.review_decision"]).toBe("approved");
+    // the origin: a branch-protection override editing the workflow file
+    const override = s.events.find(e => e.id === "cicd_03_workflow_override");
+    expect(override?.raw?.["github.action"]).toBe("protected_branch.policy_override");
+    expect(override?.raw?.["github.head_commit.modified"]).toBe(".github/workflows/ci.yml");
+    expect(override?.source).toBe("vcs");
+    // the OIDC exchange on the attacker runner (WebIdentityUser)
+    const oidc = s.events.find(e => e.id === "cicd_06_assume_role_oidc");
+    expect(oidc?.raw?.["aws.cloudtrail.userIdentity.type"]).toBe("WebIdentityUser");
+    expect(oidc?.raw?.["aws.cloudtrail.userIdentity.identityProvider"]).toBe("token.actions.githubusercontent.com");
+    // the payoff: a prod secret read
+    expect(s.events.find(e => e.id === "cicd_09_get_secret_value")?.raw?.["aws.cloudtrail.eventName"]).toBe("GetSecretValue");
+    // the detection: GuardDuty flags the role's creds used outside AWS
+    const gd = s.events.find(e => e.id === "cicd_10_guardduty_finding");
+    expect(gd?.raw?.["aws.guardduty.type"]).toBe("UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS");
+    expect(gd?.is_detection).toBe(true);
+    expect(gd?.edr_scope).toBe("non_edr");
+    // the tell: every attacker action from the one external IP; benign from the dev IP
+    const atkIps = new Set(s.events.filter(e => e.id !== "cicd_00_benign_pr" && e.src_ip).map(e => e.src_ip));
+    expect(atkIps).toEqual(new Set(["45.156.128.19"]));
+    expect(benign?.src_ip).toBe("94.188.12.44");
   });
 });
