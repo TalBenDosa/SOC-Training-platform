@@ -48,7 +48,8 @@ describe("Okta emitters", () => {
     expect(ok.raw?.["okta.outcome.result"]).toBe("SUCCESS");
     expect(ok.raw?.["authentication.mfa"]).toBe("true");
     expect(deny.event_type).toBe("mfa_denied");
-    expect(deny.raw?.["okta.eventType"]).toBe("user.mfa.okta_verify.deny_push");
+    expect(deny.raw?.["okta.eventType"]).toBe("user.mfa.okta_verify.push_response");
+    expect(deny.raw?.["okta.outcome.reason"]).toBe("USER_REJECTED_PUSH");
   });
 
   it("is deterministic — same inputs render byte-identical output", () => {

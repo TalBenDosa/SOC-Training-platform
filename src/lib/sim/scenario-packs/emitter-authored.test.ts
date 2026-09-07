@@ -6,6 +6,7 @@ import { buildTrojanizedInstallerKeyloggerScenario } from "./trojanizedInstaller
 import { buildSeoPoisonedInstallerScenario } from "./seoPoisonedInstaller";
 import { buildDriveByBrowserMinerScenario } from "./driveByBrowserMiner";
 import { buildBruteForceSingleAccountScenario } from "./bruteForceSingleAccount";
+import { buildOktaPasswordBurstScenario } from "./oktaPasswordBurst";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -15,7 +16,7 @@ import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 const FULLY_EMITTER_AUTHORED = [
   "clipboardClipper.ts", "trojanizedInstallerKeylogger.ts", "seoPoisonedInstaller.ts",
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
-  "bruteForceSingleAccount.ts",
+  "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -142,5 +143,31 @@ describe("emitter-authored scenario packs", () => {
     // one host, correlated: the EDR console opens on the RDP server
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("SRV-RDS-02");
+  });
+
+  it("oktaPasswordBurst builds a coherent identity incident from emitters only (Okta + Sentinel)", () => {
+    const s = buildOktaPasswordBurstScenario();
+    expect(s.events.length).toBe(10);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["Okta", "Microsoft Sentinel"]));
+    // THE lesson: authenticationStep flips 0 → 1 and reason flips to MFA_REQUIRED
+    // on the event where the PASSWORD was finally accepted.
+    const burst = s.events.find(e => e.id === "evt_okb_03_fail_burst");
+    expect(burst?.raw?.["okta.outcome.reason"]).toBe("INVALID_CREDENTIALS");
+    expect(burst?.raw?.["okta.authenticationContext.authenticationStep"]).toBe("0");
+    const accepted = s.events.find(e => e.id === "evt_okb_05_password_accepted");
+    expect(accepted?.raw?.["okta.outcome.reason"]).toBe("MFA_REQUIRED");
+    expect(accepted?.raw?.["okta.authenticationContext.authenticationStep"]).toBe("1");
+    // the push was rejected (fatigue defence held)
+    const denied = s.events.find(e => e.id === "evt_okb_07_factor_denied");
+    expect(denied?.event_type).toBe("mfa_denied");
+    expect(denied?.raw?.["okta.outcome.reason"]).toBe("USER_REJECTED_PUSH");
+    // the asOrg tell separates attacker (FlokiNET) from the user's real ISP
+    expect(burst?.raw?.["okta.securityContext.asOrg"]).toBe("FlokiNET ehf");
+    const baseline = s.events.find(e => e.id === "evt_okb_09_user_normal_login");
+    expect(baseline?.raw?.["okta.securityContext.asOrg"]).toBe("Hot-Net internet services Ltd.");
+    expect(baseline?.is_baseline).toBe(true);
+    // the Sentinel correlation keeps the zero-sessions fact
+    const ctx = s.events.find(e => e.id === "evt_okb_10_siem_context");
+    expect(ctx?.raw?.["ExtendedProperties.Sessions Created In Window"]).toBe("0");
   });
 });
