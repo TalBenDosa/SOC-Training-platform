@@ -13,6 +13,7 @@ import { buildBundledCryptominerScenario } from "./bundledCryptominer";
 import { buildLateralMovementPthScenario } from "./lateralMovementPth";
 import { buildWindowsPrivescTokenScenario } from "./windowsPrivescToken";
 import { buildMultiHostIntrusionScenario } from "./multiHostIntrusion";
+import { buildIsoContainerSmugglingScenario } from "./isoContainerSmuggling";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 
 // Packs that have been fully converted to the vendor emitters. Each MUST stay 100%
@@ -24,7 +25,7 @@ const FULLY_EMITTER_AUTHORED = [
   "fakeBrowserUpdate.ts", "clickFixFakeCaptcha.ts", "driveByBrowserMiner.ts",
   "bruteForceSingleAccount.ts", "oktaPasswordBurst.ts", "uebaCompromisedAccount.ts",
   "scheduledTaskPersistence.ts", "bundledCryptominer.ts", "lateralMovementPth.ts",
-  "windowsPrivescToken.ts", "multiHostIntrusion.ts",
+  "windowsPrivescToken.ts", "multiHostIntrusion.ts", "isoContainerSmuggling.ts",
 ];
 
 describe("emitter-authored scenario packs", () => {
@@ -371,5 +372,43 @@ describe("emitter-authored scenario packs", () => {
     const invs = buildInvestigationsFromScenario({ title: s.title, events: s.events });
     const hosts = new Set(invs.map(i => i.host.name));
     expect(hosts).toEqual(new Set(["FIN-WS-08", "FS-SRV-03", "BKP-SRV-02"]));
+  });
+
+  it("isoContainerSmuggling builds a coherent MotW-bypass chain from emitters only (FortiGate + CrowdStrike)", () => {
+    const s = buildIsoContainerSmugglingScenario();
+    expect(s.events.length).toBe(8);
+    expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["FortiGate", "CrowdStrike Falcon"]));
+    // the download is a FortiGate file-filter log-only record (not a block), carrying the .iso
+    const dl = s.events.find(e => e.id === "evt_ics_01_download");
+    expect(dl?.event_type).toBe("http_request");
+    expect(dl?.raw?.["data.subtype"]).toBe("filefilter");
+    expect(dl?.raw?.["data.filetype"]).toBe("iso");
+    // the mount is a file-open by explorer (the parent of the shortcut's cmd)
+    const mount = s.events.find(e => e.id === "evt_ics_03_mount");
+    expect(mount?.event_type).toBe("file_access");
+    expect(mount?.raw?.["crowdstrike.event_simpleName"]).toBe("FileOpenInfo");
+    expect(mount?.process?.pid).toBe(3184);
+    // the MotW-bypass crux: cmd launched from the mounted volume by explorer
+    const lnk = s.events.find(e => e.id === "evt_ics_04_lnk_cmd");
+    expect(lnk?.mitre_technique).toBe("T1553.005");
+    expect(lnk?.process?.parent_pid).toBe(3184);
+    // the encoded PowerShell is the alert-grade behaviour
+    const ps = s.events.find(e => e.id === "evt_ics_05_powershell");
+    expect(ps?.is_detection).toBe(true);
+    expect(ps?.process?.parent_pid).toBe(6620);
+    // the payload fetch is a FortiGate web-filter passthrough of an uncategorised URL
+    const fetch = s.events.find(e => e.id === "evt_ics_06_payload_fetch");
+    expect(fetch?.raw?.["data.subtype"]).toBe("webfilter");
+    expect(fetch?.raw?.["data.catdesc"]).toBe("Uncategorized");
+    // the payload landed before the kill (state after detection)
+    const write = s.events.find(e => e.id === "evt_ics_07_payload_write");
+    expect(write?.raw?.["file.signature.status"]).toBe("unsigned");
+    // the Falcon alert opens the ticket and scopes to the EDR console
+    const alert = s.events.find(e => e.id === "evt_ics_08_edr_alert");
+    expect(alert?.is_detection).toBe(true);
+    expect(alert?.edr_scope).toBe("edr");
+    // one host, correlated
+    const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
+    expect(inv.host.name).toBe("LAP-5528");
   });
 });
