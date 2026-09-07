@@ -2958,8 +2958,10 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     raw: { "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "policy.name": "Clinical-Detect-Only", "action_result": "allowed" }
   },
   {
+    // DNS is SIEM-normalized (ECS dns.* schema), so it is attributed to the DNS feed,
+    // not to a firewall — a NGFW is not the DNS sensor of record here (audit V-02).
     id: "mc_a3", ts: "2026-05-10T08:16:00.000Z", source: "dns", event_type: "dns_query",
-    severity: "high", vendor: "Check Point NGFW", hostname: "WS-MED-PETERS", src_ip: "192.168.10.78",
+    severity: "high", hostname: "WS-MED-PETERS", src_ip: "192.168.10.78",
     network: { domain: "update-zorg-nl.eu" },
     description: "WS-MED-PETERS queried update-zorg-nl.eu and received 178.62.88.14",
     mitre_technique: "T1071.001",
@@ -3291,8 +3293,10 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
   },
   {
+    // DNS is SIEM-normalized (ECS dns.* schema), attributed to the DNS feed rather than
+    // the firewall — a FortiGate is not the DNS sensor of record here (audit V-02).
     id: "rs_b2", ts: "2026-05-10T08:48:00.000Z", source: "dns", event_type: "dns_query",
-    severity: "medium", vendor: "FortiGate", hostname: "LAP-003", src_ip: "172.16.10.3",
+    severity: "medium", hostname: "LAP-003", src_ip: "172.16.10.3",
     network: { domain: "cdn-update-rs.io" },
     description: "LAP-003 queried cdn-update-rs.io three minutes after the npm post-install script ran",
     mitre_technique: "T1071.001",
