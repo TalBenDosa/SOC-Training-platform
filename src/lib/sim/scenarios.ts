@@ -4325,8 +4325,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
       file: { path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe", sha256: toolHash, size: 4192256 },
       description: "AnyDesk.exe, a signed remote-access tool with no prior install history on this host, was downloaded to t.mizrahi's Downloads folder on WS-ACC-4477.",
       raw: {
-        "s1.event_type": "FILE_CREATION",
-        "s1.threat_level": "none",
+        "s1.eventType": "File Creation",
         "s1.detection.classification": "PUA",
         "s1.detection.classification_source": "Engine",
         "s1.site.name": "Corp-Main",
@@ -4352,8 +4351,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
         hash: { sha256: toolHash },
       },
       raw: {
-        "s1.event_type": "PROCESS_CREATION",
-        "s1.threat_level": "suspicious",
+        "s1.eventType": "Process Creation",
         "s1.detection.classification": "PUA",
         "s1.detection.classification_source": "Engine",
         "s1.mitigation_status": "not_mitigated",
@@ -4381,8 +4379,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
         user: "NEXACORP\\t.mizrahi", integrity: "medium",
       },
       raw: {
-        "s1.event_type": "PROCESS_CREATION",
-        "s1.threat_level": "suspicious",
+        "s1.eventType": "Process Creation",
         "s1.detection.classification": "Suspicious Activity",
         "s1.detection.classification_source": "Behavioral Engine",
         "process.name": "cmd.exe",
@@ -4401,8 +4398,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
       severity: "critical", mitre_technique: "T1219",
       description: "SentinelOne terminated AnyDesk.exe on WS-ACC-4477 after flagging it as an unapproved remote-access tool controlling a session and spawning shell commands.",
       raw: {
-        "s1.event_type": "PROCESS_CREATION",
-        "s1.threat_level": "malicious",
+        "s1.eventType": "Process Creation",
         "s1.detection.classification": "PUA",
         "s1.detection.classification_source": "Behavioral Engine",
         "s1.mitigation_status": "mitigated",

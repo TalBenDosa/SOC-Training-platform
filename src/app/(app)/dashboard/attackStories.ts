@@ -571,16 +571,14 @@ function edrNsOfKeys(raw?: Record<string, unknown>): EdrNs | null {
   return null;
 }
 
+// SentinelOne Deep Visibility eventType values (authentic — the console shows these).
 const S1_EVENT_TYPE: Record<string, string> = {
-  process_create: "PROCESS_CREATION", file_create: "FILE_CREATION",
-  net_connection: "IP_CONNECT", av_detection: "THREAT", detection: "THREAT",
+  process_create: "Process Creation", file_create: "File Creation",
+  net_connection: "IP Connect", av_detection: "Threats", detection: "Threats",
 };
 const SOPHOS_EVENT_TYPE: Record<string, string> = {
   process_create: "Process", file_create: "File",
   net_connection: "Network", av_detection: "Malware", detection: "Malware",
-};
-const S1_LEVEL: Record<string, string> = {
-  critical: "critical", high: "high", medium: "medium", low: "low", informational: "none",
 };
 function edrAction(e: TelemetryEvent): string {
   const r = String(e.raw?.["action_result"] ?? "").toLowerCase();
@@ -604,15 +602,33 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
     if (isDetection && e.mitre_technique) block["crowdstrike.detection.technique_id"] = e.mitre_technique;
     if (e.severity) block["crowdstrike.SeverityName"] = e.severity.toUpperCase();
   } else if (target === "s1") {
-    block["s1.event_type"] = S1_EVENT_TYPE[et] ?? (isDetection ? "THREAT" : "BEHAVIORAL_INDICATORS");
-    block["s1.threat_level"] = S1_LEVEL[e.severity ?? "informational"] ?? "none";
-    if (isDetection) block["s1.action"] = edrAction(e);
+    // Authentic SentinelOne Deep Visibility / threatInfo schema (no invented flat keys).
+    block["s1.eventType"] = S1_EVENT_TYPE[et] ?? (isDetection ? "Threats" : "Indicators");
+    if (e.hostname) block["s1.agent.computerName"] = e.hostname;
+    if (isDetection) {
+      block["s1.threat.threatName"] = String(src["threat.name"] ?? "") || "Malware.Generic";
+      block["s1.threat.confidenceLevel"] = "malicious";
+      block["s1.threat.classification"] = "Malware";
+      block["s1.threat.mitigationStatus"] = edrAction(e) === "detect_only" ? "not_mitigated" : "mitigated";
+      block["s1.detection.classification"] = "Malware";
+    } else {
+      block["s1.detection.classification"] = "Benign";
+    }
   } else if (target === "sophos") {
     block["sophos.event_type"] = SOPHOS_EVENT_TYPE[et] ?? (isDetection ? "Malware" : "Event");
-    block["sophos.detection_name"] = isDetection ? (String(src["threat.name"] ?? "") || "Mal/Generic-A") : "none";
+    block["sophos.detection_name"] = isDetection ? (String(src["threat.name"] ?? "") || "Troj/Agent-A") : "none";
     if (isDetection) block["sophos.action"] = edrAction(e);
   } else {
-    block["mde.ActionType"] = et === "process_create" ? "ProcessCreated" : isDetection ? "AlertRaised" : "GeneralEvent";
+    // Authentic Microsoft Defender Advanced-Hunting columns.
+    block["ActionType"] = et === "process_create" ? "ProcessCreated"
+      : et === "net_connection" ? "ConnectionSuccess"
+      : et === "file_create" ? "FileCreated"
+      : isDetection ? "AlertRaised" : "GeneralEvent";
+    if (e.hostname) block["DeviceName"] = e.hostname.toLowerCase();
+    if (isDetection) {
+      block["mde.AlertTitle"] = String(src["threat.name"] ?? src["malware.name"] ?? "") || "Suspicious activity detected";
+      if (e.mitre_technique) block["threat.technique.id"] = e.mitre_technique;
+    }
   }
   return { ...block, ...neutral };
 }

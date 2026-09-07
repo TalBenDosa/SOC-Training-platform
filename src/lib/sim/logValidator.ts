@@ -152,9 +152,9 @@ const VENDOR_SCHEMAS = {
       "sentinelone.site_name",
       "sentinelone.threat.name",
       "sentinelone.agent.id",
-      "s1.event_type",
-      "s1.threat_level",
-      "s1.indicator_name",
+      "s1.eventType",
+      "s1.threat.threatName",
+      "s1.indicator.name",
     ],
   },
 

