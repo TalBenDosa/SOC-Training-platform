@@ -99,6 +99,17 @@ export const MALWARE_HASHES: MalwareHashEntry[] = [
     malicious: true,
   },
   {
+    sha256: "61c0810a23580cf492a6ba4f7654566108331e7a4134c968c2d6a05261b2d8a1",
+    name: "Mimikatz Credential Dumper (debug64.exe)",
+    family: "Mimikatz",
+    type: "credential_dumper",
+    tags: ["credential_dumping", "lsass", "pass_the_hash", "renamed_binary"],
+    vt_detections: 58, vt_total: 72,
+    first_seen: "2022",
+    source: "Gentilkiwi / abuse.ch MalwareBazaar (tag:Mimikatz) / ATT&CK T1003.001",
+    malicious: true,
+  },
+  {
     sha256: "f2da3d1410c5058720a4307acf5fec7fc2b54285be9dd89eae108cce368dcde7",
     name: "LockBit 3.0 Ransomware",
     family: "LockBit",
