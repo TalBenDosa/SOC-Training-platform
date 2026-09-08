@@ -3339,7 +3339,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "CrowdStrike Falcon", hostname: "LAP-007", src_ip: "172.16.10.7",
     description: "xmrig started as root on LAP-007 from a shell, connecting to supportxmr.com:5555",
     mitre_technique: "T1496",
-    process: { name: "xmrig", pid: 12050, parent_name: "sh", parent_pid: 12010, user: "root", cmdline: "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", hash: { sha256: "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf" } },
+    process: { name: "xmrig", path: "/tmp/.cache/xmrig", pid: 12050, parent_name: "sh", parent_pid: 12010, user: "root", cmdline: "/tmp/.cache/xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", hash: { sha256: "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf" } },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "crowdstrike.CommandLine": "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", "crowdstrike.FileName": "xmrig", "crowdstrike.FilePath": "/tmp/.cache/", "crowdstrike.ParentProcessName": "sh", "crowdstrike.UserName": "root", "crowdstrike.SHA256HashData": "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf", "action_result": "allowed" }
   },
   {
