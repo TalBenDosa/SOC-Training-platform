@@ -1551,7 +1551,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     raw: {
       "app_name": "SFTP",
       "action": "Accept", "bytes_out": "23622320128",
-      "src": "192.168.10.220", "dst": "185.156.72.88",
+      "src": "192.168.10.220", "dst": "194.36.190.77",
       "svc": "22", "duration": "1820",
       "destination.geo.country_iso_code": "RO",
       "layer_name": "Network", "rule_name": "Internal-to-Any-Outbound",
