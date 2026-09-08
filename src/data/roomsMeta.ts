@@ -7693,5 +7693,147 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       }
     ]
+  },
+  {
+    "id": "ai-attacks-soc-detection",
+    "title": "AI Attacks in the SOC: Detecting Prompt Injection, Deepfakes, and Shadow AI",
+    "description": "The threats a SOC analyst now meets in the queue: prompt injection against internal LLM apps, sensitive data leaking out of a model's answers, poisoned training and RAG data, AI-generated deepfake vishing calls, LLM-crafted phishing at scale, and employees pasting secrets into ChatGPT. Grounded in OWASP Top 10 for LLM Applications (2025), MITRE ATLAS, and real incidents including the $25M Arup deepfake fraud.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 95,
+    "xp": 325,
+    "icon": "🧠",
+    "prerequisites": [
+      "email-security",
+      "analyst-mindset"
+    ],
+    "tasks": [
+      {
+        "id": "aisoc-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q1",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aisoc-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q3",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q4",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-m1",
+        "type": "matching",
+        "xp": 20
+      },
+      {
+        "id": "aisoc-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q5",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-o1",
+        "type": "ordering",
+        "xp": 20
+      },
+      {
+        "id": "aisoc-r9",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q6",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-ac2",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "aisoc-r10",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-la1",
+        "type": "log_analysis",
+        "xp": 45,
+        "mitreTechnique": "T1567.002"
+      },
+      {
+        "id": "aisoc-f1",
+        "type": "flag",
+        "xp": 20
+      },
+      {
+        "id": "aisoc-r11",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q7",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "aisoc-f2",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
