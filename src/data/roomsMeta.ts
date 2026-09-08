@@ -7700,8 +7700,8 @@ export const ROOMS_META: RoomMeta[] = [
     "description": "The threats a SOC analyst now meets in the queue: prompt injection against internal LLM apps, sensitive data leaking out of a model's answers, poisoned training and RAG data, AI-generated deepfake vishing calls, LLM-crafted phishing at scale, and employees pasting secrets into ChatGPT. Grounded in OWASP Top 10 for LLM Applications (2025), MITRE ATLAS, and real incidents including the $25M Arup deepfake fraud.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
-    "estimatedMinutes": 95,
-    "xp": 325,
+    "estimatedMinutes": 120,
+    "xp": 425,
     "icon": "🧠",
     "prerequisites": [
       "email-security",
@@ -7774,6 +7774,56 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       },
       {
+        "id": "aisoc-r12",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q8",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r13",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q9",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r14",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q10",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r15",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q11",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "aisoc-r16",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "aisoc-q12",
+        "type": "question",
+        "xp": 15
+      },
+      {
         "id": "aisoc-r8",
         "type": "reading",
         "xp": 0
@@ -7812,7 +7862,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aisoc-la1",
         "type": "log_analysis",
         "xp": 45,
-        "mitreTechnique": "T1567.002"
+        "mitreTechnique": "T1567"
       },
       {
         "id": "aisoc-f1",
