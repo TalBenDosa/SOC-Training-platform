@@ -8095,5 +8095,109 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "unsecured-credentials-practice",
+    "title": "Unsecured Credentials & Credential Stores",
+    "description": "The theory lesson 'Where Credentials Hide' taught you where secrets end up exposed without anyone actively dumping them — files, private keys, OS password stores, cloud secrets managers, and NTDS.dit's file-access telemetry. This room makes you find and interpret them from real artifacts: a GPP cpassword decrypt, a CloudTrail GetSecretValue burst, a Windows Event 4663 record with a Volume Shadow Copy device path, and the hardest professional skill in this whole domain — telling a compromised identity's secrets-manager sweep apart from a legitimate rotation job's own scheduled burst.",
+    "difficulty": "advanced",
+    "category": "Threat Detection",
+    "estimatedMinutes": 65,
+    "xp": 385,
+    "icon": "🗝️",
+    "prerequisites": [
+      "credential-attacks-practice",
+      "aws-security",
+      "identity-basics"
+    ],
+    "tasks": [
+      {
+        "id": "uc-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "uc-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "uc-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "uc-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "uc-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "uc-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "uc-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "uc-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "uc-la1",
+        "type": "log_analysis",
+        "xp": 75,
+        "mitreTechnique": "T1555.006"
+      },
+      {
+        "id": "uc-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "uc-ac1",
+        "type": "analyst_choice",
+        "xp": 35
+      },
+      {
+        "id": "uc-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "uc-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "uc-m1",
+        "type": "matching",
+        "xp": 40
+      },
+      {
+        "id": "uc-o1",
+        "type": "ordering",
+        "xp": 40
+      },
+      {
+        "id": "uc-la2",
+        "type": "log_analysis",
+        "xp": 75,
+        "mitreTechnique": "T1003.003"
+      },
+      {
+        "id": "uc-f1",
+        "type": "flag",
+        "xp": 20
+      }
+    ]
   }
 ];
