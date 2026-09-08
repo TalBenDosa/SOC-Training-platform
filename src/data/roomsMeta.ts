@@ -7984,5 +7984,116 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "discovery-and-enumeration",
+    "title": "Discovery & Enumeration in the Logs: The Recon Before the Breach",
+    "description": "MITRE ATT&CK's Discovery tactic (TA0007) is practised in nearly every real intrusion -- host-level recon (T1033), domain account and privileged-group enumeration (T1087.002, T1069.002), cloud infrastructure and storage discovery (T1580, T1526, T1619), and network share discovery feeding data collection (T1135 -> T1039) -- yet almost every command that performs it is a completely legitimate, built-in feature. Learn to read the pattern, not the single event.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 75,
+    "xp": 250,
+    "icon": "🕵️",
+    "prerequisites": [
+      "active-directory",
+      "windows-event-logs",
+      "mitre-attack",
+      "cloud-security-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "disc-r0",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-q1",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "disc-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "disc-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-la1",
+        "type": "log_analysis",
+        "xp": 30,
+        "mitreTechnique": "T1033"
+      },
+      {
+        "id": "disc-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-q3",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "disc-la2",
+        "type": "log_analysis",
+        "xp": 30,
+        "mitreTechnique": "T1580"
+      },
+      {
+        "id": "disc-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-o1",
+        "type": "ordering",
+        "xp": 20
+      },
+      {
+        "id": "disc-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "disc-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "disc-ac1",
+        "type": "analyst_choice",
+        "xp": 20,
+        "mitreTechnique": "T1087.002"
+      },
+      {
+        "id": "disc-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "disc-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
