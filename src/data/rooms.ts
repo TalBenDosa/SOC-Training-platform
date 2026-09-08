@@ -55,6 +55,7 @@ import { roomsBatch40 } from "./rooms-batch-40";
 import { roomsBatch41 } from "./rooms-batch-41";
 import { roomsBatch42 } from "./rooms-batch-42";
 import { roomsBatch43 } from "./rooms-batch-43";
+import { roomsBatch44 } from "./rooms-batch-44";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -315,4 +316,5 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch41), // mfa-session-token-attacks
   ...cast(roomsBatch42), // discovery-and-enumeration
   ...cast(roomsBatch43), // unsecured-credentials-practice
+  ...cast(roomsBatch44), // rmm-abuse-remote-access-tools
 ];

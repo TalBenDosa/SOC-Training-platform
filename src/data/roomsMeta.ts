@@ -8199,5 +8199,108 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 20
       }
     ]
+  },
+  {
+    "id": "rmm-abuse-remote-access-tools",
+    "title": "RMM Abuse & Remote Access Tools: When the Legitimate Tool Is the Attack",
+    "description": "Remote Monitoring and Management (RMM) software — AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist — is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Software, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 65,
+    "xp": 230,
+    "icon": "🖥️",
+    "prerequisites": [
+      "endpoint-security-fundamentals",
+      "commodity-initial-access",
+      "dns-investigation"
+    ],
+    "tasks": [
+      {
+        "id": "rmm-r0",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-q1",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "rmm-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "rmm-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-q3",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "rmm-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "rmm-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "rmm-la1",
+        "type": "log_analysis",
+        "xp": 35,
+        "mitreTechnique": "T1219"
+      },
+      {
+        "id": "rmm-ac1",
+        "type": "analyst_choice",
+        "xp": 20
+      },
+      {
+        "id": "rmm-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "rmm-o1",
+        "type": "ordering",
+        "xp": 25
+      },
+      {
+        "id": "rmm-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
