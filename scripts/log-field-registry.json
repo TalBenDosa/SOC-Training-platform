@@ -29,6 +29,7 @@
     "_source.rule.pci_dss",
     "_source.timestamp",
     "_version",
+    "action_result",
     "agent.id",
     "agent.name",
     "decoder.name",
