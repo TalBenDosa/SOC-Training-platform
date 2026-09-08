@@ -230,6 +230,18 @@ export const CLEAN_HASHES: CleanHashEntry[] = [
     description: "OpenSSH client 9.6p1 (Ubuntu) — legitimate remote-access client",
     vt_detections: 0, vt_total: 72, malicious: false,
   },
+  {
+    sha256: "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584",
+    name: "bash",
+    description: "GNU bash 5.1 (Ubuntu) — legitimate shell, abused here as a reverse-shell interpreter (living-off-the-land, not malware itself)",
+    vt_detections: 0, vt_total: 72, malicious: false,
+  },
+  {
+    sha256: "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee",
+    name: "docker",
+    description: "Docker CLI 24.0 (linux-x64) — legitimate container runtime client, abused here with --privileged/--pid=host for a container-escape",
+    vt_detections: 0, vt_total: 72, malicious: false,
+  },
 ];
 
 // ─── Lookup helpers ──────────────────────────────────────────────────────────
