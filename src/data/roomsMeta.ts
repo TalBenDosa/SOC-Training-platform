@@ -7885,5 +7885,104 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "mfa-session-token-attacks",
+    "title": "MFA Attacks & Session/Token Theft: When 'MFA Enabled' Isn't 'Solved'",
+    "description": "MFA fatigue and push bombing (T1621), adversary-in-the-middle reverse-proxy phishing that steals a session cookie after a genuine login (T1539 + T1550.004), Windows OS access-token impersonation (T1134.001), stolen OAuth application tokens (T1528), and Golden SAML assertion forgery (T1606.002) — five real ATT&CK techniques that all defeat MFA without ever cracking a password. Grounded in the CISA/FBI Scattered Spider advisory, Microsoft and Okta identity documentation, and NIST SP 800-63B.",
+    "difficulty": "advanced",
+    "category": "Identity",
+    "estimatedMinutes": 80,
+    "xp": 195,
+    "icon": "🔑",
+    "prerequisites": [
+      "identity-basics",
+      "auth-identity-monitoring",
+      "okta-identity-fundamentals"
+    ],
+    "tasks": [
+      {
+        "id": "mfast-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-q1",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "mfast-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-q2",
+        "type": "question",
+        "xp": 15
+      },
+      {
+        "id": "mfast-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-ac1",
+        "type": "analyst_choice",
+        "xp": 20,
+        "mitreTechnique": "T1621"
+      },
+      {
+        "id": "mfast-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-la1",
+        "type": "log_analysis",
+        "xp": 30,
+        "mitreTechnique": "T1550.004"
+      },
+      {
+        "id": "mfast-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-q3",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "mfast-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-o1",
+        "type": "ordering",
+        "xp": 20
+      },
+      {
+        "id": "mfast-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "mfast-q4",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "mfast-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];

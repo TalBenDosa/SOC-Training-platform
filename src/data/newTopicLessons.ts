@@ -10713,7 +10713,252 @@ const NEW_TOPIC_LESSONS = [
     "estimatedMinutes": 60,
     "researchUsed": true,
     "createdAt": "2026-09-08T00:00:00.000Z"
-  }
+  },
+{
+  "id": "topic-lesson-mfa-session-token-attacks",
+  "slug": "mfa-attacks-session-token-theft",
+  "title": "MFA Attacks & Session/Token Theft: When 'MFA Enabled' Isn't 'Solved'",
+  "topic": "Identity & Access",
+  "difficulty": "advanced",
+  "kind": "lesson",
+  "intro": "For years, the SOC's answer to 'the password was phished' was simple: turn on multi-factor authentication (MFA — proving your identity with more than one type of evidence, such as a password plus a code on your phone) and the account is safe. That answer is now dangerously incomplete. Real intrusions — including the ones behind the 2022 Uber and Cisco breaches and the ongoing campaigns from the group CISA and the FBI track as Scattered Spider — routinely take over accounts that had MFA turned on the entire time. This lesson explains exactly how, using five real MITRE ATT&CK techniques as its spine: T1621 (Multi-Factor Authentication Request Generation, better known as MFA fatigue or push bombing), T1539 (Steal Web Session Cookie) paired with T1550.004 (Use Alternate Authentication Material: Web Session Cookie), T1134.001 (Access Token Manipulation: Token Impersonation/Theft), T1528 (Steal Application Access Token), and T1606.002 (Forge Web Credentials: SAML Tokens, the technique behind 'Golden SAML').\n\nThe throughline that ties all five together, and that this lesson keeps returning to, is a single idea: MFA is a control that fires at the moment of login. It proves who typed the password and who tapped 'approve' on that specific occasion. It says nothing about what happens to the artifact — the session cookie, the access token, the SAML assertion — that gets issued once that login succeeds. Every attack in this lesson targets that gap in one of two ways: either wearing the human down until they approve a login they should refuse (MFA is bypassed by tricking the user), or skipping the login ceremony entirely by stealing or forging the proof-of-login artifact directly (MFA becomes irrelevant because it is never invoked at all). Learning to tell those two failure modes apart — and to read the exact log fields that prove which one you are looking at — is the practical skill this lesson builds, section by section, from foundational vocabulary through to the detection queries and mitigations a working SOC actually deploys.",
+  "sections": [
+    {
+      "heading": "Foundations: Sessions, Tokens, and What MFA Actually Proves",
+      "content": "Before any of the five attacks in this lesson will make sense, a handful of terms need to be locked down precisely — get these wrong and the rest of the lesson reads as a blur of similar-sounding acronyms.\n\n### Authentication vs. authorization\n\n**Authentication** answers 'who are you' — proving your identity, typically with a password plus a second factor. **Authorization** answers 'what are you allowed to do' — the permissions attached to that proven identity. MFA is entirely an authentication control. It has zero say over authorization, which is why a stolen, already-authenticated session inherits every permission the real user had, no further check required.\n\n### What a session and a session cookie actually are\n\nHTTP, the protocol underneath every website, has no built-in memory — every request is technically independent of the last. A **session** is the mechanism applications bolt on top of HTTP to fake that memory: after you log in once, the server hands your browser a small piece of data called a **session cookie**, and your browser automatically attaches that cookie to every subsequent request. The server checks the cookie, recognizes it, and treats you as still logged in — without asking for your password again. The critical property for this lesson: **whoever presents a valid session cookie is treated as the logged-in user, full stop.** The cookie does not re-prove identity each time; it is a bearer credential, meaning simple possession is sufficient.\n\n### Tokens: three flavors that get confused constantly\n\nModern identity providers (IdPs) like Microsoft Entra ID (Microsoft's cloud identity platform, formerly called Azure AD) and Okta issue three distinct kinds of tokens after a successful login, and mixing them up is one of the most common junior-analyst mistakes:\n\n| Token type | What it proves | Typical lifetime |\n|---|---|---|\n| **ID token** | Who the user is (identity claims: name, email, tenant) | Minutes to an hour |\n| **Access token** | What resource/API the holder may call, and with what scope | Minutes to an hour |\n| **Refresh token** | A long-lived credential used to silently obtain new access tokens without re-authenticating | Days to months |\n\nA refresh token is the single highest-value artifact an attacker can steal in a cloud-identity attack: it lets them mint fresh access tokens indefinitely, long after the original session cookie or password has been rotated, unless the refresh token itself is explicitly revoked.\n\n### The identity provider (IdP) and single sign-on (SSO)\n\nAn **identity provider** is the one authoritative service an organization trusts to answer 'is this really the person they claim to be.' Microsoft Entra ID and Okta are the two IdPs this lesson references throughout, because between them they cover the vast majority of enterprise environments. **Single sign-on (SSO)** is the arrangement where one successful login at the IdP grants access to many connected applications without re-authenticating to each one — convenient for users, and exactly why a single stolen IdP session is so valuable to an attacker: one theft, many doors.\n\n### The three MFA factor types, and why 'two of the same kind' isn't MFA\n\nMFA requires evidence from at least two of three categories: **something you know** (a password, a PIN), **something you have** (a phone receiving a push notification or SMS code, a hardware security key), and **something you are** (a fingerprint, facial recognition). A password plus a security question is NOT MFA — both are 'something you know.' A password plus an app-based push notification is genuine MFA, because it combines 'know' with 'have.'\n\n### The one sentence that governs this entire lesson\n\n**MFA is checked once, at authentication time, and its result is then baked into the session or token that gets issued.** After that moment, nothing about the application layer re-verifies that MFA was genuinely performed — it trusts the artifact. Every attack that follows in this lesson is a different way of exploiting exactly that trust.",
+      "codeExample": "Mental model for the rest of the lesson:\n\n  LOGIN MOMENT                    AFTER LOGIN\n  -------------                   -----------\n  password  ---\\                  session cookie\n                >-- MFA checked -->  or\n  push/OTP  ---/    (once)         access + refresh token\n                                        |\n                                        v\n                              bearer credential:\n                        whoever HOLDS it is treated\n                        as the authenticated user --\n                        MFA is never re-checked here.\n",
+      "checkpoint": {
+        "question": "Why does stealing a session cookie or access token bypass MFA entirely, rather than just bypassing the password?",
+        "options": [
+          "Because cookies and tokens are never encrypted, so they are easier to steal than a password",
+          "Because a session/token is a bearer credential issued AFTER MFA already ran once; the application never re-checks MFA on each later request, it just checks for a valid artifact",
+          "Because MFA only protects the first ten minutes of a session and then automatically turns itself off",
+          "Because tokens are only used by applications that have chosen not to support MFA in the first place"
+        ],
+        "answer": 1,
+        "explanation": "MFA is a one-time gate at authentication. Once passed, the IdP issues an artifact (cookie or token) that stands in for having proven identity. Every later request checks only for a valid artifact, not for a fresh MFA proof -- so holding the artifact is functionally equivalent to having passed MFA, whether you actually did or not."
+      }
+    },
+    {
+      "heading": "MFA Fatigue and Push Bombing (T1621): Wearing Down the Human",
+      "content": "MITRE ATT&CK tracks this technique as **T1621, Multi-Factor Authentication Request Generation**, filed under the **Credential Access** tactic (adversaries obtaining credentials or, here, the equivalent — an approved authentication). Commonly called MFA fatigue or push bombing, it is the single most-practiced technique in this lesson's family because it needs no clever exploit at all: it needs a password the attacker already has, and a human being tired, distracted, or annoyed enough to tap 'Approve.'\n\n### How the attack is actually executed\n\nThe attacker already holds a valid username and password — usually from a prior credential-stuffing run (trying passwords leaked from other breaches), a phishing kit, or an infostealer log purchased on a criminal marketplace. Push-based MFA (used by Okta Verify, Microsoft Authenticator, Duo, and similar apps) normally sends one push notification per login attempt and asks the user to tap Approve or Deny. The attack exploits a simple asymmetry: **the attacker can trigger a fresh login attempt, and therefore a fresh push notification, as many times as they like, for free, with no lockout** — while the victim only has to make one mistake, ever, to hand over the account.\n\nThe execution is almost embarrassingly simple:\n\n1. Repeatedly submit the known-correct password to the login endpoint, which passes the first factor every time and triggers a new push each time.\n2. Send the pushes in a burst — dozens within minutes — or spread them out over hours, sometimes late at night when the victim is groggy and less likely to scrutinize what they are approving.\n3. Optionally, follow up with a phone call or a message impersonating IT support ('We're seeing an issue with your login, please approve the notification so we can fix it') — a social-engineering escalation documented repeatedly in real incidents, including the 2022 Uber breach, where the attacker contacted the victim over WhatsApp claiming to be IT support after a barrage of pushes.\n4. Eventually, the victim approves one push — out of habit, confusion, or a genuine belief they are helping IT — and the attacker is in, holding a fully legitimate, MFA-satisfied session.\n\nThe CISA/FBI joint advisory on the threat group Scattered Spider (AA23-320A, most recently updated in 2025) names push bombing explicitly as one of the group's standard techniques, used alongside SIM-swapping and help-desk social engineering to take over accounts at some of the highest-profile breaches of the past several years.\n\n### Why this is dangerous even though the mechanism is 'unsophisticated'\n\nThere is no exploit here, no malware, and no code execution — which is exactly what makes it hard to filter with traditional security tools. Every individual push notification is completely legitimate: it really was generated by a real login attempt against the real IdP. The only thing distinguishing an attack from a confused user hitting the wrong button once is volume and pattern over time, which is a detection problem, not a blocking problem — you cannot simply refuse to send a push just because a password was entered correctly.",
+      "codeExample": "Simplified timeline of a push-bombing takeover:\n\n  01:20:00  attacker submits correct password -> push #1 sent\n  01:21:17  password submitted again          -> push #2 sent\n  01:26:17  ...                               -> push #7 denied by user\n  01:27:xx  ... repeated every ~30-60s ...\n  01:32:17  push #12 (or later)  -> user APPROVES, exhausted/confused\n  01:32:44  attacker enrolls a NEW device on the account (persistence)\n  01:34:00  mailbox / SharePoint bulk access begins\n",
+      "checkpoint": {
+        "question": "Why is a single approved push after 11 denials in 12 minutes so much more significant than one accidental approval on its own?",
+        "options": [
+          "It isn't more significant -- one approval is one approval regardless of what came before it",
+          "The 11 preceding denials, all tied to the same login attempt, show the user was being deliberately worn down rather than making an isolated mistake -- the pattern over time is the actual evidence, not the final tap alone",
+          "Because Okta and Entra automatically block accounts after exactly 10 denials, so an 11th denial is technically impossible",
+          "Because MFA fatigue only works if the attacker also knows the victim's phone number"
+        ],
+        "answer": 1,
+        "explanation": "Every individual push is legitimate on its own -- the tell is the BURST pattern (many denials, one acceptance, all correlated to the same source and short time window), which is exactly what an isolated accidental tap would not produce. Reading the pattern, not the single event, is the core analyst skill this technique demands."
+      }
+    },
+    {
+      "heading": "Detecting MFA Fatigue: Signs, Fields, and Professional Mitigations",
+      "content": "### Signs an analyst looks for\n\n- **A burst of MFA push events for one account in a short window** — several denials followed by a single acceptance, all correlated to the same source IP or the same underlying login attempt.\n- **Off-hours timing** — a real Uber-style incident often lands at 1-3 AM local time to the victim, exploiting drowsiness and reduced scrutiny.\n- **Geographic or network mismatch** — the login attempts originate from an IP address, country, or autonomous system (AS, a block of internet address space under one organization's control — useful for spotting known hosting/VPN providers a legitimate employee would never use) inconsistent with the user's normal pattern.\n- **A new device or authentication method registered immediately after the accepted push** — attackers commonly enroll their own device to the compromised account within seconds of getting in, guaranteeing they can complete MFA again even if the password is later reset.\n\n### Reading it in the Okta System Log\n\nOkta (a cloud identity provider) writes every authentication-related action to its System Log using a dot-notation event-type taxonomy. The push-response event is **user.mfa.okta_verify.push_response**, and the outcome lives in **okta.outcome.result** (DENIED or SUCCESS). A representative sequence:\n\n```\nokta.eventType: user.mfa.okta_verify.push_response\nokta.outcome.result: DENIED\nokta.client.ipAddress: 91.108.4.33\nokta.client.geographicalContext.country: Russia\n... (repeated 11 times over several minutes) ...\nokta.eventType: user.mfa.okta_verify.push_response\nokta.outcome.result: SUCCESS\nokta.client.ipAddress: 91.108.4.33\nokta.debugContext.debugData.pushApprovedAt: 2026-06-15T01:32:17Z\n```\n\nA single push_response record proves nothing. The DETECTION is a correlation rule: count push_response events with outcome.result DENIED for the same actor within, say, a 15-minute window, and alert when that count exceeds a threshold (commonly 5-10) AND is immediately followed by one SUCCESS from the same source.\n\n### The mitigation that actually removes the attack surface: number matching\n\nBoth Microsoft (Entra ID / Microsoft Authenticator) and Okta ship a control called **number matching**: instead of a simple Approve/Deny button, the sign-in screen displays a two-digit number, and the user must type that exact number into the Authenticator app to complete the login. This closes the specific hole push bombing exploits — an exhausted user tapping 'Approve' out of habit can no longer succeed by accident, because approving now requires reading a number off a different screen and actively typing it, which breaks the 'reflex tap' failure mode. Microsoft made number matching mandatory for all tenants after widespread fatigue-attack abuse; Okta's equivalent, delivered through Okta Verify, is called Number Challenge.\n\n### Important limits to state precisely (this comes back later in the lesson)\n\nNumber matching stops fatigue/push-bombing specifically. It does **not** stop the next two attack families in this lesson: a reverse-proxy phishing kit can display the correct number to the victim in real time (since it is relaying the real IdP's page), and a stolen session cookie never triggers a push at all, because no new authentication ever happens. Treating number matching as a complete MFA-attack solution is the single most common false sense of security this lesson exists to correct.\n\n### False-positive discipline\n\nA single denied push, on its own, is common and usually benign — a user's phone buzzed while it was in their pocket, or they tapped Deny by reflex before recognizing their own login attempt. The professional standard is: **never escalate on one denial alone.** Escalate on the pattern — multiple denials in a short window from one source, especially one geographically or behaviorally inconsistent with the user's baseline — and always check whether an acceptance followed.",
+      "checkpoint": {
+        "question": "An org has fully deployed number matching. Why does this NOT mean their exposure to every technique in this lesson is closed?",
+        "options": [
+          "Number matching is purely cosmetic and provides no real security benefit at all",
+          "Number matching specifically defeats reflex-tap push bombing, but does nothing against a reverse-proxy phishing kit relaying the real number, or against a stolen session cookie where no new authentication (and no push) ever occurs",
+          "Number matching only works for Okta customers, never for Microsoft Entra ID tenants",
+          "Number matching actually makes credential-stuffing attacks easier by revealing the correct password to the attacker"
+        ],
+        "answer": 1,
+        "explanation": "Number matching targets one specific failure mode -- an exhausted user approving a push without reading it. A relay-based phishing proxy can show the victim the real number in real time (it's just forwarding the genuine IdP page), and a session-cookie theft skips authentication entirely, so there is no push to match a number against in the first place. Both are covered later in this lesson."
+      }
+    },
+    {
+      "heading": "Adversary-in-the-Middle Phishing and Session-Cookie Theft (T1539 + T1550.004)",
+      "content": "This is the technique family that makes MFA fatigue look almost quaint, because it defeats MFA even when the user does everything right — the real password is entered, a genuine push is approved deliberately and correctly, and the account is still taken over. MITRE ATT&CK tracks the theft itself as **T1539, Steal Web Session Cookie** (Credential Access tactic), and the subsequent reuse as **T1550.004, Use Alternate Authentication Material: Web Session Cookie** (Lateral Movement tactic) — two separate ATT&CK IDs for two separate moments in the same attack: first the theft, then the replay.\n\n### The mechanism: adversary-in-the-middle (AiTM) reverse-proxy phishing\n\n**Adversary-in-the-middle (AiTM)** describes any attack where the attacker's infrastructure sits transparently between the victim and the real service, relaying traffic both ways while secretly recording it. Applied to phishing, this takes the form of a **reverse-proxy phishing kit** — publicly known toolkits in this category include Evilginx, Tycoon 2FA, and EvilProxy, and CISA's 2025 update to the Scattered Spider advisory names this class of tooling explicitly as the mechanism behind the group's 'near-universal' MFA bypass.\n\nHere is why it is so effective, step by step:\n\n1. The victim receives a phishing link pointing to a look-alike domain (for example, login.company-sso-secure.com instead of the real login.microsoftonline.com).\n2. That look-alike domain is not a fake page — it is a **reverse proxy**: a server that sits in front of the REAL identity provider and transparently forwards every request and response between the victim's browser and the genuine IdP, in both directions, in real time.\n3. The victim types their real password into what looks like (and functionally is, via the proxy) the real login page. The proxy relays it straight to the real IdP.\n4. The real IdP, seeing a legitimate password, does exactly what it is supposed to do: sends a real MFA push to the victim's real phone.\n5. The victim approves the real push, believing they are logging into the real service — because, functionally, they are; the proxy is just watching.\n6. The real IdP, satisfied that both factors were presented, issues a genuine, valid session cookie — and sends it back through the proxy to the victim's browser.\n7. The proxy, sitting in the middle of that final step, **copies the session cookie for itself** before passing it along to the victim.\n\nAt this point the attacker holds a completely legitimate, fully MFA-satisfied session cookie for the real account, without ever needing to trick the MFA system itself — they simply intercepted the reward the system hands out after a real, correct login.\n\n### The replay: T1550.004 in action\n\nWith the stolen cookie in hand, the attacker imports it into their own browser and presents it directly to the real service. Because a session cookie is a bearer credential (whoever holds it is treated as the logged-in user), the service accepts it exactly as it would from the original device — **no password, no MFA push, no authentication step of any kind is performed on the attacker's side.** The stolen session is often used from a completely different country, IP address, autonomous system, and even a different browser than the one the victim actually used — because none of that is checked by a bearer-credential model.\n\n### The critical distinction this section exists to teach\n\nContrast this precisely against MFA fatigue: in push bombing, the attacker never had the real second factor and had to trick the human into supplying it. In AiTM session-cookie theft, **MFA was performed completely correctly, by the real, willing user** — the failure is not in the authentication ceremony at all, but in what happened to the artifact the ceremony produced afterward. This is 'MFA made irrelevant' rather than 'MFA bypassed,' and it is the single most important conceptual distinction in this entire lesson.",
+      "codeExample": "AiTM reverse-proxy phishing, request flow:\n\n  Victim's browser                Attacker's reverse proxy         Real IdP\n  -----------------                ------------------------        --------\n  GET login page        -------->  forwards request       ------>  \n                         <--------  forwards real page     <------  real login page\n  POST password          -------->  forwards password      ------>  \n                                                                     validates, sends\n                         <--------  relays real MFA push    <------  real push to phone\n  user taps APPROVE (real push, real phone, real IdP)\n                                                                     issues session cookie\n                         <--------  ** COPIES cookie **     <------  \n  <-------- forwards cookie to victim, login 'succeeds' normally\n\n  Attacker now separately replays the copied cookie:\n  Attacker's browser  --[stolen cookie, no login step at all]--> Real IdP: ACCEPTED\n",
+      "checkpoint": {
+        "question": "In an AiTM reverse-proxy attack, which authentication step does the attacker's own device ever perform?",
+        "options": [
+          "The attacker also types the victim's password, but skips the MFA push",
+          "The attacker also receives and approves a duplicate MFA push sent to their own phone",
+          "None -- the attacker's device performs no authentication step at all; it presents an already-issued session cookie stolen from the victim's genuine, MFA-satisfied login",
+          "The attacker authenticates using a cached Kerberos ticket obtained separately"
+        ],
+        "answer": 2,
+        "explanation": "This is the defining fact of session-cookie replay: the theft happens once, during the VICTIM's real, correct login. Everything after that -- the attacker's own access -- is pure replay of an already-valid bearer credential, with zero authentication performed by the attacker at any point. Options a and b describe fatigue-style tricks, which are a different technique entirely; option d describes an unrelated on-prem Kerberos technique."
+      }
+    },
+    {
+      "heading": "Detecting Session Replay, Token Theft, and Forged SAML Assertions",
+      "content": "Three distinct techniques share a detection theme here — none of them can be caught by watching for a 'bad login,' because none of them necessarily involve one. Each is detected by spotting an anomaly in what happens to an artifact AFTER authentication.\n\n### Detecting session-cookie replay (T1550.004)\n\nMicrosoft Entra ID's sign-in logs carry a field called **sessionId** on every interactive sign-in record. Because a session cookie is a single, specific artifact, **the same sessionId value should never legitimately appear on two sign-ins from two different IP addresses, autonomous systems, and browser fingerprints.** This is the single strongest, most precise tell available for this technique family:\n\n```\nSign-in #1 (victim's real login):\n  sessionId: 0f2c1e64-3b7a-4c19-...\n  ipAddress: <proxy IP, since the proxy relayed it>\n  isInteractive: true\n  authenticationDetails: [Password: succeeded, MFA (Authenticator push): succeeded]\n\nSign-in #2 (the replay, minutes later):\n  sessionId: 0f2c1e64-3b7a-4c19-...   <-- IDENTICAL to sign-in #1\n  ipAddress: <a different country/AS entirely>\n  isInteractive: false\n  authenticationDetails: [\"Previously satisfied\" -- \"MFA requirement satisfied by claim in the token\"]\n```\n\nThat last line — an authentication step whose detail literally reads 'satisfied by a claim in the token,' with no challenge actually presented — is the direct, textual admission in the log that no fresh authentication occurred on that sign-in. **A single field to distrust on its own: riskLevelDuringSignIn and conditionalAccessStatus frequently both read 'none' and 'success' respectively on the replayed sign-in**, because the risk engine and Conditional Access policy both see a technically-valid, MFA-satisfied token and have no independent way to know the token was stolen rather than freshly issued. A clean risk score is not proof of a clean sign-in for this specific technique — that is precisely why the sessionId correlation matters more than any single risk field.\n\n### Detecting Windows OS access-token impersonation (T1134.001) — a different layer entirely\n\nIt is worth being precise here, because T1134.001 is frequently and incorrectly lumped in with cloud session theft. **Access Token Manipulation: Token Impersonation/Theft is a Windows endpoint technique**, mapped by MITRE ATT&CK to the **Privilege Escalation** tactic (and, as of ATT&CK's 2026 restructuring of Defense Evasion, also to the tactic now named **Stealth**, which inherited Defense Evasion's original TA0005 ID — most existing tooling and documentation still labels it 'Defense Evasion'). It has nothing to do with a browser cookie or an IdP: it abuses Windows APIs (**DuplicateToken**, **DuplicateTokenEx**, **ImpersonateLoggedOnUser**) to copy an existing Windows security token already present on a compromised machine — commonly used by 'potato'-family tools that coerce a SYSTEM-level Windows service (such as the Print Spooler) into connecting to an attacker-controlled named pipe, then impersonate the resulting SYSTEM token. This is detected entirely through **endpoint telemetry**, not sign-in logs: Sysmon Event ID 18 (Pipe Connected) showing a SYSTEM process connecting to a suspicious pipe, Sysmon Event ID 10 (ProcessAccess) showing a GrantedAccess value like 0x1410 against that SYSTEM process, and Windows Event ID 4672/4673 showing SeImpersonatePrivilege being assigned and then exercised. If your case file shows a browser, a phishing link, or an IdP sign-in log, you are not looking at T1134.001 — you are almost certainly looking at one of the cloud-identity techniques below.\n\n### The cloud-identity equivalent: stealing an OAuth access token (T1528)\n\nThe technique that IS detected through sign-in and consent logs, and is the cloud-native cousin of the endpoint's T1134.001, is **T1528, Steal Application Access Token** (Credential Access tactic). Its most common real-world form is **illicit OAuth consent grant**: an attacker registers a malicious application with an innocuous-looking name, then phishes the victim with a link that asks them to 'sign in with Microsoft/Google' and grant that application permissions (read mail, read files) — a real, working OAuth consent screen, not a fake login page. If the victim clicks Accept, the malicious app receives a genuine access token and refresh token for the victim's account, valid until the grant is explicitly revoked, and requiring no password or MFA ever again, because OAuth delegated access was never designed to be re-challenged on every use. Detection here means auditing **application consent events** (in Entra ID: the 'Consent to application' audit log operation) for unusual publishers, newly registered apps, or overly broad requested scopes (such as full mailbox read access requested by an app with no plausible reason to need it).\n\n### Detecting forged SAML assertions ('Golden SAML,' T1606.002)\n\n**SAML (Security Assertion Markup Language)** is a federation protocol: an on-premises server (commonly Microsoft's AD FS, Active Directory Federation Services) vouches for a user's identity to a cloud service by signing a cryptographic assertion with a private key both sides trust. **T1606.002, Forge Web Credentials: SAML Tokens** (Credential Access tactic) describes an attacker who has stolen that private signing key and can now mint a valid-looking SAML assertion for ANY user — including a Global Administrator — entirely offline, with no interaction with the federation server at all. The defining, and almost only, detectable tell: **a federated cloud sign-in claims to have been issued by the on-premises federation service, yet that federation server's own audit log shows no matching token-issuance event for that session.** A genuine federated login always leaves an issuance record on the AD FS server; a forged one, minted entirely offline with the stolen key, leaves nothing there at all — the absence itself is the evidence.",
+      "checkpoint": {
+        "question": "A colleague says: 'I found a T1134.001 alert in the Entra ID sign-in logs.' What should you check first?",
+        "options": [
+          "Whether the sessionId field is present, since T1134.001 always requires a stolen session cookie",
+          "Nothing further -- T1134.001 is exactly what happens whenever any sign-in log shows a suspicious entry",
+          "Whether this is actually a mislabeled finding -- T1134.001 is a Windows OS access-token technique detected through Sysmon/endpoint telemetry (pipe connections, ProcessAccess, SeImpersonatePrivilege), and has no native connection to cloud sign-in logs at all",
+          "Whether the user has a FIDO2 security key registered, since that is the only mitigation for T1134.001"
+        ],
+        "answer": 2,
+        "explanation": "T1134.001 is specifically Windows access-token duplication/impersonation on an endpoint -- its telemetry lives in Sysmon and Windows Security events, not sign-in logs. A finding labeled T1134.001 but sourced from an identity provider's sign-in log is almost certainly a mislabeled T1528 (OAuth access token theft) or T1550.004 (session cookie replay) -- precise technique attribution matters because it points to a completely different investigation path and log source."
+      }
+    },
+    {
+      "heading": "Building the Defense: From Number Matching to Phishing-Resistant MFA",
+      "content": "Every mitigation in this section sits on a ladder of increasing strength, and understanding exactly what rung each one occupies — and, just as importantly, what it does NOT cover — is what separates a checklist-following analyst from one who can actually explain a security posture to a stakeholder.\n\n### Rung 1: Number matching / Number Challenge — stops fatigue only\n\nAs covered earlier, this closes the reflex-tap failure mode of push bombing. It does nothing against AiTM (the proxy relays the real number) or against any form of token/cookie theft (there is no push at all in a replay).\n\n### Rung 2: Conditional Access and device compliance — raises the bar, doesn't eliminate it\n\nMicrosoft Entra Conditional Access policies can require a compliant, managed device, or restrict sign-ins to named network locations. This meaningfully narrows an attacker's options, but a well-run AiTM proxy relays the victim's own device fingerprint characteristics closely enough, and the replayed session in T1550.004 can still pass 'success' on Conditional Access, because the policy engine trusts the token's own claims about what already happened.\n\n### Rung 3: Token Protection — binds the token to the device that requested it\n\nMicrosoft's **Token Protection** (a Conditional Access session control) cryptographically binds certain sign-in session tokens — most importantly the Primary Refresh Token (PRT) — to the specific device that requested them. If Token Protection is enforced and a threat actor steals a bound token, it simply cannot be used from a different device: the binding check fails. As of this lesson's research, Token Protection's native-app coverage (Windows, iOS/iPadOS, macOS) is Generally Available for major Microsoft resources (Exchange Online, SharePoint Online, Teams), with browser-based coverage still in Preview and limited to specific configurations — meaning it meaningfully reduces, but does not yet universally close, the T1550.004 replay path across every application.\n\n### Rung 4: Phishing-resistant MFA (FIDO2/WebAuthn) — the control that actually stops AiTM\n\nCISA's fact sheet on phishing-resistant MFA names exactly two technologies that qualify: **FIDO2/WebAuthn** security keys and **PIV/CAC** smart cards (the credential-based authentication standard used widely across the U.S. federal government). Everything else this lesson has discussed — SMS codes, app-based push notifications, even push notifications with number matching — is explicitly named by CISA as still vulnerable to phishing and AiTM relay. The reason FIDO2 is structurally different, not just harder to trick, is **origin binding**: a FIDO2 credential cryptographically signs a challenge together with the exact domain (origin) the browser is talking to. If a reverse-proxy phishing kit presents the victim with login.company-sso-secure.com instead of the real login.microsoftonline.com, the security key detects that mismatch and refuses to sign anything — the attack fails at the protocol level, automatically, with no reliance on human vigilance at all. This matches the formal NIST SP 800-63B concept of **verifier impersonation resistance**: an authenticator that cryptographically binds its output to the specific, negotiated channel it is talking to, so a fraudulent verifier (a phishing proxy) cannot successfully relay a real approval.\n\n### Rung 5: Session and token lifetime, and Continuous Access Evaluation\n\nShortening how long a stolen session or refresh token remains valid limits the damage window even when theft succeeds. Microsoft's Continuous Access Evaluation (CAE) re-checks certain critical signals (like a user being disabled, or a password reset) near-real-time rather than waiting for a token to naturally expire, narrowing — though not eliminating — the usable lifetime of a stolen artifact.\n\n### Protecting the signing key itself, for SAML\n\nGolden SAML has no 'MFA rung' at all, because it never touches authentication in the first place — it forges the OUTPUT of authentication. The only real mitigation is protecting the federation server's token-signing private key with the same rigor as a domain controller (restricting DKM — Distributed Key Manager, the AD FS component that protects the signing key material — access tightly), and, if compromise is suspected, rolling the signing certificate (AD FS keeps a primary and secondary certificate specifically to allow this) and revoking every session and refresh token for potentially affected identities.\n\n### The analyst decision framework this whole lesson builds toward\n\nWhen you are handed an identity-compromise alert, ask, in order: (1) Did MFA actually run on this specific sign-in, or does the authentication-detail field say 'satisfied by a claim in the token' with no real challenge? — that single distinction separates 'MFA was bypassed by tricking a human' (fatigue) from 'MFA was made irrelevant by stealing what it produces' (session/token/SAML theft). (2) If a fresh MFA challenge did run, was the account owner the one actually presented with it, or could a reverse-proxy have relayed it? (3) If no fresh challenge ran at all, what artifact was reused — a session cookie (T1550.004), an OAuth access token (T1528), a Windows OS token on an endpoint (T1134.001), or a wholly forged SAML assertion with no issuance record anywhere (T1606.002)? Each answer points to a different log source, a different containment action, and a different root cause — which is exactly why precise technique attribution, not just 'the account was compromised,' is the professional standard this lesson has been building toward.",
+      "checkpoint": {
+        "question": "Why does FIDO2/WebAuthn stop AiTM reverse-proxy phishing where number matching does not?",
+        "options": [
+          "FIDO2 keys use a longer PIN than a typical push notification, making them harder to guess",
+          "FIDO2 cryptographically binds its signed response to the exact origin (domain) the browser is talking to, so a look-alike proxy domain causes the security key to refuse to sign at all -- the protocol itself detects the mismatch, with no reliance on the user noticing anything",
+          "FIDO2 keys do not use MFA at all, so there is nothing for an attacker to intercept in the first place",
+          "FIDO2 requires the user to be on the corporate network, which a remote attacker's proxy can never reach"
+        ],
+        "answer": 1,
+        "explanation": "Origin binding is the structural difference: a push notification (with or without number matching) has no cryptographic awareness of which domain the user's browser is actually visiting, so a relaying proxy passes through undetected. A FIDO2 credential signs its response together with the origin, so a phishing domain that differs from the real one causes an automatic, protocol-level refusal -- this is what NIST 800-63B calls verifier impersonation resistance, and it is why CISA names FIDO2 specifically as phishing-resistant while push-based methods, even with number matching, are not."
+      }
+    }
+  ],
+  "keyTakeaways": [
+    "MFA is checked once, at login, and its result is baked into a session cookie or token; nothing re-verifies MFA on every later request, so stealing the artifact stolen after login is as good as bypassing MFA itself.",
+    "MFA fatigue (T1621) is 'MFA bypassed by tricking the human' -- the attacker never has the real second factor and wins by exhausting the victim into approving a push; number matching directly closes this specific hole.",
+    "AiTM reverse-proxy phishing (T1539 + T1550.004) is 'MFA made irrelevant' -- the real user performs a completely correct login and approves a genuine push, but the attacker's proxy steals the resulting session cookie and replays it from anywhere, with zero authentication performed on the attacker's side.",
+    "T1134.001 (Windows OS access-token impersonation, detected via Sysmon/endpoint telemetry) and T1528 (stolen OAuth access tokens, detected via consent and sign-in logs) are frequently confused but sit on entirely different layers -- one is endpoint privilege escalation, the other is cloud identity abuse.",
+    "Only phishing-resistant MFA (FIDO2/WebAuthn, per CISA and NIST SP 800-63B's verifier impersonation resistance) structurally stops AiTM relay, because it cryptographically binds the authentication response to the exact origin domain -- number matching, Conditional Access, and even Token Protection each close a real gap but leave others open."
+  ],
+  "quiz": [
+    {
+      "question": "A junior analyst says: 'The session cookie was stolen, but the account still has MFA enabled, so the attacker's access is limited to what MFA allows.' What is wrong with this reasoning?",
+      "options": [
+        {
+          "label": "Nothing is wrong -- MFA continues to actively re-check and restrict what a stolen, already-issued session cookie can do on every later request the attacker sends",
+          "value": "a"
+        },
+        {
+          "label": "A session cookie is a bearer credential issued after MFA ran once; the app never re-checks MFA later, so holding the cookie grants full access with no further MFA involved",
+          "value": "b"
+        },
+        {
+          "label": "MFA only ever applies to email accounts specifically, so the reasoning happens to be entirely correct for every other type of business application in the organization",
+          "value": "c"
+        },
+        {
+          "label": "The reasoning is correct, but only for the narrow case where the stolen cookie in question happens to be less than exactly 60 seconds old at the moment it gets reused",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "This tests the throughline concept from the Foundations section: MFA is checked once, at authentication, and its result is baked into the issued artifact. A session cookie is a bearer credential -- authorization and access are governed by whatever permissions the real user has, not by MFA, which is never re-invoked once the cookie exists. Options a, c, and d all imply some ongoing or conditional MFA enforcement that does not exist in this model."
+    },
+    {
+      "question": "An analyst sees 9 Okta push_response events with outcome DENIED, all for the same account within 7 minutes, followed by one SUCCESS from the same source IP. What is the most accurate read of this pattern?",
+      "options": [
+        {
+          "label": "Likely MFA fatigue (T1621) -- the burst-then-accept pattern is the signature of push bombing, not an isolated user mistake",
+          "value": "a"
+        },
+        {
+          "label": "Definitely benign -- users deny pushes by accident all the time, so nothing here warrants escalation",
+          "value": "b"
+        },
+        {
+          "label": "This must be session-cookie replay (T1550.004), since any repeated push activity indicates a stolen token",
+          "value": "c"
+        },
+        {
+          "label": "This is a Golden SAML attack, since SAML assertions also generate repeated authentication events",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "The burst-then-accept pattern -- many denials correlated to one account and source, followed by a single acceptance -- is exactly the signature this lesson identifies for push bombing. Option b ignores the pattern entirely; a single denial is benign, nine in seven minutes followed by acceptance is not. Option c is wrong: T1550.004 involves no push notifications at all, since no new authentication occurs during a replay. Option d confuses an unrelated federation-forgery technique that has no push-notification component whatsoever."
+    },
+    {
+      "question": "A victim reports approving what they believed was a normal login. Entra ID logs show the sign-in genuinely completed a real password check and a real Authenticator push approval. Minutes later, a second sign-in appears with the IDENTICAL sessionId, from a different country, with isInteractive: false and 'MFA requirement satisfied by claim in the token.' What happened?",
+      "options": [
+        {
+          "label": "MFA fatigue -- the user was gradually worn down over many denied pushes until finally approving one they should have denied",
+          "value": "a"
+        },
+        {
+          "label": "AiTM session-cookie theft and replay -- a reverse proxy relayed the real login and stole the resulting cookie, and the second sign-in reuses it with no fresh authentication at all",
+          "value": "b"
+        },
+        {
+          "label": "T1134.001 access-token impersonation -- the attacker duplicated a Windows OS security token directly from a process running on the victim's own machine",
+          "value": "c"
+        },
+        {
+          "label": "Golden SAML -- the attacker forged an entire SAML assertion offline using a previously stolen AD FS token-signing private key",
+          "value": "d"
+        }
+      ],
+      "answer": "b",
+      "explanation": "The identical sessionId across two sign-ins from different countries, with the second marked non-interactive and 'satisfied by a claim in the token,' is the precise fingerprint of session-cookie replay taught in this lesson. Option a is wrong because the push was approved deliberately in a single genuine attempt, not after repeated denials. Option c is wrong because there is no Windows endpoint telemetry here at all -- this is entirely cloud sign-in log evidence. Option d is wrong because Golden SAML involves a federated (ADFSFederated) issuer type with no matching on-prem issuance record, not a reused sessionId."
+    },
+    {
+      "question": "Which statement correctly distinguishes T1134.001 from T1528?",
+      "options": [
+        {
+          "label": "T1134.001 duplicates a Windows OS token on an already-compromised endpoint, seen in Sysmon/Windows Security logs; T1528 steals a cloud app's OAuth token, often via consent grant, seen in sign-in/consent logs",
+          "value": "a"
+        },
+        {
+          "label": "T1134.001 and T1528 are simply two different vendors' names for identical detection logic against the exact same underlying attack technique",
+          "value": "b"
+        },
+        {
+          "label": "T1134.001 only ever fires inside Okta-managed tenants, while T1528 only ever fires inside Microsoft Entra ID-managed cloud tenants specifically",
+          "value": "c"
+        },
+        {
+          "label": "T1134.001 can only occur once MFA has already been fully disabled, while T1528 can only occur while MFA remains fully enabled",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "This is the exact distinction the detection section draws: T1134.001 is a local, endpoint-level Windows API abuse (DuplicateToken/ImpersonateLoggedOnUser) with no relationship to any cloud IdP, detected via Sysmon Event 10/18 and Windows 4672/4673. T1528 is a cloud/OAuth technique, commonly executed through a malicious app's consent request, detected via consent-grant audit events. They are unrelated techniques on unrelated layers, not vendor-specific renamings, and neither has any dependency on whether MFA is enabled or disabled."
+    },
+    {
+      "question": "Per CISA's phishing-resistant MFA guidance and NIST SP 800-63B, why does a push notification with number matching still fail to stop a reverse-proxy AiTM attack, while FIDO2/WebAuthn does stop it?",
+      "options": [
+        {
+          "label": "The proxy just relays the real IdP's number straight through to the victim in real time; FIDO2 instead signs its response bound to the exact origin domain, so a look-alike proxy domain fails automatically",
+          "value": "a"
+        },
+        {
+          "label": "Number matching was quietly deprecated by Microsoft in 2024 and has not functioned in any production tenant since that change was rolled out",
+          "value": "b"
+        },
+        {
+          "label": "FIDO2 security keys work by physically blocking all network traffic originating from outside the corporate office building, which a remote proxy server cannot ever bypass",
+          "value": "c"
+        },
+        {
+          "label": "Number matching and FIDO2 provide genuinely identical protection; CISA has never once distinguished between the two in any of its published phishing-resistance guidance",
+          "value": "d"
+        }
+      ],
+      "answer": "a",
+      "explanation": "This is verifier impersonation resistance in practice: number matching has no cryptographic binding to which domain the browser is actually visiting, so a relay proxy passes the correct number through untouched. FIDO2 signs its authenticator output together with the negotiated origin, so a phishing domain that differs from the genuine one is detected at the protocol level and the key refuses to sign -- exactly why CISA names FIDO2/WebAuthn and PIV/CAC as phishing-resistant while explicitly excluding push-based methods, number matching included."
+    }
+  ],
+  "references": [
+    "https://attack.mitre.org/techniques/T1621/",
+    "https://attack.mitre.org/techniques/T1539/",
+    "https://attack.mitre.org/techniques/T1550/004/",
+    "https://attack.mitre.org/techniques/T1134/001/",
+    "https://attack.mitre.org/techniques/T1528/",
+    "https://attack.mitre.org/techniques/T1606/002/",
+    "https://www.cisa.gov/news-events/cybersecurity-advisories/aa23-320a",
+    "https://www.cisa.gov/sites/default/files/publications/fact-sheet-implementing-phishing-resistant-mfa-508c.pdf",
+    "https://learn.microsoft.com/en-us/entra/identity/authentication/how-to-mfa-number-match",
+    "https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-token-protection",
+    "https://pages.nist.gov/800-63-3/sp800-63b.html"
+  ],
+  "xp": 340,
+  "estimatedMinutes": 70,
+  "researchUsed": true,
+  "createdAt": "2026-09-08T00:00:00.000Z"
+}
 ];
 
 export default NEW_TOPIC_LESSONS;
