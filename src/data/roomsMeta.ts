@@ -8302,5 +8302,113 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "data-staging-exfiltration-channels",
+    "title": "Data Staging & Exfiltration Channels: From Collection to Egress",
+    "description": "Follow the exact ATT&CK technique chain a real intrusion walks once an attacker has a foothold and a target: reaching into a network share (T1039), consolidating the target files on the local host (T1074.001), packaging them with a password-protected archive utility (T1560.001), and finally moving them out over USB, cloud storage, or an alternative protocol (T1052.001, T1567.002, T1048, T1030). Learn why staging and archiving both stay in the Collection tactic while only the final channel is Exfiltration, read real FortiGate firewall telemetry for a cloud-storage exfiltration channel, and learn to tell that chain apart from an enterprise backup job that walks an almost identical shape every single night.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 65,
+    "xp": 265,
+    "icon": "📦",
+    "prerequisites": [
+      "dlp-fundamentals",
+      "firewall-log-analysis",
+      "endpoint-security-fundamentals"
+    ],
+    "tasks": [
+      {
+        "id": "dsx-r0",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "dsx-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "dsx-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "dsx-la1",
+        "type": "log_analysis",
+        "xp": 40,
+        "mitreTechnique": "T1567.002"
+      },
+      {
+        "id": "dsx-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "dsx-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "dsx-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "dsx-o1",
+        "type": "ordering",
+        "xp": 25
+      },
+      {
+        "id": "dsx-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
