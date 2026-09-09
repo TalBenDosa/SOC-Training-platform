@@ -8715,5 +8715,118 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "html-smuggling-and-lolbins",
+    "title": "HTML Smuggling and LOLBins: When Trusted Binaries Do the Attacker's Work",
+    "description": "Two of the most consistently effective evasion techniques in modern intrusions never touch a single unsigned or unknown file. HTML Smuggling (MITRE ATT&CK T1027.006) builds the actual malicious payload inside the victim's own browser, using ordinary JavaScript, so nothing resembling a malicious file ever crosses a network gateway for a proxy or sandbox to inspect. System Binary Proxy Execution (T1218 and its siblings -- Mshta, Regsvr32, Rundll32, Msiexec) then runs the attacker's code through a Windows binary that is already digitally signed by Microsoft and already allowlisted by policy, so the process a defender's console shows is a trusted name, not a suspicious one. This room follows both techniques end to end: how HTML Smuggling is actually built (Blobs, Data URLs, the download attribute) through real APT29/NOBELIUM (2021) and QakBot (2022) campaigns; how each major LOLBin (Living-Off-the-Land Binary) is abused, with the real command syntax attackers use and the real threat groups documented running it; the parent-process and command-line tells that separate an attacker's proxy execution from the identical binary's completely ordinary, constant, legitimate use; and the correlation logic and false-positive discipline a detection engineer needs to turn that distinction into a rule that fires on the right ten cases a year, not the wrong ten thousand.",
+    "difficulty": "advanced",
+    "category": "Threat Detection",
+    "estimatedMinutes": 95,
+    "xp": 285,
+    "icon": "🎭",
+    "prerequisites": [
+      "commodity-initial-access",
+      "windows-fundamentals"
+    ],
+    "tasks": [
+      {
+        "id": "hsl-r0",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "hsl-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "hsl-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "hsl-o1",
+        "type": "ordering",
+        "xp": 30
+      },
+      {
+        "id": "hsl-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "hsl-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-la1",
+        "type": "log_analysis",
+        "xp": 40,
+        "mitreTechnique": "T1218.010"
+      },
+      {
+        "id": "hsl-r9",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "hsl-ac1",
+        "type": "analyst_choice",
+        "xp": 25,
+        "mitreTechnique": "T1218.011"
+      },
+      {
+        "id": "hsl-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "hsl-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
