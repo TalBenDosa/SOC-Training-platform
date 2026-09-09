@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QuizClient } from "./QuizClient";
 import type { Quiz } from "@/lib/quizzes/data";
+import { sanitizeQuiz } from "@/lib/quizzes/sanitize";
 import { fetchPublishedQuizzes } from "@/lib/content/publicContent";
 
 export function QuizFromStorage({ slug }: { slug: string }) {
@@ -46,5 +47,7 @@ export function QuizFromStorage({ slug }: { slug: string }) {
     );
   }
 
-  return <QuizClient quiz={quiz} />;
+  // Grade server-side against canonical data; hand QuizClient only the
+  // answer-stripped projection (M-01, uniform with the built-in path).
+  return <QuizClient quiz={sanitizeQuiz(quiz)} slug={slug} />;
 }

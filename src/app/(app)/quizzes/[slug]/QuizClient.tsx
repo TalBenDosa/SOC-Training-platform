@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Cloc
 import { cn } from "@/lib/utils";
 import { Topbar } from "@/components/nav/Topbar";
 import type { Quiz } from "@/lib/quizzes/data";
+import { type ClientQuiz, sanitizeQuizQuestion } from "@/lib/quizzes/sanitize";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,15 @@ type QuizPhase = "idle" | "answering" | "complete";
 interface AnswerState {
   selected: number | null;  // index into options[]
   revealed: boolean;
+}
+
+// Per-question grade returned by POST /api/quizzes/[slug]/grade. The client no
+// longer knows any answer/explanation until it has submitted that question
+// (M-01) — `answer`/`explanation` are non-null only for an answered question.
+interface QuizResult {
+  correct: boolean;
+  answer: number | null;
+  explanation: string | null;
 }
 
 // ─── Score ring ───────────────────────────────────────────────────────────────
@@ -47,16 +57,23 @@ function ScoreRing({ score }: { score: number }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
-  // Allow admin edits stored in localStorage to override the built-in quiz data
-  const [quiz, setQuiz] = useState<Quiz>(initialQuiz);
+export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug: string }) {
+  // Allow admin edits stored in localStorage to override the built-in quiz data.
+  // Answers are stripped from any overridden questions — grading is server-side
+  // (M-01), so admin-preview edits only affect the displayed prompt/options.
+  const [quiz, setQuiz] = useState<ClientQuiz>(initialQuiz);
   useEffect(() => {
     try {
       const edits: Record<string, Partial<Quiz>> = JSON.parse(
         localStorage.getItem("admin_quiz_edits") ?? "{}"
       );
-      if (edits[initialQuiz.slug]) {
-        setQuiz(q => ({ ...q, ...edits[initialQuiz.slug] }));
+      const e = edits[initialQuiz.slug];
+      if (e) {
+        setQuiz(q => ({
+          ...q,
+          ...e,
+          questions: e.questions ? e.questions.map(sanitizeQuizQuestion) : q.questions,
+        }));
       }
     } catch { /* storage blocked or malformed */ }
   }, [initialQuiz.slug]);
@@ -64,11 +81,16 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
   const [phase, setPhase]     = useState<QuizPhase>("idle");
   const [current, setCurrent] = useState(0);
   const [stateMap, setStateMap] = useState<Record<string, AnswerState>>({});
+  // Server-graded results, keyed by question id (populated on confirm).
+  const [results, setResults] = useState<Record<string, QuizResult>>({});
+  const [grading, setGrading] = useState(false);
+  const [gradeError, setGradeError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
   const [elapsed, setElapsed]     = useState(0);
 
   const question   = quiz.questions[current];
   const qState     = stateMap[question?.id] ?? { selected: null, revealed: false };
+  const qResult    = results[question?.id];
   const totalQ     = quiz.questions.length;
   const answeredQ  = Object.values(stateMap).filter(s => s.revealed).length;
   const isLast     = current === totalQ - 1;
@@ -76,6 +98,8 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
   // ── start ─────────────────────────────────────────────────────
   const handleStart = () => {
     setStateMap({});
+    setResults({});
+    setGradeError(null);
     setCurrent(0);
     const now = Date.now();
     setStartTime(now);
@@ -91,13 +115,31 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
     }));
   };
 
-  // ── confirm answer ────────────────────────────────────────────
-  const handleConfirm = () => {
-    if (qState.selected === null || qState.revealed) return;
-    setStateMap(prev => ({
-      ...prev,
-      [question.id]: { ...prev[question.id], revealed: true },
-    }));
+  // ── confirm answer (server-graded) ────────────────────────────
+  const handleConfirm = async () => {
+    if (qState.selected === null || qState.revealed || grading) return;
+    setGrading(true);
+    setGradeError(null);
+    try {
+      const res = await fetch(`/api/quizzes/${encodeURIComponent(slug)}/grade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: { [question.id]: qState.selected } }),
+      });
+      if (!res.ok) throw new Error(`grade failed: ${res.status}`);
+      const data: { results: (QuizResult & { id: string })[] } = await res.json();
+      const graded = data.results.find(r => r.id === question.id);
+      if (!graded) throw new Error("no result for question");
+      setResults(prev => ({ ...prev, [question.id]: { correct: graded.correct, answer: graded.answer, explanation: graded.explanation } }));
+      setStateMap(prev => ({
+        ...prev,
+        [question.id]: { ...prev[question.id], revealed: true },
+      }));
+    } catch {
+      setGradeError("Couldn't check your answer — check your connection and try again.");
+    } finally {
+      setGrading(false);
+    }
   };
 
   // ── next / finish ─────────────────────────────────────────────
@@ -113,19 +155,17 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
   // ── retry ─────────────────────────────────────────────────────
   const handleRetry = () => {
     setStateMap({});
+    setResults({});
+    setGradeError(null);
     setCurrent(0);
     setPhase("idle");
   };
 
   // ── score ─────────────────────────────────────────────────────
-  const correctCount = quiz.questions.filter(q => {
-    const s = stateMap[q.id];
-    return s?.revealed && s.selected === q.answer;
-  }).length;
+  const correctCount = quiz.questions.filter(q => results[q.id]?.correct).length;
 
   const xpEarned = quiz.questions.reduce((sum, q) => {
-    const s = stateMap[q.id];
-    return sum + (s?.revealed && s.selected === q.answer ? q.xp : 0);
+    return sum + (results[q.id]?.correct ? q.xp : 0);
   }, 0);
 
   const scorePercent = Math.round((correctCount / totalQ) * 100);
@@ -282,8 +322,10 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
           <div className="space-y-3">
             {quiz.questions.map((q, idx) => {
               const s = stateMap[q.id];
-              const correct = s?.revealed && s.selected === q.answer;
-              const wrong   = s?.revealed && s.selected !== q.answer;
+              const r = results[q.id];
+              const correct = !!r?.correct;
+              const wrong   = !!s?.revealed && !correct;
+              const correctIdx = r?.answer ?? null;
 
               return (
                 <div key={q.id} className={cn(
@@ -300,15 +342,19 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                         <span className="font-mono text-cyber-300 mr-1">Q{idx + 1}.</span>
                         {q.question}
                       </p>
-                      {wrong && s?.selected !== null && (
+                      {wrong && s?.selected !== null && s?.selected !== undefined && (
                         <p className="text-[11px] text-severity-high mb-1">
                           Your answer: {q.options[s.selected]}
                         </p>
                       )}
-                      <p className={cn("text-[11px] mb-1.5", correct ? "text-neon-green" : "text-slate-400")}>
-                        {correct ? "✓" : "Correct:"} {q.options[q.answer]}
-                      </p>
-                      <p className="text-[11px] text-slate-400 leading-relaxed">{q.explanation}</p>
+                      {correctIdx !== null && (
+                        <p className={cn("text-[11px] mb-1.5", correct ? "text-neon-green" : "text-slate-400")}>
+                          {correct ? "✓" : "Correct:"} {q.options[correctIdx]}
+                        </p>
+                      )}
+                      {r?.explanation && (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{r.explanation}</p>
+                      )}
                     </div>
                     {correct && (
                       <span className="shrink-0 rounded bg-neon-green/10 px-1.5 py-0.5 font-mono text-[10px] text-neon-green">
@@ -328,7 +374,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
   // ═══════════════════════════════════════════════════════════════
   // ANSWERING STATE
   // ═══════════════════════════════════════════════════════════════
-  const isCorrect = qState.revealed && qState.selected === question.answer;
+  const isCorrect = qState.revealed && !!qResult?.correct;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -341,10 +387,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] text-slate-400">{answeredQ}/{totalQ} answered</span>
             <span className="text-[11px] text-slate-400">
-              +{Object.values(stateMap).reduce((s, st, idx) => {
-                const q = quiz.questions[idx];
-                return s + (st?.revealed && st.selected === q?.answer ? (q?.xp ?? 0) : 0);
-              }, 0)} XP so far
+              +{xpEarned} XP so far
             </span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-slate-700/60">
@@ -358,7 +401,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
             {quiz.questions.map((q, i) => {
               const s = stateMap[q.id];
               const done = s?.revealed;
-              const ok   = done && s.selected === q.answer;
+              const ok   = done && results[q.id]?.correct;
               return (
                 <button
                   key={q.id}
@@ -397,8 +440,9 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
           <div className="px-6 pb-4 space-y-2">
             {question.options.map((opt, idx) => {
               const selected  = qState.selected === idx;
-              const revCorr   = qState.revealed && idx === question.answer;
-              const revWrong  = qState.revealed && selected && idx !== question.answer;
+              const correctIdx = qResult?.answer ?? null;
+              const revCorr   = qState.revealed && correctIdx !== null && idx === correctIdx;
+              const revWrong  = qState.revealed && selected && idx !== correctIdx;
 
               return (
                 <button
@@ -411,7 +455,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                     !qState.revealed && selected  && "border-cyber-500/50 bg-cyber-500/10 text-white",
                     revCorr   && "border-neon-green/50 bg-neon-green/10 text-neon-green",
                     revWrong  && "border-severity-high/50 bg-severity-high/10 text-severity-high",
-                    qState.revealed && !selected && idx !== question.answer && "border-border/40 bg-bg/50 text-slate-400",
+                    qState.revealed && !selected && idx !== correctIdx && "border-border/40 bg-bg/50 text-slate-400",
                   )}
                 >
                   <span className={cn(
@@ -420,7 +464,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                     !qState.revealed && selected  && "border-cyber-400 text-cyber-300",
                     revCorr   && "border-neon-green text-neon-green",
                     revWrong  && "border-severity-high text-severity-high",
-                    qState.revealed && !selected && idx !== question.answer && "border-slate-700 text-slate-700",
+                    qState.revealed && !selected && idx !== correctIdx && "border-slate-700 text-slate-700",
                   )}>
                     {String.fromCharCode(65 + idx)}
                   </span>
@@ -443,8 +487,13 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
               )}>
                 {isCorrect ? "Correct!" : "Explanation"}
               </p>
-              <p className="text-xs text-slate-300 leading-relaxed">{question.explanation}</p>
+              <p className="text-xs text-slate-300 leading-relaxed">{qResult?.explanation}</p>
             </div>
+          )}
+
+          {/* Grade error */}
+          {gradeError && !qState.revealed && (
+            <p className="mx-6 mb-4 text-xs text-severity-high">{gradeError}</p>
           )}
 
           {/* Action buttons */}
@@ -452,10 +501,10 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
             {!qState.revealed ? (
               <button
                 onClick={handleConfirm}
-                disabled={qState.selected === null}
+                disabled={qState.selected === null || grading}
                 className="flex-1 rounded border border-cyber-500/30 bg-cyber-500/10 py-2.5 text-sm font-semibold text-cyber-300 hover:bg-cyber-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Confirm Answer
+                {grading ? "Checking…" : "Confirm Answer"}
               </button>
             ) : (
               <button
