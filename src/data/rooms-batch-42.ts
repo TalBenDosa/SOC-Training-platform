@@ -30,7 +30,7 @@ const localAdminEnumEvent: TelemetryEvent = {
   vendor: "Windows Security",
   event_type: "privileged_operation",
   severity: "medium",
-  mitre_technique: "T1033",
+  mitre_technique: "T1069.001",
   mitre_tactic: "Discovery",
   hostname: "WKS-FIN22.meridiancap.local",
   user_title: "Accounts Payable Clerk",
@@ -185,7 +185,7 @@ const discoveryEnumerationRoom = {
       heading: "Host-Level Discovery: Who Am I, and Who Runs This Box? (T1033)",
       content:
         "The very first questions an attacker asks after landing on a machine are about the machine itself, not the domain. MITRE tracks this as **T1033, System Owner/User Discovery** (Discovery tactic): identifying primary users, currently logged-in users, or whether a user is actively using the system.\n\n" +
-        "On Windows the toolkit is entirely built-in: whoami and whoami /groups (who is this account, what groups does it belong to), query user / quser (who else is logged on right now), net user with no target (every LOCAL account on the machine), and net config workstation (basic host identity). Two related commands go one step further and actually generate a Windows Security event: net user <accountname> (list one account's local group memberships) and net localgroup administrators (who is a local admin on THIS box).\n\n" +
+        "On Windows the toolkit is entirely built-in: whoami and whoami /groups (who is this account, what groups does it belong to), query user / quser (who else is logged on right now), net user with no target (every LOCAL account on the machine), and net config workstation (basic host identity). Two related commands go one step further and actually generate a Windows Security event: net user <accountname> (list one account's local group memberships) and net localgroup administrators (who is a local admin on THIS box).\n\n**Precise attribution matters here.** These commands share the 'host-level discovery' idea but MITRE gives them distinct IDs: whoami, query user / quser and net config workstation are T1033 (System Owner/User Discovery); net user with no /domain flag (listing local accounts) is T1087.001 (Account Discovery: Local Account); and net localgroup / the Event 4799 that follows is T1069.001 (Permission Groups Discovery: Local Groups). T1033 is the umbrella an analyst reaches for first, but naming the exact sub-technique is the precision this room trains.\n\n" +
         "**Event ID 4798 -- \"A user's local group membership was enumerated.\"** Fires when a process reads which local groups a specific target account belongs to. Key fields: SubjectUserName/SubjectDomainName (who ran the query), TargetUserName/TargetSid (whose memberships were read), and CallerProcessName (the full path of the executable that made the call).\n\n" +
         "**Event ID 4799 -- \"A security-enabled local group membership was enumerated.\"** Fires when a process reads who is a member of a specific local group. Same shape, with GroupName/GroupDomain identifying which group was read.\n\n" +
         "Neither event is inherently suspicious -- both are logged constantly by ordinary admin tools such as mmc.exe (Microsoft Management Console) and dsa.msc (Active Directory Users and Computers). The tell is the **CallerProcessName**: a 4799 whose caller is net.exe, cmd.exe, or powershell.exe -- command-line tools, not an admin console -- especially minutes after a suspicious phishing click, is a materially different story than the same event fired by mmc.exe from an IT administrator's known workstation.",
@@ -210,7 +210,7 @@ const discoveryEnumerationRoom = {
       type: "question" as const,
       id: "disc-q1",
       question:
-        "An attacker has just landed on a workstation via a phished credential. Which MITRE ATT&CK technique describes them immediately running whoami and net user to establish who they are and what local privileges they hold?",
+        "An attacker has just landed on a workstation via a phished credential. Which MITRE ATT&CK technique describes them immediately running whoami and whoami /groups to establish who they are and what privileges they hold on the machine?",
       options: [
         "T1087.002, Domain Account Discovery -- since any account-related command always maps to the domain-wide sub-technique regardless of scope",
         "T1033, System Owner/User Discovery -- identifying the current user and their local standing on the specific machine just compromised",
@@ -219,7 +219,7 @@ const discoveryEnumerationRoom = {
       ],
       answer: 1,
       explanation:
-        "T1033 is specifically about identifying the current user and local system context -- exactly what whoami and net user (with no /domain flag) provide. T1087.002 is the domain-WIDE sub-technique covered later in this room, not a catch-all for any account-related command. T1580 is cloud-specific and unrelated to a local whoami. T1135 is about finding network shares, a separate later step.",
+        "T1033 is specifically about identifying the current user and local system context -- exactly what whoami and whoami /groups provide. T1087.002 is the domain-WIDE sub-technique covered later in this room, not a catch-all for any account-related command. T1580 is cloud-specific and unrelated to a local whoami. T1135 is about finding network shares, a separate later step.",
       xp: 15,
     },
 
@@ -313,7 +313,7 @@ const discoveryEnumerationRoom = {
           ],
           answer: 2,
           explanation:
-            "Discovery is a leading indicator, not a verdict by itself -- the correct move is correlating this event against the rest of the timeline (the phishing click, and whatever follows). Closing immediately ignores a genuinely suspicious combination of signals. Jumping to full incident response on one event skips the correlation step this room repeatedly emphasizes. And this event is local-group enumeration (T1033), not evidence of domain-wide enumeration (T1087.002) -- the two are distinct techniques with distinct telemetry, as the previous reading established.",
+            "Discovery is a leading indicator, not a verdict by itself -- the correct move is correlating this event against the rest of the timeline (the phishing click, and whatever follows). Closing immediately ignores a genuinely suspicious combination of signals. Jumping to full incident response on one event skips the correlation step this room repeatedly emphasizes. And this event is local-group enumeration (T1069.001, Permission Groups Discovery: Local Groups), not evidence of domain-wide enumeration (T1087.002) -- the two are distinct techniques with distinct telemetry, as the previous reading established.",
           xp: 15,
         },
       ],
@@ -424,7 +424,7 @@ const discoveryEnumerationRoom = {
       instructions:
         "Place these six steps of a discovery-to-collection chain in the order they actually occur, from the moment an attacker lands on one host to the point data leaves the network.",
       items: [
-        { id: "step-host", text: "The attacker runs whoami and net user on the freshly compromised host to identify the current account and its local privileges (T1033)" },
+        { id: "step-host", text: "The attacker runs whoami and whoami /groups on the freshly compromised host to identify the current account and its local privileges (T1033)" },
         { id: "step-localgroup", text: "The attacker runs net localgroup administrators to see who else has local admin rights on this specific machine" },
         { id: "step-domain", text: "The attacker runs net user /domain and net group \"domain admins\" /domain against the Domain Controller to map domain-wide accounts and privileged groups (T1087.002, T1069.002)" },
         { id: "step-share", text: "The attacker runs net view \\\\fileserver01 and net share to find which network shares are reachable and what they expose (T1135)" },
