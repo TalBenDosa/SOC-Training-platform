@@ -8513,5 +8513,104 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "ot-ics-security",
+    "title": "OT/ICS Security for SOC Analysts: Investigating the Plant Floor",
+    "description": "SCADA, PLCs, HMIs, and industrial protocols look nothing like the Windows Event Logs, EDR telemetry, and cloud audit trails this platform's other rooms are built on -- and this room exists because a whole generation of SOC analysts reaches this platform's OT investigation scenario with zero background in what any of that vocabulary means. Follow Meridian Valley Water Authority's water treatment plant from the ground up: what a PLC, HMI, RTU, DCS, and SCADA architecture actually are and where each sits in the Purdue Model; why Modbus, DNP3, S7comm, and EtherNet/IP were built with no authentication at all, and what that means the moment IT and OT networks converge; four real, publicly documented incidents -- Stuxnet, TRITON/TRISIS, Industroyer/CRASHOVERRIDE, and Oldsmar -- mapped to their actual MITRE ATT&CK for ICS technique IDs; how to read genuine Zeek and Suricata telemetry for an unauthorized Modbus write; and why OT detection and response cannot look like a Windows workstation's, because you cannot install an agent on a programmable logic controller.",
+    "difficulty": "intermediate",
+    "category": "OT/ICS Security",
+    "estimatedMinutes": 75,
+    "xp": 240,
+    "icon": "🏭",
+    "prerequisites": [
+      "networking-fundamentals",
+      "networking-protocols",
+      "firewall-network-security",
+      "mitre-attack"
+    ],
+    "tasks": [
+      {
+        "id": "ot-r0",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "ot-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "ot-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "ot-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-la1",
+        "type": "log_analysis",
+        "xp": 40,
+        "mitreTechnique": "T0855"
+      },
+      {
+        "id": "ot-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "ot-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "ot-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "ot-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "ot-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
