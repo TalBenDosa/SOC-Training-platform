@@ -8612,5 +8612,108 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "vishing-helpdesk-social-engineering",
+    "title": "Vishing and Voice-Based Social Engineering: The Help-Desk Attack",
+    "description": "Every technical email control this platform's other rooms teach -- SPF/DKIM/DMARC, URL sandboxing, attachment detonation -- inspects a message, and a phone call has no message to inspect. This room covers vishing (voice phishing), MITRE ATT&CK's T1566.004 (Spearphishing Voice), through the single highest-leverage target it exploits inside almost every organization: the IT help desk, whose job is to say yes to a locked-out caller. Follow the full attack arc from LinkedIn-sourced reconnaissance (T1589/T1591) through impersonation (T1656) to a help-desk-performed password or MFA reset and the resulting valid-account access (T1078); study four real, publicly documented incidents -- MGM Resorts and Caesars Entertainment (Scattered Spider/UNC3944, September 2023, per CISA advisory AA23-320A), Retool's 2023 deepfake voice call, and the Twilio/Cisco 2022 MFA-push pattern; read genuine Microsoft Entra ID identity-administration and sign-in log fields for the fingerprints a call leaves behind; and learn the one fact that actually separates a legitimate help-desk reset from a vishing-driven takeover -- an out-of-band identity check the caller cannot control, not the sound of a voice a deepfake can now convincingly fake.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 80,
+    "xp": 275,
+    "icon": "☎️",
+    "prerequisites": [
+      "phishing-analysis",
+      "auth-identity-monitoring"
+    ],
+    "tasks": [
+      {
+        "id": "vish-r0",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-q1",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "vish-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "vish-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-q2",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "vish-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "vish-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "vish-o1",
+        "type": "ordering",
+        "xp": 30
+      },
+      {
+        "id": "vish-la1",
+        "type": "log_analysis",
+        "xp": 40,
+        "mitreTechnique": "T1656"
+      },
+      {
+        "id": "vish-ac1",
+        "type": "analyst_choice",
+        "xp": 25,
+        "mitreTechnique": "T1656"
+      },
+      {
+        "id": "vish-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "vish-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
