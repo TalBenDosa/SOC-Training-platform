@@ -131,6 +131,15 @@ export function getRateLimitStore(): RateLimitStore {
   if (singleton) return singleton;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!(url && token)) {
+    // In-memory is per-instance and resets on cold start — on serverless with
+    // multiple instances the effective quota is far higher than intended, so this
+    // must not be the production configuration. Surface it loudly (once) so the
+    // Upstash env vars get set. See SECURITY finding M-1.
+    if (process.env.NODE_ENV === "production" && process.env.VERCEL_ENV === "production") {
+      console.error("[SECURITY] Rate limiting is using the per-instance in-memory store in PRODUCTION — set UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN so limits are durable and shared across instances.");
+    }
+  }
   singleton = url && token
     ? new UpstashRateLimitStore(url, token)
     : new InMemoryRateLimitStore();

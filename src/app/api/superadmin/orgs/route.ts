@@ -80,10 +80,36 @@ export async function POST(req: Request) {
   const startsAt = body.starts_at ? new Date(String(body.starts_at)).toISOString() : new Date().toISOString();
   const expiresAt = body.expires_at ? new Date(String(body.expires_at)).toISOString() : null;
   const status: OrgStatus = (["trial", "active"].includes(String(body.status)) ? body.status : "active") as OrgStatus;
-  // Commercial record (0020) — optional, captured on the create form now (was
-  // previously only editable on the org detail page). A plain object; the
-  // detail page can later fill in the structured fields (plan/price/PO…).
-  const contract = body.contract && typeof body.contract === "object" ? body.contract : undefined;
+  // Commercial record (0020) — optional, captured on the create form. Whitelisted
+  // + length-capped rather than stored as free-form client JSON (the org can read
+  // its own row under RLS, so this must never become an arbitrary blob store) —
+  // mirrors the allowlist on the PATCH route in orgs/[id]/route.ts.
+  let contract: Record<string, string | number> | undefined;
+  if (body.contract && typeof body.contract === "object") {
+    const c = body.contract as Record<string, unknown>;
+    const out: Record<string, string | number> = {};
+    const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : undefined);
+    const plan = str(c.plan, 80); if (plan) out.plan = plan;
+    const po = str(c.po_number, 80); if (po) out.po_number = po;
+    const currency = str(c.currency, 8); if (currency) out.currency = currency.toUpperCase();
+    const notes = str(c.notes, 2000); if (notes) out.notes = notes;
+    if (c.seats_purchased !== undefined && c.seats_purchased !== "" && c.seats_purchased !== null) {
+      const n = Number(c.seats_purchased);
+      if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "Seats purchased must be 0 or more." }, { status: 400 });
+      out.seats_purchased = Math.floor(n);
+    }
+    if (c.price !== undefined && c.price !== "" && c.price !== null) {
+      const p = Number(c.price);
+      if (!Number.isFinite(p) || p < 0) return NextResponse.json({ error: "Price must be 0 or more." }, { status: 400 });
+      out.price = p;
+    }
+    if (c.signed_at !== undefined && c.signed_at !== null && c.signed_at !== "") {
+      const d = new Date(String(c.signed_at));
+      if (Number.isNaN(d.getTime())) return NextResponse.json({ error: "Invalid signed date." }, { status: 400 });
+      out.signed_at = d.toISOString();
+    }
+    if (Object.keys(out).length) contract = out;
+  }
 
   if (!name) return NextResponse.json({ error: "Name is required." }, { status: 400 });
   if (!slug) return NextResponse.json({ error: "A valid slug (letters/numbers) is required." }, { status: 400 });
