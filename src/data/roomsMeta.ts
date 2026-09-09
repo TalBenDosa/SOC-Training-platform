@@ -8410,5 +8410,108 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       }
     ]
+  },
+  {
+    "id": "cloud-attacker-defense-evasion",
+    "title": "Cloud Attacker Actions: Defense Evasion & Manipulation Inside a Compromised Tenant",
+    "description": "The platform's existing cloud rooms teach you to monitor a tenant: what CloudTrail, Azure Activity Log, and GCP Audit Logs record, and how GuardDuty or Defender for Cloud raise findings. This room teaches the other side of that same coin — the exact actions a real attacker takes once they are already sitting inside a compromised cloud account with a working identity: opening a security group to the entire internet, spinning up a new instance to sidestep the restrictions on the ones already running, sharing a snapshot of a sensitive volume with an external account, escalating privilege through a vulnerable workload, and finally destroying evidence and locking administrators out. Every technique is verified against MITRE ATT&CK's current (2026) classification, including a real, dated restructuring — ATT&CK v19's split of Defense Evasion into Stealth and Defense Impairment — that changed the technique IDs this exact subject matter uses.",
+    "difficulty": "advanced",
+    "category": "Cloud Security",
+    "estimatedMinutes": 60,
+    "xp": 260,
+    "icon": "🔓",
+    "prerequisites": [
+      "aws-security",
+      "cloud-security-monitoring",
+      "azure-security"
+    ],
+    "tasks": [
+      {
+        "id": "cad-r0",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-r1",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-r2",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-q1",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "cad-r3",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-q2",
+        "type": "question",
+        "xp": 20
+      },
+      {
+        "id": "cad-r4",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-r5",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-q3",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "cad-r6",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-o1",
+        "type": "ordering",
+        "xp": 25
+      },
+      {
+        "id": "cad-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "cad-la1",
+        "type": "log_analysis",
+        "xp": 40,
+        "mitreTechnique": "T1686.001"
+      },
+      {
+        "id": "cad-ac1",
+        "type": "analyst_choice",
+        "xp": 25
+      },
+      {
+        "id": "cad-m1",
+        "type": "matching",
+        "xp": 25
+      },
+      {
+        "id": "cad-q4",
+        "type": "question",
+        "xp": 25
+      },
+      {
+        "id": "cad-f1",
+        "type": "flag",
+        "xp": 15
+      }
+    ]
   }
 ];
