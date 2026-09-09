@@ -733,6 +733,64 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
   };
 }
 
+/**
+ * SIEM correlation mirror of an EDR detection. Real SOCs forward EDR alerts into
+ * the SIEM, so an analyst working the SIEM feed sees the EDR verdict as its own
+ * log line — not only in the /edr console. Generated at stream time (never a
+ * static feed event) so it can't disturb the positional attack-chain split.
+ *
+ * Deliberately emitted at MEDIUM severity: the paired EDR event remains the
+ * high/critical, gradeable primary detection, while this is a corroboration log.
+ * Because the grader's feedAttackEvents gate is severity high|critical, a medium
+ * mirror is never counted as a second attack (no ground-truth / indicator / catch
+ * inflation) — but it IS part of the serialized evidence, so a student who cites
+ * the SIEM alert's host/technique is validated as citing real evidence. FP decoys
+ * are not mirrored (they drive their own IT-verify training on the primary).
+ */
+function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
+  if (e.source !== "edr") return null;
+  const isDetection =
+    e.is_detection === true ||
+    e.event_type === "av_detection" ||
+    e.event_type === "edr_alert" ||
+    ((e.severity === "high" || e.severity === "critical") && !!e.mitre_technique);
+  if (!isDetection) return null;
+  if (e.it_verify_result || e.fp_explanation || e.expected_verdict === "fp") return null;
+
+  const vendor = e.vendor ?? "EDR";
+  const host = e.hostname ? ` on ${e.hostname}` : "";
+  const tech = e.mitre_technique ? ` (${e.mitre_technique})` : "";
+  const desc = `SIEM correlation: ${vendor} detection ingested${host} — ${e.description ?? "malicious activity"}${tech}`;
+  const mirror: LiveEvent = {
+    ...e,
+    id: `${e.id}__siem`,
+    source: "siem",
+    vendor: "Microsoft Sentinel",
+    event_type: "edr_alert",
+    severity: "medium",
+    is_detection: undefined,
+    edr_scope: undefined,
+    description: desc,
+    raw: {
+      "AlertName": "EDR Detection — forwarded to SIEM",
+      "alert.rule.id": "SIEM-EDR-FWD-001",
+      "alert.severity": e.severity ?? "high",
+      ...(e.hostname ? { "host.name": e.hostname } : {}),
+      ...(e.src_ip ? { "host.ip": e.src_ip } : {}),
+      ...(e.user_email ? { "target.user.name": e.user_email } : {}),
+      ...(e.mitre_technique ? { "threat.technique.id": e.mitre_technique } : {}),
+      "ExtendedProperties.Source EDR Vendor": vendor,
+      "ExtendedProperties.Original Detection": e.description ?? "",
+      "event.action": "edr-alert-forwarded",
+      "event.outcome": "alerted",
+    },
+    ruleLevel: severityBase("medium"),
+    ruleId: buildRuleId({ ...e, source: "siem", event_type: "edr_alert", severity: "medium" } as TelemetryEvent, index),
+    displayDescription: desc,
+  };
+  return mirror;
+}
+
 export interface DashboardSessionRecord {
   type: "dashboard";
   date: string;
@@ -1096,7 +1154,11 @@ export function useLiveEvents({
               };
             });
             globalIdx.current += raw.length;
-            const enriched = raw.map(e => enrichWithFidelity(e, globalIdx.current++));
+            const enriched = raw.flatMap(ev => {
+              const en = enrichWithFidelity(ev, globalIdx.current++);
+              const m = siemMirror(en, globalIdx.current++);
+              return m ? [en, m] : [en];
+            });
             const batchIds  = new Set(enriched.map(e => e.id));
 
             if (!isFP) {
@@ -1182,7 +1244,11 @@ export function useLiveEvents({
         newRaw.push({ ...withRebasedTime(chosen, new Date().toISOString()), id: `${chosen.id}_${Date.now()}_${i}` });
       }
 
-      const enriched = newRaw.map(e => enrichWithFidelity(e, globalIdx.current++));
+      const enriched = newRaw.flatMap(ev => {
+        const en = enrichWithFidelity(ev, globalIdx.current++);
+        const m = siemMirror(en, globalIdx.current++);
+        return m ? [en, m] : [en];
+      });
       const batchIds  = new Set(enriched.map(e => e.id));
       setNewIds(batchIds);
       setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
@@ -1232,7 +1298,11 @@ export function useLiveEvents({
     }));
     storyCursorRef.current = cursor + n;
 
-    const enriched = slice.map(e => enrichWithFidelity(e, globalIdx.current++));
+    const enriched = slice.flatMap(ev => {
+      const en = enrichWithFidelity(ev, globalIdx.current++);
+      const m = siemMirror(en, globalIdx.current++);
+      return m ? [en, m] : [en];
+    });
     const batchIds = new Set(enriched.map(e => e.id));
 
     if (isFirstPhase) {
