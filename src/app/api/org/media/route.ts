@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
+import { inspectDocContent } from "@/lib/security/fileScan";
 
 /**
  * Per-org media resources ("College Materials") — the platform's first upload API.
@@ -112,6 +113,27 @@ export async function POST(req: Request) {
       await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
       return NextResponse.json({ error: `File too large (max ${Math.round(cap / 1024 / 1024)}MB for ${kind.kind}).` }, { status: 413 });
     }
+
+    // Content scan for document kinds — reject macro-bearing PPTX / active-content
+    // PDF before the row is created. Docs are capped at 25MB so pulling the whole
+    // object here is safe; video is not macro/script-bearing and is skipped.
+    if (kind.kind !== "video") {
+      let full: Uint8Array;
+      try {
+        const resp = await fetch(signed.signedUrl);
+        if (!resp.ok) throw new Error("read");
+        full = new Uint8Array(await resp.arrayBuffer());
+      } catch {
+        await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
+        return NextResponse.json({ error: "Could not read the uploaded file for scanning." }, { status: 400 });
+      }
+      const scan = await inspectDocContent(kind.kind, full);
+      if (!scan.ok) {
+        await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
+        return NextResponse.json({ error: scan.reason }, { status: 422 });
+      }
+    }
+
     const { data: row, error: insErr } = await admin
       .from("org_resources")
       .insert({
@@ -149,6 +171,12 @@ export async function POST(req: Request) {
   const cap = kind.kind === "video" ? MAX_VIDEO_BYTES : MAX_DOC_BYTES;
   if (bytes.length > cap) {
     return NextResponse.json({ error: `File too large (max ${Math.round(cap / 1024 / 1024)}MB for ${kind.kind}).` }, { status: 413 });
+  }
+
+  // Content scan for document kinds — reject macro-bearing PPTX / active-content PDF.
+  const scan = await inspectDocContent(kind.kind, bytes);
+  if (!scan.ok) {
+    return NextResponse.json({ error: scan.reason }, { status: 422 });
   }
 
   // Storage key is generated server-side (never the uploaded filename → no path traversal).
