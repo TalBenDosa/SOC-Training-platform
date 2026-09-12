@@ -770,6 +770,12 @@ function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
     severity: "medium",
     is_detection: undefined,
     edr_scope: undefined,
+    // Drop the top-level technique/tactic so the mirror is NOT mapped to a
+    // kill-chain stage in AttackChainBoard (it would otherwise duplicate the
+    // EDR event's card). The technique is still shown to the analyst via
+    // raw["threat.technique.id"] below.
+    mitre_technique: undefined,
+    mitre_tactic: undefined,
     description: desc,
     raw: {
       "AlertName": "EDR Detection — forwarded to SIEM",
