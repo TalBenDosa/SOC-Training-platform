@@ -61,7 +61,7 @@ export async function GET(req: Request) {
   const status = new URL(req.url).searchParams.get("status");
   let q = admin
     .from("content_feedback")
-    .select("id, target_kind, target_id, context, message, status, created_at, profiles:user_id(handle, display_name)")
+    .select("id, target_kind, target_id, context, message, status, created_at, admin_response, responded_at, profiles:user_id(handle, display_name)")
     .order("created_at", { ascending: false })
     .limit(200);
   if (status && status !== "all") q = q.eq("status", status);

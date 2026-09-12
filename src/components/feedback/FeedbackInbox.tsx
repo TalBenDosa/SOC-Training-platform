@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Flag, Loader2, AlertTriangle, Bug } from "lucide-react";
+import { Flag, Loader2, AlertTriangle, Bug, Send, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Status = "new" | "triaged" | "resolved" | "wontfix";
@@ -24,6 +24,8 @@ interface Report {
   message: string;
   status: Status;
   created_at: string;
+  admin_response?: string | null;
+  responded_at?: string | null;
   profiles: { handle?: string; display_name?: string } | null;
 }
 
@@ -47,6 +49,9 @@ export function FeedbackInbox() {
   const [filter, setFilter] = useState("new");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [sending, setSending] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, { ok: boolean; text: string }>>({});
 
   async function load(f = filter) {
     setLoading(true); setError(null);
@@ -65,6 +70,40 @@ export function FeedbackInbox() {
       body: JSON.stringify({ id, status }),
     }).catch(() => {});
     if (filter !== "all" && filter !== status) load(filter);
+  }
+
+  async function sendReply(id: string) {
+    const message = (drafts[id] ?? "").trim();
+    if (!message) return;
+    setSending(id);
+    setNotes(n => { const c = { ...n }; delete c[id]; return c; });
+    let res: Response;
+    try {
+      res = await fetch(`/api/feedback/${id}/reply`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+    } catch {
+      setSending(null);
+      setNotes(n => ({ ...n, [id]: { ok: false, text: "Network error — reply not sent." } }));
+      return;
+    }
+    setSending(null);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setNotes(n => ({ ...n, [id]: { ok: false, text: data?.error ?? "Failed to send reply." } }));
+      return;
+    }
+    setItems(prev => prev.map(r => (r.id === id
+      ? { ...r, admin_response: message, responded_at: new Date().toISOString(), status: "resolved" as Status }
+      : r)));
+    setDrafts(d => { const c = { ...d }; delete c[id]; return c; });
+    setNotes(n => ({ ...n, [id]: {
+      ok: true,
+      text: data.emailed
+        ? "Reply emailed to the reporter and marked resolved."
+        : "Reply saved and marked resolved — but email delivery is not configured, so the reporter was NOT emailed.",
+    } }));
   }
 
   const isTechnical = (r: Report) => r.context?.category === "technical" || r.target_id === "technical";
@@ -146,6 +185,39 @@ export function FeedbackInbox() {
                     </button>
                   ))}
               </div>
+
+              {r.admin_response ? (
+                <div className="mt-2 rounded-lg border border-neon-green/30 bg-neon-green/5 px-3 py-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-neon-green">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Replied to reporter
+                    {r.responded_at && <span className="font-normal text-slate-500">· {new Date(r.responded_at).toLocaleString("en-GB")}</span>}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{r.admin_response}</p>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <textarea
+                    value={drafts[r.id] ?? ""}
+                    onChange={e => setDrafts(d => ({ ...d, [r.id]: e.target.value }))}
+                    placeholder="Reply to the reporter — emailed to them, and marks the report resolved…"
+                    rows={2}
+                    className="w-full resize-y rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => sendReply(r.id)}
+                    disabled={sending === r.id || !(drafts[r.id] ?? "").trim()}
+                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-3 py-1.5 text-[11px] font-semibold text-cyber-300 transition hover:bg-cyber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {sending === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Send reply to reporter
+                  </button>
+                </div>
+              )}
+              {notes[r.id] && (
+                <p className={cn("mt-1.5 text-[11px]", notes[r.id].ok ? "text-neon-green" : "text-severity-high")}>
+                  {notes[r.id].text}
+                </p>
+              )}
             </Card>
           ))}
         </div>
