@@ -206,6 +206,11 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 export function Sidebar() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { user } = useAuth();
+  // In-app logo returns a signed-in user to their app home (/rooms), never the
+  // public marketing landing at "/" — which renders its logged-out view and made
+  // it look as though the session had been lost (it hadn't; the cookie is intact).
+  const homeHref = user ? "/rooms" : "/";
 
   // Close the mobile drawer whenever the route changes (belt-and-suspenders
   // alongside the per-link onNavigate handler).
@@ -216,7 +221,7 @@ export function Sidebar() {
       {/* ── Desktop rail (unchanged) ─────────────────────────────────── */}
       <aside className="hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen">
         <div className="px-5 py-5">
-          <Link href="/" className="block">
+          <Link href={homeHref} className="block">
             <Logo />
           </Link>
         </div>
@@ -243,7 +248,7 @@ export function Sidebar() {
           {/* Drawer panel */}
           <aside className="relative flex w-64 max-w-[80vw] flex-col border-r border-border bg-[#0d1520] h-full">
             <div className="flex items-center justify-between px-5 py-5">
-              <Link href="/" className="block" onClick={() => setDrawerOpen(false)}>
+              <Link href={homeHref} className="block" onClick={() => setDrawerOpen(false)}>
                 <Logo />
               </Link>
               <button
