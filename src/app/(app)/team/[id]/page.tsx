@@ -27,6 +27,7 @@ import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import {
   Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users,
   ArrowUpRight, Check, ShieldAlert, Siren, FolderOpen, Filter, X, ChevronDown, Search, Clock, FileText,
+  UserPlus, UserMinus, PauseCircle, LogOut,
 } from "lucide-react";
 
 interface RosterMember { user_id: string; role: string; status: string; name: string; handle: string | null }
@@ -136,6 +137,15 @@ export default function TeamRoomPage() {
   // event log (ALL types), deduped by seq
   const [events, setEvents] = useState<Ev[]>([]);
   const [showGuide, setShowGuide] = useState(false);
+  // Session-lifecycle UX: who just left (transient popups), whether staff has
+  // temporarily dismissed the "training halted" overlay to reassign/end, and why
+  // the session closed (for the ended screen).
+  const [leftNotices, setLeftNotices] = useState<{ key: string; name: string; role: string }[]>([]);
+  const [haltDismissed, setHaltDismissed] = useState(false);
+  const [endReason, setEndReason] = useState<string | null>(null);
+  const prevOnlineRef = useRef<Set<string>>(new Set());
+  const ownerGoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoEndFiredRef = useRef(false);
   // G-04 feed filters (surfaced controls + click-to-pivot state).
   const [fSeverity, setFSeverity] = useState<"all" | "low" | "medium" | "high">("all");
   const [fSource, setFSource] = useState("all");
@@ -239,7 +249,7 @@ export default function TeamRoomPage() {
           if (p.type === "member.ready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: true }));
           else if (p.type === "member.unready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: false }));
           else if (p.type === "session.started") { setSession(s => s ? { ...s, status: "running" } : s); startCountdown(); }
-          else if (p.type === "session.ended") { setSession(s => s ? { ...s, status: "ended" } : s); setCountdown(null); setPhase("ended"); }
+          else if (p.type === "session.ended") { setSession(s => s ? { ...s, status: "ended" } : s); setCountdown(null); setPhase("ended"); const rr = (p.payload as { reason?: string })?.reason; if (rr) setEndReason(rr); }
           if (typeof p.seq === "number") mergeEvents([{ seq: p.seq, type: p.type, actor_id: p.actor_id ?? null, role: p.role ?? null, payload: p.payload ?? {}, occurred_at: (p as { occurred_at?: string }).occurred_at }]);
         })
         .subscribe(async status => {
@@ -287,6 +297,67 @@ export default function TeamRoomPage() {
   const allReady = players.length > 0 && players.every(p => readyMap[p.user_id]);
   const iAmPlayer = !!(me && me.role && me.role !== "instructor" && me.role !== "observer");
   const iAmReady = !!(me && readyMap[me.id]);
+  const canRunSession = !!(me && (me.is_staff || me.role === "mgr")); // who may end/manage
+
+  // ── Session-lifecycle: presence-based coverage & auto-close ──────────────────
+  const instructor = useMemo(() => roster.find(r => r.role === "instructor") ?? null, [roster]);
+  // Core relay = Tier-1 (triage) → Tier-2 (investigate). If a core role is
+  // ASSIGNED to the team but has nobody online, the shift can't run → halt.
+  const CORE_ROLES: ("t1" | "t2")[] = ["t1", "t2"];
+  const anyPlayerOnline = players.some(p => online.has(p.user_id));
+  const uncoveredCore = phase === "running"
+    ? CORE_ROLES.filter(r => roster.some(m => m.role === r) && !roster.some(m => m.role === r && online.has(m.user_id)))
+    : [];
+  const haltReason = phase === "running"
+    ? (!anyPlayerOnline
+        ? "Everyone has left the exercise."
+        : uncoveredCore.length > 0
+          ? `No ${uncoveredCore.map(r => ROLE_LABEL[r]).join(" and no ")} online right now.`
+          : null)
+    : null;
+
+  // who-just-left popups: diff the online set against the previous sync.
+  useEffect(() => {
+    if (phase === "ended") return;
+    const cur = online, prev = prevOnlineRef.current;
+    const dropped = roster.filter(m => prev.has(m.user_id) && !cur.has(m.user_id));
+    if (dropped.length > 0) {
+      setLeftNotices(ns => [...ns, ...dropped.map(m => ({ key: `${m.user_id}-${Date.now()}`, name: m.name, role: ROLE_LABEL[m.role] ?? m.role }))].slice(-4));
+    }
+    prevOnlineRef.current = new Set(cur);
+  }, [online, roster, phase]);
+  // auto-expire the oldest leave-popup so the stack clears itself.
+  useEffect(() => {
+    if (leftNotices.length === 0) return;
+    const t = setTimeout(() => setLeftNotices(ns => ns.slice(1)), 8000);
+    return () => clearTimeout(t);
+  }, [leftNotices]);
+  // when coverage is restored, drop any staff "dismiss" of the halt overlay.
+  useEffect(() => { if (!haltReason) setHaltDismissed(false); }, [haltReason]);
+
+  // Owner (instructor) left the live room → auto-close after a short grace, so a
+  // brief refresh doesn't kill the session. One elected online client fires it.
+  useEffect(() => {
+    if (phase !== "running" || !instructor || !me) {
+      if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; }
+      return;
+    }
+    if (online.has(instructor.user_id)) { // owner present — cancel any pending close
+      if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; }
+      return;
+    }
+    if (ownerGoneTimer.current || autoEndFiredRef.current) return;
+    ownerGoneTimer.current = setTimeout(async () => {
+      ownerGoneTimer.current = null;
+      if (autoEndFiredRef.current || online.has(instructor.user_id)) return;
+      // elect the lowest online player id so exactly one client closes the session.
+      const elected = roster.filter(r => r.role !== "instructor" && online.has(r.user_id)).map(r => r.user_id).sort()[0];
+      if (!elected || elected !== me.id) return;
+      autoEndFiredRef.current = true;
+      await fetch(`/api/team/sessions/${id}/end`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "owner_left" }) }).catch(() => {});
+    }, 30000);
+    return () => { if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; } };
+  }, [phase, instructor, online, me, roster, id]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
   const escalations = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
@@ -419,6 +490,43 @@ export default function TeamRoomPage() {
 
         {showGuide && me && <RoleGuideModal role={me.role} onClose={() => setShowGuide(false)} />}
 
+        {/* Who-just-left popups — every member sees them when a teammate drops. */}
+        {leftNotices.length > 0 && (
+          <div className="fixed right-4 top-20 z-50 flex w-72 flex-col gap-2">
+            {leftNotices.map(n => (
+              <div key={n.key} className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-bg-elevated px-3 py-2 shadow-lg">
+                <UserMinus className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" />
+                <p className="text-[12px] text-slate-200"><b>{n.name}</b> <span className="text-slate-400">({n.role})</span> left the session.</p>
+                <button onClick={() => setLeftNotices(ns => ns.filter(x => x.key !== n.key))} className="ml-auto shrink-0 text-slate-500 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Training halted — a core role has nobody online. Blocks play until the
+            team is back (auto-clears), or staff/Manager reassign / end. */}
+        {haltReason && !haltDismissed && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6">
+            <div className="max-w-md rounded-xl border border-neon-amber/40 bg-bg-elevated p-6 text-center shadow-2xl">
+              <PauseCircle className="mx-auto h-10 w-10 text-neon-amber" />
+              <h3 className="mt-3 text-lg font-bold text-white">Training paused</h3>
+              <p className="mt-1 text-sm text-neon-amber">{haltReason}</p>
+              <p className="mt-2 text-[12px] text-slate-400">The shift can&apos;t run without the core team. It resumes automatically the moment they&apos;re back{canRunSession ? ", or you can reassign the role / end the session." : "."}</p>
+              {canRunSession && (
+                <div className="mt-4 flex justify-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setHaltDismissed(true)}>Manage (reassign)</Button>
+                  <Button variant="primary" size="sm" disabled={busy} onClick={end}><LogOut className="mr-1 h-3.5 w-3.5" /> End session</Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {haltReason && haltDismissed && (
+          <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-3 py-2 text-sm text-neon-amber">
+            <PauseCircle className="h-4 w-4 shrink-0" /> Paused — {haltReason} Reassign the seat below, or wait for them to return.
+          </div>
+        )}
+
         {/* ── LOBBY ── */}
         {phase === "lobby" && (
           <>
@@ -475,8 +583,13 @@ export default function TeamRoomPage() {
               <Card className="border-cyber-500/30">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div><p className="text-sm font-bold text-white">Start the exercise</p><p className="text-xs text-slate-400">{allReady ? "All players are ready." : "Locked until every player marks ready."}</p></div>
+                  <div className="flex items-center gap-2">
                   <Button variant="primary" size="sm" disabled={busy || !allReady} onClick={start}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />} Confirm &amp; start</Button>
+                  <Button variant="outline" size="sm" disabled={busy} onClick={end}>Close session</Button>
                 </div>
+                </div>
+                {/* Grow the team before (or during) the shift — add a member to a role */}
+                <AddMemberPanel sessionId={id} roster={roster} />
               </Card>
             )}
           </>
@@ -489,7 +602,7 @@ export default function TeamRoomPage() {
               <Radio className="h-4 w-4 animate-pulse" /> Live — same feed for the whole team
               <span className="ml-auto font-mono text-xs text-slate-500">{online.size} online · {feed.length} logs · you: {ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
               <Button variant="outline" size="sm" onClick={() => setShowGuide(true)}>? Guide</Button>
-              {me.is_staff && <Button variant="outline" size="sm" disabled={busy} onClick={end}>End exercise</Button>}
+              {canRunSession && <Button variant="outline" size="sm" disabled={busy} onClick={end}>End session</Button>}
             </div>
 
             {/* Always-visible "what do I do now" directive for the player's role */}
@@ -574,7 +687,12 @@ export default function TeamRoomPage() {
           </>
         )}
 
-        {phase === "ended" && me && <TeamReport events={events} roster={roster} me={me} />}
+        {phase === "ended" && me && (
+          <>
+            {endReason === "owner_left" && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><LogOut className="h-4 w-4 shrink-0" /> The session owner (instructor) left the live room, so the session was closed automatically.</div>}
+            <TeamReport events={events} roster={roster} me={me} />
+          </>
+        )}
       </div>
     </div>
   );
@@ -1460,6 +1578,63 @@ function DecisionLog({ events, nameOf, act }: { events: Ev[]; nameOf: (u: string
   );
 }
 
+// Add a member to a live/lobby session (staff) — grow the team or backfill a
+// role. Calls the /members route; the invitee then sees it under Team training.
+function AddMemberPanel({ sessionId, roster }: { sessionId: string; roster: RosterMember[] }) {
+  const [members, setMembers] = useState<{ user_id: string; display_name: string | null; handle: string | null; status: string }[]>([]);
+  const [pick, setPick] = useState({ user_id: "", role: "t1" });
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open || members.length) return;
+    (async () => {
+      const res = await fetch("/api/org/members");
+      if (!res.ok) return;
+      const data = await res.json();
+      setMembers((data.members ?? []).filter((m: { status: string }) => m.status === "active"));
+    })();
+  }, [open, members.length]);
+  const inSession = new Set(roster.map(r => r.user_id));
+  const available = members.filter(m => !inSession.has(m.user_id));
+  async function add() {
+    if (!pick.user_id) return;
+    setBusy(true); setMsg(null);
+    try {
+      const res = await fetch(`/api/team/sessions/${sessionId}/members`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pick) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not add the member.");
+      const who = members.find(m => m.user_id === pick.user_id);
+      setMsg({ ok: true, text: `${who?.display_name || who?.handle || "Member"} added as ${ROLE_LABEL[pick.role] ?? pick.role}. They'll see it under Team training.` });
+      setPick({ user_id: "", role: "t1" });
+    } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Could not add the member." }); }
+    finally { setBusy(false); }
+  }
+  return (
+    <div className="mt-3 border-t border-border/50 pt-3">
+      {!open ? (
+        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyber-300 hover:underline"><UserPlus className="h-3.5 w-3.5" /> Add a member</button>
+      ) : (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Add a member</p>
+          <div className="flex gap-1.5">
+            <select value={pick.user_id} onChange={e => setPick(s => ({ ...s, user_id: e.target.value }))} className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+              <option value="">— member —</option>
+              {available.map(m => <option key={m.user_id} value={m.user_id}>{m.display_name || m.handle || m.user_id.slice(0, 8)}</option>)}
+            </select>
+            <select value={pick.role} onChange={e => setPick(s => ({ ...s, role: e.target.value }))} className="rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+              {["t1", "t2", "t3", "mgr", "observer"].map(r => <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>)}
+            </select>
+            <Button variant="outline" size="sm" disabled={busy || !pick.user_id} onClick={add}>Add</Button>
+          </div>
+          {available.length === 0 && members.length > 0 && <p className="text-[11px] text-slate-500">Everyone active is already on the roster.</p>}
+          {msg && <p className={`text-[11px] ${msg.ok ? "text-neon-green" : "text-severity-high"}`}>{msg.text}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InstructorPanel({ sessionId, roster, online, events, act }: { sessionId: string; roster: RosterMember[]; online: Set<string>; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   // G-14: inject-composer — the instructor injects an announcement or a help-desk
   // ticket mid-exercise (staff.inject). Tickets land in Tier-1's queue to answer.
@@ -1533,6 +1708,9 @@ function InstructorPanel({ sessionId, roster, online, events, act }: { sessionId
         <Button variant="outline" size="sm" disabled={raBusy || !ra.user_id || !ra.role} onClick={reassign}>Reassign</Button>
         {raMsg && <p className={`text-[11px] ${raMsg.ok ? "text-neon-green" : "text-severity-high"}`}>{raMsg.text}</p>}
       </div>
+
+      {/* Grow the team mid-shift — add a member to a role */}
+      <AddMemberPanel sessionId={sessionId} roster={roster} />
     </Card>
   );
 }

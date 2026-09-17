@@ -190,22 +190,34 @@ export default function TeamIndexPage() {
             <p className="px-4 pb-4 text-sm text-slate-400">No team sessions yet.{isStaff ? " Create one above." : " You'll see exercises here once your instructor invites you."}</p>
           ) : (
             <div className="divide-y divide-border/60">
-              {sessions.map(s => (
-                <Link key={s.id} href={`/team/${s.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02]">
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${STATUS_STYLE[s.status] ?? STATUS_STYLE.ended}`}>
-                    {s.status === "running" ? <span className="inline-flex items-center gap-1"><Radio className="h-2.5 w-2.5" />live</span> : s.status}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-white">{companyName(s.company_id)}</p>
-                    <p className="font-mono text-[11px] text-slate-500">
-                      {s.difficulty} · {s.ready_count}/{s.player_count} ready
-                      {s.my_role && s.my_role !== "instructor" && <span className="ml-1 text-cyber-300">· you: {s.my_role}</span>}
-                      {s.my_role === "instructor" && <span className="ml-1 text-neon-amber">· you: instructor</span>}
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-slate-600" />
-                </Link>
-              ))}
+              {sessions.map(s => {
+                // Closed sessions (ended/debriefed) can't be entered — they're a
+                // record only. Live/lobby/paused stay enterable.
+                const closed = s.status === "ended" || s.status === "debriefed";
+                const inner = (
+                  <>
+                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${STATUS_STYLE[s.status] ?? STATUS_STYLE.ended}`}>
+                      {s.status === "running" ? <span className="inline-flex items-center gap-1"><Radio className="h-2.5 w-2.5" />live</span> : closed ? "closed" : s.status}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-sm font-medium ${closed ? "text-slate-400" : "text-white"}`}>{companyName(s.company_id)}</p>
+                      <p className="font-mono text-[11px] text-slate-500">
+                        {s.difficulty} · {s.ready_count}/{s.player_count} ready
+                        {s.my_role && s.my_role !== "instructor" && <span className="ml-1 text-cyber-300">· you: {s.my_role}</span>}
+                        {s.my_role === "instructor" && <span className="ml-1 text-neon-amber">· you: instructor</span>}
+                      </p>
+                    </div>
+                    {closed
+                      ? <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-600">closed</span>
+                      : <ChevronRight className="h-4 w-4 text-slate-600" />}
+                  </>
+                );
+                return closed ? (
+                  <div key={s.id} title="This session is closed — it can't be entered." className="flex items-center gap-3 px-4 py-3 opacity-60">{inner}</div>
+                ) : (
+                  <Link key={s.id} href={`/team/${s.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02]">{inner}</Link>
+                );
+              })}
             </div>
           )}
         </Card>
