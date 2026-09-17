@@ -143,9 +143,15 @@ export default function TeamRoomPage() {
   const [leftNotices, setLeftNotices] = useState<{ key: string; name: string; role: string }[]>([]);
   const [haltDismissed, setHaltDismissed] = useState(false);
   const [endReason, setEndReason] = useState<string | null>(null);
+  // DB-persisted pause (survives reload, shows as 'paused' in the list). Distinct
+  // from the presence-derived halt, which is what DRIVES the auto pause/resume.
+  const [paused, setPaused] = useState(false);
+  const [pausedReason, setPausedReason] = useState<string | null>(null);
+  const [pausedDetail, setPausedDetail] = useState<string | null>(null);
   const prevOnlineRef = useRef<Set<string>>(new Set());
   const ownerGoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoEndFiredRef = useRef(false);
+  const autoPauseBusyRef = useRef(false);
   // G-04 feed filters (surfaced controls + click-to-pivot state).
   const [fSeverity, setFSeverity] = useState<"all" | "low" | "medium" | "high">("all");
   const [fSource, setFSource] = useState("all");
@@ -187,7 +193,12 @@ export default function TeamRoomPage() {
       if (cancelled) return;
       setSession(data.session); setRoster(data.roster); setMe(data.me);
       setReadyMap(Object.fromEntries((data.roster as RosterMember[]).map(m => [m.user_id, m.status === "ready" || m.status === "active"])));
-      setPhase(data.session.status === "running" ? "running" : ["lobby", "paused"].includes(data.session.status) ? "lobby" : "ended");
+      // A session paused AFTER it started resumes into the running screen (blocked
+      // by the halt overlay); paused-before-start stays in the lobby.
+      const st = data.session.status as string;
+      const started = !!data.session.started_at;
+      setPhase(st === "running" ? "running" : st === "paused" ? (started ? "running" : "lobby") : st === "lobby" ? "lobby" : "ended");
+      setPaused(st === "paused" && started);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -250,6 +261,8 @@ export default function TeamRoomPage() {
           else if (p.type === "member.unready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: false }));
           else if (p.type === "session.started") { setSession(s => s ? { ...s, status: "running" } : s); startCountdown(); }
           else if (p.type === "session.ended") { setSession(s => s ? { ...s, status: "ended" } : s); setCountdown(null); setPhase("ended"); const rr = (p.payload as { reason?: string })?.reason; if (rr) setEndReason(rr); }
+          else if (p.type === "session.paused") { setSession(s => s ? { ...s, status: "paused" } : s); setPaused(true); const pl = p.payload as { reason?: string; detail?: string }; setPausedReason(pl?.reason ?? "manual"); setPausedDetail(pl?.detail ?? null); }
+          else if (p.type === "session.resumed") { setSession(s => s ? { ...s, status: "running" } : s); setPaused(false); setPausedReason(null); setPausedDetail(null); }
           if (typeof p.seq === "number") mergeEvents([{ seq: p.seq, type: p.type, actor_id: p.actor_id ?? null, role: p.role ?? null, payload: p.payload ?? {}, occurred_at: (p as { occurred_at?: string }).occurred_at }]);
         })
         .subscribe(async status => {
@@ -291,6 +304,13 @@ export default function TeamRoomPage() {
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not end."); return; }
     setPhase("ended");
   }
+  async function pauseSession(p: boolean) {
+    setBusy(true); setError(null);
+    const res = await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: p, reason: "manual" }) });
+    setBusy(false);
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not update the session."); return; }
+    setPaused(p); setPausedReason(p ? "manual" : null); setPausedDetail(null); // optimistic; broadcast confirms for all
+  }
 
   // ── derived ─────────────────────────────────────────────────────────────────
   const players = roster.filter(r => r.role !== "instructor");
@@ -304,17 +324,26 @@ export default function TeamRoomPage() {
   // Core relay = Tier-1 (triage) → Tier-2 (investigate). If a core role is
   // ASSIGNED to the team but has nobody online, the shift can't run → halt.
   const CORE_ROLES: ("t1" | "t2")[] = ["t1", "t2"];
+  // Don't evaluate coverage until presence has synced me in — otherwise the empty
+  // initial online-set would false-trigger a halt the instant the run begins.
+  const presenceReady = !!(me && online.has(me.id));
   const anyPlayerOnline = players.some(p => online.has(p.user_id));
-  const uncoveredCore = phase === "running"
+  const uncoveredCore = (phase === "running" && presenceReady)
     ? CORE_ROLES.filter(r => roster.some(m => m.role === r) && !roster.some(m => m.role === r && online.has(m.user_id)))
     : [];
-  const haltReason = phase === "running"
+  const haltReason = (phase === "running" && presenceReady)
     ? (!anyPlayerOnline
         ? "Everyone has left the exercise."
         : uncoveredCore.length > 0
           ? `No ${uncoveredCore.map(r => ROLE_LABEL[r]).join(" and no ")} online right now.`
           : null)
     : null;
+  // The halt overlay shows when the DB says paused OR presence says coverage is
+  // broken (the latter shows instantly, before the DB round-trip lands).
+  const haltActive = phase === "running" && (paused || !!haltReason);
+  const haltMessage = paused
+    ? (pausedReason === "manual" ? "Paused by the instructor." : (pausedDetail || "Not enough of the team is online right now."))
+    : (haltReason ?? "");
 
   // who-just-left popups: diff the online set against the previous sync.
   useEffect(() => {
@@ -332,8 +361,25 @@ export default function TeamRoomPage() {
     const t = setTimeout(() => setLeftNotices(ns => ns.slice(1)), 8000);
     return () => clearTimeout(t);
   }, [leftNotices]);
-  // when coverage is restored, drop any staff "dismiss" of the halt overlay.
-  useEffect(() => { if (!haltReason) setHaltDismissed(false); }, [haltReason]);
+  // when the halt clears, drop any staff "dismiss" of the overlay.
+  useEffect(() => { if (!haltActive) setHaltDismissed(false); }, [haltActive]);
+
+  // Auto pause/resume to the DB: one elected online client mirrors the presence
+  // halt into a persisted 'paused' status (reason "coverage") and resumes it when
+  // coverage returns. A manual pause (reason "manual") is left for a human resume.
+  useEffect(() => {
+    if (phase !== "running" || !me || !presenceReady || autoPauseBusyRef.current) return;
+    const elected = roster.filter(r => online.has(r.user_id)).map(r => r.user_id).sort()[0];
+    if (elected !== me.id) return;
+    const call = async (p: boolean, detail?: string) => {
+      autoPauseBusyRef.current = true;
+      try { await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: p, reason: "coverage", detail }) }); }
+      catch { /* transient — the next presence sync retries */ }
+      finally { autoPauseBusyRef.current = false; }
+    };
+    if (haltReason && !paused) call(true, haltReason);
+    else if (!haltReason && paused && pausedReason === "coverage") call(false);
+  }, [phase, me, presenceReady, roster, online, haltReason, paused, pausedReason, id]);
 
   // Owner (instructor) left the live room → auto-close after a short grace, so a
   // brief refresh doesn't kill the session. One elected online client fires it.
@@ -505,25 +551,28 @@ export default function TeamRoomPage() {
 
         {/* Training halted — a core role has nobody online. Blocks play until the
             team is back (auto-clears), or staff/Manager reassign / end. */}
-        {haltReason && !haltDismissed && (
+        {haltActive && !haltDismissed && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6">
             <div className="max-w-md rounded-xl border border-neon-amber/40 bg-bg-elevated p-6 text-center shadow-2xl">
               <PauseCircle className="mx-auto h-10 w-10 text-neon-amber" />
               <h3 className="mt-3 text-lg font-bold text-white">Training paused</h3>
-              <p className="mt-1 text-sm text-neon-amber">{haltReason}</p>
-              <p className="mt-2 text-[12px] text-slate-400">The shift can&apos;t run without the core team. It resumes automatically the moment they&apos;re back{canRunSession ? ", or you can reassign the role / end the session." : "."}</p>
+              <p className="mt-1 text-sm text-neon-amber">{haltMessage}</p>
+              <p className="mt-2 text-[12px] text-slate-400">{pausedReason === "manual"
+                ? "The instructor paused the shift. It stays paused until they resume it."
+                : `The shift can't run without the core team. It resumes automatically the moment they're back${canRunSession ? ", or you can reassign the role / end the session." : "."}`}</p>
               {canRunSession && (
-                <div className="mt-4 flex justify-center gap-2">
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => setHaltDismissed(true)}>Manage (reassign)</Button>
+                  {paused && <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(false)}>Resume now</Button>}
                   <Button variant="primary" size="sm" disabled={busy} onClick={end}><LogOut className="mr-1 h-3.5 w-3.5" /> End session</Button>
                 </div>
               )}
             </div>
           </div>
         )}
-        {haltReason && haltDismissed && (
+        {haltActive && haltDismissed && (
           <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-3 py-2 text-sm text-neon-amber">
-            <PauseCircle className="h-4 w-4 shrink-0" /> Paused — {haltReason} Reassign the seat below, or wait for them to return.
+            <PauseCircle className="h-4 w-4 shrink-0" /> Paused — {haltMessage} Reassign the seat below, or resume from the header.
           </div>
         )}
 
@@ -602,6 +651,9 @@ export default function TeamRoomPage() {
               <Radio className="h-4 w-4 animate-pulse" /> Live — same feed for the whole team
               <span className="ml-auto font-mono text-xs text-slate-500">{online.size} online · {feed.length} logs · you: {ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
               <Button variant="outline" size="sm" onClick={() => setShowGuide(true)}>? Guide</Button>
+              {canRunSession && (paused
+                ? <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(false)}>Resume</Button>
+                : <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(true)}><PauseCircle className="mr-1 h-3.5 w-3.5" /> Pause</Button>)}
               {canRunSession && <Button variant="outline" size="sm" disabled={busy} onClick={end}>End session</Button>}
             </div>
 
