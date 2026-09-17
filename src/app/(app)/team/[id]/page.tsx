@@ -1542,10 +1542,19 @@ function DEConsole({ liveFeed, events, act }: { liveFeed: LiveEvent[]; events: E
     return liveFeed.filter(e => eventMatchesSearch(e, q));
   }, [liveFeed, f.keyword]);
   const published = events.filter(e => e.type === "rule.published");
+  const tuned = events.filter(e => e.type === "rule.tuned");
+  const [tuneText, setTuneText] = useState("");
+  const [busyTune, setBusyTune] = useState(false);
   async function publish() {
     if (!f.name.trim() || !f.keyword.trim()) return;
     setBusy(true); const ok = await act("rule.published", { ...f, matched: matched.length }); setBusy(false);
     if (ok) setF({ name: "", keyword: "", technique: "" });
+  }
+  async function tune() {
+    const ex = tuneText.trim(); if (!ex) return;
+    const last = published[published.length - 1]?.payload as { name?: string } | undefined;
+    setBusyTune(true); const ok = await act("rule.tuned", { rule: asStr(last?.name) || "last rule", exclusion: ex }); setBusyTune(false);
+    if (ok) setTuneText("");
   }
   return (
     <Card>
@@ -1564,6 +1573,16 @@ function DEConsole({ liveFeed, events, act }: { liveFeed: LiveEvent[]; events: E
         <Button variant="primary" size="sm" disabled={busy || !f.name.trim() || !f.keyword.trim()} onClick={publish}>Publish rule</Button>
       </div>
       {published.length > 0 && <div className="mt-3 border-t border-border/50 pt-2 space-y-1">{published.map(r => { const p = r.payload as { name?: string; matched?: number; keyword?: string }; return <p key={r.seq} className="truncate text-[11px] text-slate-400"><span className="text-slate-200">{asStr(p.name)}</span> <span className="font-mono text-[10px]">{asStr(p.keyword)}</span> · {p.matched ?? 0} matched</p>; })}</div>}
+      {/* Tune a rule — add an exclusion to cut false positives (rule.tuned) */}
+      {published.length > 0 && (
+        <div className="mt-2 space-y-1.5 border-t border-border/50 pt-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Tune a rule ({tuned.length})</p>
+          <div className="flex gap-1.5">
+            <input value={tuneText} onChange={e => setTuneText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") tune(); }} placeholder="Exclusion to cut FPs (e.g. user:svc-backup)" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <Button variant="outline" size="sm" disabled={busyTune || !tuneText.trim()} onClick={tune}>Tune</Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
@@ -1749,6 +1768,7 @@ interface RubricCtx {
   scopeSetDims: number; scopeConfirmDims: number; scopeConfirmed: boolean;
   decisionCount: number; decisionRationaleRate: number | null;
   ticketsAnswered: number; sitrepCount: number; reportQuality: number | null;
+  huntToConfirmMin: number | null; caseOwnedMin: number | null; mgmtRespondedRate: number | null;
 }
 function roleRubric(c: RubricCtx): RubricCell[] {
   switch (c.role) {
@@ -1769,16 +1789,16 @@ function roleRubric(c: RubricCtx): RubricCell[] {
     case "t3": return [
       { label: "Final scope (confirmed)", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 2 ? 8 : 4) : null, note: c.scopeConfirmed ? undefined : "not confirmed" },
       { label: "Hunt yield", score: bandHigh(c.huntCount, 2, 1, 1) },
-      { ...TODO, label: "Hypothesis→conclusion time" },
+      { label: "Hypothesis→conclusion time", score: c.huntToConfirmMin == null ? null : bandLow(c.huntToConfirmMin, 5, 12, 20) },
       { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null },
       { label: "Guidance to T2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : 0 },
     ];
     case "lead": return [
-      { ...TODO, label: "Team organised" },
+      { label: "Team organised", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15) },
       { label: "Time-to-approval", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12) },
       { label: "Decision log", score: c.decisionCount === 0 ? null : c.decisionRationaleRate == null ? 4 : bandHigh(c.decisionRationaleRate, 90, 60, 30) },
       { label: "Cadence + SITREP", score: c.sitrepCount === 0 ? null : bandHigh(c.sitrepCount, 3, 2, 1) },
-      { ...TODO, label: "Management pressure" },
+      { label: "Management pressure", score: c.mgmtRespondedRate == null ? null : bandHigh(c.mgmtRespondedRate, 100, 50, 1) },
     ];
     case "de": return [
       { label: "Verifiable rule", score: c.rulePublished ? bandHigh(c.ruleMatched, 2, 1, 1) : 0 },
@@ -1794,12 +1814,15 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Next-step prediction", score: c.intelNext == null ? null : bandHigh(c.intelNext, 90, 60, 30) },
       { ...TODO, label: "IOC precision" },
     ];
+    // In the 4-role model the SOC Manager IS the incident coordinator (approves
+    // containment, logs decisions, sends SITREPs, organises the team), so the
+    // rubric measures that coordinator work — all instrumented today.
     case "mgr": return [
-      { ...TODO, label: "SLA adherence" },
-      { label: "Workload balance", score: c.workloadSkew == null ? null : bandLow(c.workloadSkew, 20, 40, 60) },
-      { label: "Passdown", score: c.handoverComplete == null ? null : bandHigh(c.handoverComplete, 90, 60, 30) },
-      { label: "Reopen-rate", score: bandLow(c.reopens, 0, 1, 2) },
-      { ...TODO, label: "Elevation correctness" },
+      { label: "Team organised", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15) },
+      { label: "Time-to-approval", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12) },
+      { label: "Decision log", score: c.decisionCount === 0 ? null : c.decisionRationaleRate == null ? 4 : bandHigh(c.decisionRationaleRate, 90, 60, 30) },
+      { label: "Cadence + SITREP", score: c.sitrepCount === 0 ? null : bandHigh(c.sitrepCount, 3, 2, 1) },
+      { label: "Management pressure", score: c.mgmtRespondedRate == null ? null : bandHigh(c.mgmtRespondedRate, 100, 50, 1) },
     ];
     default: return [];
   }
@@ -1912,6 +1935,18 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     const sitrepCount = mine.filter(e => e.type === "sitrep.sent").length;
     const reports = mine.filter(e => e.type === "report.submitted");
     const reportQuality = reports.length ? Math.round(reports.reduce((s, e) => s + reportQualityScore(e.payload), 0) / reports.length) : null;
+    // T3: hypothesis→conclusion latency — first hunt logged → first scope confirmed.
+    const tms = (es: Ev[]) => es.map(e => e.occurred_at ? Date.parse(e.occurred_at) : NaN).filter(n => Number.isFinite(n));
+    const firstHuntTs = tms(hunts).length ? Math.min(...tms(hunts)) : null;
+    const firstConfirmTs = tms(scopeConfirms).length ? Math.min(...tms(scopeConfirms)) : null;
+    const huntToConfirmMin = firstHuntTs != null && firstConfirmTs != null && firstConfirmTs >= firstHuntTs ? (firstConfirmTs - firstHuntTs) / 60000 : null;
+    // Mgr "team organised": how soon the case got an explicit owner (case.assigned).
+    const caseAssigns = mine.filter(e => e.type === "case.assigned");
+    const caseOwnedMin = tms(caseAssigns).length ? Math.max(0, (Math.min(...tms(caseAssigns)) - startedMs) / 60000) : null;
+    // Mgr "management pressure": share of mgmt-pressure injects answered by a later SITREP.
+    const mgmtInjects = events.filter(e => e.type === "staff.inject" && String((e.payload as { kind?: string }).kind) === "mgmt_pressure");
+    const mySitrepTs = tms(mine.filter(e => e.type === "sitrep.sent"));
+    const mgmtRespondedRate = mgmtInjects.length ? Math.round(mgmtInjects.filter(mi => { const t = mi.occurred_at ? Date.parse(mi.occurred_at) : null; return t != null && mySitrepTs.some(st => st >= t); }).length / mgmtInjects.length * 100) : null;
 
     const rubric = roleRubric({
       role: m.role, dispAcc, escAckRate, escQuality, triageMin, ackLatencyMin, approvalLatencyMin,
@@ -1920,6 +1955,7 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
       scopeSetDims, scopeConfirmDims, scopeConfirmed: scopeConfirms.length > 0,
       decisionCount: decisions.length, decisionRationaleRate,
       ticketsAnswered, sitrepCount, reportQuality,
+      huntToConfirmMin, caseOwnedMin, mgmtRespondedRate,
     });
     const rubricPct = rubricPercent(rubric);
 
