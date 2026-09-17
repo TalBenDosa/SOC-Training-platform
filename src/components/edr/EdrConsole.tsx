@@ -287,6 +287,9 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
         </div>
 
         <Card className="border-cyber-500/20">
+          {/* Incident title — the description of the event under investigation, so the
+              analyst always sees WHAT they're investigating at the top of the console. */}
+          {inv.title && <p className="mb-3 flex items-start gap-2 border-b border-border/50 pb-3 text-sm font-semibold text-cyber-200"><FileSearch className="mt-0.5 h-4 w-4 shrink-0 text-cyber-400" />{inv.title}</p>}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-bg"><Cpu className="h-5 w-5 text-cyber-300" /></span>

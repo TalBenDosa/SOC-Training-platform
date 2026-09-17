@@ -304,6 +304,10 @@ export default function TeamRoomPage() {
   // Explicit Tier-2 → Tier-3 elevations (deep hunt). A separate queue so T3 gets
   // work handed to it, not just a shared inbox.
   const elevations = useMemo(() => events.filter(e => e.type === "elevation.requested"), [events]);
+  // Event-ids already escalated to Tier-3 — so T2's button shows an "escalated" state.
+  const elevatedIds = useMemo(() => new Set(elevations.map(e => String((e.payload as { event_id?: string }).event_id))), [elevations]);
+  // Which escalations already have a T2 incident report (§5 hard gate on resolve/containment).
+  const reportedIds = useMemo(() => new Set(events.filter(e => e.type === "report.submitted").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
   // Silent-failure guard (F6): if attack activity has been streaming for a while and
   // NOBODY has escalated yet, surface a team-level nudge so a missed attack doesn't
   // pass in silence until the debrief. Clears the moment anyone escalates.
@@ -379,11 +383,14 @@ export default function TeamRoomPage() {
   // /edr console pre-loaded on the process tree. Returns null for pure identity/
   // cloud attacks with no endpoint telemetry → we tell the analyst instead of
   // opening an empty console.
-  const openEdr = useCallback(() => {
+  const openEdr = useCallback((description?: string) => {
     try {
       const evs = feed.map(e => e.payload as unknown as TelemetryEvent);
       const inv = buildInvestigationFromStory({ id: `team-${id}`, title: "Team incident — live", events: evs });
       if (!inv) { setNote("No endpoint (EDR/Sysmon) telemetry in this incident yet — nothing to open in the EDR console."); return; }
+      // Put the escalated event's description in the EDR header, so the analyst
+      // always sees WHAT they're investigating (not a generic "Team incident").
+      if (description) inv.title = description;
       localStorage.setItem("edr_live_investigation", JSON.stringify(inv));
       const w = window.open(`/edr?case=live&team=${id}`, "_blank", "noopener");
       if (!w) { setNote("Pop-up blocked — allow pop-ups for this site, then click “Investigate in EDR” again."); }
@@ -548,8 +555,7 @@ export default function TeamRoomPage() {
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className="space-y-4">
                 {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
-                {me.role === "t2" && <IncidentReportConsole events={events} act={act} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} reportedIds={reportedIds} elevatedIds={elevatedIds} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
                 {me.role === "t3" && <HuntConsole scope={scopeState} elevations={elevations} acked={acked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de'/'ti'
@@ -634,6 +640,10 @@ function SharedCase({ events, feed, roster, me, act, nameOf }: { events: Ev[]; f
       </button>
 
       {open && (<>
+      {/* Plain explanation — the case was opaque to new players (feedback) */}
+      <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+        The team&apos;s <b className="text-slate-300">single source of truth</b> for this incident — it builds itself from what Tier-1 escalates. Move the <b className="text-slate-300">status</b> as the incident progresses (new → investigating → contained → closed); the SOC Manager assigns an <b className="text-slate-300">owner</b>; scope, evidence and isolations roll up here so everyone shares one picture.
+      </p>
       {/* lifecycle stepper */}
       <div className="mt-3 flex flex-wrap items-center gap-1">
         {CASE_STATUSES.map(s => (
@@ -1012,52 +1022,37 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
   );
 }
 
-// ── T2 incident report — a short written investigation summary, quality-graded ──
-const REPORT_VERDICTS = ["true_positive", "false_positive", "benign", "escalate"];
-function IncidentReportConsole({ events, act }: { events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
-  const [f, setF] = useState({ summary: "", findings: "", verdict: "true_positive", recommendation: "" });
-  const [busy, setBusy] = useState(false);
-  const submitted = events.filter(e => e.type === "report.submitted");
-  const words = f.findings.trim().split(/\s+/).filter(Boolean).length;
-  const canSubmit = !!f.summary.trim() && words >= 12 && !!f.verdict && !!f.recommendation.trim();
-  async function submit() {
-    if (!canSubmit) return;
-    setBusy(true);
-    const ok = await act("report.submitted", { summary: f.summary.trim(), findings: f.findings.trim(), verdict: f.verdict, recommendation: f.recommendation.trim() });
-    setBusy(false);
-    if (ok) setF({ summary: "", findings: "", verdict: "true_positive", recommendation: "" });
-  }
-  return (
-    <Card>
-      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><FileText className="h-4 w-4 text-cyber-300" /> Incident report ({submitted.length})</h3>
-      <p className="mt-1 text-[11px] text-slate-400">Write up your investigation — this is what a real T2 hands the incident owner. Graded on substance.</p>
-      <div className="mt-2 space-y-2">
-        <input value={f.summary} onChange={e => setF(s => ({ ...s, summary: e.target.value }))} placeholder="Summary — one line: what this incident is" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <textarea value={f.findings} onChange={e => setF(s => ({ ...s, findings: e.target.value }))} placeholder="Findings — what you investigated, the evidence, the scope (≥ 12 words)" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <div className="flex gap-2">
-          <select value={f.verdict} onChange={e => setF(s => ({ ...s, verdict: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{REPORT_VERDICTS.map(v => <option key={v} value={v}>verdict: {v.replace("_", " ")}</option>)}</select>
-        </div>
-        <input value={f.recommendation} onChange={e => setF(s => ({ ...s, recommendation: e.target.value }))} placeholder="Recommendation — what should happen next" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        {!canSubmit && <p className="text-[10px] text-slate-500">Needs: summary · findings ({words}/12 words) · verdict · recommendation.</p>}
-        <Button variant="primary" size="sm" disabled={busy || !canSubmit} onClick={submit}>Submit report</Button>
-      </div>
-    </Card>
-  );
-}
-
 // Shared working-scope shape (T2 sets, T3 confirms) — G-10.
 type ScopeState = { hosts: string[]; users: string[]; techniques: string[]; confirmed: boolean; by: string | null } | null;
 
 // ── T2/T3 console: escalation inbox → ack → request/execute containment + scope ─
-function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escResolved, contReq, contApproved, contExecuted, scope, nameOf, act, onEdr, onPivot }: {
-  role: string; meId: string; escalations: Ev[]; acked: Set<string>; ackedBy: Map<string, string>; escBounced: Set<string>; escResolved: Set<string>; contReq: Ev[]; contApproved: Set<string>; contExecuted: Set<string>;
-  scope: ScopeState; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: () => void;
+const BOUNCE_REASONS = ["Missing a clear indicator", "Looks like noise / benign", "Needs more context or evidence", "Duplicate of another case", "Other"];
+const T2_REPORT_VERDICTS = ["true_positive", "false_positive", "benign", "escalate"];
+const SEV_RANK: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 0.5 };
+const slaMinFor = (sev: string) => (sev === "critical" ? 1 : sev === "high" ? 3 : sev === "medium" ? 10 : 30);
+
+function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escResolved, reportedIds, elevatedIds, contReq, contApproved, contExecuted, scope, nameOf, act, onEdr, onPivot }: {
+  role: string; meId: string; escalations: Ev[]; acked: Set<string>; ackedBy: Map<string, string>; escBounced: Set<string>; escResolved: Set<string>; reportedIds: Set<string>; elevatedIds: Set<string>; contReq: Ev[]; contApproved: Set<string>; contExecuted: Set<string>;
+  scope: ScopeState; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [openLog, setOpenLog] = useState<number | null>(null); // which escalation's full log is expanded
   const [bouncingId, setBouncingId] = useState<string | null>(null); // eid being bounced (shows reason input)
+  const [bounceReason, setBounceReason] = useState(BOUNCE_REASONS[0]);
   const [bounceMsg, setBounceMsg] = useState("");
+  const [reportFor, setReportFor] = useState<string | null>(null); // eid whose report form is open
+  const [rep, setRep] = useState({ summary: "", findings: "", verdict: "true_positive", recommendation: "" });
+  // scope-first: containment can't be requested until a working scope exists.
+  const scopeSet = !!scope && (scope.hosts.length > 0 || scope.users.length > 0 || scope.techniques.length > 0);
+  async function submitReport(eid: string) {
+    const words = rep.findings.trim().split(/\s+/).filter(Boolean).length;
+    if (!rep.summary.trim() || words < 12 || !rep.recommendation.trim()) return;
+    setBusy("rep" + eid);
+    const ok = await act("report.submitted", { event_id: eid, summary: rep.summary.trim(), findings: rep.findings.trim(), verdict: rep.verdict, recommendation: rep.recommendation.trim() });
+    setBusy(null);
+    if (ok) { setReportFor(null); setRep({ summary: "", findings: "", verdict: "true_positive", recommendation: "" }); }
+  }
   // For Tier-3 the inbox is secondary (hunting is the dominant action) → collapse it
   // by default so the console isn't a wall of always-open cards.
   const [inboxOpen, setInboxOpen] = useState(role !== "t3");
@@ -1065,6 +1060,27 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
   const toExecute = contReq.filter(e => { const eid = String((e.payload as { event_id?: string }).event_id); return contApproved.has(eid) && !contExecuted.has(eid); });
   // Which escalations already have a containment request (so the button reflects it).
   const requestedIds = new Set(contReq.map(e => String((e.payload as { event_id?: string }).event_id)));
+  // Prioritized queue: open cases first, ranked by severity × waiting × confidence
+  // (a 'contain' request weighs heavier). Acked/bounced/resolved sink to the bottom.
+  const now = Date.now();
+  const prioKey = (e: Ev) => {
+    const p = e.payload as { event_id?: string; severity?: string; confidence?: number; requested_action?: string };
+    const eid = String(p.event_id);
+    const open = !acked.has(eid) && !escBounced.has(eid) && !escResolved.has(eid);
+    const sev = asStr(p.severity) || "medium";
+    const wait = e.occurred_at ? Math.max(0, (now - Date.parse(e.occurred_at)) / 60000) : 0;
+    const conf = typeof p.confidence === "number" ? p.confidence : 0.5;
+    const contain = p.requested_action === "contain" ? 1.5 : 1;
+    return { open, score: (SEV_RANK[sev] ?? 2) * (1 + wait / 5) * (0.5 + conf) * contain };
+  };
+  const prioritized = [...escalations].sort((a, b) => { const ka = prioKey(a), kb = prioKey(b); if (ka.open !== kb.open) return ka.open ? -1 : 1; return kb.score - ka.score; });
+  // Cases this analyst has taken (acked, not resolved) — the ones a report can be
+  // attached to in the bottom "your report" section (§5 handover to T3/Manager).
+  const eidOf = (e: Ev) => String((e.payload as { event_id?: string }).event_id);
+  const myCases = prioritized.filter(e => { const eid = eidOf(e); return acked.has(eid) && !escResolved.has(eid); });
+  const selEid = (reportFor && myCases.some(e => eidOf(e) === reportFor)) ? reportFor : (myCases[0] ? eidOf(myCases[0]) : null);
+  const selCase = myCases.find(e => eidOf(e) === selEid) || null;
+  const selLabel = selCase ? (asStr((selCase.payload as { summary?: string; what?: string }).summary) || asStr((selCase.payload as { what?: string }).what)) : "";
   return (
     <div className="space-y-4">
       <Card>
@@ -1073,13 +1089,13 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
             {role === "t3" && <button onClick={() => setInboxOpen(o => !o)} className="text-slate-400 hover:text-white"><ChevronDown className={`h-4 w-4 transition-transform ${inboxOpen ? "" : "-rotate-90"}`} /></button>}
             <Siren className="h-4 w-4 text-neon-amber" /> Escalations for you ({escalations.length})
           </h3>
-          {onEdr && <Button variant="outline" size="sm" onClick={onEdr}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+          {onEdr && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
         </div>
         {!inboxOpen ? <p className="mt-2 text-[11px] text-slate-500">{escalations.length} case(s) waiting — expand to review. Your focus is hunting &amp; scope below.</p>
           : escalations.length === 0 ? <p className="mt-2 text-xs text-slate-400">Nothing escalated yet. Tier-1 sends cases here.</p> : (
           <div className="mt-2 space-y-2">
-            {escalations.map(e => {
-              const p = e.payload as { event_id?: string; what?: string; summary?: string; why?: string; observations?: string; impact?: string; severity?: string; confidence?: number; requested_action?: string; entity?: string; hostname?: string; low_confidence?: boolean; iocs?: Ioc[]; snapshot?: Record<string, unknown> };
+            {prioritized.map(e => {
+              const p = e.payload as { event_id?: string; what?: string; summary?: string; why?: string; observations?: string; assessment?: string; impact?: string; severity?: string; confidence?: number; requested_action?: string; entity?: string; hostname?: string; low_confidence?: boolean; iocs?: Ioc[]; snapshot?: Record<string, unknown> };
               const eid = String(p.event_id); const isAck = acked.has(eid); const isBounced = escBounced.has(eid); const isResolved = escResolved.has(eid); const b = busy === e.seq + "";
               const target = asStr(p.entity) || asStr(p.hostname) || asStr(p.impact) || "the affected asset";
               const iocs = Array.isArray(p.iocs) ? p.iocs : [];
@@ -1092,21 +1108,33 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
                     {isResolved ? <span className="shrink-0 rounded border border-neon-green/40 bg-neon-green/10 px-1 py-0.5 text-[9px] font-bold uppercase text-neon-green">resolved</span>
                       : isBounced ? <span className="shrink-0 rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-0.5 text-[9px] font-bold uppercase text-neon-amber">bounced</span> : null}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-400">{asStr(p.observations) || asStr(p.why)}</p>
-                  {iocs.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{iocs.slice(0, 6).map(i => <span key={i.value} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[9px] text-slate-300"><span className="text-slate-500">{i.type}:</span>{i.value}</span>)}</div>}
+                  {/* The ticket carries T1's initial investigation — the label makes the
+                      bundle explicit (investigation + indicators + the log below). */}
+                  {(asStr(p.observations) || asStr(p.why) || asStr(p.assessment)) && (
+                    <div className="mt-1 rounded border border-border/50 bg-bg-elevated/30 px-2 py-1">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Tier-1 initial investigation</p>
+                      <p className="mt-0.5 text-[11px] text-slate-300">{asStr(p.observations) || asStr(p.why)}</p>
+                      {asStr(p.assessment) && <p className="mt-0.5 text-[11px] text-slate-400">Assessment: {asStr(p.assessment)}</p>}
+                    </div>
+                  )}
+                  {iocs.length > 0 && (
+                    <div className="mt-1">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Indicators ({iocs.length})</p>
+                      <div className="mt-0.5 flex flex-wrap gap-1">{iocs.slice(0, 8).map(i => <span key={i.value} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[9px] text-slate-300"><span className="text-slate-500">{i.type}:</span>{i.value}</span>)}</div>
+                    </div>
+                  )}
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-500">
                     <span>from {nameOf(e.actor_id)} · sev {asStr(p.severity) || asStr(p.impact) || "—"} · conf {p.confidence}{p.requested_action ? ` · asks: ${p.requested_action}` : ""}</span>
                     {!isAck && !isBounced && !isResolved && e.occurred_at && (() => {
                       const mins = Math.floor((Date.now() - Date.parse(e.occurred_at)) / 60000);
-                      const sev = asStr(p.severity);
-                      const hot = (sev === "high" || sev === "critical") && mins >= 5;
-                      return <span className={`rounded border px-1 py-px font-bold ${hot ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>⏱ waiting {mins}m</span>;
+                      const breached = mins >= slaMinFor(asStr(p.severity) || "medium"); // SLA by severity
+                      return <span className={`rounded border px-1 py-px font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ waiting {mins}m{breached ? " · SLA" : ""}</span>;
                     })()}
                   </p>
                   {/* Open the FULL original log T1 flagged — investigate the real event, not just the words */}
                   {snap && (
                     <button onClick={() => setOpenLog(isOpen ? null : e.seq)} className="mt-1 flex items-center gap-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "Open the flagged log (full detail)"}
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "View the full log (raw event + JSON)"}
                     </button>
                   )}
                   {snap && isOpen && (
@@ -1119,28 +1147,55 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
                   {isAck && (() => { const claimer = ackedBy.get(eid); return claimer && claimer !== meId
                     ? <p className="mt-1 text-[11px] text-neon-amber">🔒 handled by {nameOf(claimer)}</p>
                     : <p className="mt-1 text-[11px] text-neon-green">✓ you&apos;re handling this</p>; })()}
+                  {/* EDR prompt — once taken, nudge the analyst to investigate on the endpoint
+                      (both Tier-2 and Tier-3 can). Opens the EDR console with THIS event's
+                      description in its header. Shown when the flagged log has endpoint context. */}
+                  {isAck && (() => {
+                    const so = p.snapshot as { source?: string; hostname?: string } | undefined;
+                    const hasEndpoint = !!so && (so.source === "edr" || so.source === "sysmon" || !!so.hostname);
+                    if (!hasEndpoint || !onEdr) return null;
+                    return (
+                      <div className="mt-2 flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-2.5 py-1.5">
+                        <span className="text-sm leading-none">🖥</span>
+                        <span className="min-w-0 flex-1 text-[11px] text-cyber-200">Endpoint activity on this host — investigate it in EDR before you decide.</span>
+                        <Button variant="primary" size="sm" className="shrink-0" onClick={() => onEdr(asStr(p.summary) || asStr(p.what) || "Escalated incident")}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>
+                      </div>
+                    );
+                  })()}
                   {!isResolved && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {!isAck && !isBounced
                         ? <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("escalation.acknowledged", { event_id: eid }); setBusy(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Acknowledge (take this case)</Button>
                         : null}
+                      {/* Report is a hard gate for containment + resolve (§5) */}
+                      {isAck && !reportedIds.has(eid) && <Button variant="outline" size="sm" onClick={() => { setReportFor(eid); setRep({ summary: "", findings: "", verdict: "true_positive", recommendation: "" }); if (typeof document !== "undefined") document.getElementById("t2-report")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><FileText className="mr-1 h-3.5 w-3.5" /> Write report ↓</Button>}
+                      {isAck && reportedIds.has(eid) && <span className="inline-flex items-center gap-1 text-[11px] text-neon-green"><CheckCircle2 className="h-3.5 w-3.5" /> report filed</span>}
                       {isAck && (requestedIds.has(eid)
                         ? <span className="inline-flex items-center gap-1 text-[11px] text-cyber-300"><ShieldAlert className="h-3.5 w-3.5" /> containment requested</span>
-                        : <Button variant="primary" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("containment.requested", { event_id: eid, target, reason: p.what }); setBusy(null); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> Request containment</Button>)}
-                      {/* Hand a hard case down to Tier-3 for a deep hunt (routed, not shared) */}
-                      {role === "t2" && isAck && <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("elevation.requested", { event_id: eid, summary: asStr(p.summary) || asStr(p.what), snapshot: p.snapshot, hostname: asStr(p.hostname), entity: asStr(p.entity), severity: asStr(p.severity), iocs }); setBusy(null); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Elevate to Tier-3</Button>}
-                      {!isAck && !isBounced && bouncingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setBouncingId(eid); setBounceMsg(""); }}>Bounce</Button>}
-                      {isAck && <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("escalation.resolved", { event_id: eid }); setBusy(null); }}>Resolve</Button>}
+                        : <Button variant="primary" size="sm" disabled={b || !scopeSet || !reportedIds.has(eid)} onClick={async () => { setBusy(e.seq + ""); await act("containment.requested", { event_id: eid, target, reason: asStr(p.summary) || asStr(p.what) }); setBusy(null); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> Request containment</Button>)}
+                      {/* Escalate a hard case to Tier-3 for a deep hunt (routed handover, not shared) */}
+                      {role === "t2" && isAck && (elevatedIds.has(eid)
+                        ? <span className="inline-flex items-center gap-1 text-[11px] text-neon-purple"><ArrowUpRight className="h-3.5 w-3.5" /> escalated to Tier-3</span>
+                        : <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("elevation.requested", { event_id: eid, summary: asStr(p.summary) || asStr(p.what), snapshot: p.snapshot, hostname: asStr(p.hostname), entity: asStr(p.entity), severity: asStr(p.severity), iocs }); setBusy(null); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Escalate to Tier-3</Button>)}
+                      {!isAck && !isBounced && bouncingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setBouncingId(eid); setBounceReason(BOUNCE_REASONS[0]); setBounceMsg(""); }}>Bounce</Button>}
+                      {isAck && <Button variant="outline" size="sm" disabled={b || !reportedIds.has(eid)} onClick={async () => { setBusy(e.seq + ""); await act("escalation.resolved", { event_id: eid }); setBusy(null); }}>Resolve</Button>}
                       {/* Pin the key evidence to the Shared Case (wires the evidence.pinned rubric signal) */}
                       {isAck && <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("evidence.pinned", { event_id: eid, label: asStr(p.summary) || asStr(p.what) || "flagged log", iocs }); setBusy(null); }}>📌 Pin to case</Button>}
                     </div>
                   )}
-                  {/* Bounce with a written reason — T1 gets real feedback, not a canned string */}
+                  {/* What's blocking containment/resolve on this ticket */}
+                  {isAck && !isResolved && (!scopeSet || !reportedIds.has(eid)) && (
+                    <p className="mt-1 text-[10px] text-slate-500">Before containment/resolve:{!reportedIds.has(eid) ? " write the incident report ·" : ""}{!scopeSet ? " set the scope (needed for containment)" : ""}</p>
+                  )}
+                  {/* Bounce from a preset reason list (+ optional detail) — real, specific feedback to T1 */}
                   {!isResolved && bouncingId === eid && (
-                    <div className="mt-2 flex gap-1.5">
-                      <input autoFocus value={bounceMsg} onChange={ev => setBounceMsg(ev.target.value)} onKeyDown={async ev => { if (ev.key === "Enter" && bounceMsg.trim()) { setBusy(e.seq + ""); await act("escalation.bounced", { event_id: eid, reason: bounceMsg.trim() }); setBusy(null); setBouncingId(null); } }} placeholder="Why is this bounced? (what's missing)" className="flex-1 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-                      <Button variant="outline" size="sm" disabled={b || !bounceMsg.trim()} onClick={async () => { setBusy(e.seq + ""); await act("escalation.bounced", { event_id: eid, reason: bounceMsg.trim() }); setBusy(null); setBouncingId(null); }}>Send</Button>
-                      <Button variant="outline" size="sm" onClick={() => setBouncingId(null)}>✕</Button>
+                    <div className="mt-2 space-y-1.5">
+                      <select value={bounceReason} onChange={ev => setBounceReason(ev.target.value)} className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">{BOUNCE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}</select>
+                      <div className="flex gap-1.5">
+                        <input value={bounceMsg} onChange={ev => setBounceMsg(ev.target.value)} placeholder="Optional detail for Tier-1…" className="flex-1 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                        <Button variant="outline" size="sm" disabled={b} onClick={async () => { const reason = bounceReason + (bounceMsg.trim() ? ` — ${bounceMsg.trim()}` : ""); setBusy(e.seq + ""); await act("escalation.bounced", { event_id: eid, reason }); setBusy(null); setBouncingId(null); }}>Send bounce</Button>
+                        <Button variant="outline" size="sm" onClick={() => setBouncingId(null)}>✕</Button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1171,6 +1226,55 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
       {/* T2 sets the scope here; T3 gets the confirm-scope panel in its Hunt console
           instead (avoids showing two scope panels to Tier-3). */}
       {role === "t2" && <ScopeConsole scope={scope} mode="set" act={act} />}
+
+      {/* ── Bottom of the page: the analyst's own report ── §5 handover. A dedicated
+          place (not buried in a ticket) to attach the report, the determination and
+          the recommendations. Filing it is what unlocks containment & resolve. */}
+      <Card className="border-cyber-500/30">
+        <div id="t2-report" className="scroll-mt-4" />
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><FileText className="h-4 w-4 text-cyber-300" /> Your incident report — determination &amp; recommendations</h3>
+        <p className="mt-0.5 text-[11px] text-slate-400">Attach your report to a case you&apos;ve taken. This is the handover Tier-3 and the SOC Manager read: your findings, your determination (verdict), and what you recommend next. Filing it unlocks <b className="text-slate-300">containment</b> and <b className="text-slate-300">resolve</b> on that case.</p>
+        {myCases.length === 0 ? (
+          <p className="mt-2 text-xs text-slate-400">Acknowledge a case in the inbox above, then write its report here.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {/* Which case is this report for */}
+            <div>
+              <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Case this report is for</label>
+              <select value={selEid ?? ""} onChange={ev => { setReportFor(ev.target.value); setRep({ summary: "", findings: "", verdict: "true_positive", recommendation: "" }); }} className="mt-1 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none">
+                {myCases.map(e => { const eid = eidOf(e); const p = e.payload as { summary?: string; what?: string }; return <option key={eid} value={eid}>{reportedIds.has(eid) ? "✓ " : ""}{asStr(p.summary) || asStr(p.what) || eid}</option>; })}
+              </select>
+            </div>
+            {selEid && reportedIds.has(selEid) ? (
+              <div className="flex items-start gap-2 rounded-lg border border-neon-green/30 bg-neon-green/[0.06] px-3 py-2 text-[11px] text-neon-green"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /><span>Report filed for <b>{selLabel}</b>. Containment &amp; resolve are unlocked for this case. Pick another case above to report it, or resolve this one in the inbox.</span></div>
+            ) : selEid ? (
+              <div className="space-y-1.5 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.05] p-3">
+                <p className="text-[10px] text-slate-400">Reporting on: <b className="text-slate-200">{selLabel}</b></p>
+                <div>
+                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Summary — what this incident is</label>
+                  <input value={rep.summary} onChange={ev => setRep(s => ({ ...s, summary: ev.target.value }))} placeholder="e.g. Malicious macro on WS-FIN-2847 dropped an encoded PowerShell C2 beacon" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Findings — what you investigated, the evidence, the scope (≥ 12 words)</label>
+                  <textarea value={rep.findings} onChange={ev => setRep(s => ({ ...s, findings: ev.target.value }))} placeholder="What you confirmed in the log/EDR, the indicators, the affected hosts/users, whether it spread…" rows={3} className="mt-1 w-full resize-y rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Determination (verdict)</label>
+                  <select value={rep.verdict} onChange={ev => setRep(s => ({ ...s, verdict: ev.target.value }))} className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 focus:border-cyber-500/50 focus:outline-none">{T2_REPORT_VERDICTS.map(v => <option key={v} value={v}>{v.replace("_", " ")}</option>)}</select>
+                </div>
+                <div>
+                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Recommendations — what should happen next</label>
+                  <input value={rep.recommendation} onChange={ev => setRep(s => ({ ...s, recommendation: ev.target.value }))} placeholder="e.g. Isolate the host, block the domain, reset the user, hunt the hash fleet-wide" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                </div>
+                <div className="flex items-center gap-2 pt-0.5">
+                  <Button variant="primary" size="sm" disabled={busy === "rep" + selEid || !rep.summary.trim() || rep.findings.trim().split(/\s+/).filter(Boolean).length < 12 || !rep.recommendation.trim()} onClick={() => submitReport(selEid)}><FileText className="mr-1 h-3.5 w-3.5" /> File report</Button>
+                  <span className="text-[10px] text-slate-500">{rep.findings.trim().split(/\s+/).filter(Boolean).length}/12 words in findings</span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
@@ -1468,7 +1572,7 @@ function InjectFeed({ events, me, nameOf, act }: { events: Ev[]; me: Me; nameOf:
 // ── T3 threat-hunt console ───────────────────────────────────────────────────
 function HuntConsole({ scope, elevations, acked, nameOf, act, onEdr, onPivot }: {
   scope: ScopeState; elevations: Ev[]; acked: Set<string>; nameOf: (u: string | null) => string;
-  act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: () => void;
+  act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
   const [f, setF] = useState({ hypothesis: "", finding: "", technique: "" });
@@ -1498,7 +1602,7 @@ function HuntConsole({ scope, elevations, acked, nameOf, act, onEdr, onPivot }: 
                   <p className="mt-0.5 font-mono text-[10px] text-slate-500">from {nameOf(e.actor_id)} · sev {asStr(p.severity) || "—"}{asStr(p.hostname) ? ` · ${asStr(p.hostname)}` : ""}</p>
                   {snap && (
                     <button onClick={() => setOpenElev(isOpen ? null : e.seq)} className="mt-1 flex items-center gap-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "Open the flagged log (full detail)"}
+                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "View the full log (raw event + JSON)"}
                     </button>
                   )}
                   {snap && isOpen && <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40"><DetailPanelBody event={snap} onThreatQuery={() => {}} onPivot={onPivot} /></div>}
@@ -1513,7 +1617,7 @@ function HuntConsole({ scope, elevations, acked, nameOf, act, onEdr, onPivot }: 
       <Card>
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Threat hunt (Tier-3)</h3>
-          {onEdr && <Button variant="outline" size="sm" onClick={onEdr}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+          {onEdr && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
         </div>
         <p className="mt-1 text-[11px] text-slate-400">Beyond the queue: form a hypothesis, hunt the feed, record what you found.</p>
         <div className="mt-2 space-y-2">
