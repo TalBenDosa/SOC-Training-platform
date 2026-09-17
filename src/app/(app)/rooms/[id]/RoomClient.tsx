@@ -316,6 +316,13 @@ export function RoomClient({ room }: RoomClientProps) {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 )}
+                {/* FB-001: reopen the finished room in read mode — every task shows its
+                    completed state (readings re-readable, answers revealed) so a learner
+                    can go back over the material instead of hitting a dead end. */}
+                <Button variant="outline" size="lg" className="w-full" onClick={() => { setShowCompletion(false); setCurrentTaskIndex(0); }}>
+                  <BookOpen className="h-4 w-4" />
+                  Review this room
+                </Button>
                 <Button variant={nextRec ? "outline" : "primary"} size="lg" className="w-full" onClick={() => router.push("/rooms")}>
                   <ArrowLeft className="h-4 w-4" />
                   Back to Rooms

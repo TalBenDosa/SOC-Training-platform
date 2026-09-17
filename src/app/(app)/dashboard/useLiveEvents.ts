@@ -549,8 +549,15 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
       raw["winlog.event_data.IpAddress"] = event.src_ip;
       raw["winlog.event_data.IpPort"]    = "54322";
     }
-    if (event.hostname && !raw["winlog.event_data.WorkstationName"]) {
-      raw["winlog.event_data.WorkstationName"] = event.hostname;
+    // WorkstationName is the SOURCE workstation. For a network logon (Type 3) from
+    // an external IP the origin host is unknown → leave it "-" and record the target
+    // host as ComputerName; only stamp the local host for interactive/local logons.
+    const logonType = String(raw["winlog.event_data.LogonType"] ?? "");
+    if (event.hostname && !raw["winlog.computer_name"]) {
+      raw["winlog.computer_name"] = event.hostname;
+    }
+    if (!raw["winlog.event_data.WorkstationName"]) {
+      raw["winlog.event_data.WorkstationName"] = logonType === "3" ? "-" : (event.hostname ?? "-");
     }
   }
 
@@ -574,8 +581,9 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
   // Account lockout (4740) — Windows Security only (Okta lockouts use okta.*)
   if (isWinSecSource && event.event_type === "account_lockout" && !raw["winlog.event_data.Status"]) {
     raw["winlog.event_data.Status"]        = "0xC0000234"; // STATUS_ACCOUNT_LOCKED_OUT
-    raw["winlog.event_data.SubjectUserName"] = "SYSTEM";   // lockout triggered by system
-    raw["winlog.event_data.SubjectDomainName"] = "NT AUTHORITY";
+    // Guard: don't clobber an authored SubjectUserName (e.g. the DC computer account).
+    if (!raw["winlog.event_data.SubjectUserName"]) raw["winlog.event_data.SubjectUserName"] = "SYSTEM";
+    if (!raw["winlog.event_data.SubjectDomainName"]) raw["winlog.event_data.SubjectDomainName"] = "NT AUTHORITY";
     if (event.user_email && !raw["winlog.event_data.TargetUserName"]) {
       raw["winlog.event_data.TargetUserName"]   = event.user_email.split("@")[0];
       raw["winlog.event_data.TargetDomainName"] = (event.user_email.split("@")[1]?.split(".")[0] ?? "DOMAIN").toUpperCase();
@@ -650,17 +658,21 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
 
   // ── O365 / Azure AD auto-enrichment ─────────────────────────────────────
   if (event.source === "o365" && !raw["data.office365.Workload"]) {
-    const isAzureAD = event.event_type === "auth_success" || event.event_type === "auth_failure"
+    // Inbox-rule / mailbox operations are Exchange admin events, not Azure AD —
+    // even though we model them as `account_modify`.
+    const op = String(raw["data.office365.Operation"] ?? o365Op ?? "");
+    const isExchangeAdminOp = /InboxRule|Mailbox|TransportRule/i.test(op);
+    const isAzureAD = !isExchangeAdminOp && (event.event_type === "auth_success" || event.event_type === "auth_failure"
       || event.event_type === "mfa_challenge" || event.event_type === "mfa_denied"
       || event.event_type === "account_modify" || event.event_type === "account_create"
-      || event.event_type === "account_delete" || event.event_type === "group_modify";
-    const isExchange = event.event_type === "email_received" || event.event_type === "email_sent";
+      || event.event_type === "account_delete" || event.event_type === "group_modify");
+    const isExchange = isExchangeAdminOp || event.event_type === "email_received" || event.event_type === "email_sent";
     const isSharePoint = event.event_type === "sharepoint_access";
-    raw["data.office365.Workload"] = isAzureAD ? "AzureActiveDirectory"
-      : isExchange ? "Exchange"
+    raw["data.office365.Workload"] = isExchange ? "Exchange"
+      : isAzureAD ? "AzureActiveDirectory"
       : isSharePoint ? "SharePoint"
       : "AzureActiveDirectory";
-    raw["data.office365.RecordType"] = isAzureAD ? "15" : isExchange ? "2" : isSharePoint ? "6" : "15";
+    raw["data.office365.RecordType"] = isExchangeAdminOp ? "1" : isAzureAD ? "15" : isExchange ? "2" : isSharePoint ? "6" : "15";
     raw["data.office365.Version"]    = "1";
     if (event.user_email) {
       raw["data.office365.UserId"]   = event.user_email;
@@ -681,13 +693,15 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
   const isPrivateIp = (ip?: string) =>
     !!ip && (/^10\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip));
 
-  if (event.source === "firewall" && event.vendor?.includes("Palo Alto") && !raw["panw.panos.type"]) {
+  // One PAN-OS field convention only — flat panw.* (matches the field registry;
+  // avoids a second panw.panos.* schema on the same event).
+  if (event.source === "firewall" && event.vendor?.includes("Palo Alto") && !raw["panw.type"]) {
     const isThreat = event.severity === "medium" || event.severity === "high" || event.severity === "critical";
-    raw["panw.panos.type"]   = isThreat ? "THREAT" : "TRAFFIC";
-    raw["panw.panos.action"] = String(raw["event.action"] ?? (event.event_type.includes("block") ? "deny" : "allow"));
-    raw["panw.panos.source.zone"]      = isPrivateIp(event.src_ip) ? "trust" : "untrust";
-    raw["panw.panos.destination.zone"] = isPrivateIp(event.dst_ip) ? "trust" : "untrust";
-    if (raw["rule.name"]) raw["panw.panos.ruleset"] = String(raw["rule.name"]);
+    raw["panw.type"] = isThreat ? "THREAT" : "TRAFFIC";
+    if (!raw["event.action"]) raw["event.action"] = event.event_type.includes("block") ? "deny" : "allow";
+    raw["panw.source_zone"]      = isPrivateIp(event.src_ip) ? "trust" : "untrust";
+    raw["panw.destination_zone"] = isPrivateIp(event.dst_ip) ? "trust" : "untrust";
+    if (raw["rule.name"] && !raw["panw.rule"]) raw["panw.rule"] = String(raw["rule.name"]);
   }
 
   if (event.vendor?.includes("CrowdStrike") && !raw["crowdstrike.aid"]) {

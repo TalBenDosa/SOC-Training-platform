@@ -16,7 +16,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
-import { AlertTriangle, Building2, Clock, ShieldCheck } from "lucide-react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { AlertTriangle, Building2, Clock, ShieldCheck, Pencil, KeyRound, Check } from "lucide-react";
 
 interface AccountInfo {
   handle: string | null;
@@ -40,6 +41,57 @@ export default function AccountPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filed, setFiled] = useState(false);
+
+  // FB-011: edit display name + change password.
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [nameMsg, setNameMsg] = useState<string | null>(null);
+  const [pw1, setPw1] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
+  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function saveDisplayName() {
+    const next = nameDraft.trim();
+    if (next.length < 2) { setNameMsg("Name must be at least 2 characters."); return; }
+    setSavingName(true); setNameMsg(null);
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not update your name.");
+      setInfo(prev => prev ? { ...prev, display_name: data.display_name } : prev);
+      setEditingName(false);
+    } catch (e) {
+      setNameMsg(e instanceof Error ? e.message : "Could not update your name.");
+    } finally {
+      setSavingName(false);
+    }
+  }
+
+  async function changePassword() {
+    if (pw1.length < 8) { setPwMsg({ ok: false, text: "Password must be at least 8 characters." }); return; }
+    if (pw1 !== pw2) { setPwMsg({ ok: false, text: "The two passwords don't match." }); return; }
+    setSavingPw(true); setPwMsg(null);
+    try {
+      // Session-authenticated: the logged-in user updates their own password;
+      // Supabase requires a valid session, no admin key involved.
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) throw new Error("Auth is not available right now. Please reload and try again.");
+      const { error: err } = await supabase.auth.updateUser({ password: pw1 });
+      if (err) throw new Error(err.message);
+      setPw1(""); setPw2("");
+      setPwMsg({ ok: true, text: "Password updated." });
+    } catch (e) {
+      setPwMsg({ ok: false, text: e instanceof Error ? e.message : "Could not update your password." });
+    } finally {
+      setSavingPw(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -107,9 +159,28 @@ export default function AccountPage() {
             <dt className="text-slate-400">Handle</dt>
             <dd className="text-slate-200">{info?.handle ?? "—"}</dd>
           </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-slate-400">Display name</dt>
-            <dd className="text-slate-200">{info?.display_name ?? "—"}</dd>
+          <div className="flex items-start justify-between gap-4">
+            <dt className="text-slate-400 pt-1.5">Display name</dt>
+            <dd className="text-slate-200">
+              {editingName ? (
+                <div className="flex flex-col items-end gap-1.5">
+                  <input
+                    autoFocus value={nameDraft} onChange={e => setNameDraft(e.target.value)} maxLength={60}
+                    onKeyDown={e => { if (e.key === "Enter") saveDisplayName(); if (e.key === "Escape") setEditingName(false); }}
+                    className="w-56 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-sm text-white focus:border-cyber-500 focus:outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="primary" disabled={savingName} onClick={saveDisplayName}>{savingName ? "Saving…" : "Save"}</Button>
+                    <Button size="sm" variant="ghost" disabled={savingName} onClick={() => { setEditingName(false); setNameMsg(null); }}>Cancel</Button>
+                  </div>
+                  {nameMsg && <p className="text-[11px] text-red-400">{nameMsg}</p>}
+                </div>
+              ) : (
+                <button onClick={() => { setNameDraft(info?.display_name ?? ""); setEditingName(true); setNameMsg(null); }} className="inline-flex items-center gap-1.5 text-slate-200 hover:text-cyber-300 transition-colors">
+                  {info?.display_name ?? "—"} <Pencil className="h-3 w-3 opacity-60" />
+                </button>
+              )}
+            </dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-slate-400">XP</dt>
@@ -129,6 +200,36 @@ export default function AccountPage() {
             <Link href="/privacy" className="text-cyber-300 hover:underline">Privacy &amp; data</Link>
           </span>
         </p>
+      </Card>
+
+      {/* ── Change password (FB-011) ────────────────────────────────────── */}
+      <Card className="mt-6">
+        <h2 className="flex items-center gap-2 text-sm font-bold text-white">
+          <KeyRound className="h-4 w-4 text-cyber-300" /> Change password
+        </h2>
+        <p className="mt-2 text-xs text-slate-400">Set a new password for {user?.email}. At least 8 characters.</p>
+        <div className="mt-3 space-y-2 max-w-sm">
+          <input
+            type="password" autoComplete="new-password" placeholder="New password" value={pw1}
+            onChange={e => { setPw1(e.target.value); setPwMsg(null); }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-cyber-500 focus:outline-none"
+          />
+          <input
+            type="password" autoComplete="new-password" placeholder="Confirm new password" value={pw2}
+            onChange={e => { setPw2(e.target.value); setPwMsg(null); }}
+            onKeyDown={e => { if (e.key === "Enter") changePassword(); }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-cyber-500 focus:outline-none"
+          />
+          <Button variant="primary" disabled={savingPw || !pw1 || !pw2} onClick={changePassword}>
+            {savingPw ? "Updating…" : "Update password"}
+          </Button>
+          {pwMsg && (
+            <p className={`flex items-center gap-1.5 text-xs ${pwMsg.ok ? "text-neon-green" : "text-red-400"}`}>
+              {pwMsg.ok && <Check className="h-3.5 w-3.5" />}{pwMsg.text}
+            </p>
+          )}
+        </div>
+        <p className="mt-4 text-[11px] text-slate-500">Your handle ({info?.handle ?? "—"}) and login email are fixed identifiers and can&apos;t be changed here.</p>
       </Card>
 
       {/* ── Deletion ─────────────────────────────────────────────────────── */}

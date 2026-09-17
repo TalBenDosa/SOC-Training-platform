@@ -1087,7 +1087,7 @@ Based on your analysis:
     {
       type: "flag",
       id: "ep-sec-f1",
-      prompt: "Look at the CrowdStrike alert log above. The PowerShell command uses a specific flag to hide the console window from the user. What is the **short form** of the WindowStyle flag used in the command line? (e.g. `-W Hidden` — enter just the flag name starting with `-W`)",
+      prompt: "Look at the CrowdStrike alert log above. The PowerShell command uses a specific flag to hide the console window from the user. Read the command line and enter that flag exactly as it appears there — the flag plus its value (it starts with `-W`).",
       answer: "-W Hidden",
       hint: "Look at the crowdstrike.CommandLine field in the raw log. Find the flag that controls the window style. It is two characters followed by a space and a word.",
       xp: 50,

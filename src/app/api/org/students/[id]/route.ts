@@ -120,7 +120,8 @@ export async function GET(_req: Request, { params }: Ctx) {
   const allLatencies: number[] = [];
   const rooms = roomRows.map(r => {
     const tel = Array.isArray(r.telemetry) ? r.telemetry : [];
-    const lat = tel.map(t => t.decisionLatencyMs).filter((x): x is number => typeof x === "number" && x >= 0);
+    // FB-018: clamp idle/away time so a task left open can't skew decision-time stats.
+    const lat = tel.map(t => t.decisionLatencyMs).filter((x): x is number => typeof x === "number" && x >= 0).map(x => Math.min(x, 5 * 60 * 1000));
     allLatencies.push(...lat);
     return {
       room_id: r.room_id,

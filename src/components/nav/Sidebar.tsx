@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -171,6 +171,18 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             maintains the material. The count is the point: an unread report is
             a known defect nobody has looked at. */}
         <ContentFeedbackLink onNavigate={onNavigate} />
+        {/* Team-SOC training — shared multiplayer exercises. Any org member sees
+            it (they enter sessions they're invited to; staff also build them). */}
+        {(!!orgRole || isPlatformAdmin) && (
+          <Link
+            href="/team"
+            onClick={onNavigate}
+            className="mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-cyber-300 hover:bg-white/5 hover:text-cyber-200 transition-colors"
+          >
+            <Users className="h-3.5 w-3.5 shrink-0" />
+            <span>Team Training</span>
+          </Link>
+        )}
         {/* Org-admin console — a college managing its own class. Claim-gated in
             the UI; enforced by middleware + the org-scoped API routes. */}
         {orgRole === "org_admin" && !isPlatformAdmin && (

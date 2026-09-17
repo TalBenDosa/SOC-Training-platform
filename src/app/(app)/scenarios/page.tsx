@@ -5,7 +5,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { LibraryCard } from "@/components/ui/LibraryCard";
 import { SCENARIOS } from "@/lib/sim/scenarios";
-import { getRoomProgress } from "@/lib/storage/progress";
+import { getRoomProgress, getScenarioHistory } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import { SCENARIO_PREP } from "@/lib/scenarios/prep";
 import { ROOMS_META } from "@/data/roomsMeta";
@@ -70,6 +70,8 @@ export default function ScenariosPage() {
   const [hidden, setHidden]       = useState<string[]>([]);
   const [published, setPublished] = useState<PublishedScenario[]>([]);
   const [doneRooms, setDoneRooms] = useState<Set<string>>(new Set());
+  // FB-006: best score per completed scenario slug, so the list can mark what's done.
+  const [bestScore, setBestScore] = useState<Record<string, number>>({});
 
   useEffect(() => {
     try {
@@ -78,6 +80,13 @@ export default function ScenariosPage() {
       // readiness hint below (via the same facade the Rooms page uses).
       const rp = getRoomProgress() as Record<string, { completedAt?: string }>;
       setDoneRooms(new Set(Object.entries(rp).filter(([, v]) => v?.completedAt).map(([id]) => id)));
+      // FB-006: a scenario was "completed" if it has any history record; keep the best score.
+      const best: Record<string, number> = {};
+      for (const h of getScenarioHistory()) {
+        if (!h.slug) continue;
+        best[h.slug] = Math.max(best[h.slug] ?? 0, h.score ?? 0);
+      }
+      setBestScore(best);
     } catch { /* storage blocked */ }
     // Admin-published scenarios now live in the durable content_scenarios
     // table (migration 0019), not per-browser localStorage — this is what
@@ -150,7 +159,14 @@ export default function ScenariosPage() {
                 typeLabel="Simulation"
                 title={s.title}
                 subtitle={s.summary}
-                cornerBadge={<span className={diffPill(s.difficulty)}>{s.difficulty}</span>}
+                cornerBadge={
+                  <div className="flex items-center gap-2">
+                    {bestScore[s.slug] !== undefined && (
+                      <span className="rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase text-neon-green">✓ Completed{bestScore[s.slug] > 0 ? ` · ${bestScore[s.slug]}%` : ""}</span>
+                    )}
+                    <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
+                  </div>
+                }
                 meta={<>+250 XP · ~45 min</>}
                 cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25">Launch <ArrowRight className="h-3.5 w-3.5" /></span>}
               >
@@ -185,6 +201,9 @@ export default function ScenariosPage() {
               subtitle={s.briefing}
               cornerBadge={
                 <div className="flex items-center gap-2">
+                  {bestScore[s.scenario_id!] !== undefined && (
+                    <span className="rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase text-neon-green">✓ Completed</span>
+                  )}
                   <span className="rounded border border-cyber-500/30 bg-black/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyber-200 backdrop-blur-sm">Custom</span>
                   <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
                 </div>

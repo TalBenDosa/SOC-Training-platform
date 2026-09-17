@@ -2069,13 +2069,13 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     id: "gl_itv_001", ts: "2026-05-10T09:30:00.000Z",
     source: "ad", event_type: "account_modify", severity: "medium",
     vendor: "Windows Security", hostname: "DC-GL-FRA01",
-    user_email: "it-admin.gl@globallogis.de",
-    description: "it-admin.gl reset password for warehouse supervisor k.bauer",
+    user_email: "it.admin.gl@globallogis.de",
+    description: "it.admin.gl reset password for warehouse supervisor k.bauer",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Helpdesk ticket INC-GL-7712 from k.bauer (Warehouse Supervisor, FRA). k.bauer forgot their password after returning from sick leave. Identity verified via employee ID and manager callback. Password reset performed by Tier-1 support within SLA.",
     raw: {
       "winlog.event_id": "4723", "winlog.event_data.TargetUserName": "GL\\k.bauer",
-      "winlog.event_data.SubjectUserName": "GL\\it-admin.gl", "host.name": "DC-GL-FRA01",
+      "winlog.event_data.SubjectUserName": "GL\\it.admin.gl", "host.name": "DC-GL-FRA01",
       "ad.changed_attributes": "unicodePwd", "action_result": "success"
     }
   },
@@ -2092,7 +2092,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
       // 4732 semantics: TargetUserName is the GROUP; the account being added is
       // MemberName/MemberSid. Both were briefly mapped to TargetUserName.
       "winlog.event_id": "4732", "winlog.event_data.TargetUserName": "Administrators",
-      "winlog.event_data.MemberName": "GL\\svc-erp", "winlog.event_data.SubjectUserName": "GL\\it-admin.gl",
+      "winlog.event_data.MemberName": "GL\\svc-erp", "winlog.event_data.SubjectUserName": "GL\\it.admin.gl",
       "host.name": "SRV-GL-ERP01", "action_result": "success"
     }
   },
@@ -2100,13 +2100,13 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     id: "gl_itv_003", ts: "2026-05-10T17:10:00.000Z",
     source: "ad", event_type: "account_create", severity: "medium",
     vendor: "Windows Security", hostname: "DC-GL-FRA01",
-    user_email: "it-admin.gl@globallogis.de",
-    description: "it-admin.gl created new svc-logistics2 service account",
+    user_email: "it.admin.gl@globallogis.de",
+    description: "it.admin.gl created new svc-logistics2 service account",
     it_verify_result: "confirmed",
     it_verify_message: "IT confirmed: Change CHG-GL-558 from the Infrastructure team. New service account required for the WMS 3.2 upgrade scheduled for 2026-05-12. Account creation pre-approved by IT Manager and documented in the software deployment plan.",
     raw: {
       "winlog.event_id": "4720", "winlog.event_data.TargetUserName": "GL\\svc-logistics2",
-      "winlog.event_data.SubjectUserName": "GL\\it-admin.gl", "host.name": "DC-GL-FRA01",
+      "winlog.event_data.SubjectUserName": "GL\\it.admin.gl", "host.name": "DC-GL-FRA01",
       "ad.object_dn": "CN=svc-logistics2,OU=ServiceAccounts,DC=globallogis,DC=de",
       "ad.account_type": "ServiceAccount", "action_result": "success"
     }
@@ -2798,7 +2798,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     severity: "high", vendor: "Microsoft 365 Unified Audit Log", user_email: "c.thornton@nexacorp.com",
     description: "c.thornton created inbox rule SyncRule01 auto-forwarding mail matching wire/transfer/payment keywords to an external address (d.rennik88@proton.me)",
     mitre_technique: "T1114.003",
-    raw: { "data.office365.Operation": "New-InboxRule", "data.office365.Parameters": "ForwardTo=d.rennik88@proton.me; SubjectContainsWords=wire,transfer,payment", "data.office365.ClientIP": "185.220.100.209", "action_result": "allowed" }
+    raw: { "data.office365.Operation": "New-InboxRule", "data.office365.Workload": "Exchange", "data.office365.RecordType": "1", "data.office365.Parameters": "[{\"Name\":\"ForwardTo\",\"Value\":\"d.rennik88@proton.me\"},{\"Name\":\"SubjectContainsWords\",\"Value\":\"wire,transfer,payment\"}]", "data.office365.ClientIP": "185.220.100.209", "action_result": "allowed" }
   },
   {
     id: "nx_a4", ts: "2026-05-10T09:38:00.000Z", source: "cloud_azure", event_type: "cloud_api_call",
@@ -2859,7 +2859,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     mitre_technique: "T1114.003", mitre_tactic: "Collection",
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "ceo@nexacorp.com",
-      "data.office365.Parameters": "ForwardTo=cfo.nexacorp@proton.me; SubjectContainsWords=wire,transfer,payment,invoice; MoveToFolder=RSS Subscriptions; MarkAsRead=true",
+      "data.office365.Parameters": "[{\"Name\":\"ForwardTo\",\"Value\":\"cfo.nexacorp@proton.me\"},{\"Name\":\"SubjectContainsWords\",\"Value\":\"wire,transfer,payment,invoice\"},{\"Name\":\"MoveToFolder\",\"Value\":\"RSS Subscriptions\"},{\"Name\":\"MarkAsRead\",\"Value\":\"true\"}]",
       "data.office365.ClientIP": "185.220.100.44",
       "GeoLocation.country_name": "Romania", "GeoLocation.city_name": "Bucharest",
       "data.office365.ResultStatus": "Succeeded", "data.office365.Workload": "Exchange",
@@ -2913,9 +2913,11 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     id: "nx_d1", ts: "2026-05-10T17:00:00.000Z", source: "ad", event_type: "auth_failure",
     severity: "high", vendor: "Windows Security",
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
-    description: "61 network logon failures on SRV-NXC-DC01 from 185.220.101.45 across 14 usernames",
+    description: "Failed network logon (4625) for NEXACORP\\jchen on SRV-NXC-DC01 from 185.220.101.45 (bad password) — first of a rapid series",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
-    raw: { "event.code": "4625", "winlog.event_data.LogonType": "3", "winlog.event_data.SubStatus": "0xC000006A",
+    raw: { "event.code": "4625", "winlog.computer_name": "SRV-NXC-DC01",
+           "winlog.event_data.TargetUserName": "jchen", "winlog.event_data.TargetDomainName": "NEXACORP",
+           "winlog.event_data.LogonType": "3", "winlog.event_data.SubStatus": "0xC000006A",
            "source.ip": "185.220.101.45", "source.geo.country_iso_code": "NL",
            "action_result": "deny" }
   },
@@ -2923,9 +2925,11 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     id: "nx_d2", ts: "2026-05-10T17:03:00.000Z", source: "ad", event_type: "auth_failure",
     severity: "high", vendor: "Windows Security",
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
-    description: "Failures from 185.220.101.45 now cover 22 Active Directory accounts, one attempt per account",
+    description: "Failed network logon (4625) for NEXACORP\\mwilson on SRV-NXC-DC01 from the same source 185.220.101.45 — spray now hitting a second account",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
-    raw: { "event.code": "4625", "winlog.event_data.LogonType": "3", "winlog.event_data.SubStatus": "0xC000006A",
+    raw: { "event.code": "4625", "winlog.computer_name": "SRV-NXC-DC01",
+           "winlog.event_data.TargetUserName": "mwilson", "winlog.event_data.TargetDomainName": "NEXACORP",
+           "winlog.event_data.LogonType": "3", "winlog.event_data.SubStatus": "0xC000006A",
            "source.ip": "185.220.101.45", "source.geo.country_iso_code": "NL", "action_result": "deny" }
   },
   {
@@ -2934,7 +2938,7 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     hostname: "SRV-NXC-DC01", src_ip: "185.220.101.45",
     description: "Account jchen locked out on SRV-NXC-DC01, caller computer 185.220.101.45 (6 more lockouts followed)",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
-    raw: { "event.code": "4740", "winlog.event_id": "4740",
+    raw: { "event.code": "4740",
            "winlog.channel": "Security", "winlog.computer_name": "SRV-NXC-DC01",
            "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
            "winlog.event_data.TargetUserName": "jchen",
@@ -2951,10 +2955,10 @@ const NEXACORP_ATTACKS: TelemetryEvent[] = [
     src_ip: "185.220.101.45", dst_ip: "10.10.1.2", dst_port: 445, protocol: "tcp",
     description: "Palo Alto reset SMB sessions from 185.220.101.45 to 10.10.1.2 on threat signature 40001",
     mitre_technique: "T1110.003", mitre_tactic: "Credential Access",
-    raw: { "pan.threat_id": "40001", "pan.threat_name": "SMB: User Password Brute Force Attempt",
-           "pan.action": "reset-both", "pan.severity": "high",
-           "pan.rule": "OUTSIDE-IN-BLOCK", "pan.app": "msrpc-base",
-           "network.transport": "tcp",
+    raw: { "panw.threatid": "40001", "panw.subtype": "vulnerability",
+           "panw.rule": "OUTSIDE-IN-BLOCK", "panw.category": "brute-force",
+           "event.action": "reset-both", "network.transport": "tcp",
+           "network.protocol": "smb",
            "source.ip": "185.220.101.45", "destination.ip": "10.10.1.2",
            "destination.port": "445", "action_result": "blocked" }
   },

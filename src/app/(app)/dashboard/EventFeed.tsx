@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, memo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
 
@@ -372,14 +372,25 @@ const ADMIN_EVENT_TYPES = new Set([
   "cloud_role_change", "linux_priv_change",
 ]);
 
-function DetailPanel({
-  event,
-  onThreatQuery,
-}: {
+type DetailPanelProps = {
   event: LiveEvent;
   onThreatQuery: (q: ThreatQuery) => void;
   onXp?: (xp: number) => void;
-}) {
+  onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  onAddIoc?: (value: string, type: string) => void;
+  onEscalate?: (event: LiveEvent) => void;
+};
+
+/** Panel body WITHOUT a table-cell wrapper — place this inside a <div> for any
+ *  standalone use (e.g. Tier-2/Tier-3 "open the flagged log"). Inside the feed
+ *  table, use <DetailPanel> (the <td> wrapper below) instead. */
+export function DetailPanelBody({
+  event,
+  onThreatQuery,
+  onPivot,
+  onAddIoc,
+  onEscalate,
+}: DetailPanelProps) {
   const [showRawJson, setShowRawJson] = useState(false);
   const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done">("idle");
 
@@ -481,10 +492,29 @@ function DetailPanel({
   const detailedFields: [string, string][] = [...ecsCore, ...rawFields, ...rawBool];
 
   return (
-    <td colSpan={7} className="bg-[#080d14] p-0">
+    <div className="bg-[#080d14]">
       {/* Log reading tour — fires once on first-ever event expansion */}
       <LogReadingTour />
       <div className="border-t border-border/50 px-5 py-4 space-y-3">
+        {/* Escalate-this-log CTA — Tier-1 only (parent passes onEscalate). Opens the
+            structured escalation report pre-loaded with THIS log + its indicators. */}
+        {onEscalate && (
+          <button
+            onClick={e => { e.stopPropagation(); onEscalate(event); }}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-left transition-colors hover:bg-amber-500/20"
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="text-lg leading-none">🚩</span>
+              <span className="flex flex-col">
+                <span className="text-sm font-semibold text-amber-200">Escalate this log to Tier-2</span>
+                <span className="text-[11px] text-amber-300/70">Flag it and write a short report — case info + indicators</span>
+              </span>
+            </span>
+            <span className="shrink-0 rounded-md border border-amber-400/60 bg-amber-400/20 px-3 py-1 text-xs font-semibold text-amber-100">
+              Open report →
+            </span>
+          </button>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -591,12 +621,39 @@ function DetailPanel({
                     </div>
                   </div>
                 )}
-                {basicInfo.map(([label, value, colorClass]) => (
-                  <div key={label} className="flex gap-3">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-400">{label}</span>
-                    <span className={cn("font-mono text-[11px] text-slate-200 break-all", colorClass)}>{value}</span>
-                  </div>
-                ))}
+                {basicInfo.map(([label, value, colorClass]) => {
+                  // G-04 click-to-pivot: for the identity rows, offer a chip that
+                  // filters the whole feed to this host/user/IP (team feed only —
+                  // single-player omits onPivot, so no chip renders).
+                  const pivotField: "user" | "host" | "ip" | null =
+                    label === "Username" ? "user" : label === "Hostname" ? "host" : label === "IP Address" ? "ip" : null;
+                  const canPivot = !!onPivot && !!pivotField && !!value && value !== "—";
+                  // T1-5: add this identity value to the Tier-1 escalation report as an IOC.
+                  const iocType = label === "Username" ? "user" : label === "Hostname" ? "host" : label === "IP Address" ? "ip" : null;
+                  const canIoc = !!onAddIoc && !!iocType && !!value && value !== "—";
+                  return (
+                    <div key={label} className="flex gap-3 items-center">
+                      <span className="w-36 shrink-0 text-[11px] text-slate-400">{label}</span>
+                      <span className={cn("font-mono text-[11px] text-slate-200 break-all", colorClass)}>{value}</span>
+                      <span className="ml-auto shrink-0 flex gap-1.5">
+                        {canIoc && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onAddIoc!(value, iocType!); }}
+                            title={`Add ${value} to the escalation as an IOC`}
+                            className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 text-[10px] font-semibold text-neon-green hover:bg-neon-green/20"
+                          >＋ IOC</button>
+                        )}
+                        {canPivot && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onPivot!(pivotField!, value); }}
+                            title={`Filter the feed to ${value}`}
+                            className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyber-300 hover:bg-cyber-500/20"
+                          >⤢ pivot</button>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
                 {/* MITRE ATT&CK mapping lives here in the expanded panel — the
                     student must open the row to see the technique (it is
                     deliberately absent from the always-visible row). */}
@@ -664,6 +721,15 @@ function DetailPanel({
                             <Shield className="h-2.5 w-2.5" /> Check Domain · Threat Intel
                           </button>
                         )}
+
+                        {/* ＋IOC — add this hash/IP/domain straight to the Tier-1 escalation
+                            report (team feed only), so it isn't hand-retyped. */}
+                        {onAddIoc && hasBtn && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onAddIoc!(v, showHash ? "sha256" : showIp ? "ip" : "domain"); }}
+                            className="inline-flex w-fit items-center gap-1 rounded border border-cyber-500/50 bg-cyber-500/10 px-2 py-0.5 text-[9px] font-bold text-cyber-300 hover:bg-cyber-500/20 transition"
+                          >＋ IOC</button>
+                        )}
                       </div>
                     </div>
                   );
@@ -676,8 +742,13 @@ function DetailPanel({
 
 
       </div>
-    </td>
+    </div>
   );
+}
+
+/** Table-cell wrapper — the feed renders the expanded row as a <tr><td colSpan>. */
+export function DetailPanel(props: DetailPanelProps) {
+  return <td colSpan={7} className="bg-[#080d14] p-0"><DetailPanelBody {...props} /></td>;
 }
 
 
@@ -846,21 +917,38 @@ function SocMethodologyBanner() {
 // ─── Event row ────────────────────────────────────────────────────────────────
 
 const EventRow = memo(function EventRow({
-  event, isNew, onThreatQuery, onXp, onRowOpened,
+  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus,
 }: {
   event: LiveEvent;
   isNew: boolean;
   onThreatQuery: (q: ThreatQuery) => void;
   onXp?: (xp: number) => void;
-  onRowOpened?: () => void;
+  onRowOpened?: (eventId?: string, dwellMs?: number) => void;
+  onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  onAddIoc?: (value: string, type: string) => void;
+  onEscalate?: (event: LiveEvent) => void;
+  rowStatus?: (id?: string) => { disposed?: string; claim?: "me" | "other"; escalated?: boolean } | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // Timestamp of the current open, so dwell can be measured expand→collapse.
+  const openedAtRef = useRef<number | null>(null);
 
   function toggleExpanded() {
     // Side effect lives in the handler, not inside setExpanded's updater —
     // React (Strict Mode) may invoke an updater function twice to check for
     // impurities, which would double-count this if it lived there.
-    if (!expanded) onRowOpened?.(); // only count transitions into "opened", not collapses
+    if (!expanded) {
+      // Transition INTO "opened": record the open (dwell not yet known → 0) so
+      // MTTA / "events opened" can be counted even if the row is never closed.
+      openedAtRef.current = Date.now();
+      onRowOpened?.(event.id, 0);
+    } else {
+      // Transition INTO "closed": report the dwell for this event so the report
+      // can measure investigation depth. Same event id → caller dedups/maxes.
+      const dwellMs = openedAtRef.current != null ? Date.now() - openedAtRef.current : 0;
+      openedAtRef.current = null;
+      onRowOpened?.(event.id, dwellMs);
+    }
     setExpanded(v => !v);
   }
 
@@ -953,6 +1041,21 @@ const EventRow = memo(function EventRow({
               {!event.user_email && (
                 <span className="line-clamp-2 leading-relaxed">{event.displayDescription}</span>
               )}
+
+              {/* Triage state (team feed only) — neutral, reflects the player's OWN
+                  actions (no ground-truth leak): claimed / triaged / escalated. */}
+              {(() => {
+                const st = rowStatus?.(event.id);
+                if (!st) return null;
+                return (
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    {st.claim === "other" && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-px text-[9px] font-semibold text-neon-amber">🔒 claimed</span>}
+                    {st.claim === "me" && <span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-px text-[9px] font-semibold text-cyber-300">🔒 you</span>}
+                    {st.disposed && <span className="rounded border border-slate-600/60 bg-slate-800/70 px-1 py-px text-[9px] font-semibold text-slate-300">✓ {st.disposed.replace("_", " ")}</span>}
+                    {st.escalated && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">↗ escalated</span>}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </td>
@@ -981,7 +1084,7 @@ const EventRow = memo(function EventRow({
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} />
+            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} onPivot={onPivot} onAddIoc={onAddIoc} onEscalate={onEscalate} />
           </motion.tr>
         )}
       </AnimatePresence>
@@ -1009,16 +1112,34 @@ export interface EventFeedProps {
   ipFilter?: string;
   mitreFilter?: string;
   onXp?: (xp: number) => void;
-  /** Phase-1 telemetry (ANALYST_TELEMETRY_PLAN.md) — fired once per row the
-   * first time it's expanded, so the caller can count investigation thoroughness. */
-  onRowOpened?: () => void;
+  /** Phase-1 telemetry (ANALYST_TELEMETRY_PLAN.md) — fired on every open/close
+   * transition of a row: on open with dwellMs=0 (records the open for MTTA /
+   * "events opened"), on close with the measured expand→collapse dwell. The
+   * event id lets the caller dedup opens and attribute dwell per event. Both
+   * args are optional so single-arg `() => void` callers stay source-compatible. */
+  onRowOpened?: (eventId?: string, dwellMs?: number) => void;
+  /** G-04 click-to-pivot: when provided, DetailPanel shows a "pivot" chip on the
+   * host/user/IP rows that filters the whole feed to that value. Omitted by the
+   * single-player dashboard, so no chip renders there. */
+  onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  /** T1-5: when provided, DetailPanel shows a "＋IOC" button on the host/user/IP
+   * rows that adds the value to the Tier-1 escalation report. Team feed only. */
+  onAddIoc?: (value: string, type: string) => void;
+  /** Log-anchored escalation: when provided, DetailPanel shows a "🚩 Escalate this
+   * log" CTA at the top of the log panel. Clicking it opens the structured
+   * escalation report pre-loaded with this event. Tier-1 team feed only. */
+  onEscalate?: (event: LiveEvent) => void;
+  /** Team feed only: returns the player's own triage state for a row (claimed /
+   * dispositioned / escalated) so the shared feed shows what's already handled.
+   * Reflects the player's actions, not ground truth — no answer leakage. */
+  rowStatus?: (id?: string) => { disposed?: string; claim?: "me" | "other"; escalated?: boolean } | null;
 }
 
 export function EventFeed({
   events, newIds = new Set(),
   severityFilter, sourceFilter, search,
   userFilter = "all", hostFilter = "all", ipFilter = "all", mitreFilter = "all",
-  onXp, onRowOpened,
+  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
@@ -1097,6 +1218,10 @@ export function EventFeed({
                   onThreatQuery={setThreatQuery}
                   onXp={onXp}
                   onRowOpened={onRowOpened}
+                  onPivot={onPivot}
+                  onAddIoc={onAddIoc}
+                  onEscalate={onEscalate}
+                  rowStatus={rowStatus}
                 />
               ))}
             </AnimatePresence>

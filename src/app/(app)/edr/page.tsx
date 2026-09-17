@@ -30,12 +30,18 @@ export default function EdrConsolePage() {
     // The EDR console is ONLY reachable from an active shift — the student must
     // have pressed Start Training on the Dashboard. No shift → bounce back to
     // the Dashboard (there's nothing to investigate on the endpoint yet).
-    if (!isTrainingActive()) { router.replace("/dashboard"); return; }
+    // EXCEPTION (team exercise, G-05): a deep-link carrying ?team=<sessionId>
+    // comes from a live Team-SOC room, which is its own "active shift" — the team
+    // page stashed the investigation in localStorage before opening this tab, so
+    // allow it through instead of bouncing to the single-player dashboard.
+    const params = new URLSearchParams(window.location.search);
+    const teamCtx = params.get("team");
+    if (!isTrainingActive() && !teamCtx) { router.replace("/dashboard"); return; }
     setAllowed(true);
     // Deep-link from the SOC Dashboard: /edr?case=<id> opens that host, the
     // "Investigate in EDR" pivot. case=live loads the EdrInvestigation the
-    // Dashboard generated from the attack running in the feed (sessionStorage).
-    const requested = new URLSearchParams(window.location.search).get("case");
+    // Dashboard (or a team room) generated from the attack running in the feed.
+    const requested = params.get("case");
     if (requested === "live") {
       try {
         // localStorage (shared across tabs) — the Dashboard stashed it here so

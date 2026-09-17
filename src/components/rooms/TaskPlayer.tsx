@@ -351,6 +351,7 @@ const READING_XP_DEFAULT = 5;
  * RoomClient so it never touches the pass gate.
  */
 function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+  const [shuffleSeed] = useState(() => Math.random().toString(36).slice(2)); // FB-002: fresh checkpoint option order per load
   const endRef = useRef<HTMLDivElement | null>(null);
   const [reachedEnd, setReachedEnd] = useState(false);
   const [dwellDone,  setDwellDone]  = useState(false);
@@ -422,7 +423,7 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: stri
           </div>
           <p className="text-sm text-slate-200">{cp.question}</p>
           <div className="space-y-2">
-            {displayOptions(cp.options, `${task.id}:cp:${cp.question}`).map(({ label: opt, srcIdx: i }) => {
+            {displayOptions(cp.options, `${shuffleSeed}:cp`).map(({ label: opt, srcIdx: i }) => {
               const chosen = cpChoice === i;
               const isRight = cpAnswer !== null && i === cpAnswer;
               const show = cpChoice !== null && cpAnswer !== null;
@@ -493,6 +494,10 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: stri
 
 // ─── Question Task ──────────────────────────────────────────────────────────────
 function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: QuestionTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+  // FB-002: shuffle options with a fresh random seed PER MOUNT (not a fixed task-id
+  // seed) so the correct answer isn't always in the same slot across loads — you
+  // can't guess by position. Stable within a mount so options don't jump on re-render.
+  const [shuffleSeed] = useState(() => Math.random().toString(36).slice(2));
   const [selected, setSelected]   = useState<number | null>(null);
   const [revealed, setReveal]     = useState(isCompleted);
   const [confirmed, setConfirmed] = useState(isCompleted);
@@ -550,7 +555,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
     <div className="space-y-5">
       <p className="text-slate-200 leading-relaxed text-base">{task.question}</p>
       <div className="space-y-2">
-        {displayOptions(task.options, task.id).map(({ label, srcIdx }) => (
+        {displayOptions(task.options, shuffleSeed).map(({ label, srcIdx }) => (
           <OptionButton
             key={srcIdx} label={label} index={srcIdx}
             selected={selected === srcIdx} revealed={revealed} correctIndex={answerIndex ?? -1}
@@ -588,6 +593,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
 
 // ─── Log Analysis Task ──────────────────────────────────────────────────────────
 function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: LogAnalysisTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+  const [shuffleSeed] = useState(() => Math.random().toString(36).slice(2)); // FB-002: fresh option order per load
   const [iocs, setIocs]           = useState<IocEntry[]>([]);
   const [answers, setAnswers]     = useState<(number | null)[]>(Array(task.questions.length).fill(null));
   const [revealed, setRevealed]   = useState<boolean[]>(Array(task.questions.length).fill(false));
@@ -693,7 +699,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
               )}
 
               <div className="space-y-2">
-                {displayOptions(q.options, `${task.id}:q${i}:${q.question}`).map(({ label, srcIdx }) => (
+                {displayOptions(q.options, `${shuffleSeed}:q${i}`).map(({ label, srcIdx }) => (
                   <OptionButton
                     key={srcIdx} label={label} index={srcIdx}
                     selected={answers[i] === srcIdx} revealed={revealed[i]} correctIndex={result?.answer ?? -1}

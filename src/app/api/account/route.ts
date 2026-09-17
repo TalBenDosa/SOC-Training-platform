@@ -59,6 +59,40 @@ export async function GET() {
 }
 
 /**
+ * PATCH — update the fields a learner is allowed to change themselves.
+ * Currently the display name (FB-011). The handle and login email are stable
+ * identifiers and are not editable here; the password is changed client-side via
+ * the session (auth.updateUser), never through this admin endpoint.
+ */
+export async function PATCH(req: Request) {
+  const user = await getAuthedUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch { /* body is optional */ }
+
+  const displayName = typeof body.display_name === "string" ? body.display_name.trim().slice(0, 60) : "";
+  if (displayName.length < 2) {
+    return NextResponse.json({ error: "Display name must be at least 2 characters." }, { status: 400 });
+  }
+
+  const { error } = await admin.from("profiles").update({ display_name: displayName }).eq("id", user.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAudit({
+    actorId: user.id,
+    action: "account.display_name_updated",
+    targetTable: "profiles",
+    targetId: user.id,
+  });
+
+  return NextResponse.json({ display_name: displayName });
+}
+
+/**
  * DELETE — erase this account, or file the request that leads to it.
  *
  * Returns 200 when the account is gone, 202 when a request was filed and is

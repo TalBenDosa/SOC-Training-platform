@@ -514,8 +514,12 @@ export default function ProgressPage() {
   // Phase-1 behavioral telemetry (see ANALYST_TELEMETRY_PLAN.md) — a couple of
   // the most legible trends, not a dump of every raw metric. Speed is always
   // shown alongside accuracy, never in place of it.
+  // FB-018: clamp each sample so idle/away time (a task left open) can't inflate the
+  // average above total time spent. New telemetry is already capped at record time;
+  // this also cleans up data stored before the cap existed.
+  const MAX_DECISION_MS = 5 * 60 * 1000;
   const avgDecisionLatencyMs = roomTelemetry.length
-    ? Math.round(roomTelemetry.reduce((s, t) => s + t.decisionLatencyMs, 0) / roomTelemetry.length)
+    ? Math.round(roomTelemetry.reduce((s, t) => s + Math.min(t.decisionLatencyMs, MAX_DECISION_MS), 0) / roomTelemetry.length)
     : null;
   const totalFn = dashSessions.reduce((s, d) => s + (d.fnCount ?? 0), 0);
   // Real catch rate — caught/presented across all sessions, driven by markCaught()

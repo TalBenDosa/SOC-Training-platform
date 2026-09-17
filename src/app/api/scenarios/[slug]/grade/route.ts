@@ -134,9 +134,13 @@ export async function POST(
     // Reward CITING REAL indicators (precision), not merely tagging any (recall).
     usefulCitedCount * 10 +
     Math.round(reportScore * 1.5);
-  // The time bonus rewards thoroughness, not haste: only a PASSING investigation
-  // earns it, so racing to a fast wrong/thin answer no longer pays.
-  const timeBonusXp = passed ? (timeTaken < 600 ? 50 : timeTaken < 1200 ? 25 : 0) : 0;
+  // FB-007: no speed bonus. Rewarding a short investigation time pushed learners to
+  // optimize for finishing fast (quantity) over investigating well (quality), which is
+  // the opposite of the analyst habit we want to build. XP now comes only from accuracy
+  // and report quality. (Field kept in the response — always 0 — so consumers/UI that
+  // read `timeBonusXp` stay backward-compatible and simply render nothing.)
+  const timeBonusXp = 0;
+  void timeTaken; // retained for logging/telemetry; no longer scored
 
   // AI feedback (Claude) — falls back to static text if no API key
   // The verdict is the analyst's headline output — a wrong call is called out

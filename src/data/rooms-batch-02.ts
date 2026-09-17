@@ -902,7 +902,7 @@ These questions form the foundation of network-based threat investigation.`,
         type: "flag" as const,
         id: "net-prot-f1",
         prompt:
-          "In the DNS log above, what DNS response code did the server return for the suspicious domain query 'xk3r9qlpmf7wz2.com'? Enter the exact response code.",
+          "In the DNS log above, what DNS response status did the server return for the suspicious domain query 'xk3r9qlpmf7wz2.com'? Enter the exact status name (rcode).",
         answer: "NXDOMAIN",
         hint: "Look at the dns_response field in the raw log data. NXDOMAIN means 'Non-Existent Domain.'",
         xp: 25,
