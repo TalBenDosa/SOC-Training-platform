@@ -493,6 +493,9 @@ export default function TeamRoomPage() {
   const elevations = useMemo(() => events.filter(e => e.type === "elevation.requested"), [events]);
   // Event-ids already escalated to Tier-3 — so T2's button shows an "escalated" state.
   const elevatedIds = useMemo(() => new Set(elevations.map(e => String((e.payload as { event_id?: string }).event_id))), [elevations]);
+  // Elevations Tier-3 has TAKEN (distinct from escalation.acknowledged so the two
+  // workflows don't cross-talk — C11).
+  const elevAcked = useMemo(() => new Set(events.filter(e => e.type === "elevation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
   // Which escalations already have a T2 incident report (§5 hard gate on resolve/containment).
   const reportedIds = useMemo(() => new Set(events.filter(e => e.type === "report.submitted").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
   // Silent-failure guard (F6): if attack activity has been streaming for a while and
@@ -791,7 +794,7 @@ export default function TeamRoomPage() {
               <div className="space-y-4">
                 {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
                 {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} reportedIds={reportedIds} elevatedIds={elevatedIds} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
-                {me.role === "t3" && <HuntConsole scope={scopeState} elevations={elevations} acked={acked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
+                {me.role === "t3" && <HuntConsole scope={scopeState} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de'/'ti'
                     branches stay for backward-compatibility with older sessions. */}
@@ -1870,8 +1873,8 @@ function InjectFeed({ events, me, nameOf, act }: { events: Ev[]; me: Me; nameOf:
 }
 
 // ── T3 threat-hunt console ───────────────────────────────────────────────────
-function HuntConsole({ scope, elevations, acked, nameOf, act, onEdr, onPivot }: {
-  scope: ScopeState; elevations: Ev[]; acked: Set<string>; nameOf: (u: string | null) => string;
+function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot }: {
+  scope: ScopeState; elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
@@ -1895,7 +1898,7 @@ function HuntConsole({ scope, elevations, acked, nameOf, act, onEdr, onPivot }: 
             {elevations.slice().reverse().map(e => {
               const p = e.payload as { event_id?: string; summary?: string; severity?: string; hostname?: string; entity?: string; snapshot?: Record<string, unknown> };
               const eid = String(p.event_id); const b = busyElev === e.seq + ""; const snap = enrichSnapshot(p.snapshot); const isOpen = openElev === e.seq;
-              const done = acked.has(eid);
+              const done = elevAcked.has(eid);
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">{asStr(p.summary) || "elevated case"}</p>
@@ -1906,7 +1909,7 @@ function HuntConsole({ scope, elevations, acked, nameOf, act, onEdr, onPivot }: 
                     </button>
                   )}
                   {snap && isOpen && <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40"><DetailPanelBody event={snap} onThreatQuery={() => {}} onPivot={onPivot} /></div>}
-                  {!done && <Button variant="outline" size="sm" className="mt-2" disabled={b} onClick={async () => { setBusyElev(e.seq + ""); await act("escalation.acknowledged", { event_id: eid }); setBusyElev(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Take the hunt</Button>}
+                  {!done && <Button variant="outline" size="sm" className="mt-2" disabled={b} onClick={async () => { setBusyElev(e.seq + ""); await act("elevation.acknowledged", { event_id: eid }); setBusyElev(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Take the hunt</Button>}
                   {done && <p className="mt-1 text-[11px] text-neon-green">✓ taken — record findings below</p>}
                 </div>
               );
@@ -2191,7 +2194,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Escalation precision", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40) },
       { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
       { label: "Time-to-triage", score: c.triageMin == null ? null : bandLow(c.triageMin, 5, 10, 15) },
-      { label: "Help-desk tickets", score: c.ticketsAnswered === 0 ? null : bandHigh(c.ticketsAnswered, 2, 1, 1) },
+      { label: "Help-desk tickets", score: c.ticketsAnswered === 0 ? null : bandHigh(c.ticketsAnswered, 3, 2, 1) },
     ];
     case "t2": return [
       { label: "Ack latency", score: c.ackLatencyMin == null ? null : bandLow(c.ackLatencyMin, 2, 5, 10) },
@@ -2202,10 +2205,12 @@ function roleRubric(c: RubricCtx): RubricCell[] {
     ];
     case "t3": return [
       { label: "Final scope (confirmed)", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 2 ? 8 : 4) : null, note: c.scopeConfirmed ? undefined : "not confirmed" },
-      { label: "Hunt yield", score: bandHigh(c.huntCount, 2, 1, 1) },
+      { label: "Hunt yield", score: bandHigh(c.huntCount, 3, 2, 1) },
       { label: "Hypothesis→conclusion time", score: c.huntToConfirmMin == null ? null : bandLow(c.huntToConfirmMin, 5, 12, 20) },
       { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null },
-      { label: "Guidance to T2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : 0 },
+      // Secondary cell → null when there's nothing to measure (consistent with the
+      // other quality cells; "Hunt yield" already carries the did-the-core-job signal) — G4.
+      { label: "Guidance to T2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null },
     ];
     case "lead": return [
       { label: "Team organised", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15) },
@@ -2215,10 +2220,10 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Management pressure", score: c.mgmtRespondedRate == null ? null : bandHigh(c.mgmtRespondedRate, 100, 50, 1) },
     ];
     case "de": return [
-      { label: "Verifiable rule", score: c.rulePublished ? bandHigh(c.ruleMatched, 2, 1, 1) : 0 },
+      { label: "Verifiable rule", score: c.rulePublished ? bandHigh(c.ruleMatched, 3, 2, 1) : 0 },
       { ...TODO, label: "FP-rate" },
       { ...TODO, label: "Time-to-publish" },
-      { label: "ATT&CK coverage-delta", score: bandHigh(c.ruleTechniques, 2, 1, 1) },
+      { label: "ATT&CK coverage-delta", score: c.rulePublished ? bandHigh(c.ruleTechniques, 3, 2, 1) : null },
       { label: "Documentation", score: c.ruleDocRate == null ? null : bandHigh(c.ruleDocRate, 90, 60, 30) },
     ];
     case "ti": return [
@@ -2357,10 +2362,19 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     // Mgr "team organised": how soon the case got an explicit owner (case.assigned).
     const caseAssigns = mine.filter(e => e.type === "case.assigned");
     const caseOwnedMin = tms(caseAssigns).length ? Math.max(0, (Math.min(...tms(caseAssigns)) - startedMs) / 60000) : null;
-    // Mgr "management pressure": share of mgmt-pressure injects answered by a later SITREP.
+    // Mgr "management pressure": share of mgmt-pressure injects answered by a SITREP.
+    // G6: pair each inject to a DISTINCT following SITREP (one-to-one, within 15 min),
+    // so one late/unrelated SITREP can't be counted as answering every inject.
     const mgmtInjects = events.filter(e => e.type === "staff.inject" && String((e.payload as { kind?: string }).kind) === "mgmt_pressure");
-    const mySitrepTs = tms(mine.filter(e => e.type === "sitrep.sent"));
-    const mgmtRespondedRate = mgmtInjects.length ? Math.round(mgmtInjects.filter(mi => { const t = mi.occurred_at ? Date.parse(mi.occurred_at) : null; return t != null && mySitrepTs.some(st => st >= t); }).length / mgmtInjects.length * 100) : null;
+    const injTs = tms(mgmtInjects).sort((a, b) => a - b);
+    const sitrepPool = tms(mine.filter(e => e.type === "sitrep.sent")).sort((a, b) => a - b);
+    const MGMT_WINDOW = 15 * 60000;
+    let mgmtAnswered = 0;
+    for (const it of injTs) {
+      const idx = sitrepPool.findIndex(st => st >= it && st - it <= MGMT_WINDOW);
+      if (idx !== -1) { mgmtAnswered++; sitrepPool.splice(idx, 1); }
+    }
+    const mgmtRespondedRate = mgmtInjects.length ? Math.round((mgmtAnswered / mgmtInjects.length) * 100) : null;
 
     const rubric = roleRubric({
       role: m.role, dispAcc, escAckRate, escQuality, triageMin, ackLatencyMin, approvalLatencyMin,

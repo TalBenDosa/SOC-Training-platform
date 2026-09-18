@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -16,7 +16,7 @@ const SINGLE_SEAT = new Set(["t3", "mgr"]);
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgAdmin("team.session.member.add");
+  const gate = await requireOrgStaff("team.session.member.add");
   if ("error" in gate) return gate.error;
   const { user } = gate;
   const admin = getSupabaseAdminClient();

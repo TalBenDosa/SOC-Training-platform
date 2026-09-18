@@ -38,19 +38,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // Authorised = staff of the org, the session's SOC Manager, or any member (auto).
   const isStaff = user.isPlatformAdmin ||
     ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  let isManager = false;
   let isMember = isStaff;
-  if (!isMember) {
-    const { data: mem } = await admin.from("team_session_members").select("user_id").eq("session_id", id).eq("user_id", user.id).maybeSingle();
+  if (!isStaff) {
+    const { data: mem } = await admin.from("team_session_members").select("role").eq("session_id", id).eq("user_id", user.id).maybeSingle();
     isMember = !!mem;
+    isManager = mem?.role === "mgr";
   }
   if (!isMember) return NextResponse.json({ error: "Not your session." }, { status: 403 });
+  const privileged = isStaff || isManager;
 
   if (["ended", "debriefed"].includes(sess.status)) return NextResponse.json({ error: "This session is closed." }, { status: 409 });
+
+  // S7: a MANUAL pause/resume is a human call — only staff or the SOC Manager. A
+  // plain member's client may only drive the automatic coverage transition.
+  if (reason === "manual" && !privileged) {
+    return NextResponse.json({ error: "Only the instructor or the SOC Manager can pause/resume the session." }, { status: 403 });
+  }
 
   // Only a running session can pause; only a paused one can resume. Anything else
   // is a harmless no-op (covers races where two clients both fire the transition).
   if (paused && sess.status !== "running") return NextResponse.json({ ok: true, noop: true });
   if (!paused && sess.status !== "paused") return NextResponse.json({ ok: true, noop: true });
+
+  // S7: an automatic (coverage) resume must NOT clear a pause a human set manually —
+  // only staff/Manager can lift a manual pause.
+  if (!paused && !privileged) {
+    const { data: lastPause } = await admin.from("session_events")
+      .select("payload").eq("session_id", id).eq("type", "session.paused")
+      .order("seq", { ascending: false }).limit(1).maybeSingle();
+    if (((lastPause?.payload ?? {}) as { reason?: string }).reason === "manual") {
+      return NextResponse.json({ ok: true, noop: true, kept: "manual_pause" });
+    }
+  }
 
   // Maintain the pause clock so injects don't burst-fire on resume: mark when the
   // pause began, and on resume fold the elapsed time into the cumulative paused_ms

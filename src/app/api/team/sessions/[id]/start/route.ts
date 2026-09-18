@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline } from "@/lib/team/buildTimeline";
 import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
@@ -15,7 +15,7 @@ import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
  */
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgAdmin("team.session.start");
+  const gate = await requireOrgStaff("team.session.start");
   if ("error" in gate) return gate.error;
   const { user } = gate;
   const admin = getSupabaseAdminClient();

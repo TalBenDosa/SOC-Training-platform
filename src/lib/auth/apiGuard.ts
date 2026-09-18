@@ -143,6 +143,26 @@ export async function requireOrgAdmin(action?: string): Promise<Gate> {
 }
 
 /**
+ * Gate an org-STAFF action (session-runner): org_admin OR instructor of their own
+ * org, plus platform super-admin. Used where an instructor is meant to run a team
+ * exercise (start / reassign / add members) — requireOrgAdmin fail-closed and
+ * excluded instructors, which the rest of the team feature treats as staff. Audited.
+ */
+export async function requireOrgStaff(action?: string): Promise<Gate> {
+  const user = await getAuthedUser();
+  if (!user) {
+    return { error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
+  }
+  const ok = user.isPlatformAdmin || ((user.orgRole === "org_admin" || user.orgRole === "instructor") && !!user.orgId);
+  if (!ok) {
+    if (action) await logAudit({ actorId: user.id, action: `${action}.denied`, metadata: { orgRole: user.orgRole } });
+    return { error: NextResponse.json({ error: "Instructor or organisation-admin access required." }, { status: 403 }) };
+  }
+  if (action) await logAudit({ actorId: user.id, action, metadata: { orgId: user.orgId } });
+  return { user };
+}
+
+/**
  * Gate an org-scoped action: the caller must belong to `orgId` with one of
  * `roles` (e.g. ['org_admin'] for roster management in Phase 3). A platform
  * super-admin always passes. Fail-closed and audited.

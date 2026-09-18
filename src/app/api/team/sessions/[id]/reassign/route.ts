@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -11,11 +11,14 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
  * Staff-only, own-org-only (same guard as start/end). Writes with the service
  * role, since team_session_members is not client-writable.
  */
-const PLAY_ROLES = new Set(["t1", "t2", "t3", "mgr", "lead", "de", "ti", "instructor", "observer"]);
+// 'instructor' is intentionally NOT reassignable — granting it would hand a member
+// staff.inject and remove them from the ready-check (S4).
+const PLAY_ROLES = new Set(["t1", "t2", "t3", "mgr", "lead", "de", "ti", "observer"]);
+const SINGLE_SEAT = new Set(["t3", "mgr"]);
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const gate = await requireOrgAdmin("team.session.reassign");
+  const gate = await requireOrgStaff("team.session.reassign");
   if ("error" in gate) return gate.error;
   const { user } = gate;
 
@@ -40,6 +43,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: member } = await admin.from("team_session_members")
     .select("user_id").eq("session_id", id).eq("user_id", targetUserId).maybeSingle();
   if (!member) return NextResponse.json({ error: "That user isn't a member of this session." }, { status: 404 });
+
+  // S4: single-seat roles (Tier-3 / SOC Manager) hold at most one live occupant.
+  if (SINGLE_SEAT.has(role)) {
+    const { data: holders } = await admin.from("team_session_members")
+      .select("user_id, status").eq("session_id", id).eq("role", role);
+    if ((holders ?? []).some(h => h.user_id !== targetUserId && h.status !== "left")) {
+      return NextResponse.json({ error: `${role === "mgr" ? "SOC Manager" : "Tier-3"} is a single-seat role and is already filled.` }, { status: 409 });
+    }
+  }
 
   const { error } = await admin.from("team_session_members")
     .update({ role }).eq("session_id", id).eq("user_id", targetUserId);

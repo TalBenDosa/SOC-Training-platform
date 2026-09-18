@@ -9,6 +9,38 @@ DB-persisted pause/resume, closed-list) and the pre-existing feature around it.
 lifecycle code. Static/code-level — no live run (Supabase auth is intermittently unreachable
 from the build sandbox). Gates green throughout: `tsc`, `next build`, `vitest` 157/157.
 
+## Remediation status — ALL findings closed (2026-09-18)
+
+Fixed across two waves on `feat/team-soc-multiplayer-and-platform-fixes` (staging):
+
+- **Wave 1** (High + safe Medium + C10): S1, C1, C2, C3, S2, C4, C5, C6, C7, C8, G1,
+  G2, C10, and the owner-left auto-close 403. Code-only.
+- **Wave 2** (the rest): migration **0065** (applied to staging) — S3 (16 KiB payload
+  cap + `message.sent` restricted to running/paused), C11 (`elevation.acknowledged`
+  gate), S6 (promote seq-retry), S5 (single-seat partial unique index), C9
+  (`reap_stale_team_sessions()` + a `*/5 * * * *` pg_cron sweep). Routes: S4 (reassign
+  single-seat + no `instructor`), S7 (manual pause/resume staff/Manager only; a coverage
+  auto-resume can't lift a manual pause), S8 (new `requireOrgStaff` — instructors can now
+  start/reassign/add-members). Client: C11 (distinct elevation-ack set), G3 (reachable
+  "4" band), G4 (T3 secondary cell null-when-absent), G6 (one-to-one inject↔SITREP pairing).
+
+**Accepted-as-designed / negligible (no code change):**
+- **C13** — a single shared working scope gating containment is intentional in the
+  "one shared case" model.
+- **C14** — the initial presence `.track()` ready flag is a one-time snapshot;
+  `setReady` re-tracks immediately, so impact is nil.
+- **G5** — deterministic quality scores remain partly game-able by design; the new
+  indicator-in-findings bonus (G2) raises the bar without an LLM grader.
+- **S3 (stored-XSS sub-point)** — the war room renders all payload text through JSX
+  (React auto-escapes); the only `dangerouslySetInnerHTML` is the unrelated learning-room
+  Mermaid renderer. Payload-size DoS is the part that was fixed.
+- **S8 (stale RPC note)** — the divergent `start_team_session` RPC path is left in place
+  for now; the route is the real Start. Flagged for a later cleanup.
+
+Gates after each wave: `tsc`, `next build`, `vitest` 157/157 — all green.
+
+---
+
 ## Severity summary
 
 | Sev | Count | Items |
