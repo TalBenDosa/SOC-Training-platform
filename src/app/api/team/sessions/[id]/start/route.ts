@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline } from "@/lib/team/buildTimeline";
+import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
 
 /**
  * Start a team session (Phase 0.4) — staff only, and only for their own org.
@@ -32,7 +33,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // Ready-check: every non-instructor member must be ready/active.
   const { data: members } = await admin.from("team_session_members")
     .select("role, status").eq("session_id", id);
-  const notReady = (members ?? []).filter(m => m.role !== "instructor" && !["ready", "active"].includes(m.status)).length;
+  const notReady = (members ?? []).filter(m => m.role !== "instructor" && m.role !== "observer" && !["ready", "active"].includes(m.status)).length;
   if (notReady > 0) return NextResponse.json({ error: `${notReady} player(s) not ready yet.` }, { status: 409 });
 
   // Flip to running.
@@ -42,10 +43,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
 
   // System session.started event (broadcast trigger → clients start their countdown).
-  const { data: head } = await admin.from("session_events").select("seq").eq("session_id", id).order("seq", { ascending: false }).limit(1).maybeSingle();
-  const nextSeq = (head?.seq ?? 0) + 1;
-  await admin.from("session_events").insert({ session_id: id, seq: nextSeq, type: "session.started", payload: { at: new Date().toISOString() } });
-  await admin.from("session_state").upsert({ session_id: id, seq: nextSeq, updated_at: new Date().toISOString() });
+  const started = await appendSystemEvent(id, "session.started", { at: new Date().toISOString() });
+  if (!started.ok) return NextResponse.json({ error: started.error }, { status: 500 });
 
   // Seed the REAL telemetry timeline (idempotent-ish: skip if already seeded).
   const { count } = await admin.from("session_injects").select("id", { count: "exact", head: true }).eq("session_id", id);

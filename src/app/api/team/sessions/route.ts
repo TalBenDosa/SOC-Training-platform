@@ -103,9 +103,17 @@ export async function GET() {
     counts.set(m.session_id, c);
   }
 
+  // Never ship the grading answer-key (seed → deterministic timeline + verdicts)
+  // or other spoiler fields to a non-staff member.
+  const redact = (row: Record<string, unknown>) => {
+    if (staff) return row;
+    const { seed: _seed, config: _config, scenario_id: _scn, ...safe } = row;
+    void _seed; void _config; void _scn;
+    return safe;
+  };
   return NextResponse.json({
     sessions: sessions.map(s => ({
-      ...s,
+      ...redact(s),
       my_role: mine.get(s.id as string)?.role ?? null,
       player_count: counts.get(s.id as string)?.players ?? 0,
       ready_count: counts.get(s.id as string)?.ready ?? 0,

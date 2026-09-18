@@ -148,10 +148,13 @@ export default function TeamRoomPage() {
   const [paused, setPaused] = useState(false);
   const [pausedReason, setPausedReason] = useState<string | null>(null);
   const [pausedDetail, setPausedDetail] = useState<string | null>(null);
+  const [haltConfirmed, setHaltConfirmed] = useState(false); // coverage broken past the debounce
+  const haltTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevOnlineRef = useRef<Set<string>>(new Set());
   const ownerGoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoEndFiredRef = useRef(false);
   const autoPauseBusyRef = useRef(false);
+  const countdownIvRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // G-04 feed filters (surfaced controls + click-to-pivot state).
   const [fSeverity, setFSeverity] = useState<"all" | "low" | "medium" | "high">("all");
   const [fSource, setFSource] = useState("all");
@@ -178,10 +181,17 @@ export default function TeamRoomPage() {
   }, []);
 
   const startCountdown = useCallback(() => {
+    if (countdownIvRef.current) return; // already counting down (start() + our own session.started broadcast)
     setCountdown(3);
     let n = 3;
-    const iv = setInterval(() => { n -= 1; if (n <= 0) { clearInterval(iv); setCountdown(null); setPhase("running"); } else setCountdown(n); }, 1000);
+    countdownIvRef.current = setInterval(() => {
+      n -= 1;
+      if (n <= 0) { if (countdownIvRef.current) clearInterval(countdownIvRef.current); countdownIvRef.current = null; setCountdown(null); setPhase("running"); }
+      else setCountdown(n);
+    }, 1000);
   }, []);
+  // Clear the countdown interval on unmount so it can't setState on a dead tree.
+  useEffect(() => () => { if (countdownIvRef.current) clearInterval(countdownIvRef.current); }, []);
 
   // ── initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -199,6 +209,7 @@ export default function TeamRoomPage() {
       const started = !!data.session.started_at;
       setPhase(st === "running" ? "running" : st === "paused" ? (started ? "running" : "lobby") : st === "lobby" ? "lobby" : "ended");
       setPaused(st === "paused" && started);
+      if (st === "paused" && started) { setPausedReason(data.session.pause_reason ?? null); setPausedDetail(data.session.pause_detail ?? null); }
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -242,12 +253,21 @@ export default function TeamRoomPage() {
     if (!me) return;
     const sb = getSupabaseBrowserClient();
     if (!sb) return;
-    let channel: RealtimeChannel;
+    let cancelled = false;
+    let createdChannel: RealtimeChannel | null = null;
+    // C5: keep the realtime socket's JWT fresh — a ~1h token expiry would otherwise
+    // silently drop this client from presence and trip false coverage/owner halts.
+    const { data: authSub } = sb.auth.onAuthStateChange((_evt, session) => {
+      const t = session?.access_token;
+      if (t) { try { sb.realtime.setAuth(t); } catch { /* socket not ready yet */ } }
+    });
     (async () => {
       const { data: sess } = await sb.auth.getSession();
       const token = sess.session?.access_token;
       if (token) sb.realtime.setAuth(token);
-      channel = sb.channel(`session:${id}`, { config: { private: true, presence: { key: me.id } } });
+      if (cancelled) return; // C4: unmounted before we got here — don't create a channel
+      const channel = sb.channel(`session:${id}`, { config: { private: true, presence: { key: me.id } } });
+      createdChannel = channel;
       channelRef.current = channel;
       channel
         .on("presence", { event: "sync" }, () => {
@@ -268,8 +288,16 @@ export default function TeamRoomPage() {
         .subscribe(async status => {
           if (status === "SUBSCRIBED") await channel.track({ ready: !!(me && roster.find(r => r.user_id === me.id)?.status === "ready") });
         });
+      // C4: if we unmounted while awaiting/subscribing, tear the just-created channel down now.
+      if (cancelled) { sb.removeChannel(channel); if (channelRef.current === channel) channelRef.current = null; createdChannel = null; }
     })();
-    return () => { if (channelRef.current) { getSupabaseBrowserClient()?.removeChannel(channelRef.current); channelRef.current = null; } };
+    return () => {
+      cancelled = true;
+      try { authSub?.subscription?.unsubscribe(); } catch { /* already gone */ }
+      const ch = createdChannel ?? channelRef.current;
+      if (ch) getSupabaseBrowserClient()?.removeChannel(ch);
+      if (channelRef.current === ch) channelRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, me?.id]);
 
@@ -313,7 +341,9 @@ export default function TeamRoomPage() {
   }
 
   // ── derived ─────────────────────────────────────────────────────────────────
-  const players = roster.filter(r => r.role !== "instructor");
+  // Observers watch only — they never "ready up", so they must not count toward the
+  // ready-check (otherwise an observer wedges Start forever) nor the coverage set.
+  const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer");
   const allReady = players.length > 0 && players.every(p => readyMap[p.user_id]);
   const iAmPlayer = !!(me && me.role && me.role !== "instructor" && me.role !== "observer");
   const iAmReady = !!(me && readyMap[me.id]);
@@ -321,6 +351,10 @@ export default function TeamRoomPage() {
 
   // ── Session-lifecycle: presence-based coverage & auto-close ──────────────────
   const instructor = useMemo(() => roster.find(r => r.role === "instructor") ?? null, [roster]);
+  // A content signature of who's online (presence hands us a NEW Set each sync even
+  // when membership is unchanged) — used as a stable effect dep so timers aren't
+  // reset on every heartbeat (C8).
+  const onlineSig = useMemo(() => [...online].sort().join(","), [online]);
   // Core relay = Tier-1 (triage) → Tier-2 (investigate). If a core role is
   // ASSIGNED to the team but has nobody online, the shift can't run → halt.
   const CORE_ROLES: ("t1" | "t2")[] = ["t1", "t2"];
@@ -338,12 +372,25 @@ export default function TeamRoomPage() {
           ? `No ${uncoveredCore.map(r => ROLE_LABEL[r]).join(" and no ")} online right now.`
           : null)
     : null;
-  // The halt overlay shows when the DB says paused OR presence says coverage is
-  // broken (the latter shows instantly, before the DB round-trip lands).
-  const haltActive = phase === "running" && (paused || !!haltReason);
+  // The halt overlay shows when the DB says paused OR coverage has been broken past
+  // the debounce (C7) — so a quick refresh of the only Tier-N doesn't flash a
+  // team-wide halt. A DB pause still shows instantly.
+  const haltActive = phase === "running" && (paused || haltConfirmed);
   const haltMessage = paused
     ? (pausedReason === "manual" ? "Paused by the instructor." : (pausedDetail || "Not enough of the team is online right now."))
     : (haltReason ?? "");
+  // Debounce coverage loss: only confirm a halt if it persists ~12s (matches the
+  // spirit of the owner-left grace). Resume/clear is immediate.
+  useEffect(() => {
+    if (!haltReason) {
+      if (haltTimerRef.current) { clearTimeout(haltTimerRef.current); haltTimerRef.current = null; }
+      setHaltConfirmed(false);
+      return;
+    }
+    if (haltConfirmed || haltTimerRef.current) return;
+    haltTimerRef.current = setTimeout(() => { haltTimerRef.current = null; setHaltConfirmed(true); }, 12000);
+    return () => { if (haltTimerRef.current) { clearTimeout(haltTimerRef.current); haltTimerRef.current = null; } };
+  }, [haltReason, haltConfirmed]);
 
   // who-just-left popups: diff the online set against the previous sync.
   useEffect(() => {
@@ -377,9 +424,29 @@ export default function TeamRoomPage() {
       catch { /* transient — the next presence sync retries */ }
       finally { autoPauseBusyRef.current = false; }
     };
-    if (haltReason && !paused) call(true, haltReason);
+    if (haltConfirmed && !paused) call(true, haltReason || undefined);
     else if (!haltReason && paused && pausedReason === "coverage") call(false);
-  }, [phase, me, presenceReady, roster, online, haltReason, paused, pausedReason, id]);
+  }, [phase, me, presenceReady, roster, online, haltReason, haltConfirmed, paused, pausedReason, id]);
+
+  // C1: reconcile lifecycle from the event log so a missed broadcast can't strand a
+  // client on the wrong screen. The 6s reconcile pull merges the session.* event;
+  // this then corrects phase/paused/reason to match the latest lifecycle event.
+  useEffect(() => {
+    let latest: Ev | null = null;
+    for (const e of events) if (typeof e.type === "string" && e.type.startsWith("session.")) latest = e; // events are seq-sorted asc
+    if (!latest) return;
+    const pl = (latest.payload ?? {}) as { reason?: string; detail?: string };
+    if (latest.type === "session.ended") {
+      if (phase !== "ended") { setPhase("ended"); setCountdown(null); if (pl.reason) setEndReason(pl.reason); }
+    } else if (latest.type === "session.paused") {
+      if (!paused) { setPaused(true); setPausedReason(pl.reason ?? "manual"); setPausedDetail(pl.detail ?? null); }
+    } else if (latest.type === "session.resumed") {
+      if (paused) { setPaused(false); setPausedReason(null); setPausedDetail(null); }
+    } else if (latest.type === "session.started") {
+      // only if we clearly MISSED the start (no countdown running) — never cut a live countdown short.
+      if (phase === "lobby" && countdown === null) setPhase("running");
+    }
+  }, [events, phase, paused, countdown]);
 
   // Owner (instructor) left the live room → auto-close after a short grace, so a
   // brief refresh doesn't kill the session. One elected online client fires it.
@@ -403,7 +470,10 @@ export default function TeamRoomPage() {
       await fetch(`/api/team/sessions/${id}/end`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "owner_left" }) }).catch(() => {});
     }, 30000);
     return () => { if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; } };
-  }, [phase, instructor, online, me, roster, id]);
+    // onlineSig (not the online Set) keeps the 30s timer from resetting on every
+    // presence heartbeat — it re-runs only when membership actually changes (C8).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, instructor, onlineSig, me, roster, id]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
   const escalations = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
@@ -2068,12 +2138,22 @@ function escQualityScore(p: Record<string, unknown>): number {
  *  a substantive summary + findings (word count) + an explicit verdict + a
  *  recommendation. Feeds the T2 "Incident report" rubric cell (was un-measured). */
 function reportQualityScore(p: Record<string, unknown>): number {
+  // Spread the score so the 0/4/8/12 bands are all reachable ABOVE the submit floor
+  // (summary + ≥12-word findings + recommendation). A bare-but-valid report lands
+  // in the low band; depth (longer findings, a real recommendation, a cited
+  // indicator) climbs it (G2). Substance beyond word-count is rewarded lightly by
+  // requiring an indicator-looking token in the findings (G5, partial).
   let s = 0;
-  if (String(p.summary ?? "").trim()) s += 25;
-  const findingWords = String(p.findings ?? "").trim().split(/\s+/).filter(Boolean).length;
-  s += findingWords >= 25 ? 35 : findingWords >= 12 ? 22 : findingWords > 0 ? 10 : 0;
-  if (String(p.verdict ?? "").trim()) s += 20;
-  if (String(p.recommendation ?? "").trim()) s += 20;
+  if (String(p.summary ?? "").trim()) s += 15;
+  const findings = String(p.findings ?? "").trim();
+  const findingWords = findings.split(/\s+/).filter(Boolean).length;
+  s += findingWords >= 60 ? 40 : findingWords >= 35 ? 30 : findingWords >= 20 ? 20 : findingWords >= 12 ? 12 : findingWords > 0 ? 5 : 0;
+  if (String(p.verdict ?? "").trim()) s += 10;
+  const recWords = String(p.recommendation ?? "").trim().split(/\s+/).filter(Boolean).length;
+  s += recWords >= 12 ? 20 : recWords > 0 ? 10 : 0;
+  // A cited indicator (IP / hash / domain / hostname) in the findings → substance bonus.
+  const hasIoc = /(?:\d{1,3}\.){3}\d{1,3}|\b[a-f0-9]{16,}\b|\b[a-z0-9-]+\.[a-z]{2,}\b|\b[A-Z]{2,}[-_][A-Z0-9-]+\b/i.test(findings);
+  if (hasIoc) s += 15;
   return Math.min(100, s);
 }
 // ── G-11: per-role success rubric (0/4/8/12), §3.f–§9.f ──────────────────────
@@ -2335,7 +2415,12 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
 // is the "conversation, not a scorecard" half of the debrief (research: a guided
 // debrief ≈ half the learning). All derived from `events`, no new instrumentation.
 function HotWash({ events, nameOf }: { events: Ev[]; nameOf: (u: string | null) => string }) {
-  const t0 = events.length && events[0].occurred_at ? Date.parse(events[0].occurred_at) : 0;
+  // Anchor relative times to session START (not events[0], which is the earliest
+  // lobby member.ready — that inflated every time and disagreed with the AAR). Fall
+  // back to the first event's timestamp only if there's no session.started (G1).
+  const startedEv = events.find(e => e.type === "session.started");
+  const t0 = startedEv?.occurred_at ? Date.parse(startedEv.occurred_at)
+    : (events.length && events[0].occurred_at ? Date.parse(events[0].occurred_at) : 0);
   const rel = (ts?: string) => (ts && t0 ? Math.max(0, Math.round((Date.parse(ts) - t0) / 1000)) : 0);
   const fmt = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, "0")}s` : `${s}s`);
   const RESPONSE_LABEL: Record<string, string> = {

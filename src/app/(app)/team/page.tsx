@@ -208,12 +208,14 @@ export default function TeamIndexPage() {
                       </p>
                     </div>
                     {closed
-                      ? <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-600">closed</span>
+                      ? <Link href={`/team/${s.id}`} className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyber-300 hover:border-cyber-500/40 hover:bg-cyber-500/[0.06]">View report</Link>
                       : <ChevronRight className="h-4 w-4 text-slate-600" />}
                   </>
                 );
+                // Closed sessions aren't re-enterable as a live room, but the read-only
+                // after-action report stays reachable via the explicit "View report" link.
                 return closed ? (
-                  <div key={s.id} title="This session is closed — it can't be entered." className="flex items-center gap-3 px-4 py-3 opacity-60">{inner}</div>
+                  <div key={s.id} title="This session is closed — open its report to review the debrief." className="flex items-center gap-3 px-4 py-3">{inner}</div>
                 ) : (
                   <Link key={s.id} href={`/team/${s.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02]">{inner}</Link>
                 );

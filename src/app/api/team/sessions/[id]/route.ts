@@ -45,8 +45,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     };
   });
 
+  // Surface the current pause reason so a client that (re)loads a paused session
+  // shows the right halt copy and can auto-resume a coverage pause (client C3).
+  let pause_reason: string | null = null, pause_detail: string | null = null;
+  if (sess.status === "paused") {
+    const { data: pev } = await admin.from("session_events")
+      .select("payload").eq("session_id", id).eq("type", "session.paused")
+      .order("seq", { ascending: false }).limit(1).maybeSingle();
+    const pl = (pev?.payload ?? {}) as { reason?: string; detail?: string };
+    pause_reason = pl.reason ?? null;
+    pause_detail = pl.detail ?? null;
+  }
+
+  // Never ship the grading answer-key (seed) or spoiler fields to a non-staff member.
+  let sessionOut: Record<string, unknown> = sess;
+  if (!iAmStaff) {
+    const { seed: _seed, config: _config, scenario_id: _scn, ...safe } = sess as Record<string, unknown>;
+    void _seed; void _config; void _scn;
+    sessionOut = safe;
+  }
+
   return NextResponse.json({
-    session: sess,
+    session: { ...sessionOut, pause_reason, pause_detail },
     roster,
     me: { id: user.id, is_staff: iAmStaff, role: roster.find(r => r.user_id === user.id)?.role ?? null },
   });

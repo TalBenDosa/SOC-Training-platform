@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
 
 /**
  * Pause / resume a running team session (F7 — resilience). Persists the halt in
@@ -63,13 +64,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
   if (!updated || updated.length === 0) return NextResponse.json({ ok: true, noop: true }); // lost the race
 
-  const { data: head } = await admin.from("session_events").select("seq").eq("session_id", id).order("seq", { ascending: false }).limit(1).maybeSingle();
-  const nextSeq = (head?.seq ?? 0) + 1;
-  await admin.from("session_events").insert({
-    session_id: id, seq: nextSeq, type: paused ? "session.paused" : "session.resumed",
-    payload: { at: new Date().toISOString(), reason, detail: detail || undefined, by: user.id },
-  });
-  await admin.from("session_state").upsert({ session_id: id, seq: nextSeq, updated_at: new Date().toISOString() });
+  const ev = await appendSystemEvent(id, paused ? "session.paused" : "session.resumed",
+    { at: new Date().toISOString(), reason, detail: detail || undefined, by: user.id });
+  if (!ev.ok) return NextResponse.json({ error: ev.error }, { status: 500 });
 
   return NextResponse.json({ ok: true });
 }
