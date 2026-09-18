@@ -564,6 +564,7 @@ export const roomsBatch49 = [
       {
         "type": "flag" as const,
         "id": "hsl-f1",
+        "event": null,
         "prompt": "This room's regsvr32 reading names the researcher who first documented the /i:URL scrobj.dll abuse pattern, and the nickname the security community still uses for it. What is that nickname?",
         "answer": "Squiblydoo",
         "hint": "Covered in \"Regsvr32.exe and 'Squiblydoo': Scriptlets Instead of DLLs.\"",
