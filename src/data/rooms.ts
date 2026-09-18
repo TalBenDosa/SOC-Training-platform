@@ -166,6 +166,10 @@ export interface FlagTask {
   answer: string;        // exact string, case-insensitive match
   hint?: string;
   xp: number;
+  // Which log the flag shows. Omitted → the room resolves it: a "Log Analysis N"
+  // reference in the prompt pins the Nth log_analysis event, else the nearest
+  // preceding log. `null` → show NO log (a pure recall/knowledge flag).
+  event?: TelemetryEvent | null;
 }
 
 export interface AnalystChoiceTask {

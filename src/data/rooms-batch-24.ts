@@ -1195,6 +1195,9 @@ const webAttacksRoom: Room = {
     {
       type: "flag",
       id: "web-f1",
+      // Recall flag — the answer is in the ordering task (o1), not a log; show no log
+      // so the unrelated WAF-block event isn't rendered as if it were the source.
+      event: null,
       prompt: "Look at the ordering task's attack chain (Task o1). What is the exact filename of the web shell that w3wp.exe wrote into the site's assets directory? Enter it exactly as shown, including the extension.",
       answer: "checkout-widget.min.aspx",
       hint: "It's named to blend in with the site's other minified JavaScript assets — check the ordering item describing the file write, right before w3wp.exe spawns cmd.exe.",

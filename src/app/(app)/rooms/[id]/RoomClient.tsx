@@ -252,9 +252,28 @@ export function RoomClient({ room }: RoomClientProps) {
   // step can sit between) — walking back finds the log the flag actually refers to.
   let prevLogEvent;
   if (currentTask.type === "flag") {
-    for (let i = currentTaskIndex - 1; i >= 0; i--) {
-      const t = room.tasks[i];
-      if (t.type === "log_analysis" || t.type === "analyst_choice") { prevLogEvent = t.event; break; }
+    if (currentTask.event !== undefined) {
+      // Explicitly pinned by the author: an event to show, or `null` for no log
+      // (a pure recall/knowledge flag whose answer isn't in any log).
+      prevLogEvent = currentTask.event ?? undefined;
+    } else {
+      // A "Log Analysis N" reference pins the Nth log_analysis event — the flag is
+      // often not right after its log, and an intervening analyst_choice log would
+      // otherwise be shown instead (the mismatch students reported).
+      const m = currentTask.prompt?.match(/log analysis\s+(\d+)/i);
+      if (m) {
+        let n = 0;
+        for (const t of room.tasks) {
+          if (t.type === "log_analysis") { n++; if (n === Number(m[1])) { prevLogEvent = t.event; break; } }
+        }
+      }
+      // Fallback: the nearest preceding log (log_analysis or analyst_choice).
+      if (!prevLogEvent) {
+        for (let i = currentTaskIndex - 1; i >= 0; i--) {
+          const t = room.tasks[i];
+          if (t.type === "log_analysis" || t.type === "analyst_choice") { prevLogEvent = t.event; break; }
+        }
+      }
     }
   }
 
