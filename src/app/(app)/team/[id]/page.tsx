@@ -153,6 +153,10 @@ export default function TeamRoomPage() {
   const prevOnlineRef = useRef<Set<string>>(new Set());
   const ownerGoneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoEndFiredRef = useRef(false);
+  // Realtime-health signals so the DB reconcile pull only runs when realtime is
+  // down/silent (scale: the pull is otherwise O(online users) queries forever).
+  const lastRealtimeAtRef = useRef(0);
+  const channelHealthyRef = useRef(false);
   const autoPauseBusyRef = useRef(false);
   const countdownIvRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // G-04 feed filters (surfaced controls + click-to-pivot state).
@@ -244,7 +248,12 @@ export default function TeamRoomPage() {
       }
     };
     pull();
-    const iv = phase === "running" ? setInterval(pull, 6000) : null;
+    // Realtime broadcast is the primary delivery. Reconcile from the DB only when
+    // the channel is unhealthy OR has been silent for a while (a possibly-missed
+    // broadcast) — so a healthy, active session costs ~no steady-state DB polling.
+    const iv = phase === "running" ? setInterval(() => {
+      if (!channelHealthyRef.current || Date.now() - lastRealtimeAtRef.current > 25000) pull();
+    }, 10000) : null;
     return () => { stop = true; if (iv) clearInterval(iv); };
   }, [phase, id, mergeEvents]);
 
@@ -271,11 +280,13 @@ export default function TeamRoomPage() {
       channelRef.current = channel;
       channel
         .on("presence", { event: "sync" }, () => {
+          lastRealtimeAtRef.current = Date.now(); // realtime is alive
           const state = channel.presenceState() as Record<string, { ready?: boolean }[]>;
           setOnline(new Set(Object.keys(state)));
           setReadyMap(prev => { const n = { ...prev }; for (const [uid, m] of Object.entries(state)) { const r = m[0]?.ready; if (typeof r === "boolean") n[uid] = r; } return n; });
         })
         .on("broadcast", { event: "session_event" }, ({ payload }) => {
+          lastRealtimeAtRef.current = Date.now(); // realtime is alive → the reconcile pull can stay idle
           const p = payload as Ev & { actor_id?: string };
           if (p.type === "member.ready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: true }));
           else if (p.type === "member.unready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: false }));
@@ -286,7 +297,8 @@ export default function TeamRoomPage() {
           if (typeof p.seq === "number") mergeEvents([{ seq: p.seq, type: p.type, actor_id: p.actor_id ?? null, role: p.role ?? null, payload: p.payload ?? {}, occurred_at: (p as { occurred_at?: string }).occurred_at }]);
         })
         .subscribe(async status => {
-          if (status === "SUBSCRIBED") await channel.track({ ready: !!(me && roster.find(r => r.user_id === me.id)?.status === "ready") });
+          channelHealthyRef.current = status === "SUBSCRIBED";
+          if (status === "SUBSCRIBED") { lastRealtimeAtRef.current = Date.now(); await channel.track({ ready: !!(me && roster.find(r => r.user_id === me.id)?.status === "ready") }); }
         });
       // C4: if we unmounted while awaiting/subscribing, tear the just-created channel down now.
       if (cancelled) { sb.removeChannel(channel); if (channelRef.current === channel) channelRef.current = null; createdChannel = null; }
