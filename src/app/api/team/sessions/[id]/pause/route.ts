@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (typeof b?.detail === "string") detail = b.detail.slice(0, 200);
   } catch { /* body optional; defaults to a manual pause */ }
 
-  const { data: sess } = await admin.from("team_sessions").select("org_id, status").eq("id", id).maybeSingle();
+  const { data: sess } = await admin.from("team_sessions").select("org_id, status, paused_at, paused_ms").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
 
   // Authorised = staff of the org, the session's SOC Manager, or any member (auto).
@@ -51,9 +51,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (paused && sess.status !== "running") return NextResponse.json({ ok: true, noop: true });
   if (!paused && sess.status !== "paused") return NextResponse.json({ ok: true, noop: true });
 
-  const target = paused ? "paused" : "running";
-  const { error: upErr } = await admin.from("team_sessions").update({ status: target }).eq("id", id).eq("status", sess.status);
+  // Maintain the pause clock so injects don't burst-fire on resume: mark when the
+  // pause began, and on resume fold the elapsed time into the cumulative paused_ms
+  // (promote_due_injects shifts the timeline by paused_ms).
+  const patch = paused
+    ? { status: "paused", paused_at: new Date().toISOString() }
+    : { status: "running", paused_at: null, paused_ms: (sess.paused_ms ?? 0) + Math.max(0, Date.now() - (sess.paused_at ? Date.parse(sess.paused_at) : Date.now())) };
+  // The status guard makes concurrent transitions race-safe: only the first write
+  // matches, so paused_ms is folded in exactly once.
+  const { data: updated, error: upErr } = await admin.from("team_sessions").update(patch).eq("id", id).eq("status", sess.status).select("id");
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+  if (!updated || updated.length === 0) return NextResponse.json({ ok: true, noop: true }); // lost the race
 
   const { data: head } = await admin.from("session_events").select("seq").eq("session_id", id).order("seq", { ascending: false }).limit(1).maybeSingle();
   const nextSeq = (head?.seq ?? 0) + 1;
