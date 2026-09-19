@@ -1016,6 +1016,7 @@ const writingIncidentReportRoom: Room = {
     {
       type: "flag",
       id: "doc-f1",
+      event: docScheduledTaskEvent, // show the scheduled-task log this IOC flag reads
       prompt:
         "You are finalising the IOCs section. What is the exact scheduled task name that should be listed, taken directly from the TaskName field in the raw log?",
       answer: "OneDriveSyncHelper",

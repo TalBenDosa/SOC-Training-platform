@@ -631,6 +631,7 @@ const dlpRoom = {
     {
       type: "flag" as const,
       id: "dlp-f1",
+      event: dlpUsbEvent, // show the USB bulk-copy log this flag reads (not the nearest one)
       prompt:
         "Look at the USB bulk-copy DLP event analyzed earlier in this room. What is the exact removable media device serial number recorded in the data.office365.RemovableMedia.SerialNumber field? Enter it exactly as shown.",
       answer: "4C531001551122117402",

@@ -1501,6 +1501,7 @@ const persistenceRoom: Room = {
     {
       type: "flag",
       id: "persist-f1",
+      event: scheduledTaskPersistEvent, // show the scheduled-task log this flag reads
       prompt:
         "Look at the scheduled task log analysis event. What is the exact /tn (task name) value used in the registration command? Enter it exactly as shown.",
       answer: "WindowsUpdateHelper",

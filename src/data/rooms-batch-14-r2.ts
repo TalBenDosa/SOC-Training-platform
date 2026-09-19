@@ -565,6 +565,10 @@ const analystMindsetRoom = {
     {
       type: "flag" as const,
       id: "mind-flag1",
+      // Pin the log this flag is about (the patch-agent.ps1 PowerShell download,
+      // Log Analysis 2) — otherwise the nearest preceding log (the analyst_choice
+      // event) is shown and the answer isn't visible. Reported by a student.
+      event: powershellDownloadEvent,
       prompt:
         "Look back at the PowerShell download log analysis event above (the IT technician running patch-agent.ps1). The 'data.context' field explains what made this activity verifiable rather than just plausible-sounding. Enter the exact GitHub organization name (the part before the slash) referenced in the crowdstrike.CommandLine field that ties this activity to the company's own infrastructure.",
       answer: "nexacorp-it",

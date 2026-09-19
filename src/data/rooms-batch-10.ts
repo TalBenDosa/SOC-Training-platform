@@ -1036,7 +1036,7 @@ const rooms = [
         type: "flag",
         id: "dns-flag1",
         prompt:
-          "Examine the Sysmon Event 22 log above. What is the name of the suspicious process (the executable filename only, not the full path) that is generating the DGA DNS queries? Enter only the filename with its extension.",
+          "Examine Log Analysis 1 (the Sysmon Event 22 log above). What is the name of the suspicious process (the executable filename only, not the full path) that is generating the DGA DNS queries? Enter only the filename with its extension.",
         answer: "svchost.exe",
         hint: "Look at the winlog.event_data.Image field in the raw log. This shows the full path to the executable making the DNS queries. Extract just the filename (the last part after the final backslash).",
         xp: 35,

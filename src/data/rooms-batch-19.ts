@@ -983,6 +983,7 @@ const memoryDiskForensicsRoom = {
     {
       type: "flag" as const,
       id: "mdf-f1",
+      event: mftTimestompEvent, // show the HOST-ACCT-19 MFT log this flag reads
       prompt:
         "Look at the Log Analysis finding on HOST-ACCT-19. What is the exact value of the mft.fn_created field (the real creation timestamp, not the timestomped one)? Enter it exactly as shown.",
       answer: "2026-04-19T02:04:51.000Z",

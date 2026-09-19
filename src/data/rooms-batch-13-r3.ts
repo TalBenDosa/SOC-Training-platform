@@ -752,6 +752,7 @@ const avVsEdrMasterclass = {
     {
       type: "flag" as const,
       id: "edr-f1",
+      event: edrInjectEvent, // show the CrowdStrike log this flag reads (not the nearest analyst_choice)
       prompt:
         "Look at the CrowdStrike log event. Find the unique DetectId that CrowdStrike assigned to this detection. It follows the format ldt:hexstring:number.",
       answer: "ldt:c3b1f2a4e5d6:9988776655",

@@ -543,6 +543,7 @@ const esxiVirtualizationSecurityRoom = {
     {
       type: "flag" as const,
       id: "esxf-f1",
+      event: permissionGrantEvent, // show the vcsa-04 permission-grant log this flag reads
       prompt:
         "Look at the permission-grant finding on vcsa-04.medcorehealth.org. What is the exact value of the vsphere.event.permission.roleName field in the raw log?",
       answer: "Administrator",
