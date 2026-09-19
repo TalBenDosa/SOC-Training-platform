@@ -470,7 +470,7 @@ const rooms = [
         type: "flag",
         id: "priv-flag1",
         prompt:
-          "In the log analysis event above, the `svc-backup` service account was granted several privileges. Two of them are expected for a backup account. Identify the single most dangerous UNEXPECTED privilege that was assigned — the one that allows reading memory of any process on the system. Enter the exact privilege name as it appears in the PrivilegeList field.",
+          "In Log Analysis 1 (the log analysis event above), the `svc-backup` service account was granted several privileges. Two of them are expected for a backup account. Identify the single most dangerous UNEXPECTED privilege that was assigned — the one that allows reading memory of any process on the system. Enter the exact privilege name as it appears in the PrivilegeList field.",
         answer: "SeDebugPrivilege",
         hint: "Look at the PrivilegeList field. A backup account needs SeBackupPrivilege and SeRestorePrivilege. One of the remaining two privileges specifically allows debugging (reading/writing) the memory of any process — including LSASS.",
         xp: 40,
@@ -825,7 +825,7 @@ const rooms = [
         type: "flag",
         id: "cloud-flag1",
         prompt:
-          "In the CloudTrail log event above, look at the `requestParameters.userName` field. This is the name of the backdoor IAM user the attacker created. Enter the exact username as it appears in the log.",
+          "In Log Analysis 1 (the CloudTrail log event above), look at the `requestParameters.userName` field. This is the name of the backdoor IAM user the attacker created. Enter the exact username as it appears in the log.",
         answer: "svc-cloudmonitor-prod",
         hint: "The username is in the `aws.cloudtrail.requestParameters.userName` field of the raw log — it looks like a legitimate service account name, which is exactly why attackers choose names like this.",
         xp: 45,

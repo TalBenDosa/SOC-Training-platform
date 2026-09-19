@@ -501,6 +501,7 @@ const edrDetectionInvestigationRoom = {
     {
       type: "flag" as const,
       id: "edr-f1",
+      event: lsassAccessEvent, // show the WKS-FIN-0231 log this flag reads
       prompt:
         "Look at the log analysis finding on WKS-FIN-0231. What is the exact value of the crowdstrike.DetectId field in the raw log?",
       answer: "ldt:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:88213",

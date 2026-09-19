@@ -399,6 +399,7 @@ const remoteEmailCollectionRoom = {
     {
       type: "flag" as const,
       id: "remc-f1",
+      event: remcMailAccessEvent, // show the r.iversen mailbox log this flag reads
       prompt:
         "Look at the Log Analysis finding on r.iversen's mailbox. What is the exact value of the data.office365.SessionId field in the raw log?",
       answer: "f4a29c6e8b1d47f0a3c5e9b2d6f18a74",
@@ -802,6 +803,7 @@ const deviceRegistrationPersistenceRoom = {
     {
       type: "flag" as const,
       id: "devreg-f1",
+      event: devregRogueRegistrationEvent, // show the m.delgado account log this flag reads
       prompt:
         "Look at the Log Analysis finding on m.delgado's account. What is the exact value of the azure.auditlogs.properties.correlationId field in the raw log?",
       answer: "8b05d7c4-1a69-4e38-9f27-c40e6b91a53d",

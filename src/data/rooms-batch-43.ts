@@ -499,6 +499,7 @@ export const roomsBatch43 = [
       {
         type: "flag",
         id: "uc-f1",
+        event: null, // reading-recall (Reading 5) — show no log; the answer isn't read from one
         prompt:
           "This room's cloud reading names the exact AWS Secrets Manager API operation that retrieves MULTIPLE different secrets in a single request, rather than one secret at a time. What is that exact operation name?",
         answer: "BatchGetSecretValue",

@@ -498,6 +498,7 @@ const googleWorkspaceSecurityRoom = {
     {
       type: "flag" as const,
       id: "gwsf-f1",
+      event: oauthConsentEvent, // show the k.stensrud OAuth-consent log this flag reads
       prompt:
         "Look at the OAuth consent finding for k.stensrud@medcorehealth.org. What is the exact value of the gws.token.access_type field in the raw log?",
       answer: "offline",
