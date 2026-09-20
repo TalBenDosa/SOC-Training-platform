@@ -120,10 +120,15 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // don't depend on a live facilitator constantly typing. Placed as fractions of
   // the feed's span. Skipped on easy (a beginner shift stays uncluttered).
   const span = feed.length ? feed[feed.length - 1].due_offset_ms : 0;
+  // A5: three management-pressure beats (not one) so the pressure→SITREP loop and its
+  // rubric have real signal even with NO instructor in the room — the SOC Manager still
+  // gets exercised on cadence under escalating pressure.
   const msel: TimelineEntry[] = (difficulty === "easy" || span === 0) ? [] : [
-    { due_offset_ms: Math.floor(span * 0.35), channel: "inject", body: { kind: "mgmt_pressure", text: "CISO wants a status update on the suspicious activity within 15 minutes — is this contained, or spreading?" } },
+    { due_offset_ms: Math.floor(span * 0.30), channel: "inject", body: { kind: "mgmt_pressure", text: "CISO wants a status update on the suspicious activity within 15 minutes — is this contained, or spreading?" } },
     { due_offset_ms: Math.floor(span * 0.55), channel: "inject", body: { kind: "ticket", text: "A user in Finance says someone from 'IT support' phoned asking them to read back an MFA code to 'verify their account'. How should this be handled?" } },
+    { due_offset_ms: Math.floor(span * 0.62), channel: "inject", body: { kind: "mgmt_pressure", text: "Legal is asking whether this is a reportable/notifiable incident — they need your read on scope and data exposure." } },
     { due_offset_ms: Math.floor(span * 0.78), channel: "inject", body: { kind: "announcement", text: "Reminder: log every containment decision with its rationale — this incident will be reviewed after the shift." } },
+    { due_offset_ms: Math.floor(span * 0.90), channel: "inject", body: { kind: "mgmt_pressure", text: "Exec team wants a one-line bottom line for the leadership channel: what happened, what's the impact, what are we doing about it?" } },
   ];
 
   return [...feed, ...msel].sort((a, b) => a.due_offset_ms - b.due_offset_ms);

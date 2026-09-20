@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EventFeed, DetailPanelBody } from "@/app/(app)/dashboard/EventFeed";
+import { ThreatIntelDrawer, type ThreatQuery } from "@/components/threat-intel/ThreatIntelDrawer";
 import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/useLiveEvents";
 import { eventMatchesSearch } from "@/app/(app)/dashboard/eventSearch";
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -510,6 +511,8 @@ export default function TeamRoomPage() {
   const elevAcked = useMemo(() => new Set(events.filter(e => e.type === "elevation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
   // Which escalations already have a T2 incident report (§5 hard gate on resolve/containment).
   const reportedIds = useMemo(() => new Set(events.filter(e => e.type === "report.submitted").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // A2: the filed report per case (findings/verdict/recommendation) so a T2→T3 elevation can carry it.
+  const reportByEid = useMemo(() => { const m = new Map<string, { verdict?: string; findings?: string; recommendation?: string; summary?: string }>(); for (const e of events) if (e.type === "report.submitted") m.set(String((e.payload as { event_id?: string }).event_id), e.payload as { verdict?: string; findings?: string; recommendation?: string; summary?: string }); return m; }, [events]);
   // Silent-failure guard (F6): if attack activity has been streaming for a while and
   // NOBODY has escalated yet, surface a team-level nudge so a missed attack doesn't
   // pass in silence until the debrief. Clears the moment anyone escalates.
@@ -805,7 +808,7 @@ export default function TeamRoomPage() {
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className="space-y-4">
                 {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} reportedIds={reportedIds} elevatedIds={elevatedIds} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
                 {me.role === "t3" && <HuntConsole scope={scopeState} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de'/'ti'
@@ -845,6 +848,13 @@ function SharedCase({ events, feed, roster, me, act, nameOf }: { events: Ev[]; f
   const feedById = useMemo(() => new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.payload as Record<string, unknown>])), [feed]);
   const escs = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
   const notes = useMemo(() => events.filter(e => e.type === "note.added"), [events]);
+  // A1: the latest Tier-2 incident report per case — the live handover the team reads.
+  const reportsByEid = useMemo(() => {
+    const m = new Map<string, Ev>();
+    for (const e of events) if (e.type === "report.submitted") m.set(String((e.payload as { event_id?: string }).event_id), e);
+    return m;
+  }, [events]);
+  const reports = useMemo(() => [...reportsByEid.values()], [reportsByEid]);
   const statusEvt = useMemo(() => [...events].reverse().find(e => e.type === "case.status_set"), [events]);
   const ownerEvt = useMemo(() => [...events].reverse().find(e => e.type === "case.assigned"), [events]);
 
@@ -949,6 +959,25 @@ function SharedCase({ events, feed, roster, me, act, nameOf }: { events: Ev[]; f
         )}
       </div>
 
+      {/* A1: Tier-2 determinations & handover reports — read live by T3 and the Manager */}
+      {reports.length > 0 && (
+        <div className="mt-3">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Determinations &amp; handover ({reports.length})</p>
+          <div className="space-y-1.5">
+            {reports.map(e => { const p = e.payload as { verdict?: string; summary?: string; recommendation?: string; findings?: string }; const v = asStr(p.verdict); return (
+              <div key={e.seq} className="rounded-lg border border-cyber-500/25 bg-cyber-500/[0.05] px-2.5 py-1.5 text-xs">
+                <div className="flex items-center gap-2">
+                  {v && <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${v === "true_positive" || v === "escalate" ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{v.replace("_", " ")}</span>}
+                  <span className="min-w-0 flex-1 truncate text-slate-200">{asStr(p.summary) || "incident report"}</span>
+                  <span className="shrink-0 font-mono text-[10px] text-slate-500">{nameOf(e.actor_id)}</span>
+                </div>
+                {asStr(p.recommendation) && <p className="mt-0.5 text-[11px] text-cyber-200"><span className="text-slate-500">▶ recommends:</span> {asStr(p.recommendation)}</p>}
+              </div>
+            ); })}
+          </div>
+        </div>
+      )}
+
       {/* case notes */}
       <div className="mt-3 border-t border-border/50 pt-2">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Case notes ({notes.length})</p>
@@ -1014,6 +1043,15 @@ function detectIocType(v: string): string {
   if (/\.[a-z]{2,}$/i.test(s) && !/\s/.test(s)) return "domain";
   return "host";
 }
+// A4: a MANUAL IOC must be a real indicator shape — a strong type (hash/ip/email/domain)
+// or a plausible hostname (has a hyphen/dot/digit, no spaces) — so junk free text like
+// "asdf" can't satisfy the ≥1-indicator escalation gate. Picked-from-log IOCs are trusted.
+function isValidIoc(v: string): boolean {
+  const s = v.trim();
+  if (!s || /\s/.test(s)) return false;
+  if (detectIocType(s) !== "host") return true;       // hash / ip / email / domain
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{2,62}$/.test(s) && /[-.\d]/.test(s); // plausible hostname
+}
 const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, sel, setSel, reportOpen, setReportOpen }: {
@@ -1071,8 +1109,12 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
     });
   }, [events, meId]);
 
+  const [iocErr, setIocErr] = useState("");
   function addIoc(value: string, source: "picked" | "manual") {
     const v = value.trim(); if (!v) return;
+    // A4: a MANUAL indicator must look like a real IOC; picked-from-log values are trusted.
+    if (source === "manual" && !isValidIoc(v)) { setIocErr(`"${v}" isn't a valid indicator (hash / IP / domain / email / hostname).`); return; }
+    setIocErr("");
     setIocDraft(d => d.some(x => x.value.toLowerCase() === v.toLowerCase()) ? d : [...d, { type: detectIocType(v), value: v, source }]);
   }
   const rationaleWords = wordCount(form.observations);
@@ -1082,7 +1124,8 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
     rationale: rationaleWords >= MIN_RATIONALE_WORDS,
     ioc: iocDraft.length >= 1,
     severity: !!form.severity,
-    disposition: !!selDisp, // triage → escalate: a log must be dispositioned first
+    // A4: escalate only an attack-ish call — you can't escalate a log you marked benign/FP.
+    disposition: selDisp === "true_positive" || selDisp === "suspicious",
   };
   const canEscalate = !!sel && !busy && gate.summary && gate.rationale && gate.ioc && gate.severity && gate.disposition;
 
@@ -1247,6 +1290,7 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
                 <input value={iocText} onChange={e => setIocText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addIoc(iocText, "manual"); setIocText(""); } }} placeholder="add an IOC (ip / domain / hash / user)…" className="flex-1 rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 <Button variant="outline" size="sm" onClick={() => { addIoc(iocText, "manual"); setIocText(""); }}>Add</Button>
               </div>
+              {iocErr && <p className="mt-1 text-[10px] text-severity-high">{iocErr}</p>}
             </div>
             <input value={form.assessment} onChange={e => setForm(f => ({ ...f, assessment: e.target.value }))} placeholder="Assessment — what you think this is" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
             <div className="flex gap-2">
@@ -1286,8 +1330,8 @@ const T2_REPORT_VERDICTS = ["true_positive", "false_positive", "benign", "escala
 const SEV_RANK: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 0.5 };
 const slaMinFor = (sev: string) => (sev === "critical" ? 1 : sev === "high" ? 3 : sev === "medium" ? 10 : 30);
 
-function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escResolved, reportedIds, elevatedIds, contReq, contApproved, contExecuted, scope, nameOf, act, onEdr, onPivot }: {
-  role: string; meId: string; escalations: Ev[]; acked: Set<string>; ackedBy: Map<string, string>; escBounced: Set<string>; escResolved: Set<string>; reportedIds: Set<string>; elevatedIds: Set<string>; contReq: Ev[]; contApproved: Set<string>; contExecuted: Set<string>;
+function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escResolved, reportedIds, reportByEid, elevatedIds, contReq, contApproved, contExecuted, scope, nameOf, act, onEdr, onPivot }: {
+  role: string; meId: string; escalations: Ev[]; acked: Set<string>; ackedBy: Map<string, string>; escBounced: Set<string>; escResolved: Set<string>; reportedIds: Set<string>; reportByEid: Map<string, { verdict?: string; findings?: string; recommendation?: string; summary?: string }>; elevatedIds: Set<string>; contReq: Ev[]; contApproved: Set<string>; contExecuted: Set<string>;
   scope: ScopeState; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
@@ -1298,6 +1342,9 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
   const [bounceMsg, setBounceMsg] = useState("");
   const [reportFor, setReportFor] = useState<string | null>(null); // eid whose report form is open
   const [rep, setRep] = useState({ summary: "", findings: "", verdict: "true_positive", recommendation: "" });
+  const [elevatingId, setElevatingId] = useState<string | null>(null); // A2: eid being elevated (shows the "what to hunt" compose)
+  const [huntAsk, setHuntAsk] = useState("");
+  const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null); // A3: live threat-intel enrichment
   // scope-first: containment can't be requested until a working scope exists.
   const scopeSet = !!scope && (scope.hosts.length > 0 || scope.users.length > 0 || scope.techniques.length > 0);
   async function submitReport(eid: string) {
@@ -1394,7 +1441,7 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
                   )}
                   {snap && isOpen && (
                     <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40">
-                      <DetailPanelBody event={snap} onThreatQuery={() => {}} onPivot={onPivot} />
+                      <DetailPanelBody event={snap} onThreatQuery={setThreatQuery} onPivot={onPivot} />
                     </div>
                   )}
                   {/* Routed handling: whoever acknowledges first has claimed the case;
@@ -1431,7 +1478,7 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
                       {/* Escalate a hard case to Tier-3 for a deep hunt (routed handover, not shared) */}
                       {role === "t2" && isAck && (elevatedIds.has(eid)
                         ? <span className="inline-flex items-center gap-1 text-[11px] text-neon-purple"><ArrowUpRight className="h-3.5 w-3.5" /> escalated to Tier-3</span>
-                        : <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("elevation.requested", { event_id: eid, summary: asStr(p.summary) || asStr(p.what), snapshot: p.snapshot, hostname: asStr(p.hostname), entity: asStr(p.entity), severity: asStr(p.severity), iocs }); setBusy(null); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Escalate to Tier-3</Button>)}
+                        : elevatingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setElevatingId(eid); setHuntAsk(""); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Escalate to Tier-3</Button>)}
                       {!isAck && !isBounced && bouncingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setBouncingId(eid); setBounceReason(BOUNCE_REASONS[0]); setBounceMsg(""); }}>Bounce</Button>}
                       {isAck && <Button variant="outline" size="sm" disabled={b || !reportedIds.has(eid)} onClick={async () => { setBusy(e.seq + ""); await act("escalation.resolved", { event_id: eid }); setBusy(null); }}>Resolve</Button>}
                       {/* Pin the key evidence to the Shared Case (wires the evidence.pinned rubric signal) */}
@@ -1453,6 +1500,20 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
                       </div>
                     </div>
                   )}
+                  {/* A2: elevate-to-Tier-3 compose — a required "what to hunt / why", and T2's filed
+                      findings ride along so the hunter starts from context, not the raw alert. */}
+                  {!isResolved && elevatingId === eid && (() => { const rpt = reportByEid.get(eid); return (
+                    <div className="mt-2 space-y-1.5 rounded-lg border border-neon-purple/30 bg-neon-purple/[0.05] p-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Hand off to Tier-3 — what should they hunt?</p>
+                      <textarea value={huntAsk} onChange={ev => setHuntAsk(ev.target.value)} placeholder="What to hunt & why you're elevating (e.g. 'confirmed C2 beacon from WS-FIN-2847 — hunt lateral movement to the DC and check other finance hosts for the same hash')" rows={2} className="w-full resize-y rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                      {rpt ? <p className="text-[10px] text-neon-green">✓ your filed report (verdict + findings + recommendation) will travel with this elevation.</p>
+                           : <p className="text-[10px] text-neon-amber">⚠ no report filed yet — Tier-3 gets more to work with if you write the report first.</p>}
+                      <div className="flex gap-1.5">
+                        <Button variant="primary" size="sm" disabled={b || huntAsk.trim().length < 8} onClick={async () => { setBusy(e.seq + ""); await act("elevation.requested", { event_id: eid, summary: asStr(p.summary) || asStr(p.what), snapshot: p.snapshot, hostname: asStr(p.hostname), entity: asStr(p.entity), severity: asStr(p.severity), iocs, hunt_ask: huntAsk.trim(), t2_verdict: rpt?.verdict, t2_findings: rpt?.findings, t2_recommendation: rpt?.recommendation }); setBusy(null); setElevatingId(null); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Send to Tier-3</Button>
+                        <Button variant="outline" size="sm" onClick={() => setElevatingId(null)}>✕</Button>
+                      </div>
+                    </div>
+                  ); })()}
                 </div>
               );
             })}
@@ -1530,6 +1591,8 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
           </div>
         )}
       </Card>
+      {/* A3: live threat-intel enrichment when a hash/IP/domain is checked in a log */}
+      {threatQuery && <ThreatIntelDrawer key="t2-threat" query={threatQuery} onClose={() => setThreatQuery(null)} />}
     </div>
   );
 }
@@ -1581,6 +1644,10 @@ function LeadConsole({ contReq, contDecided, escalations, acked, events, nameOf,
   const [notes, setNotes] = useState<Record<string, string>>({}); // per-request decision rationale
   const pending = contReq.filter(e => !contDecided.has(String((e.payload as { event_id?: string }).event_id)));
   const escResolvedSet = useMemo(() => new Set(events.filter(e => e.type === "escalation.resolved").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // A1: T2's determination/recommendation per case + the working scope, so the
+  // Manager approves containment WITH the justification, not blind.
+  const reportByEid = useMemo(() => { const m = new Map<string, { verdict?: string; recommendation?: string; findings?: string; summary?: string }>(); for (const e of events) if (e.type === "report.submitted") m.set(String((e.payload as { event_id?: string }).event_id), e.payload as { verdict?: string; recommendation?: string; findings?: string; summary?: string }); return m; }, [events]);
+  const latestScope = useMemo(() => { const s = [...events].reverse().find(e => e.type === "scope.set" || e.type === "scope.confirmed"); return s ? (s.payload as { hosts?: string[]; users?: string[]; techniques?: string[] }) : null; }, [events]);
   // Oversight queue: escalations still waiting for a Tier-2 to pick up (unacked,
   // unresolved) — so the Manager sees the backlog from the first minute and can
   // chase it, instead of only getting work once a containment request lands.
@@ -1621,6 +1688,14 @@ function LeadConsole({ contReq, contDecided, escalations, acked, events, nameOf,
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">Contain <b className="text-white">{p.target}</b></p>
                   <p className="mt-0.5 text-[11px] text-slate-400">{p.reason} · requested by {nameOf(e.actor_id)}</p>
+                  {/* A1: T2's determination + recommendation + scope, so this isn't a blind approval */}
+                  {(() => { const r = reportByEid.get(eid); return r ? (
+                    <div className="mt-1.5 rounded border border-cyber-500/25 bg-cyber-500/[0.05] px-2 py-1.5 text-[11px]">
+                      <p className="text-slate-300"><span className="font-semibold text-cyber-200">T2 determination:</span> {asStr(r.verdict).replace("_", " ") || "—"}</p>
+                      {asStr(r.recommendation) && <p className="mt-0.5 text-slate-300"><span className="text-slate-500">recommends:</span> {asStr(r.recommendation)}</p>}
+                      {latestScope && <p className="mt-0.5 font-mono text-[10px] text-slate-500">scope: {(latestScope.hosts ?? []).length}h · {(latestScope.users ?? []).length}u · {(latestScope.techniques ?? []).length}t{latestScope.hosts?.length ? ` — ${latestScope.hosts.join(", ")}` : ""}</p>}
+                    </div>
+                  ) : <p className="mt-1 text-[10px] text-neon-amber">⚠ No incident report filed for this case yet — ask Tier-2 to file it before you approve.</p>; })()}
                   {/* Decision rationale — optional to Approve (fast confident call), required to Deny */}
                   <input value={note} onChange={ev => setNotes(n => ({ ...n, [eid]: ev.target.value }))} placeholder="Decision rationale — business impact / why (required to deny)" className="mt-2 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                   <div className="mt-2 flex gap-1.5">
@@ -1894,6 +1969,7 @@ function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot
   const [busy, setBusy] = useState(false);
   const [busyElev, setBusyElev] = useState<string | null>(null);
   const [openElev, setOpenElev] = useState<number | null>(null);
+  const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null); // A3: live threat-intel enrichment
   async function log() {
     if (f.hypothesis.trim().length < 8) return;
     setBusy(true); const ok = await act("hunt.logged", { ...f }); setBusy(false);
@@ -1908,19 +1984,34 @@ function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot
           <p className="mt-1 text-[11px] text-slate-400">Tier-2 handed these down for a deep hunt.</p>
           <div className="mt-2 space-y-2">
             {elevations.slice().reverse().map(e => {
-              const p = e.payload as { event_id?: string; summary?: string; severity?: string; hostname?: string; entity?: string; snapshot?: Record<string, unknown> };
+              const p = e.payload as { event_id?: string; summary?: string; severity?: string; hostname?: string; entity?: string; snapshot?: Record<string, unknown>; hunt_ask?: string; t2_verdict?: string; t2_findings?: string; t2_recommendation?: string };
               const eid = String(p.event_id); const b = busyElev === e.seq + ""; const snap = enrichSnapshot(p.snapshot); const isOpen = openElev === e.seq;
               const done = elevAcked.has(eid);
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">{asStr(p.summary) || "elevated case"}</p>
                   <p className="mt-0.5 font-mono text-[10px] text-slate-500">from {nameOf(e.actor_id)} · sev {asStr(p.severity) || "—"}{asStr(p.hostname) ? ` · ${asStr(p.hostname)}` : ""}</p>
+                  {/* A2: the T2 hunt-ask + filed findings so the hunter starts from context, not the raw alert */}
+                  {asStr(p.hunt_ask) && (
+                    <div className="mt-1.5 rounded border border-neon-purple/30 bg-neon-purple/[0.06] px-2 py-1">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-neon-purple">Tier-2 asks you to hunt</p>
+                      <p className="mt-0.5 text-[11px] text-slate-200">{asStr(p.hunt_ask)}</p>
+                    </div>
+                  )}
+                  {(asStr(p.t2_findings) || asStr(p.t2_verdict) || asStr(p.t2_recommendation)) && (
+                    <div className="mt-1 rounded border border-border/50 bg-bg-elevated/30 px-2 py-1 text-[11px]">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Tier-2 investigation</p>
+                      {asStr(p.t2_verdict) && <p className="mt-0.5 text-slate-400">verdict: {asStr(p.t2_verdict).replace("_", " ")}</p>}
+                      {asStr(p.t2_findings) && <p className="mt-0.5 text-slate-300">{asStr(p.t2_findings)}</p>}
+                      {asStr(p.t2_recommendation) && <p className="mt-0.5 text-cyber-200">▶ recommended: {asStr(p.t2_recommendation)}</p>}
+                    </div>
+                  )}
                   {snap && (
                     <button onClick={() => setOpenElev(isOpen ? null : e.seq)} className="mt-1 flex items-center gap-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">
                       <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "View the full log (raw event + JSON)"}
                     </button>
                   )}
-                  {snap && isOpen && <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40"><DetailPanelBody event={snap} onThreatQuery={() => {}} onPivot={onPivot} /></div>}
+                  {snap && isOpen && <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40"><DetailPanelBody event={snap} onThreatQuery={setThreatQuery} onPivot={onPivot} /></div>}
                   {!done && <Button variant="outline" size="sm" className="mt-2" disabled={b} onClick={async () => { setBusyElev(e.seq + ""); await act("elevation.acknowledged", { event_id: eid }); setBusyElev(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Take the hunt</Button>}
                   {done && <p className="mt-1 text-[11px] text-neon-green">✓ taken — record findings below</p>}
                 </div>
@@ -1944,6 +2035,8 @@ function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot
       </Card>
       {/* G-10: Tier-3 owns the FINAL scope — confirm or amend what Tier-2 proposed */}
       <ScopeConsole scope={scope} mode="confirm" act={act} />
+      {/* A3: live threat-intel enrichment when a hash/IP/domain is checked in a log */}
+      {threatQuery && <ThreatIntelDrawer key="t3-threat" query={threatQuery} onClose={() => setThreatQuery(null)} />}
     </div>
   );
 }
@@ -2187,7 +2280,7 @@ function rubricPercent(cells: RubricCell[]): number | null {
 }
 
 interface RubricCtx {
-  role: string; dispAcc: number | null; escAckRate: number | null; escQuality: number | null;
+  role: string; dispAcc: number | null; escAckRate: number | null; escPrecision: number | null; escRecall: number | null; escQuality: number | null;
   triageMin: number | null; ackLatencyMin: number | null; approvalLatencyMin: number | null;
   huntCount: number; huntTech: number; noteCount: number;
   rulePublished: number; ruleMatched: number; ruleTechniques: number; ruleDocRate: number | null;
@@ -2203,8 +2296,10 @@ function roleRubric(c: RubricCtx): RubricCell[] {
   switch (c.role) {
     case "t1": return [
       { label: "Disposition accuracy", score: c.dispAcc == null ? null : bandHigh(c.dispAcc, 90, 75, 50) },
-      { label: "Escalation precision", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40) },
+      { label: "Escalation precision", score: c.escPrecision == null ? null : bandHigh(c.escPrecision, 80, 60, 40), note: "of what you escalated, how much was a real attack (vs ground truth)" },
+      { label: "Attack recall (team)", score: c.escRecall == null ? null : bandHigh(c.escRecall, 80, 50, 25), note: "share of real attacks the T1 team escalated at all" },
       { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
+      { label: "Handoff coordination", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40), note: "share of your escalations Tier-2 acknowledged" },
       { label: "Time-to-triage", score: c.triageMin == null ? null : bandLow(c.triageMin, 5, 10, 15) },
       { label: "Help-desk tickets", score: c.ticketsAnswered === 0 ? null : bandHigh(c.ticketsAnswered, 3, 2, 1) },
     ];
@@ -2266,6 +2361,10 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
   const feed = events.filter(e => e.type === "feed.event");
   const gt = new Map<string, string | undefined>(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), (e.payload as { expected_verdict?: string }).expected_verdict]));
   const attackIds = new Set([...gt.entries()].filter(([, v]) => v && ATTACK_VERDICTS.has(v)).map(([k]) => k));
+  // A4: team-wide recall — share of real attacks the T1 team escalated at all. A shared
+  // metric (the queue is shared), so it doesn't unfairly punish one T1 for a teammate's catch.
+  const teamEscalatedAttackIds = new Set(events.filter(e => e.type === "escalation.requested" && attackIds.has(String((e.payload as { event_id?: string }).event_id))).map(e => String((e.payload as { event_id?: string }).event_id)));
+  const teamRecall = attackIds.size ? Math.round((teamEscalatedAttackIds.size / attackIds.size) * 100) : null;
 
   // Shared timing maps for the G-11 rubric (latencies derived from paired events).
   const feedTs = new Map<string, number | null>(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.occurred_at ? Date.parse(e.occurred_at) : null]));
@@ -2313,7 +2412,11 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     const dispAcc = disp.length ? Math.round((dispCorrect / disp.length) * 100) : null;
 
     // ── G-11 rubric context — measurable deltas for THIS user ──────────────────
-    // Escalation precision: share of this analyst's escalations that got acked.
+    // A4: Escalation PRECISION vs ground truth — of this analyst's escalations, how many
+    // were real attacks (scored at debrief only, so it never leaks live).
+    const escPrecision = esc.length ? Math.round((esc.filter(e => attackIds.has(String((e.payload as { event_id?: string }).event_id))).length / esc.length) * 100) : null;
+    // Handoff coordination (was mislabelled "precision"): share of this analyst's escalations
+    // that a Tier-2 acknowledged. A coordination signal, not a correctness one.
     const escAckedIds = new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id)));
     const escAckRate = esc.length ? Math.round((esc.filter(e => escAckedIds.has(String((e.payload as { event_id?: string }).event_id))).length / esc.length) * 100) : null;
     // Time-to-triage: Δ(feed appearance → this user's disposition) for high/crit, minutes.
@@ -2389,7 +2492,7 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     const mgmtRespondedRate = mgmtInjects.length ? Math.round((mgmtAnswered / mgmtInjects.length) * 100) : null;
 
     const rubric = roleRubric({
-      role: m.role, dispAcc, escAckRate, escQuality, triageMin, ackLatencyMin, approvalLatencyMin,
+      role: m.role, dispAcc, escAckRate, escPrecision, escRecall: teamRecall, escQuality, triageMin, ackLatencyMin, approvalLatencyMin,
       huntCount: hunts.length, huntTech, noteCount, rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
       intelAttrib, intelNext, handoverComplete, reopens, workloadSkew, contReason, contTargetOk: null,
       scopeSetDims, scopeConfirmDims, scopeConfirmed: scopeConfirms.length > 0,
@@ -2527,7 +2630,10 @@ function HotWash({ events, nameOf }: { events: Ev[]; nameOf: (u: string | null) 
 
 function TeamReport({ events, roster, me }: { events: Ev[]; roster: RosterMember[]; me: Me }) {
   const { team, perUser } = useMemo(() => computeReport(events, roster), [events, roster]);
-  const visible = me.is_staff ? perUser : perUser.filter(u => u.user_id === me.id);
+  // A5: staff AND the SOC Manager (the coordinator who runs the debrief) see the whole
+  // team's cards; other players see only their own.
+  const seesAll = me.is_staff || me.role === "mgr";
+  const visible = seesAll ? perUser : perUser.filter(u => u.user_id === me.id);
 
   function exportCsv() {
     const header = ["Name", "Role", "Rubric score %", "Logs opened", "Avg dwell (s)", "Dispositions", "Disposition accuracy %", "Escalations", "Escalation quality", "Acks", "Containment requests", "Containment decisions", "Role actions", "First action (s)", "Contribution"];
