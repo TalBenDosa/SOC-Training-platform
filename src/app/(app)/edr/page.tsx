@@ -44,9 +44,13 @@ export default function EdrConsolePage() {
     const requested = params.get("case");
     if (requested === "live") {
       try {
-        // localStorage (shared across tabs) — the Dashboard stashed it here so
-        // this EDR tab can read the live attack it generated.
-        const stashed = JSON.parse(localStorage.getItem("edr_live_investigation") || "null");
+        // localStorage (shared across tabs) — the opener stashed it here so this EDR
+        // tab can read the live attack it generated. A team room passes ?u=<user id>
+        // and stashes under a PER-USER key so two analysts don't clobber each other
+        // (B8); the dashboard's single-player key is the fallback.
+        const u = params.get("u");
+        const raw = (u && localStorage.getItem(`edr_live_investigation_${u}`)) || localStorage.getItem("edr_live_investigation") || "null";
+        const stashed = JSON.parse(raw);
         if (stashed?.id) { setLiveInv(stashed); setInvId(stashed.id); return; }
       } catch { /* fall through to a static case */ }
     }

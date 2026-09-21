@@ -128,6 +128,7 @@ export default function TeamRoomPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [edrNote, setEdrNote] = useState<string | null>(null); // B8: EDR open feedback (shown in any phase, incl. running)
 
   const [online, setOnline] = useState<Set<string>>(new Set());
   const [readyMap, setReadyMap] = useState<Record<string, boolean>>({});
@@ -592,15 +593,19 @@ export default function TeamRoomPage() {
     try {
       const evs = feed.map(e => e.payload as unknown as TelemetryEvent);
       const inv = buildInvestigationFromStory({ id: `team-${id}`, title: "Team incident — live", events: evs });
-      if (!inv) { setNote("No endpoint (EDR/Sysmon) telemetry in this incident yet — nothing to open in the EDR console."); return; }
+      if (!inv) { setEdrNote("No endpoint (EDR/Sysmon) telemetry in this incident yet — nothing to open in the EDR console."); return; }
       // Put the escalated event's description in the EDR header, so the analyst
       // always sees WHAT they're investigating (not a generic "Team incident").
       if (description) inv.title = description;
-      localStorage.setItem("edr_live_investigation", JSON.stringify(inv));
-      const w = window.open(`/edr?case=live&team=${id}`, "_blank", "noopener");
-      if (!w) { setNote("Pop-up blocked — allow pop-ups for this site, then click “Investigate in EDR” again."); }
-    } catch { setNote("Couldn't open the EDR console for this incident."); }
-  }, [feed, id]);
+      // B8: per-analyst key + ?u= so a second analyst opening EDR doesn't clobber the
+      // first one's stashed investigation (was a shared, last-write-wins origin key).
+      const uid = me?.id ?? "anon";
+      localStorage.setItem(`edr_live_investigation_${uid}`, JSON.stringify(inv));
+      const w = window.open(`/edr?case=live&team=${id}&u=${encodeURIComponent(uid)}`, "_blank", "noopener");
+      if (!w) { setEdrNote("Pop-up blocked — allow pop-ups for this site, then click “Investigate in EDR” again."); }
+      else setEdrNote(null);
+    } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
+  }, [feed, id, me?.id]);
 
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
   if (error && !session) return (
@@ -615,6 +620,8 @@ export default function TeamRoomPage() {
         <Link href="/team" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Team training</Link>
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {note && phase !== "running" && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{note}</div>}
+        {/* B8: EDR feedback shows in ANY phase (a pop-up-blocked click mid-shift must not be silent) */}
+        {edrNote && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-4 py-2 text-sm text-neon-amber"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} className="ml-auto text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button></div>}
 
         {countdown !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
@@ -769,7 +776,7 @@ export default function TeamRoomPage() {
                   keep the raw feed for oversight. */}
               <div className="min-w-0 space-y-2">
                 {((me.role === "lead" || me.role === "mgr") && !me.is_staff) ? (
-                  <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} />
+                  <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} />
                 ) : (
                   <>
                     {/* G-04: surfaced feed filters + active click-to-pivot chips */}
@@ -808,8 +815,9 @@ export default function TeamRoomPage() {
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className="space-y-4">
                 {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
+                {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <HuntConsole scope={scopeState} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de'/'ti'
                     branches stay for backward-compatibility with older sessions. */}
@@ -1066,6 +1074,15 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
   const [iocText, setIocText] = useState("");
   const [busy, setBusy] = useState(false);
   const selDisp = sel ? dispositions.get(sel) : undefined;
+  // B6: a real T1 alert QUEUE — a prioritized, aging worklist of the high-signal
+  // alerts still needing a disposition (drains as you triage; noise never enters).
+  // A sorted projection over the same feed, NOT a second SIEM.
+  const nowMs = Date.now();
+  const queue = feed
+    .map(e => { const p = e.payload as { id?: string; severity?: string; source?: string; description?: string; summary?: string; what?: string; hostname?: string }; return { e, eid: String(p.id ?? e.seq), p }; })
+    .filter(({ eid, p }) => !dispositions.has(eid) && (p.severity === "high" || p.severity === "critical"))
+    .map(x => { const mins = x.e.occurred_at ? Math.max(0, Math.floor((nowMs - Date.parse(x.e.occurred_at)) / 60000)) : 0; const rank = x.p.severity === "critical" ? 4 : 3; return { ...x, mins, rank, score: rank * (1 + mins / 5) }; })
+    .sort((a, b) => b.score - a.score);
   const isLowConf = selDisp === "suspicious"; // T1-2: Suspicious → low-confidence lead
 
   // T1-3: soft-lock claims — latest alert.claimed/released per event wins; a claim
@@ -1171,6 +1188,28 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
   const selSource = asStr(selP?.source);
   return (
     <>
+    {/* B6: the alert queue — highest-severity, oldest-aging first; drains as you disposition */}
+    <Card className="border-neon-amber/30">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" /> Alert queue ({queue.length})</h3>
+        <span className="font-mono text-[10px] text-slate-500">high/critical · un-triaged</span>
+      </div>
+      {queue.length === 0 ? (
+        <p className="mt-2 text-xs text-slate-400">Queue clear — no high/critical alert is waiting for a disposition. Watch the feed.</p>
+      ) : (
+        <div className="mt-2 space-y-1">
+          {queue.slice(0, 8).map(({ e, eid, p, mins, rank }) => { const breached = mins >= slaMinFor(p.severity ?? "high"); return (
+            <button key={e.seq} onClick={() => { setSel(eid); setReportOpen(true); }} className={`flex w-full items-center gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:bg-white/[0.03] ${sel === eid ? "border-cyber-500/50 bg-cyber-500/[0.06]" : "border-border/60 bg-bg"}`}>
+              <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold uppercase ${rank === 4 ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-neon-amber/50 bg-neon-amber/10 text-neon-amber"}`}>{p.severity}</span>
+              <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.description) || asStr(p.summary) || asStr(p.what) || asStr(p.hostname) || "alert"}</span>
+              {asStr(p.source) && <span className="shrink-0 font-mono text-[9px] text-slate-500">{asStr(p.source)}</span>}
+              <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ {mins}m{breached ? " · SLA" : ""}</span>
+            </button>
+          ); })}
+          {queue.length > 8 && <p className="text-[10px] text-slate-500">+{queue.length - 8} more — work the top of the queue first.</p>}
+        </div>
+      )}
+    </Card>
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Tier-1 triage</h3>
       <p className="mt-1 text-[11px] text-slate-400">Open a log in the feed and hit <span className="font-semibold text-amber-300">🚩 Escalate this log</span> — or pick one below.</p>
@@ -1344,6 +1383,8 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
   const [rep, setRep] = useState({ summary: "", findings: "", verdict: "true_positive", recommendation: "" });
   const [elevatingId, setElevatingId] = useState<string | null>(null); // A2: eid being elevated (shows the "what to hunt" compose)
   const [huntAsk, setHuntAsk] = useState("");
+  const [containingId, setContainingId] = useState<string | null>(null); // B10: eid whose containment-request form is open
+  const [contForm, setContForm] = useState({ criticality: "standard", blast: "", owner: "" });
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null); // A3: live threat-intel enrichment
   // scope-first: containment can't be requested until a working scope exists.
   const scopeSet = !!scope && (scope.hosts.length > 0 || scope.users.length > 0 || scope.techniques.length > 0);
@@ -1469,17 +1510,17 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
                       {!isAck && !isBounced
                         ? <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("escalation.acknowledged", { event_id: eid }); setBusy(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Acknowledge (take this case)</Button>
                         : null}
-                      {/* Report is a hard gate for containment + resolve (§5) */}
-                      {isAck && !reportedIds.has(eid) && <Button variant="outline" size="sm" onClick={() => { setReportFor(eid); setRep({ summary: "", findings: "", verdict: "true_positive", recommendation: "" }); if (typeof document !== "undefined") document.getElementById("t2-report")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><FileText className="mr-1 h-3.5 w-3.5" /> Write report ↓</Button>}
+                      {/* Report is a hard gate for containment + resolve (§5). B12: T2-only artifact. */}
+                      {role === "t2" && isAck && !reportedIds.has(eid) && <Button variant="outline" size="sm" onClick={() => { setReportFor(eid); setRep({ summary: "", findings: "", verdict: "true_positive", recommendation: "" }); if (typeof document !== "undefined") document.getElementById("t2-report")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><FileText className="mr-1 h-3.5 w-3.5" /> Write report ↓</Button>}
                       {isAck && reportedIds.has(eid) && <span className="inline-flex items-center gap-1 text-[11px] text-neon-green"><CheckCircle2 className="h-3.5 w-3.5" /> report filed</span>}
                       {isAck && (requestedIds.has(eid)
                         ? <span className="inline-flex items-center gap-1 text-[11px] text-cyber-300"><ShieldAlert className="h-3.5 w-3.5" /> containment requested</span>
-                        : <Button variant="primary" size="sm" disabled={b || !scopeSet || !reportedIds.has(eid)} onClick={async () => { setBusy(e.seq + ""); await act("containment.requested", { event_id: eid, target, reason: asStr(p.summary) || asStr(p.what) }); setBusy(null); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> Request containment</Button>)}
+                        : containingId !== eid && <Button variant="primary" size="sm" disabled={b || !scopeSet || !reportedIds.has(eid)} onClick={() => { setContainingId(eid); setContForm({ criticality: "standard", blast: "", owner: "" }); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> Request containment</Button>)}
                       {/* Escalate a hard case to Tier-3 for a deep hunt (routed handover, not shared) */}
                       {role === "t2" && isAck && (elevatedIds.has(eid)
                         ? <span className="inline-flex items-center gap-1 text-[11px] text-neon-purple"><ArrowUpRight className="h-3.5 w-3.5" /> escalated to Tier-3</span>
                         : elevatingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setElevatingId(eid); setHuntAsk(""); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Escalate to Tier-3</Button>)}
-                      {!isAck && !isBounced && bouncingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setBouncingId(eid); setBounceReason(BOUNCE_REASONS[0]); setBounceMsg(""); }}>Bounce</Button>}
+                      {role === "t2" && !isAck && !isBounced && bouncingId !== eid && <Button variant="outline" size="sm" disabled={b} onClick={() => { setBouncingId(eid); setBounceReason(BOUNCE_REASONS[0]); setBounceMsg(""); }}>Bounce</Button>}
                       {isAck && <Button variant="outline" size="sm" disabled={b || !reportedIds.has(eid)} onClick={async () => { setBusy(e.seq + ""); await act("escalation.resolved", { event_id: eid }); setBusy(null); }}>Resolve</Button>}
                       {/* Pin the key evidence to the Shared Case (wires the evidence.pinned rubric signal) */}
                       {isAck && <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("evidence.pinned", { event_id: eid, label: asStr(p.summary) || asStr(p.what) || "flagged log", iocs }); setBusy(null); }}>📌 Pin to case</Button>}
@@ -1514,6 +1555,24 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
                       </div>
                     </div>
                   ); })()}
+                  {/* B10: containment-request compose — business-impact context so the Manager's
+                      approval is a real risk decision, not a rubber stamp. */}
+                  {!isResolved && containingId === eid && (
+                    <div className="mt-2 space-y-1.5 rounded-lg border border-severity-high/30 bg-severity-high/[0.05] p-2">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Request containment of <span className="text-slate-200">{target}</span> — give the Manager the trade-off</p>
+                      <select value={contForm.criticality} onChange={ev => setContForm(s => ({ ...s, criticality: ev.target.value }))} className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">
+                        <option value="crown_jewel">asset criticality: crown-jewel (domain controller / core system)</option>
+                        <option value="standard">asset criticality: standard</option>
+                        <option value="low">asset criticality: low (spare / test)</option>
+                      </select>
+                      <input value={contForm.blast} onChange={ev => setContForm(s => ({ ...s, blast: ev.target.value }))} placeholder="What breaks if isolated? (e.g. 'payroll run in progress' / 'none')" className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                      <input value={contForm.owner} onChange={ev => setContForm(s => ({ ...s, owner: ev.target.value }))} placeholder="Business owner / hours (e.g. 'Finance · business hours')" className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                      <div className="flex gap-1.5">
+                        <Button variant="primary" size="sm" disabled={b || !contForm.blast.trim()} onClick={async () => { setBusy(e.seq + ""); await act("containment.requested", { event_id: eid, target, reason: asStr(p.summary) || asStr(p.what), asset_criticality: contForm.criticality, blast_radius: contForm.blast.trim(), business_owner: contForm.owner.trim() || undefined }); setBusy(null); setContainingId(null); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> Send request</Button>
+                        <Button variant="outline" size="sm" onClick={() => setContainingId(null)}>✕</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1545,7 +1604,9 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
 
       {/* ── Bottom of the page: the analyst's own report ── §5 handover. A dedicated
           place (not buried in a ticket) to attach the report, the determination and
-          the recommendations. Filing it is what unlocks containment & resolve. */}
+          the recommendations. Filing it is what unlocks containment & resolve.
+          B12: T2 artifact — Tier-3 files hunt findings, not T2 incident reports. */}
+      {role === "t2" && (
       <Card className="border-cyber-500/30">
         <div id="t2-report" className="scroll-mt-4" />
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><FileText className="h-4 w-4 text-cyber-300" /> Your incident report — determination &amp; recommendations</h3>
@@ -1591,6 +1652,7 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
           </div>
         )}
       </Card>
+      )}
       {/* A3: live threat-intel enrichment when a hash/IP/domain is checked in a log */}
       {threatQuery && <ThreatIntelDrawer key="t2-threat" query={threatQuery} onClose={() => setThreatQuery(null)} />}
     </div>
@@ -1682,12 +1744,21 @@ function LeadConsole({ contReq, contDecided, escalations, acked, events, nameOf,
         {pending.length === 0 ? <p className="mt-2 text-xs text-slate-400">No requests waiting. Tier-2 asks you to approve containment here.</p> : (
           <div className="mt-2 space-y-2">
             {pending.map(e => {
-              const p = e.payload as { event_id?: string; target?: string; reason?: string }; const eid = String(p.event_id); const b = busy === e.seq + "";
+              const p = e.payload as { event_id?: string; target?: string; reason?: string; asset_criticality?: string; blast_radius?: string; business_owner?: string }; const eid = String(p.event_id); const b = busy === e.seq + "";
               const note = notes[eid] ?? "";
+              const crit = asStr(p.asset_criticality);
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">Contain <b className="text-white">{p.target}</b></p>
                   <p className="mt-0.5 text-[11px] text-slate-400">{p.reason} · requested by {nameOf(e.actor_id)}</p>
+                  {/* B10: business-impact so approve/deny is a real risk trade-off */}
+                  {(crit || asStr(p.blast_radius) || asStr(p.business_owner)) && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {crit && <span className={`rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${crit === "crown_jewel" ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{crit.replace("_", "-")}</span>}
+                      {asStr(p.blast_radius) && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[9px] text-neon-amber">if isolated: {asStr(p.blast_radius)}</span>}
+                      {asStr(p.business_owner) && <span className="rounded border border-border px-1.5 py-0.5 text-[9px] text-slate-400">{asStr(p.business_owner)}</span>}
+                    </div>
+                  )}
                   {/* A1: T2's determination + recommendation + scope, so this isn't a blind approval */}
                   {(() => { const r = reportByEid.get(eid); return r ? (
                     <div className="mt-1.5 rounded border border-cyber-500/25 bg-cyber-500/[0.05] px-2 py-1.5 text-[11px]">
@@ -1965,7 +2036,7 @@ function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
-  const [f, setF] = useState({ hypothesis: "", finding: "", technique: "" });
+  const [f, setF] = useState({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed" });
   const [busy, setBusy] = useState(false);
   const [busyElev, setBusyElev] = useState<string | null>(null);
   const [openElev, setOpenElev] = useState<number | null>(null);
@@ -1973,7 +2044,7 @@ function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot
   async function log() {
     if (f.hypothesis.trim().length < 8) return;
     setBusy(true); const ok = await act("hunt.logged", { ...f }); setBusy(false);
-    if (ok) setF({ hypothesis: "", finding: "", technique: "" });
+    if (ok) setF({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed" });
   }
   return (
     <div className="space-y-4">
@@ -2027,9 +2098,17 @@ function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot
         </div>
         <p className="mt-1 text-[11px] text-slate-400">Beyond the queue: form a hypothesis, hunt the feed, record what you found.</p>
         <div className="mt-2 space-y-2">
-          <input value={f.hypothesis} onChange={e => setF(s => ({ ...s, hypothesis: e.target.value }))} placeholder="Hypothesis (e.g. 'lateral movement from FIN-WS-07 via SMB')" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-          <textarea value={f.finding} onChange={e => setF(s => ({ ...s, finding: e.target.value }))} placeholder="Finding / evidence" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-          <input value={f.technique} onChange={e => setF(s => ({ ...s, technique: e.target.value }))} placeholder="MITRE technique (optional, e.g. T1021.002)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+          <input value={f.hypothesis} onChange={e => setF(s => ({ ...s, hypothesis: e.target.value }))} placeholder="Hypothesis — name the entities (e.g. 'lateral movement from FIN-WS-07 to DC01 via SMB')" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+          <textarea value={f.finding} onChange={e => setF(s => ({ ...s, finding: e.target.value }))} placeholder="Finding / evidence — cite the hosts, users, IPs, hashes or techniques you verified it against" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+          <div className="flex gap-1.5">
+            <input value={f.technique} onChange={e => setF(s => ({ ...s, technique: e.target.value }))} placeholder="MITRE technique (e.g. T1021.002)" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <select value={f.conclusion} onChange={e => setF(s => ({ ...s, conclusion: e.target.value }))} className="rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 focus:outline-none">
+              <option value="confirmed">confirmed</option>
+              <option value="refuted">refuted</option>
+              <option value="inconclusive">inconclusive</option>
+            </select>
+          </div>
+          <p className="text-[10px] text-slate-500">Scored on substance: a hypothesis that names real entities, a finding that cites the evidence, a valid in-case technique, and a clear conclusion — a disproved (refuted) hypothesis with evidence counts fully.</p>
           <Button variant="primary" size="sm" disabled={busy || f.hypothesis.trim().length < 8} onClick={log}>Log hunt finding</Button>
         </div>
       </Card>
@@ -2242,6 +2321,30 @@ function escQualityScore(p: Record<string, unknown>): number {
   if (Array.isArray(p.iocs) ? p.iocs.length > 0 : false) s += 15;
   return Math.min(100, s);
 }
+/** T3 hunt quality (deterministic, B9) — rewards substance over count so one deep,
+ *  evidence-cited hunt beats three 8-char stubs. Hypothesis that names a real case
+ *  entity (25) · finding that cites case entities/indicators (35) · a valid MITRE
+ *  technique, bonus if it's one the case actually involves (25) · an explicit
+ *  conclusion (15). A REFUTED hypothesis with evidence scores full — disproving is
+ *  real hunting. */
+function huntQualityScore(p: Record<string, unknown>, caseEntities: Set<string>, caseTechniques: Set<string>): number {
+  const hyp = String(p.hypothesis ?? "").trim();
+  const finding = String(p.finding ?? "").trim();
+  const tech = String(p.technique ?? "").trim().toUpperCase();
+  const conclusion = String(p.conclusion ?? "").trim();
+  const ents = [...caseEntities].map(e => e.toLowerCase()).filter(Boolean);
+  let s = 0;
+  const hypWords = hyp.split(/\s+/).filter(Boolean).length;
+  const hypRefs = ents.some(en => hyp.toLowerCase().includes(en));
+  if (hypWords >= 12 && hypRefs) s += 25; else if (hypWords >= 8) s += 12;
+  const findWords = finding.split(/\s+/).filter(Boolean).length;
+  const findCited = ents.filter(en => finding.toLowerCase().includes(en)).length;
+  if (findWords >= 15 && findCited >= 2) s += 35; else if (findWords >= 10 && findCited >= 1) s += 18; else if (finding) s += 5;
+  const techValid = /^T\d{4}(\.\d{3})?$/.test(tech);
+  if (techValid && caseTechniques.has(tech)) s += 25; else if (techValid) s += 12;
+  if (["confirmed", "refuted", "inconclusive"].includes(conclusion)) s += 15;
+  return Math.min(100, s);
+}
 /** T2 incident-report quality (deterministic, same spirit as escQualityScore):
  *  a substantive summary + findings (word count) + an explicit verdict + a
  *  recommendation. Feeds the T2 "Incident report" rubric cell (was un-measured). */
@@ -2282,7 +2385,7 @@ function rubricPercent(cells: RubricCell[]): number | null {
 interface RubricCtx {
   role: string; dispAcc: number | null; escAckRate: number | null; escPrecision: number | null; escRecall: number | null; escQuality: number | null;
   triageMin: number | null; ackLatencyMin: number | null; approvalLatencyMin: number | null;
-  huntCount: number; huntTech: number; noteCount: number;
+  huntCount: number; huntTech: number; huntQuality: number | null; noteCount: number;
   rulePublished: number; ruleMatched: number; ruleTechniques: number; ruleDocRate: number | null;
   intelAttrib: number | null; intelNext: number | null;
   handoverComplete: number | null; reopens: number; workloadSkew: number | null;
@@ -2312,7 +2415,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
     ];
     case "t3": return [
       { label: "Final scope (confirmed)", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 2 ? 8 : 4) : null, note: c.scopeConfirmed ? undefined : "not confirmed" },
-      { label: "Hunt yield", score: bandHigh(c.huntCount, 3, 2, 1) },
+      { label: "Hunt quality", score: c.huntQuality == null ? null : bandHigh(c.huntQuality, 75, 55, 30), note: "substance + cited evidence + valid technique + conclusion (not raw count)" },
       { label: "Hypothesis→conclusion time", score: c.huntToConfirmMin == null ? null : bandLow(c.huntToConfirmMin, 5, 12, 20) },
       { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null },
       // Secondary cell → null when there's nothing to measure (consistent with the
@@ -2365,6 +2468,19 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
   // metric (the queue is shared), so it doesn't unfairly punish one T1 for a teammate's catch.
   const teamEscalatedAttackIds = new Set(events.filter(e => e.type === "escalation.requested" && attackIds.has(String((e.payload as { event_id?: string }).event_id))).map(e => String((e.payload as { event_id?: string }).event_id)));
   const teamRecall = attackIds.size ? Math.round((teamEscalatedAttackIds.size / attackIds.size) * 100) : null;
+  // B9: the real entities/techniques of THIS incident (from the attack feed events),
+  // so hunt quality can be scored on whether a hunt actually cites the case.
+  const caseEntities = new Set<string>(); const caseTechniques = new Set<string>();
+  for (const fe of feed) {
+    const p = fe.payload as { expected_verdict?: string; hostname?: string; user?: { email?: string; full_name?: string }; user_email?: string; network?: { domain?: string; ip?: string }; mitre_technique?: string; src_ip?: string; dest_ip?: string };
+    if (!(p.expected_verdict === "tp" || p.expected_verdict === "escalate")) continue;
+    if (p.hostname) caseEntities.add(p.hostname);
+    const u = p.user?.email || p.user?.full_name || p.user_email; if (u) caseEntities.add(u);
+    if (p.network?.domain) caseEntities.add(p.network.domain);
+    if (p.network?.ip) caseEntities.add(p.network.ip);
+    if (p.src_ip) caseEntities.add(p.src_ip); if (p.dest_ip) caseEntities.add(p.dest_ip);
+    if (p.mitre_technique) caseTechniques.add(String(p.mitre_technique).toUpperCase());
+  }
 
   // Shared timing maps for the G-11 rubric (latencies derived from paired events).
   const feedTs = new Map<string, number | null>(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.occurred_at ? Date.parse(e.occurred_at) : null]));
@@ -2441,6 +2557,8 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     // Hunt / rule / intel / handover payload signals.
     const hunts = mine.filter(e => e.type === "hunt.logged");
     const huntTech = hunts.filter(e => String((e.payload as { technique?: string }).technique ?? "").trim()).length;
+    // B9: average hunt QUALITY (substance/citation/technique/conclusion), not raw count.
+    const huntQuality = hunts.length ? Math.round(hunts.reduce((s, e) => s + huntQualityScore(e.payload, caseEntities, caseTechniques), 0) / hunts.length) : null;
     const noteCount = mine.filter(e => e.type === "note.added").length;
     const rules = mine.filter(e => e.type === "rule.published");
     const ruleMatched = rules.reduce((s, e) => s + Number((e.payload as { matched?: number }).matched ?? 0), 0);
@@ -2493,7 +2611,7 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
 
     const rubric = roleRubric({
       role: m.role, dispAcc, escAckRate, escPrecision, escRecall: teamRecall, escQuality, triageMin, ackLatencyMin, approvalLatencyMin,
-      huntCount: hunts.length, huntTech, noteCount, rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
+      huntCount: hunts.length, huntTech, huntQuality, noteCount, rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
       intelAttrib, intelNext, handoverComplete, reopens, workloadSkew, contReason, contTargetOk: null,
       scopeSetDims, scopeConfirmDims, scopeConfirmed: scopeConfirms.length > 0,
       decisionCount: decisions.length, decisionRationaleRate,
@@ -2809,7 +2927,7 @@ function FeedFilterBar({
 }
 
 // ── G-08: Lead/Mgr Situation Board — summaries only, never raw (§3.7) ─────────
-function SituationBoard({ liveFeed, events, feed, nameOf }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string }) {
+function SituationBoard({ liveFeed, events, feed, nameOf, roster, online }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string; roster: RosterMember[]; online: Set<string> }) {
   const pulse = useMemo(() => {
     let high = 0, med = 0, low = 0;
     for (const e of liveFeed) { const l = e.ruleLevel ?? 1; if (l >= 7) high++; else if (l >= 4) med++; else low++; }
@@ -2823,11 +2941,48 @@ function SituationBoard({ liveFeed, events, feed, nameOf }: { liveFeed: LiveEven
   const feedById = useMemo(() => new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.payload as Record<string, unknown>])), [feed]);
   const escs = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
   const ackedIds = useMemo(() => new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // B11: command awareness — team presence + per-analyst open load + live MTTA +
+  // oldest-unacked, so the Manager commands from state instead of waiting for a request.
+  const team = useMemo(() => {
+    const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer");
+    const resolved = new Set(events.filter(e => e.type === "escalation.resolved").map(e => String((e.payload as { event_id?: string }).event_id)));
+    const ackEvents = events.filter(e => e.type === "escalation.acknowledged");
+    const firstAcker = new Map<string, string>();
+    for (const e of ackEvents) { const id = String((e.payload as { event_id?: string }).event_id); if (!firstAcker.has(id)) firstAcker.set(id, e.actor_id ?? ""); }
+    const loadByUser = new Map<string, number>();
+    for (const [id, uid] of firstAcker) if (!resolved.has(id)) loadByUser.set(uid, (loadByUser.get(uid) ?? 0) + 1);
+    const escTs = new Map(escs.map(e => [String((e.payload as { event_id?: string }).event_id), e.occurred_at ? Date.parse(e.occurred_at) : null]));
+    const mttas = ackEvents.map(e => { const id = String((e.payload as { event_id?: string }).event_id); const rt = escTs.get(id); const at = e.occurred_at ? Date.parse(e.occurred_at) : null; return rt != null && at != null ? (at - rt) / 60000 : null; }).filter((x): x is number => x != null && x >= 0);
+    const mtta = mttas.length ? Math.round((mttas.reduce((a, b) => a + b, 0) / mttas.length) * 10) / 10 : null;
+    const now = Date.now();
+    const unacked = escs.filter(e => !ackedIds.has(String((e.payload as { event_id?: string }).event_id)));
+    const oldestUnacked = unacked.length ? Math.max(...unacked.map(e => e.occurred_at ? Math.floor((now - Date.parse(e.occurred_at)) / 60000) : 0)) : null;
+    return { players, loadByUser, mtta, oldestUnacked, onlineCount: players.filter(p => online.has(p.user_id)).length };
+  }, [roster, events, escs, ackedIds, online]);
   return (
     <div className="space-y-3">
       <Card>
         <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Situation Board</h2>
         <p className="mt-0.5 text-[11px] text-slate-500">Coordinator view — summaries, not raw logs. Direct your team; don&apos;t dive into the feed.</p>
+        {/* B11: team command state */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Metric label="Online" value={`${team.onlineCount}/${team.players.length}`} />
+          <Metric label="MTTA" value={team.mtta == null ? "—" : `${team.mtta}m`} tone={team.mtta != null && team.mtta > 5 ? "warn" : undefined} />
+          <Metric label="Oldest unacked" value={team.oldestUnacked == null ? "—" : `${team.oldestUnacked}m`} tone={team.oldestUnacked != null && team.oldestUnacked >= 5 ? "warn" : undefined} />
+        </div>
+        <div className="mt-3">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Team &amp; load</p>
+          <div className="space-y-1">
+            {team.players.length === 0 ? <span className="text-[11px] text-slate-600">no analysts assigned</span> : team.players.map(m => { const load = team.loadByUser.get(m.user_id) ?? 0; const on = online.has(m.user_id); return (
+              <div key={m.user_id} className="flex items-center gap-2 text-[11px]">
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${on ? "bg-neon-green" : "bg-slate-600"}`} title={on ? "online" : "offline"} />
+                <span className="min-w-0 flex-1 truncate text-slate-300">{m.name}</span>
+                <span className="shrink-0 font-mono text-[9px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span>
+                <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] ${load >= 3 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>{load} open</span>
+              </div>
+            ); })}
+          </div>
+        </div>
         <div className="mt-3 grid grid-cols-4 gap-2">
           <Metric label="Logs" value={String(pulse.total)} />
           <Metric label="High" value={String(pulse.high)} tone={pulse.high > 0 ? "warn" : undefined} />
