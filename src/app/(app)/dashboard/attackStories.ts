@@ -431,37 +431,29 @@ const COMPLEXITY_FOR_DIFFICULTY: Record<"easy" | "medium" | "hard", StoryComplex
 
 export function storiesForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard"): AttackStory[] {
   const sources = companySources(companyId);
-  const allowedComplexity = difficulty ? COMPLEXITY_FOR_DIFFICULTY[difficulty] : null;
-
   const explicit = (s: AttackStory) => s.companies ? s.companies.includes(companyId) : null;
-  const complexityOk = (s: AttackStory) => !allowedComplexity || allowedComplexity.includes(s.complexity);
 
-  // Strict pass: every event's source is available
-  const strict = ATTACK_STORIES.filter(s => {
-    if (!complexityOk(s)) return false;
-    const e = explicit(s);
-    if (e !== null) return e;
-    return sourceFitRatio(s, sources) === 1;
-  });
-  if (strict.length >= 4) return strict;
+  const pick = (allowedComplexity: StoryComplexity[] | null): AttackStory[] => {
+    const complexityOk = (s: AttackStory) => !allowedComplexity || allowedComplexity.includes(s.complexity);
+    // Strict pass: every event's source is available
+    const strict = ATTACK_STORIES.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) === 1; });
+    if (strict.length >= 4) return strict;
+    // Relaxed pass: ≥80% of events fit (keeps enough variety for Okta-only shops)
+    const relaxed = ATTACK_STORIES.filter(s => { if (!complexityOk(s)) return false; const e = explicit(s); return e !== null ? e : sourceFitRatio(s, sources) >= 0.8; });
+    if (relaxed.length >= 3) return relaxed;
+    // Fallback within the requested complexity tier: never leave a company without attacks
+    const withinComplexity = ATTACK_STORIES.filter(s => complexityOk(s) && explicit(s) !== false);
+    if (withinComplexity.length > 0) return withinComplexity;
+    // Last resort: ignore the tier rather than showing no attack.
+    return ATTACK_STORIES.filter(s => explicit(s) !== false);
+  };
 
-  // Relaxed pass: ≥80% of events fit (keeps enough variety for Okta-only shops)
-  const relaxed = ATTACK_STORIES.filter(s => {
-    if (!complexityOk(s)) return false;
-    const e = explicit(s);
-    if (e !== null) return e;
-    return sourceFitRatio(s, sources) >= 0.8;
-  });
-  if (relaxed.length >= 3) return relaxed;
-
-  // Fallback within the requested complexity tier: never leave a company without attacks
-  const withinComplexity = ATTACK_STORIES.filter(s => complexityOk(s) && explicit(s) !== false);
-  if (withinComplexity.length > 0) return withinComplexity;
-
-  // Last resort: complexity tier had nothing at all for this company — ignore
-  // the tier rather than showing no attack (should not happen once every
-  // company has ≥1 foundation-tier story, but never leave the feed empty).
-  return ATTACK_STORIES.filter(s => explicit(s) !== false);
+  let result = pick(difficulty ? COMPLEXITY_FOR_DIFFICULTY[difficulty] : null);
+  // Hard is advanced-only; when a company's advanced-fit pool is thin, broaden to
+  // include 'core' so "hard" isn't a tiny loop of the same incidents (e.g. QuantumBank
+  // had only 4 advanced-fit stories, RocketStack 8). Keeps hard rich where it already is.
+  if (difficulty === "hard" && result.length < 8) result = pick(["advanced", "core"]);
+  return result;
 }
 
 // ── Anti-repeat memory ────────────────────────────────────────────────────────

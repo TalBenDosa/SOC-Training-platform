@@ -59,11 +59,17 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // Skipped on easy to keep a beginner shift single-threaded.
   const attack2 = difficulty === "easy" ? [] : buildStory();
 
-  // Benign noise: exclude anything already carrying an attack verdict.
-  const benignPool = companyPool.filter(e => e.expected_verdict !== "tp" && e.expected_verdict !== "escalate");
-  // Plenty of continuous benign noise so the feed keeps streaming for a realistic
-  // shift length (the attacks hide inside it), not a short burst that goes silent.
-  const benignN = difficulty === "hard" ? 55 : difficulty === "easy" ? 30 : 42;
+  // Benign noise: the company's own pool FIRST (tenant flavour), topped up from the
+  // large generic pool, de-duped by id, attack-verdict events excluded. Combining
+  // them removes the old per-company cap (some tenant pools held only ~34 events, so
+  // the feed ran dry early) and gives every company deep, continuous noise.
+  const seenBenign = new Set<string>();
+  const benignPool = [...companyPool, ...BENIGN_EVENTS]
+    .filter(e => e.expected_verdict !== "tp" && e.expected_verdict !== "escalate")
+    .filter(e => { const k = String(e.id ?? ""); if (!k || seenBenign.has(k)) return k ? false : true; seenBenign.add(k); return true; });
+  // Enough continuous benign noise to sustain a realistic ~20–26 min shift (the
+  // attacks hide inside it), not a ~7 min burst that then goes silent.
+  const benignN = difficulty === "hard" ? 120 : difficulty === "easy" ? 55 : 90;
   const benign = sampleN(benignPool, benignN, rnd);
 
   const total = benign.length + attack1.length + attack2.length;
@@ -85,8 +91,10 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       posToAttack.set(pos, evs[i]);
     }
   };
-  place(attack1, 0.30, 1.0);
-  place(attack2, 0.12, 0.58);
+  // Cluster each incident into its own ~10-min window (a band of positions) so it
+  // reads as an unfolding attack, not one event every few minutes lost in a long shift.
+  place(attack1, 0.42, 0.82);
+  place(attack2, 0.12, 0.52);
 
   const ordered: { ev: TelemetryEvent; isAttack: boolean }[] = [];
   let bi = 0;
@@ -96,8 +104,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     else if (bi < benign.length) ordered.push({ ev: benign[bi++], isAttack: false });
   }
 
-  // Cadence: an event every ~5-9s (denser on hard).
-  const baseGap = difficulty === "hard" ? 4000 : difficulty === "easy" ? 7000 : 5500;
+  // Cadence: an event every ~11–18s (+ up to 3.5s jitter), denser on hard. Sized so
+  // the benign counts above sustain a full ~20–26 min shift instead of ~7 min.
+  const baseGap = difficulty === "hard" ? 9000 : difficulty === "easy" ? 14000 : 12000;
   let t = 2000;
   const feed: TimelineEntry[] = ordered.map(({ ev, isAttack }, i) => {
     // Ground truth for the team report: every event that belongs to the attack

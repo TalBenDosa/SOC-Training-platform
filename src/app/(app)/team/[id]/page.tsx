@@ -677,7 +677,7 @@ export default function TeamRoomPage() {
             {/* Mission briefing — objectives + how you're scored, up front (no spoilers) */}
             <Card className="border-cyber-500/30">
               <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Shift briefing</h2>
-              <p className="mt-1 text-xs text-slate-400">A live SOC shift on a shared feed — expect a mix of noise and real activity. ~30–45 min. Work as one team, tier to tier.</p>
+              <p className="mt-1 text-xs text-slate-400">A live SOC shift on a shared feed — expect a mix of noise and real activity. ~20–30 min of live telemetry, then work the case to closure. Work as one team, tier to tier.</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 {[["Keep the queue clean", "triage every alert — disposition it, don't let it pile up"],
                   ["Escalate with evidence", "hand off with a clear report + indicators, not a hunch"],
