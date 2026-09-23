@@ -138,6 +138,7 @@ export default function TeamRoomPage() {
 
   // event log (ALL types), deduped by seq
   const [events, setEvents] = useState<Ev[]>([]);
+  const [dismissedNudgeSeq, setDismissedNudgeSeq] = useState(0); // latest rebalance-nudge the viewer closed
   const [showGuide, setShowGuide] = useState(false);
   // Session-lifecycle UX: who just left (transient popups), whether staff has
   // temporarily dismissed the "training halted" overlay to reassign/end, and why
@@ -541,6 +542,15 @@ export default function TeamRoomPage() {
   // G-04b: per-row triage state for the shared feed badges (reflects the player's own
   // actions — claimed/dispositioned/escalated — never ground truth).
   const escalatedIds = useMemo(() => new Set(events.filter(e => e.type === "escalation.requested").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // Work-division: the latest overload nudge from the coordinator, shown to the whole
+  // team so idle analysts pick up slack, until dismissed or superseded. Keyed on seq
+  // (not server occurred_at) so a timestamp-parse/skew can't silently suppress it.
+  const activeNudge = useMemo(() => {
+    let latest: Ev | null = null;
+    for (const e of events) if (e.type === "coordination.nudge") latest = e;
+    if (!latest || (latest.seq ?? 0) <= dismissedNudgeSeq) return null;
+    return latest;
+  }, [events, dismissedNudgeSeq]);
   const claimByEid = useMemo(() => {
     const m = new Map<string, { by: string; at: number }>();
     for (const e of events) {
@@ -671,6 +681,14 @@ export default function TeamRoomPage() {
           </div>
         )}
 
+        {/* Work-division: coordinator's rebalance nudge — team sees the call to pick up slack. */}
+        {phase === "running" && activeNudge && (() => { const p = activeNudge.payload as { target?: string; load?: number }; return (
+          <div className="flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-3 py-2 text-sm text-cyber-200">
+            <Siren className="h-4 w-4 shrink-0 text-cyber-300" /> <span><b>{nameOf(activeNudge.actor_id)}</b> asks the team to rebalance — <b>{nameOf(p.target ?? null)}</b> is overloaded{typeof p.load === "number" ? ` (${p.load} open)` : ""}. If you&apos;re light, take the next case.</span>
+            <button onClick={() => setDismissedNudgeSeq(activeNudge.seq ?? 0)} className="ml-auto shrink-0 text-slate-400 hover:text-white" title="Dismiss"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        ); })()}
+
         {/* ── LOBBY ── */}
         {phase === "lobby" && (
           <>
@@ -688,7 +706,7 @@ export default function TeamRoomPage() {
                   </div>
                 ))}
               </div>
-              <p className="mt-2 text-[10px] text-slate-500">Scored per role on a visible 0/4/8/12 rubric (accuracy · timeliness · coordination). No hidden scoring; the debrief shows exactly how each call landed.</p>
+              <p className="mt-2 text-[10px] text-slate-500">Scored per role on a visible 0/4/8/12 rubric across the same three dimensions you&apos;re briefed on — <b className="text-slate-400">accuracy</b> · <b className="text-slate-400">timeliness</b> · <b className="text-slate-400">coordination</b>. No hidden scoring, and it&apos;s no-fault: catching and fixing your own mistake scores <b className="text-slate-400">for</b> you.</p>
             </Card>
             <Card>
               <div className="flex items-center justify-between">
@@ -776,7 +794,7 @@ export default function TeamRoomPage() {
                   keep the raw feed for oversight. */}
               <div className="min-w-0 space-y-2">
                 {((me.role === "lead" || me.role === "mgr") && !me.is_staff) ? (
-                  <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} />
+                  <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
                 ) : (
                   <>
                     {/* G-04: surfaced feed filters + active click-to-pivot chips */}
@@ -1113,6 +1131,26 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
   async function claim() { if (!sel) return; setBusy(true); await act("alert.claimed", { event_id: sel }); setBusy(false); }
   async function release() { if (!sel) return; setBusy(true); await act("alert.released", { event_id: sel }); setBusy(false); }
 
+  // Work-division: escalated (handed-off) alerts, so an orphan check doesn't flag a
+  // case that's already moving up the chain.
+  const escalatedSet = useMemo(() => new Set(events.filter(e => e.type === "escalation.requested").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // Orphan = past SLA, still unclaimed, and not yet escalated — nobody is working it.
+  const isOrphan = (eid: string, sev: string | undefined, mins: number) => mins >= slaMinFor(sev ?? "high") && !claimerOf(eid) && !escalatedSet.has(eid);
+  // Display order: orphans first (a breached, unclaimed high can't sit mid-list), then
+  // the existing severity×age score order.
+  const queueDisplay = useMemo(() => {
+    const withFlag = queue.map(q => ({ ...q, orphan: isOrphan(q.eid, q.p.severity, q.mins) }));
+    return withFlag.sort((a, b) => (a.orphan === b.orphan ? 0 : a.orphan ? -1 : 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue, claims, escalatedSet, dispositions]);
+  // Assisted pull: grab the most urgent alert nobody has claimed and open its report
+  // (report-open auto-claims it), so two T1s don't lunge at the same row and the top
+  // of the queue never goes orphaned because everyone assumed someone else took it.
+  function takeNext() {
+    const next = queueDisplay.find(q => { const c = claimerOf(q.eid); return !c || c.by === meId; });
+    if (next) { setSel(next.eid); setReportOpen(true); }
+  }
+
   // T1-7: my escalations with live status (sent → acknowledged → bounced/resolved).
   const myEsc = useMemo(() => {
     const acked = new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id)));
@@ -1192,16 +1230,20 @@ function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, na
     <Card className="border-neon-amber/30">
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" /> Alert queue ({queue.length})</h3>
-        <span className="font-mono text-[10px] text-slate-500">high/critical · un-triaged</span>
+        <div className="flex items-center gap-2">
+          {queue.length > 0 && <Button variant="outline" size="sm" disabled={busy} onClick={takeNext}>Take next</Button>}
+          <span className="font-mono text-[10px] text-slate-500">high/critical · un-triaged</span>
+        </div>
       </div>
       {queue.length === 0 ? (
         <p className="mt-2 text-xs text-slate-400">Queue clear — no high/critical alert is waiting for a disposition. Watch the feed.</p>
       ) : (
         <div className="mt-2 space-y-1">
-          {queue.slice(0, 8).map(({ e, eid, p, mins, rank }) => { const breached = mins >= slaMinFor(p.severity ?? "high"); return (
-            <button key={e.seq} onClick={() => { setSel(eid); setReportOpen(true); }} className={`flex w-full items-center gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:bg-white/[0.03] ${sel === eid ? "border-cyber-500/50 bg-cyber-500/[0.06]" : "border-border/60 bg-bg"}`}>
+          {queueDisplay.slice(0, 8).map(({ e, eid, p, mins, rank, orphan }) => { const breached = mins >= slaMinFor(p.severity ?? "high"); return (
+            <button key={e.seq} onClick={() => { setSel(eid); setReportOpen(true); }} className={`flex w-full items-center gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:bg-white/[0.03] ${sel === eid ? "border-cyber-500/50 bg-cyber-500/[0.06]" : orphan ? "border-severity-high/50 bg-severity-high/[0.06]" : "border-border/60 bg-bg"}`}>
               <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold uppercase ${rank === 4 ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-neon-amber/50 bg-neon-amber/10 text-neon-amber"}`}>{p.severity}</span>
               <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.description) || asStr(p.summary) || asStr(p.what) || asStr(p.hostname) || "alert"}</span>
+              {orphan && <span className="shrink-0 rounded border border-severity-high/60 bg-severity-high/15 px-1 py-0.5 font-mono text-[9px] font-bold text-severity-high" title="past SLA and unclaimed — nobody is working it">⚠ unclaimed</span>}
               {asStr(p.source) && <span className="shrink-0 font-mono text-[9px] text-slate-500">{asStr(p.source)}</span>}
               <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ {mins}m{breached ? " · SLA" : ""}</span>
             </button>
@@ -1424,6 +1466,15 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
   const selEid = (reportFor && myCases.some(e => eidOf(e) === reportFor)) ? reportFor : (myCases[0] ? eidOf(myCases[0]) : null);
   const selCase = myCases.find(e => eidOf(e) === selEid) || null;
   const selLabel = selCase ? (asStr((selCase.payload as { summary?: string; what?: string }).summary) || asStr((selCase.payload as { what?: string }).what)) : "";
+  // Assisted pull: the most urgent case nobody has taken yet.
+  const nextUnacked = prioritized.find(e => { const eid = eidOf(e); return !acked.has(eid) && !escBounced.has(eid) && !escResolved.has(eid); }) || null;
+  async function takeNextCase() {
+    if (!nextUnacked) return;
+    const eid = eidOf(nextUnacked);
+    setBusy("ack" + eid);
+    await act("escalation.acknowledged", { event_id: eid });
+    setBusy(null);
+  }
   return (
     <div className="space-y-4">
       <Card>
@@ -1432,7 +1483,10 @@ function T2Console({ role, meId, escalations, acked, ackedBy, escBounced, escRes
             {role === "t3" && <button onClick={() => setInboxOpen(o => !o)} className="text-slate-400 hover:text-white"><ChevronDown className={`h-4 w-4 transition-transform ${inboxOpen ? "" : "-rotate-90"}`} /></button>}
             <Siren className="h-4 w-4 text-neon-amber" /> Escalations for you ({escalations.length})
           </h3>
-          {onEdr && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+          <div className="flex items-center gap-2">
+            {nextUnacked && <Button variant="outline" size="sm" disabled={busy != null} onClick={takeNextCase}>Take next case</Button>}
+            {onEdr && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+          </div>
         </div>
         {!inboxOpen ? <p className="mt-2 text-[11px] text-slate-500">{escalations.length} case(s) waiting — expand to review. Your focus is hunting &amp; scope below.</p>
           : escalations.length === 0 ? <p className="mt-2 text-xs text-slate-400">Nothing escalated yet. Tier-1 sends cases here.</p> : (
@@ -1970,6 +2024,8 @@ function InstructorPanel({ sessionId, roster, online, events, act }: { sessionId
           <option value="announcement">announcement (all roles)</option>
           <option value="ticket">help-desk ticket (Tier-1 answers)</option>
           <option value="mgmt_pressure">management pressure (Manager)</option>
+          <option value="twist">plot twist (forces a re-scope)</option>
+          <option value="false_lead">false lead (a decoy to reject)</option>
         </select>
         <textarea value={inj.text} onChange={e => setInj(s => ({ ...s, text: e.target.value }))} placeholder="Inject text (e.g. 'User in Finance says a vendor called asking for an MFA code')" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         <Button variant="primary" size="sm" disabled={busy || inj.text.trim().length < 3} onClick={post}>Send inject</Button>
@@ -2394,6 +2450,7 @@ interface RubricCtx {
   decisionCount: number; decisionRationaleRate: number | null;
   ticketsAnswered: number; sitrepCount: number; reportQuality: number | null;
   huntToConfirmMin: number | null; caseOwnedMin: number | null; mgmtRespondedRate: number | null;
+  backupCount: number; loadBalanceRate: number | null; correctionsCount: number;
 }
 function roleRubric(c: RubricCtx): RubricCell[] {
   switch (c.role) {
@@ -2404,6 +2461,8 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
       { label: "Handoff coordination", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40), note: "share of your escalations Tier-2 acknowledged" },
       { label: "Time-to-triage", score: c.triageMin == null ? null : bandLow(c.triageMin, 5, 10, 15) },
+      { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "took an alert off an overloaded teammate" },
+      { label: "Self-correction", score: c.correctionsCount ? bandHigh(c.correctionsCount, 2, 1, 1) : null, note: "caught and fixed your own verdict — no-fault, scores for you" },
       { label: "Help-desk tickets", score: c.ticketsAnswered === 0 ? null : bandHigh(c.ticketsAnswered, 3, 2, 1) },
     ];
     case "t2": return [
@@ -2411,6 +2470,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { ...TODO, label: "Timeline accuracy" },
       { label: "Scoping completeness", score: c.scopeSetDims >= 3 ? 12 : c.scopeSetDims >= 2 ? 8 : c.scopeSetDims >= 1 ? 4 : null },
       { label: "Containment recommendation", score: c.contReason == null ? null : bandHigh(c.contReason, 90, 60, 30) },
+      { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "picked up a case while a teammate was overloaded" },
       { label: "Incident report", score: c.reportQuality == null ? null : bandHigh(c.reportQuality, 85, 60, 35) },
     ];
     case "t3": return [
@@ -2451,6 +2511,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Time-to-approval", score: c.approvalLatencyMin == null ? null : bandLow(c.approvalLatencyMin, 3, 7, 12) },
       { label: "Decision log", score: c.decisionCount === 0 ? null : c.decisionRationaleRate == null ? 4 : bandHigh(c.decisionRationaleRate, 90, 60, 30) },
       { label: "Cadence + SITREP", score: c.sitrepCount === 0 ? null : bandHigh(c.sitrepCount, 3, 2, 1) },
+      { label: "Load balancing", score: c.loadBalanceRate == null ? null : bandHigh(c.loadBalanceRate, 100, 50, 1), note: "nudged overloaded analysts so the team rebalanced" },
       { label: "Management pressure", score: c.mgmtRespondedRate == null ? null : bandHigh(c.mgmtRespondedRate, 100, 50, 1) },
     ];
     default: return [];
@@ -2493,6 +2554,48 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
   const actionCountByUser = players.map(pl => events.filter(e => e.actor_id === pl.user_id && e.type !== "member.ready" && e.type !== "event.opened").length);
   const maxAction = Math.max(1, ...actionCountByUser);
   const avgAction = actionCountByUser.length ? actionCountByUser.reduce((s, n) => s + n, 0) / actionCountByUser.length : 0;
+
+  // ── Work-division / backup metrics (one ordered pass over the log) ────────────
+  // Reconstructs each analyst's live load over the shift to detect: (a) T1 take-overs
+  // (claiming an alert a teammate held), (b) T2/T3 backup (acking a case while a
+  // teammate is already overloaded), and (c) which analysts ever hit overload (for the
+  // Manager's load-balancing score). All from EXISTING events — no new telemetry.
+  const roleByUser = new Map(players.map(p => [p.user_id, p.role]));
+  const takeoverByUser = new Map<string, number>();   // T1 backup
+  const backupAckByUser = new Map<string, number>();  // T2/T3 backup
+  const everOverloaded = new Set<string>();
+  const liveLoad = new Map<string, number>();
+  const claimHolder = new Map<string, string>();      // eid -> current claimer
+  const caseOwner = new Map<string, string>();        // eid -> first acker (owner)
+  const eidOfP = (e: Ev) => String((e.payload as { event_id?: string }).event_id ?? "");
+  const bump = (u: string, d: number) => { if (!u) return; const v = Math.max(0, (liveLoad.get(u) ?? 0) + d); liveLoad.set(u, v); if (v >= OVERLOAD_CASES) everOverloaded.add(u); };
+  for (const e of events) {
+    if (e.type === "alert.claimed") {
+      const eid = eidOfP(e); if (!eid) continue; const who = e.actor_id ?? ""; const prev = claimHolder.get(eid);
+      if (prev && prev !== who) { takeoverByUser.set(who, (takeoverByUser.get(who) ?? 0) + 1); bump(prev, -1); }
+      if (prev !== who) { claimHolder.set(eid, who); bump(who, 1); }
+    } else if (e.type === "alert.released" || e.type === "disposition.set") {
+      const eid = eidOfP(e); const prev = eid ? claimHolder.get(eid) : undefined;
+      if (prev) { bump(prev, -1); claimHolder.delete(eid); }
+    } else if (e.type === "escalation.acknowledged") {
+      const eid = eidOfP(e); const who = e.actor_id ?? ""; if (!eid || caseOwner.has(eid)) continue;
+      let teammateOverloaded = false; // a SAME-ROLE peer already drowning
+      for (const [u, l] of liveLoad) if (u !== who && l >= OVERLOAD_CASES && roleByUser.get(u) === roleByUser.get(who)) { teammateOverloaded = true; break; }
+      if (teammateOverloaded) backupAckByUser.set(who, (backupAckByUser.get(who) ?? 0) + 1);
+      caseOwner.set(eid, who); bump(who, 1);
+    } else if (e.type === "escalation.resolved") {
+      const eid = eidOfP(e); const owner = eid ? caseOwner.get(eid) : undefined;
+      if (owner) { bump(owner, -1); caseOwner.delete(eid); }
+    }
+  }
+  const backupByUser = new Map<string, number>();
+  for (const p of players) backupByUser.set(p.user_id, (takeoverByUser.get(p.user_id) ?? 0) + (backupAckByUser.get(p.user_id) ?? 0));
+  // Manager load-balancing: of the analysts that ever overloaded, how many did the
+  // coordinator nudge? Scores RESPONDING to overload, not raw nudge volume (no spam).
+  const nudgeTargets = new Set(events.filter(e => e.type === "coordination.nudge").map(e => String((e.payload as { target?: string }).target)));
+  const overloadedTargets = [...everOverloaded];
+  const loadBalanceRate = overloadedTargets.length ? Math.round((overloadedTargets.filter(u => nudgeTargets.has(u)).length / overloadedTargets.length) * 100) : null;
+
   const perUser: UserReport[] = players.map(m => {
     const mine = events.filter(e => e.actor_id === m.user_id);
     // G-01: event.opened now carries { event_id, dwell_ms }. Count DISTINCT feed
@@ -2511,11 +2614,22 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     const dwellVals = [...dwellByEid.values()].filter(d => d > 0);
     const avgDwellS = dwellVals.length ? Math.round(dwellVals.reduce((s, d) => s + d, 0) / dwellVals.length / 1000) : null;
     const disp = mine.filter(e => e.type === "disposition.set");
-    const dispCorrect = disp.filter(d => {
-      const eid = String((d.payload as { event_id?: string }).event_id); const v = String((d.payload as { verdict?: string }).verdict);
-      const isAttack = attackIds.has(eid);
-      return isAttack ? v === "true_positive" : (v === "false_positive" || v === "benign");
-    }).length;
+    const isCorrectVerdict = (eid: string, v: string) => attackIds.has(eid) ? v === "true_positive" : (v === "false_positive" || v === "benign");
+    // Accuracy is scored over DISTINCT events keeping the LATEST verdict — a
+    // wrong→right self-correction must not cost score (Edmondson). corrections =
+    // events this analyst got wrong first and then fixed (rewarded, never penalised).
+    const latestVerdict = new Map<string, string>();
+    const everWrong = new Set<string>(); const wrongThenRight = new Set<string>();
+    for (const d of disp) {
+      const eid = String((d.payload as { event_id?: string }).event_id);
+      const v = String((d.payload as { verdict?: string }).verdict);
+      if (!isCorrectVerdict(eid, v)) everWrong.add(eid);
+      else if (everWrong.has(eid)) wrongThenRight.add(eid);
+      latestVerdict.set(eid, v);
+    }
+    const distinctDisp = latestVerdict.size;
+    const dispCorrect = [...latestVerdict].filter(([eid, v]) => isCorrectVerdict(eid, v)).length;
+    const correctionsCount = wrongThenRight.size;
     const esc = mine.filter(e => e.type === "escalation.requested");
     const escQuality = esc.length ? Math.round(esc.reduce((s, e) => s + escQualityScore(e.payload), 0) / esc.length) : null;
     const acks = mine.filter(e => e.type === "escalation.acknowledged").length;
@@ -2525,7 +2639,7 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     const actionTimes = mine.filter(e => e.occurred_at && e.type !== "member.ready").map(e => Date.parse(e.occurred_at!));
     const firstActionS = actionTimes.length ? Math.max(0, Math.round((Math.min(...actionTimes) - startedMs) / 1000)) : null;
     const contribution = Math.min(100, opened * 3 + disp.length * 6 + esc.length * 15 + acks * 10 + contReq * 15 + contDecided * 20 + roleActions * 15);
-    const dispAcc = disp.length ? Math.round((dispCorrect / disp.length) * 100) : null;
+    const dispAcc = distinctDisp ? Math.round((dispCorrect / distinctDisp) * 100) : null;
 
     // ── G-11 rubric context — measurable deltas for THIS user ──────────────────
     // A4: Escalation PRECISION vs ground truth — of this analyst's escalations, how many
@@ -2617,6 +2731,7 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
       decisionCount: decisions.length, decisionRationaleRate,
       ticketsAnswered, sitrepCount, reportQuality,
       huntToConfirmMin, caseOwnedMin, mgmtRespondedRate,
+      backupCount: backupByUser.get(m.user_id) ?? 0, loadBalanceRate, correctionsCount,
     });
     const rubricPct = rubricPercent(rubric);
 
@@ -2633,8 +2748,75 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
   const detected = detectEsc.length > 0;
   const firstDetect = detectEsc.map(e => e.occurred_at ? Date.parse(e.occurred_at) : Infinity).sort((a, b) => a - b)[0];
   const timeToDetectS = detected && isFinite(firstDetect) ? Math.max(0, Math.round((firstDetect - startedMs) / 1000)) : null;
-  const dispAll = events.filter(e => e.type === "disposition.set");
-  const dispAllCorrect = dispAll.filter(d => { const eid = String((d.payload as { event_id?: string }).event_id); const v = String((d.payload as { verdict?: string }).verdict); const a = attackIds.has(eid); return a ? v === "true_positive" : (v === "false_positive" || v === "benign"); }).length;
+  // Team disposition accuracy over DISTINCT events keeping the latest verdict (same
+  // no-fault rule as per-user: a wrong→right correction must not drag the team score).
+  const teamLatestVerdict = new Map<string, string>();
+  for (const d of events.filter(e => e.type === "disposition.set")) teamLatestVerdict.set(String((d.payload as { event_id?: string }).event_id), String((d.payload as { verdict?: string }).verdict));
+  const dispDistinct = teamLatestVerdict.size;
+  const dispAllCorrect = [...teamLatestVerdict].filter(([eid, v]) => attackIds.has(eid) ? v === "true_positive" : (v === "false_positive" || v === "benign")).length;
+
+  // Handoff loop closure: share of escalated cases that a Tier-2 actually acknowledged
+  // (a closed loop). Set-based so duplicate acks can't push it over 100%.
+  const escEidSet = new Set(escReq.map(e => String((e.payload as { event_id?: string }).event_id)));
+  const ackedEidSet = new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id)));
+  const loopClosurePct = escEidSet.size ? Math.round(([...escEidSet].filter(id => ackedEidSet.has(id)).length / escEidSet.size) * 100) : null;
+
+  // ── Team MTTR + handoff latency (P1) ─────────────────────────────────────────
+  // MTTR: median Δ(escalation.requested → escalation.resolved) per resolved case.
+  const mttrS = median(events.filter(e => e.type === "escalation.resolved").map(e => {
+    const eid = String((e.payload as { event_id?: string }).event_id);
+    const rt = escReqTs.get(eid); const at = e.occurred_at ? Date.parse(e.occurred_at) : null;
+    return rt != null && at != null ? (at - rt) / 1000 : null;
+  }).filter((x): x is number => x != null && x >= 0));
+  // Handoff latency (team MTTA): median Δ(escalation.requested → first acknowledge).
+  const ackFirstTs = new Map<string, number>();
+  for (const e of events.filter(e => e.type === "escalation.acknowledged")) { const eid = String((e.payload as { event_id?: string }).event_id); const at = e.occurred_at ? Date.parse(e.occurred_at) : null; if (at != null && !ackFirstTs.has(eid)) ackFirstTs.set(eid, at); }
+  const handoffLatS = median([...escReqTs].map(([eid, rt]) => { const at = ackFirstTs.get(eid); return rt != null && at != null ? (at - rt) / 1000 : null; }).filter((x): x is number => x != null && x >= 0));
+
+  // ── Evaluable MSEL injects (P1) ──────────────────────────────────────────────
+  // Pair each scored inject to its expected response within 15 min, one-to-one, so
+  // one SITREP can't answer every prompt. Announcements are informational (not scored).
+  const INJECT_WINDOW = 15 * 60000;
+  const atOf = (types: string[]) => events.filter(e => types.includes(e.type)).map(e => e.occurred_at ? Date.parse(e.occurred_at) : NaN).filter(Number.isFinite).sort((a, b) => a - b);
+  const sitrepAts = atOf(["sitrep.sent"]); const ticketAts = atOf(["ticket.answered"]);
+  // A 'twist' (adaptability) is handled by any re-scoping / re-activation action after it.
+  const rescopeAts = atOf(["scope.set", "scope.confirmed", "case.status_set", "escalation.requested"]);
+  const usedS = new Set<number>(); const usedT = new Set<number>(); const usedR = new Set<number>();
+  const injectResults = events.filter(e => e.type === "staff.inject").map(e => {
+    const p = e.payload as { id?: string; kind?: string; text?: string; expected_response?: string; linked_objective?: string };
+    const kind = String(p.kind ?? ""); const at = e.occurred_at ? Date.parse(e.occurred_at) : null;
+    const base = { kind, text: asStr(p.text), expected: asStr(p.expected_response), objective: asStr(p.linked_objective), decoy: false };
+    // Announcements are informational; a false_lead is a DECOY — shown for reflection,
+    // not scored on restraint we can't attribute to it (honest scoring).
+    if (kind === "announcement") return { ...base, scored: false, handled: true };
+    if (kind === "false_lead") return { ...base, scored: false, handled: false, decoy: true };
+    const [pool, used] = kind === "ticket" ? [ticketAts, usedT] : kind === "twist" ? [rescopeAts, usedR] : [sitrepAts, usedS];
+    let handled = false;
+    if (at != null) { const idx = pool.findIndex((t, i) => !used.has(i) && t >= at && t - at <= INJECT_WINDOW); if (idx !== -1) { used.add(idx); handled = true; } }
+    return { ...base, scored: true, handled };
+  });
+  const scoredInjects = injectResults.filter(i => i.scored);
+  const injectsHandled = scoredInjects.filter(i => i.handled).length;
+
+  // ── Shared-picture coherence (P2) ────────────────────────────────────────────
+  // The team should converge on one picture. A case is CONTESTED when two different
+  // analysts gave contradictory verdicts (attack-class vs benign-class) on the same
+  // event — a divergent mental model worth reconciling at debrief. Log-derived.
+  const vClass = (v: string) => v === "true_positive" ? "attack" : (v === "false_positive" || v === "benign") ? "benign" : "other";
+  const feedLabel = new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), asStr((e.payload as { description?: string }).description) || asStr((e.payload as { event_type?: string }).event_type) || "event"]));
+  const verdictsByEid = new Map<string, Map<string, string>>(); // eid -> actor -> latest class
+  for (const d of events.filter(e => e.type === "disposition.set")) {
+    const eid = String((d.payload as { event_id?: string }).event_id); const who = d.actor_id ?? "";
+    if (!verdictsByEid.has(eid)) verdictsByEid.set(eid, new Map());
+    verdictsByEid.get(eid)!.set(who, vClass(String((d.payload as { verdict?: string }).verdict)));
+  }
+  const contestedList: { eid: string; label: string; calls: { actor: string; cls: string }[] }[] = [];
+  for (const [eid, m] of verdictsByEid) {
+    const classes = new Set([...m.values()]);
+    if (m.size >= 2 && classes.has("attack") && classes.has("benign")) {
+      contestedList.push({ eid, label: feedLabel.get(eid) ?? "event", calls: [...m.entries()].map(([actor, cls]) => ({ actor, cls })) });
+    }
+  }
 
   const caseStatusEvt = [...events].reverse().find(e => e.type === "case.status_set");
   // G-09 MTTC: Δ(containment.requested → containment.executed) per event, median seconds.
@@ -2650,7 +2832,12 @@ function computeReport(events: Ev[], roster: RosterMember[]) {
     containmentReq: events.filter(e => e.type === "containment.requested").length,
     contained: events.filter(e => e.type === "containment.approved").length,
     executed: execEvents.length, mttcS: mttcS != null ? Math.round(mttcS) : null,
-    dispTotal: dispAll.length, dispAcc: dispAll.length ? Math.round((dispAllCorrect / dispAll.length) * 100) : null,
+    dispTotal: dispDistinct, dispAcc: dispDistinct ? Math.round((dispAllCorrect / dispDistinct) * 100) : null,
+    loopClosure: loopClosurePct,
+    mttrS: mttrS != null ? Math.round(mttrS) : null,
+    handoffLatS: handoffLatS != null ? Math.round(handoffLatS) : null,
+    injects: injectResults, injectsScored: scoredInjects.length, injectsHandled,
+    contested: contestedList.length, contestedList: contestedList.slice(0, 6),
     caseStatus: (caseStatusEvt?.payload as { status?: string })?.status ?? "—",
     evidencePinned: events.filter(e => e.type === "evidence.pinned").length,
   };
@@ -2701,6 +2888,15 @@ function HotWash({ events, nameOf }: { events: Ev[]; nameOf: (u: string | null) 
   if (decision) moments.push({ t: fmt(rel(decision.occurred_at)), title: decision.type === "containment.approved" ? "Containment approved" : "Containment denied", note: `${nameOf(decision.actor_id)} made the call.` });
   if (exec) moments.push({ t: fmt(rel(exec.occurred_at)), title: "Host isolated", note: `${nameOf(exec.actor_id)} executed the containment.` });
 
+  // Ground-truth facts to pre-fill the structured arc.
+  const attackCount = rows.filter(r => r.track === "attack").length;
+  const contained = events.some(e => e.type === "containment.executed");
+  const denied = !contained && events.some(e => e.type === "containment.denied");
+  const whatHappened = [
+    firstEsc ? `first escalation at ${fmt(rel(firstEsc.occurred_at))}${dwellS != null && dwellS >= 0 ? ` (${fmt(dwellS)} after the attack first surfaced)` : ""}` : "no escalation was raised",
+    contained ? `the host was isolated at ${fmt(rel(exec!.occurred_at))}` : denied ? "containment was denied" : "the incident was not contained",
+  ].join("; ") + ".";
+
   if (rows.length === 0) return null;
   return (
     <Card>
@@ -2733,14 +2929,95 @@ function HotWash({ events, nameOf }: { events: Ev[]; nameOf: (u: string | null) 
         ))}
       </div>
 
-      {/* Reflection prompts — the discussion, not a grade */}
-      <div className="mt-3 rounded-lg border border-border/50 bg-bg-elevated/40 px-3 py-2.5">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Debrief together</p>
-        <ul className="mt-1 list-disc space-y-1 pl-4 text-[11px] text-slate-300">
-          <li>What was the earliest log that should have tipped us off — did we catch it, or walk past it?</li>
-          <li>Where did the hand-offs slow down (T1→T2→Manager→execute), and why?</li>
-          <li>If this were real, what would we do differently in the first five minutes?</li>
-        </ul>
+      {/* Structured debrief arc (research: a facilitated 4-step debrief ≈ the learning).
+          The first two steps are pre-filled from ground truth; the last two are the
+          team's conversation. */}
+      <div className="mt-3 space-y-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Debrief together — work through it in order</p>
+        {[
+          { n: 1, q: "What should have happened", a: `${attackCount} real attack event${attackCount === 1 ? "" : "s"} were hidden in the noise. The shift should catch them, escalate with evidence, scope the incident, and contain the right asset.` },
+          { n: 2, q: "What actually happened", a: whatHappened },
+          { n: 3, q: "Why the gap?", a: "Talk it through: the earliest log you walked past, where hand-offs stalled (T1→T2→Manager→execute), any wrong call and how it was caught." },
+          { n: 4, q: "What we'd do differently", a: "Name one concrete change for the first five minutes of the next shift." },
+        ].map(s => (
+          <div key={s.n} className="flex gap-2 rounded-lg border border-border/50 bg-bg-elevated/40 px-3 py-2">
+            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-cyber-500/20 font-mono text-[9px] font-bold text-cyber-300">{s.n}</span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-white">{s.q}</p>
+              <p className={`mt-0.5 text-[11px] leading-snug ${s.n <= 2 ? "text-slate-300" : "text-slate-400 italic"}`}>{s.a}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ── Handoff ladder (research P0) — the closed-loop coordination chain per case:
+// escalate → acknowledge → elevate → contain → resolve, with per-hop latency and a
+// closed/open/DROPPED status (an escalation nobody acknowledged = a broken loop).
+// Reconstructed from the event log; makes closed-loop communication visible at debrief.
+function HandoffLadder({ events, nameOf }: { events: Ev[]; nameOf: (u: string | null) => string }) {
+  const HOP: Record<string, string> = {
+    "escalation.requested": "T1 escalated", "escalation.acknowledged": "T2 acknowledged", "escalation.bounced": "bounced back",
+    "elevation.requested": "elevated to T3", "elevation.acknowledged": "T3 took it", "containment.requested": "containment requested",
+    "containment.approved": "Mgr approved", "containment.denied": "Mgr denied", "containment.executed": "isolated", "escalation.resolved": "resolved",
+  };
+  const fmtD = (s: number | null) => s == null ? "" : s >= 60 ? `+${Math.floor(s / 60)}m${String(Math.round(s % 60)).padStart(2, "0")}s` : `+${Math.round(s)}s`;
+  const cases = useMemo(() => {
+    const byEid = new Map<string, { type: string; at: number | null; who: string; label?: string }[]>();
+    for (const e of events) {
+      if (!HOP[e.type]) continue;
+      const p = e.payload as { event_id?: string; summary?: string; what?: string };
+      const eid = String(p.event_id ?? ""); if (!eid) continue;
+      if (!byEid.has(eid)) byEid.set(eid, []);
+      byEid.get(eid)!.push({ type: e.type, at: e.occurred_at ? Date.parse(e.occurred_at) : null, who: nameOf(e.actor_id), label: asStr(p.summary) || asStr(p.what) || undefined });
+    }
+    const out: { eid: string; title: string; status: "closed" | "open" | "dropped"; steps: { type: string; who: string; d: number | null }[] }[] = [];
+    for (const [eid, raw] of byEid) {
+      const start = raw.find(h => h.type === "escalation.requested");
+      if (!start) continue; // only real T1→ handoff chains
+      const hops = raw.slice().sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+      const acked = hops.some(h => h.type === "escalation.acknowledged");
+      const closed = hops.some(h => h.type === "escalation.resolved" || h.type === "containment.executed");
+      const status = closed ? "closed" : !acked ? "dropped" : "open";
+      let prev = start.at;
+      const steps = hops.map(h => { const d = prev != null && h.at != null ? (h.at - prev) / 1000 : null; prev = h.at ?? prev; return { type: h.type, who: h.who, d }; });
+      out.push({ eid, title: start.label || "escalated case", status, steps });
+    }
+    // Dropped loops first (they need the most discussion), then by chain length.
+    return out.sort((a, b) => (a.status === "dropped" ? 0 : 1) - (b.status === "dropped" ? 0 : 1) || b.steps.length - a.steps.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
+  if (cases.length === 0) return null;
+  const STATUS_STYLE: Record<string, string> = {
+    closed: "border-neon-green/40 bg-neon-green/10 text-neon-green",
+    open: "border-neon-amber/40 bg-neon-amber/10 text-neon-amber",
+    dropped: "border-severity-high/50 bg-severity-high/15 text-severity-high",
+  };
+  return (
+    <Card>
+      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-cyber-300" /> Handoff chains — did the loop close?</h3>
+      <p className="mt-1 text-[11px] text-slate-400">Each escalated case, tier to tier, with the delay at each hop. A <b className="text-severity-high/90">dropped</b> chain was escalated but never acknowledged — a broken loop worth talking through.</p>
+      <div className="mt-3 max-h-80 space-y-2 overflow-y-auto">
+        {cases.slice(0, 8).map(c => (
+          <div key={c.eid} className="rounded-lg border border-border/50 bg-bg px-2.5 py-2">
+            <div className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-[11px] font-semibold text-slate-200">{c.title}</span>
+              <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${STATUS_STYLE[c.status]}`}>{c.status}</span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
+              {c.steps.map((s, i) => (
+                <span key={i} className="inline-flex items-center gap-1">
+                  {i > 0 && <span className="font-mono text-[9px] text-slate-600">{fmtD(s.d)}→</span>}
+                  <span className="rounded border border-border/60 bg-bg-elevated/40 px-1.5 py-0.5 text-[10px] text-slate-300" title={s.who}>{HOP[s.type]}</span>
+                </span>
+              ))}
+              {c.status === "dropped" && <span className="ml-1 text-[10px] text-severity-high/80">— nobody acknowledged</span>}
+            </div>
+          </div>
+        ))}
+        {cases.length > 8 && <p className="text-[10px] text-slate-500">+{cases.length - 8} more chains.</p>}
       </div>
     </Card>
   );
@@ -2766,20 +3043,25 @@ function TeamReport({ events, roster, me }: { events: Ev[]; roster: RosterMember
     <div className="space-y-5">
       <Card className={team.detected ? "border-neon-green/30" : "border-neon-amber/30"}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white">After-action report</h2>
+          <h2 className="text-base font-bold text-white">Shift review</h2>
           {me.is_staff && <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>}
         </div>
+        <p className="mt-0.5 text-[11px] text-slate-400">A no-fault learning debrief — surfacing and fixing a mistake scores <b className="text-slate-300">for</b> you, not against.</p>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Attack detected" value={team.detected ? "Yes" : "No"} tone={team.detected ? "good" : "warn"} />
-          <Metric label="Time to detect" value={team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"} />
+          <Metric label="MTTD (detect)" value={team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"} />
           <Metric label="Logs" value={String(team.logs)} />
           <Metric label="Disposition acc." value={team.dispAcc != null ? `${team.dispAcc}%` : "—"} />
           <Metric label="Escalations" value={String(team.escalations)} />
           <Metric label="Acknowledged" value={String(team.acknowledged)} />
+          <Metric label="Handoff loop closure" value={team.loopClosure != null ? `${team.loopClosure}%` : "—"} tone={team.loopClosure != null ? (team.loopClosure >= 80 ? "good" : team.loopClosure < 50 ? "warn" : undefined) : undefined} />
+          <Metric label="Shared picture" value={team.contested === 0 ? "aligned" : `${team.contested} contested`} tone={team.contested === 0 ? "good" : "warn"} />
           <Metric label="Containment req." value={String(team.containmentReq)} />
           <Metric label="Contained" value={String(team.contained)} tone={team.contained > 0 ? "good" : undefined} />
           <Metric label="Isolated (exec)" value={String(team.executed)} tone={team.executed > 0 ? "good" : undefined} />
+          <Metric label="Handoff latency" value={team.handoffLatS != null ? `${team.handoffLatS}s` : "—"} tone={team.handoffLatS != null && team.handoffLatS > 300 ? "warn" : undefined} />
           <Metric label="MTTC" value={team.mttcS != null ? `${team.mttcS}s` : "—"} />
+          <Metric label="MTTR" value={team.mttrS != null ? `${team.mttrS}s` : "—"} />
           <Metric label="Case status" value={team.caseStatus} tone={team.caseStatus === "closed" || team.caseStatus === "contained" ? "good" : undefined} />
           <Metric label="Evidence pinned" value={String(team.evidencePinned)} />
         </div>
@@ -2787,6 +3069,52 @@ function TeamReport({ events, roster, me }: { events: Ev[]; roster: RosterMember
 
       {/* Guided hot-wash — the debrief conversation, reconstructed from the log */}
       <HotWash events={events} nameOf={(u) => roster.find(r => r.user_id === u)?.name ?? "someone"} />
+
+      {/* Handoff chains — closed-loop coordination made visible (research P0) */}
+      <HandoffLadder events={events} nameOf={(u) => roster.find(r => r.user_id === u)?.name ?? "someone"} />
+
+      {/* Shared-picture coherence — contested calls to reconcile (research P2) */}
+      {team.contestedList.length > 0 && (
+        <Card className="border-neon-amber/30">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-neon-amber" /> Contested calls — reconcile the picture</h3>
+          <p className="mt-1 text-[11px] text-slate-400">Same event, different analysts, opposite verdicts. A split mental model — talk through who was right and why.</p>
+          <div className="mt-3 space-y-2">
+            {team.contestedList.map((c, i) => (
+              <div key={i} className="rounded-lg border border-border/50 bg-bg px-2.5 py-2">
+                <p className="text-[11px] font-semibold text-slate-200">{c.label}</p>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {c.calls.map((call, j) => (
+                    <span key={j} className={`rounded border px-1.5 py-0.5 text-[10px] ${call.cls === "attack" ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : call.cls === "benign" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-border text-slate-400"}`}>{roster.find(r => r.user_id === call.actor)?.name ?? "someone"}: {call.cls}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* MSEL curveballs — each inject scored against its expected response (research P1) */}
+      {team.injects.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" /> Curveballs (MSEL)</h3>
+            <span className="font-mono text-[10px] text-slate-400">{team.injectsHandled}/{team.injectsScored} handled</span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Scripted pressure &amp; tickets during the shift — and whether the team produced the expected response.</p>
+          <div className="mt-3 space-y-2">
+            {team.injects.map((inj, i) => (
+              <div key={i} className="rounded-lg border border-border/50 bg-bg px-2.5 py-2">
+                <div className="flex items-start gap-2">
+                  <span className="min-w-0 flex-1 text-[11px] text-slate-300">{inj.text}</span>
+                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${inj.decoy ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : !inj.scored ? "border-border text-slate-500" : inj.handled ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/50 bg-severity-high/15 text-severity-high"}`}>{inj.decoy ? "decoy" : !inj.scored ? "FYI" : inj.handled ? "handled" : "missed"}</span>
+                </div>
+                {inj.decoy && <p className="mt-1 text-[10px] text-cyber-300/80">Decoy — did the team correctly reject it, or chase a false lead?</p>}
+                {inj.expected && <p className="mt-1 text-[10px] text-slate-500"><span className="text-slate-400">Expected:</span> {inj.expected}{inj.objective && inj.objective !== "—" ? ` · ${inj.objective}` : ""}</p>}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         {visible.map(u => (
@@ -2927,7 +3255,12 @@ function FeedFilterBar({
 }
 
 // ── G-08: Lead/Mgr Situation Board — summaries only, never raw (§3.7) ─────────
-function SituationBoard({ liveFeed, events, feed, nameOf, roster, online }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string; roster: RosterMember[]; online: Set<string> }) {
+// Work-division thresholds: an analyst is "overloaded" at ≥3 concurrent open cases
+// (matches the existing amber load styling), and NIMS/ICS puts effective span of
+// control at 3–7 direct reports — beyond 7 a single coordinator loses oversight.
+const OVERLOAD_CASES = 3;
+const MAX_SPAN = 7;
+function SituationBoard({ liveFeed, events, feed, nameOf, roster, online, act }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string; roster: RosterMember[]; online: Set<string>; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   const pulse = useMemo(() => {
     let high = 0, med = 0, low = 0;
     for (const e of liveFeed) { const l = e.ruleLevel ?? 1; if (l >= 7) high++; else if (l >= 4) med++; else low++; }
@@ -2955,10 +3288,36 @@ function SituationBoard({ liveFeed, events, feed, nameOf, roster, online }: { li
     const mttas = ackEvents.map(e => { const id = String((e.payload as { event_id?: string }).event_id); const rt = escTs.get(id); const at = e.occurred_at ? Date.parse(e.occurred_at) : null; return rt != null && at != null ? (at - rt) / 60000 : null; }).filter((x): x is number => x != null && x >= 0);
     const mtta = mttas.length ? Math.round((mttas.reduce((a, b) => a + b, 0) / mttas.length) * 10) / 10 : null;
     const now = Date.now();
+    // Tier-1 open-work load: active soft-claims (claimed, not released, not
+    // dispositioned, not stale) — so the overload view covers T1 (shared queue),
+    // not just T2/T3 acked cases. A user has one role, so both fold into loadByUser.
+    const disposedIds = new Set(events.filter(e => e.type === "disposition.set").map(e => String((e.payload as { event_id?: string }).event_id)));
+    const claimMap = new Map<string, { by: string; at: number }>();
+    for (const e of events) {
+      if (e.type !== "alert.claimed" && e.type !== "alert.released") continue;
+      const eid = String((e.payload as { event_id?: string }).event_id); if (!eid) continue;
+      if (e.type === "alert.released") claimMap.delete(eid);
+      else claimMap.set(eid, { by: e.actor_id ?? "", at: e.occurred_at ? Date.parse(e.occurred_at) : now });
+    }
+    for (const [eid, c] of claimMap) {
+      if (disposedIds.has(eid) || now - c.at > 5 * 60 * 1000) continue;
+      loadByUser.set(c.by, (loadByUser.get(c.by) ?? 0) + 1);
+    }
     const unacked = escs.filter(e => !ackedIds.has(String((e.payload as { event_id?: string }).event_id)));
     const oldestUnacked = unacked.length ? Math.max(...unacked.map(e => e.occurred_at ? Math.floor((now - Date.parse(e.occurred_at)) / 60000) : 0)) : null;
     return { players, loadByUser, mtta, oldestUnacked, onlineCount: players.filter(p => online.has(p.user_id)).length };
   }, [roster, events, escs, ackedIds, online]);
+  // Active mutual-monitoring (Salas): online analysts carrying ≥ OVERLOAD_CASES open
+  // cases — the Manager nudges the team to rebalance instead of only watching load.
+  const overloaded = useMemo(() => team.players
+    .filter(p => online.has(p.user_id) && (team.loadByUser.get(p.user_id) ?? 0) >= OVERLOAD_CASES)
+    .map(p => ({ ...p, load: team.loadByUser.get(p.user_id) ?? 0 }))
+    .sort((a, b) => b.load - a.load), [team, online]);
+  // Targets already nudged (button reflects it; the prompt clears when load drops).
+  const nudgedTargets = useMemo(() => new Set(events.filter(e => e.type === "coordination.nudge").map(e => String((e.payload as { target?: string }).target))), [events]);
+  const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
+  async function nudge(uid: string, load: number) { setNudgeBusy(uid); await act("coordination.nudge", { target: uid, reason: "overloaded", load }); setNudgeBusy(null); }
+  const spanWarn = team.onlineCount > MAX_SPAN; // NIMS/ICS span-of-control guard
   return (
     <div className="space-y-3">
       <Card>
@@ -2966,7 +3325,7 @@ function SituationBoard({ liveFeed, events, feed, nameOf, roster, online }: { li
         <p className="mt-0.5 text-[11px] text-slate-500">Coordinator view — summaries, not raw logs. Direct your team; don&apos;t dive into the feed.</p>
         {/* B11: team command state */}
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Metric label="Online" value={`${team.onlineCount}/${team.players.length}`} />
+          <Metric label="Online" value={`${team.onlineCount}/${team.players.length}`} tone={spanWarn ? "warn" : undefined} />
           <Metric label="MTTA" value={team.mtta == null ? "—" : `${team.mtta}m`} tone={team.mtta != null && team.mtta > 5 ? "warn" : undefined} />
           <Metric label="Oldest unacked" value={team.oldestUnacked == null ? "—" : `${team.oldestUnacked}m`} tone={team.oldestUnacked != null && team.oldestUnacked >= 5 ? "warn" : undefined} />
         </div>
@@ -2997,7 +3356,23 @@ function SituationBoard({ liveFeed, events, feed, nameOf, roster, online }: { li
             ))}
           </div>
         </div>
+        {spanWarn && <p className="mt-3 flex items-center gap-1.5 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-2.5 py-1.5 text-[11px] text-neon-amber"><ShieldAlert className="h-3.5 w-3.5 shrink-0" /> {team.onlineCount} analysts online — beyond a ~7 span of control. Consider splitting coordination or pausing intake.</p>}
       </Card>
+      {overloaded.length > 0 && (
+        <Card className="border-neon-amber/40">
+          <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" /> Rebalance load</h3>
+          <p className="mt-0.5 text-[11px] text-slate-500">These analysts are overloaded — nudge the team to pick up the slack.</p>
+          <div className="mt-2 space-y-1.5">
+            {overloaded.map(m => (
+              <div key={m.user_id} className="flex items-center gap-2 rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1.5 text-[11px]">
+                <span className="min-w-0 flex-1 truncate text-slate-200">{m.name} <span className="font-mono text-[9px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span></span>
+                <span className="shrink-0 rounded border border-neon-amber/50 bg-neon-amber/10 px-1 py-0.5 font-mono text-[9px] font-bold text-neon-amber">{m.load} open</span>
+                <Button variant="outline" size="sm" className="ml-1" disabled={nudgeBusy === m.user_id} onClick={() => nudge(m.user_id, m.load)}>{nudgedTargets.has(m.user_id) ? "Nudge again" : "Nudge"}</Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
       <Card>
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-neon-amber" /> Escalation queue ({escs.length})</h3>
         {escs.length === 0 ? <p className="mt-2 text-xs text-slate-500">No escalations from Tier-1 yet.</p> : (

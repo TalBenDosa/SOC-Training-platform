@@ -8040,7 +8040,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "disc-la1",
         "type": "log_analysis",
         "xp": 30,
-        "mitreTechnique": "T1033"
+        "mitreTechnique": "T1069.001"
       },
       {
         "id": "disc-r5",
