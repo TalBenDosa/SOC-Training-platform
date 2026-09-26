@@ -170,6 +170,12 @@ export default function TeamIndexPage() {
                 ⚠ No Tier-1 assigned — with no analyst triaging the feed, nothing will get escalated. Add at least one Tier-1.
               </p>
             )}
+            {/* U5: without a Tier-2, every escalation dead-ends in the queue. */}
+            {Object.values(picked).includes("t1") && !Object.values(picked).some(r => r === "t2" || r === "t3") && (
+              <p className="mt-3 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-2 text-[11px] text-neon-amber">
+                ⚠ No Tier-2 or Tier-3 assigned — Tier-1 escalations will have nobody to pick them up. Add a Tier-2 investigator.
+              </p>
+            )}
             <div className="mt-4 flex items-center gap-3">
               <Button variant="primary" size="sm" disabled={creating || Object.keys(picked).length === 0} onClick={createSession}>
                 {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
@@ -208,16 +214,16 @@ export default function TeamIndexPage() {
                       </p>
                     </div>
                     {closed
-                      ? <Link href={`/team/${s.id}`} className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyber-300 hover:border-cyber-500/40 hover:bg-cyber-500/[0.06]">View report</Link>
-                      : <ChevronRight className="h-4 w-4 text-slate-600" />}
+                      ? <span className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyber-300">Shift review</span>
+                      : <ChevronRight className="h-4 w-4 text-slate-600" aria-hidden />}
                   </>
                 );
-                // Closed sessions aren't re-enterable as a live room, but the read-only
-                // after-action report stays reachable via the explicit "View report" link.
-                return closed ? (
-                  <div key={s.id} title="This session is closed — open its report to review the debrief." className="flex items-center gap-3 px-4 py-3">{inner}</div>
-                ) : (
-                  <Link key={s.id} href={`/team/${s.id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02]">{inner}</Link>
+                // U7: the whole row is the link. Closed sessions open their read-only
+                // shift review (the room itself renders only the report once ended).
+                return (
+                  <Link key={s.id} href={`/team/${s.id}`}
+                    aria-label={closed ? `${companyName(s.company_id)} — closed, open shift review` : `${companyName(s.company_id)} — ${s.status}, open session`}
+                    className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-500/60">{inner}</Link>
                 );
               })}
             </div>

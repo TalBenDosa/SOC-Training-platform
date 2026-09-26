@@ -1,4 +1,5 @@
 import type { RosterMember, Ev } from "@/lib/team/types";
+import { CLAIM_TTL_MS } from "@/lib/team/projections";
 import { asStr } from "@/lib/team/format";
 
 // ── After-action report (Phase 0.5) — derived entirely from the event log ────
@@ -212,17 +213,23 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   const backupAckByUser = new Map<string, number>();  // T2/T3 backup
   const everOverloaded = new Set<string>();
   const liveLoad = new Map<string, number>();
-  const claimHolder = new Map<string, string>();      // eid -> current claimer
+  // A3: same rule as the live board (lib/team/projections) — a soft-claim expires
+  // CLAIM_TTL_MS after it was taken, judged at EVENT time during the replay.
+  const claimHolder = new Map<string, { by: string; at: number }>(); // eid -> current claimer
   const caseOwner = new Map<string, string>();        // eid -> first acker (owner)
   const eidOfP = (e: Ev) => String((e.payload as { event_id?: string }).event_id ?? "");
   const bump = (u: string, d: number) => { if (!u) return; const v = Math.max(0, (liveLoad.get(u) ?? 0) + d); liveLoad.set(u, v); if (v >= OVERLOAD_CASES) everOverloaded.add(u); };
+  let lastTs = 0;
   for (const e of events) {
+    const ts = e.occurred_at ? Date.parse(e.occurred_at) : lastTs; lastTs = ts;
+    for (const [eid, c] of claimHolder) if (ts - c.at > CLAIM_TTL_MS) { bump(c.by, -1); claimHolder.delete(eid); }
     if (e.type === "alert.claimed") {
-      const eid = eidOfP(e); if (!eid) continue; const who = e.actor_id ?? ""; const prev = claimHolder.get(eid);
+      const eid = eidOfP(e); if (!eid) continue; const who = e.actor_id ?? ""; const prev = claimHolder.get(eid)?.by;
       if (prev && prev !== who) { takeoverByUser.set(who, (takeoverByUser.get(who) ?? 0) + 1); bump(prev, -1); }
-      if (prev !== who) { claimHolder.set(eid, who); bump(who, 1); }
+      if (prev !== who) bump(who, 1);
+      claimHolder.set(eid, { by: who, at: ts }); // re-claim refreshes the TTL
     } else if (e.type === "alert.released" || e.type === "disposition.set") {
-      const eid = eidOfP(e); const prev = eid ? claimHolder.get(eid) : undefined;
+      const eid = eidOfP(e); const prev = eid ? claimHolder.get(eid)?.by : undefined;
       if (prev) { bump(prev, -1); claimHolder.delete(eid); }
     } else if (e.type === "escalation.acknowledged") {
       const eid = eidOfP(e); const who = e.actor_id ?? ""; if (!eid || caseOwner.has(eid)) continue;

@@ -6,6 +6,8 @@ import { ArrowUpRight, ShieldAlert, Siren, X } from "lucide-react";
 import type { Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, isValidIoc, wordCount } from "@/lib/team/format";
 import { slaMinFor } from "./shared";
+import { useServerNow } from "@/lib/team/clock";
+import { activeClaims } from "@/lib/team/projections";
 
 // ── T1 console: pick a log → disposition + structured escalation report ───────
 const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr"];
@@ -27,7 +29,11 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   // B6: a real T1 alert QUEUE — a prioritized, aging worklist of the high-signal
   // alerts still needing a disposition (drains as you triage; noise never enters).
   // A sorted projection over the same feed, NOT a second SIEM.
-  const nowMs = Date.now();
+  // C5: ages / SLA / claim TTL on the SERVER clock, re-rendered every 15s so SLA
+  // badges age even when no new event arrives.
+  const nowMs = useServerNow(15_000);
+  const [pulledNote, setPulledNote] = useState<string | null>(null);
+  useEffect(() => { if (!pulledNote) return; const t = setTimeout(() => setPulledNote(null), 4000); return () => clearTimeout(t); }, [pulledNote]);
   const queue = feed
     .map(e => { const p = e.payload as { id?: string; severity?: string; source?: string; description?: string; summary?: string; what?: string; hostname?: string }; return { e, eid: String(p.id ?? e.seq), p }; })
     .filter(({ eid, p }) => !dispositions.has(eid) && (p.severity === "high" || p.severity === "critical"))
@@ -35,24 +41,12 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
     .sort((a, b) => b.score - a.score);
   const isLowConf = selDisp === "suspicious"; // T1-2: Suspicious → low-confidence lead
 
-  // T1-3: soft-lock claims — latest alert.claimed/released per event wins; a claim
-  // is active for ~5 min unless released or the alert was dispositioned.
-  const CLAIM_TTL = 5 * 60 * 1000;
-  const claims = useMemo(() => {
-    const m = new Map<string, { by: string; at: number }>();
-    for (const e of events) {
-      if (e.type !== "alert.claimed" && e.type !== "alert.released") continue;
-      const eid = String((e.payload as { event_id?: string }).event_id); if (!eid) continue;
-      if (e.type === "alert.released") m.delete(eid);
-      else m.set(eid, { by: e.actor_id ?? "", at: e.occurred_at ? Date.parse(e.occurred_at) : Date.now() });
-    }
-    return m;
-  }, [events]);
+  // T1-3: soft-lock claims — the room's ONE claims projection (A3): latest claim per
+  // alert, cleared by release/disposition, expired after 5 min on the server clock.
+  const claims = useMemo(() => activeClaims(events, nowMs), [events, nowMs]);
   const claimerOf = (eid: string): { by: string; at: number } | null => {
-    const c = claims.get(eid); if (!c) return null;
     if (dispositions.has(eid)) return null;              // dispositioned → off the clock
-    if (Date.now() - c.at > CLAIM_TTL) return null;       // stale claim expired
-    return c;
+    return claims.get(eid) ?? null;
   };
   const options = feed.map(e => {
     const p = e.payload as { id?: string; description?: unknown; event_type?: unknown }; const id = String(p.id ?? e.seq);
@@ -80,7 +74,12 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   // of the queue never goes orphaned because everyone assumed someone else took it.
   function takeNext() {
     const next = queueDisplay.find(q => { const c = claimerOf(q.eid); return !c || c.by === meId; });
-    if (next) { setSel(next.eid); setReportOpen(true); }
+    if (next) {
+      setSel(next.eid); setReportOpen(true);
+      setPulledNote(`Pulled #${next.e.seq} for you — it's claimed while you work it.`);
+    } else {
+      setPulledNote("Nothing unclaimed right now — every open alert is being worked.");
+    }
   }
 
   // T1-7: my escalations with live status (sent → acknowledged → bounced/resolved).
@@ -134,8 +133,15 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
     setBusy(true);
     // Carry the FULL original log with the escalation so Tier-2 investigates the
     // real event (all raw fields), not just T1's words — and independent of feed state.
-    const snapshot = feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel)?.payload as Record<string, unknown> | undefined;
-    const fe = snapshot as { hostname?: string; user_email?: string; user?: { email?: string } } | undefined;
+    const full = feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel)?.payload as Record<string, unknown> | undefined;
+    // L8: the escalation payload is capped at 16 KiB server-side — trim an oversized
+    // raw block (Tier-2 still has the complete log in the shared feed).
+    let snapshot = full;
+    if (full && JSON.stringify(full).length > 8000) {
+      const rawText = JSON.stringify(full.raw ?? "");
+      snapshot = { ...full, raw: rawText.length > 4000 ? `${rawText.slice(0, 4000)}…` : full.raw, snapshot_truncated: true };
+    }
+    const fe = full as { hostname?: string; user_email?: string; user?: { email?: string } } | undefined;
     const entity = asStr(fe?.hostname) || asStr(fe?.user_email) || asStr(fe?.user?.email) || "the affected asset";
     const ok = await act("escalation.requested", {
       event_id: sel, summary: form.summary, observations: form.observations, assessment: form.assessment,
@@ -164,15 +170,16 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" /> Alert queue ({queue.length})</h3>
         <div className="flex items-center gap-2">
           {queue.length > 0 && <Button variant="outline" size="sm" disabled={busy} onClick={takeNext}>Take next</Button>}
-          <span className="font-mono text-[10px] text-slate-500">high/critical · un-triaged</span>
+          <span className="font-mono text-[10px] text-slate-400">high/critical · un-triaged</span>
         </div>
       </div>
+      {pulledNote && <p role="status" className="mt-1.5 text-[11px] text-neon-green">{pulledNote}</p>}
       {queue.length === 0 ? (
         <p className="mt-2 text-xs text-slate-400">Queue clear — no high/critical alert is waiting for a disposition. Watch the feed.</p>
       ) : (
         <div className="mt-2 space-y-1">
           {queueDisplay.slice(0, 8).map(({ e, eid, p, mins, rank, orphan }) => { const breached = mins >= slaMinFor(p.severity ?? "high"); return (
-            <button key={e.seq} onClick={() => { setSel(eid); setReportOpen(true); }} className={`flex w-full items-center gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:bg-white/[0.03] ${sel === eid ? "border-cyber-500/50 bg-cyber-500/[0.06]" : orphan ? "border-severity-high/50 bg-severity-high/[0.06]" : "border-border/60 bg-bg"}`}>
+            <button key={e.seq} onClick={() => { setSel(eid); setReportOpen(true); }} className={`flex w-full items-center gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50 ${sel === eid ? "border-cyber-500/50 bg-cyber-500/[0.06]" : orphan ? "border-severity-high/50 bg-severity-high/[0.06]" : "border-border/60 bg-bg"}`}>
               <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold uppercase ${rank === 4 ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-neon-amber/50 bg-neon-amber/10 text-neon-amber"}`}>{p.severity}</span>
               <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.description) || asStr(p.summary) || asStr(p.what) || asStr(p.hostname) || "alert"}</span>
               {orphan && <span className="shrink-0 rounded border border-severity-high/60 bg-severity-high/15 px-1 py-0.5 font-mono text-[9px] font-bold text-severity-high" title="past SLA and unclaimed — nobody is working it">⚠ unclaimed</span>}

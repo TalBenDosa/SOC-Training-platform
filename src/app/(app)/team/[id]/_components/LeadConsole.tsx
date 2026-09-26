@@ -7,6 +7,7 @@ import type { Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { SitrepConsole } from "./SitrepConsole";
 import { DecisionLog } from "./DecisionLog";
+import { useServerNow } from "@/lib/team/clock";
 
 // ── Lead console: containment requests → approve / deny ──────────────────────
 export function LeadConsole({ contReq, contDecided, escalations, acked, events, nameOf, act }: { contReq: Ev[]; contDecided: Set<string>; escalations: Ev[]; acked: Set<string>; events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
@@ -15,6 +16,7 @@ export function LeadConsole({ contReq, contDecided, escalations, acked, events, 
   const pending = contReq.filter(e => !contDecided.has(String((e.payload as { event_id?: string }).event_id)));
   const escResolvedSet = useMemo(() => new Set(events.filter(e => e.type === "escalation.resolved").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
   // A1: T2's determination/recommendation per case + the working scope, so the
+  const now = useServerNow(15_000);   // C5: backlog ages on the server clock
   // Manager approves containment WITH the justification, not blind.
   const reportByEid = useMemo(() => { const m = new Map<string, { verdict?: string; recommendation?: string; findings?: string; summary?: string }>(); for (const e of events) if (e.type === "report.submitted") m.set(String((e.payload as { event_id?: string }).event_id), e.payload as { verdict?: string; recommendation?: string; findings?: string; summary?: string }); return m; }, [events]);
   const latestScope = useMemo(() => { const s = [...events].reverse().find(e => e.type === "scope.set" || e.type === "scope.confirmed"); return s ? (s.payload as { hosts?: string[]; users?: string[]; techniques?: string[] }) : null; }, [events]);
@@ -23,7 +25,7 @@ export function LeadConsole({ contReq, contDecided, escalations, acked, events, 
   // chase it, instead of only getting work once a containment request lands.
   const waiting = escalations
     .filter(e => { const eid = String((e.payload as { event_id?: string }).event_id); return !acked.has(eid) && !escResolvedSet.has(eid); })
-    .map(e => { const p = e.payload as { event_id?: string; summary?: string; what?: string; severity?: string }; const mins = e.occurred_at ? Math.floor((Date.now() - Date.parse(e.occurred_at)) / 60000) : 0; return { seq: e.seq, label: asStr(p.summary) || asStr(p.what) || "escalation", sev: asStr(p.severity), mins }; })
+    .map(e => { const p = e.payload as { event_id?: string; summary?: string; what?: string; severity?: string }; const mins = e.occurred_at ? Math.max(0, Math.floor((now - Date.parse(e.occurred_at)) / 60000)) : 0; return { seq: e.seq, label: asStr(p.summary) || asStr(p.what) || "escalation", sev: asStr(p.severity), mins }; })
     .sort((a, b) => b.mins - a.mins);
   return (
     <div className="space-y-4">

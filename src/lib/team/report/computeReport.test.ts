@@ -177,6 +177,30 @@ describe("computeReport — backup take-over", () => {
     const b = computeReport(events, [member("a", "t1"), member("b", "t1")]).perUser.find(u => u.user_id === "b")!;
     expect(cell(b.rubric, "Backup & load-balancing").score).toBeNull();
   });
+
+  it("A3: claiming an alert whose claim went stale (> 5 min) is not a take-over", () => {
+    const { events, add } = log();
+    add("alert.claimed", "a", 10, { event_id: "evt-1" }, "t1");
+    add("alert.claimed", "b", 10 + 6 * 60, { event_id: "evt-1" }, "t1");
+    const b = computeReport(events, [member("a", "t1"), member("b", "t1")]).perUser.find(u => u.user_id === "b")!;
+    expect(cell(b.rubric, "Backup & load-balancing").score).toBeNull();
+  });
+
+  it("A3: stale claims stop counting toward overload, matching the live Situation Board", () => {
+    const { events, add } = log();
+    // A grabs 3 alerts, then goes quiet; 6 minutes later the board shows A at 0 open.
+    for (const id of ["e1", "e2", "e3"]) add("alert.claimed", "a", 10, { event_id: id }, "t1");
+    add("coordination.nudge", "mgr", 20, { target: "a" }, "mgr");
+    const fresh = computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!;
+    expect(cell(fresh.rubric, "Load balancing").score).not.toBeNull();
+
+    const { events: ev2, add: add2 } = log();
+    add2("alert.claimed", "a", 10, { event_id: "e1" }, "t1");
+    add2("alert.claimed", "a", 10 + 6 * 60, { event_id: "e2" }, "t1");
+    add2("alert.claimed", "a", 10 + 12 * 60, { event_id: "e3" }, "t1");
+    const stale = computeReport(ev2, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!;
+    expect(cell(stale.rubric, "Load balancing").score).toBeNull(); // A never held 3 at once
+  });
 });
 
 describe("computeReport — handoff loop closure & MTTR", () => {

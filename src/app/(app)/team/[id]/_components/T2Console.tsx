@@ -9,6 +9,7 @@ import type { Ev, Ioc, ScopeState } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { enrichSnapshot, slaMinFor } from "./shared";
 import { ScopeConsole } from "./ScopeConsole";
+import { useServerNow } from "@/lib/team/clock";
 
 // ── T2/T3 console: escalation inbox → ack → request/execute containment + scope ─
 const BOUNCE_REASONS = ["Missing a clear indicator", "Looks like noise / benign", "Needs more context or evidence", "Duplicate of another case", "Other"];
@@ -51,7 +52,8 @@ export function T2Console({ role, meId, escalations, acked, ackedBy, escBounced,
   const requestedIds = new Set(contReq.map(e => String((e.payload as { event_id?: string }).event_id)));
   // Prioritized queue: open cases first, ranked by severity × waiting × confidence
   // (a 'contain' request weighs heavier). Acked/bounced/resolved sink to the bottom.
-  const now = Date.now();
+  // C5: waiting time / SLA on the server clock, ticking every 15s.
+  const now = useServerNow(15_000);
   const prioKey = (e: Ev) => {
     const p = e.payload as { event_id?: string; severity?: string; confidence?: number; requested_action?: string };
     const eid = String(p.event_id);
@@ -127,7 +129,7 @@ export function T2Console({ role, meId, escalations, acked, ackedBy, escBounced,
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-500">
                     <span>from {nameOf(e.actor_id)} · sev {asStr(p.severity) || asStr(p.impact) || "—"} · conf {p.confidence}{p.requested_action ? ` · asks: ${p.requested_action}` : ""}</span>
                     {!isAck && !isBounced && !isResolved && e.occurred_at && (() => {
-                      const mins = Math.floor((Date.now() - Date.parse(e.occurred_at)) / 60000);
+                      const mins = Math.max(0, Math.floor((now - Date.parse(e.occurred_at)) / 60000));
                       const breached = mins >= slaMinFor(asStr(p.severity) || "medium"); // SLA by severity
                       return <span className={`rounded border px-1 py-px font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ waiting {mins}m{breached ? " · SLA" : ""}</span>;
                     })()}

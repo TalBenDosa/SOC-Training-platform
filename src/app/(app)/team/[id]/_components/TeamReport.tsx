@@ -1,11 +1,12 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, Siren, Clock } from "lucide-react";
 import type { RosterMember, Me, Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
-import { computeReport } from "@/lib/team/report/computeReport";
+import type { computeReport } from "@/lib/team/report/computeReport";
+import { mergeAnswers, type AnswerMap } from "@/lib/team/report/serverReport";
 import { ROLE_LABEL, Metric } from "./shared";
 
 // ── Guided hot-wash (§6.6) — a dual-track replay reconstructed from the event log:
@@ -187,55 +188,154 @@ function HandoffLadder({ events, nameOf }: { events: Ev[]; nameOf: (u: string | 
   );
 }
 
-export function TeamReport({ events, roster, me }: { events: Ev[]; roster: RosterMember[]; me: Me }) {
-  const { team, perUser } = useMemo(() => computeReport(events, roster), [events, roster]);
-  // A5: staff AND the SOC Manager (the coordinator who runs the debrief) see the whole
-  // team's cards; other players see only their own.
-  const seesAll = me.is_staff || me.role === "mgr";
-  const visible = seesAll ? perUser : perUser.filter(u => u.user_id === me.id);
+type Report = ReturnType<typeof computeReport>;
+
+// S10: a spreadsheet evaluates a cell starting with = + - @ (or a tab/CR) as a
+// formula even inside quotes — a display name like =HYPERLINK(...) would run in the
+// instructor's Excel. Prefix those cells with an apostrophe.
+function csvCell(v: unknown): string {
+  let s = String(v ?? "");
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
+const LEGEND: Record<string, string> = {
+  "MTTD": "Mean time to detect — shift start → first escalation of a real attack.",
+  "Handoff latency": "How long an escalation waited before a Tier-2 acknowledged it (median).",
+  "Handoff loop closure": "Share of escalations a Tier-2 actually acknowledged (a closed loop).",
+  "MTTC": "Mean time to contain — containment request → isolation executed.",
+  "MTTR": "Mean time to resolve — escalation → case resolved.",
+  "Shared picture": "Contested = two analysts gave opposite verdicts on the same event.",
+};
+
+/**
+ * The after-action report. v2+ (and legacy) sessions are scored SERVER-SIDE from the
+ * full log with the answer key joined back (audit A1/S4): everyone sees the same
+ * numbers, and a non-staff viewer only ever receives their own card (S9). The live
+ * room never had the answer key; it is revealed here, after the shift, to rebuild
+ * the hot-wash and handoff ladder.
+ */
+export function TeamReport({ sessionId, events, roster, me }: { sessionId: string; events: Ev[]; roster: RosterMember[]; me: Me }) {
+  const [report, setReport] = useState<Report | null>(null);
+  const [answers, setAnswers] = useState<AnswerMap>({});
+  const [seesAll, setSeesAll] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadError(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/team/sessions/${sessionId}/report`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) { setLoadError(data?.error ?? "Couldn't load the report."); return; }
+        setReport({ team: data.team, perUser: data.perUser } as Report);
+        setAnswers(data.answers ?? {});
+        setSeesAll(!!data.seesAll);
+      } catch { if (!cancelled) setLoadError("Couldn't load the report — check your connection."); }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId, attempt]);
+
+  // Answer key merged onto the local log — for the hot-wash/handoff ladder only.
+  const revealed = useMemo(() => mergeAnswers(events, answers), [events, answers]);
+  const nameOf = (u: string | null) => roster.find(r => r.user_id === u)?.name ?? "someone";
+
+  if (loadError) return (
+    <Card className="border-severity-high/30">
+      <p className="text-sm text-severity-high">{loadError}</p>
+      <Button variant="outline" size="sm" className="mt-3" onClick={() => setAttempt(a => a + 1)}>Try again</Button>
+    </Card>
+  );
+  if (!report) return <Card><p className="text-sm text-slate-400">Building the shift review…</p></Card>;
+
+  const { team, perUser } = report;
+  const visible = perUser;   // the server already limited this to my card unless I'm staff / the Manager
 
   function exportCsv() {
     const header = ["Name", "Role", "Rubric score %", "Logs opened", "Avg dwell (s)", "Dispositions", "Disposition accuracy %", "Escalations", "Escalation quality", "Acks", "Containment requests", "Containment decisions", "Role actions", "First action (s)", "Contribution"];
-    const rows = perUser.map(u => [u.name, u.role, u.rubricPct ?? "", u.opened, u.avgDwellS ?? "", u.dispCount, u.dispAcc ?? "", u.escCount, u.escQuality ?? "", u.acks, u.contReq, u.contDecided, u.roleActions, u.firstActionS ?? "", u.contribution].map(String));
-    const csv = [header, ...rows].map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(",")).join("\r\n");
+    const rows = perUser.map(u => [u.name, u.role, u.rubricPct ?? "", u.opened, u.avgDwellS ?? "", u.dispCount, u.dispAcc ?? "", u.escCount, u.escQuality ?? "", u.acks, u.contReq, u.contDecided, u.roleActions, u.firstActionS ?? "", u.contribution]);
+    const csv = [header, ...rows].map(r => r.map(csvCell).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a"); a.href = url; a.download = `team-exercise-report-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
   }
+  const lcTone = team.loopClosure != null ? (team.loopClosure >= 80 ? "good" as const : team.loopClosure < 50 ? "warn" as const : undefined) : undefined;
+  const groups: { title: string; items: [string, string, ("good" | "warn" | undefined)?][] }[] = [
+    { title: "Detection", items: [
+      ["Attack detected", team.detected ? "Yes" : "No", team.detected ? "good" : "warn"],
+      ["MTTD", team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"],
+      ["Logs", String(team.logs)],
+      ["Disposition accuracy", team.dispAcc != null ? `${team.dispAcc}%` : "—"],
+    ] },
+    { title: "Coordination", items: [
+      ["Escalations", String(team.escalations)],
+      ["Acknowledged", String(team.acknowledged)],
+      ["Handoff loop closure", team.loopClosure != null ? `${team.loopClosure}%` : "—", lcTone],
+      ["Handoff latency", team.handoffLatS != null ? `${team.handoffLatS}s` : "—", team.handoffLatS != null && team.handoffLatS > 300 ? "warn" : undefined],
+      ["Shared picture", team.contested === 0 ? "aligned" : `${team.contested} contested`, team.contested === 0 ? "good" : "warn"],
+    ] },
+    { title: "Response", items: [
+      ["Containment requests", String(team.containmentReq)],
+      ["Contained", String(team.contained), team.contained > 0 ? "good" : undefined],
+      ["Isolated", String(team.executed), team.executed > 0 ? "good" : undefined],
+      ["MTTC", team.mttcS != null ? `${team.mttcS}s` : "—"],
+    ] },
+    { title: "Resolution", items: [
+      ["MTTR", team.mttrS != null ? `${team.mttrS}s` : "—"],
+      ["Case status", team.caseStatus, team.caseStatus === "closed" || team.caseStatus === "contained" ? "good" : undefined],
+      ["Evidence pinned", String(team.evidencePinned)],
+    ] },
+  ];
 
   return (
     <div className="space-y-5">
       <Card className={team.detected ? "border-neon-green/30" : "border-neon-amber/30"}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-white">Shift review</h2>
-          {me.is_staff && <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>}
+          {me.is_staff && seesAll && <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>}
         </div>
-        <p className="mt-0.5 text-[11px] text-slate-400">A no-fault learning debrief — surfacing and fixing a mistake scores <b className="text-slate-300">for</b> you, not against.</p>
+        <p className="mt-0.5 text-[11px] text-slate-400">A no-fault learning debrief — surfacing and fixing a mistake scores <b className="text-slate-300">for</b> you, not against. Start with the debrief below; the numbers support the conversation.</p>
+        {/* U2: the four headline numbers the briefing promised (accuracy · timeliness · coordination) */}
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Metric label="Attack detected" value={team.detected ? "Yes" : "No"} tone={team.detected ? "good" : "warn"} />
-          <Metric label="MTTD (detect)" value={team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"} />
-          <Metric label="Logs" value={String(team.logs)} />
-          <Metric label="Disposition acc." value={team.dispAcc != null ? `${team.dispAcc}%` : "—"} />
-          <Metric label="Escalations" value={String(team.escalations)} />
-          <Metric label="Acknowledged" value={String(team.acknowledged)} />
-          <Metric label="Handoff loop closure" value={team.loopClosure != null ? `${team.loopClosure}%` : "—"} tone={team.loopClosure != null ? (team.loopClosure >= 80 ? "good" : team.loopClosure < 50 ? "warn" : undefined) : undefined} />
-          <Metric label="Shared picture" value={team.contested === 0 ? "aligned" : `${team.contested} contested`} tone={team.contested === 0 ? "good" : "warn"} />
-          <Metric label="Containment req." value={String(team.containmentReq)} />
-          <Metric label="Contained" value={String(team.contained)} tone={team.contained > 0 ? "good" : undefined} />
-          <Metric label="Isolated (exec)" value={String(team.executed)} tone={team.executed > 0 ? "good" : undefined} />
-          <Metric label="Handoff latency" value={team.handoffLatS != null ? `${team.handoffLatS}s` : "—"} tone={team.handoffLatS != null && team.handoffLatS > 300 ? "warn" : undefined} />
-          <Metric label="MTTC" value={team.mttcS != null ? `${team.mttcS}s` : "—"} />
-          <Metric label="MTTR" value={team.mttrS != null ? `${team.mttrS}s` : "—"} />
-          <Metric label="Case status" value={team.caseStatus} tone={team.caseStatus === "closed" || team.caseStatus === "contained" ? "good" : undefined} />
-          <Metric label="Evidence pinned" value={String(team.evidencePinned)} />
+          <span title={LEGEND["MTTD"]}><Metric label="MTTD (time to detect)" value={team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"} /></span>
+          <Metric label="Disposition accuracy" value={team.dispAcc != null ? `${team.dispAcc}%` : "—"} />
+          <span title={LEGEND["Handoff loop closure"]}><Metric label="Handoff loop closure" value={team.loopClosure != null ? `${team.loopClosure}%` : "—"} tone={lcTone} /></span>
         </div>
+        <button onClick={() => setShowAll(s => !s)} aria-expanded={showAll}
+          className="mt-3 rounded text-[11px] font-semibold text-cyber-300 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50">
+          {showAll ? "Hide the full metrics" : "Show all metrics"}
+        </button>
+        {showAll && (
+          <div className="mt-3 space-y-3">
+            {groups.map(g => (
+              <div key={g.title}>
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{g.title}</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {g.items.map(([label, value, tone]) => (
+                    <span key={label} title={LEGEND[label]}><Metric label={label} value={value} tone={tone} /></span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <dl className="grid gap-1 rounded-lg border border-border/50 bg-bg px-3 py-2 text-[11px] sm:grid-cols-2">
+              {Object.entries(LEGEND).map(([k, v]) => (
+                <div key={k}><dt className="inline font-semibold text-slate-300">{k}: </dt><dd className="inline text-slate-400">{v}</dd></div>
+              ))}
+            </dl>
+          </div>
+        )}
       </Card>
 
-      {/* Guided hot-wash — the debrief conversation, reconstructed from the log */}
-      <HotWash events={events} nameOf={(u) => roster.find(r => r.user_id === u)?.name ?? "someone"} />
+      {/* Guided hot-wash FIRST — the debrief conversation, reconstructed from the log (U2) */}
+      <HotWash events={revealed} nameOf={nameOf} />
 
       {/* Handoff chains — closed-loop coordination made visible (research P0) */}
-      <HandoffLadder events={events} nameOf={(u) => roster.find(r => r.user_id === u)?.name ?? "someone"} />
+      <HandoffLadder events={revealed} nameOf={nameOf} />
 
       {/* Shared-picture coherence — contested calls to reconcile (research P2) */}
       {team.contestedList.length > 0 && (
@@ -318,7 +418,7 @@ export function TeamReport({ events, roster, me }: { events: Ev[]; roster: Roste
           </Card>
         ))}
       </div>
-      <p className="text-xs text-slate-500">Per-user rubric (0/4/8/12 per criterion, §3.f–§9.f) + team report from the action log. Criteria marked n/a await instrumentation (scope.set, SITREP, report grading).</p>
+      <p className="text-xs text-slate-400">Per-user rubric (0/4/8/12 per criterion) + team report, computed on the server from the full action log. A criterion marked n/a had nothing to measure in this shift — it never lowers the score.</p>
     </div>
   );
 }

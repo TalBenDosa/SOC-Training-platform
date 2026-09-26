@@ -8,6 +8,8 @@ import type { RosterMember, Ev } from "@/lib/team/types";
 import { sevColor, asStr } from "@/lib/team/format";
 import { OVERLOAD_CASES } from "@/lib/team/report/computeReport";
 import { ROLE_LABEL, Metric } from "./shared";
+import { useServerNow } from "@/lib/team/clock";
+import { openLoadByUser } from "@/lib/team/projections";
 
 const MAX_SPAN = 7;
 export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online, act }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string; roster: RosterMember[]; online: Set<string>; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
@@ -26,37 +28,22 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
   const ackedIds = useMemo(() => new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
   // B11: command awareness — team presence + per-analyst open load + live MTTA +
   // oldest-unacked, so the Manager commands from state instead of waiting for a request.
+  // C5: ages on the server clock (re-rendered every 15s, so "oldest unacked" climbs live).
+  const now = useServerNow(15_000);
   const team = useMemo(() => {
     const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer");
-    const resolved = new Set(events.filter(e => e.type === "escalation.resolved").map(e => String((e.payload as { event_id?: string }).event_id)));
     const ackEvents = events.filter(e => e.type === "escalation.acknowledged");
-    const firstAcker = new Map<string, string>();
-    for (const e of ackEvents) { const id = String((e.payload as { event_id?: string }).event_id); if (!firstAcker.has(id)) firstAcker.set(id, e.actor_id ?? ""); }
-    const loadByUser = new Map<string, number>();
-    for (const [id, uid] of firstAcker) if (!resolved.has(id)) loadByUser.set(uid, (loadByUser.get(uid) ?? 0) + 1);
     const escTs = new Map(escs.map(e => [String((e.payload as { event_id?: string }).event_id), e.occurred_at ? Date.parse(e.occurred_at) : null]));
     const mttas = ackEvents.map(e => { const id = String((e.payload as { event_id?: string }).event_id); const rt = escTs.get(id); const at = e.occurred_at ? Date.parse(e.occurred_at) : null; return rt != null && at != null ? (at - rt) / 60000 : null; }).filter((x): x is number => x != null && x >= 0);
     const mtta = mttas.length ? Math.round((mttas.reduce((a, b) => a + b, 0) / mttas.length) * 10) / 10 : null;
-    const now = Date.now();
-    // Tier-1 open-work load: active soft-claims (claimed, not released, not
-    // dispositioned, not stale) — so the overload view covers T1 (shared queue),
-    // not just T2/T3 acked cases. A user has one role, so both fold into loadByUser.
-    const disposedIds = new Set(events.filter(e => e.type === "disposition.set").map(e => String((e.payload as { event_id?: string }).event_id)));
-    const claimMap = new Map<string, { by: string; at: number }>();
-    for (const e of events) {
-      if (e.type !== "alert.claimed" && e.type !== "alert.released") continue;
-      const eid = String((e.payload as { event_id?: string }).event_id); if (!eid) continue;
-      if (e.type === "alert.released") claimMap.delete(eid);
-      else claimMap.set(eid, { by: e.actor_id ?? "", at: e.occurred_at ? Date.parse(e.occurred_at) : now });
-    }
-    for (const [eid, c] of claimMap) {
-      if (disposedIds.has(eid) || now - c.at > 5 * 60 * 1000) continue;
-      loadByUser.set(c.by, (loadByUser.get(c.by) ?? 0) + 1);
-    }
+    // A3: the room's ONE open-work projection — active T1 soft-claims (claimed, not
+    // released / dispositioned, not stale) + first-acked unresolved T2/T3 cases. The
+    // AAR replays the same rule, so the Manager is scored on what this board showed.
+    const loadByUser = openLoadByUser(events, now);
     const unacked = escs.filter(e => !ackedIds.has(String((e.payload as { event_id?: string }).event_id)));
-    const oldestUnacked = unacked.length ? Math.max(...unacked.map(e => e.occurred_at ? Math.floor((now - Date.parse(e.occurred_at)) / 60000) : 0)) : null;
+    const oldestUnacked = unacked.length ? Math.max(...unacked.map(e => e.occurred_at ? Math.max(0, Math.floor((now - Date.parse(e.occurred_at)) / 60000)) : 0)) : null;
     return { players, loadByUser, mtta, oldestUnacked, onlineCount: players.filter(p => online.has(p.user_id)).length };
-  }, [roster, events, escs, ackedIds, online]);
+  }, [roster, events, escs, ackedIds, online, now]);
   // Active mutual-monitoring (Salas): online analysts carrying ≥ OVERLOAD_CASES open
   // cases — the Manager nudges the team to rebalance instead of only watching load.
   const overloaded = useMemo(() => team.players

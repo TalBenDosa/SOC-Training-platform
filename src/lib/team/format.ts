@@ -24,3 +24,29 @@ export function isValidIoc(v: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]{2,62}$/.test(s) && /[-.\d]/.test(s); // plausible hostname
 }
 export const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
+
+/** Short stable hash (FNV-1a) — used to derive idempotency keys from an action payload. */
+export function hashString(s: string): string {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * Map a raw database error from apply_session_action to plain language (audit C6 —
+ * the room used to show text like "action_not_allowed: disposition.set for role
+ * t2 in status paused" in a banner that never cleared).
+ */
+export function friendlyActionError(raw: string): string {
+  const m = raw.toLowerCase();
+  if (m.includes("rate_limited")) return "Slow down — too many actions in a few seconds. Try again in a moment.";
+  if (m.includes("action_not_allowed")) return m.includes("paused")
+    ? "The shift is paused — actions resume when it does."
+    : "That action isn't available to your role right now.";
+  if (m.includes("not_a_member")) return "You're no longer on this session's roster.";
+  if (m.includes("session_full")) return "This session has reached its activity limit.";
+  if (m.includes("payload_too_large")) return "That's too much text or data for one action — shorten it and try again.";
+  if (m.includes("seq_conflict")) return "Someone acted at the same moment — please try again.";
+  if (m.includes("auth_required") || m.includes("jwt")) return "Your sign-in expired — reload the page to continue.";
+  return "Couldn't complete that action. Check your connection and try again.";
+}

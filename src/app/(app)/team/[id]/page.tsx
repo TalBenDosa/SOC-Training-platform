@@ -25,7 +25,11 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
-import { asStr, detectIocType } from "@/lib/team/format";
+import { asStr, detectIocType, friendlyActionError, hashString } from "@/lib/team/format";
+import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
+import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
+import { activeClaims } from "@/lib/team/projections";
+import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
 import { SharedCase } from "./_components/SharedCase";
@@ -104,16 +108,41 @@ export default function TeamRoomPage() {
   const [t1ReportOpen, setT1ReportOpen] = useState(false);
   const seqSeen = useRef<Set<number>>(new Set());
   const maxSeqRef = useRef(0);
+  // C1: contiguous watermark — every seq ≤ it has been seen. The pull cursor is this
+  // (not the max), so a missed broadcast below the head is re-fetched, never lost.
+  const contigRef = useRef(0);
+  const pullRef = useRef<(() => Promise<void>) | null>(null);
+  const gapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  // C6: connection health for the "Live / Reconnecting / Degraded" pill.
+  const [socketLive, setSocketLive] = useState(false);
+  const [pullHealthy, setPullHealthy] = useState(true);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const nameOf = useCallback((uid: string | null) => uid ? (roster.find(r => r.user_id === uid)?.name ?? uid.slice(0, 8)) : "system", [roster]);
+
+  // Friendly, auto-clearing error banner (C6).
+  const showError = useCallback((msg: string) => {
+    setError(msg);
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = setTimeout(() => setError(e => (e === msg ? null : e)), 8000);
+  }, []);
+  useEffect(() => () => { if (errorTimerRef.current) clearTimeout(errorTimerRef.current); }, []);
+
+  const requestPull = useCallback((delay = 300) => {
+    if (gapTimerRef.current) return;                     // debounce: one pull per burst
+    gapTimerRef.current = setTimeout(() => { gapTimerRef.current = null; void pullRef.current?.(); }, delay);
+  }, []);
+  useEffect(() => () => { if (gapTimerRef.current) clearTimeout(gapTimerRef.current); }, []);
 
   const mergeEvents = useCallback((incoming: Ev[]) => {
     const fresh = incoming.filter(e => typeof e.seq === "number" && !seqSeen.current.has(e.seq));
     if (fresh.length === 0) return;
     fresh.forEach(e => { seqSeen.current.add(e.seq); if (e.seq > maxSeqRef.current) maxSeqRef.current = e.seq; });
+    contigRef.current = advanceWatermark(seqSeen.current, contigRef.current);
+    if (maxSeqRef.current > contigRef.current) requestPull();   // a hole below the head → fill it
     setEvents(prev => [...prev, ...fresh].sort((a, b) => a.seq - b.seq));
-  }, []);
+  }, [requestPull]);
 
   const startCountdown = useCallback(() => {
     if (countdownIvRef.current) return; // already counting down (start() + our own session.started broadcast)
@@ -132,7 +161,9 @@ export default function TeamRoomPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      const sentAt = Date.now();
       const res = await fetch(`/api/team/sessions/${id}`);
+      calibrateFromDateHeader(res.headers.get("date"), sentAt, Date.now());   // C5: server clock offset
       if (!res.ok) { if (!cancelled) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); setLoading(false); } return; }
       const data = await res.json();
       if (cancelled) return;
@@ -159,33 +190,60 @@ export default function TeamRoomPage() {
     } catch { /* private mode — just skip the auto-popup */ }
   }, [phase, me?.role]);
 
-  // ── running/ended: initial event load + DB reconcile safety-net (so nobody
-  //    misses a log, and the report has the full event history) ──
+  // ── event log sync: initial load + gap-filling reconcile, in EVERY phase ──
+  //    Lobby too (C2): a client that missed the one session.started broadcast used
+  //    to sit in the lobby while the shift ran. The cursor is the contiguous
+  //    watermark (C1), so any hole below the head is re-fetched.
   useEffect(() => {
-    if (phase !== "running" && phase !== "ended") return;
     const sb = getSupabaseBrowserClient();
     if (!sb) return;
     let stop = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const pull = async () => {
-      // Paginate by seq cursor in 1000-row pages (PostgREST caps a single query at
-      // ~1000 rows) so a long session's newest events — incl. escalations — always load.
-      let cursor = maxSeqRef.current;
-      for (let guard = 0; guard < 30 && !stop; guard++) {
-        const { data } = await sb.from("session_events").select("seq, type, actor_id, role, payload, occurred_at").eq("session_id", id).gt("seq", cursor).order("seq").limit(1000);
-        if (stop || !data || data.length === 0) break;
-        mergeEvents(data as Ev[]);
-        cursor = (data[data.length - 1] as Ev).seq;
-        if (data.length < 1000) break;
+      // Paginate by seq cursor in 1000-row pages (PostgREST caps a single query at ~1000 rows).
+      let cursor = contigRef.current;
+      try {
+        for (let guard = 0; guard < 60 && !stop; guard++) {
+          const { data, error: pullErr } = await sb.from("session_events").select("seq, type, actor_id, role, payload, occurred_at").eq("session_id", id).gt("seq", cursor).order("seq").limit(1000);
+          if (pullErr) throw pullErr;
+          if (stop || !data || data.length === 0) break;
+          mergeEvents(data as Ev[]);
+          cursor = (data[data.length - 1] as Ev).seq;
+          if (data.length < 1000) break;
+        }
+        failures = 0; setPullHealthy(true);
+      } catch {
+        failures++; setPullHealthy(false);
       }
     };
-    pull();
-    // Realtime broadcast is the primary delivery. Reconcile from the DB only when
-    // the channel is unhealthy OR has been silent for a while (a possibly-missed
-    // broadcast) — so a healthy, active session costs ~no steady-state DB polling.
-    const iv = phase === "running" ? setInterval(() => {
-      if (!channelHealthyRef.current || Date.now() - lastRealtimeAtRef.current > 25000) pull();
-    }, 10000) : null;
-    return () => { stop = true; if (iv) clearInterval(iv); };
+    pullRef.current = pull;
+    void pull();
+    if (phase === "ended") return () => { stop = true; if (pullRef.current === pull) pullRef.current = null; };
+    // Realtime broadcast is the primary delivery. Reconcile from the DB only when the
+    // channel is unhealthy, silent for a while, or a gap is known — plus a slow lobby
+    // poll for session.started. Exponential backoff + jitter so a realtime outage
+    // doesn't make every client poll in lockstep.
+    const schedule = () => {
+      const base = phase === "lobby" ? 15000 : 10000;
+      const delay = Math.min(60000, base * 2 ** failures) * (0.8 + Math.random() * 0.4);
+      timer = setTimeout(async () => {
+        if (stop) return;
+        const needs = phase === "lobby" || !channelHealthyRef.current
+          || Date.now() - lastRealtimeAtRef.current > 25000 || contigRef.current < maxSeqRef.current;
+        if (needs) await pull();
+        schedule();
+      }, delay);
+    };
+    schedule();
+    const onVisible = () => { if (document.visibilityState === "visible") void pull(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stop = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      if (pullRef.current === pull) pullRef.current = null;
+    };
   }, [phase, id, mergeEvents]);
 
   // ── realtime: presence + broadcast ─────────────────────────────────────────
@@ -219,6 +277,7 @@ export default function TeamRoomPage() {
         .on("broadcast", { event: "session_event" }, ({ payload }) => {
           lastRealtimeAtRef.current = Date.now(); // realtime is alive → the reconcile pull can stay idle
           const p = payload as Ev & { actor_id?: string };
+          noteServerTimestamp((p as { occurred_at?: string }).occurred_at);   // C5: tighten the server clock
           // Defence in depth (the realtime write policy is presence-only, so clients
           // can't broadcast at all): never trust a seq far beyond our log head — one
           // forged huge seq would otherwise blind the gap-fill pull for the session.
@@ -233,7 +292,13 @@ export default function TeamRoomPage() {
         })
         .subscribe(async status => {
           channelHealthyRef.current = status === "SUBSCRIBED";
-          if (status === "SUBSCRIBED") { lastRealtimeAtRef.current = Date.now(); await channel.track({ ready: !!(me && roster.find(r => r.user_id === me.id)?.status === "ready") }); }
+          setSocketLive(status === "SUBSCRIBED");
+          if (status === "SUBSCRIBED") {
+            lastRealtimeAtRef.current = Date.now();
+            // C1: every (re)join may have missed broadcasts — fill the gap immediately.
+            void pullRef.current?.();
+            await channel.track({ ready: !!(me && roster.find(r => r.user_id === me.id)?.status === "ready") });
+          }
         });
       // C4: if we unmounted while awaiting/subscribing, tear the just-created channel down now.
       if (cancelled) { sb.removeChannel(channel); if (channelRef.current === channel) channelRef.current = null; createdChannel = null; }
@@ -251,11 +316,21 @@ export default function TeamRoomPage() {
   // ── action helper ───────────────────────────────────────────────────────────
   const act = useCallback(async (type: string, payload: Record<string, unknown>) => {
     const sb = getSupabaseBrowserClient();
-    if (!sb) return false;
-    const { error: e } = await sb.rpc("apply_session_action", { p_session: id, p_type: type, p_payload: payload, p_idempotency_key: `${type}-${me?.id}-${Date.now()}` });
-    if (e) { setError(e.message); return false; }
+    const quiet = type === "event.opened";               // click telemetry never raises a banner
+    if (!sb) { if (!quiet) showError("Not connected — reload the page."); return false; }
+    // I8: same action + same payload within ~2s ⇒ same key ⇒ the server returns the
+    // first row instead of writing a duplicate (double-clicks, retry storms).
+    const idem = `${type}:${hashString(JSON.stringify(payload ?? {}))}:${Math.floor(Date.now() / 2000)}`;
+    const { data, error: e } = await sb.rpc("apply_session_action", { p_session: id, p_type: type, p_payload: payload, p_idempotency_key: idem });
+    if (e) { if (!quiet) showError(friendlyActionError(e.message)); return false; }
+    // C1: merge our own row straight away — our action must never depend on its broadcast.
+    const row = data as Ev | null;
+    if (row && typeof row.seq === "number") {
+      mergeEvents([{ seq: row.seq, type: row.type, actor_id: row.actor_id ?? null, role: row.role ?? null, payload: row.payload ?? {}, occurred_at: row.occurred_at }]);
+    }
+    if (!quiet) setError(null);
     return true;
-  }, [id, me?.id]);
+  }, [id, mergeEvents, showError]);
 
   async function setReady(ready: boolean) {
     setBusy(true); setError(null);
@@ -272,7 +347,7 @@ export default function TeamRoomPage() {
     setNote("Exercise starting…"); startCountdown();
   }
   async function end() {
-    if (!confirm("End the exercise for the whole team and show the after-action report?")) return;
+    if (!confirm("End the session for the whole team and open the Shift review?")) return;
     setBusy(true); setError(null);
     const res = await fetch(`/api/team/sessions/${id}/end`, { method: "POST" });
     setBusy(false);
@@ -295,6 +370,26 @@ export default function TeamRoomPage() {
   const iAmPlayer = !!(me && me.role && me.role !== "instructor" && me.role !== "observer");
   const iAmReady = !!(me && readyMap[me.id]);
   const canRunSession = !!(me && (me.is_staff || me.role === "mgr")); // who may end/manage
+  // v2 (migration 0071): coverage / instructor-left pauses are decided SERVER-side
+  // from heartbeats; this browser only reports presence and renders the result.
+  const v2 = (session?.schema_version ?? 1) >= 2;
+  useTeamHeartbeat(v2 && phase !== "ended" ? id : null);
+
+  // C3: roster/role changes arrive as member.* events — refresh roster + my role
+  // live (a reassigned seat used to need every client to reload).
+  const refreshRoster = useCallback(async () => {
+    const res = await fetch(`/api/team/sessions/${id}`);
+    if (!res.ok) return;
+    const data = await res.json().catch(() => null);
+    if (data?.roster) setRoster(data.roster);
+    if (data?.me) setMe(data.me);
+  }, [id]);
+  const memberChangeSeq = useMemo(() => {
+    let s = 0;
+    for (const e of events) if (e.type === "member.added" || e.type === "member.role_changed" || e.type === "member.removed") s = e.seq;
+    return s;
+  }, [events]);
+  useEffect(() => { if (memberChangeSeq > 0) void refreshRoster(); }, [memberChangeSeq, refreshRoster]);
 
   // ── Session-lifecycle: presence-based coverage & auto-close ──────────────────
   const instructor = useMemo(() => roster.find(r => r.role === "instructor") ?? null, [roster]);
@@ -322,7 +417,9 @@ export default function TeamRoomPage() {
   // The halt overlay shows when the DB says paused OR coverage has been broken past
   // the debounce (C7) — so a quick refresh of the only Tier-N doesn't flash a
   // team-wide halt. A DB pause still shows instantly.
-  const haltActive = phase === "running" && (paused || haltConfirmed);
+  // v2: only a DB pause (decided server-side) blocks the room; the local presence
+  // view is shown as a soft warning instead. v1 keeps the client-debounced halt.
+  const haltActive = phase === "running" && (paused || (!v2 && haltConfirmed));
   const haltMessage = paused
     ? (pausedReason === "manual" ? "Paused by the instructor."
       : pausedReason === "owner_left" ? (pausedDetail || "The instructor dropped out of the live room.")
@@ -364,6 +461,7 @@ export default function TeamRoomPage() {
   // halt into a persisted 'paused' status (reason "coverage") and resumes it when
   // coverage returns. A manual pause (reason "manual") is left for a human resume.
   useEffect(() => {
+    if (v2) return;   // v2: the server lifecycle tick decides — no elected browser
     if (phase !== "running" || !me || !presenceReady || autoPauseBusyRef.current) return;
     const elected = roster.filter(r => online.has(r.user_id)).map(r => r.user_id).sort()[0];
     if (elected !== me.id) return;
@@ -378,7 +476,7 @@ export default function TeamRoomPage() {
     if (haltConfirmed && !paused) call(true);
     else if (!haltReason && paused && pausedReason === "coverage") call(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, me, presenceReady, roster, online, haltReason, haltConfirmed, paused, pausedReason, id]);
+  }, [v2, phase, me, presenceReady, roster, online, haltReason, haltConfirmed, paused, pausedReason, id]);
 
   // C1: reconcile lifecycle from the event log so a missed broadcast can't strand a
   // client on the wrong screen. The 6s reconcile pull merges the session.* event;
@@ -404,7 +502,7 @@ export default function TeamRoomPage() {
   // ending is irreversible, and a backgrounded tab / flaky socket can fake an
   // absence). When the instructor is back, the elected client resumes it.
   useEffect(() => {
-    if (phase !== "running" || !instructor || !me) {
+    if (v2 || phase !== "running" || !instructor || !me) {   // v2: decided server-side from heartbeats
       if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; }
       return;
     }
@@ -433,7 +531,7 @@ export default function TeamRoomPage() {
     // onlineSig (not the online Set) keeps the 30s timer from resetting on every
     // presence heartbeat — it re-runs only when membership actually changes (C8).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
+  }, [v2, phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
   const escalations = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
@@ -460,16 +558,23 @@ export default function TeamRoomPage() {
   const reportedIds = useMemo(() => new Set(events.filter(e => e.type === "report.submitted").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
   // A2: the filed report per case (findings/verdict/recommendation) so a T2→T3 elevation can carry it.
   const reportByEid = useMemo(() => { const m = new Map<string, { verdict?: string; findings?: string; recommendation?: string; summary?: string }>(); for (const e of events) if (e.type === "report.submitted") m.set(String((e.payload as { event_id?: string }).event_id), e.payload as { verdict?: string; findings?: string; recommendation?: string; summary?: string }); return m; }, [events]);
-  // Silent-failure guard (F6): if attack activity has been streaming for a while and
-  // NOBODY has escalated yet, surface a team-level nudge so a missed attack doesn't
-  // pass in silence until the debrief. Clears the moment anyone escalates.
-  const guidingNudgeMins = useMemo(() => {
+  // Silent-failure guard (F6): attack activity streaming and NOBODY escalated yet.
+  // v2: the server emits a spoiler-free hint.nudge (the browser no longer holds the
+  // answer key, and a nudge timed to one log would point at it). v1 legacy sessions
+  // still carry the key in their payloads, so they keep the old client-side rule.
+  const nowTick = useServerNow(15_000);
+  const guidingNudge = useMemo((): string | null => {
     if (events.some(e => e.type === "escalation.requested")) return null;
+    if (v2) {
+      let hint: Ev | null = null;
+      for (const e of events) if (e.type === "hint.nudge") hint = e;
+      return hint ? (asStr((hint.payload as { text?: unknown }).text) || "Nobody has escalated anything yet — re-check the high-severity logs.") : null;
+    }
     const firstAttack = feed.find(e => { const v = (e.payload as { expected_verdict?: string }).expected_verdict; return v === "tp" || v === "escalate"; });
     if (!firstAttack?.occurred_at) return null;
-    const mins = Math.floor((Date.now() - Date.parse(firstAttack.occurred_at)) / 60000);
-    return mins >= 3 ? mins : null;
-  }, [feed, events]);
+    const mins = Math.floor((nowTick - Date.parse(firstAttack.occurred_at)) / 60000);
+    return mins >= 3 ? `High-signal activity has been in the feed for ~${mins} min with no escalation yet. Is the team watching the right log? Triage it and escalate if it's real.` : null;
+  }, [feed, events, v2, nowTick]);
   const contReq = useMemo(() => events.filter(e => e.type === "containment.requested"), [events]);
   const contDecided = useMemo(() => new Set(events.filter(e => e.type === "containment.approved" || e.type === "containment.denied").map(e => String(e.payload.event_id))), [events]);
   // G-09: approved-but-not-yet-executed containments, and the set already executed.
@@ -496,23 +601,15 @@ export default function TeamRoomPage() {
     if (!latest || (latest.seq ?? 0) <= dismissedNudgeSeq) return null;
     return latest;
   }, [events, dismissedNudgeSeq]);
-  const claimByEid = useMemo(() => {
-    const m = new Map<string, { by: string; at: number }>();
-    for (const e of events) {
-      if (e.type !== "alert.claimed" && e.type !== "alert.released") continue;
-      const eid = String((e.payload as { event_id?: string }).event_id); if (!eid) continue;
-      if (e.type === "alert.released") m.delete(eid);
-      else m.set(eid, { by: e.actor_id ?? "", at: e.occurred_at ? Date.parse(e.occurred_at) : Date.now() });
-    }
-    return m;
-  }, [events]);
+  // A3/C5: the ONE claims projection (shared with T1 + the Situation Board), aged on
+  // the server clock so a skewed laptop can't expire a teammate's claim early.
+  const claimByEid = useMemo(() => activeClaims(events, nowTick), [events, nowTick]);
   const rowStatus = useCallback((rid?: string) => {
     if (!rid) return null;
     const key = rid.startsWith("ev_") ? rid.slice(3) : rid; // LiveEvent.id → sel-id scheme
     const disposed = dispositions.get(key);
     const c = claimByEid.get(key);
-    const claimActive = !!c && !dispositions.has(key) && (Date.now() - c.at <= 5 * 60 * 1000);
-    const claim: "me" | "other" | undefined = claimActive ? (c!.by === me?.id ? "me" : "other") : undefined;
+    const claim: "me" | "other" | undefined = c ? (c.by === me?.id ? "me" : "other") : undefined;
     const escalated = escalatedIds.has(key);
     if (!disposed && !claim && !escalated) return null;
     return { disposed, claim, escalated };
@@ -570,13 +667,13 @@ export default function TeamRoomPage() {
 
   return (
     <div>
-      <Topbar title={phase === "running" ? "Live team exercise" : "Team lobby"} subtitle={session ? `${session.company_id} · ${session.difficulty}` : ""} />
+      <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.company_id} · ${session.difficulty}` : ""} />
       <div className="container mx-auto max-w-[1100px] px-6 py-6 space-y-5">
         <Link href="/team" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Team training</Link>
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {note && phase !== "running" && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{note}</div>}
         {/* B8: EDR feedback shows in ANY phase (a pop-up-blocked click mid-shift must not be silent) */}
-        {edrNote && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-4 py-2 text-sm text-neon-amber"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} className="ml-auto text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button></div>}
+        {edrNote && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-4 py-2 text-sm text-neon-amber"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
 
         {countdown !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
@@ -593,7 +690,7 @@ export default function TeamRoomPage() {
               <div key={n.key} className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-bg-elevated px-3 py-2 shadow-lg">
                 <UserMinus className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" />
                 <p className="text-[12px] text-slate-200"><b>{n.name}</b> <span className="text-slate-400">({n.role})</span> left the session.</p>
-                <button onClick={() => setLeftNotices(ns => ns.filter(x => x.key !== n.key))} className="ml-auto shrink-0 text-slate-500 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+                <button onClick={() => setLeftNotices(ns => ns.filter(x => x.key !== n.key))} aria-label="Dismiss notice" className="ml-auto shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
               </div>
             ))}
           </div>
@@ -628,13 +725,28 @@ export default function TeamRoomPage() {
           </div>
         )}
 
-        {/* Work-division: coordinator's rebalance nudge — team sees the call to pick up slack. */}
-        {phase === "running" && activeNudge && (() => { const p = activeNudge.payload as { target?: string; load?: number }; return (
-          <div className="flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-3 py-2 text-sm text-cyber-200">
-            <Siren className="h-4 w-4 shrink-0 text-cyber-300" /> <span><b>{nameOf(activeNudge.actor_id)}</b> asks the team to rebalance — <b>{nameOf(p.target ?? null)}</b> is overloaded{typeof p.load === "number" ? ` (${p.load} open)` : ""}. If you&apos;re light, take the next case.</span>
-            <button onClick={() => setDismissedNudgeSeq(activeNudge.seq ?? 0)} className="ml-auto shrink-0 text-slate-400 hover:text-white" title="Dismiss"><X className="h-3.5 w-3.5" /></button>
+        {/* Work-division: coordinator's rebalance nudge — task-focused, no public
+            call-out of the overloaded person (no-fault framing, U6); the Manager's
+            Situation Board keeps the per-name detail. */}
+        {phase === "running" && activeNudge && (() => {
+          const p = activeNudge.payload as { target?: string };
+          const targetRole = roster.find(r => r.user_id === p.target)?.role;
+          const queue = targetRole === "t1" ? "The Tier-1 alert queue" : targetRole === "t2" || targetRole === "t3" ? "The investigation queue" : "A teammate's queue";
+          return (
+            <div role="status" className="flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-3 py-2 text-sm text-cyber-200">
+              <Siren className="h-4 w-4 shrink-0 text-cyber-300" /> <span><b>{queue}</b> is backing up — {nameOf(activeNudge.actor_id)} asks the team to rebalance. If you&apos;re light, take the next case.</span>
+              <button onClick={() => setDismissedNudgeSeq(activeNudge.seq ?? 0)} aria-label="Dismiss rebalance request" className="ml-auto shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          );
+        })()}
+
+        {/* v2: coverage is decided server-side (heartbeats); show what this browser
+            sees as a soft heads-up instead of blocking the room. */}
+        {v2 && phase === "running" && !paused && haltReason && (
+          <div role="status" className="flex items-center gap-2 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-2 text-xs text-neon-amber">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {haltReason} If they don&apos;t reconnect within a couple of minutes the shift pauses automatically — nothing is lost.
           </div>
-        ); })()}
+        )}
 
         {/* ── LOBBY ── */}
         {phase === "lobby" && (
@@ -707,8 +819,13 @@ export default function TeamRoomPage() {
         {/* ── RUNNING ── */}
         {phase === "running" && me && (
           <>
-            <div className="flex items-center gap-2 text-sm text-neon-green">
-              <Radio className="h-4 w-4 animate-pulse" /> Live — same feed for the whole team
+            <div className="flex items-center gap-2 text-sm">
+              {/* C6: real connection state, not a permanent "Live" */}
+              {socketLive && pullHealthy
+                ? <span className="inline-flex items-center gap-1.5 text-neon-green"><Radio className="h-4 w-4 animate-pulse" /> Live — same feed for the whole team</span>
+                : socketLive
+                  ? <span className="inline-flex items-center gap-1.5 text-neon-amber" title="Realtime is up but the catch-up sync is failing — some logs may arrive late."><AlertTriangle className="h-4 w-4" /> Degraded — syncing</span>
+                  : <span className="inline-flex items-center gap-1.5 text-neon-amber" title="Reconnecting to the live room — missed logs are fetched automatically."><Loader2 className="h-4 w-4 animate-spin" /> Reconnecting…</span>}
               <span className="ml-auto font-mono text-xs text-slate-500">{online.size} online · {feed.length} logs · you: {ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
               <Button variant="outline" size="sm" onClick={() => setShowGuide(true)}>? Guide</Button>
               {canRunSession && (paused
@@ -725,10 +842,10 @@ export default function TeamRoomPage() {
             </div>
 
             {/* Silent-failure nudge (F6): attack active, nobody escalated yet */}
-            {guidingNudgeMins != null && me.role !== "instructor" && me.role !== "observer" && (
-              <div className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-3 py-2 text-sm">
+            {guidingNudge && me.role !== "instructor" && me.role !== "observer" && (
+              <div role="status" className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-3 py-2 text-sm">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" />
-                <span className="text-neon-amber">Heads up — high-signal activity has been in the feed for ~{guidingNudgeMins} min with <b>no escalation yet</b>. Is the team watching the right log? Triage it and escalate if it&apos;s real.</span>
+                <span className="text-neon-amber"><b>Heads up —</b> {guidingNudge}</span>
               </div>
             )}
 
@@ -737,10 +854,12 @@ export default function TeamRoomPage() {
 
             <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
               {/* Left column: raw feed for analysts; a summaries-only Situation Board
-                  for Lead/Mgr — §3.7 keeps coordinators OUT of raw (G-08). Staff
-                  keep the raw feed for oversight. */}
+                  for the coordinator SEAT (Lead/Mgr) — §3.7 keeps coordinators OUT of
+                  raw (G-08). Decided by the seat, not org rights (U9): a Manager who
+                  also has instructor rights still commands from summaries. The
+                  instructor seat (role "instructor") keeps the raw feed for oversight. */}
               <div className="min-w-0 space-y-2">
-                {((me.role === "lead" || me.role === "mgr") && !me.is_staff) ? (
+                {(me.role === "lead" || me.role === "mgr") ? (
                   <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
                 ) : (
                   <>
@@ -755,7 +874,8 @@ export default function TeamRoomPage() {
                       events={liveFeed}
                       severityFilter={fSeverity} sourceFilter={fSource} search={fSearch}
                       userFilter={fUser} hostFilter={fHost} ipFilter={fIp}
-                      onRowOpened={(eid, dwellMs) => act("event.opened", { event_id: eid, dwell_ms: dwellMs })}
+                      // I5: only the CLOSE carries the dwell the AAR uses — the open event was pure overhead.
+                      onRowOpened={(eid, dwellMs) => { if (dwellMs && dwellMs > 0) void act("event.opened", { event_id: eid, dwell_ms: dwellMs }); }}
                       onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }}
                       onAddIoc={me.role === "t1" ? (value) => setIocDraft(d => d.some(x => x.value.toLowerCase() === value.toLowerCase()) ? d : [...d, { type: detectIocType(value), value, source: "picked" }]) : undefined}
                       rowStatus={rowStatus}
@@ -792,7 +912,7 @@ export default function TeamRoomPage() {
                 {me.role === "mgr" && <MgrConsole roster={roster} events={events} act={act} />}
                 {me.role === "instructor" && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} />}
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}
-                <InjectFeed events={events} me={me} nameOf={nameOf} act={act} />
+                <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
                 {/* Shared context every role can consult, but folded so the role panel stays dominant */}
                 <SecondaryPanels events={events} activity={activity} me={me} nameOf={nameOf} act={act} />
               </div>
@@ -803,7 +923,7 @@ export default function TeamRoomPage() {
         {phase === "ended" && me && (
           <>
             {endReason === "owner_left" && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><LogOut className="h-4 w-4 shrink-0" /> The session owner (instructor) left the live room, so the session was closed automatically.</div>}
-            <TeamReport events={events} roster={roster} me={me} />
+            <TeamReport sessionId={id} events={events} roster={roster} me={me} />
           </>
         )}
       </div>

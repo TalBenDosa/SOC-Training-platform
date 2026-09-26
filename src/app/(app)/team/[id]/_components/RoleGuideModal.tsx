@@ -29,7 +29,7 @@ const ROLE_GUIDE: Record<string, RoleGuide> = {
     steps: ["Approve or deny containment requests from Tier-2 (weigh the business impact).", "Log key decisions and send a SITREP as the picture develops.", "Watch workload/SLA; at shift end, sign the passdown (open cases · next steps)."],
     flow: "You approve containment (containment.approved), record decisions & SITREPs, and own the shift handover.", measured: ["Time-to-approval", "Workload balance", "SITREP cadence", "Handover quality"] },
   instructor: { mission: "You run the exercise — monitor every role, then end it to reveal the report.",
-    steps: ["Watch the roster and Team activity.", "Let the incident unfold; the feed streams to everyone live.", "Click 'End exercise' to generate the after-action report."],
+    steps: ["Watch the roster and Team activity.", "Let the incident unfold; the feed streams to everyone live.", "Click 'End session' to close the shift and open the Shift review."],
     flow: "You control the session; the players work their roles.", measured: ["—"] },
 };
 export function roleDirective(role: string | null | undefined): string {
