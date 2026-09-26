@@ -13,8 +13,9 @@ to do**, and **✓ what you should see**.
 - **Logins — you need separate browser sessions per seat** (each login needs its own cookie jar):
   use separate **browser profiles**, **incognito/private windows**, or **different devices**. Same
   browser, normal tabs = same user (won't work for multi-seat).
-- **Accounts:** the admin (`demo.admin@hackthesoc.dev` / `DemoAdmin!2026`) creates the session; your
-  demo player accounts (password `TeamDemo!2026`) fill the analyst seats.
+- **Accounts:** a staging admin account creates the session; your staging demo player accounts fill
+  the analyst seats. (Credentials are NOT kept in the repo — use your password manager / the
+  git-ignored local env notes.)
 
 ### Recommended roster (fills every feature)
 | Seat | Role | Why |

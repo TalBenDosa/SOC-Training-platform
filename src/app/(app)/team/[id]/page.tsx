@@ -291,6 +291,10 @@ export default function TeamRoomPage() {
         .on("broadcast", { event: "session_event" }, ({ payload }) => {
           lastRealtimeAtRef.current = Date.now(); // realtime is alive → the reconcile pull can stay idle
           const p = payload as Ev & { actor_id?: string };
+          // Defence in depth (the realtime write policy is presence-only, so clients
+          // can't broadcast at all): never trust a seq far beyond our log head — one
+          // forged huge seq would otherwise blind the gap-fill pull for the session.
+          if (typeof p.seq === "number" && maxSeqRef.current > 0 && p.seq > maxSeqRef.current + 1000) return;
           if (p.type === "member.ready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: true }));
           else if (p.type === "member.unready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: false }));
           else if (p.type === "session.started") { setSession(s => s ? { ...s, status: "running" } : s); startCountdown(); }
@@ -392,7 +396,9 @@ export default function TeamRoomPage() {
   // team-wide halt. A DB pause still shows instantly.
   const haltActive = phase === "running" && (paused || haltConfirmed);
   const haltMessage = paused
-    ? (pausedReason === "manual" ? "Paused by the instructor." : (pausedDetail || "Not enough of the team is online right now."))
+    ? (pausedReason === "manual" ? "Paused by the instructor."
+      : pausedReason === "owner_left" ? (pausedDetail || "The instructor dropped out of the live room.")
+      : (pausedDetail || "Not enough of the team is online right now."))
     : (haltReason ?? "");
   // Debounce coverage loss: only confirm a halt if it persists ~12s (matches the
   // spirit of the owner-left grace). Resume/clear is immediate.
@@ -433,14 +439,17 @@ export default function TeamRoomPage() {
     if (phase !== "running" || !me || !presenceReady || autoPauseBusyRef.current) return;
     const elected = roster.filter(r => online.has(r.user_id)).map(r => r.user_id).sort()[0];
     if (elected !== me.id) return;
-    const call = async (p: boolean, detail?: string) => {
+    // The server builds the halt text from these role codes (a member can't push
+    // free text to the whole room).
+    const call = async (p: boolean) => {
       autoPauseBusyRef.current = true;
-      try { await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: p, reason: "coverage", detail }) }); }
+      try { await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: p, reason: "coverage", missing: uncoveredCore, everyone: !anyPlayerOnline }) }); }
       catch { /* transient — the next presence sync retries */ }
       finally { autoPauseBusyRef.current = false; }
     };
-    if (haltConfirmed && !paused) call(true, haltReason || undefined);
+    if (haltConfirmed && !paused) call(true);
     else if (!haltReason && paused && pausedReason === "coverage") call(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, me, presenceReady, roster, online, haltReason, haltConfirmed, paused, pausedReason, id]);
 
   // C1: reconcile lifecycle from the event log so a missed broadcast can't strand a
@@ -463,32 +472,40 @@ export default function TeamRoomPage() {
     }
   }, [events, phase, paused, countdown]);
 
-  // Owner (instructor) left the live room → auto-close after a short grace, so a
-  // brief refresh doesn't kill the session. One elected online client fires it.
+  // Owner (instructor) left the live room → PAUSE after a short grace (never end —
+  // ending is irreversible, and a backgrounded tab / flaky socket can fake an
+  // absence). When the instructor is back, the elected client resumes it.
   useEffect(() => {
     if (phase !== "running" || !instructor || !me) {
       if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; }
       return;
     }
-    if (online.has(instructor.user_id)) { // owner present — cancel any pending close
+    const electedPlayer = () => roster.filter(r => r.role !== "instructor" && r.role !== "observer" && online.has(r.user_id)).map(r => r.user_id).sort()[0];
+    if (online.has(instructor.user_id)) { // owner present — cancel any pending pause, lift an owner-left pause
       if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; }
+      autoEndFiredRef.current = false;
+      if (paused && pausedReason === "owner_left" && electedPlayer() === me.id && !autoPauseBusyRef.current) {
+        autoPauseBusyRef.current = true;
+        fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: false, reason: "owner_left" }) })
+          .catch(() => {}).finally(() => { autoPauseBusyRef.current = false; });
+      }
       return;
     }
     if (ownerGoneTimer.current || autoEndFiredRef.current) return;
     ownerGoneTimer.current = setTimeout(async () => {
       ownerGoneTimer.current = null;
       if (autoEndFiredRef.current || online.has(instructor.user_id)) return;
-      // elect the lowest online player id so exactly one client closes the session.
-      const elected = roster.filter(r => r.role !== "instructor" && online.has(r.user_id)).map(r => r.user_id).sort()[0];
+      // elect the lowest online player id so exactly one client fires the pause.
+      const elected = electedPlayer();
       if (!elected || elected !== me.id) return;
       autoEndFiredRef.current = true;
-      await fetch(`/api/team/sessions/${id}/end`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: "owner_left" }) }).catch(() => {});
+      await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: true, reason: "owner_left" }) }).catch(() => {});
     }, 30000);
     return () => { if (ownerGoneTimer.current) { clearTimeout(ownerGoneTimer.current); ownerGoneTimer.current = null; } };
     // onlineSig (not the online Set) keeps the 30s timer from resetting on every
     // presence heartbeat — it re-runs only when membership actually changes (C8).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, instructor, onlineSig, me, roster, id]);
+  }, [phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
   const escalations = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
@@ -664,7 +681,9 @@ export default function TeamRoomPage() {
               <p className="mt-1 text-sm text-neon-amber">{haltMessage}</p>
               <p className="mt-2 text-[12px] text-slate-400">{pausedReason === "manual"
                 ? "The instructor paused the shift. It stays paused until they resume it."
-                : `The shift can't run without the core team. It resumes automatically the moment they're back${canRunSession ? ", or you can reassign the role / end the session." : "."}`}</p>
+                : pausedReason === "owner_left"
+                  ? `Nothing is lost — the shift resumes automatically when the instructor is back${canRunSession ? ", or you can resume / end it now." : "."}`
+                  : `The shift can't run without the core team. It resumes automatically the moment they're back${canRunSession ? ", or you can reassign the role / end the session." : "."}`}</p>
               {canRunSession && (
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => setHaltDismissed(true)}>Manage (reassign)</Button>
@@ -2054,6 +2073,16 @@ function InstructorPanel({ sessionId, roster, online, events, act }: { sessionId
   );
 }
 
+// No-hints: a player must judge a curveball on its content, so the live tag never
+// reveals the scripted kind ("false lead", "twist"). Staff see the real kind; the
+// AAR reveals it to everyone after the shift.
+function injectLabel(kind: string, isStaff: boolean): string {
+  if (isStaff) return kind.replace("_", " ");
+  if (kind === "ticket") return "help-desk ticket";
+  if (kind === "announcement") return "announcement";
+  return "update"; // mgmt_pressure · twist · false_lead — indistinguishable live
+}
+
 // ── G-14: injects/announcements banner (everyone) + help-desk tickets (Tier-1) ─
 function InjectFeed({ events, me, nameOf, act }: { events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -2070,7 +2099,7 @@ function InjectFeed({ events, me, nameOf, act }: { events: Ev[]; me: Me; nameOf:
           const isTicket = kind === "ticket"; const done = answered.has(String(e.seq)); const b = busy === e.seq + "";
           return (
             <div key={e.seq} className={`rounded-lg border px-2 py-1.5 text-xs ${isTicket ? "border-neon-amber/30 bg-neon-amber/[0.05]" : "border-border bg-bg"}`}>
-              <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-slate-500">{kind.replace("_", " ")}</span>{asStr(p.text)}</p>
+              <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-slate-500">{injectLabel(kind, !!me.is_staff)}</span>{asStr(p.text)}</p>
               {isTicket && isT1 && !done && (
                 <div className="mt-1.5 flex gap-1.5">
                   <Button variant="primary" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("ticket.answered", { ticket_seq: e.seq, decision: "handled", response: "verified caller, no code shared" }); setBusy(null); }}>Handle</Button>

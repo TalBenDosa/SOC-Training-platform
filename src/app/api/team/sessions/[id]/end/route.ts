@@ -12,8 +12,10 @@ import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
  *
  * Who can end it (the "runner"): staff of the session's org (platform admin /
  * org_admin / instructor) OR the session's SOC Manager (mgr), who holds the
- * coordinator authority. `reason` lets the caller distinguish a manual end from
- * an automatic one (e.g. the owner/instructor left the live room).
+ * coordinator authority. Ending is irreversible, so it is NEVER driven by an
+ * automatic client signal: an instructor who drops out now PAUSES the session
+ * (reason "owner_left" on /pause) instead — a plain member used to be able to
+ * end any session by claiming "owner_left", which the server can't verify.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,28 +24,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  let reason = "manual";
-  try { const body = await req.json(); if (typeof body?.reason === "string") reason = body.reason.slice(0, 40); } catch { /* body optional */ }
+  // Only a manual end exists now; any other client-supplied reason is ignored.
+  const reason = "manual";
 
   const { data: sess } = await admin.from("team_sessions").select("org_id, status").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
 
   const isStaff = user.isPlatformAdmin ||
     ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
-  // The session's own SOC Manager may end it too (coordinator authority). And ANY
-  // member may drive the AUTOMATIC owner-left close (reason "owner_left"): the
-  // client elects one online member to fire it when the instructor has dropped —
-  // it can't be a staff/mgr-only call because the instructor is precisely who left.
-  let isMember = isStaff;
+  // The session's own SOC Manager may end it too (coordinator authority).
   let isManager = false;
   if (!isStaff) {
     const { data: mem } = await admin.from("team_session_members")
       .select("role").eq("session_id", id).eq("user_id", user.id).maybeSingle();
-    isMember = !!mem;
     isManager = mem?.role === "mgr";
   }
-  const autoOwnerLeft = reason === "owner_left" && isMember;
-  if (!isStaff && !isManager && !autoOwnerLeft) return NextResponse.json({ error: "Only the instructor or the SOC Manager can end the session." }, { status: 403 });
+  if (!isStaff && !isManager) return NextResponse.json({ error: "Only the instructor or the SOC Manager can end the session." }, { status: 403 });
 
   if (["ended", "debriefed"].includes(sess.status)) return NextResponse.json({ ok: true, already: true });
 
