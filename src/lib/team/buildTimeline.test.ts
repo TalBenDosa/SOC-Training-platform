@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 // react-server bundle, so stub it for the unit test.
 vi.mock("server-only", () => ({}));
 
-import { buildTeamTimeline, TEAM_ANSWER_FIELDS } from "./buildTimeline";
+import { buildTeamTimeline, TEAM_ANSWER_FIELDS, TEAM_TIME_BASE_MS } from "./buildTimeline";
 
 const COMBOS: [string, "easy" | "medium" | "hard"][] = [
   ["nexacorp", "easy"], ["nexacorp", "medium"], ["quantumbank", "hard"], ["rocketstack", "medium"], ["medcore", "hard"],
@@ -67,5 +67,18 @@ describe("buildTeamTimeline — answer key off the wire (audit S4)", () => {
   it("easy shifts have no curveballs and a single-threaded story", () => {
     const tl = buildTeamTimeline("nexacorp", "easy", "s");
     expect(tl.some(e => e.channel === "inject")).toBe(false);
+  });
+
+  it("dates don't mark the attack: every feed log sits on one synthetic base, raw{} included", () => {
+    for (const diff of ["medium", "hard"] as const) {
+      const tl = buildTeamTimeline("quantumbank", diff, "s").filter(e => e.channel === "feed");
+      const attack = tl.filter(e => ["tp", "escalate"].includes(String(e.answer?.expected_verdict)));
+      expect(attack.length).toBeGreaterThan(0);
+      for (const e of tl) {
+        expect(e.body.ts).toBe(new Date(TEAM_TIME_BASE_MS + e.due_offset_ms).toISOString());
+        // no raw timestamp is left on an authored template date (May/June 2026)
+        expect(JSON.stringify(e.body.raw ?? {})).not.toMatch(/2026-0[56]-d{2}[T ]d{2}:/);
+      }
+    }
   });
 });

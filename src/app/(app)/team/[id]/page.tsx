@@ -26,6 +26,7 @@ import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, friendlyActionError, hashString } from "@/lib/team/format";
+import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
@@ -314,13 +315,22 @@ export default function TeamRoomPage() {
   }, [id, me?.id]);
 
   // ── action helper ───────────────────────────────────────────────────────────
+  // I8: the SAME action repeated back-to-back within 2s (double-click) reuses its
+  // key, so the server returns the first row instead of writing a duplicate. Any
+  // different action in between gets a fresh key — ready → unready → ready or
+  // claim → release → claim must all go through (a time-bucket key replayed them).
+  const lastIntentRef = useRef<{ sig: string; key: string; at: number } | null>(null);
   const act = useCallback(async (type: string, payload: Record<string, unknown>) => {
     const sb = getSupabaseBrowserClient();
     const quiet = type === "event.opened";               // click telemetry never raises a banner
     if (!sb) { if (!quiet) showError("Not connected — reload the page."); return false; }
-    // I8: same action + same payload within ~2s ⇒ same key ⇒ the server returns the
-    // first row instead of writing a duplicate (double-clicks, retry storms).
-    const idem = `${type}:${hashString(JSON.stringify(payload ?? {}))}:${Math.floor(Date.now() / 2000)}`;
+    const sig = `${type}:${hashString(JSON.stringify(payload ?? {}))}`;
+    const now = Date.now();
+    const last = lastIntentRef.current;
+    const idem = last && last.sig === sig && now - last.at < 2000
+      ? last.key
+      : `${sig}:${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    lastIntentRef.current = { sig, key: idem, at: now };
     const { data, error: e } = await sb.rpc("apply_session_action", { p_session: id, p_type: type, p_payload: payload, p_idempotency_key: idem });
     if (e) { if (!quiet) showError(friendlyActionError(e.message)); return false; }
     // C1: merge our own row straight away — our action must never depend on its broadcast.
@@ -365,7 +375,7 @@ export default function TeamRoomPage() {
   // ── derived ─────────────────────────────────────────────────────────────────
   // Observers watch only — they never "ready up", so they must not count toward the
   // ready-check (otherwise an observer wedges Start forever) nor the coverage set.
-  const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer");
+  const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer" && r.status !== "left");   // a removed no-show never wedges Start
   const allReady = players.length > 0 && players.every(p => readyMap[p.user_id]);
   const iAmPlayer = !!(me && me.role && me.role !== "instructor" && me.role !== "observer");
   const iAmReady = !!(me && readyMap[me.id]);
@@ -376,20 +386,25 @@ export default function TeamRoomPage() {
   useTeamHeartbeat(v2 && phase !== "ended" ? id : null);
 
   // C3: roster/role changes arrive as member.* events — refresh roster + my role
-  // live (a reassigned seat used to need every client to reload).
-  const refreshRoster = useCallback(async () => {
+  // live (a reassigned seat used to need every client to reload). session.started
+  // also refreshes the session meta: /start is where schema_version is (re)confirmed,
+  // and a lobby client holding a stale v1 meta would skip heartbeats — the server
+  // tick would then pause the room as "instructor left".
+  const refreshSessionMeta = useCallback(async () => {
     const res = await fetch(`/api/team/sessions/${id}`);
     if (!res.ok) return;
     const data = await res.json().catch(() => null);
     if (data?.roster) setRoster(data.roster);
     if (data?.me) setMe(data.me);
+    const ver = data?.session?.schema_version;
+    if (typeof ver === "number") setSession(s => s ? { ...s, schema_version: ver } : s);
   }, [id]);
-  const memberChangeSeq = useMemo(() => {
+  const metaChangeSeq = useMemo(() => {
     let s = 0;
-    for (const e of events) if (e.type === "member.added" || e.type === "member.role_changed" || e.type === "member.removed") s = e.seq;
+    for (const e of events) if (e.type === "member.added" || e.type === "member.role_changed" || e.type === "member.removed" || e.type === "session.started") s = e.seq;
     return s;
   }, [events]);
-  useEffect(() => { if (memberChangeSeq > 0) void refreshRoster(); }, [memberChangeSeq, refreshRoster]);
+  useEffect(() => { if (metaChangeSeq > 0) void refreshSessionMeta(); }, [metaChangeSeq, refreshSessionMeta]);
 
   // ── Session-lifecycle: presence-based coverage & auto-close ──────────────────
   const instructor = useMemo(() => roster.find(r => r.role === "instructor") ?? null, [roster]);
@@ -622,14 +637,18 @@ export default function TeamRoomPage() {
   // never crash the whole feed (real telemetry always has these; be defensive).
   const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map((e, i) => {
     const p = e.payload as Record<string, unknown>;
-    const norm = {
+    const norm0 = {
       ...p,
       id: typeof p.id === "string" ? p.id : `ev_${e.seq}`,
-      ts: typeof p.ts === "string" ? p.ts : new Date().toISOString(),
+      ts: typeof p.ts === "string" ? p.ts : (e.occurred_at ?? new Date().toISOString()),
       source: typeof p.source === "string" ? p.source : "siem",
       event_type: typeof p.event_type === "string" && p.event_type ? p.event_type : "informational",
       severity: typeof p.severity === "string" ? p.severity : "informational",
     } as unknown as TelemetryEvent;
+    // Re-time every log to when it actually streamed in (raw{} shifted by the same
+    // delta), like the single-player feed. Authored template dates used to set the
+    // attack logs apart from the noise by date alone.
+    const norm = e.occurred_at ? withRebasedTime(norm0, e.occurred_at) : norm0;
     try { return enrichEvent(norm, i); }
     catch { return { ...norm, ruleLevel: 1, ruleId: "RULE-0000", displayDescription: asStr(p.description) || asStr(p.event_type) || "event" } as unknown as LiveEvent; }
   }), [feed]);
@@ -643,7 +662,8 @@ export default function TeamRoomPage() {
   // opening an empty console.
   const openEdr = useCallback((description?: string) => {
     try {
-      const evs = feed.map(e => e.payload as unknown as TelemetryEvent);
+      // Same re-timing as the feed rows, so EDR shows the times the team saw.
+      const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });
       const inv = buildInvestigationFromStory({ id: `team-${id}`, title: "Team incident — live", events: evs });
       if (!inv) { setEdrNote("No endpoint (EDR/Sysmon) telemetry in this incident yet — nothing to open in the EDR console."); return; }
       // Put the escalated event's description in the EDR header, so the analyst
@@ -838,7 +858,7 @@ export default function TeamRoomPage() {
             <div className="flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-3 py-2 text-sm">
               <span className="shrink-0 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-cyber-300">{ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
               <span className="text-slate-200">{roleDirective(me.role)}</span>
-              <button onClick={() => setShowGuide(true)} className="ml-auto shrink-0 text-[11px] text-cyber-300 underline-offset-2 hover:underline">how my role works →</button>
+              <button onClick={() => setShowGuide(true)} className="ml-auto shrink-0 rounded text-[11px] text-cyber-300 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50">how my role works →</button>
             </div>
 
             {/* Silent-failure nudge (F6): attack active, nobody escalated yet */}

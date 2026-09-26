@@ -152,4 +152,54 @@ Handoff Ladder ו-Hot-wash חזקים פדגוגית.
 
 ---
 
+## 7. סטטוס ביצוע (עודכן 2026-09-26)
+
+כל הפריטים בוצעו על הענף `feat/team-soc-multiplayer-and-platform-fixes` ומיגרציות 0069 + 0071 + 0072 הוחלו על
+**staging בלבד** (0071 אומתה בכ-40 בדיקות SQL על סשני-בדיקה). **לא נפרס לפרודקשן.**
+commits: `4797c43` (שלב 0) · `d3fbdca` (פיצול + computeReport) · `ec9ae61` (שרת/DB) · `dba3012` (לקוח) · תיקוני סקירה עצמאית (0072).
+
+**סקירה עצמאית אחרי הביצוע** מצאה 7 ממצאים — כולם תוקנו ואומתו על staging: (1) קריטי — סשן חדש הושהה
+~80 שנ׳ אחרי Start כי הלקוחות בלובי לא ידעו שהוא v2 ולא שלחו heartbeat; (2) הוגנות ה-jobs מעל 50 סשנים;
+(3) דליפת תאריכים — לוגי התקיפה זוהו לפי התאריך המקורי שלהם; (4) חבר שהוסר חסם Start; (5) הגנת
+הלחיצה-הכפולה בלעה פעולות הפוכות; (6) Start כפול זרע את ה-feed פעמיים; (7) מנהל עם שיוך שפג יכל
+לסיים/להשהות דרך ה-API.
+
+**גידור גרסאות:** `team_sessions.schema_version` — סשן שנפתח מעכשיו (`/start`) הוא v2 ומקבל את כל ההתנהגות
+החדשה (presence בשרת, מפתח-תשובות מחוץ לרשת, קליקים מחוץ ללוג). סשנים קיימים (v1) ממשיכים כמו קודם, כך
+שהחלת ה-DB לפני הלקוח לא שוברת סשן רץ.
+
+| פריט | סטטוס | איך נסגר |
+|---|---|---|
+| S1, S6 | ✅ | 0069: revoke לכל פונקציות המערכת, drop ל-seed/start הישנות, `SKIP LOCKED` ב-promote. 0071: כל אובייקט חדש revoked (רק `team_heartbeat` ל-authenticated) |
+| S2 | ✅ | 0069: כתיבה ל-`realtime.messages` = presence בלבד |
+| S3 | ✅ | whitelist ל-reason; ב-v2 רק staff/מנהל פעיל יכולים להשהות/לסיים; `owner_left`/`coverage` נקבעים ע"י השרת בלבד |
+| S4, U1 | ✅ | מפתח-התשובות ב-`session_injects.expected_action` (staff בלבד); body ציבורי בלי `expected_verdict/fp_explanation/incident_id/edr_scope/is_baseline`, `tier` אחיד, מזהים אטומים; סוג ה-inject מוצג כ-"update" |
+| S5 | ✅ | token bucket ב-`apply_session_action` (~60/דק', burst 30, replays פטורים) + תקרת 20K אירועים לשחקנים |
+| S7, S8 | ✅ | מדיניות כתיבה מהלקוח הוסרו; `is_team_member` מחריג `left` ודורש חברות ארגון פעילה; `DELETE /members` להסרת חבר |
+| S9, A1 | ✅ | `GET /report` מחשב פעם אחת בשרת, שומר ב-`team_session_reports`, ומחזיר כרטיס אישי בלבד (staff/מנהל רואים הכול) |
+| S10 | ✅ | CSV עם הגנת-נוסחאות, ורק ל-staff |
+| S11 | ⚠️ חלקי | הסיסמאות הוסרו מהמסמך; **הרוטציה ב-staging עליך** (ההיסטוריה ב-git נשארת) |
+| S12 | ✅ | הודעות שגיאה גנריות בכל ה-routes; `is_team_member` ל-anon בוטל (0069). CSP ו-`image-size` מחוץ להיקף |
+| C1, C2 | ✅ | watermark רציף + gap-fill; pull בכל שלב (גם לובי), ב-`SUBSCRIBED`, ב-visibility ובזיהוי חור; מיזוג השורה מה-RPC |
+| C3 | ✅ | אירועי `member.added/role_changed/removed` → רענון רוסטר ו-`me` |
+| C4, C7 | ✅ | presence בשרת: `team_heartbeat` כל 15 שנ' (גם מ-`/edr`) + `team_lifecycle_tick` כל 10 שנ' עם hysteresis; היעדרות מדריך = **השהיה** (לא סיום). אין יותר "בחירת" לקוח |
+| C5 | ✅ | `serverNow()` מכויל מכותרת `Date` + טיק 15 שנ' ב-claim TTL / SLA / עומס / oldest-unacked |
+| C6 | ✅ | תג Live/Reconnecting, backoff+jitter, שגיאות ידידותיות שמתנקות |
+| I1, I2, I3, I4 | ✅ | `replenish_feed` מחסיר `paused_ms` ומסנן `channel='feed'`; `team_transition` אטומי (end ⇒ `skipped`); allocator יחיד + נעילה-ראשונה; `occurred_at = clock_timestamp()`; reaper לפי פעילות actor + heartbeat |
+| I5 | ✅ | ב-v2 קליקים נכתבים ל-`session_clicks` (בלי seq ובלי broadcast) |
+| I6 | ✅ | RLS מבוסס-סט (`team_my_sessions()`/`team_staff_sessions()`) |
+| I7 | ✅ | purge יומי ל-`cron.job_run_details` |
+| I8 | ✅ | idempotency key = type+hash(payload)+חלון 2 שנ'; תקרת רוסטר 60; קיטוע snapshot מעל 8K; audit ל-end/pause |
+| A2 | ✅ | page.tsx פוצל ל-`_components/*`; 39 טסטים לקוד הצוות (characterization, projections, buildTimeline, serverReport) |
+| A3 | ✅ | `lib/team/projections` = כלל claims/עומס אחד, כולל שחזור ב-AAR לפי זמן-אירוע |
+| U2, U3 | ✅ | AAR: 4 מדדי-כותרת + מקרא, "Show all metrics" מקובץ; כותרת "Shift review" |
+| U4–U7 | ✅ | תיקון טקסטים במדריך; אזהרת Tier-2 חסר; נדנוד בלי שם; שורה סגורה כולה לינק ל-Shift review |
+| U8 | ✅ | aria-labels לכפתורי X, focus-visible, ניגודיות בתוויות |
+| U9 | ✅ חלקי | אישור ויזואלי ל-Take next; מנהל עם הרשאות staff רואה Situation Board. רכיב `<SeverityBadge>` משותף — לא בוצע (קוסמטי) |
+| Observability (19) | ✅ | `team_ops_events` + view `team_ops_health` (לשירות בלבד) |
+
+**נשאר ידני:** הרצה חיה של שני משתמשים לפי ה-TEST-SCRIPT (האימות מכאן לא אמין ב-staging), ורוטציית סיסמאות הדמו.
+
+---
+
 *נספח: הדוחות המלאים של שלושת המבקרים (עם כל ה-`file:line`) שמורים בתמליל הסשן; כל ממצא מסומן כאן עם הראיה המרכזית.*

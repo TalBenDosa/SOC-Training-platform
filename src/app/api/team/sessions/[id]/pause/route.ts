@@ -3,6 +3,7 @@ import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { teamTransition } from "@/lib/team/transition";
 import { logAudit } from "@/lib/audit/logAudit";
+import { activeSeat } from "@/lib/team/membership";
 
 /**
  * Pause / resume a team session.
@@ -49,10 +50,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
   let isManager = false, isMember = isStaff, isObserver = false;
   if (!isStaff) {
-    const { data: mem } = await admin.from("team_session_members").select("role, status").eq("session_id", id).eq("user_id", user.id).maybeSingle();
-    isMember = !!mem && mem.status !== "left";
-    isManager = isMember && mem?.role === "mgr";
-    isObserver = mem?.role === "observer";
+    const seat = await activeSeat(admin, id, sess.org_id, user.id);   // lapsed affiliation ⇒ no seat
+    isMember = !!seat;
+    isManager = seat?.role === "mgr";
+    isObserver = seat?.role === "observer";
   }
   if (!isMember) return NextResponse.json({ error: "Not your session." }, { status: 403 });
   const privileged = isStaff || isManager;

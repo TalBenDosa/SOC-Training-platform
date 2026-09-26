@@ -38,26 +38,25 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   // Friendly early answer; team_transition re-checks this under the lock.
   const { data: members } = await admin.from("team_session_members").select("role, status").eq("session_id", id);
-  const notReady = (members ?? []).filter(m => m.role !== "instructor" && m.role !== "observer" && !["ready", "active"].includes(m.status)).length;
+  const notReady = (members ?? []).filter(m => m.role !== "instructor" && m.role !== "observer" && !["ready", "active", "left"].includes(m.status)).length;
   if (notReady > 0) return NextResponse.json({ error: `${notReady} player(s) not ready yet.` }, { status: 409 });
 
   // v2 + seed while still in the lobby (idempotent: only seeds once).
   const { error: verErr } = await admin.from("team_sessions").update({ schema_version: 2 }).eq("id", id).eq("status", "lobby");
   if (verErr) { console.error("[team start] set v2:", verErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
 
-  const { count } = await admin.from("session_injects").select("id", { count: "exact", head: true }).eq("session_id", id);
+  // Seeded under the session lock (0072 team_seed_timeline): two concurrent
+  // /start calls can no longer both see "0 injects" and double the feed.
   let seeded = 0;
+  const { count } = await admin.from("session_injects").select("id", { count: "exact", head: true }).eq("session_id", id);
   if ((count ?? 0) === 0) {
     const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed);
     if (timeline.length) {
-      const rows = timeline.map(t => ({
-        session_id: id, due_offset_ms: t.due_offset_ms,
-        trigger: { kind: "at_time" }, channel: t.channel,
-        body: t.body, expected_action: t.answer ?? null, status: "pending",
-      }));
-      const { error: seedErr } = await admin.from("session_injects").insert(rows);
+      const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));
+      const { data: n, error: seedErr } = await admin.rpc("team_seed_timeline", { p_session: id, p_rows: rows });
       if (seedErr) { console.error("[team start] seed:", seedErr.message); return NextResponse.json({ error: "Couldn't prepare the exercise feed." }, { status: 500 }); }
-      seeded = rows.length;
+      if (n === -1) return NextResponse.json({ error: "This session has already started." }, { status: 409 });
+      seeded = typeof n === "number" ? n : 0;
     }
   }
 

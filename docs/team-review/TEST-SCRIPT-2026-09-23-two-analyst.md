@@ -112,8 +112,12 @@ On medium/hard the injects auto-fire over the shift; you can also fire them on d
 ### C4. End the shift → open the After-action report
 **Manager/Admin:** End the session, then open the report. Verify:
 - **Header** reads **"Shift review"** with the no-fault line.
-- **Metrics grid:** **MTTD**, **MTTR**, **Handoff latency**, **Handoff loop closure**, **Shared
-  picture** (aligned / N contested).
+- **Headline metrics (4)** with a legend; **"Show all metrics"** opens the rest grouped as
+  Detection / Coordination / Response / Resolution (MTTD, MTTR, handoff latency, loop closure,
+  shared picture…).
+- **Privacy:** a player sees **only their own** rubric card; staff and the Manager see every card.
+  **Export CSV** appears for staff only.
+- The report is computed **on the server** — every participant sees the same numbers.
 - **Hot-wash:** the **4-question debrief arc** — steps 1–2 pre-filled with real facts (attack count,
   detect/contain times), steps 3–4 open for discussion.
 - **Handoff chains card:** each escalated case as a ladder with per-hop latency and a **closed /
@@ -122,6 +126,44 @@ On medium/hard the injects auto-fire over the shift; you can also fire them on d
 - **Curveballs (MSEL) card:** **N/M handled**, with **handled / missed / decoy / FYI** badges.
 - **Per-analyst rubric cards:** T1-B shows a scored **"Backup & load-balancing"** cell; the
   self-corrector shows **"Self-correction"**; the Manager shows **"Load balancing"**.
+
+---
+
+## Part D — Server authority (Phase 2 — new sessions only)
+These apply to sessions **started after the Phase 2 update** (schema v2). Sessions opened before it
+keep the old behavior.
+
+### D1. Coverage pause is decided by the server
+Start with 1×T1 + 1×T2. Have the **T2 close the tab** (or lose network).
+- ✓ Within **~2–3 min** the room pauses for everyone with a coverage message (a backgrounded tab or
+  the EDR tab does **not** trigger it — both keep sending heartbeats).
+- ✓ Reopen the T2 tab → after **~30 s** of steady presence the room **resumes by itself**.
+- ✓ A pause started by the instructor ("manual") is **never** auto-resumed.
+
+### D2. Instructor leaves → pause, not end
+Close the **instructor** tab for **~3–4 min**.
+- ✓ The room **pauses** ("instructor left"); it does **not** end. Returning resumes it.
+- ✓ A player can no longer end or pause the session (buttons absent; the API refuses).
+
+### D3. No answer key in the browser
+As a **Tier-1**, open DevTools → Network, open a few feed logs.
+- ✓ No payload contains `expected_verdict`, `fp_explanation`, `incident_id` or `is_baseline`;
+  event ids are opaque (no attack name in them).
+- ✓ Feed rows show the time each log streamed in — attack logs don't carry a different date.
+- ✓ An inject shows as **"update"** to players; the instructor sees its real kind (twist / false lead).
+
+### D4. Hint nudge (spoiler-free)
+Let an attack play for **3–6 min** without anyone escalating.
+- ✓ One neutral hint banner appears (it names no host, no verdict) — once only.
+
+### D5. Reconnect without losing logs
+Turn Wi-Fi off for ~20 s mid-shift, then back on.
+- ✓ The header shows **Reconnecting…**, then **Live**; every log/escalation from the gap appears
+  (no refresh needed).
+
+### D6. Roster changes propagate
+Instructor adds a member / changes a role / removes a member from the live room.
+- ✓ Every open client updates its roster without a refresh; a removed member loses access.
 
 ---
 

@@ -3,6 +3,7 @@ import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { teamTransition } from "@/lib/team/transition";
 import { logAudit } from "@/lib/audit/logAudit";
+import { activeSeat } from "@/lib/team/membership";
 
 /**
  * End a team exercise. Staff of the session's org (platform admin / org_admin /
@@ -28,9 +29,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
   let isManager = false;
   if (!isStaff) {
-    const { data: mem } = await admin.from("team_session_members")
-      .select("role, status").eq("session_id", id).eq("user_id", user.id).maybeSingle();
-    isManager = mem?.role === "mgr" && mem.status !== "left";
+    const seat = await activeSeat(admin, id, sess.org_id, user.id);   // lapsed affiliation ⇒ no seat
+    isManager = seat?.role === "mgr";
   }
   if (!isStaff && !isManager) return NextResponse.json({ error: "Only the instructor or the SOC Manager can end the session." }, { status: 403 });
 

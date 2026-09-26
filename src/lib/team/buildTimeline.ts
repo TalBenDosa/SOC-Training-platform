@@ -17,6 +17,7 @@ import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { pickStoryForCompany, instantiateStory } from "@/app/(app)/dashboard/attackStories";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
+import { withRebasedTime } from "@/lib/sim/rebaseTime";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
 // (an MSEL curveball: management pressure, a help-desk ticket, an announcement).
@@ -169,6 +170,14 @@ export const TEAM_ANSWER_FIELDS = ["expected_verdict", "fp_explanation", "incide
 /** Inject kinds that must look identical live (the real kind is the answer). */
 const PUBLIC_INJECT_KIND: Record<string, string> = { twist: "update", false_lead: "update", mgmt_pressure: "update" };
 
+/**
+ * Every public feed body is re-timed onto ONE synthetic base (+ its due offset),
+ * raw{} timestamps shifted by the same delta. Authored pools carry telltale dates
+ * (benign ~May 2026, attack stories ~June 2026), so the date alone marked the attack
+ * logs. Clients re-time again to the event's occurred_at for display.
+ */
+export const TEAM_TIME_BASE_MS = Date.parse("2026-01-01T08:00:00.000Z");
+
 function opaqueId(seed: string, i: number, prefix: string): string {
   const a = hashSeed(`${seed}#${i}`).toString(16).padStart(8, "0");
   const b = hashSeed(`${i}#${seed}#${prefix}`).toString(16).padStart(8, "0").slice(0, 4);
@@ -191,9 +200,10 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
     };
   }
   const { expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, tier: originalTier, id, ...rest } = body;
+  const retimed = withRebasedTime(rest as { ts?: string; raw?: Record<string, unknown> }, new Date(TEAM_TIME_BASE_MS + entry.due_offset_ms).toISOString());
   return {
     ...entry,
-    body: { ...rest, id: opaqueId(seed, i, "e"), tier },
+    body: { ...retimed, id: opaqueId(seed, i, "e"), tier },
     answer: strip({ expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, original_id: id, original_tier: originalTier }),
   };
 }
