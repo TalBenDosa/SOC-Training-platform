@@ -13,6 +13,7 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { EDR_INVESTIGATIONS, type EdrInvestigation } from "@/lib/edr/investigations";
 import { isTrainingActive } from "@/lib/sim/trainingSession";
 import { EdrConsole } from "@/components/edr/EdrConsole";
+import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 
 export default function EdrConsolePage() {
   usePageTitle("EDR Console");
@@ -25,6 +26,11 @@ export default function EdrConsolePage() {
   const [allowed, setAllowed] = useState<boolean | null>(null); // null = still checking
   const [liveInv, setLiveInv] = useState<EdrInvestigation | null>(null);
   const [invId, setInvId] = useState<string | null>(null); // set from ?case; null → Incidents list
+  // Opened from a live Team-SOC room (?team=<id>): keep the analyst "present" for
+  // the server-side lifecycle while they investigate here — T2/T3 can spend
+  // minutes in this tab, and the room's own tab is then hidden/throttled.
+  const [teamSession, setTeamSession] = useState<string | null>(null);
+  useTeamHeartbeat(teamSession);
 
   useEffect(() => {
     // The EDR console is ONLY reachable from an active shift — the student must
@@ -38,6 +44,7 @@ export default function EdrConsolePage() {
     const teamCtx = params.get("team");
     if (!isTrainingActive() && !teamCtx) { router.replace("/dashboard"); return; }
     setAllowed(true);
+    if (teamCtx && /^[0-9a-fA-F-]{36}$/.test(teamCtx)) setTeamSession(teamCtx);
     // Deep-link from the SOC Dashboard: /edr?case=<id> opens that host, the
     // "Investigate in EDR" pivot. case=live loads the EdrInvestigation the
     // Dashboard (or a team room) generated from the attack running in the feed.

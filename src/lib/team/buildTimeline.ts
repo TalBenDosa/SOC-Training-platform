@@ -6,9 +6,11 @@ import "server-only";
  * list the start route writes to session_injects. pg_cron then promotes each
  * entry into session_events on time, and Broadcast-from-DB fans it to the team.
  *
- * Deterministic: a given (companyId, difficulty, seed) always yields the same
- * feed, so every member replays an identical incident and an AAR can reconstruct
- * it exactly.
+ * Generated ONCE at /start and stored in session_injects, so every member replays
+ * the identical incident and the AAR reconstructs it exactly from the log. The
+ * interleaving/cadence is seeded (mulberry32), but the attack-story CHOICE
+ * deliberately avoids recently used stories (pickStoryForCompany's anti-repeat
+ * memory), so two builds with the same seed may pick different stories.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
@@ -18,7 +20,9 @@ import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
 // (an MSEL curveball: management pressure, a help-desk ticket, an announcement).
-export interface TimelineEntry { due_offset_ms: number; channel: "feed" | "inject"; body: Record<string, unknown> }
+// `body` is PUBLIC (promoted verbatim to every player); `answer` is the ground
+// truth, stored in the staff-only session_injects.expected_action column.
+export interface TimelineEntry { due_offset_ms: number; channel: "feed" | "inject"; body: Record<string, unknown>; answer?: Record<string, unknown> }
 
 function hashSeed(s: string): number {
   let h = 2166136261 >>> 0;
@@ -146,5 +150,50 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     { due_offset_ms: Math.floor(span * 0.90), channel: "inject", body: { id: "msel_5", kind: "mgmt_pressure", text: "Exec team wants a one-line bottom line for the leadership channel: what happened, what's the impact, what are we doing about it?", expected_response: "SOC Manager sends a SITREP: what happened, the impact, and the current action.", linked_objective: "coordination · SITREP cadence" } },
   ];
 
-  return [...feed, ...msel].sort((a, b) => a.due_offset_ms - b.due_offset_ms);
+  // Answer key OFF the wire (audit S4/A1): the promoted payload every player
+  // receives is the PUBLIC body only; ground truth goes to the staff-only
+  // session_injects.expected_action column and is joined back server-side for
+  // the after-action report. The same tier is stamped on EVERY log (keeps
+  // enrichEvent's fidelity, and no longer marks the attack events), and ids are
+  // opaque and seed-stable (attack ids like "aitm_02_click" / "msel_false_lead"
+  // used to name the answer).
+  const tier = difficulty === "easy" ? "foundation" : difficulty === "hard" ? "advanced" : "core";
+  const all = [...feed, ...msel];
+  return all
+    .map((entry, i) => toPublicEntry(entry, i, seed, tier))
+    .sort((a, b) => a.due_offset_ms - b.due_offset_ms);
+}
+
+/** Feed fields that reveal the ground truth or the attack story — never sent to players. */
+export const TEAM_ANSWER_FIELDS = ["expected_verdict", "fp_explanation", "incident_id", "edr_scope", "is_baseline"] as const;
+/** Inject kinds that must look identical live (the real kind is the answer). */
+const PUBLIC_INJECT_KIND: Record<string, string> = { twist: "update", false_lead: "update", mgmt_pressure: "update" };
+
+function opaqueId(seed: string, i: number, prefix: string): string {
+  const a = hashSeed(`${seed}#${i}`).toString(16).padStart(8, "0");
+  const b = hashSeed(`${i}#${seed}#${prefix}`).toString(16).padStart(8, "0").slice(0, 4);
+  return `${prefix}${a}${b}`;
+}
+
+function strip(obj: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined && v !== null));
+}
+
+function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: string): TimelineEntry {
+  const body = entry.body as Record<string, unknown>;
+  if (entry.channel === "inject") {
+    const { kind, expected_response, linked_objective, id, ...rest } = body;
+    const k = typeof kind === "string" ? kind : "announcement";
+    return {
+      ...entry,
+      body: { ...rest, id: opaqueId(seed, i, "m"), kind: PUBLIC_INJECT_KIND[k] ?? k },
+      answer: strip({ kind: k, expected_response, linked_objective, original_id: id }),
+    };
+  }
+  const { expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, tier: originalTier, id, ...rest } = body;
+  return {
+    ...entry,
+    body: { ...rest, id: opaqueId(seed, i, "e"), tier },
+    answer: strip({ expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, original_id: id, original_tier: originalTier }),
+  };
 }

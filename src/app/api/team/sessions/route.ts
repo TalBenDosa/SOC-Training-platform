@@ -53,7 +53,10 @@ export async function POST(req: Request) {
     .from("team_sessions")
     .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id })
     .select("id").single();
-  if (error || !sess) return NextResponse.json({ error: error?.message ?? "Could not create session." }, { status: 500 });
+  if (error || !sess) {
+    if (error) console.error("[team create] session insert:", error.message);   // no raw DB text to the client (S12)
+    return NextResponse.json({ error: "Could not create the session." }, { status: 500 });
+  }
 
   // Creator joins as instructor (runs it, excluded from the ready-check); invitees
   // join as their assigned role, status 'invited' until they click ready.
@@ -64,7 +67,12 @@ export async function POST(req: Request) {
     }
   }
   const { error: memErr } = await admin.from("team_session_members").insert(rows);
-  if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 });
+  if (memErr) {
+    console.error("[team create] roster insert:", memErr.message);
+    // Don't leave a session with no owner behind.
+    await admin.from("team_sessions").delete().eq("id", sess.id);
+    return NextResponse.json({ error: "Could not add the invited members." }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, id: sess.id });
 }
