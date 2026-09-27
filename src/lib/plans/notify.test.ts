@@ -425,17 +425,17 @@ describe("describeNotifyOutcome", () => {
 });
 
 describe("plan emails default", () => {
-  it("default to a 50/org/day budget when PLAN_EMAIL_DAILY_BUDGET is unset; 0 turns them off", async () => {
+  it("are OFF by default (in-app only); a positive PLAN_EMAIL_DAILY_BUDGET would re-enable them", async () => {
     const prev = process.env.PLAN_EMAIL_DAILY_BUDGET;
     delete process.env.PLAN_EMAIL_DAILY_BUDGET;
     vi.resetModules();
     const fresh = await import("./notify");
-    expect(fresh.PLAN_EMAIL_DAILY_BUDGET).toBe(50);
-    expect(fresh.planEmailsEnabled()).toBe(true);
-    process.env.PLAN_EMAIL_DAILY_BUDGET = "0";
+    expect(fresh.PLAN_EMAIL_DAILY_BUDGET).toBe(0);
+    expect(fresh.planEmailsEnabled()).toBe(false);
+    process.env.PLAN_EMAIL_DAILY_BUDGET = "50";
     vi.resetModules();
-    const off = await import("./notify");
-    expect(off.planEmailsEnabled()).toBe(false);
+    const on = await import("./notify");
+    expect(on.planEmailsEnabled()).toBe(true);
     process.env.PLAN_EMAIL_DAILY_BUDGET = prev;
     vi.resetModules();
   });

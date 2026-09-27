@@ -55,14 +55,14 @@ import { formatDueDate, itemKey, type PlanItem } from "./types";
 export type { EmailReport } from "@/lib/notifications/types";
 
 /**
- * Plan emails one org may send per UTC day (shared Resend account — the same
- * one password resets and invites use). Default 50 (owner decision 2026-09-27);
- * override with PLAN_EMAIL_DAILY_BUDGET, 0 turns plan emails off. In-app
- * notifications are always created.
+ * Plan emails one org may send per UTC day. OFF (owner decision 2026-09-27:
+ * learners are told in-app — bell + a popup — never by email). The mechanism is
+ * kept dormant; PLAN_EMAIL_DAILY_BUDGET > 0 in the env would re-enable it.
+ * In-app notifications are always created.
  */
 export const PLAN_EMAIL_DAILY_BUDGET = (() => {
   const n = Number(process.env.PLAN_EMAIL_DAILY_BUDGET);
-  return Number.isInteger(n) && n >= 0 ? n : 50;
+  return Number.isInteger(n) && n >= 0 ? n : 0;
 })();
 
 /** Whether plan emails can be sent at all (the editors hide "Also email" otherwise). */
