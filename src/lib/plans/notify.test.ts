@@ -6,17 +6,23 @@ vi.mock("./catalog", () => ({
   getPlanCatalog: async () => ({ tree: [], index: new Map(), isKnown: () => true }),
   needsOrgCatalog: () => false,
 }));
-// NEVER send real email from tests.
-vi.mock("@/lib/email/sendEmail", () => ({ sendEmail: vi.fn() }));
+// NEVER send real email from tests: the provider layer is fully mocked.
+vi.mock("@/lib/email/sendEmail", () => ({ sendEmail: vi.fn(), sendEmailBatch: vi.fn(), isEmailConfigured: vi.fn(() => true) }));
+vi.mock("@/lib/security/rateLimit", () => ({ checkRateLimit: vi.fn(async () => ({ ok: true, retryAfter: 0 })) }));
 
-import { sendEmail } from "@/lib/email/sendEmail";
+import { isEmailConfigured, sendEmailBatch } from "@/lib/email/sendEmail";
+import { checkRateLimit } from "@/lib/security/rateLimit";
+import { describeNotifyOutcome, emptyEmailReport } from "@/lib/notifications/types";
 import {
-  NOTIFY_LIMITS, addedItems, buildAudience, buildNotificationRows, deliverNotifications, emailRecipients,
-  itemSetChanged, noticeText, planEditNotices, planRecipientIds, toTargetRows, type NoticeBatch, type NotificationInsert,
+  NOTIFY_LIMITS, PLAN_EMAIL_DAILY_BUDGET, addedItems, buildAudience, buildNotificationRows, deliverNotifications,
+  emailBudgetKey, emailRecipients, itemSetChanged, noticeText, planEditNotices, planRecipientIds, settleEmailJob,
+  toTargetRows, type InsertedNotification, type NoticeBatch, type NotificationInsert,
 } from "./notify";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const sendMock = vi.mocked(sendEmail);
+const batchMock = vi.mocked(sendEmailBatch);
+const configuredMock = vi.mocked(isEmailConfigured);
+const rateMock = vi.mocked(checkRateLimit);
 
 const ORG = "a5e00000-0000-4000-8000-000000000001";
 const ADMIN = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -161,127 +167,257 @@ describe("noticeText", () => {
   });
 });
 
-// ── Delivery + email (sendEmail mocked) ──────────────────────────────────────
-function fakeAdmin(opts: { insertError?: { message: string; code?: string }; emails?: { user_id: string; email: string | null }[] } = {}) {
+// ── Delivery + email (email sender + rate-limit store mocked) ────────────────
+type Op = [string, ...unknown[]];
+interface Call { table: string; ops: Op[] }
+
+function fakeAdmin(opts: {
+  /** Per insert call (by index): an error to return instead of success. */
+  insertErrors?: Record<number, { message: string; code?: string }>;
+  /** Rows the dedupe lookup should report as already emailed. */
+  emailedBefore?: { assignment_id: string; user_id: string }[];
+  /** What plan_recipient_emails returns (the fake does NOT filter — the code must). */
+  emails?: { user_id: string; email: string | null }[];
+} = {}) {
+  const calls: Call[] = [];
   const inserts: NotificationInsert[][] = [];
-  const rpcCalls: unknown[] = [];
+  const updates: { patch: unknown; ids: string[] }[] = [];
+  const rpcCalls: [string, unknown][] = [];
+  let nextId = 0;
   const client = {
     from(table: string) {
-      if (table === "notifications") {
-        return { insert: async (rows: NotificationInsert[]) => { inserts.push(rows); return { error: opts.insertError ?? null }; } };
+      const call: Call = { table, ops: [] };
+      calls.push(call);
+      const b: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "in", "gte", "limit"]) {
+        b[m] = (...a: unknown[]) => { call.ops.push([m, ...a]); return b; };
       }
-      if (table === "organizations") {
-        const b = { select: () => b, eq: () => b, maybeSingle: async () => ({ data: { name: "Acme SOC" }, error: null }) };
-        return b;
-      }
-      throw new Error(`unexpected table ${table}`);
+      b.insert = (rows: NotificationInsert[]) => {
+        const idx = inserts.length;
+        inserts.push(rows);
+        return {
+          select: async () => {
+            const err = opts.insertErrors?.[idx];
+            if (err) return { data: null, error: err };
+            return { data: rows.map(r => ({ id: `n-${nextId++}`, user_id: r.user_id })), error: null };
+          },
+        };
+      };
+      b.update = (patch: unknown) => {
+        const u = { patch, ids: [] as string[] };
+        updates.push(u);
+        const ub: Record<string, unknown> = {
+          eq: () => ub,
+          in: async (_c: string, ids: string[]) => { u.ids = ids; return { error: null }; },
+        };
+        return ub;
+      };
+      b.maybeSingle = async () => ({ data: table === "organizations" ? { name: "Acme SOC" } : null, error: null });
+      b.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => {
+        // The dedupe lookup: notifications … eq(assignment_id) in(user_id) gte(emailed_at)
+        const plan = call.ops.find(o => o[0] === "eq" && o[1] === "assignment_id")?.[2];
+        const users = (call.ops.find(o => o[0] === "in" && o[1] === "user_id")?.[2] ?? []) as string[];
+        const data = (opts.emailedBefore ?? []).filter(r => r.assignment_id === plan && users.includes(r.user_id)).map(r => ({ user_id: r.user_id }));
+        return Promise.resolve({ data, error: null }).then(res, rej);
+      };
+      return b;
     },
     rpc: async (fn: string, args: unknown) => { rpcCalls.push([fn, args]); return { data: opts.emails ?? [], error: null }; },
   } as unknown as SupabaseClient;
-  return { client, inserts, rpcCalls };
+  return { client, calls, inserts, updates, rpcCalls };
 }
 
-const rowFor = (user_id: string, kind: NotificationInsert["kind"] = "plan_assigned"): NotificationInsert =>
-  ({ org_id: ORG, user_id, kind, title: "New learning plan: <b>T</b>", body: "2 items", link: "/learn", assignment_id: null });
-
-describe("deliverNotifications", () => {
-  beforeEach(() => sendMock.mockReset());
-
-  it("inserts one row per recipient, chunked, and offers no email job unless asked", async () => {
-    const { client, inserts } = fakeAdmin();
-    const ids = Array.from({ length: NOTIFY_LIMITS.insertChunk + 3 }, (_, i) => `11111111-0000-4000-8000-${String(i).padStart(12, "0")}`);
-    const res = await deliverNotifications(client, {
-      orgId: ORG, actorId: ADMIN, assignmentId: null, batches: [batch("plan_assigned", ids)],
-      eligible: new Set(ids), email: false, origin: "https://www.hackthesoc.app",
-    });
-    expect(res.notified).toBe(ids.length);
-    expect(inserts.map(c => c.length)).toEqual([NOTIFY_LIMITS.insertChunk, 3]);
-    expect(res.emailJob).toBeNull();
-    expect(sendMock).not.toHaveBeenCalled();
+const PLAN = "bbbbbbbb-0000-4000-8000-000000000001";
+const ORIGIN = "https://www.hackthesoc.app";
+const row = (user_id: string, id = `n-${user_id.slice(-4)}`, kind: NotificationInsert["kind"] = "plan_assigned"): InsertedNotification =>
+  ({ id, org_id: ORG, user_id, kind, title: "New learning plan: T", body: "2 items — Secret item title", link: "/learn", assignment_id: PLAN });
+const uid = (i: number) => `11111111-0000-4000-8000-${String(i).padStart(12, "0")}`;
+const deliver = (client: SupabaseClient, over: Partial<Parameters<typeof deliverNotifications>[1]> = {}) =>
+  deliverNotifications(client, {
+    orgId: ORG, actorId: ADMIN, assignmentId: PLAN, batches: [batch("plan_assigned", [S1, S2])],
+    eligible: aud.eligible, email: false, origin: ORIGIN, planTitle: "Tier-1 onboarding", ...over,
   });
 
-  it("an insert failure is swallowed (the save must not fail)", async () => {
-    const { client } = fakeAdmin({ insertError: { message: "relation does not exist", code: "42P01" } });
+describe("deliverNotifications", () => {
+  beforeEach(() => { batchMock.mockReset(); configuredMock.mockReturnValue(true); });
+
+  it("inserts one row per recipient in chunks and returns the rows actually written", async () => {
+    const { client, inserts } = fakeAdmin();
+    const ids = Array.from({ length: NOTIFY_LIMITS.insertChunk + 3 }, (_, i) => uid(i));
+    const res = await deliver(client, { batches: [batch("plan_assigned", ids)], eligible: new Set(ids) });
+    expect(res.notified).toBe(ids.length);
+    expect(res.inserted.every(r => typeof r.id === "string")).toBe(true);
+    expect(inserts.map(c => c.length)).toEqual([NOTIFY_LIMITS.insertChunk, 3]);
+    expect(res.emailJob).toBeNull();                       // email not requested
+  });
+
+  it("a failed chunk is skipped, the NEXT chunk still goes, and only written rows can be emailed", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const res = await deliverNotifications(client, {
-      orgId: ORG, actorId: ADMIN, assignmentId: null, batches: [batch("plan_assigned", [S1])],
-      eligible: aud.eligible, email: false, origin: "https://www.hackthesoc.app",
-    });
-    expect(res.notified).toBe(0);
+    const { client } = fakeAdmin({ insertErrors: { 0: { message: "violates foreign key", code: "23503" } } });
+    const ids = Array.from({ length: NOTIFY_LIMITS.insertChunk + 2 }, (_, i) => uid(i));
+    const res = await deliver(client, { batches: [batch("plan_assigned", ids)], eligible: new Set(ids), email: true });
     spy.mockRestore();
+    expect(res.notified).toBe(2);
+    expect(res.inserted.map(r => r.user_id)).toEqual(ids.slice(NOTIFY_LIMITS.insertChunk));
+    expect(res.emailJob).not.toBeNull();
+  });
+
+  it("table missing (code ahead of 0076) → nothing written and NO email job", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { client, inserts } = fakeAdmin({ insertErrors: { 0: { message: "relation does not exist", code: "42P01" } } });
+    const res = await deliver(client, { email: true });
+    spy.mockRestore();
+    expect(res).toMatchObject({ notified: 0, tableMissing: true, emailJob: null });
+    expect(inserts).toHaveLength(1);                       // stops at the first missing-table error
+  });
+
+  it("the email job covers exactly the written rows (actor / non-members never)", async () => {
+    batchMock.mockImplementation(async msgs => ({ skipped: false, sent: msgs.map(() => true), errors: [] }));
+    const { client } = fakeAdmin({ emails: [{ user_id: S1, email: "s1@example.test" }, { user_id: ADMIN, email: "boss@example.test" }, { user_id: S3, email: "s3@example.test" }] });
+    const res = await deliver(client, { batches: [batch("plan_assigned", [S1, ADMIN, OUTSIDER])], email: true });
+    expect(res.notified).toBe(1);
+    expect(batchMock).not.toHaveBeenCalled();              // nothing is sent until the job runs
+    const rep = await res.emailJob!();
+    expect(batchMock.mock.calls[0][0].map(m => m.to)).toEqual(["s1@example.test"]);
+    expect(rep).toMatchObject({ considered: 1, emailed: 1, failed: 0 });
   });
 });
 
 describe("emailRecipients", () => {
-  beforeEach(() => { sendMock.mockReset(); sendMock.mockResolvedValue({ ok: true }); });
-  const noSleep = async () => {};
+  beforeEach(() => {
+    batchMock.mockReset();
+    batchMock.mockImplementation(async msgs => ({ skipped: false, sent: msgs.map(() => true), errors: [] }));
+    configuredMock.mockReturnValue(true);
+    rateMock.mockReset();
+    rateMock.mockResolvedValue({ ok: true, retryAfter: 0 });
+  });
 
-  it("sends ONE email per recipient, only to recipients (never to other members)", async () => {
-    const { client, rpcCalls } = fakeAdmin({ emails: [
-      { user_id: S1, email: "s1@example.test" },
-      { user_id: S2, email: "s2@example.test" },
-      { user_id: S3, email: "s3@example.test" },      // a member, NOT a recipient
-      { user_id: ADMIN, email: "boss@example.test" }, // the actor, NOT a recipient
+  it("ONE batch call, one message per recipient, only to recipients; stamps emailed_at on those rows", async () => {
+    const { client, rpcCalls, updates } = fakeAdmin({ emails: [
+      { user_id: S1, email: "s1@example.test" }, { user_id: S2, email: "s2@example.test" },
+      { user_id: S3, email: "s3@example.test" },           // a member, NOT a recipient
     ] });
-    const report = await emailRecipients(client, ORG, [rowFor(S1), rowFor(S2), rowFor(S1, "plan_updated")], "https://www.hackthesoc.app", noSleep);
-    expect(rpcCalls).toEqual([["org_member_emails", { p_org: ORG }]]);
-    const to = sendMock.mock.calls.map(c => c[0].to);
-    expect(to.sort()).toEqual(["s1@example.test", "s2@example.test"]);
-    expect(report).toMatchObject({ sent: 2, failed: 0 });
-    const mail = sendMock.mock.calls[0][0];
-    expect(mail.html).toContain("https://www.hackthesoc.app/learn");
-    expect(mail.html).not.toContain("<b>T</b>");      // manager-authored title is escaped
-    expect(mail.html).toContain("&lt;b&gt;T&lt;/b&gt;");
+    const rep = await emailRecipients(client, ORG, [row(S1, "n1"), row(S2, "n2"), row(S1, "n1b", "plan_updated")], { origin: ORIGIN, planTitle: "Tier-1" });
+    expect(rpcCalls).toEqual([["plan_recipient_emails", { p_org: ORG, p_users: [S1, S2] }]]);
+    expect(batchMock).toHaveBeenCalledTimes(1);
+    expect(batchMock.mock.calls[0][0].map(m => m.to)).toEqual(["s1@example.test", "s2@example.test"]);
+    expect(rep).toMatchObject({ considered: 2, emailed: 2, failed: 0 });
+    expect(updates).toHaveLength(1);
+    expect(updates[0].ids).toEqual(["n1", "n2"]);
+    expect((updates[0].patch as { emailed_at: string }).emailed_at).toMatch(/^\d{4}-/);
   });
 
-  it("skips recipients without an address and ignores rows of another org", async () => {
-    const { client } = fakeAdmin({ emails: [{ user_id: S1, email: null }, { user_id: S2, email: "not-an-email" }, { user_id: S3, email: "s3@example.test" }] });
-    await emailRecipients(client, ORG, [rowFor(S1), rowFor(S2), { ...rowFor(S3), org_id: "b5e00000-0000-4000-8000-000000000001" }], "https://www.hackthesoc.app", noSleep);
-    expect(sendMock).not.toHaveBeenCalled();
+  it("email content: fixed subject, escaped + clipped plan title, no item titles", async () => {
+    const { client } = fakeAdmin({ emails: [{ user_id: S1, email: "s1@example.test" }] });
+    await emailRecipients(client, ORG, [row(S1)], { origin: ORIGIN, planTitle: `<script>x</script> ${"long ".repeat(40)}` });
+    const m = batchMock.mock.calls[0][0][0];
+    expect(m.subject).toBe("New learning plan from Acme SOC");
+    expect(m.html).not.toContain("<script>");
+    expect(m.html).toContain("&lt;script&gt;");
+    expect(m.html).not.toContain("Secret item title");
+    expect(m.text).not.toContain("Secret item title");
+    expect(m.html).toContain(`${ORIGIN}/learn`);
   });
 
-  it("stops early when email isn't configured (no RESEND_API_KEY → skipped)", async () => {
-    sendMock.mockResolvedValue({ ok: false, skipped: true });
-    const users = Array.from({ length: 7 }, (_, i) => `11111111-0000-4000-8000-${String(i).padStart(12, "0")}`);
+  it("24 h dedupe: someone already emailed about this plan is skipped", async () => {
+    const { client } = fakeAdmin({
+      emailedBefore: [{ assignment_id: PLAN, user_id: S1 }],
+      emails: [{ user_id: S1, email: "s1@example.test" }, { user_id: S2, email: "s2@example.test" }],
+    });
+    const rep = await emailRecipients(client, ORG, [row(S1), row(S2)], { origin: ORIGIN, planTitle: "T" });
+    expect(batchMock.mock.calls[0][0].map(m => m.to)).toEqual(["s2@example.test"]);
+    expect(rep.skipped.dedupe).toBe(1);
+    expect(rep.emailed).toBe(1);
+  });
+
+  it("daily budget: once the org's budget is spent, the rest are skipped (in-app unaffected)", async () => {
+    let n = 0;
+    rateMock.mockImplementation(async () => ({ ok: ++n <= 2, retryAfter: n <= 2 ? 0 : 3600 }));
+    const users = [S1, S2, S3];
     const { client } = fakeAdmin({ emails: users.map((u, i) => ({ user_id: u, email: `u${i}@example.test` })) });
-    const sleep = vi.fn(async () => {});
-    const report = await emailRecipients(client, ORG, users.map(u => rowFor(u)), "https://www.hackthesoc.app", sleep);
-    expect(sendMock).toHaveBeenCalledTimes(NOTIFY_LIMITS.emailConcurrency);
-    expect(sleep).not.toHaveBeenCalled();
-    expect(report.skipped).toBe(7);
-  });
-
-  it("paces waves, caps the total, and counts failures without throwing", async () => {
-    sendMock.mockImplementation(async ({ to }) => (to === "u1@example.test" ? { ok: false, error: "HTTP 500" } : { ok: true }));
-    const users = Array.from({ length: NOTIFY_LIMITS.emails + 5 }, (_, i) => `11111111-0000-4000-8000-${String(i).padStart(12, "0")}`);
-    const { client } = fakeAdmin({ emails: users.map((u, i) => ({ user_id: u, email: `u${i}@example.test` })) });
-    const sleep = vi.fn(async () => {});
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const report = await emailRecipients(client, ORG, users.map(u => rowFor(u)), "https://www.hackthesoc.app", sleep);
+    const rep = await emailRecipients(client, ORG, users.map(u => row(u)), { origin: ORIGIN, planTitle: "T" });
     spy.mockRestore();
-    expect(sendMock).toHaveBeenCalledTimes(NOTIFY_LIMITS.emails);
-    expect(report).toMatchObject({ attempted: NOTIFY_LIMITS.emails, sent: NOTIFY_LIMITS.emails - 1, failed: 1, capped: 5 });
-    expect(sleep).toHaveBeenCalledTimes(Math.ceil(NOTIFY_LIMITS.emails / NOTIFY_LIMITS.emailConcurrency) - 1);
+    expect(rep).toMatchObject({ emailed: 2, skipped: { budget: 1 } });
+    expect(batchMock.mock.calls[0][0]).toHaveLength(2);
+    expect(rateMock.mock.calls[0][0]).toBe(emailBudgetKey(ORG));
+    expect(rateMock.mock.calls[0][1]).toBe(PLAN_EMAIL_DAILY_BUDGET);
+  });
+
+  it("not configured → skipped as unconfigured, no budget spent, no address lookup, no send", async () => {
+    configuredMock.mockReturnValue(false);
+    const { client, rpcCalls } = fakeAdmin({ emails: [{ user_id: S1, email: "s1@example.test" }] });
+    const rep = await emailRecipients(client, ORG, [row(S1), row(S2)], { origin: ORIGIN, planTitle: "T" });
+    expect(rep.skipped.unconfigured).toBe(2);
+    expect(rateMock).not.toHaveBeenCalled();
+    expect(rpcCalls).toEqual([]);
+    expect(batchMock).not.toHaveBeenCalled();
+  });
+
+  it("no address / invalid address / another org's row → skipped, never sent", async () => {
+    const { client } = fakeAdmin({ emails: [{ user_id: S1, email: null }, { user_id: S2, email: "not-an-email" }, { user_id: S3, email: "s3@example.test" }] });
+    const rep = await emailRecipients(client, ORG, [row(S1), row(S2), { ...row(S3), org_id: "b5e00000-0000-4000-8000-000000000001" }], { origin: ORIGIN, planTitle: "T" });
+    expect(rep).toMatchObject({ considered: 2, emailed: 0, skipped: { no_address: 2 } });
+    expect(batchMock).not.toHaveBeenCalled();
+  });
+
+  it("caps a save at NOTIFY_LIMITS.emails and reports provider failures without throwing", async () => {
+    batchMock.mockImplementation(async msgs => ({ skipped: false, sent: msgs.map((_: unknown, i: number) => i !== 0), errors: ["HTTP 500"] }));
+    const users = Array.from({ length: NOTIFY_LIMITS.emails + 5 }, (_, i) => uid(i));
+    const { client, updates } = fakeAdmin({ emails: users.map((u, i) => ({ user_id: u, email: `u${i}@example.test` })) });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const rep = await emailRecipients(client, ORG, users.map((u, i) => row(u, `n${i}`)), { origin: ORIGIN, planTitle: "T" });
+    spy.mockRestore();
+    expect(batchMock.mock.calls[0][0]).toHaveLength(NOTIFY_LIMITS.emails);
+    expect(rep).toMatchObject({ emailed: NOTIFY_LIMITS.emails - 1, failed: 1, skipped: { cap: 5 } });
+    expect(updates[0].ids).not.toContain("n0");            // the failed one isn't marked emailed
   });
 
   it("refuses a malformed origin", async () => {
-    const { client } = fakeAdmin({ emails: [{ user_id: S1, email: "s1@example.test" }] });
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    await emailRecipients(client, ORG, [rowFor(S1)], "javascript:alert(1)", noSleep);
+    const { client } = fakeAdmin({ emails: [{ user_id: S1, email: "s1@example.test" }] });
+    await emailRecipients(client, ORG, [row(S1)], { origin: "javascript:alert(1)", planTitle: "T" });
     spy.mockRestore();
-    expect(sendMock).not.toHaveBeenCalled();
+    expect(batchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("settleEmailJob", () => {
+  const report = { ...emptyEmailReport(2), emailed: 2 };
+
+  it("returns the real report when the job finishes in time", async () => {
+    const schedule = vi.fn();
+    const r = await settleEmailJob(async () => report, schedule, vi.fn(), 2, 1_000);
+    expect(r).toEqual(report);
+    expect(schedule).not.toHaveBeenCalled();
   });
 
-  it("deliverNotifications hands back an email job for exactly the notified rows", async () => {
-    const { client } = fakeAdmin({ emails: [{ user_id: S1, email: "s1@example.test" }, { user_id: ADMIN, email: "boss@example.test" }] });
-    const res = await deliverNotifications(client, {
-      orgId: ORG, actorId: ADMIN, assignmentId: null, batches: [batch("plan_assigned", [S1, ADMIN, OUTSIDER])],
-      eligible: aud.eligible, email: true, origin: "https://www.hackthesoc.app",
-    });
-    expect(res.notified).toBe(1);
-    expect(res.emailJob).not.toBeNull();
-    expect(sendMock).not.toHaveBeenCalled();         // nothing is sent until the job runs (after the response)
-    await res.emailJob!();
-    expect(sendMock.mock.calls.map(c => c[0].to)).toEqual(["s1@example.test"]);
+  it("a slow job is handed to after() (same promise, runs to completion) and audited late", async () => {
+    let finish!: (r: typeof report) => void;
+    const job = () => new Promise<typeof report>(res => { finish = res; });
+    const tasks: (() => Promise<unknown>)[] = [];
+    const onLate = vi.fn();
+    const r = await settleEmailJob(job, t => { tasks.push(t); }, onLate, 2, 5);
+    expect(r).toMatchObject({ pending: true, considered: 2 });
+    expect(tasks).toHaveLength(1);
+    const done = tasks[0]();
+    finish(report);
+    await done;
+    expect(onLate).toHaveBeenCalledWith(report);
+  });
+});
+
+describe("describeNotifyOutcome", () => {
+  it("summarises notified / emailed / skipped reasons", () => {
+    expect(describeNotifyOutcome({ notified: 3, email: null })).toBe("3 learners notified");
+    expect(describeNotifyOutcome({ notified: 3, email: { ...emptyEmailReport(3), emailed: 3 } })).toBe("3 learners notified · 3 emailed");
+    expect(describeNotifyOutcome({ notified: 3, email: { ...emptyEmailReport(3), skipped: { budget: 3, dedupe: 0, unconfigured: 0, no_address: 0, cap: 0 } } }))
+      .toBe("3 learners notified · emails skipped: daily email limit reached (3)");
+    expect(describeNotifyOutcome({ notified: 1, email: { ...emptyEmailReport(1), skipped: { budget: 0, dedupe: 0, unconfigured: 1, no_address: 0, cap: 0 } } }))
+      .toBe("1 learner notified · emails skipped: email not configured");
+    expect(describeNotifyOutcome({ notified: 2, email: { ...emptyEmailReport(2), emailed: 1, failed: 1 } })).toBe("2 learners notified · 1 emailed · 1 email failed");
+    expect(describeNotifyOutcome({ notified: 2, email: { ...emptyEmailReport(2), pending: true } })).toBe("2 learners notified · emails sending");
+    expect(describeNotifyOutcome({ notified: 0, email: null })).toBe("");
+    expect(describeNotifyOutcome(null)).toBe("");
   });
 });

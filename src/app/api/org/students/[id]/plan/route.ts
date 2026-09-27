@@ -8,7 +8,7 @@ import {
   ASSIGNMENT_COLUMNS, PlanDataError, loadLearnerPlans, loadProgress, resolveItems, toPlanDataError, type AssignmentDbRow,
 } from "@/lib/plans/server";
 import { PLAN_LIMITS, type LearnerPlan, type Priority, type ResolvedPlanItem } from "@/lib/plans/types";
-import { deliverNotifications, emailOrigin, itemSetChanged, noticeText } from "@/lib/plans/notify";
+import { deliverNotifications, emailOrigin, itemSetChanged, noticeText, settleEmailJob, type EmailReport } from "@/lib/plans/notify";
 
 /**
  * One learner's PERSONAL plan (migration 0075: assignments.personal_user_id —
@@ -27,11 +27,14 @@ import { deliverNotifications, emailOrigin, itemSetChanged, noticeText } from "@
  *
  * A save that changes the SET of items (added or removed — not a reorder / note
  * edit) notifies the learner in-app ("personal_plan", migration 0076), and —
- * with `notify_email: true` — emails them too, after the response. Clearing the
- * plan notifies nobody. A notification failure never fails the save.
+ * with `notify_email: true` — emails them too (budgeted + deduped, see
+ * src/lib/plans/notify.ts). Clearing the plan notifies nobody. A notification
+ * or email failure never fails the save.
  */
 
 export const runtime = "nodejs";
+// A slow email provider finishes in after(), inside this time budget.
+export const maxDuration = 300;
 type Ctx = { params: Promise<{ id: string }> };
 
 const fail = (status: number, error: string) => NextResponse.json({ error }, { status });
@@ -176,6 +179,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   // Tell the learner when what they have to do changed (best effort).
   const emailLearner = body.notify_email === true;
   let notified = 0;
+  let email: EmailReport | null = null;
   if (studentId !== userId && itemSetChanged(prevItems, items)) {
     try {
       const text = noticeText("personal_plan", { title: "Personal priorities", due_at: due.value }, items.flatMap(i => {
@@ -187,11 +191,14 @@ export async function PUT(req: Request, { params }: Ctx) {
         batches: [{ kind: "personal_plan", userIds: [studentId], ...text }],
         // Verified above: an active member of this org, not a platform admin.
         eligible: new Set([studentId]),
-        email: emailLearner, origin: emailOrigin(req),
+        email: emailLearner, origin: emailOrigin(req), planTitle: "Personal priorities",
       });
       notified = res.notified;
       if (res.emailJob) {
-        try { after(res.emailJob); } catch (e) { console.error("[student plan] could not schedule the email:", e instanceof Error ? e.message : e); }
+        email = await settleEmailJob(res.emailJob, task => after(task), r => logAudit({
+          actorId: userId, action: "org.student_plan.notify_email", targetTable: "assignments", targetId: data.id,
+          metadata: { orgId, studentId, email: r },
+        }), res.notified);
       }
     } catch (e) {
       console.error("[student plan] notify failed:", e instanceof Error ? e.message : e);
@@ -200,7 +207,7 @@ export async function PUT(req: Request, { params }: Ctx) {
 
   await logAudit({
     actorId: userId, action: "org.student_plan.save", targetTable: "assignments", targetId: data.id,
-    metadata: { orgId, studentId, items: items.length, notified, emailed: emailLearner && notified > 0 },
+    metadata: { orgId, studentId, items: items.length, notified, email_requested: emailLearner, email },
   });
-  return NextResponse.json({ ok: true, id: data.id, notified });
+  return NextResponse.json({ ok: true, id: data.id, notified, email });
 }

@@ -68,14 +68,23 @@ instructions field, no target), learner `AssignedWork` on `/rooms` only; complet
   `plan_updated` (edit that ADDS items → existing recipients), `personal_plan` (personal plan whose item set changed).
   Archive / unarchive / delete / clearing a personal plan notify nobody; the acting manager, inactive members and
   platform admins are never notified. `src/lib/plans/notify.ts`.
-- **Email** (opt-in per save, "Also email recipients", default OFF): one short email per notified recipient via
-  `sendEmail`, addresses from `org_member_emails` filtered to the notification rows, run after the response
-  (`next/server` `after()`), paced (2 at a time, ~1 s apart, max 100 per save), stops early when email isn't
-  configured; failures are logged, never returned.
+- **Email** (opt-in per save, "Also email recipients", default OFF). Shares the platform's single Resend account
+  (resets, invites, cron — possibly the free tier), so it is fenced: only recipients whose notification row was
+  actually inserted (none if the table is missing); no second email about the same plan to the same person within
+  24 h (`notifications.emailed_at`, set only for rows actually emailed); a per-org daily budget
+  (`PLAN_EMAIL_DAILY_BUDGET`, default 50) on the shared rate-limit store — when spent, emails are skipped and in-app
+  notifications still go; ≤ 100 per save; sent through Resend's batch endpoint (`sendEmailBatch`, ≤ 100 per call →
+  1–2 API calls per save); addresses from the service-role-only `plan_recipient_emails(org, user_ids)` (active
+  members only). Fixed subjects ("New learning plan from {org}", "Your learning plan was updated", "Your personal
+  priorities were updated"); the plan title only in the escaped body, clipped to 80 chars; no item titles/notes. The
+  route awaits the job up to 8 s so the response (and the manager's notice) carries the real outcome
+  (`{ notified, email: { emailed, failed, skipped: { budget, dedupe, unconfigured, no_address, cap } } }`); a slower
+  job finishes in `after()` (`maxDuration = 300`) and its final counts are audited.
 - **API**: `GET /api/notifications` (own, newest 30 + unread count; `enabled: false` without an org),
   `POST /api/notifications/read` (`{ ids }` ≤ 100 or `{ all: true }`) — both through the user's own RLS client.
-- **UI**: working bell in the Topbar (unread badge, dropdown, click = mark read + navigate, "Mark all read"; polls every
-  60 s while visible + on focus).
+- **UI**: working bell in the Topbar (unread badge, dialog panel that takes focus and closes on Escape / focus leaving,
+  click = mark read + navigate, "Mark all read"; polls every 60 s while visible + one debounced refresh on focus; stops
+  polling when the server answers `enabled: false`).
 
 ## Non-goals
 Realtime push, per-user notification preferences, instructor role access to `/manage` (stays org_admin), gamified

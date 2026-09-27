@@ -17,22 +17,51 @@ import "server-only";
  * intersected with the org's ACTIVE, non-platform-admin members. The acting
  * manager is never notified about their own save.
  *
- * FAILURE POLICY: nothing here may fail or slow down the plan save. Inserts are
- * bounded and chunked, every error is logged and swallowed, and email is
- * returned as a job the route runs with next/server `after()` — i.e. after the
- * response has gone out. Email goes ONLY to the resolved recipients (the address
- * list is filtered by the notification rows, never by anything the client sent).
+ * FAILURE POLICY: nothing here may fail the plan save. Inserts are bounded
+ * and chunked (a failed chunk is logged and the next one still tried), every
+ * error is logged and swallowed.
+ *
+ * EMAIL (only when the manager ticks "Also email recipients") shares the
+ * platform's single Resend account with password resets, invites and the cron
+ * nudges, which may be on the free tier (100/day, ~2 req/s). So it is fenced:
+ *  - only recipients whose notification row was ACTUALLY inserted are emailed
+ *    (no table → no emails);
+ *  - cross-save dedupe: nobody is emailed twice about the same plan within
+ *    24 h (notifications.emailed_at, set only for rows actually emailed);
+ *  - a per-org DAILY budget (PLAN_EMAIL_DAILY_BUDGET, default 50) on the shared
+ *    rate-limit store; when it's spent the email is skipped, in-app still sent;
+ *  - one Resend BATCH call per ≤ 100 messages (sendEmailBatch), so a save costs
+ *    1–2 API calls, not one per learner;
+ *  - addresses come from plan_recipient_emails(org, user ids) — only the
+ *    recipients, only active members of the org, never anything client-sent.
+ * The route awaits the job briefly (settleEmailJob) so the manager sees the real
+ * outcome; if the provider is slow it finishes in next/server after() and the
+ * final counts are written to the audit log.
  *
  * The pure helpers (recipient resolution, dedupe, the before/after diff, the
  * notification text) are exported for unit tests (notify.test.ts).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { isEmailConfigured, sendEmailBatch } from "@/lib/email/sendEmail";
 import { planNotificationEmail } from "@/lib/email/templates";
-import { NOTIFICATION_LIMITS, isSafeLink, type NotificationKind } from "@/lib/notifications/types";
+import { checkRateLimit } from "@/lib/security/rateLimit";
+import {
+  NOTIFICATION_LIMITS, emptyEmailReport, isSafeLink, type EmailReport, type NotificationKind,
+} from "@/lib/notifications/types";
 import { chunk, fetchAll, loadOrgMembers, type OrgMemberLite } from "./server";
 import { resolveRecipients, type PlanTargeting, type TargetRow } from "./targeting";
 import { formatDueDate, itemKey, type PlanItem } from "./types";
+
+export type { EmailReport } from "@/lib/notifications/types";
+
+/**
+ * Plan emails one org may send per UTC day (shared Resend account). Override
+ * with PLAN_EMAIL_DAILY_BUDGET; 0 disables plan emails entirely.
+ */
+export const PLAN_EMAIL_DAILY_BUDGET = (() => {
+  const n = Number(process.env.PLAN_EMAIL_DAILY_BUDGET);
+  return Number.isInteger(n) && n >= 0 ? n : 50;
+})();
 
 export const NOTIFY_LIMITS = {
   /** Most notifications one save may create (an org-wide plan in a very large org). */
@@ -41,9 +70,10 @@ export const NOTIFY_LIMITS = {
   insertChunk: 500,
   /** Most emails one save may send; the rest still get the in-app notification. */
   emails: 100,
-  /** Emails in flight at once, and the pause between waves (Resend's default is 2 req/s). */
-  emailConcurrency: 2,
-  emailIntervalMs: 1_100,
+  /** No second email about the same plan to the same person within this window. */
+  emailDedupeMs: 24 * 60 * 60 * 1000,
+  /** How long the route waits for the email job before handing it to after(). */
+  inlineEmailWaitMs: 8_000,
 } as const;
 
 // ── Audience ─────────────────────────────────────────────────────────────────
@@ -234,18 +264,25 @@ export function buildNotificationRows(
 }
 
 // ── Delivery ─────────────────────────────────────────────────────────────────
-export interface EmailReport { attempted: number; sent: number; failed: number; skipped: number; capped: number }
+/** A notification row that was actually written (has its id). */
+export interface InsertedNotification extends NotificationInsert { id: string }
 
 export interface DeliveryResult {
   /** Notifications actually written. */
   notified: number;
-  /** Run AFTER the response (next/server `after`) when email was requested; null otherwise. */
+  /** The rows actually written (the only ones that may be emailed). */
+  inserted: InsertedNotification[];
+  /** The 0076 table isn't there (code deployed ahead of the migration). */
+  tableMissing: boolean;
+  /** Present when email was requested AND at least one row was written. */
   emailJob: (() => Promise<EmailReport>) | null;
 }
 
+const MISSING_TABLE = new Set(["42P01", "PGRST205"]);
+
 /**
  * Insert the notification rows (chunked) and, if `email` is set, prepare the
- * email job for the same recipients. Never throws.
+ * email job for exactly the rows that were written. Never throws.
  */
 export async function deliverNotifications(
   admin: SupabaseClient,
@@ -258,100 +295,196 @@ export async function deliverNotifications(
     email: boolean;
     /** Absolute origin for the email's link, e.g. "https://www.hackthesoc.app". */
     origin: string;
+    /** The plan's title, for the email body (clipped + escaped there). */
+    planTitle: string;
   },
 ): Promise<DeliveryResult> {
-  let notified = 0;
-  let rows: NotificationInsert[] = [];
+  const inserted: InsertedNotification[] = [];
+  let tableMissing = false;
   try {
     const built = buildNotificationRows(args.batches, args);
-    rows = built.rows;
     if (built.dropped) console.error(`[notify] recipient cap reached: ${built.dropped} not notified (org ${args.orgId})`);
-    for (const part of chunk(rows, NOTIFY_LIMITS.insertChunk)) {
-      const { error } = await admin.from("notifications").insert(part);
+    for (const part of chunk(built.rows, NOTIFY_LIMITS.insertChunk)) {
+      const { data, error } = await admin.from("notifications").insert(part).select("id, user_id");
       if (error) {
-        // 42P01 = the 0076 table isn't there yet (code ahead of the migration).
-        console.error(`[notify] insert failed${error.code === "42P01" || error.code === "PGRST205" ? " (migration 0076 not applied?)" : ""}: ${error.message}`);
-        break;
+        if (MISSING_TABLE.has(error.code ?? "")) {
+          console.error(`[notify] notifications table missing (migration 0076 not applied?): ${error.message}`);
+          tableMissing = true;
+          break;
+        }
+        // e.g. one recipient left the org mid-save (FK) — the other chunks still go.
+        console.error(`[notify] insert of ${part.length} notification(s) failed: ${error.message}`);
+        continue;
       }
-      notified += part.length;
+      const idOf = new Map(((data ?? []) as { id: string; user_id: string }[]).map(r => [r.user_id, r.id]));
+      for (const row of part) {
+        const id = idOf.get(row.user_id);
+        if (id) inserted.push({ ...row, id });
+      }
     }
   } catch (e) {
     console.error("[notify] failed:", e instanceof Error ? e.message : e);
   }
-  const emailJob = args.email && rows.length
-    ? () => emailRecipients(admin, args.orgId, rows, args.origin).catch(e => {
+  const emailJob = args.email && inserted.length && !tableMissing
+    ? () => emailRecipients(admin, args.orgId, inserted, { origin: args.origin, planTitle: args.planTitle }).catch(e => {
         console.error("[notify] email job failed:", e instanceof Error ? e.message : e);
-        return { attempted: 0, sent: 0, failed: 0, skipped: 0, capped: 0 };
+        const r = emptyEmailReport(inserted.length);
+        r.failed = inserted.length;
+        return r;
       })
     : null;
-  return { notified, emailJob };
+  return { notified: inserted.length, inserted, tableMissing, emailJob };
 }
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
+/** The rate-limit key for an org's plan-email budget on a given UTC day. */
+export function emailBudgetKey(orgId: string, now: number = Date.now()): string {
+  return `plan-email:${orgId}:${new Date(now).toISOString().slice(0, 10)}`;
+}
+
+/** Recipients already emailed about `assignmentId` since `sinceIso` (org-pinned). */
+async function recentlyEmailed(admin: SupabaseClient, orgId: string, assignmentId: string, userIds: readonly string[], sinceIso: string): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const ids of chunk([...userIds], 100)) {
+    const { data, error } = await admin.from("notifications").select("user_id")
+      .eq("org_id", orgId).eq("assignment_id", assignmentId).in("user_id", ids)
+      .gte("emailed_at", sinceIso).limit(1000);
+    if (error) throw new Error(`dedupe lookup: ${error.message}`);
+    for (const r of (data ?? []) as { user_id: string }[]) out.add(r.user_id);
+  }
+  return out;
+}
 
 /**
- * One email per notification row, to that row's user only. Addresses come from
- * org_member_emails(org) (service-role RPC) and are FILTERED to the rows'
- * user ids — someone who isn't a recipient can't be emailed even though the RPC
- * returns every member. Paced in small waves; stops early when email isn't
- * configured (sendEmail reports `skipped`), so a keyless deployment doesn't sit
- * through the pacing for nothing. Errors are logged, never thrown.
+ * Email the recipients of the notification rows that were WRITTEN. In order:
+ * one per user → drop anyone emailed about this plan in the last 24 h → per-save
+ * cap → (not configured? stop, nothing spent) → addresses for exactly these
+ * users → the org's daily budget → one batch call per ≤ 100 → stamp
+ * emailed_at on the rows actually emailed. Errors are logged, never thrown.
  */
 export async function emailRecipients(
   admin: SupabaseClient,
   orgId: string,
-  rows: readonly NotificationInsert[],
-  origin: string,
-  sleep: (ms: number) => Promise<void> = wait,
+  rows: readonly InsertedNotification[],
+  ctx: { origin: string; planTitle: string; now?: number },
 ): Promise<EmailReport> {
-  const report: EmailReport = { attempted: 0, sent: 0, failed: 0, skipped: 0, capped: 0 };
-  const byUser = new Map<string, NotificationInsert>();
-  for (const r of rows) if (r.org_id === orgId && !byUser.has(r.user_id)) byUser.set(r.user_id, r);
+  const byUser = new Map<string, InsertedNotification>();
+  for (const r of rows) if (r.org_id === orgId && r.id && !byUser.has(r.user_id)) byUser.set(r.user_id, r);
+  const report = emptyEmailReport(byUser.size);
   if (byUser.size === 0) return report;
-  if (!/^https?:\/\/[^/\s]+$/.test(origin)) {
+  if (!/^https?:\/\/[^/\s]+$/.test(ctx.origin)) {
     console.error("[notify] email skipped: invalid origin");
+    report.failed = byUser.size;
+    return report;
+  }
+  const now = ctx.now ?? Date.now();
+
+  // 1. Cross-save dedupe (per plan, 24 h).
+  let queue = [...byUser.values()];
+  const byPlan = new Map<string, string[]>();
+  for (const r of queue) if (r.assignment_id) byPlan.set(r.assignment_id, [...(byPlan.get(r.assignment_id) ?? []), r.user_id]);
+  const since = new Date(now - NOTIFY_LIMITS.emailDedupeMs).toISOString();
+  const already = new Set<string>();
+  for (const [planId, users] of byPlan) {
+    for (const u of await recentlyEmailed(admin, orgId, planId, users, since)) already.add(`${planId}:${u}`);
+  }
+  queue = queue.filter(r => {
+    const dup = r.assignment_id !== null && already.has(`${r.assignment_id}:${r.user_id}`);
+    if (dup) report.skipped.dedupe++;
+    return !dup;
+  });
+
+  // 2. Per-save cap.
+  if (queue.length > NOTIFY_LIMITS.emails) {
+    report.skipped.cap = queue.length - NOTIFY_LIMITS.emails;
+    queue = queue.slice(0, NOTIFY_LIMITS.emails);
+  }
+  if (queue.length === 0) return report;
+
+  // 3. Not configured → nothing to do, and no budget spent.
+  if (!isEmailConfigured() || PLAN_EMAIL_DAILY_BUDGET === 0) {
+    report.skipped.unconfigured = queue.length;
+    console.info(`[notify] ${queue.length} plan email(s) skipped: ${PLAN_EMAIL_DAILY_BUDGET === 0 ? "plan emails disabled" : "email not configured"}`);
     return report;
   }
 
-  const [{ data, error }, org] = await Promise.all([
-    admin.rpc("org_member_emails", { p_org: orgId }),
-    admin.from("organizations").select("name").eq("id", orgId).maybeSingle(),
-  ]);
-  if (error) { console.error("[notify] email lookup failed:", error.message); return report; }
+  // 4. Addresses — only these users, only active members of this org.
   const emailOf = new Map<string, string>();
-  for (const r of (data ?? []) as { user_id: string; email: string | null }[]) {
-    if (byUser.has(r.user_id) && r.email && EMAIL_RE.test(r.email)) emailOf.set(r.user_id, r.email);
+  for (const ids of chunk(queue.map(r => r.user_id), 500)) {
+    const { data, error } = await admin.rpc("plan_recipient_emails", { p_org: orgId, p_users: ids });
+    if (error) throw new Error(`address lookup: ${error.message}`);
+    for (const r of (data ?? []) as { user_id: string; email: string | null }[]) {
+      if (byUser.has(r.user_id) && r.email && EMAIL_RE.test(r.email)) emailOf.set(r.user_id, r.email);
+    }
   }
-  const orgName = (org?.data as { name?: string } | null)?.name ?? null;
+  queue = queue.filter(r => {
+    const has = emailOf.has(r.user_id);
+    if (!has) report.skipped.no_address++;
+    return has;
+  });
+  if (queue.length === 0) return report;
 
-  const queue = [...byUser.values()].filter(r => emailOf.has(r.user_id));
-  report.capped = Math.max(0, queue.length - NOTIFY_LIMITS.emails);
-  const list = queue.slice(0, NOTIFY_LIMITS.emails);
-  if (report.capped) console.error(`[notify] email cap reached: ${report.capped} recipients not emailed (in-app notification still created)`);
+  // 5. The org's daily budget (shared rate-limit store, one unit per email).
+  const key = emailBudgetKey(orgId, now);
+  const allowed: InsertedNotification[] = [];
+  for (const wave of chunk(queue, 20)) {
+    const res = await Promise.all(wave.map(() => checkRateLimit(key, PLAN_EMAIL_DAILY_BUDGET, 24 * 60 * 60 * 1000)));
+    wave.forEach((r, i) => { if (res[i].ok) allowed.push(r); else report.skipped.budget++; });
+  }
+  if (report.skipped.budget) console.error(`[notify] org ${orgId} daily plan-email budget (${PLAN_EMAIL_DAILY_BUDGET}) reached: ${report.skipped.budget} email(s) skipped`);
+  if (allowed.length === 0) return report;
 
-  for (let i = 0; i < list.length; i += NOTIFY_LIMITS.emailConcurrency) {
-    if (i > 0) await sleep(NOTIFY_LIMITS.emailIntervalMs);
-    const wave = list.slice(i, i + NOTIFY_LIMITS.emailConcurrency);
-    const results = await Promise.allSettled(wave.map(r => {
-      const mail = planNotificationEmail({ heading: r.title, body: r.body, link: `${origin}${r.link ?? "/learn"}`, orgName });
-      return sendEmail({ to: emailOf.get(r.user_id)!, subject: mail.subject, html: mail.html, text: mail.text });
-    }));
-    let unconfigured = false;
-    for (const res of results) {
-      report.attempted++;
-      if (res.status === "rejected") { report.failed++; continue; }
-      if (res.value.ok) report.sent++;
-      else if (res.value.skipped) { report.skipped++; unconfigured = true; }
-      else report.failed++;
-    }
-    if (unconfigured) {
-      report.skipped += list.length - (i + wave.length);
-      break;
-    }
+  // 6. One batch call per ≤ 100.
+  const { data: org } = await admin.from("organizations").select("name").eq("id", orgId).maybeSingle();
+  const orgName = (org as { name?: string } | null)?.name ?? null;
+  const messages = allowed.map(r => {
+    const mail = planNotificationEmail({ kind: r.kind, planTitle: ctx.planTitle, orgName, link: `${ctx.origin}${isSafeLink(r.link) ? r.link : "/learn"}` });
+    return { to: emailOf.get(r.user_id)!, subject: mail.subject, html: mail.html, text: mail.text };
+  });
+  const result = await sendEmailBatch(messages);
+  if (result.skipped) { report.skipped.unconfigured += allowed.length; return report; }
+  const sentIds: string[] = [];
+  allowed.forEach((r, i) => { if (result.sent[i]) { report.emailed++; sentIds.push(r.id); } else report.failed++; });
+
+  // 7. Remember who was emailed (drives the 24 h dedupe).
+  const stamp = new Date(now).toISOString();
+  for (const ids of chunk(sentIds, 200)) {
+    const { error } = await admin.from("notifications").update({ emailed_at: stamp }).eq("org_id", orgId).in("id", ids);
+    if (error) console.error(`[notify] could not record emailed_at: ${error.message}`);
   }
   if (report.failed) console.error(`[notify] ${report.failed} plan email(s) failed (org ${orgId})`);
   return report;
+}
+
+/**
+ * Wait up to `waitMs` for the email job so the response can carry the real
+ * outcome. If it's still running, hand the SAME promise to `schedule` (the
+ * route passes next/server `after`) so it runs to completion after the
+ * response, and call `onLate` with its final report (the route audits it).
+ * Returns the report, or a `pending` marker. Never throws.
+ */
+export async function settleEmailJob(
+  job: () => Promise<EmailReport>,
+  schedule: (task: () => Promise<unknown>) => void,
+  onLate: (r: EmailReport) => unknown,
+  consideredHint: number,
+  waitMs: number = NOTIFY_LIMITS.inlineEmailWaitMs,
+): Promise<EmailReport> {
+  const running = job();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>(r => { timer = setTimeout(() => r(null), waitMs); });
+  const first = await Promise.race([running, timeout]);
+  if (timer) clearTimeout(timer);
+  if (first) return first;
+  try {
+    schedule(() => running.then(r => onLate(r)).catch(e => console.error("[notify] late email job failed:", e instanceof Error ? e.message : e)));
+  } catch (e) {
+    // Outside a request scope after() throws — keep the promise alive regardless.
+    console.error("[notify] could not schedule the email job:", e instanceof Error ? e.message : e);
+    void running.then(r => onLate(r)).catch(() => {});
+  }
+  return { ...emptyEmailReport(consideredHint), pending: true };
 }
 
 /** The origin email links should use: the configured site URL, else the request's own. */

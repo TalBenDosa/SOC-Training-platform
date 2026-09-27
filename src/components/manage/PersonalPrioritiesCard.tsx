@@ -18,6 +18,7 @@ import { PlanItemsEditor, StatusIcon } from "@/components/plans/PlanItemsEditor"
 import { applyToggle, capNotice } from "@/lib/plans/selection";
 import { PriorityChip } from "@/components/manage/LearningPlansPanel";
 import { countDone } from "@/lib/plans/completion";
+import { describeNotifyOutcome } from "@/lib/notifications/types";
 import { PLAN_LIMITS, formatDueDate, itemKey, type CatalogNode, type ItemStatus, type PlanItem } from "@/lib/plans/types";
 import type { PersonalPlanResponse } from "@/app/api/org/students/[id]/plan/route";
 
@@ -80,9 +81,9 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
     });
     setBusy(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not save."); return; }
-    const out = await res.json().catch(() => ({}));
-    const told = out?.notified > 0 ? ` ${studentName} was notified${notifyEmail ? " (and emailed)" : ""}.` : "";
-    setNotice(items.length ? `Saved — ${studentName} sees these first in “My learning plan”.${told}` : "Personal priorities cleared.");
+    // The real outcome from the API (notified / emailed / why an email was skipped).
+    const outcome = describeNotifyOutcome(await res.json().catch(() => null));
+    setNotice(items.length ? `Saved — ${studentName} sees these first in “My learning plan”.${outcome ? ` ${outcome}.` : ""}` : "Personal priorities cleared.");
     setNotifyEmail(false);
     await load();
   }

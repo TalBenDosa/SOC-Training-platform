@@ -5,7 +5,11 @@ describe("isSafeLink", () => {
   it("accepts in-app paths only", () => {
     expect(isSafeLink("/learn")).toBe(true);
     expect(isSafeLink("/rooms/org-ab12cd34-x%20y")).toBe(true);
-    for (const bad of ["//evil.example", "/\\evil.example", "https://evil.example", "javascript:alert(1)", "learn", "", null, 42, "/" + "a".repeat(400)]) {
+    for (const bad of [
+      "//evil.example", "/\\evil.example", "https://evil.example", "javascript:alert(1)", "learn", "", null, 42, "/" + "a".repeat(400),
+      // control characters — URL parsers strip tab/newline, turning "/\t/host" into "//host"
+      "/\t/evil.example", "/\n/evil.example", "/learn\r\n", "/learn\u0000", "/x\u007F",
+    ]) {
       expect(isSafeLink(bad)).toBe(false);
     }
   });

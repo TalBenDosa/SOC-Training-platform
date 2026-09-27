@@ -16,7 +16,7 @@ import { PLAN_LIMITS, type Audience, type PlanItem, type Priority, type StaffPla
 import { deriveAssignedKeys } from "@/lib/plans/assigned";
 import {
   addedItems, deliverNotifications, emailOrigin, loadOrgAudience, loadTargets, noticeText, planEditNotices,
-  planRecipientIds, toTargetRows, type NoticeBatch, type OrgAudience,
+  planRecipientIds, settleEmailJob, toTargetRows, type EmailReport, type NoticeBatch, type OrgAudience,
 } from "@/lib/plans/notify";
 import type { PlanCatalog } from "@/lib/plans/catalog";
 
@@ -48,13 +48,15 @@ import type { PlanCatalog } from "@/lib/plans/catalog";
  * every recipient (plan_assigned); an edit notifies NEW recipients
  * (plan_assigned) and — only if new items were added — existing ones
  * (plan_updated). Archive / unarchive / delete notify nobody. `notify_email:
- * true` also emails those recipients, after the response (next/server after()).
- * A notification failure never fails the save.
+ * true` also emails those recipients (budgeted, deduped, batched — see notify.ts);
+ * the response carries { notified, email } and the audit records both. A
+ * notification or email failure never fails the save.
  */
 
 export const runtime = "nodejs";
-// Room for the paced "Also email recipients" job that runs after the response.
-export const maxDuration = 60;
+// The email job normally settles inside the request; if the provider is slow it
+// continues in after(), which runs within this function's time budget.
+export const maxDuration = 300;
 
 const fail = (status: number, error: string) => NextResponse.json({ error }, { status });
 
@@ -155,18 +157,25 @@ function describe(items: readonly PlanItem[], catalog: PlanCatalog) {
   });
 }
 
+export interface NotifyOutcome { notified: number; email: EmailReport | null }
+
 /**
- * Write the notifications and, when asked, queue the emails to run AFTER the
- * response. Returns how many learners were notified; never throws.
+ * Write the notifications and, when asked, email their recipients. The email
+ * job is awaited briefly so the manager sees the real outcome; if it runs long
+ * it finishes in after() and its final counts are audited then. Never throws.
  */
-async function notify(c: Ctx, req: Request, assignmentId: string, batches: NoticeBatch[], aud: OrgAudience, email: boolean): Promise<number> {
-  const { notified, emailJob } = await deliverNotifications(c.admin, {
-    orgId: c.orgId, actorId: c.userId, assignmentId, batches, eligible: aud.eligible, email, origin: emailOrigin(req),
+async function notify(
+  c: Ctx, req: Request, assignmentId: string, planTitle: string, batches: NoticeBatch[], aud: OrgAudience, email: boolean,
+): Promise<NotifyOutcome> {
+  const res = await deliverNotifications(c.admin, {
+    orgId: c.orgId, actorId: c.userId, assignmentId, batches, eligible: aud.eligible, email, origin: emailOrigin(req), planTitle,
   });
-  if (emailJob) {
-    try { after(emailJob); } catch (e) { console.error("[assignments] could not schedule plan emails:", e instanceof Error ? e.message : e); }
-  }
-  return notified;
+  if (!res.emailJob) return { notified: res.notified, email: null };
+  const report = await settleEmailJob(res.emailJob, task => after(task), r => logAudit({
+    actorId: c.userId, action: "org.assignments.notify_email", targetTable: "assignments", targetId: assignmentId,
+    metadata: { orgId: c.orgId, email: r },
+  }), res.notified);
+  return { notified: res.notified, email: report };
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
@@ -341,12 +350,12 @@ export async function POST(req: Request) {
 
   // Everyone the new plan reaches gets "plan_assigned" (best effort).
   const emailRecipients = body.notify_email === true;
-  let notified = 0;
+  let outcome: NotifyOutcome = { notified: 0, email: null };
   try {
     const aud = await loadOrgAudience(c.admin, c.orgId, targets?.group_ids ?? []);
     const recipients = planRecipientIds({ audience, personal_user_id: null }, toTargetRows(targets), aud);
     const text = noticeText("plan_assigned", { title, due_at: due.value }, describe(items, catalog));
-    notified = await notify(c, req, data.id, [{ kind: "plan_assigned", userIds: recipients, ...text }], aud, emailRecipients);
+    outcome = await notify(c, req, data.id, title, [{ kind: "plan_assigned", userIds: recipients, ...text }], aud, emailRecipients);
   } catch (e) {
     console.error("[assignments] create: notify failed:", e instanceof Error ? e.message : e);
   }
@@ -355,10 +364,10 @@ export async function POST(req: Request) {
     actorId: c.userId, action: "org.assignments.create", targetTable: "assignments", targetId: data.id,
     metadata: {
       orgId: c.orgId, items: items.length, audience, groups: targets?.group_ids.length ?? 0, users: targets?.user_ids.length ?? 0,
-      notified, emailed: emailRecipients && notified > 0,
+      notified: outcome.notified, email_requested: emailRecipients, email: outcome.email,
     },
   });
-  return NextResponse.json({ id: data.id, notified });
+  return NextResponse.json({ id: data.id, notified: outcome.notified, email: outcome.email });
 }
 
 // ── PATCH — edit / reorder / retarget / archive ─────────────────────────────
@@ -448,7 +457,7 @@ export async function PATCH(req: Request) {
   // New recipients → "plan_assigned"; existing recipients → "plan_updated", but
   // only when new items were added. Best effort — the save already succeeded.
   const emailRecipients = body.notify_email === true;
-  let notified = 0;
+  let outcome: NotifyOutcome = { notified: 0, email: null };
   if (before) {
     try {
       const afterRecipients = planRecipientIds({ audience: before.afterAudience, personal_user_id: null }, before.afterTargets, before.aud);
@@ -462,7 +471,7 @@ export async function PATCH(req: Request) {
           title: (patch.title as string | undefined) ?? existing.title,
           due_at: "due_at" in patch ? (patch.due_at as string | null) : existing.due_at,
         };
-        notified = await notify(c, req, id, [
+        outcome = await notify(c, req, id, info.title, [
           { kind: "plan_assigned", userIds: assigned, ...noticeText("plan_assigned", info, describe(afterItems, cat)) },
           { kind: "plan_updated", userIds: updated, ...noticeText("plan_updated", info, describe(newItems, cat)) },
         ], before.aud, emailRecipients);
@@ -474,9 +483,10 @@ export async function PATCH(req: Request) {
 
   await logAudit({
     actorId: c.userId, action: "archived" in body ? (body.archived === true ? "org.assignments.archive" : "org.assignments.unarchive") : "org.assignments.update",
-    targetTable: "assignments", targetId: id, metadata: { orgId: c.orgId, fields: Object.keys(patch), notified, emailed: emailRecipients && notified > 0 },
+    targetTable: "assignments", targetId: id,
+    metadata: { orgId: c.orgId, fields: Object.keys(patch), notified: outcome.notified, email_requested: emailRecipients, email: outcome.email },
   });
-  return NextResponse.json({ ok: true, notified });
+  return NextResponse.json({ ok: true, notified: outcome.notified, email: outcome.email });
 }
 
 // ── DELETE — remove a plan (its targets cascade) ────────────────────────────

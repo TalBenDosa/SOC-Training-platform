@@ -23,6 +23,7 @@ import { ModuleTree, indexLeaves } from "@/components/plans/ModuleTree";
 import { PlanItemsEditor } from "@/components/plans/PlanItemsEditor";
 import { applyToggle, capNotice } from "@/lib/plans/selection";
 import { PlanProgressMatrix } from "@/components/plans/PlanProgressMatrix";
+import { describeNotifyOutcome } from "@/lib/notifications/types";
 import {
   PLAN_LIMITS, PRIORITY_LABEL, formatDueDate, itemKey,
   type Audience, type CatalogNode, type PlanItem, type Priority, type StaffPlan,
@@ -158,10 +159,9 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
     });
     setBusy(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not save the plan."); return; }
-    const out = await res.json().catch(() => ({}));
-    const n = typeof out?.notified === "number" ? out.notified : 0;
-    const told = n > 0 ? ` ${n} learner${n === 1 ? "" : "s"} notified${draft.notifyEmail ? " (and emailed)" : ""}.` : "";
-    setNotice((draft.id ? "Plan updated." : "Plan assigned.") + told);
+    // The real outcome from the API: "3 learners notified · 3 emailed", or why emails were skipped.
+    const outcome = describeNotifyOutcome(await res.json().catch(() => null));
+    setNotice((draft.id ? "Plan updated." : "Plan assigned.") + (outcome ? ` ${outcome}.` : ""));
     setDraft(null);
     await load();
   }

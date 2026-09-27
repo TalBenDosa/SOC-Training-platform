@@ -18,6 +18,11 @@
 -- one's OWN rows read — enforced twice: the UPDATE policy pins user_id =
 -- auth.uid(), and the column-level grant allows only read_at to change.
 --
+-- Opt-in plan EMAILS (src/lib/plans/notify.ts) use two more pieces here:
+-- notifications.emailed_at (server-set; the 24 h per-plan email dedupe) and
+-- plan_recipient_emails(org, user ids) — a service-role-only address lookup
+-- limited to the given recipients who are active members of the org.
+--
 -- Tenant integrity is structural (mirrors 0075): the composite FK to
 -- org_members (org_id, user_id) means a notification can only exist for a
 -- member of that org, and leaving the org deletes them. The composite FK to
@@ -45,6 +50,11 @@ create table if not exists public.notifications (
   read_at       timestamptz
 );
 
+-- Set by the server when (and only when) this notification was also EMAILED;
+-- drives the "no second email about the same plan within 24 h" rule. Not
+-- writable by clients (the column grant below covers read_at only).
+alter table public.notifications add column if not exists emailed_at timestamptz;
+
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'notifications_kind_chk') then
@@ -60,11 +70,18 @@ begin
       check (body is null or char_length(body) <= 500);
   end if;
   -- Links are in-app paths only ("/learn", "/rooms/x") — never an absolute or
-  -- protocol-relative URL, so a notification can't become an open redirect.
-  if not exists (select 1 from pg_constraint where conname = 'notifications_link_chk') then
-    alter table public.notifications add constraint notifications_link_chk
-      check (link is null or (char_length(link) <= 300 and left(link, 1) = '/' and substr(link, 2, 1) not in ('/', '\')));
-  end if;
+  -- protocol-relative URL, and no control characters (URL parsers strip a tab /
+  -- newline, so "/<TAB>/host" would become "//host"), so a notification can't
+  -- become an open redirect. Dropped and re-added so a re-run upgrades an
+  -- earlier definition.
+  alter table public.notifications drop constraint if exists notifications_link_chk;
+  alter table public.notifications add constraint notifications_link_chk
+    check (link is null or (
+      char_length(link) <= 300
+      and left(link, 1) = '/'
+      and substr(link, 2, 1) not in ('/', '\')
+      and link !~ '[[:cntrl:]]'
+    ));
   -- Only a member of the org can hold one of its notifications; leaving the
   -- org removes them.
   if not exists (select 1 from pg_constraint where conname = 'notifications_member_fk') then
@@ -81,6 +98,9 @@ end $$;
 -- The bell's two reads: newest-first page, and the unread count.
 create index if not exists notifications_user_read_created_idx
   on public.notifications (user_id, read_at, created_at desc);
+-- The 24 h email dedupe lookup (plan × user, emailed rows only).
+create index if not exists notifications_emailed_idx
+  on public.notifications (assignment_id, user_id, emailed_at) where emailed_at is not null;
 -- FK helpers (cascade deletes from assignments / org_members).
 create index if not exists notifications_assignment_idx
   on public.notifications (assignment_id) where assignment_id is not null;
@@ -111,6 +131,30 @@ grant update (read_at) on public.notifications to authenticated;
 
 comment on table public.notifications is
   'Per-user in-app notifications (learning plans). Written by the service role only; a user can read and mark read (read_at only) their own rows.';
+comment on column public.notifications.emailed_at is
+  'When this notification was also emailed (server-set). Null = in-app only.';
+
+-- ── Addresses for plan emails (SECURITY DEFINER, service role only) ─────────
+-- org_member_emails(org) returns every member and is capped by PostgREST's
+-- 1000-row page. Plan emails need only their recipients, so this takes the
+-- recipient ids and returns just those who are ACTIVE members of the org.
+create or replace function public.plan_recipient_emails(p_org uuid, p_users uuid[])
+  returns table(user_id uuid, email text)
+  language sql
+  stable
+  security definer set search_path = public, auth
+as $$
+  select om.user_id, u.email::text
+    from public.org_members om
+    join auth.users u on u.id = om.user_id
+   where om.org_id = p_org
+     and om.status = 'active'
+     and om.user_id = any(p_users);
+$$;
+
+revoke execute on function public.plan_recipient_emails(uuid, uuid[]) from public, anon, authenticated;
+grant execute on function public.plan_recipient_emails(uuid, uuid[]) to service_role;
+
 comment on column public.notifications.link is
   'In-app path to open on click (must start with a single "/").';
 

@@ -4,7 +4,11 @@
  * the old decorative bell was removed precisely because it did nothing:
  *
  *  - polls GET /api/notifications every 60 s while the tab is visible, and
- *    again whenever the window regains focus (no realtime needed);
+ *    again (debounced to ONE request) when the window regains focus / the tab
+ *    becomes visible; stops polling entirely once the server says the feature
+ *    isn't available to this user (`enabled: false`, e.g. no organisation);
+ *  - the panel is a dialog: focus moves into it on open, Escape closes it
+ *    (focus returns to the bell), and it closes when focus leaves it;
  *  - the badge shows the real unread count;
  *  - the dropdown lists the latest notifications (title, body, relative time,
  *    unread dot); clicking one marks it read and opens its link;
@@ -19,8 +23,8 @@ import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { cn } from "@/lib/utils";
 import { isSafeLink, timeAgo, type NotificationItem, type NotificationsResponse } from "@/lib/notifications/types";
+import { shouldPoll, startNotificationPolling } from "@/lib/notifications/polling";
 
-const POLL_MS = 60_000;
 // Every page renders its own Topbar, so the bell remounts on navigation. The
 // last response is kept for a few seconds so clicking around doesn't refetch
 // on every page; the poll and focus refreshes always go to the server.
@@ -37,8 +41,11 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(cached));
   const [error, setError] = useState(false);
+  // The user id for which the server answered `enabled: false` — no more polling for them.
+  const [offFor, setOffFor] = useState<string | null>(cached && !cached.enabled && user ? user.id : null);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const userIdRef = useRef<string | null>(user?.id ?? null);
   userIdRef.current = user?.id ?? null;
 
@@ -49,6 +56,7 @@ export function NotificationBell() {
       const d: NotificationsResponse = await res.json();
       if (userIdRef.current) last = { userId: userIdRef.current, at: Date.now(), data: d };
       setEnabled(Boolean(d.enabled));
+      if (!d.enabled && userIdRef.current) setOffFor(userIdRef.current);
       setItems(Array.isArray(d.notifications) ? d.notifications : []);
       setUnread(typeof d.unread === "number" ? d.unread : 0);
       setError(false);
@@ -59,30 +67,36 @@ export function NotificationBell() {
     }
   }, []);
 
-  // Poll while visible + refresh on focus / when the tab becomes visible again.
+  // Poll while visible + ONE (debounced) refresh when the window wakes up.
+  // Nothing at all once the server has said "not available" for this user.
+  const userId = user?.id ?? null;
+  const poll = shouldPoll(userId, offFor);
   useEffect(() => {
-    if (!user) { setEnabled(false); setItems([]); setUnread(0); last = null; return; }
-    if (!(last && last.userId === user.id && Date.now() - last.at < REUSE_MS)) refresh();
-    const tick = () => { if (document.visibilityState === "visible") refresh(); };
-    const id = window.setInterval(tick, POLL_MS);
-    window.addEventListener("focus", tick);
-    document.addEventListener("visibilitychange", tick);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("focus", tick);
-      document.removeEventListener("visibilitychange", tick);
-    };
-  }, [user, refresh]);
+    if (!userId) { setEnabled(false); setItems([]); setUnread(0); last = null; return; }
+    if (!poll) return;
+    if (!(last && last.userId === userId && Date.now() - last.at < REUSE_MS)) refresh();
+    return startNotificationPolling(refresh);
+  }, [userId, poll, refresh]);
 
-  // Close on outside click / Escape.
+  // Dialog behaviour: focus into the panel on open; Escape / outside click close.
   useEffect(() => {
     if (!open) return;
+    panelRef.current?.focus();
     const onDown = (e: MouseEvent) => { if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false); };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setOpen(false); buttonRef.current?.focus(); } };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
   }, [open]);
+
+  /** Close when keyboard focus moves outside the bell + panel. */
+  function onBlurWithin(e: React.FocusEvent<HTMLDivElement>) {
+    if (!open) return;
+    const next = e.relatedTarget as Node | null;
+    if (next && rootRef.current?.contains(next)) return;
+    // relatedTarget is null when focus goes to the page body / another window.
+    setOpen(false);
+  }
 
   async function markRead(body: { ids: string[] } | { all: true }) {
     try {
@@ -118,14 +132,15 @@ export function NotificationBell() {
 
   const badge = unread > 9 ? "9+" : String(unread);
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative" onBlur={onBlurWithin}>
       <button
         ref={buttonRef}
         type="button"
         onClick={() => { setOpen(v => !v); if (!open) refresh(); }}
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={open}
+        aria-controls={open ? "notification-panel" : undefined}
         className={cn(
           "relative flex items-center rounded-md border px-2 py-1.5 transition-colors",
           open ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200" : "border-border bg-bg-elevated text-slate-300 hover:border-cyber-500/40 hover:text-white",
@@ -141,9 +156,12 @@ export function NotificationBell() {
 
       {open && (
         <div
+          ref={panelRef}
+          id="notification-panel"
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-bg-elevated shadow-2xl"
+          tabIndex={-1}
+          className="absolute right-0 top-full z-50 outline-none mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-bg-elevated shadow-2xl"
         >
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Notifications</p>
