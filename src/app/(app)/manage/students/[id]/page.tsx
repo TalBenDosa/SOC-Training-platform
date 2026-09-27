@@ -18,6 +18,7 @@ import {
   ArrowLeft, Loader2, AlertTriangle, DoorOpen, Target, Trophy, Activity, Timer, Clock, KeyRound, CalendarDays, Gauge, XCircle,
 } from "lucide-react";
 import type { StudentDetail } from "@/app/api/org/students/[id]/route";
+import { PersonalPrioritiesCard } from "@/components/manage/PersonalPrioritiesCard";
 
 function fmtMs(ms: number | null): string {
   if (ms === null) return "—";
@@ -116,6 +117,10 @@ export default function StudentDetailPage() {
               <Metric icon={<Gauge className="h-4 w-4" />} label="Avg detect" value={data.summary.avg_detect_rate === null ? "—" : `${data.summary.avg_detect_rate}%`} />
               <Metric icon={<Timer className="h-4 w-4" />} label="Median answer" value={fmtMs(data.summary.median_decision_latency_ms)} hint={`${data.summary.tasks_answered} tasks timed`} />
             </div>
+
+            {/* Personal learning plan (0075) — what this learner should do first,
+                plus everything else that reaches them, with their status. */}
+            <PersonalPrioritiesCard studentId={data.user_id} studentName={name} />
 
             {/* Scenario timeline */}
             <Card>

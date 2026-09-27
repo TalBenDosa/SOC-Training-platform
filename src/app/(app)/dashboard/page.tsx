@@ -25,6 +25,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicContent";
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
+import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
@@ -1065,6 +1066,10 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
+
+        {/* The learner's plan from their organisation, compact: the next few
+            open items with a toggle for the full plan. Nothing for solo learners. */}
+        <MyLearningPlan compact />
 
         {/* Session status bar — one compact row instead of the old KPI grid + XP banner */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-bg-elevated px-5 py-3">

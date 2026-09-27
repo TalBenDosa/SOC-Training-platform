@@ -7,7 +7,7 @@ import { RoomCard } from "@/components/rooms/RoomCard";
 import { ROOMS_META, type RoomMeta } from "@/data/roomsMeta";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { isRoomLocked, recommendNextRoom } from "@/lib/rooms/recommend";
-import { AssignedWork } from "@/components/assignments/AssignedWork";
+import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { useBranding } from "@/lib/auth/useBranding";
 import { fetchOrgRoomMetas } from "@/lib/content/publicContent";
 import { BookOpen } from "lucide-react";
@@ -71,11 +71,11 @@ export default function RoomsPage() {
 
       <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6">
 
-        {/* Coursework set by an instructor, if this learner is in a cohort.
-            Renders nothing for solo learners. Above the hero deliberately: if
-            someone was told to do specific work, that outranks the generic
-            "how rooms work" explainer. */}
-        <AssignedWork />
+        {/* The learning plan set by the learner's organisation (personal, group
+            and org-wide plans). Renders nothing for solo learners. Above the
+            hero deliberately: if someone was told to do specific work, that
+            outranks the generic "how rooms work" explainer. */}
+        <MyLearningPlan />
 
         {/* Hero card */}
         <Card className="border-cyber-500/30 bg-gradient-to-br from-cyber-500/5 to-neon-purple/5">

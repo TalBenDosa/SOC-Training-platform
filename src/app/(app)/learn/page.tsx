@@ -7,6 +7,7 @@ import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 import { fetchPublishedLessons } from "@/lib/content/publicContent";
 import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen, ListChecks, BookMarked } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
+import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
 
@@ -620,6 +621,11 @@ export default function LearnPage() {
       <Topbar title="Learning Path" subtitle="Explore cybersecurity knowledge through interactive lessons" />
 
       <div className="container mx-auto max-w-[1400px] px-6 py-8">
+
+        {/* Plans set by the learner's organisation — renders nothing for solo learners. */}
+        <div className="mb-8 empty:hidden">
+          <MyLearningPlan />
+        </div>
 
         {/* ── Source-of-truth signpost ──────────────────────────────────
             This page (the Lesson Library) is reference/exploration
