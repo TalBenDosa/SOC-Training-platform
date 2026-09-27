@@ -55,15 +55,14 @@ import { formatDueDate, itemKey, type PlanItem } from "./types";
 export type { EmailReport } from "@/lib/notifications/types";
 
 /**
- * Plan emails one org may send per UTC day (shared Resend account). OFF by
- * default: the platform shares ONE free-tier Resend account with password
- * resets and invites (100 emails/day), so plan emails stay disabled until the
- * account is upgraded and PLAN_EMAIL_DAILY_BUDGET is set (e.g. 50) in the env.
- * In-app notifications are always created.
+ * Plan emails one org may send per UTC day (shared Resend account — the same
+ * one password resets and invites use). Default 50 (owner decision 2026-09-27);
+ * override with PLAN_EMAIL_DAILY_BUDGET, 0 turns plan emails off. In-app
+ * notifications are always created.
  */
 export const PLAN_EMAIL_DAILY_BUDGET = (() => {
   const n = Number(process.env.PLAN_EMAIL_DAILY_BUDGET);
-  return Number.isInteger(n) && n >= 0 ? n : 0;
+  return Number.isInteger(n) && n >= 0 ? n : 50;
 })();
 
 /** Whether plan emails can be sent at all (the editors hide "Also email" otherwise). */
