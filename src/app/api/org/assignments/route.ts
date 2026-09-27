@@ -16,7 +16,7 @@ import { PLAN_LIMITS, type Audience, type PlanItem, type Priority, type StaffPla
 import { deriveAssignedKeys } from "@/lib/plans/assigned";
 import {
   addedItems, deliverNotifications, emailOrigin, loadOrgAudience, loadTargets, noticeText, planEditNotices,
-  planRecipientIds, settleEmailJob, toTargetRows, type EmailReport, type NoticeBatch, type OrgAudience,
+  planEmailsEnabled, planRecipientIds, settleEmailJob, toTargetRows, type EmailReport, type NoticeBatch, type OrgAudience,
 } from "@/lib/plans/notify";
 import type { PlanCatalog } from "@/lib/plans/catalog";
 
@@ -291,7 +291,7 @@ export async function GET(req: Request) {
     });
 
     const groups = groupRows.map(g => ({ id: g.id, name: g.name, member_count: (groupMembers.get(g.id) ?? []).length }));
-    return NextResponse.json({ plans, groups, is_staff: true });
+    return NextResponse.json({ plans, groups, is_staff: true, email_enabled: planEmailsEnabled() });
   } catch (e) {
     return dataFail(e, "staff view failed", "Could not load learning plans.");
   }

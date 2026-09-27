@@ -128,7 +128,7 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
                   <Clock className="h-3.5 w-3.5 shrink-0" /> due
                   <input type="date" value={due} onChange={e => { setDue(e.target.value); setDirty(true); }} className="min-w-0 flex-1 bg-transparent text-slate-100 focus:outline-none" />
                 </label>
-                {items.length > 0 && (
+                {items.length > 0 && data.email_enabled && (
                   <label
                     className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[11px] text-slate-300"
                     title={`${studentName} always gets an in-app notification when the list changes. Tick to also send one short email.`}

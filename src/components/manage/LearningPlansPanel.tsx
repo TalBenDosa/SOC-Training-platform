@@ -72,6 +72,8 @@ export function PriorityChip({ p }: { p: Priority }) {
 export function LearningPlansPanel({ members, groupsRev = 0 }: { members: RosterMember[]; groupsRev?: number }) {
   const [plans, setPlans] = useState<StaffPlan[] | null>(null);
   const [groups, setGroups] = useState<GroupLite[]>([]);
+  // Plan emails are off until the platform enables them (server says so) — hide the box, don't show a dead control.
+  const [emailEnabled, setEmailEnabled] = useState(false);
   const [tree, setTree] = useState<CatalogNode[] | null>(null);
   const [treeError, setTreeError] = useState(false);
   const [capMsg, setCapMsg] = useState<string | null>(null);
@@ -89,6 +91,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
     const d = await res.json();
     setPlans(d.plans ?? []);
     setGroups(d.groups ?? []);
+    setEmailEnabled(Boolean(d.email_enabled));
   }, []);
   useEffect(() => { load(); }, [load, groupsRev]);
 
@@ -344,7 +347,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                 </p>
               )}
 
-              <label
+              {emailEnabled && <label
                 className="mt-auto flex cursor-pointer items-start gap-2 rounded-md border border-border bg-bg px-2.5 py-2 text-[11px] text-slate-300"
                 title="Learners always get an in-app notification. Tick to also send each of them one short email."
               >
@@ -355,7 +358,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                     {draft.id ? "Only people newly receiving it, or told about new items." : "Everyone this plan reaches gets an in-app notification either way."}
                   </span>
                 </span>
-              </label>
+              </label>}
               <Button variant="primary" size="sm" disabled={busy} onClick={save}>
                 {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
                 {draft.id ? "Save changes" : "Assign plan"}

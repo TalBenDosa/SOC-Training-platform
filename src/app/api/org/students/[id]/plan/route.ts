@@ -8,7 +8,7 @@ import {
   ASSIGNMENT_COLUMNS, PlanDataError, loadLearnerPlans, loadProgress, resolveItems, toPlanDataError, type AssignmentDbRow,
 } from "@/lib/plans/server";
 import { PLAN_LIMITS, type LearnerPlan, type Priority, type ResolvedPlanItem } from "@/lib/plans/types";
-import { deliverNotifications, emailOrigin, itemSetChanged, noticeText, settleEmailJob, type EmailReport } from "@/lib/plans/notify";
+import { deliverNotifications, emailOrigin, itemSetChanged, noticeText, planEmailsEnabled, settleEmailJob, type EmailReport } from "@/lib/plans/notify";
 
 /**
  * One learner's PERSONAL plan (migration 0075: assignments.personal_user_id —
@@ -51,6 +51,8 @@ export interface PersonalPlanResponse {
   } | null;
   /** Other plans this learner receives (not editable here). */
   assigned: LearnerPlan[];
+  /** Plan emails available (else the "Also email" box is hidden). */
+  email_enabled?: boolean;
 }
 
 /** Generic failure; a schema error (code ahead of migration 0075) is a 503. */
@@ -110,6 +112,7 @@ export async function GET(_req: Request, { params }: Ctx) {
         updated_at: r.updated_at,
       } : null,
       assigned: all.filter(p => !p.personal),
+      email_enabled: planEmailsEnabled(),
     };
     return NextResponse.json(body);
   } catch (e) {

@@ -9,6 +9,9 @@ vi.mock("./catalog", () => ({
 // NEVER send real email from tests: the provider layer is fully mocked.
 vi.mock("@/lib/email/sendEmail", () => ({ sendEmail: vi.fn(), sendEmailBatch: vi.fn(), isEmailConfigured: vi.fn(() => true) }));
 vi.mock("@/lib/security/rateLimit", () => ({ checkRateLimit: vi.fn(async () => ({ ok: true, retryAfter: 0 })) }));
+// Plan emails are OFF by default in the product (shared free-tier Resend account); these
+// tests exercise the email path, so enable a budget before notify.ts is evaluated.
+vi.hoisted(() => { process.env.PLAN_EMAIL_DAILY_BUDGET = "50"; });
 
 import { isEmailConfigured, sendEmailBatch } from "@/lib/email/sendEmail";
 import { checkRateLimit } from "@/lib/security/rateLimit";
@@ -419,5 +422,18 @@ describe("describeNotifyOutcome", () => {
     expect(describeNotifyOutcome({ notified: 2, email: { ...emptyEmailReport(2), pending: true } })).toBe("2 learners notified · emails sending");
     expect(describeNotifyOutcome({ notified: 0, email: null })).toBe("");
     expect(describeNotifyOutcome(null)).toBe("");
+  });
+});
+
+describe("plan emails default", () => {
+  it("are OFF unless PLAN_EMAIL_DAILY_BUDGET is set (in-app notifications are unaffected)", async () => {
+    const prev = process.env.PLAN_EMAIL_DAILY_BUDGET;
+    delete process.env.PLAN_EMAIL_DAILY_BUDGET;
+    vi.resetModules();
+    const fresh = await import("./notify");
+    expect(fresh.PLAN_EMAIL_DAILY_BUDGET).toBe(0);
+    expect(fresh.planEmailsEnabled()).toBe(false);
+    process.env.PLAN_EMAIL_DAILY_BUDGET = prev;
+    vi.resetModules();
   });
 });
