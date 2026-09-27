@@ -109,7 +109,11 @@ describe("scalar parsers", () => {
   it("parseDueDate clears on empty and rejects nonsense", () => {
     expect(parseDueDate("")).toEqual({ ok: true, value: null });
     expect(parseDueDate(null)).toEqual({ ok: true, value: null });
-    expect(parseDueDate("2026-10-01")).toEqual({ ok: true, value: "2026-10-01T00:00:00.000Z" });
+    // Date-only = the END of that calendar day (UTC), so it isn't overdue on the day.
+    expect(parseDueDate("2026-10-01")).toEqual({ ok: true, value: "2026-10-01T23:59:59.999Z" });
+    expect(parseDueDate("2026-02-31")).toEqual({ ok: false });
+    // A full timestamp is kept as given.
+    expect(parseDueDate("2026-10-01T09:30:00Z")).toEqual({ ok: true, value: "2026-10-01T09:30:00.000Z" });
     expect(parseDueDate("not a date")).toEqual({ ok: false });
     expect(parseDueDate("20266-10-01")).toEqual({ ok: false });
     expect(parseDueDate({})).toEqual({ ok: false });

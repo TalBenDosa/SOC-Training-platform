@@ -37,10 +37,22 @@ export function parseAudience(v: unknown): Audience {
 /**
  * Due date: null/"" clears it, otherwise it must parse to a real date between
  * 2000 and 2100 (guards against typos like year 20266 silently landing).
+ *
+ * A date-only value ("2026-10-01", what <input type="date"> sends) means "by
+ * the end of that day": it is stored as 23:59:59.999 UTC of that calendar date,
+ * so the item isn't flagged overdue on its due day, and the UI renders it with
+ * formatDueDate() in UTC so the calendar date never shifts by timezone.
  */
 export function parseDueDate(v: unknown): { ok: true; value: string | null } | { ok: false } {
   if (v === null || v === undefined || v === "") return { ok: true, value: null };
   if (typeof v !== "string" && typeof v !== "number") return { ok: false };
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const d = new Date(`${v}T23:59:59.999Z`);
+    // Reject impossible dates ("2026-02-31" would roll over to March).
+    if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v) return { ok: false };
+    const y = d.getUTCFullYear();
+    return y < 2000 || y > 2100 ? { ok: false } : { ok: true, value: d.toISOString() };
+  }
   const d = new Date(v);
   const t = d.getTime();
   if (Number.isNaN(t)) return { ok: false };

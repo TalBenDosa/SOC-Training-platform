@@ -20,10 +20,11 @@ import {
   ClipboardList, Plus, Trash2, Clock, Loader2, X, Pencil, Archive, ArchiveRestore, BarChart3, Users, Search, Save,
 } from "lucide-react";
 import { ModuleTree, indexLeaves } from "@/components/plans/ModuleTree";
-import { PlanItemsEditor, applyToggle } from "@/components/plans/PlanItemsEditor";
+import { PlanItemsEditor } from "@/components/plans/PlanItemsEditor";
+import { applyToggle, capNotice } from "@/lib/plans/selection";
 import { PlanProgressMatrix } from "@/components/plans/PlanProgressMatrix";
 import {
-  PLAN_LIMITS, PRIORITY_LABEL, itemKey,
+  PLAN_LIMITS, PRIORITY_LABEL, formatDueDate, itemKey,
   type Audience, type CatalogNode, type PlanItem, type Priority, type StaffPlan,
 } from "@/lib/plans/types";
 
@@ -53,8 +54,7 @@ export const memberName = (m: RosterMember) => m.display_name || m.handle || m.u
 
 function dueLabel(iso: string | null): { text: string; past: boolean } {
   if (!iso) return { text: "no due date", past: false };
-  const d = new Date(iso);
-  return { text: d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }), past: d.getTime() < Date.now() };
+  return { text: formatDueDate(iso), past: Date.parse(iso) < Date.now() };
 }
 
 export function PriorityChip({ p }: { p: Priority }) {
@@ -70,6 +70,8 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
   const [plans, setPlans] = useState<StaffPlan[] | null>(null);
   const [groups, setGroups] = useState<GroupLite[]>([]);
   const [tree, setTree] = useState<CatalogNode[] | null>(null);
+  const [treeError, setTreeError] = useState(false);
+  const [capMsg, setCapMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -93,14 +95,24 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
   const nameOf = useMemo(() => new Map(members.map(m => [m.user_id, memberName(m)])), [members]);
   const groupName = useMemo(() => new Map(groups.map(g => [g.id, g.name])), [groups]);
 
+  async function loadTree() {
+    setTreeError(false);
+    const res = await fetch("/api/org/catalog").catch(() => null);
+    if (res?.ok) setTree((await res.json()).tree ?? []);
+    else setTreeError(true);
+  }
+
   async function openEditor(d: Draft) {
-    setError(null); setNotice(null); setPeopleQ("");
+    setError(null); setNotice(null); setPeopleQ(""); setCapMsg(null);
     setDraft(d);
-    if (!tree) {
-      const res = await fetch("/api/org/catalog");
-      if (res.ok) setTree((await res.json()).tree ?? []);
-      else setError("Could not load the module catalogue.");
-    }
+    if (!tree) await loadTree();
+  }
+
+  function toggleKeys(keys: string[], sel: boolean) {
+    if (!draft) return;
+    const r = applyToggle(draft.items, keys, sel, leaves);
+    setCapMsg(capNotice(r.dropped));
+    setDraft({ ...draft, items: r.items });
   }
 
   function editPlan(p: StaffPlan) {
@@ -214,12 +226,12 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
             <div className="flex min-w-0 flex-col">
               <p className="mb-1.5 text-[10px] uppercase tracking-wider text-slate-500">Modules</p>
               {tree ? (
-                <ModuleTree
-                  tree={tree}
-                  selected={selected}
-                  onToggle={(keys, sel) => setDraft(d => d && { ...d, items: applyToggle(d.items, keys, sel, leaves) })}
-                  className="h-[420px]"
-                />
+                <ModuleTree tree={tree} selected={selected} onToggle={toggleKeys} className="h-[420px]" />
+              ) : treeError ? (
+                <div className="flex h-[420px] flex-col items-center justify-center gap-2 rounded-lg border border-severity-high/40 bg-bg px-4 text-center text-xs text-severity-high">
+                  Could not load the module catalogue.
+                  <Button variant="outline" size="sm" onClick={loadTree}>Retry</Button>
+                </div>
               ) : (
                 <div className="flex h-[420px] items-center justify-center rounded-lg border border-border bg-bg text-xs text-slate-500">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading modules…
@@ -232,14 +244,15 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
               <p className="mb-1.5 flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-500">
                 <span>Selected ({draft.items.length}/{PLAN_LIMITS.items})</span>
                 {draft.items.length > 0 && (
-                  <button onClick={() => setDraft(d => d && { ...d, items: [] })} className="normal-case tracking-normal text-slate-500 hover:text-slate-200">clear</button>
+                  <button onClick={() => { setCapMsg(null); setDraft(d => d && { ...d, items: [] }); }} className="normal-case tracking-normal text-slate-500 hover:text-slate-200">clear</button>
                 )}
               </p>
+              {capMsg && <p className="mb-1.5 rounded border border-neon-amber/40 bg-neon-amber/10 px-2 py-1 text-[11px] text-neon-amber">{capMsg}</p>}
               <PlanItemsEditor
                 items={draft.items}
                 leaves={leaves}
-                onChange={items => setDraft(d => d && { ...d, items })}
-                className="h-[420px]"
+                onChange={items => { setCapMsg(null); setDraft(d => d && { ...d, items }); }}
+                className={capMsg ? "h-[380px]" : "h-[420px]"}
               />
             </div>
 

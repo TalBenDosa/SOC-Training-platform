@@ -35,6 +35,15 @@ export const PLAN_LIMITS = {
   groupsPerOrg: 200,
 } as const;
 
+/**
+ * Render a stored due date as its calendar date. Due dates are stored at the
+ * end of the chosen day in UTC (see parseDueDate), so formatting in UTC shows
+ * exactly the date the manager picked, in every timezone.
+ */
+export function formatDueDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 /** Stable identity of an item across tree, list and progress: "kind:id". */
 export const itemKey = (i: { kind: string; id: string }) => `${i.kind}:${i.id}`;
 

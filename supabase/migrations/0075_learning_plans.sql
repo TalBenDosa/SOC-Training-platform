@@ -36,7 +36,24 @@
 -- Group, membership and target rows are staff-only; the API shows a student only
 -- the names of the groups that target them.
 --
+-- Also (§6): record_quiz_attempt now stamps a quiz row with the CURRENT org
+-- (coalesce(excluded.org_id, q.org_id)), matching how 0074 stamps lessons, so a
+-- quiz retaken in a new org counts there. Nothing else in that function changes.
+--
 -- Idempotent: safe to re-run (if-not-exists everywhere, constraints guarded).
+--
+-- DEPLOY ORDER (runbook):
+--  1. Apply THIS migration first, then deploy the v2 code. v1 code keeps working
+--     on the migrated schema (it only reads the original columns). v2 code on an
+--     un-migrated schema degrades rather than crashes: learners see no plan card
+--     and the manager panels answer 503 "not available yet" (the routes detect
+--     the missing columns/tables), but it is not a supported state.
+--  2. ROLLING THE CODE BACK to v1 after plans exist is NOT safe as-is: v1's GET
+--     reads every assignment in the org with the service role, so targeted and
+--     personal plans would be shown to every learner (v1 also ignores
+--     archived_at). Before a code rollback, export and then DELETE them:
+--       delete from public.assignments where audience = 'targeted';
+--     The schema itself needs no rollback; RLS stays strict either way.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- ── 1. Groups ────────────────────────────────────────────────────────────────
@@ -116,9 +133,17 @@ begin
   end if;
 end $$;
 
--- One personal plan per learner per org.
-create unique index if not exists assignments_personal_uq
-  on public.assignments (org_id, personal_user_id) where personal_user_id is not null;
+-- One personal plan per learner per org. A plain UNIQUE constraint (not a
+-- partial index) so the API can upsert with ON CONFLICT (org_id,
+-- personal_user_id); NULLs are distinct, so any number of non-personal plans
+-- (personal_user_id null) are still allowed.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'assignments_personal_uq') then
+    drop index if exists public.assignments_personal_uq;   -- the earlier partial-index form
+    alter table public.assignments add constraint assignments_personal_uq unique (org_id, personal_user_id);
+  end if;
+end $$;
 create index if not exists assignments_org_active_idx
   on public.assignments (org_id) where archived_at is null;
 
@@ -238,6 +263,45 @@ comment on column public.assignments.audience is
   '''org'' = everyone in the org (v1 behaviour, the default); ''targeted'' = only assignment_targets recipients / the personal_user_id.';
 comment on column public.assignments.personal_user_id is
   'Set on a learner''s single personal plan (unique per org). Null for group/org plans.';
+
+-- ── 6. record_quiz_attempt: stamp the CURRENT org ────────────────────────────
+-- Identical to 0070 except org_id on conflict: coalesce(excluded.org_id,
+-- q.org_id) (was coalesce(q.org_id, excluded.org_id), which kept the FIRST org
+-- forever). Same signature, grants and security definer.
+create or replace function public.record_quiz_attempt(
+  p_user uuid, p_slug text, p_org uuid, p_xp integer, p_pct integer)
+returns table(prev_best integer, best integer, total_xp integer)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_prev integer;
+begin
+  select q.xp_earned into v_prev from public.quiz_progress q
+   where q.user_id = p_user and q.quiz_slug = p_slug;
+
+  insert into public.quiz_progress as q
+      (user_id, quiz_slug, org_id, xp_earned, best_score_pct, passed, attempts)
+  values (p_user, p_slug, p_org,
+          least(greatest(coalesce(p_xp, 0), 0), 1000),
+          least(greatest(coalesce(p_pct, 0), 0), 100),
+          coalesce(p_pct, 0) >= 70, 1)
+  on conflict (user_id, quiz_slug) do update set
+      xp_earned         = greatest(q.xp_earned, excluded.xp_earned),
+      best_score_pct    = greatest(q.best_score_pct, excluded.best_score_pct),
+      passed            = q.passed or excluded.passed,
+      attempts          = q.attempts + 1,
+      org_id            = coalesce(excluded.org_id, q.org_id),
+      last_completed_at = now();
+
+  return query
+    select coalesce(v_prev, 0), q.xp_earned, p.xp
+      from public.quiz_progress q join public.profiles p on p.id = q.user_id
+     where q.user_id = p_user and q.quiz_slug = p_slug;
+end;
+$$;
+revoke execute on function public.record_quiz_attempt(uuid, text, uuid, integer, integer) from public, anon, authenticated;
+grant  execute on function public.record_quiz_attempt(uuid, text, uuid, integer, integer) to service_role;
 
 -- Verification (see docs/SPEC-assignments-v2.md — run on STAGING):
 --   set local role authenticated;

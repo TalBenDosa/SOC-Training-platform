@@ -18,8 +18,8 @@ import Link from "next/link";
 import { ClipboardList, CalendarClock, ChevronDown, CheckCircle2, User } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { StatusIcon, KIND_LABEL } from "@/components/plans/PlanItemsEditor";
-import { countDone, isOverdue } from "@/lib/plans/completion";
-import { itemKey, type LearnerPlan, type ResolvedPlanItem } from "@/lib/plans/types";
+import { countDone, dedupeItems, isOverdue } from "@/lib/plans/completion";
+import { formatDueDate, itemKey, type LearnerPlan, type ResolvedPlanItem } from "@/lib/plans/types";
 
 function ItemRow({ it }: { it: ResolvedPlanItem }) {
   const done = it.status === "done";
@@ -64,7 +64,7 @@ function PlanBlock({ p }: { p: LearnerPlan }) {
           {p.due_at && (
             <span className={`text-[11px] ${overdue ? "font-semibold text-severity-high" : "text-slate-400"}`}>
               <CalendarClock className="mr-1 inline h-3 w-3" />
-              {overdue ? "Overdue — " : "Due "}{new Date(p.due_at).toLocaleDateString("en-GB")}
+              {overdue ? "Overdue — " : "Due "}{formatDueDate(p.due_at)}
             </span>
           )}
           <span className={`font-mono text-[11px] font-bold ${complete ? "text-neon-green" : "text-cyber-300"}`}>{done}/{tracked}</span>
@@ -93,17 +93,11 @@ export function MyLearningPlan({ compact = false }: { compact?: boolean }) {
 
   if (plans.length === 0) return null;
 
-  const all = plans.flatMap(p => p.items);
-  const { done, tracked } = countDone(all.map(i => i.status ?? "not_started"));
-  // Next open items in plan order (personal first, then priority) — deduped,
-  // since the same room can sit in two plans.
-  const seen = new Set<string>();
-  const upNext = all.filter(i => {
-    const k = itemKey(i);
-    if (i.status === "done" || i.status === "untracked" || seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  }).slice(0, 3);
+  // Deduped: the same room can sit in two plans but is one piece of work.
+  const unique = dedupeItems(plans.flatMap(p => p.items));
+  const { done, tracked } = countDone(unique.map(i => i.status ?? "not_started"));
+  // Next open items in plan order (personal first, then priority).
+  const upNext = unique.filter(i => i.status !== "done" && i.status !== "untracked").slice(0, 3);
 
   return (
     <Card className="border-neon-purple/30 bg-neon-purple/5">

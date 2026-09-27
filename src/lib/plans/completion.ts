@@ -41,11 +41,12 @@ export function buildProgressIndex(rows: Partial<ProgressRows>): ProgressIndex {
 }
 
 /**
- * Only catalogue lessons (key "{path}--{lesson}") write lesson_progress; an
- * org-authored lesson id ("org-…", no "--") never can.
+ * Only catalogue lessons write lesson_progress; an org-authored library lesson
+ * (id namespaced "org-…" — see orgContent.ts) never can. Keyed on the prefix,
+ * not on "--", because an org id can legitimately contain "--".
  */
 export function isTrackedItem(item: Pick<PlanItem, "kind" | "id">): boolean {
-  return item.kind !== "lesson" || item.id.includes("--");
+  return !(item.kind === "lesson" && item.id.startsWith("org-"));
 }
 
 export function itemStatus(idx: ProgressIndex, userId: string, item: Pick<PlanItem, "kind" | "id">): ItemStatus {
@@ -59,12 +60,27 @@ export function isComplete(statuses: readonly ItemStatus[]): boolean {
   return tracked.length > 0 && tracked.every(s => s === "done");
 }
 
+/** One entry per kind:id (first occurrence wins) — an item can sit in two plans. */
+export function dedupeItems<T extends Pick<PlanItem, "kind" | "id">>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter(i => {
+    const k = itemKey(i);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 export function countDone(statuses: readonly ItemStatus[]): { done: number; tracked: number } {
   const tracked = statuses.filter(s => s !== "untracked");
   return { done: tracked.filter(s => s === "done").length, tracked: tracked.length };
 }
 
-/** Overdue = has a due date in the past and is not complete. */
+/**
+ * Overdue = has a due date in the past and is not complete. Date-only due dates
+ * are stored as the END of that day (sanitize.ts parseDueDate), so a plan due
+ * "1 Oct" is not overdue at any point on 1 Oct.
+ */
 export function isOverdue(dueAt: string | null, statuses: readonly ItemStatus[], now: number = Date.now()): boolean {
   if (!dueAt) return false;
   const t = Date.parse(dueAt);

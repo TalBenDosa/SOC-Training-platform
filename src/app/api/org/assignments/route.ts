@@ -8,7 +8,8 @@ import {
   cleanLine, cleanText, isUuid, parseAudience, parseDueDate, parsePriority, sanitizePlanItems, sanitizeTargets,
 } from "@/lib/plans/sanitize";
 import {
-  ASSIGNMENT_COLUMNS, fetchAll, loadLearnerPlans, loadOrgMembers, loadProgress, resolveItems, type AssignmentDbRow,
+  ASSIGNMENT_COLUMNS, PlanDataError, activeMemberIds, fetchAll, loadLearnerPlans, loadOrgMembers, loadProgress,
+  resolveItems, toPlanDataError, type AssignmentDbRow,
 } from "@/lib/plans/server";
 import { resolveRecipients, type TargetRow } from "@/lib/plans/targeting";
 import { PLAN_LIMITS, type Audience, type Priority, type StaffPlan } from "@/lib/plans/types";
@@ -37,6 +38,22 @@ export const runtime = "nodejs";
 
 const fail = (status: number, error: string) => NextResponse.json({ error }, { status });
 
+/**
+ * Map a data-layer failure to a generic response, logging the detail. A schema
+ * error means the code is ahead of migration 0075 (deploy order: migration
+ * first) — reported as 503 "not available yet" rather than a crash.
+ */
+function dataFail(e: unknown, context: string, message: string) {
+  const err = e instanceof PlanDataError ? e : null;
+  console.error(`[assignments] ${context}:`, e instanceof Error ? e.message : e);
+  if (err?.kind === "schema") return fail(503, "Learning plans aren't available yet. Please try again shortly.");
+  if (err?.kind === "cap") return fail(500, `${message} (too much data to load at once).`);
+  return fail(500, message);
+}
+/** Same, for a raw PostgREST error on a write. */
+const writeFail = (error: { message: string; code?: string }, context: string, message: string) =>
+  dataFail(toPlanDataError(error, context), context, message);
+
 async function readBody(req: Request): Promise<Record<string, unknown> | null> {
   try {
     const b = await req.json();
@@ -57,16 +74,14 @@ async function staffGate(action: string): Promise<Ctx | { error: NextResponse }>
   return { orgId, userId: g.user.id, admin };
 }
 
-/** The ids a targeted plan may point at: this org's groups and members. */
+/** The ids a targeted plan may point at: this org's groups and its ACTIVE members. */
 async function targetUniverse(c: Ctx) {
   const [groups, members] = await Promise.all([
-    c.admin.from("org_groups").select("id").eq("org_id", c.orgId),
+    fetchAll<{ id: string }>((f, t) =>
+      c.admin.from("org_groups").select("id").eq("org_id", c.orgId).order("id", { ascending: true }).range(f, t), "org_groups"),
     loadOrgMembers(c.admin, c.orgId),
   ]);
-  return {
-    groupIds: new Set((groups.data ?? []).map(g => g.id as string)),
-    memberIds: new Set(members.map(m => m.user_id)),
-  };
+  return { groupIds: new Set(groups.map(g => g.id)), memberIds: activeMemberIds(members) };
 }
 
 type Targets = { group_ids: string[]; user_ids: string[] };
@@ -76,15 +91,19 @@ type Targets = { group_ids: string[]; user_ids: string[] };
  * Split in two phases so a plan is never left targeting nobody mid-edit:
  * `add` runs before the row update, `prune` after it.
  */
-async function targetSync(c: Ctx, assignmentId: string, wanted: Targets | null) {
-  const { data: cur } = await c.admin.from("assignment_targets")
-    .select("id, group_id, user_id").eq("org_id", c.orgId).eq("assignment_id", assignmentId);
-  const current = (cur ?? []) as { id: string; group_id: string | null; user_id: string | null }[];
+async function targetSync(c: Ctx, assignmentId: string, wanted: Targets | null, activeIds: ReadonlySet<string>) {
+  const current = await fetchAll<{ id: string; group_id: string | null; user_id: string | null }>((f, t) =>
+    c.admin.from("assignment_targets").select("id, group_id, user_id")
+      .eq("org_id", c.orgId).eq("assignment_id", assignmentId).order("id", { ascending: true }).range(f, t), "assignment_targets");
   const wantG = new Set(wanted?.group_ids ?? []);
   const wantU = new Set(wanted?.user_ids ?? []);
   const haveG = new Set(current.map(t => t.group_id).filter(Boolean) as string[]);
   const haveU = new Set(current.map(t => t.user_id).filter(Boolean) as string[]);
-  const stale = current.filter(t => (t.group_id && !wantG.has(t.group_id)) || (t.user_id && !wantU.has(t.user_id))).map(t => t.id);
+  // A direct target whose user is currently inactive can't be offered in the
+  // picker, so it is kept as-is unless the plan becomes org-wide (wanted=null).
+  const stale = current.filter(t =>
+    (t.group_id && !wantG.has(t.group_id))
+    || (t.user_id && !wantU.has(t.user_id) && (wanted === null || activeIds.has(t.user_id)))).map(t => t.id);
 
   return {
     add: async () => {
@@ -121,29 +140,37 @@ export async function GET(req: Request) {
   // ── Learner view: only what the caller is a recipient of ─────────────────
   if (!isStaff || new URL(req.url).searchParams.get("view") === "mine") {
     try {
-      const plans = await loadLearnerPlans(admin, orgId, user.id);
+      // "self": the learner's own progress counts wherever it was earned (as v1).
+      const plans = await loadLearnerPlans(admin, orgId, user.id, "self");
       return NextResponse.json({ plans, is_staff: isStaff });
     } catch (e) {
-      console.error("[assignments] learner view failed:", e instanceof Error ? e.message : e);
-      return fail(500, "Could not load your learning plan.");
+      // Code ahead of the migration: learners simply see no plan card.
+      if (e instanceof PlanDataError && e.kind === "schema") {
+        console.error("[assignments] learner view: schema not ready:", e.message);
+        return NextResponse.json({ plans: [], is_staff: isStaff });
+      }
+      return dataFail(e, "learner view failed", "Could not load your learning plan.");
     }
   }
 
   // ── Staff view: every group/org plan + progress matrix ───────────────────
   try {
-    const [plansRes, targetRows, groupsRes, groupMemberRows, members] = await Promise.all([
-      admin.from("assignments").select(ASSIGNMENT_COLUMNS)
-        .eq("org_id", orgId).is("personal_user_id", null)
-        .order("created_at", { ascending: false }).limit(500),
+    const [rows, targetRows, groupRows, groupMemberRows, members] = await Promise.all([
+      fetchAll<AssignmentDbRow>((f, t) =>
+        admin.from("assignments").select(ASSIGNMENT_COLUMNS)
+          .eq("org_id", orgId).is("personal_user_id", null)
+          .order("created_at", { ascending: false }).order("id", { ascending: true }).range(f, t), "assignments", 2_000),
       fetchAll<TargetRow & { assignment_id: string }>((f, t) =>
-        admin.from("assignment_targets").select("assignment_id, group_id, user_id").eq("org_id", orgId).range(f, t)),
-      admin.from("org_groups").select("id, name").eq("org_id", orgId).order("name", { ascending: true }),
+        admin.from("assignment_targets").select("assignment_id, group_id, user_id")
+          .eq("org_id", orgId).order("id", { ascending: true }).range(f, t), "assignment_targets"),
+      fetchAll<{ id: string; name: string }>((f, t) =>
+        admin.from("org_groups").select("id, name").eq("org_id", orgId)
+          .order("name", { ascending: true }).order("id", { ascending: true }).range(f, t), "org_groups"),
       fetchAll<{ group_id: string; user_id: string }>((f, t) =>
-        admin.from("org_group_members").select("group_id, user_id").eq("org_id", orgId).range(f, t)),
+        admin.from("org_group_members").select("group_id, user_id").eq("org_id", orgId)
+          .order("group_id", { ascending: true }).order("user_id", { ascending: true }).range(f, t), "org_group_members"),
       loadOrgMembers(admin, orgId),
     ]);
-    if (plansRes.error) throw new Error(plansRes.error.message);
-    const rows = (plansRes.data ?? []) as AssignmentDbRow[];
 
     const targetsByPlan = new Map<string, TargetRow[]>();
     for (const t of targetRows) targetsByPlan.set(t.assignment_id, [...(targetsByPlan.get(t.assignment_id) ?? []), { group_id: t.group_id, user_id: t.user_id }]);
@@ -157,18 +184,25 @@ export async function GET(req: Request) {
     const byName = [...active].sort((a, b) => a.name.localeCompare(b.name));
     const rank = new Map(byName.map((m, i) => [m.user_id, i]));
 
-    const [catalog, idx] = await Promise.all([
-      getPlanCatalog(admin, orgId, needsOrgCatalog(rows.map(r => r.items))),
-      rows.length ? loadProgress(admin, orgId) : Promise.resolve(new Map()),
-    ]);
-
-    const plans: StaffPlan[] = rows.map(r => {
+    const catalog = await getPlanCatalog(admin, orgId, needsOrgCatalog(rows.map(r => r.items)));
+    const resolved = rows.map(r => {
       const audience: Audience = r.audience === "targeted" ? "targeted" : "org";
       const targets = targetsByPlan.get(r.id) ?? [];
-      const items = resolveItems(r.items, catalog);
       const recipients = resolveRecipients(
         { audience, personal_user_id: null }, targets, groupMembers, eligible, orgWide, id => rank.get(id) ?? 1e9,
       );
+      return { r, audience, targets, recipients, items: resolveItems(r.items, catalog) };
+    });
+
+    // Progress for exactly the items these plans use and the learners they
+    // reach — org-pinned (a manager sees progress earned inside their org).
+    const allUsers = [...new Set(resolved.flatMap(x => x.recipients))];
+    const allItems = resolved.flatMap(x => x.items);
+    const idx = allUsers.length && allItems.length
+      ? await loadProgress(admin, { orgId, userIds: allUsers, items: allItems })
+      : new Map();
+
+    const plans: StaffPlan[] = resolved.map(({ r, audience, targets, recipients, items }) => {
       const matrix = planMatrix(items, recipients, idx);
       return {
         id: r.id,
@@ -190,11 +224,10 @@ export async function GET(req: Request) {
       };
     });
 
-    const groups = (groupsRes.data ?? []).map(g => ({ id: g.id as string, name: g.name as string, member_count: (groupMembers.get(g.id) ?? []).length }));
+    const groups = groupRows.map(g => ({ id: g.id, name: g.name, member_count: (groupMembers.get(g.id) ?? []).length }));
     return NextResponse.json({ plans, groups, is_staff: true });
   } catch (e) {
-    console.error("[assignments] staff view failed:", e instanceof Error ? e.message : e);
-    return fail(500, "Could not load learning plans.");
+    return dataFail(e, "staff view failed", "Could not load learning plans.");
   }
 }
 
@@ -216,9 +249,15 @@ export async function POST(req: Request) {
 
   const audience = parseAudience(body.audience);
   let targets: Targets | null = null;
+  let activeIds: ReadonlySet<string> = new Set();
   if (audience === "targeted") {
-    const u = await targetUniverse(c);
-    targets = sanitizeTargets(body.targets, u.groupIds, u.memberIds);
+    try {
+      const u = await targetUniverse(c);
+      activeIds = u.memberIds;
+      targets = sanitizeTargets(body.targets, u.groupIds, u.memberIds);
+    } catch (e) {
+      return dataFail(e, "create: recipients", "Could not create the plan.");
+    }
     if (targets.group_ids.length + targets.user_ids.length === 0) return fail(400, "Choose at least one group or person, or assign it to the whole organisation.");
   }
 
@@ -232,11 +271,11 @@ export async function POST(req: Request) {
     audience,
     created_by: c.userId,
   }).select("id").single();
-  if (error) return fail(500, "Could not create the plan.");
+  if (error) return writeFail(error, "create", "Could not create the plan.");
 
   if (targets) {
-    const sync = await targetSync(c, data.id, targets);
-    if (!(await sync.add())) {
+    const ok = await targetSync(c, data.id, targets, activeIds).then(sync => sync.add()).catch(() => false);
+    if (!ok) {
       // Don't leave a targeted plan with no recipients behind.
       await c.admin.from("assignments").delete().eq("id", data.id).eq("org_id", c.orgId);
       return fail(500, "Could not save the plan's recipients.");
@@ -259,8 +298,9 @@ export async function PATCH(req: Request) {
   if (!isUuid(body.id)) return fail(400, "id is required.");
   const id = body.id;
 
-  const { data: existing } = await c.admin.from("assignments")
+  const { data: existing, error: readErr } = await c.admin.from("assignments")
     .select("id, audience, personal_user_id").eq("id", id).eq("org_id", c.orgId).maybeSingle();
+  if (readErr) return writeFail(readErr, "update: read", "Could not update the plan.");
   if (!existing) return fail(404, "No such plan in your organisation.");
   if (existing.personal_user_id) return fail(400, "Personal plans are edited from the student's page.");
 
@@ -291,19 +331,23 @@ export async function PATCH(req: Request) {
   if ("audience" in body || "targets" in body) {
     const audience = "audience" in body ? parseAudience(body.audience) : (existing.audience === "targeted" ? "targeted" : "org");
     patch.audience = audience;
-    if (audience === "targeted") {
+    try {
       const u = await targetUniverse(c);
-      targets = sanitizeTargets(body.targets, u.groupIds, u.memberIds);
-      if (targets.group_ids.length + targets.user_ids.length === 0) return fail(400, "Choose at least one group or person, or assign it to the whole organisation.");
+      if (audience === "targeted") {
+        targets = sanitizeTargets(body.targets, u.groupIds, u.memberIds);
+        if (targets.group_ids.length + targets.user_ids.length === 0) return fail(400, "Choose at least one group or person, or assign it to the whole organisation.");
+      }
+      sync = await targetSync(c, id, targets, u.memberIds);
+    } catch (e) {
+      return dataFail(e, "update: recipients", "Could not update the plan.");
     }
-    sync = await targetSync(c, id, targets);
   }
   if (!sync && Object.keys(patch).length === 0) return fail(400, "Nothing to update.");
 
   if (sync && !(await sync.add())) return fail(500, "Could not save the plan's recipients.");
   if (Object.keys(patch).length) {
     const { error } = await c.admin.from("assignments").update(patch).eq("id", id).eq("org_id", c.orgId);
-    if (error) return fail(500, "Could not update the plan.");
+    if (error) return writeFail(error, "update", "Could not update the plan.");
   }
   if (sync && !(await sync.prune())) return fail(500, "The plan was saved, but old recipients could not be removed.");
 
@@ -324,7 +368,7 @@ export async function DELETE(req: Request) {
   // .eq("org_id") as well as id — the service-role client bypasses RLS, so the
   // tenant boundary has to be re-asserted explicitly here.
   const { data, error } = await c.admin.from("assignments").delete().eq("id", id).eq("org_id", c.orgId).select("id");
-  if (error) return fail(500, "Could not delete the plan.");
+  if (error) return writeFail(error, "delete", "Could not delete the plan.");
   if (!data || data.length === 0) return fail(404, "No such plan in your organisation.");
 
   await logAudit({ actorId: c.userId, action: "org.assignments.delete", targetTable: "assignments", targetId: id, metadata: { orgId: c.orgId } });

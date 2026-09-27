@@ -6,13 +6,19 @@ import "server-only";
  * Every read here uses the SERVICE-ROLE client, which bypasses RLS — so every
  * query is pinned with .eq("org_id", orgId) explicitly, and learner visibility
  * is re-applied with isRecipient() (the same rule as the 0075 RLS policy).
+ *
+ * Every paged read has a stable ORDER BY (PostgREST pages are only consistent
+ * over a total order) and fails LOUDLY — PlanDataError("cap") — rather than
+ * silently truncating when a row cap is reached. A missing 0075 column/table
+ * surfaces as PlanDataError("schema") so the routes can degrade cleanly when the
+ * code is deployed ahead of the migration (the runbook order is migration first).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPlanCatalog, needsOrgCatalog, type PlanCatalog } from "./catalog";
 import { buildProgressIndex, itemStatus, type ProgressIndex, type ProgressRows } from "./completion";
-import { parsePriority, sanitizePlanItems } from "./sanitize";
+import { isUuid, parsePriority, sanitizePlanItems } from "./sanitize";
 import { isRecipient, sortItemsByPriority, sortPlansForLearner, viaLabels, type TargetRow } from "./targeting";
-import type { Audience, LearnerPlan, PlanItem, Priority, ResolvedPlanItem } from "./types";
+import type { Audience, LearnerPlan, PlanItem, PlanItemKind, Priority, ResolvedPlanItem } from "./types";
 
 export interface AssignmentDbRow {
   id: string;
@@ -37,23 +43,65 @@ export interface OrgMemberLite {
   name: string;
 }
 
-/** Page through a PostgREST query (default page cap is 1000 rows). */
+// ── Errors ───────────────────────────────────────────────────────────────────
+type DbError = { message: string; code?: string };
+
+/** "cap": a row cap was hit · "schema": 0075 isn't applied · "db": anything else. */
+export class PlanDataError extends Error {
+  constructor(message: string, public readonly kind: "cap" | "schema" | "db") {
+    super(message);
+    this.name = "PlanDataError";
+  }
+}
+
+// Postgres undefined_column / undefined_table, PostgREST unknown column /
+// relationship / table-not-in-schema-cache.
+const SCHEMA_CODES = new Set(["42703", "42P01", "PGRST200", "PGRST204", "PGRST205"]);
+
+export function toPlanDataError(e: DbError, context: string): PlanDataError {
+  const kind = e.code && SCHEMA_CODES.has(e.code) ? "schema" : "db";
+  return new PlanDataError(`${context}: ${e.message}${e.code ? ` (${e.code})` : ""}`, kind);
+}
+
+/** Throw on a PostgREST error, classifying it. */
+export function check<T extends { error: DbError | null }>(res: T, context: string): T {
+  if (res.error) throw toPlanDataError(res.error, context);
+  return res;
+}
+
+/**
+ * Page through a PostgREST query (its per-request cap is 1000 rows). The
+ * caller's query MUST carry a stable .order(). Throws PlanDataError("cap") if
+ * `max` rows are reached with more still coming — never a silent truncation.
+ */
 export async function fetchAll<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-  max = 20_000,
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: DbError | null }>,
+  context: string,
+  max = 50_000,
 ): Promise<T[]> {
   const size = 1000;
   const out: T[] = [];
-  for (let from = 0; from < max; from += size) {
+  for (let from = 0; ; from += size) {
     const { data, error } = await page(from, from + size - 1);
-    if (error) throw new Error(error.message);
+    if (error) throw toPlanDataError(error, context);
     const rows = data ?? [];
     out.push(...rows);
-    if (rows.length < size) break;
+    if (rows.length < size) return out;
+    if (out.length >= max) {
+      console.error(`[plans] row cap of ${max} reached for ${context}`);
+      throw new PlanDataError(`${context}: more than ${max} rows`, "cap");
+    }
   }
+}
+
+/** Split `list` into chunks of `n` (keeps request URLs short for .in() filters). */
+export function chunk<T>(list: readonly T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n));
   return out;
 }
 
+// ── Members ──────────────────────────────────────────────────────────────────
 /**
  * The org's members, minus platform super-admins (who traverse orgs invisibly —
  * same exclusion as the roster). Includes every status; callers filter.
@@ -64,7 +112,8 @@ export async function loadOrgMembers(admin: SupabaseClient, orgId: string): Prom
       .select("user_id, role, status, profiles(handle, display_name, is_platform_admin)")
       .eq("org_id", orgId)
       .order("joined_at", { ascending: true })
-      .range(from, to));
+      .order("user_id", { ascending: true })
+      .range(from, to), "org_members");
   return rows
     .filter(m => !(m.profiles as { is_platform_admin?: boolean } | null)?.is_platform_admin)
     .map(m => {
@@ -73,21 +122,77 @@ export async function loadOrgMembers(admin: SupabaseClient, orgId: string): Prom
     });
 }
 
-/**
- * Progress rows for the org, optionally narrowed to ONE learner. Org-pinned on
- * every table (progress rows are stamped with the org they were earned in).
- */
-export async function loadProgress(admin: SupabaseClient, orgId: string, userId?: string): Promise<ProgressIndex> {
-  const read = <T,>(table: string, columns: string) => fetchAll<T>((from, to) => {
-    let q = admin.from(table).select(columns).eq("org_id", orgId);
-    if (userId) q = q.eq("user_id", userId);
-    return q.range(from, to) as unknown as PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
-  });
+/** Ids a plan may target / a group may contain / a personal plan may belong to: ACTIVE members only. */
+export function activeMemberIds(members: readonly OrgMemberLite[]): Set<string> {
+  return new Set(members.filter(m => m.status === "active").map(m => m.user_id));
+}
+
+// ── Progress ─────────────────────────────────────────────────────────────────
+const PROGRESS_SOURCES: Record<PlanItemKind, { table: string; columns: string; key: string; order: string[] }> = {
+  room:     { table: "room_progress",    columns: "user_id, room_id, completed_at",   key: "room_id",    order: ["user_id", "room_id"] },
+  scenario: { table: "scenario_history", columns: "user_id, slug",                    key: "slug",       order: ["id"] },
+  quiz:     { table: "quiz_progress",    columns: "user_id, quiz_slug, passed",       key: "quiz_slug",  order: ["user_id", "quiz_slug"] },
+  lesson:   { table: "lesson_progress",  columns: "user_id, lesson_key, completed_at", key: "lesson_key", order: ["user_id", "lesson_key"] },
+};
+
+export interface ProgressScope {
+  /**
+   * Pin rows to this org (staff views — a manager only sees progress earned
+   * inside their org). null = the user's OWN progress wherever it was earned
+   * (the learner's view of their own plan, as in v1).
+   */
+  orgId: string | null;
+  /** Restrict to these learners (required when orgId is null). */
+  userIds?: readonly string[];
+  /** Restrict to the ids these items reference; an empty list reads nothing. */
+  items?: readonly Pick<PlanItem, "kind" | "id">[];
+}
+
+export async function loadProgress(admin: SupabaseClient, scope: ProgressScope): Promise<ProgressIndex> {
+  if (!scope.orgId && !(scope.userIds && scope.userIds.length)) {
+    throw new PlanDataError("loadProgress: an unpinned read needs explicit user ids", "db");
+  }
+  if (scope.userIds && scope.userIds.length === 0) return new Map();
+
+  const users = scope.userIds ? [...new Set(scope.userIds)] : null;
+  const userSet = users ? new Set(users) : null;
+  // Small user sets go into the SQL filter; large ones are filtered in memory
+  // (a few hundred uuids in a query string would overflow the request URL).
+  const sqlUsers = users && users.length <= 100 ? users : null;
+
+  const idsByKind = new Map<PlanItemKind, string[]>();
+  if (scope.items) {
+    for (const it of scope.items) {
+      const arr = idsByKind.get(it.kind) ?? [];
+      if (!arr.includes(it.id)) arr.push(it.id);
+      idsByKind.set(it.kind, arr);
+    }
+  }
+
+  const read = async <T extends { user_id: string }>(kind: PlanItemKind): Promise<T[]> => {
+    const src = PROGRESS_SOURCES[kind];
+    // With an item filter, only the kinds (and ids) the plans use are read.
+    const idChunks: (string[] | null)[] = scope.items ? chunk(idsByKind.get(kind) ?? [], 60) : [null];
+    const out: T[] = [];
+    for (const ids of idChunks) {
+      const rows = await fetchAll<T>((from, to) => {
+        let q = admin.from(src.table).select(src.columns);
+        if (scope.orgId) q = q.eq("org_id", scope.orgId);
+        if (sqlUsers) q = sqlUsers.length === 1 ? q.eq("user_id", sqlUsers[0]) : q.in("user_id", sqlUsers);
+        if (ids) q = q.in(src.key, ids);
+        for (const col of src.order) q = q.order(col, { ascending: true });
+        return q.range(from, to) as unknown as PromiseLike<{ data: T[] | null; error: DbError | null }>;
+      }, src.table);
+      out.push(...(userSet ? rows.filter(r => userSet.has(r.user_id)) : rows));
+    }
+    return out;
+  };
+
   const [rooms, scenarios, quizzes, lessons] = await Promise.all([
-    read<ProgressRows["rooms"][number]>("room_progress", "user_id, room_id, completed_at"),
-    read<ProgressRows["scenarios"][number]>("scenario_history", "user_id, slug"),
-    read<ProgressRows["quizzes"][number]>("quiz_progress", "user_id, quiz_slug, passed"),
-    read<ProgressRows["lessons"][number]>("lesson_progress", "user_id, lesson_key, completed_at"),
+    read<ProgressRows["rooms"][number]>("room"),
+    read<ProgressRows["scenarios"][number]>("scenario"),
+    read<ProgressRows["quizzes"][number]>("quiz"),
+    read<ProgressRows["lessons"][number]>("lesson"),
   ]);
   return buildProgressIndex({ rooms, scenarios, quizzes, lessons });
 }
@@ -107,29 +212,59 @@ export function resolveItems(
   });
 }
 
+// ── A learner's plans ────────────────────────────────────────────────────────
 /**
  * Everything `userId` is assigned in `orgId` — org-wide, targeted at them or a
- * group of theirs, and their personal plan — with their own status per item,
+ * group of theirs, and their personal plan — with their status per item,
  * ordered for the learner (personal first, then priority, then due date).
+ *
+ * Narrowed in SQL: other learners' personal plans are never read, and only the
+ * target rows naming this user or one of their groups are fetched.
+ *
+ * `progress`: "self" (the learner looking at their own plan) counts progress
+ * earned anywhere, as v1 did; "org" (a manager on the student page) counts only
+ * progress earned inside this org.
  */
-export async function loadLearnerPlans(admin: SupabaseClient, orgId: string, userId: string): Promise<LearnerPlan[]> {
-  const [plansRes, myGroupsRes] = await Promise.all([
-    admin.from("assignments").select(ASSIGNMENT_COLUMNS).eq("org_id", orgId).is("archived_at", null).limit(500),
-    admin.from("org_group_members").select("group_id").eq("org_id", orgId).eq("user_id", userId),
-  ]);
-  if (plansRes.error) throw new Error(plansRes.error.message);
-  const rows = (plansRes.data ?? []) as AssignmentDbRow[];
-  const myGroupIds = new Set((myGroupsRes.data ?? []).map(g => g.group_id as string));
+export async function loadLearnerPlans(
+  admin: SupabaseClient,
+  orgId: string,
+  userId: string,
+  progress: "self" | "org",
+): Promise<LearnerPlan[]> {
+  if (!isUuid(userId)) throw new PlanDataError("loadLearnerPlans: invalid user id", "db");
 
-  const targetedIds = rows.filter(r => r.audience === "targeted" && !r.personal_user_id).map(r => r.id);
+  const [rows, myGroups] = await Promise.all([
+    fetchAll<AssignmentDbRow>((from, to) =>
+      admin.from("assignments").select(ASSIGNMENT_COLUMNS)
+        .eq("org_id", orgId)
+        .is("archived_at", null)
+        .or(`personal_user_id.is.null,personal_user_id.eq.${userId}`)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to), "assignments"),
+    fetchAll<{ group_id: string }>((from, to) =>
+      admin.from("org_group_members").select("group_id")
+        .eq("org_id", orgId).eq("user_id", userId)
+        .order("group_id", { ascending: true })
+        .range(from, to), "org_group_members"),
+  ]);
+  const myGroupIds = new Set(myGroups.map(g => g.group_id));
+
+  // Only the target rows that could make this user a recipient.
   const targetsByPlan = new Map<string, TargetRow[]>();
-  if (targetedIds.length) {
-    const { data: t } = await admin.from("assignment_targets")
-      .select("assignment_id, group_id, user_id").eq("org_id", orgId).in("assignment_id", targetedIds);
-    for (const row of (t ?? []) as (TargetRow & { assignment_id: string })[]) {
-      const arr = targetsByPlan.get(row.assignment_id) ?? [];
-      arr.push({ group_id: row.group_id, user_id: row.user_id });
-      targetsByPlan.set(row.assignment_id, arr);
+  if (rows.some(r => r.audience === "targeted" && !r.personal_user_id)) {
+    const groupList = [...myGroupIds].filter(isUuid);
+    const who = groupList.length ? `user_id.eq.${userId},group_id.in.(${groupList.join(",")})` : `user_id.eq.${userId}`;
+    const targets = await fetchAll<TargetRow & { assignment_id: string }>((from, to) =>
+      admin.from("assignment_targets").select("assignment_id, group_id, user_id")
+        .eq("org_id", orgId)
+        .or(who)
+        .order("id", { ascending: true })
+        .range(from, to), "assignment_targets");
+    for (const t of targets) {
+      const arr = targetsByPlan.get(t.assignment_id) ?? [];
+      arr.push({ group_id: t.group_id, user_id: t.user_id });
+      targetsByPlan.set(t.assignment_id, arr);
     }
   }
 
@@ -144,15 +279,18 @@ export async function loadLearnerPlans(admin: SupabaseClient, orgId: string, use
   // Only the names of groups that actually target this learner are ever read.
   const groupNames = new Map<string, string>();
   const neededGroups = [...new Set(visible.flatMap(r => (targetsByPlan.get(r.id) ?? []).map(t => t.group_id).filter((g): g is string => !!g && myGroupIds.has(g))))];
-  if (neededGroups.length) {
-    const { data: g } = await admin.from("org_groups").select("id, name").eq("org_id", orgId).in("id", neededGroups);
-    for (const row of g ?? []) groupNames.set(row.id as string, row.name as string);
+  for (const ids of chunk(neededGroups, 100)) {
+    const g = check(await admin.from("org_groups").select("id, name").eq("org_id", orgId).in("id", ids), "org_groups");
+    for (const row of g.data ?? []) groupNames.set(row.id as string, row.name as string);
   }
 
-  const [catalog, idx] = await Promise.all([
-    getPlanCatalog(admin, orgId, needsOrgCatalog(visible.map(r => r.items))),
-    loadProgress(admin, orgId, userId),
-  ]);
+  const catalog = await getPlanCatalog(admin, orgId, needsOrgCatalog(visible.map(r => r.items)));
+  const resolvedItems = visible.map(r => sanitizePlanItems(r.items, catalog.isKnown));
+  const idx = await loadProgress(admin, {
+    orgId: progress === "org" ? orgId : null,
+    userIds: [userId],
+    items: resolvedItems.flat(),
+  });
 
   const plans: LearnerPlan[] = visible.map(r => {
     const targeting = { audience: (r.audience === "targeted" ? "targeted" : "org") as Audience, personal_user_id: r.personal_user_id };

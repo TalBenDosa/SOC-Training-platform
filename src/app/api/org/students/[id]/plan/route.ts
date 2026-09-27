@@ -4,7 +4,9 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
 import { getPlanCatalog, needsOrgCatalog } from "@/lib/plans/catalog";
 import { cleanLine, cleanText, isUuid, parseDueDate, parsePriority, sanitizePlanItems } from "@/lib/plans/sanitize";
-import { ASSIGNMENT_COLUMNS, loadLearnerPlans, loadProgress, resolveItems, type AssignmentDbRow } from "@/lib/plans/server";
+import {
+  ASSIGNMENT_COLUMNS, PlanDataError, loadLearnerPlans, loadProgress, resolveItems, toPlanDataError, type AssignmentDbRow,
+} from "@/lib/plans/server";
 import { PLAN_LIMITS, type LearnerPlan, type Priority, type ResolvedPlanItem } from "@/lib/plans/types";
 
 /**
@@ -14,7 +16,10 @@ import { PLAN_LIMITS, type LearnerPlan, type Priority, type ResolvedPlanItem } f
  * GET returns the personal plan (ordered items, priority, note, the learner's
  * status on each) plus every OTHER plan that reaches this learner (org-wide,
  * direct, via a group), so the manager sees the learner's whole workload.
- * PUT replaces the personal plan; an empty item list removes it.
+ * PUT replaces the personal plan (an upsert on the (org_id, personal_user_id)
+ * unique key, so two concurrent first saves can't collide); an empty item list
+ * removes it. Only an ACTIVE member (not invited/removed, never the platform
+ * super-admin) can be given a personal plan.
  *
  * org_admin only, pinned to the caller's org, and the learner is verified to be
  * a member of THAT org before anything is read or written.
@@ -39,6 +44,13 @@ export interface PersonalPlanResponse {
   assigned: LearnerPlan[];
 }
 
+/** Generic failure; a schema error (code ahead of migration 0075) is a 503. */
+function dataFail(e: unknown, context: string, message: string) {
+  console.error(`[student plan] ${context}:`, e instanceof Error ? e.message : e);
+  if (e instanceof PlanDataError && e.kind === "schema") return fail(503, "Learning plans aren't available yet. Please try again shortly.");
+  return fail(500, message);
+}
+
 async function context(action: string, params: Ctx["params"]) {
   const gate = await requireOrgAdmin(action);
   if ("error" in gate) return { error: gate.error };
@@ -50,9 +62,11 @@ async function context(action: string, params: Ctx["params"]) {
   if (!isUuid(id)) return { error: fail(404, "No such student in your organisation.") };
 
   // The learner MUST belong to the caller's org — verified before any read/write.
-  const { data: member } = await admin.from("org_members").select("user_id").eq("org_id", orgId).eq("user_id", id).maybeSingle();
+  const { data: member } = await admin.from("org_members")
+    .select("user_id, status, profiles(is_platform_admin)").eq("org_id", orgId).eq("user_id", id).maybeSingle();
   if (!member) return { error: fail(404, "No such student in your organisation.") };
-  return { orgId, admin, userId: gate.user.id, studentId: id };
+  const isPlatformAdmin = Boolean((member.profiles as { is_platform_admin?: boolean } | null)?.is_platform_admin);
+  return { orgId, admin, userId: gate.user.id, studentId: id, active: member.status === "active" && !isPlatformAdmin };
 }
 
 // ── GET ──────────────────────────────────────────────────────────────────────
@@ -64,14 +78,17 @@ export async function GET(_req: Request, { params }: Ctx) {
   try {
     const { data: row, error } = await admin.from("assignments").select(ASSIGNMENT_COLUMNS)
       .eq("org_id", orgId).eq("personal_user_id", studentId).maybeSingle();
-    if (error) throw new Error(error.message);
+    if (error) throw toPlanDataError(error, "personal plan");
     const r = row as AssignmentDbRow | null;
 
-    const [all, catalog, idx] = await Promise.all([
-      loadLearnerPlans(admin, orgId, studentId),
+    const [all, catalog] = await Promise.all([
+      // "org": a manager sees only progress earned inside their own org.
+      loadLearnerPlans(admin, orgId, studentId, "org"),
       getPlanCatalog(admin, orgId, needsOrgCatalog([r?.items])),
-      loadProgress(admin, orgId, studentId),
     ]);
+    const idx = await loadProgress(admin, {
+      orgId, userIds: [studentId], items: sanitizePlanItems(r?.items, catalog.isKnown),
+    });
 
     const body: PersonalPlanResponse = {
       personal: r ? {
@@ -87,8 +104,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     };
     return NextResponse.json(body);
   } catch (e) {
-    console.error("[student plan] read failed:", e instanceof Error ? e.message : e);
-    return fail(500, "Could not load this learner's plan.");
+    return dataFail(e, "read failed", "Could not load this learner's plan.");
   }
 }
 
@@ -110,40 +126,41 @@ export async function PUT(req: Request, { params }: Ctx) {
   const due = parseDueDate(body.due_at);
   if (!due.ok) return fail(400, "Invalid due date.");
 
-  const { data: existing } = await admin.from("assignments").select("id")
-    .eq("org_id", orgId).eq("personal_user_id", studentId).maybeSingle();
-
   if (items.length === 0) {
-    if (existing) {
-      const { error } = await admin.from("assignments").delete().eq("id", existing.id).eq("org_id", orgId);
-      if (error) return fail(500, "Could not clear the plan.");
-      await logAudit({ actorId: userId, action: "org.student_plan.clear", targetTable: "assignments", targetId: existing.id, metadata: { orgId, studentId } });
+    // Clearing is allowed whatever the learner's status.
+    const { data: removed, error } = await admin.from("assignments").delete()
+      .eq("org_id", orgId).eq("personal_user_id", studentId).select("id");
+    if (error) return dataFail(toPlanDataError(error, "clear"), "clear", "Could not clear the plan.");
+    if (removed && removed.length) {
+      await logAudit({ actorId: userId, action: "org.student_plan.clear", targetTable: "assignments", targetId: removed[0].id, metadata: { orgId, studentId } });
     }
     return NextResponse.json({ ok: true, id: null });
   }
 
-  const fields = {
+  if (!c.active) return fail(400, "Personal priorities can only be set for active learners.");
+
+  // One statement, keyed on the (org_id, personal_user_id) unique constraint:
+  // two managers saving the same learner's first plan at once both succeed
+  // (last write wins) instead of one hitting a duplicate-key error.
+  const { data, error } = await admin.from("assignments").upsert({
+    org_id: orgId,
+    personal_user_id: studentId,
+    audience: "targeted",
     title: cleanLine(body.title, PLAN_LIMITS.title) || "Personal priorities",
     instructions: cleanText(body.instructions, PLAN_LIMITS.instructions) || null,
     items,
     due_at: due.value,
     priority: parsePriority(body.priority, 1),
     archived_at: null,
-  };
+  }, { onConflict: "org_id,personal_user_id" }).select("id, created_by").single();
+  if (error) return dataFail(toPlanDataError(error, "save"), "save", "Could not save the plan.");
 
-  let id: string;
-  if (existing) {
-    const { error } = await admin.from("assignments").update(fields).eq("id", existing.id).eq("org_id", orgId);
-    if (error) return fail(500, "Could not save the plan.");
-    id = existing.id;
-  } else {
-    const { data, error } = await admin.from("assignments").insert({
-      ...fields, org_id: orgId, audience: "targeted", personal_user_id: studentId, created_by: userId,
-    }).select("id").single();
-    if (error) return fail(500, "Could not save the plan.");
-    id = data.id;
+  // Record the author on first creation only (the upsert payload omits it so an
+  // edit never rewrites who created the plan).
+  if (!data.created_by) {
+    await admin.from("assignments").update({ created_by: userId }).eq("id", data.id).eq("org_id", orgId).is("created_by", null);
   }
 
-  await logAudit({ actorId: userId, action: "org.student_plan.save", targetTable: "assignments", targetId: id, metadata: { orgId, studentId, items: items.length } });
-  return NextResponse.json({ ok: true, id });
+  await logAudit({ actorId: userId, action: "org.student_plan.save", targetTable: "assignments", targetId: data.id, metadata: { orgId, studentId, items: items.length } });
+  return NextResponse.json({ ok: true, id: data.id });
 }

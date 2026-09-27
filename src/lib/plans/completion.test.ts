@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildProgressIndex, countDone, isComplete, isOverdue, isTrackedItem, itemStatus, planMatrix } from "./completion";
+import { buildProgressIndex, countDone, dedupeItems, isComplete, isOverdue, isTrackedItem, itemStatus, planMatrix } from "./completion";
+import { parseDueDate } from "./sanitize";
 import type { PlanItem } from "./types";
 
 const A = "user-a", B = "user-b";
@@ -42,6 +43,9 @@ describe("itemStatus", () => {
   it("org-authored library lessons are untracked (no completion record exists)", () => {
     expect(isTrackedItem({ kind: "lesson", id: "org-abcd1234-my-lesson-x1y2" })).toBe(false);
     expect(isTrackedItem({ kind: "room", id: "org-abcd1234-my-room-x1y2" })).toBe(true);
+    // An org lesson id can contain "--" and is still untracked; a catalogue lesson is tracked.
+    expect(isTrackedItem({ kind: "lesson", id: "org-abcd1234-intro--basics-x1y2" })).toBe(false);
+    expect(isTrackedItem({ kind: "lesson", id: "soc-analyst--what-is-a-soc" })).toBe(true);
     expect(itemStatus(idx, A, { kind: "lesson", id: "org-abcd1234-my-lesson-x1y2" })).toBe("untracked");
   });
 
@@ -71,6 +75,25 @@ describe("completion roll-ups", () => {
     expect(isOverdue("2026-05-01T00:00:00Z", ["done"], now)).toBe(false);
     expect(isOverdue("2026-07-01T00:00:00Z", ["not_started"], now)).toBe(false);
     expect(isOverdue(null, ["not_started"], now)).toBe(false);
+  });
+
+  it("a date-only due date is not overdue on its due day, only after it", () => {
+    const due = parseDueDate("2026-10-01");
+    if (!due.ok || !due.value) throw new Error("parse failed");
+    expect(isOverdue(due.value, ["not_started"], Date.parse("2026-10-01T00:30:00Z"))).toBe(false);
+    expect(isOverdue(due.value, ["not_started"], Date.parse("2026-10-01T23:00:00Z"))).toBe(false);
+    expect(isOverdue(due.value, ["not_started"], Date.parse("2026-10-02T00:00:01Z"))).toBe(true);
+  });
+
+  it("dedupeItems keeps the first occurrence of each kind:id", () => {
+    const items = [
+      { kind: "room" as const, id: "a", status: "done" },
+      { kind: "room" as const, id: "b" },
+      { kind: "room" as const, id: "a", status: "not_started" },
+      { kind: "quiz" as const, id: "a" },
+    ];
+    expect(dedupeItems(items).map(i => `${i.kind}:${i.id}`)).toEqual(["room:a", "room:b", "quiz:a"]);
+    expect(dedupeItems(items)[0].status).toBe("done");
   });
 
   it("planMatrix encodes one status char per item and counts finishers", () => {

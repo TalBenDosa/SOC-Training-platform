@@ -3,7 +3,7 @@ import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
 import { cleanLine, cleanText, isUuid, sanitizeMemberIds } from "@/lib/plans/sanitize";
-import { fetchAll, loadOrgMembers } from "@/lib/plans/server";
+import { PlanDataError, activeMemberIds, fetchAll, loadOrgMembers, toPlanDataError } from "@/lib/plans/server";
 import { PLAN_LIMITS, type GroupRow } from "@/lib/plans/types";
 
 /**
@@ -13,8 +13,9 @@ import { PLAN_LIMITS, type GroupRow } from "@/lib/plans/types";
  * org_admin only (requireOrgAdmin), every query pinned to the caller's own org
  * from their JWT, and the tenant boundary re-asserted with .eq("org_id") on each
  * statement because the service-role client bypasses RLS. Member ids are only
- * accepted if they are members of THIS org (and the composite FK in 0075 would
- * reject anything else anyway). Writes are audited.
+ * accepted if they are ACTIVE members of THIS org (never invited/removed members
+ * or the platform super-admin; the composite FK in 0075 would reject other orgs
+ * anyway). Writes are audited.
  */
 
 export const runtime = "nodejs";
@@ -33,6 +34,13 @@ async function gate(action: string): Promise<Ctx | { error: NextResponse }> {
 
 const fail = (status: number, error: string) => NextResponse.json({ error }, { status });
 
+/** Generic failure; a schema error (code ahead of migration 0075) is a 503. */
+function dataFail(e: unknown, context: string, message: string) {
+  console.error(`[groups] ${context}:`, e instanceof Error ? e.message : e);
+  if (e instanceof PlanDataError && e.kind === "schema") return fail(503, "Groups aren't available yet. Please try again shortly.");
+  return fail(500, message);
+}
+
 async function readBody(req: Request): Promise<Record<string, unknown> | null> {
   try {
     const b = await req.json();
@@ -40,20 +48,28 @@ async function readBody(req: Request): Promise<Record<string, unknown> | null> {
   } catch { return null; }
 }
 
-/** Ids of this org's members (any status, platform admins excluded). */
+/** Ids of this org's ACTIVE members (platform admins excluded). */
 async function memberIdSet(c: Ctx): Promise<Set<string>> {
-  return new Set((await loadOrgMembers(c.admin, c.orgId)).map(m => m.user_id));
+  return activeMemberIds(await loadOrgMembers(c.admin, c.orgId));
 }
 
-/** Make the group's membership exactly `wanted`: insert the missing, delete the rest. */
-async function syncMembers(c: Ctx, groupId: string, wanted: string[]): Promise<boolean> {
-  const { data: cur, error } = await c.admin.from("org_group_members")
-    .select("user_id").eq("org_id", c.orgId).eq("group_id", groupId);
-  if (error) return false;
-  const have = new Set((cur ?? []).map(r => r.user_id as string));
+/**
+ * Make the group's ACTIVE membership exactly `wanted`: insert the missing,
+ * delete active members who were unticked. Existing members who are currently
+ * inactive aren't offered in the picker, so they are left untouched (they are
+ * back in the group if reactivated; leaving the org removes them via the FK).
+ */
+async function syncMembers(c: Ctx, groupId: string, wanted: string[], activeIds: ReadonlySet<string>): Promise<boolean> {
+  let cur: { user_id: string }[];
+  try {
+    cur = await fetchAll<{ user_id: string }>((from, to) =>
+      c.admin.from("org_group_members").select("user_id").eq("org_id", c.orgId).eq("group_id", groupId)
+        .order("user_id", { ascending: true }).range(from, to), "org_group_members");
+  } catch { return false; }
+  const have = new Set(cur.map(r => r.user_id));
   const want = new Set(wanted);
   const add = wanted.filter(id => !have.has(id));
-  const remove = [...have].filter(id => !want.has(id));
+  const remove = [...have].filter(id => !want.has(id) && activeIds.has(id));
   if (add.length) {
     const { error: e } = await c.admin.from("org_group_members")
       .insert(add.map(user_id => ({ group_id: groupId, user_id, org_id: c.orgId, added_by: c.userId })));
@@ -73,17 +89,25 @@ export async function GET() {
   const c = await gate("org.groups.read");
   if ("error" in c) return c.error;
 
-  const [groupsRes, members] = await Promise.all([
-    c.admin.from("org_groups").select("id, name, description, created_at").eq("org_id", c.orgId).order("name", { ascending: true }),
-    fetchAll<{ group_id: string; user_id: string }>((from, to) =>
-      c.admin.from("org_group_members").select("group_id, user_id").eq("org_id", c.orgId).range(from, to)).catch(() => null),
-  ]);
-  if (groupsRes.error || members === null) return fail(500, "Could not load groups.");
+  let groupRows: { id: string; name: string; description: string | null; created_at: string }[];
+  let members: { group_id: string; user_id: string }[];
+  try {
+    [groupRows, members] = await Promise.all([
+      fetchAll<{ id: string; name: string; description: string | null; created_at: string }>((from, to) =>
+        c.admin.from("org_groups").select("id, name, description, created_at").eq("org_id", c.orgId)
+          .order("name", { ascending: true }).order("id", { ascending: true }).range(from, to), "org_groups"),
+      fetchAll<{ group_id: string; user_id: string }>((from, to) =>
+        c.admin.from("org_group_members").select("group_id, user_id").eq("org_id", c.orgId)
+          .order("group_id", { ascending: true }).order("user_id", { ascending: true }).range(from, to), "org_group_members"),
+    ]);
+  } catch (e) {
+    return dataFail(e, "list", "Could not load groups.");
+  }
 
   const byGroup = new Map<string, string[]>();
   for (const m of members) byGroup.set(m.group_id, [...(byGroup.get(m.group_id) ?? []), m.user_id]);
 
-  const groups: GroupRow[] = (groupsRes.data ?? []).map(g => ({
+  const groups: GroupRow[] = groupRows.map(g => ({
     id: g.id, name: g.name, description: g.description, created_at: g.created_at,
     member_ids: byGroup.get(g.id) ?? [],
   }));
@@ -104,16 +128,18 @@ export async function POST(req: Request) {
   const { count } = await c.admin.from("org_groups").select("id", { count: "exact", head: true }).eq("org_id", c.orgId);
   if ((count ?? 0) >= PLAN_LIMITS.groupsPerOrg) return fail(400, `An organisation can have at most ${PLAN_LIMITS.groupsPerOrg} groups.`);
 
-  const memberIds = sanitizeMemberIds(body.member_ids, await memberIdSet(c));
+  let active: Set<string>;
+  try { active = await memberIdSet(c); } catch (e) { return dataFail(e, "create: members", "Could not create the group."); }
+  const memberIds = sanitizeMemberIds(body.member_ids, active);
 
   const { data, error } = await c.admin.from("org_groups")
     .insert({ org_id: c.orgId, name, description, created_by: c.userId })
     .select("id").single();
   if (error) {
     if (error.code === "23505") return fail(409, "A group with that name already exists.");
-    return fail(500, "Could not create the group.");
+    return dataFail(toPlanDataError(error, "create"), "create", "Could not create the group.");
   }
-  if (memberIds.length && !(await syncMembers(c, data.id, memberIds))) {
+  if (memberIds.length && !(await syncMembers(c, data.id, memberIds, active))) {
     return fail(500, "The group was created, but its members could not be saved.");
   }
 
@@ -145,14 +171,16 @@ export async function PATCH(req: Request) {
     const { error } = await c.admin.from("org_groups").update(patch).eq("id", id).eq("org_id", c.orgId);
     if (error) {
       if (error.code === "23505") return fail(409, "A group with that name already exists.");
-      return fail(500, "Could not update the group.");
+      return dataFail(toPlanDataError(error, "update"), "update", "Could not update the group.");
     }
   }
 
   let members: number | undefined;
   if ("member_ids" in body) {
-    const memberIds = sanitizeMemberIds(body.member_ids, await memberIdSet(c));
-    if (!(await syncMembers(c, id, memberIds))) return fail(500, "Could not update the group's members.");
+    let active: Set<string>;
+    try { active = await memberIdSet(c); } catch (e) { return dataFail(e, "update: members", "Could not update the group's members."); }
+    const memberIds = sanitizeMemberIds(body.member_ids, active);
+    if (!(await syncMembers(c, id, memberIds, active))) return fail(500, "Could not update the group's members.");
     members = memberIds.length;
   }
 
@@ -168,7 +196,7 @@ export async function DELETE(req: Request) {
   if (!isUuid(id)) return fail(400, "id is required.");
 
   const { data, error } = await c.admin.from("org_groups").delete().eq("id", id).eq("org_id", c.orgId).select("id");
-  if (error) return fail(500, "Could not delete the group.");
+  if (error) return dataFail(toPlanDataError(error, "delete"), "delete", "Could not delete the group.");
   if (!data || data.length === 0) return fail(404, "No such group in your organisation.");
 
   await logAudit({ actorId: c.userId, action: "org.groups.delete", targetTable: "org_groups", targetId: id, metadata: { orgId: c.orgId } });

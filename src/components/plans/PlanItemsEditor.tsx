@@ -1,7 +1,9 @@
 "use client";
 /**
  * The centre column of the learning-plan editors: the items ticked in the
- * module tree, in the order learners will see them. Reorder by drag or ↑/↓,
+ * module tree, in the order learners will see them. Reorder by dragging the
+ * grip handle (only the handle is draggable, so the note field stays a normal
+ * text input) or with ↑/↓,
  * set a per-item priority (High / Normal / Low) and an optional note (≤300
  * chars, e.g. "focus on the Kerberos section"). Presentation only — the server
  * re-validates every id, priority and note on save.
@@ -12,21 +14,6 @@ import {
   DEFAULT_PRIORITY, PLAN_LIMITS, PRIORITY_LABEL, itemKey,
   type CatalogNode, type ItemStatus, type PlanItem, type Priority,
 } from "@/lib/plans/types";
-
-/** Add (in tree order, appended) or remove the given leaf keys from `items`. */
-export function applyToggle(items: PlanItem[], keys: string[], select: boolean, leaves: Map<string, CatalogNode>): PlanItem[] {
-  if (!select) {
-    const drop = new Set(keys);
-    return items.filter(i => !drop.has(itemKey(i)));
-  }
-  const have = new Set(items.map(itemKey));
-  const add: PlanItem[] = [];
-  for (const k of keys) {
-    const leaf = leaves.get(k);
-    if (leaf?.item && !have.has(k)) { add.push({ kind: leaf.item.kind, id: leaf.item.id }); have.add(k); }
-  }
-  return [...items, ...add].slice(0, PLAN_LIMITS.items);
-}
 
 export const KIND_LABEL: Record<string, string> = { room: "room", scenario: "scenario", lesson: "lesson", quiz: "quiz" };
 
@@ -84,15 +71,27 @@ export function PlanItemsEditor({
         return (
           <li
             key={key}
-            draggable
-            onDragStart={() => setDragFrom(i)}
-            onDragOver={e => e.preventDefault()}
+            onDragOver={e => { if (dragFrom !== null) e.preventDefault(); }}
             onDrop={() => { if (dragFrom !== null) move(dragFrom, i); setDragFrom(null); }}
             onDragEnd={() => setDragFrom(null)}
             className={`rounded-md border px-2 py-1.5 transition ${dragFrom === i ? "border-cyber-500/50 opacity-60" : "border-border/60 bg-bg-elevated"}`}
           >
             <div className="flex items-center gap-1.5">
-              <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-slate-600" aria-hidden />
+              <span
+                draggable
+                onDragStart={e => {
+                  setDragFrom(i);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", key);
+                  const row = e.currentTarget.closest("li");
+                  if (row) e.dataTransfer.setDragImage(row, 12, 12);
+                }}
+                onDragEnd={() => setDragFrom(null)}
+                title="Drag to reorder"
+                className="shrink-0 cursor-grab active:cursor-grabbing"
+              >
+                <GripVertical className="h-3.5 w-3.5 text-slate-600" aria-hidden />
+              </span>
               <span className="w-5 shrink-0 text-right font-mono text-[10px] text-slate-500">{i + 1}</span>
               {statuses && <StatusIcon status={statuses[key]} />}
               <span className="min-w-0 flex-1 truncate text-[12px] text-slate-100" title={leaf?.label ?? it.id}>{leaf?.label ?? it.id}</span>

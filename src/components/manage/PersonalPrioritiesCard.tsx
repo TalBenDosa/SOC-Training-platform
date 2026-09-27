@@ -14,14 +14,17 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ListChecks, Loader2, Save, Clock, CalendarClock } from "lucide-react";
 import { ModuleTree, indexLeaves } from "@/components/plans/ModuleTree";
-import { PlanItemsEditor, StatusIcon, applyToggle } from "@/components/plans/PlanItemsEditor";
+import { PlanItemsEditor, StatusIcon } from "@/components/plans/PlanItemsEditor";
+import { applyToggle, capNotice } from "@/lib/plans/selection";
 import { PriorityChip } from "@/components/manage/LearningPlansPanel";
 import { countDone } from "@/lib/plans/completion";
-import { PLAN_LIMITS, itemKey, type CatalogNode, type ItemStatus, type PlanItem } from "@/lib/plans/types";
+import { PLAN_LIMITS, formatDueDate, itemKey, type CatalogNode, type ItemStatus, type PlanItem } from "@/lib/plans/types";
 import type { PersonalPlanResponse } from "@/app/api/org/students/[id]/plan/route";
 
 export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: string; studentName: string }) {
   const [tree, setTree] = useState<CatalogNode[] | null>(null);
+  const [treeError, setTreeError] = useState(false);
+  const [capMsg, setCapMsg] = useState<string | null>(null);
   const [data, setData] = useState<PersonalPlanResponse | null>(null);
   const [items, setItems] = useState<PlanItem[]>([]);
   const [instructions, setInstructions] = useState("");
@@ -32,9 +35,14 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
   const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [cRes, pRes] = await Promise.all([fetch("/api/org/catalog"), fetch(`/api/org/students/${studentId}/plan`)]);
-    if (cRes.ok) setTree((await cRes.json()).tree ?? []);
-    if (!pRes.ok) { setError((await pRes.json().catch(() => ({})))?.error ?? "Could not load the learner's plan."); return; }
+    setError(null); setTreeError(false);
+    const [cRes, pRes] = await Promise.all([
+      fetch("/api/org/catalog").catch(() => null),
+      fetch(`/api/org/students/${studentId}/plan`).catch(() => null),
+    ]);
+    if (cRes?.ok) setTree((await cRes.json()).tree ?? []);
+    else setTreeError(true);
+    if (!pRes?.ok) { setError((await pRes?.json().catch(() => ({})))?.error ?? "Could not load the learner's plan."); return; }
     const d: PersonalPlanResponse = await pRes.json();
     setData(d);
     setItems((d.personal?.items ?? []).map(({ kind, id, priority, note }) => ({ kind, id, ...(priority ? { priority } : {}), ...(note ? { note } : {}) })));
@@ -55,7 +63,12 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
     return m;
   }, [data]);
 
-  function change(next: PlanItem[]) { setItems(next); setDirty(true); setNotice(null); }
+  function change(next: PlanItem[]) { setItems(next); setDirty(true); setNotice(null); setCapMsg(null); }
+  function toggleKeys(keys: string[], sel: boolean) {
+    const r = applyToggle(items, keys, sel, leaves);
+    change(r.items);
+    setCapMsg(capNotice(r.dropped));
+  }
 
   async function save() {
     setBusy(true); setError(null);
@@ -85,13 +98,19 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
       {error && <p className="mt-2 text-xs text-severity-high">{error}</p>}
       {notice && !error && <p className="mt-2 text-xs text-neon-green">{notice}</p>}
 
-      {!data || !tree ? (
+      {(treeError || (error && !data)) ? (
+        <div className="mt-3 flex items-center gap-3 rounded-lg border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
+          {treeError ? "Could not load the module catalogue." : "Could not load this learner's plan."}
+          <Button variant="outline" size="sm" onClick={load}>Retry</Button>
+        </div>
+      ) : !data || !tree ? (
         <div className="mt-3 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
       ) : (
         <>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <ModuleTree tree={tree} selected={selected} onToggle={(keys, sel) => change(applyToggle(items, keys, sel, leaves))} className="h-[380px]" />
+            <ModuleTree tree={tree} selected={selected} onToggle={toggleKeys} className="h-[380px]" />
             <div className="flex min-w-0 flex-col gap-2">
+              {capMsg && <p className="rounded border border-neon-amber/40 bg-neon-amber/10 px-2 py-1 text-[11px] text-neon-amber">{capMsg}</p>}
               <PlanItemsEditor items={items} leaves={leaves} onChange={change} statuses={statuses} className="h-[270px]" />
               <textarea
                 value={instructions} onChange={e => { setInstructions(e.target.value); setDirty(true); }} maxLength={PLAN_LIMITS.instructions} rows={2}
@@ -124,7 +143,7 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
                         <PriorityChip p={p.priority} />
                         <span className="text-[11px] text-slate-500">via {p.via.join(", ")}</span>
                         {p.due_at && (
-                          <span className="text-[11px] text-slate-400"><CalendarClock className="mr-1 inline h-3 w-3" />{new Date(p.due_at).toLocaleDateString("en-GB")}</span>
+                          <span className="text-[11px] text-slate-400"><CalendarClock className="mr-1 inline h-3 w-3" />{formatDueDate(p.due_at)}</span>
                         )}
                         <span className="ml-auto font-mono text-[11px] text-slate-400">{c.done}/{c.tracked}</span>
                       </div>
