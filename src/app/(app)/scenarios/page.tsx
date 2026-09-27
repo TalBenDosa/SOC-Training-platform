@@ -9,6 +9,8 @@ import { getRoomProgress, getScenarioHistory } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import { SCENARIO_PREP } from "@/lib/scenarios/prep";
 import { ROOMS_META } from "@/data/roomsMeta";
+import { AssignedChip } from "@/components/plans/AssignedChip";
+import { useAssignedItems } from "@/lib/plans/useAssigned";
 import {
   Sparkles, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
   BotIcon, EyeOff, GraduationCap, Target, ArrowRight,
@@ -72,6 +74,8 @@ export default function ScenariosPage() {
   const [doneRooms, setDoneRooms] = useState<Set<string>>(new Set());
   // FB-006: best score per completed scenario slug, so the list can mark what's done.
   const [bestScore, setBestScore] = useState<Record<string, number>>({});
+  // "Assigned" chips (one cached request); empty for solo learners.
+  const assigned = useAssignedItems();
 
   useEffect(() => {
     try {
@@ -161,6 +165,7 @@ export default function ScenariosPage() {
                 subtitle={s.summary}
                 cornerBadge={
                   <div className="flex items-center gap-2">
+                    <AssignedChip info={assigned[`scenario:${s.slug}`]} className="backdrop-blur-sm" />
                     {bestScore[s.slug] !== undefined && (
                       <span className="rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase text-neon-green">✓ Completed{bestScore[s.slug] > 0 ? ` · ${bestScore[s.slug]}%` : ""}</span>
                     )}
@@ -201,6 +206,7 @@ export default function ScenariosPage() {
               subtitle={s.briefing}
               cornerBadge={
                 <div className="flex items-center gap-2">
+                  <AssignedChip info={assigned[`scenario:${s.scenario_id}`]} className="backdrop-blur-sm" />
                   {bestScore[s.scenario_id!] !== undefined && (
                     <span className="rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase text-neon-green">✓ Completed</span>
                   )}

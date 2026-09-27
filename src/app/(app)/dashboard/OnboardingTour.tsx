@@ -223,6 +223,7 @@ function TourCard({
         exit={   { opacity: 0, y: 4 }}
         transition={{ type: "spring", damping: 24, stiffness: 300 }}
         style={{ ...DOCK_STYLE, zIndex: 60 }}
+        data-blocks-announcements
         className="fixed flex flex-col"
       >
         <div className="flex flex-col rounded-2xl border border-cyber-500/30 bg-[#07111f] shadow-2xl shadow-black/70 overflow-hidden max-h-full">

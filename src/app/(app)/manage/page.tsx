@@ -17,7 +17,8 @@ import {
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 import type { StudentRow } from "@/app/api/org/analytics/route";
 import { cohortPathProgress, studentPathPercent } from "@/lib/org/pathProgress";
-import { AssignmentsPanel } from "@/components/manage/AssignmentsPanel";
+import { LearningPlansPanel } from "@/components/manage/LearningPlansPanel";
+import { GroupsPanel } from "@/components/manage/GroupsPanel";
 import { MediaPanel } from "@/components/manage/MediaPanel";
 import { ContentAuthoringPanel } from "@/components/manage/ContentAuthoringPanel";
 
@@ -81,6 +82,9 @@ export default function ManagePage() {
   const [classCode, setClassCode] = useState<{ code: string; expires_at: string } | null>(null);
   const [codeNextAt, setCodeNextAt] = useState<string | null>(null);
   const [codeBusy, setCodeBusy] = useState(false);
+
+  // Bumped by the Groups panel so the Learning plans recipients picker refetches.
+  const [groupsRev, setGroupsRev] = useState(0);
 
   async function load() {
     setError(null);
@@ -455,7 +459,9 @@ export default function ManagePage() {
               </Card>
             )}
 
-            <AssignmentsPanel />
+            <LearningPlansPanel members={members} groupsRev={groupsRev} />
+
+            <GroupsPanel members={members} onChanged={() => setGroupsRev(r => r + 1)} />
 
             <MediaPanel />
 

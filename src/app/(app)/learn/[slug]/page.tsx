@@ -7,6 +7,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Circle, PlayCircle } from "lucide-react";
 import { LESSON_PATHS } from "@/lib/lessons/paths";
+import { AssignedCount, AssignedItemChip } from "@/components/plans/AssignedChip";
 
 const kindLabel: Record<string, string> = {
   lesson:     "lesson",
@@ -29,6 +30,10 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
 
   const totalLessons = path.modules.reduce((n, m) => n + m.lessons.length, 0);
   const totalXp      = path.modules.reduce((n, m) => n + m.lessons.reduce((x, l) => x + l.xp, 0), 0);
+  // Plan item keys of this path's lessons (same "{path}--{lesson}" id the
+  // learning-plan catalogue uses), for the "Assigned" count + chips.
+  const lessonKey = (lessonSlug: string) => `lesson:${path.slug}--${lessonSlug}`;
+  const allKeys = path.modules.flatMap(m => m.lessons.map(l => lessonKey(l.slug)));
 
   // No fabricated progress: there is no lesson-progress store yet, and this is a
   // server component that can't read client state anyway. Showing a made-up
@@ -44,9 +49,13 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
       />
       <div className="container mx-auto max-w-4xl px-6 py-6 space-y-4">
         {/* Honest path summary — the Topbar already carries the lesson/XP totals. */}
-        <p className="rounded-lg border border-border bg-bg-elevated px-5 py-3 text-sm text-slate-400">
-          {totalLessons} lessons · {totalXp.toLocaleString()} XP available. Work through the modules in order — start with the first lesson below.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-bg-elevated px-5 py-3">
+          <p className="text-sm text-slate-400">
+            {totalLessons} lessons · {totalXp.toLocaleString()} XP available. Work through the modules in order — start with the first lesson below.
+          </p>
+          {/* Client island: renders only when the learner's plans include lessons here. */}
+          <AssignedCount itemKeys={allKeys} />
+        </div>
 
         {path.modules.map((m, mi) => (
           <Card key={m.slug}>
@@ -71,6 +80,7 @@ export default async function PathDetail({ params }: { params: Promise<{ slug: s
                         ? <PlayCircle className="h-4 w-4 shrink-0 text-cyber-300" />
                         : <Circle className="h-4 w-4 shrink-0 text-slate-400" />}
                       <span className="truncate text-slate-200">{l.title}</span>
+                      <AssignedItemChip itemKey={lessonKey(l.slug)} />
                       <span className={cn("rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-widest shrink-0", kindColor[l.kind])}>
                         {kindLabel[l.kind]}
                       </span>

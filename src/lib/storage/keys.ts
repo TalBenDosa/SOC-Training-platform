@@ -33,6 +33,13 @@ export const LEARNER_KEYS = {
   streakFreezes: "soc_streak_freeze_dates",
   /** Bookkeeping for the last dashboard session (JSON). */
   lastSession: "soc_last_session",
+  /** ISO date[] of standalone-quiz completions (JSON) — streak signal. Hydrated
+   *  from quiz_progress (server-written by /api/quizzes/[slug]/finish); cache-only
+   *  on the client, never persisted by remoteBackend. */
+  quizActivity: "soc_quiz_activity",
+  /** ISO date[] of lesson completions (JSON) — streak signal. Hydrated from
+   *  lesson_progress (server-written by /api/lessons/[slug]/complete). */
+  lessonActivity: "soc_lesson_activity",
 } as const;
 
 /**

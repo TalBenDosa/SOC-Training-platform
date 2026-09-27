@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { resolveGeneratedLesson } from "@/lib/lessons/lessonContent";
+import { resolveGeneratedLesson, parseLessonSlug } from "@/lib/lessons/lessonContent";
+import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 
@@ -23,6 +25,12 @@ export const runtime = "nodejs";
  * (progress is client-side, grading has no user-specific side effect), and the
  * edge middleware already default-denies anonymous callers in production. This
  * keeps local/no-Supabase dev working.
+ *
+ * LESSON XP (migration 0074): when a SIGNED-IN learner passes, the pass is
+ * recorded server-side (record_lesson_quiz_pass). That recorded pass is what
+ * POST /api/lessons/[slug]/complete requires before it credits the lesson's XP,
+ * so a client can't claim a lesson it never passed. `saved` tells the reader
+ * whether the pass was recorded (null for guests).
  */
 export async function POST(
   req: Request,
@@ -63,11 +71,31 @@ export async function POST(
   const correct = results.filter(r => r.correct).length;
   const score = total > 0 ? Math.round((correct / total) * 100) : 0;
 
+  const passed = score >= 70;
+
+  let saved: boolean | null = null;
+  if (passed) {
+    const user = await getAuthedUser();
+    const admin = user ? getSupabaseAdminClient() : null;
+    const parsed = parseLessonSlug(raw);
+    if (user && admin && parsed) {
+      const { error } = await admin.rpc("record_lesson_quiz_pass", {
+        p_user: user.id,
+        p_key: `${parsed.pathSlug}--${parsed.lessonSlug}`,
+        p_org: user.orgId ?? null,
+        p_pct: score,
+      });
+      if (error) console.error("[lesson quiz grade] record_lesson_quiz_pass failed:", error.message);
+      saved = !error;
+    }
+  }
+
   return NextResponse.json({
     results,
     correct,
     total,
     score,
-    passed: score >= 70,
+    passed,
+    saved,
   });
 }

@@ -1,11 +1,21 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Topbar } from "@/components/nav/Topbar";
 import type { Quiz } from "@/lib/quizzes/data";
 import { type ClientQuiz, sanitizeQuizQuestion } from "@/lib/quizzes/sanitize";
+import { addTotalXp, setTotalXp, recordQuizActivity } from "@/lib/storage/progress";
+
+// Guests (no account) keep their best-per-quiz locally so retries don't farm XP.
+const GUEST_QUIZ_BEST_KEY = "soc_quiz_best_local";
+
+// Result of crediting the finished quiz to the overall score.
+type SaveState =
+  | { status: "idle" | "saving" }
+  | { status: "saved"; delta: number; bestXp: number }
+  | { status: "error" };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,6 +97,8 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
   const [elapsed, setElapsed]     = useState(0);
+  const [save, setSave] = useState<SaveState>({ status: "idle" });
+  const savingRef = useRef(false);
 
   const question   = quiz.questions[current];
   const qState     = stateMap[question?.id] ?? { selected: null, revealed: false };
@@ -142,11 +154,59 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
     }
   };
 
+  // ── credit the finished quiz to the overall score ─────────────
+  // Signed-in: the server re-grades the confirmed answers and records the BEST
+  // attempt (profiles.xp is server-authoritative), returning the new total.
+  // Guest / no-Supabase: keep a local best and add only the improvement.
+  const creditQuiz = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSave({ status: "saving" });
+    const answers: Record<string, number> = {};
+    for (const q of quiz.questions) {
+      const s = stateMap[q.id];
+      if (s?.revealed && s.selected !== null) answers[q.id] = s.selected;
+    }
+    try {
+      const res = await fetch(`/api/quizzes/${encodeURIComponent(slug)}/finish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        recordQuizActivity(); // streak signal (quiz_progress.last_completed_at on the server)
+        if (typeof data.totalXp === "number") setTotalXp(data.totalXp);
+        else if (data.delta > 0) addTotalXp(data.delta);
+        setSave({ status: "saved", delta: data.delta ?? 0, bestXp: data.bestXp ?? 0 });
+      } else if (data?.guest) {
+        recordQuizActivity();
+        let best: Record<string, number> = {};
+        try { best = JSON.parse(localStorage.getItem(GUEST_QUIZ_BEST_KEY) ?? "{}"); } catch { /* blocked/malformed */ }
+        const prev = best[slug] ?? 0;
+        const delta = Math.max(0, xpEarned - prev);
+        if (delta > 0) {
+          best[slug] = xpEarned;
+          try { localStorage.setItem(GUEST_QUIZ_BEST_KEY, JSON.stringify(best)); } catch { /* blocked */ }
+          addTotalXp(delta);
+        }
+        setSave({ status: "saved", delta, bestXp: Math.max(prev, xpEarned) });
+      } else {
+        setSave({ status: "error" });
+      }
+    } catch {
+      setSave({ status: "error" });
+    } finally {
+      savingRef.current = false;
+    }
+  };
+
   // ── next / finish ─────────────────────────────────────────────
   const handleNext = () => {
     if (isLast) {
       setElapsed(Math.round((Date.now() - startTime) / 1000));
       setPhase("complete");
+      void creditQuiz();
     } else {
       setCurrent(c => c + 1);
     }
@@ -158,6 +218,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
     setResults({});
     setGradeError(null);
     setCurrent(0);
+    setSave({ status: "idle" });
     setPhase("idle");
   };
 
@@ -229,6 +290,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
                 "Confirm your answer to reveal the explanation",
                 "You cannot change an answer after confirming",
                 "XP is awarded only for correct answers",
+                "Your best attempt counts toward your overall score",
               ].map((rule, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
                   <span className="mt-0.5 font-mono text-cyber-300/60 shrink-0">{i + 1}.</span>
@@ -274,6 +336,20 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
               </h2>
               <p className="text-sm text-slate-400">
                 {correctCount}/{totalQ} correct · {formatTime(elapsed)} · +{xpEarned} XP earned
+              </p>
+              {/* Whether (and how much of) this attempt reached the overall score */}
+              <p aria-live="polite" className={cn("mt-1.5 text-xs",
+                save.status === "error" ? "text-severity-high" : save.status === "saved" && save.delta > 0 ? "text-neon-green" : "text-slate-400")}>
+                {save.status === "saving" && "Saving to your overall score…"}
+                {save.status === "saved" && save.delta > 0 && `✓ +${save.delta} XP added to your overall score`}
+                {save.status === "saved" && save.delta === 0 && (xpEarned > 0
+                  ? `Your best on this quiz (${save.bestXp} XP) already counts — beat it to earn more.`
+                  : "No XP this time — correct answers earn XP.")}
+                {save.status === "error" && (
+                  <>Couldn&apos;t save to your overall score.{" "}
+                    <button onClick={() => void creditQuiz()} className="underline hover:text-white">Try again</button>
+                  </>
+                )}
               </p>
               {passed ? (
                 <div className="mt-3 inline-flex items-center gap-1.5 rounded border border-neon-green/30 bg-neon-green/10 px-3 py-1 text-xs font-semibold text-neon-green">

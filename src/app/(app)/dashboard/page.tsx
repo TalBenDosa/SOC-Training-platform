@@ -25,6 +25,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicContent";
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
+import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
@@ -117,7 +118,8 @@ const WELCOME_KEY = "soc_welcome_seen_v1";
 function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeTour: () => void }) {
   return (
     // Overlay is fixed and scrollable so the card never pushes the page (no jump).
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
+    // data-blocks-announcements: the plan-announcement popup waits until this closes.
+    <div data-blocks-announcements className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
       {/* Card is capped at viewport height and scrolls internally if needed. */}
       <div className="relative w-full max-w-[30rem] max-h-[86vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl shadow-black/60">
 
@@ -1065,6 +1067,10 @@ export default function DashboardPage() {
             </button>
           </div>
         )}
+
+        {/* The learner's plan from their organisation, compact: the next few
+            open items with a toggle for the full plan. Nothing for solo learners. */}
+        <MyLearningPlan compact />
 
         {/* Session status bar — one compact row instead of the old KPI grid + XP banner */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-bg-elevated px-5 py-3">

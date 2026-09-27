@@ -151,3 +151,51 @@ export function lapsedNudgeEmail(args: {
 
   return { subject: `Your SOC training is waiting — ${daysAway} days idle`, html, text };
 }
+
+/** Escape text for an HTML email body (plan titles are manager-authored). */
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/** One line of plain text: control characters out, whitespace collapsed, clipped. */
+function oneLine(s: string | null | undefined, max: number): string {
+  // eslint-disable-next-line no-control-regex
+  const t = (s ?? "").replace(/[\u0000-\u001F\u007F]+/g, " ").replace(/\s{2,}/g, " ").trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+export type PlanEmailKind = "plan_assigned" | "plan_updated" | "personal_plan";
+
+/**
+ * Sent (only when the manager ticks "Also email recipients") alongside the
+ * in-app notification for a learning plan. Deliberately minimal:
+ *  - the SUBJECT is fixed text (plus the org's name, which the platform admin
+ *    set at provisioning) — never org-admin free text;
+ *  - the plan title appears only in the escaped body, clipped to 80 chars;
+ *  - no item titles or notes — the plan card in the app is the source of truth.
+ */
+export function planNotificationEmail(args: { kind: PlanEmailKind; planTitle: string; orgName?: string | null; link: string }): {
+  subject: string; html: string; text: string;
+} {
+  const org = oneLine(args.orgName, 60);
+  const plan = oneLine(args.planTitle, 80);
+  const subject = args.kind === "plan_assigned"
+    ? (org ? `New learning plan from ${org}` : "You have a new learning plan")
+    : args.kind === "plan_updated"
+      ? "Your learning plan was updated"
+      : "Your personal priorities were updated";
+  const lead = args.kind === "plan_assigned"
+    ? "You've been assigned a new learning plan"
+    : args.kind === "plan_updated"
+      ? "New items were added to your learning plan"
+      : "Your training administrator updated your personal priorities";
+  const named = args.kind !== "personal_plan" && plan;
+  const html = shell(
+    esc(subject),
+    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">${esc(lead)}${named ? `: <strong>${esc(plan)}</strong>` : ""}.</p>
+     <p style="margin:0 0 4px;">${button(esc(args.link), "Open my learning plan")}</p>
+     <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">You're receiving this because your training administrator${org ? ` at ${esc(org)}` : ""} assigned you work on HACK THE SOC. You'll also find it under the bell in the app.</p>`,
+  );
+  const text = `${lead}${named ? `: ${plan}` : ""}.\n\nOpen your learning plan: ${args.link}\n\nYou're receiving this because your training administrator${org ? ` at ${org}` : ""} assigned you work on HACK THE SOC.`;
+  return { subject, html, text };
+}

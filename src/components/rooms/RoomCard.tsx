@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Lock, CheckCircle2, Clock, Zap, RotateCcw } from "lucide-react";
 import type { RoomMeta } from "@/data/roomsMeta";
 import { ROOMS_META } from "@/data/roomsMeta";
+import { AssignedChip } from "@/components/plans/AssignedChip";
+import type { AssignedInfo } from "@/lib/plans/assigned";
 
 interface RoomCardProps {
   room: RoomMeta;
@@ -14,6 +16,8 @@ interface RoomCardProps {
   } | null;
   locked: boolean;
   onClick: () => void;
+  /** Set when the room is in one of the learner's plans ("Assigned" chip). */
+  assigned?: AssignedInfo | null;
 }
 
 function difficultyBorder(d: RoomMeta["difficulty"]): string {
@@ -43,7 +47,7 @@ function iconBg(d: RoomMeta["difficulty"]): string {
   }
 }
 
-export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
+export function RoomCard({ room, progress, locked, onClick, assigned }: RoomCardProps) {
   const totalTasks      = room.tasks.length;
   const completedCount  = progress ? progress.completedTaskIds.length : 0;
   const isCompleted     = !!progress?.completedAt;
@@ -97,6 +101,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
           {room.icon}
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          <AssignedChip info={assigned} className="px-2 text-[10px]" />
           {isCompleted && (
             <span className="inline-flex items-center gap-1 rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neon-green">
               <CheckCircle2 className="h-3 w-3" />

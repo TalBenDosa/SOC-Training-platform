@@ -12,38 +12,31 @@ import {
   getDashboardSessions,
   getRoomProgress,
   getStreakFreezeDates,
+  getQuizActivityDates,
+  getLessonActivityDates,
   XP_CHANGED_EVENT,
 } from "@/lib/storage/progress";
-
-/** Consecutive-day streak ending today (or yesterday) from activity dates.
- *  Identical logic to progress/page.tsx computeStreak — keep them in sync. */
-function computeStreak(dates: string[]): number {
-  if (dates.length === 0) return 0;
-  const daySet = new Set(dates.map(d => new Date(d).toDateString()));
-  let streak = 0;
-  const cursor = new Date();
-  // Alive if the last activity was yesterday (grace period).
-  if (!daySet.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
-  while (daySet.has(cursor.toDateString())) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
+import { computeStreak, collectActivityDates } from "./streak";
 
 function gatherActivityDates(): string[] {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  const freezes = getStreakFreezeDates().filter(d => new Date(d).getTime() >= cutoff);
+  const freezeDates = getStreakFreezeDates().filter(d => new Date(d).getTime() >= cutoff);
   let roomDates: string[] = [];
   try {
     const rp = getRoomProgress() as Record<string, { completedAt?: string }>;
     roomDates = Object.values(rp).map(r => r.completedAt).filter((d): d is string => !!d);
   } catch { /* ignore corrupt data */ }
   let scenarioDates: string[] = [];
-  let dashDates: string[] = [];
+  let dashboardDates: string[] = [];
+  let quizDates: string[] = [];
+  let lessonDates: string[] = [];
   try { scenarioDates = getScenarioHistory().map(s => s.date); } catch { /* ignore */ }
-  try { dashDates = getDashboardSessions().map(s => s.date); } catch { /* ignore */ }
-  return [...scenarioDates, ...dashDates, ...roomDates, ...freezes];
+  try { dashboardDates = getDashboardSessions().map(s => s.date); } catch { /* ignore */ }
+  // Quizzes and lessons are recorded server-side now (0070 / 0074), so they
+  // count toward the streak like rooms and scenarios.
+  try { quizDates = getQuizActivityDates(); } catch { /* ignore */ }
+  try { lessonDates = getLessonActivityDates(); } catch { /* ignore */ }
+  return collectActivityDates({ scenarioDates, dashboardDates, roomDates, quizDates, lessonDates, freezeDates });
 }
 
 export interface StreakState {

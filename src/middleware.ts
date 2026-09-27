@@ -40,7 +40,17 @@ const EXPENSIVE = [
   "/api/org/content", // per-org authoring writes — content jsonb, tight limit
 ];
 
+// Cheap, non-LLM lesson endpoints under the paid /api/lessons/ prefix: per-question
+// knowledge-check grading and lesson completion. Counting them against the 10/min
+// "expensive" budget meant one lesson (load + N graded questions + complete) could
+// hit 429 — and a whole class behind one office IP shares that budget — so the pass
+// was never recorded and the lesson's XP never credited.
+function isCheapLessonCall(pathname: string): boolean {
+  return pathname.startsWith("/api/lessons/") && (pathname.endsWith("/quiz/grade") || pathname.endsWith("/complete"));
+}
+
 function isExpensive(pathname: string): boolean {
+  if (isCheapLessonCall(pathname)) return false;
   if (EXPENSIVE.some(p => pathname.startsWith(p))) return true;
   // Per-scenario grading is also an LLM call.
   if (pathname.startsWith("/api/scenarios/") && pathname.endsWith("/grade")) return true;

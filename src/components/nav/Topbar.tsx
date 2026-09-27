@@ -1,11 +1,18 @@
 "use client";
 
-// Note: this Topbar intentionally has no search box, notification bell, or
-// "threat level" icon. All three used to render here but did nothing when
-// clicked/typed into (a decorative control that never responds trains users
-// to distrust the rest of the UI's feedback) — see PLATFORM_REVIEW.md P2.2.
-// Any page that genuinely needs search has its own working search field
-// (e.g. the Dashboard's live event feed).
+// Note: this Topbar intentionally has no search box or "threat level" icon.
+// Both used to render here but did nothing when clicked/typed into (a
+// decorative control that never responds trains users to distrust the rest of
+// the UI's feedback) — see PLATFORM_REVIEW.md P2.2. Any page that genuinely
+// needs search has its own working search field (e.g. the Dashboard's live
+// event feed).
+//
+// The notification bell was removed for the same reason, and is BACK only
+// because it is now real (NotificationBell, migration 0076): it shows the
+// learner's actual unread count, lists their notifications (a learning plan
+// assigned or updated, personal priorities changed), marks them read and
+// navigates on click, and polls every 60 s + on focus. It hides itself for
+// guests and users without an organisation rather than render an empty control.
 //
 // The identity chip used to be hardcoded: every learner, including one who had
 // registered thirty seconds earlier, was shown "Analyst / tier-2". A rank
@@ -22,6 +29,7 @@ import { useRank } from "@/lib/progression/useRank";
 import { useStreak } from "@/lib/progression/useStreak";
 import { initialFor } from "@/lib/progression/ranks";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/nav/NotificationBell";
 
 export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: string; actions?: React.ReactNode }) {
   const { user } = useAuth();
@@ -94,6 +102,9 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
               <span className="text-xs font-bold tabular-nums">{streak}</span>
             </Link>
           )}
+          {/* Real notifications (plans assigned / updated). Renders nothing for
+              guests and users without an org. */}
+          <NotificationBell />
           <span
             className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-1.5"
             title={tooltip}

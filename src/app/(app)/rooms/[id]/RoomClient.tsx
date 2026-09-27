@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import type { SanitizedRoom as Room, SanitizedRoomTask as RoomTask } from "@/lib/rooms/sanitize";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
-import { addTotalXp, getRoomProgress, saveRoomProgress } from "@/lib/storage/progress";
+import { addTotalXp, getRoomProgress, saveRoomProgress, PROGRESS_HYDRATED_EVENT } from "@/lib/storage/progress";
+import { mergeRoomEntry, mergeTaskXpMax, roomScoreXp } from "@/lib/rooms/progressMerge";
 import { recommendNextRoom } from "@/lib/rooms/recommend";
 import { ReportIssue } from "@/components/feedback/ReportIssue";
 
@@ -107,47 +108,121 @@ export function RoomClient({ room }: RoomClientProps) {
   const [mounted, setMounted]                   = useState(false);
 
   const maxXp   = maxRoomXp(room);
-  const scorePct = maxXp > 0 ? Math.round((totalXpEarned / maxXp) * 100) : 100;
+  // Max XP per GRADEABLE task — the 65% gate counts only these. Reading tasks'
+  // engagement XP lives in perTaskXp too (so it's stored and survives a reload),
+  // but must not help pass a room.
+  const gradeableMax = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const t of room.tasks) { const mx = taskMaxXp(t); if (mx > 0) m[t.id] = mx; }
+    return m;
+  }, [room]);
+  const scoreXp  = roomScoreXp({ xpEarned: totalXpEarned, perTaskXp }, gradeableMax);
+  const scorePct = maxXp > 0 ? Math.round((scoreXp / maxXp) * 100) : 100;
+
+  // Tasks finished during THIS visit. If the remote backend hydrates after we
+  // mounted (hard reload / new tab), these are merged into the server entry
+  // instead of being lost — and the empty pre-hydrate state is never saved.
+  const sessionRef = useRef<{ ids: Set<string>; xp: Record<string, number>; telemetry: TaskTelemetryEntry[] }>({
+    ids: new Set(), xp: {}, telemetry: [],
+  });
+
+  /** Put a stored entry on screen (resume point, completion / failure screen).
+   *  No entry = a fresh room (resets whatever the pre-hydrate read showed). */
+  const applyEntry = useCallback((entry: RoomProgressEntry | undefined) => {
+    if (!entry) {
+      setCompletedTaskIds(new Set());
+      setTotalXpEarned(0);
+      setPerTaskXp({});
+      setTelemetry([]);
+      setShowCompletion(false);
+      setShowFailure(false);
+      setCurrentTaskIndex(0);
+      return;
+    }
+    const ids = new Set<string>(entry.completedTaskIds);
+    setCompletedTaskIds(ids);
+    setTotalXpEarned(entry.xpEarned);
+    setPerTaskXp(entry.perTaskXp ?? {});
+    setTelemetry(entry.telemetry ?? []);
+    setShowCompletion(false);
+    setShowFailure(false);
+    if (entry.completedAt) {
+      setShowCompletion(true);
+    } else if (room.tasks.every(t => ids.has(t.id))) {
+      // Every task was done in a prior attempt but it never earned
+      // completedAt. Re-derive pass/fail from the actual score rather than
+      // assuming — completedAt is only missing when a prior run failed,
+      // but don't trust that invariant blindly.
+      const max = maxRoomXp(room);
+      const passed = max === 0 || (roomScoreXp(entry, gradeableMax) / max) >= ROOM_PASS_THRESHOLD;
+      if (passed) setShowCompletion(true); else setShowFailure(true);
+    } else {
+      // Resume at first incomplete task
+      const firstIncomplete = room.tasks.findIndex(t => !ids.has(t.id));
+      setCurrentTaskIndex(firstIncomplete === -1 ? room.tasks.length - 1 : firstIncomplete);
+    }
+  }, [room, gradeableMax]);
 
   // Load persisted progress on mount
   useEffect(() => {
-    const all     = loadProgress();
-    const entry   = all[room.id];
-    if (entry) {
-      const ids = new Set<string>(entry.completedTaskIds);
-      setCompletedTaskIds(ids);
-      setTotalXpEarned(entry.xpEarned);
-      setPerTaskXp(entry.perTaskXp ?? {});
-      setTelemetry(entry.telemetry ?? []);
-      if (entry.completedAt) {
-        setShowCompletion(true);
-      } else if (ids.size === room.tasks.length) {
-        // Every task was done in a prior attempt but it never earned
-        // completedAt. Re-derive pass/fail from the actual score rather than
-        // assuming — completedAt is only missing when a prior run failed,
-        // but don't trust that invariant blindly.
-        const max = maxRoomXp(room);
-        const passed = max === 0 || (entry.xpEarned / max) >= ROOM_PASS_THRESHOLD;
-        if (passed) setShowCompletion(true); else setShowFailure(true);
-      } else {
-        // Resume at first incomplete task
-        const firstIncomplete = room.tasks.findIndex(t => !ids.has(t.id));
-        setCurrentTaskIndex(firstIncomplete === -1 ? room.tasks.length - 1 : firstIncomplete);
-      }
-    }
+    sessionRef.current = { ids: new Set(), xp: {}, telemetry: [] };
+    applyEntry(loadProgress()[room.id]);
     setMounted(true);
-  }, [room]);
+  }, [room, applyEntry]);
 
-  const persistProgress = useCallback((ids: Set<string>, xp: number, xpMap: Record<string, number>, taskTelemetry: TaskTelemetryEntry[], completedAt?: string) => {
+  // Re-read once the signed-in learner's remote progress lands. On a hard
+  // reload we mounted against the empty pre-hydrate backend; without this the
+  // room resumed from nothing and the next save overwrote the real server row
+  // (lower XP, lost completedAt) — audit 2026-09.
+  useEffect(() => {
+    const onHydrated = () => {
+      const all = loadProgress();
+      const stored = all[room.id] as RoomProgressEntry | undefined;
+      const session = sessionRef.current;
+      if (session.ids.size === 0) { applyEntry(stored); return; }
+      // Carry over what was done in this visit before hydration finished.
+      const merged = mergeRoomEntry(stored, {
+        completedTaskIds: Array.from(session.ids),
+        xpEarned: Object.values(session.xp).reduce((s, v) => s + v, 0),
+        perTaskXp: session.xp,
+        telemetry: session.telemetry,
+      }) as RoomProgressEntry;
+      if (!merged.completedAt && room.tasks.every(t => merged.completedTaskIds.includes(t.id))) {
+        const max = maxRoomXp(room);
+        if (max === 0 || roomScoreXp(merged, gradeableMax) / max >= ROOM_PASS_THRESHOLD) {
+          merged.completedAt = new Date().toISOString();
+        }
+      }
+      all[room.id] = merged;
+      saveProgress(all);
+      applyEntry(merged);
+    };
+    window.addEventListener(PROGRESS_HYDRATED_EVENT, onHydrated);
+    return () => window.removeEventListener(PROGRESS_HYDRATED_EVENT, onHydrated);
+  }, [room, applyEntry, gradeableMax]);
+
+  /**
+   * Save this room's entry MERGED with what is stored: per-task bests and
+   * xpEarned never go down and completedAt is never dropped, even if this
+   * component's state is stale (other tab, pre-hydrate mount). `replaceIds`
+   * is only for the review-missed flow, which deliberately re-opens tasks.
+   * Returns the entry actually saved.
+   */
+  const persistProgress = useCallback((
+    ids: Set<string>, xp: number, xpMap: Record<string, number>, taskTelemetry: TaskTelemetryEntry[],
+    completedAt?: string, opts: { replaceIds?: boolean } = {},
+  ): RoomProgressEntry => {
     const all = loadProgress();
-    all[room.id] = {
+    const merged = mergeRoomEntry(all[room.id], {
       completedTaskIds: Array.from(ids),
       xpEarned: xp,
       perTaskXp: xpMap,
       telemetry: taskTelemetry,
       ...(completedAt ? { completedAt } : {}),
-    };
+    }, opts) as RoomProgressEntry;
+    all[room.id] = merged;
     saveProgress(all);
+    return merged;
   }, [room.id]);
 
   // Gradeable tasks scored below full credit — the only ones a near-miss replays.
@@ -166,61 +241,69 @@ export function RoomClient({ room }: RoomClientProps) {
     setCurrentTaskIndex(firstMissed === -1 ? 0 : firstMissed);
     setShowFailure(false);
     setShowCompletion(false);
-    persistProgress(remaining, totalXpEarned, perTaskXp, telemetry);
+    persistProgress(remaining, totalXpEarned, perTaskXp, telemetry, undefined, { replaceIds: true });
   }
 
   function handleTaskComplete(xpEarned: number, taskTelemetry?: TaskTelemetryEntry) {
     const task     = room.tasks[currentTaskIndex];
     const firstTime = !completedTaskIds.has(task.id);
-    const newIds   = new Set(completedTaskIds);
-    newIds.add(task.id);
 
     // Reading tasks report 0 to the room score (they stay non-gradeable, so the
-    // 65% mastery gate is unaffected). But give a symbolic engagement XP to the
-    // GLOBAL/rank total on first completion, so the reading third of a room isn't
-    // a dead 0-XP stretch. Guarded by firstTime so a re-read never re-awards.
-    if (task.type === "reading" && firstTime) {
-      const readXp = task.xp ?? 5;
-      if (readXp > 0) addXpToTotal(readXp);
-    }
+    // 65% mastery gate is unaffected — see roomScoreXp). They earn a symbolic
+    // engagement XP on first completion, now STORED in perTaskXp so it reaches
+    // room_progress.xp_earned (and therefore the overall score) and survives a
+    // reload — it used to be added to the optimistic total only and vanish.
+    const earned = task.type === "reading" ? (firstTime ? (task.xp ?? 5) : 0) : xpEarned;
 
-    // Delta accounting: a task can be re-attempted (review-missed flow), so only
-    // credit the IMPROVEMENT over this task's previous best to soc_total_xp —
-    // never double-count, never claw back what was already earned.
-    const prevXp   = perTaskXp[task.id] ?? 0;
-    const bestXp   = Math.max(prevXp, xpEarned);
+    // Delta accounting against the best KNOWN value (this component's state AND
+    // the stored entry — the state can be stale), so the running total only
+    // gets the real improvement: never double-counted, never clawed back.
+    const stored   = loadProgress()[room.id] as RoomProgressEntry | undefined;
+    const knownXp  = mergeTaskXpMax(stored?.perTaskXp, perTaskXp);
+    const prevXp   = knownXp[task.id] ?? 0;
+    const bestXp   = Math.max(prevXp, earned);
     const delta    = bestXp - prevXp;
-    const newXpMap = { ...perTaskXp, [task.id]: bestXp };
+    const newXpMap = { ...knownXp, [task.id]: bestXp };
     const newXp    = Object.values(newXpMap).reduce((s, v) => s + v, 0);
     const newTelemetry = taskTelemetry ? [...telemetry, taskTelemetry] : telemetry;
+    const newIds   = new Set([...(stored?.completedTaskIds ?? []), ...completedTaskIds, task.id]);
 
-    setCompletedTaskIds(newIds);
-    setPerTaskXp(newXpMap);
-    setTotalXpEarned(newXp);
-    setTelemetry(newTelemetry);
+    const session = sessionRef.current;
+    session.ids.add(task.id);
+    // What THIS visit earned — not bestXp, which before hydration may include
+    // this device's guest-era localStorage values.
+    session.xp[task.id] = Math.max(session.xp[task.id] ?? 0, earned);
+    if (taskTelemetry) session.telemetry.push(taskTelemetry);
+
     if (delta > 0) addXpToTotal(delta);
 
-    const allDone = newIds.size === room.tasks.length;
+    const allDone = room.tasks.every(t => newIds.has(t.id));
+    let saved: RoomProgressEntry;
     if (allDone) {
-      const passed = maxXp === 0 || (newXp / maxXp) >= ROOM_PASS_THRESHOLD;
+      const passed = maxXp === 0 || (roomScoreXp({ xpEarned: newXp, perTaskXp: newXpMap }, gradeableMax) / maxXp) >= ROOM_PASS_THRESHOLD;
       if (passed) {
         const completedAt = new Date().toISOString();
-        persistProgress(newIds, newXp, newXpMap, newTelemetry, completedAt);
+        saved = persistProgress(newIds, newXp, newXpMap, newTelemetry, completedAt);
         setShowCompletion(true);
       } else {
         // Near-miss: KEEP the earned XP and all correct answers, persist the
         // progress WITHOUT completedAt (room stays "in progress", so it doesn't
         // unlock prerequisites yet), and offer to replay only the missed tasks.
-        persistProgress(newIds, newXp, newXpMap, newTelemetry);
-        setShowFailure(true);
+        saved = persistProgress(newIds, newXp, newXpMap, newTelemetry);
+        if (saved.completedAt) setShowCompletion(true); else setShowFailure(true);
       }
     } else {
-      persistProgress(newIds, newXp, newXpMap, newTelemetry);
+      saved = persistProgress(newIds, newXp, newXpMap, newTelemetry);
       // Advance to the next still-incomplete task (linear on first pass; jumps
       // between missed tasks during a review).
       const next = room.tasks.findIndex(t => !newIds.has(t.id));
       setCurrentTaskIndex(next === -1 ? currentTaskIndex : next);
     }
+    // Mirror what was actually saved (the merge may know more than our state).
+    setCompletedTaskIds(new Set(saved.completedTaskIds));
+    setPerTaskXp(saved.perTaskXp ?? newXpMap);
+    setTotalXpEarned(saved.xpEarned);
+    setTelemetry((saved.telemetry as TaskTelemetryEntry[] | undefined) ?? newTelemetry);
   }
 
   const completedCount = completedTaskIds.size;

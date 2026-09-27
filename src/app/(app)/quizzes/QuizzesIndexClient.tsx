@@ -6,6 +6,9 @@ import type { Quiz } from "@/lib/quizzes/data";
 import { fetchPublishedQuizzes } from "@/lib/content/publicContent";
 import { cn } from "@/lib/utils";
 import { EyeOff } from "lucide-react";
+import { AssignedChip } from "@/components/plans/AssignedChip";
+import { useAssignedItems } from "@/lib/plans/useAssigned";
+import type { AssignedInfo } from "@/lib/plans/assigned";
 
 /**
  * SECURITY (M-01): this is a Client Component, so anything it imports is shipped
@@ -46,7 +49,7 @@ const CAT_COLORS: Record<string, string> = {
 
 // ─── Quiz card ─────────────────────────────────────────────────────────────────
 
-function QuizCard({ meta, href }: { meta: QuizCardMeta; href: string }) {
+function QuizCard({ meta, href, assigned }: { meta: QuizCardMeta; href: string; assigned?: AssignedInfo }) {
   const diffColor = DIFF_COLORS[meta.difficulty] ?? "bg-slate-500/10 text-slate-300 border-slate-500/30";
   const catColor  = CAT_COLORS[meta.category] ?? "text-slate-400";
 
@@ -61,7 +64,8 @@ function QuizCard({ meta, href }: { meta: QuizCardMeta; href: string }) {
       {/* Icon + category */}
       <div className="flex items-start justify-between mb-3">
         <span className="text-3xl">{meta.icon}</span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <AssignedChip info={assigned} />
           {meta.generated && (
             <span className="rounded border border-neon-green/30 bg-neon-green/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-green">
               AI
@@ -107,6 +111,7 @@ function QuizCard({ meta, href }: { meta: QuizCardMeta; href: string }) {
 export function QuizzesIndexClient({ builtins }: { builtins: QuizCardMeta[] }) {
   const [hidden, setHidden]       = useState<string[]>([]);
   const [generated, setGenerated] = useState<QuizCardMeta[]>([]);
+  const assigned = useAssignedItems();
 
   useEffect(() => {
     try {
@@ -168,12 +173,12 @@ export function QuizzesIndexClient({ builtins }: { builtins: QuizCardMeta[] }) {
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {/* Generated quizzes first (link by slug; QuizFromStorage matches by slug or id) */}
           {generated.map(meta => (
-            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} />
+            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} assigned={assigned[`quiz:${meta.slug}`]} />
           ))}
 
           {/* Built-in quizzes */}
           {visible.map(meta => (
-            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} />
+            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} assigned={assigned[`quiz:${meta.slug}`]} />
           ))}
         </div>
 
