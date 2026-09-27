@@ -22,6 +22,9 @@ function injectLabel(kind: string, isStaff: boolean): string {
 export function InjectFeed({ sessionId, events, me, nameOf, act }: { sessionId: string; events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   void nameOf;
   const [busy, setBusy] = useState<string | null>(null);
+  // T1 playtest: a ticket answer was two canned strings — the analyst can now record
+  // what they actually did (caller, verification, whether a code was shared).
+  const [details, setDetails] = useState<Record<number, string>>({});
   const injects = useMemo(() => events.filter(e => e.type === "staff.inject"), [events]);
   // Staff: map inject_id → the real (answer-key) kind. RLS lets only session staff read it.
   const [realKind, setRealKind] = useState<Record<string, string>>({});
@@ -56,12 +59,15 @@ export function InjectFeed({ sessionId, events, me, nameOf, act }: { sessionId: 
           return (
             <div key={e.seq} className={`rounded-lg border px-2 py-1.5 text-xs ${isTicket ? "border-neon-amber/30 bg-neon-amber/[0.05]" : "border-border bg-bg"}`}>
               <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-slate-400">{injectLabel(kind, !!me.is_staff)}</span>{asStr(p.text)}</p>
-              {isTicket && isT1 && !done && (
-                <div className="mt-1.5 flex gap-1.5">
-                  <Button variant="primary" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("ticket.answered", { ticket_seq: e.seq, decision: "handled", response: "verified caller, no code shared" }); setBusy(null); }}>Handle</Button>
-                  <Button variant="outline" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("ticket.answered", { ticket_seq: e.seq, decision: "rejected", response: "refused the request and escalated to security" }); setBusy(null); }}>Refuse &amp; escalate to security</Button>
+              {isTicket && isT1 && !done && (() => { const d = (details[e.seq] ?? "").trim(); const answer = async (decision: string, base: string) => { setBusy(e.seq + ""); await act("ticket.answered", { ticket_seq: e.seq, decision, response: d ? `${base} — ${d}` : base, details: d || undefined }); setBusy(null); }; return (
+                <div className="mt-1.5 space-y-1.5">
+                  <input value={details[e.seq] ?? ""} onChange={ev => setDetails(m => ({ ...m, [e.seq]: ev.target.value }))} placeholder="What you did — caller / user, how you verified, was anything shared? (optional)" className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                  <div className="flex flex-wrap gap-1.5">
+                    <Button variant="primary" size="sm" disabled={b} onClick={() => answer("handled", "handled the user's request as asked")}>Handle request</Button>
+                    <Button variant="outline" size="sm" disabled={b} onClick={() => answer("rejected", "refused the request and escalated to security")}>Refuse &amp; escalate to security</Button>
+                  </div>
                 </div>
-              )}
+              ); })()}
               {isTicket && done && <p className="mt-0.5 text-[10px] text-neon-green">✓ answered by Tier-1</p>}
             </div>
           );

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildServerReport, type ServerReport } from "@/lib/team/report/serverReport";
+import { REPORT_VERSION } from "@/lib/team/report/computeReport";
 
 /**
  * GET /api/team/sessions/[id]/report — the server-authoritative after-action report.
@@ -33,7 +34,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   let report: ServerReport | null = null;
   const { data: cached } = await admin.from("team_session_reports").select("report").eq("session_id", id).maybeSingle();
-  if (cached?.report) report = cached.report as ServerReport;
+  // A report cached by an older scoring version is recomputed (the log is frozen
+  // once ended, so a rebuild is deterministic — only the rules changed).
+  if (cached?.report && (cached.report as { team?: { version?: number } }).team?.version === REPORT_VERSION) {
+    report = cached.report as ServerReport;
+  }
   if (!report) {
     try {
       report = await buildServerReport(admin, id);

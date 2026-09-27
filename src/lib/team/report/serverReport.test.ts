@@ -13,7 +13,9 @@ describe("serverReport — joining the answer key after the shift", () => {
       { id: "i2", channel: "inject", expected_action: { kind: "false_lead", expected_response: "reject", linked_objective: "accuracy", original_id: "msel_false_lead" } },
       { id: "i3", channel: "feed", expected_action: null },
     ]);
-    expect(a).toEqual({ i1: { expected_verdict: "tp" }, i2: { kind: "false_lead", expected_response: "reject", linked_objective: "accuracy" } });
+    // incident_id (per-incident detection) and the inject's original_id (curveball ↔ its
+    // supporting telemetry) are now kept for scoring; a FEED log's original_id is not.
+    expect(a).toEqual({ i1: { expected_verdict: "tp", incident_id: "x" }, i2: { kind: "false_lead", expected_response: "reject", linked_objective: "accuracy", original_id: "msel_false_lead" } });
   });
 
   it("mergeAnswers restores feed verdicts and real inject kinds; v1 / player events pass through", () => {
@@ -53,5 +55,22 @@ describe("serverReport — joining the answer key after the shift", () => {
     expect(v2.team).toEqual(v1.team);
     expect(v2.perUser).toEqual(v1.perUser);
     expect(v2.team.detected).toBe(true);
+  });
+});
+
+describe("serverReport — scoring keys travel with the merge", () => {
+  it("mergeAnswers restores incident_id / supports_inject on feed logs and original_id on injects", () => {
+    const events: Ev[] = [
+      { seq: 1, type: "feed.event", actor_id: null, role: null, payload: { id: "e1", inject_id: "i1" } },
+      { seq: 2, type: "staff.inject", actor_id: null, role: null, payload: { id: "m1", kind: "update", inject_id: "i2" } },
+    ];
+    const answers = publicAnswers([
+      { id: "i1", channel: "feed", expected_action: { expected_verdict: "tp", incident_id: "inc-A", supports_inject: "msel_twist", original_id: "fbu_03" } },
+      { id: "i2", channel: "inject", expected_action: { kind: "twist", expected_response: "re-scope", original_id: "msel_twist" } },
+    ]);
+    const out = mergeAnswers(events, answers);
+    expect(out[0].payload).toMatchObject({ expected_verdict: "tp", incident_id: "inc-A", supports_inject: "msel_twist" });
+    expect(out[0].payload).not.toHaveProperty("original_id");
+    expect(out[1].payload).toMatchObject({ kind: "twist", original_id: "msel_twist" });
   });
 });

@@ -104,20 +104,24 @@ describe("computeReport — contested verdicts", () => {
 describe("computeReport — curveballs (evaluable injects)", () => {
   const inj = (kind: string) => ({ kind, text: `${kind} text`, expected_response: "respond", linked_objective: "obj" });
 
-  it("twist + scope.set within 15 min ⇒ handled & scored", () => {
+  // Playtest P1: a twist with NO supporting telemetry used to count as "handled" by any
+  // unrelated scope/escalation within 15 min. It is now "not evaluable" (not scored).
+  it("twist WITHOUT supporting telemetry ⇒ not evaluable (not scored, not handled)", () => {
     const { events, add } = log();
     add("staff.inject", "instr", 60, inj("twist"));
     add("scope.set", "t2", 60 + 5 * 60, { hosts: ["WS-1"] }, "t2");
-    const [r] = computeReport(events, [member("t2", "t2")]).team.injects;
-    expect(r).toMatchObject({ kind: "twist", scored: true, handled: true, decoy: false });
+    const { team } = computeReport(events, [member("t2", "t2")]);
+    expect(team.injects[0]).toMatchObject({ kind: "twist", scored: false, handled: false, evaluable: false, decoy: false });
+    expect(team.injectsScored).toBe(0);
   });
 
-  it("twist with the response AFTER the 15-min window ⇒ scored but not handled", () => {
+  it("twist with supporting telemetry: a response AFTER the window ⇒ scored but not handled", () => {
     const { events, add } = log();
-    add("staff.inject", "instr", 60, inj("twist"));
-    add("scope.set", "t2", 60 + 16 * 60, { hosts: ["WS-1"] }, "t2");
-    const [r] = computeReport(events, [member("t2", "t2")]).team.injects;
-    expect(r).toMatchObject({ scored: true, handled: false });
+    add("staff.inject", "instr", 60, { ...inj("twist"), id: "msel_twist" });
+    add("feed.event", null, 70, { id: "tw-1", expected_verdict: "tp", incident_id: "inc-a", supports_inject: "msel_twist", hostname: "WS-FIN-2847", network: { domain: "new-c2-sync.net" } });
+    add("escalation.requested", "a", 70 + 16 * 60, { event_id: "tw-1", summary: "beacon" }, "t1");
+    const [r] = computeReport(events, [member("a", "t1")]).team.injects;
+    expect(r).toMatchObject({ scored: true, handled: false, evaluable: true });
   });
 
   it("false_lead ⇒ decoy, not scored", () => {
@@ -157,16 +161,37 @@ describe("computeReport — curveballs (evaluable injects)", () => {
 });
 
 describe("computeReport — backup take-over", () => {
-  it("B claiming an alert A currently holds scores B's Backup & load-balancing cell", () => {
+  it("an explicit takeover ack from an overloaded same-role owner credits the backup analyst", () => {
+    const { events, add } = log();
+    for (const id of ["c1", "c2", "c3"]) {
+      add("feed.event", null, 1, { id, expected_verdict: "tp" });
+      add("escalation.requested", "t1", 5, { event_id: id, summary: "suspicious activity" }, "t1");
+      add("escalation.acknowledged", "a", 10, { event_id: id }, "t2");
+    }
+    add("escalation.acknowledged", "b", 20, { event_id: "c3", takeover: true }, "t2");
+    add("escalation.acknowledged", "b", 21, { event_id: "c2" }, "t2"); // plain second ack: no ownership change, no credit
+    const { perUser } = computeReport(events, [member("t1", "t1"), member("a", "t2"), member("b", "t2")]);
+    const b = perUser.find(u => u.user_id === "b")!;
+    expect(cell(b.rubric, "Backup & load-balancing").score).not.toBeNull();
+  });
+
+  // Playtest P1 (t1b.md): a 5-second claim COLLISION used to score as "backup".
+  it("B claiming an alert A freshly holds (A not overloaded) is a collision — no credit", () => {
     const { events, add } = log();
     add("feed.event", null, 1, { id: "evt-1", expected_verdict: "tp" });
     add("alert.claimed", "a", 10, { event_id: "evt-1" }, "t1");
-    add("alert.claimed", "b", 20, { event_id: "evt-1" }, "t1");
+    add("alert.claimed", "b", 15, { event_id: "evt-1" }, "t1");
     const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
-    const a = perUser.find(u => u.user_id === "a")!;
-    const b = perUser.find(u => u.user_id === "b")!;
-    expect(cell(b.rubric, "Backup & load-balancing").score).toBe(8); // bandHigh(1, 2, 1, 1)
-    expect(cell(a.rubric, "Backup & load-balancing").score).toBeNull();
+    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Backup & load-balancing").score).toBeNull();
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Backup & load-balancing").score).toBeNull();
+  });
+
+  it("B taking an alert off an OVERLOADED A (≥ OVERLOAD_CASES open) scores B's backup cell", () => {
+    const { events, add } = log();
+    for (const id of ["e1", "e2", "e3"]) add("alert.claimed", "a", 10, { event_id: id }, "t1");
+    add("alert.claimed", "b", 30, { event_id: "e2", takeover: true }, "t1");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
+    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Backup & load-balancing").score).toBe(8); // bandHigh(1, 2, 1, 1)
   });
 
   it("claiming an alert nobody holds is not a take-over", () => {
@@ -178,12 +203,14 @@ describe("computeReport — backup take-over", () => {
     expect(cell(b.rubric, "Backup & load-balancing").score).toBeNull();
   });
 
-  it("A3: claiming an alert whose claim went stale (> 5 min) is not a take-over", () => {
+  // Fix round 2026-09-27: rescuing an ABANDONED alert (claim older than CLAIM_TTL_MS and
+  // never released) IS backup — same spirit as the T2/T3 rule. (Was "not a take-over".)
+  it("claiming an alert whose claim went stale (> 5 min, never released) is a rescue — credited", () => {
     const { events, add } = log();
     add("alert.claimed", "a", 10, { event_id: "evt-1" }, "t1");
     add("alert.claimed", "b", 10 + 6 * 60, { event_id: "evt-1" }, "t1");
     const b = computeReport(events, [member("a", "t1"), member("b", "t1")]).perUser.find(u => u.user_id === "b")!;
-    expect(cell(b.rubric, "Backup & load-balancing").score).toBeNull();
+    expect(cell(b.rubric, "Backup & load-balancing").score).toBe(8);
   });
 
   it("A3: stale claims stop counting toward overload, matching the live Situation Board", () => {
@@ -191,6 +218,7 @@ describe("computeReport — backup take-over", () => {
     // A grabs 3 alerts, then goes quiet; 6 minutes later the board shows A at 0 open.
     for (const id of ["e1", "e2", "e3"]) add("alert.claimed", "a", 10, { event_id: id }, "t1");
     add("coordination.nudge", "mgr", 20, { target: "a" }, "mgr");
+    add("session.ended", "instr", 200); // the overload lasted ≥ OVERLOAD_MIN_MS (60s)
     const fresh = computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!;
     expect(cell(fresh.rubric, "Load balancing").score).not.toBeNull();
 
@@ -227,5 +255,411 @@ describe("computeReport — handoff loop closure & MTTR", () => {
     add("escalation.resolved", "t2", 220, { event_id: "e1" }, "t2");
     const { team } = computeReport(events, [member("a", "t1"), member("t2", "t2")]);
     expect(team.mttrS).toBe(120);
+  });
+});
+
+// ── 3. fix round after the 2026-09-27 live playtest (P0-1 + P1 scoring fairness) ──
+const words = (n: number, extra = "") => `${extra} ${Array.from({ length: n }, (_, i) => `w${i}`).join(" ")}`.trim();
+
+describe("computeReport — per-incident detection (fix 1)", () => {
+  it("escalating ONE log of a multi-log incident detects the whole incident; recall is per incident", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-A", description: "phish" });
+    add("feed.event", null, 20, { id: "a2", expected_verdict: "tp", incident_id: "inc-A" });
+    add("feed.event", null, 30, { id: "a3", expected_verdict: "escalate", incident_id: "inc-A" });
+    add("feed.event", null, 35, { id: "ctl", expected_verdict: "benign", incident_id: "inc-A" }); // legit control step
+    add("feed.event", null, 40, { id: "s1", expected_verdict: "tp", incident_id: "solo:s1" });
+    add("feed.event", null, 50, { id: "n1" }); // pure noise, verdict missing ⇒ benign
+    add("escalation.requested", "a", 70, { event_id: "a2", summary: "s" }, "t1");
+    const { team, perUser } = computeReport(events, [member("a", "t1")]);
+    expect(team.attacks).toBe(4);
+    expect(team.incidentsTotal).toBe(2);
+    expect(team.incidentsDetected).toBe(1);
+    expect(team.incidentRecall).toBe(50);
+    expect(team.incidents.find(i => i.id === "inc-A")).toMatchObject({ detected: true, escalated: true, attackEvents: 3, firstSeenS: 10, detectS: 70, dwellS: 60, label: "phish" });
+    expect(team.incidents.find(i => i.id === "solo:s1")!.detected).toBe(false);
+    expect(cell(perUser[0].rubric, "Attack recall (team)").score).toBe(8); // bandHigh(50, 80, 50, 25)
+    expect(team.detected).toBe(true);
+    expect(team.timeToDetectS).toBe(70);
+  });
+
+  it("marking an attack log true_positive or suspicious (no escalation) also detects its incident", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-A" });
+    add("feed.event", null, 20, { id: "b1", expected_verdict: "tp", incident_id: "inc-B" });
+    add("disposition.set", "a", 40, { event_id: "a1", verdict: "suspicious" }, "t1");
+    add("disposition.set", "a", 50, { event_id: "b1", verdict: "benign" }, "t1");
+    const { team } = computeReport(events, [member("a", "t1")]);
+    expect(team.incidents.find(i => i.id === "inc-A")).toMatchObject({ detected: true, escalated: false, detectS: 40 });
+    expect(team.incidents.find(i => i.id === "inc-B")!.detected).toBe(false);
+    expect(team.timeToDetectS).toBeNull(); // MTTD needs an escalation
+  });
+
+  it("legacy fallback: attack logs without incident_id are one incident each; a missing verdict is benign", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "x1", expected_verdict: "tp" });
+    add("feed.event", null, 20, { id: "x2", expected_verdict: "tp" });
+    add("feed.event", null, 30, { id: "n1" });
+    add("disposition.set", "a", 40, { event_id: "n1", verdict: "benign" }, "t1");
+    add("escalation.requested", "a", 50, { event_id: "x1" }, "t1");
+    const { team, perUser } = computeReport(events, [member("a", "t1")]);
+    expect(team.incidentsTotal).toBe(2);
+    expect(team.incidentsDetected).toBe(1);
+    expect(perUser[0].dispAcc).toBe(100);
+  });
+});
+
+describe("computeReport — suspicious = partial credit (fix 2)", () => {
+  it("suspicious on an attack = partial credit (0.75), on benign = a mild penalty (0.5)", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "atk", expected_verdict: "tp" });
+    add("feed.event", null, 2, { id: "ben", expected_verdict: "benign" });
+    add("disposition.set", "a", 30, { event_id: "atk", verdict: "suspicious" }, "t1");
+    add("disposition.set", "b", 30, { event_id: "ben", verdict: "suspicious" }, "t1");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
+    expect(perUser.find(u => u.user_id === "a")!.dispAcc).toBe(75);
+    expect(perUser.find(u => u.user_id === "b")!.dispAcc).toBe(50);
+    expect(perUser.find(u => u.user_id === "a")!.dispCorrect).toBe(0);
+  });
+
+  it("benign→suspicious on an attack is a real self-correction; an invalid verdict neither scores nor fakes one", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "atk", expected_verdict: "tp" });
+    add("feed.event", null, 2, { id: "n1", expected_verdict: "benign" });
+    add("disposition.set", "a", 30, { event_id: "atk", verdict: "benign" }, "t1");
+    add("disposition.set", "a", 60, { event_id: "atk", verdict: "suspicious" }, "t1");
+    add("disposition.set", "b", 30, { event_id: "n1", verdict: "probably_fine" }, "t1");
+    add("disposition.set", "b", 60, { event_id: "n1", verdict: "benign" }, "t1");
+    add("disposition.set", "b", 70, { event_id: "e0000deadbeef", verdict: "benign" }, "t1"); // unknown id
+    const { perUser, team } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
+    const a = perUser.find(u => u.user_id === "a")!; const b = perUser.find(u => u.user_id === "b")!;
+    expect(cell(a.rubric, "Self-correction").score).toBe(8);
+    expect(cell(b.rubric, "Self-correction").score).toBeNull();
+    expect(b.dispCount).toBe(1);
+    expect(b.dispAcc).toBe(100);
+    expect(team.dispTotal).toBe(2);
+  });
+});
+
+describe("computeReport — escalation precision per incident, smooth band (fix 3)", () => {
+  it("duplicate escalations of one incident count once; 25% no longer collapses to 0", () => {
+    const { events, add } = log();
+    for (const id of ["a1", "a2", "a3"]) add("feed.event", null, 1, { id, expected_verdict: "tp", incident_id: "inc-A" });
+    for (const id of ["n1", "n2", "n3"]) add("feed.event", null, 2, { id, expected_verdict: "benign" });
+    for (const id of ["a1", "a2", "a3", "n1"]) add("escalation.requested", "a", 30, { event_id: id }, "t1");
+    for (const id of ["a1", "n1", "n2", "n3"]) add("escalation.requested", "b", 30, { event_id: id }, "t1");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
+    // a: targets = {inc-A: 1, n1: 0} ⇒ 50% ⇒ round(12·40/70) = 7
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Escalation precision").score).toBe(7);
+    // b: 1 of 4 ⇒ 25% ⇒ round(12·15/70) = 3 (the old bandHigh cliff gave 0)
+    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Escalation precision").score).toBe(3);
+  });
+
+  it("escalating only the control log of a real incident earns half credit", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "a1", expected_verdict: "tp", incident_id: "inc-A" });
+    add("feed.event", null, 2, { id: "ctl", expected_verdict: "benign", incident_id: "inc-A" });
+    add("escalation.requested", "a", 30, { event_id: "ctl" }, "t1");
+    add("escalation.requested", "c", 30, { event_id: "ctl" }, "t1");
+    add("escalation.requested", "c", 40, { event_id: "a1" }, "t1");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("c", "t1")]);
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Escalation precision").score).toBe(7);  // 50%
+    expect(cell(perUser.find(u => u.user_id === "c")!.rubric, "Escalation precision").score).toBe(12); // one incident, 100%
+  });
+});
+
+describe("computeReport — help-desk scored on the decision (fix 4)", () => {
+  const vish = { kind: "ticket", text: "Someone from 'IT support' asked a Finance user to read back an MFA code.", expected_response: "Never read back an MFA code; refuse and report it as social engineering." };
+
+  it("vishing ticket: 'rejected' is the right call (12 with ONE ticket); a second answer earns nothing", () => {
+    const { events, add } = log();
+    add("staff.inject", "instr", 60, vish); // seq 2
+    add("ticket.answered", "a", 100, { ticket_seq: 2, decision: "rejected", response: "refused" }, "t1");
+    add("ticket.answered", "b", 110, { ticket_seq: 2, decision: "rejected", response: "refused" }, "t1");
+    const { perUser, team } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Help-desk tickets").score).toBe(12);
+    const bCell = cell(perUser.find(u => u.user_id === "b")!.rubric, "Help-desk tickets");
+    expect(bCell.score).toBeNull();
+    expect((bCell as { note?: string }).note).toMatch(/second answer/);
+    expect(team.injects[0]).toMatchObject({ kind: "ticket", scored: true, handled: true });
+  });
+
+  it("'handled' on a vishing ticket is the wrong call — 0, and the curveball is missed", () => {
+    const { events, add } = log();
+    add("staff.inject", "instr", 60, vish);
+    add("ticket.answered", "a", 100, { ticket_seq: 2, decision: "handled", response: "verified caller, no code shared" }, "t1");
+    const { perUser, team } = computeReport(events, [member("a", "t1")]);
+    expect(cell(perUser[0].rubric, "Help-desk tickets").score).toBe(0);
+    expect(team.injects[0]).toMatchObject({ scored: true, handled: false });
+  });
+
+  it("a ticket nobody answered counts against the Tier-1s", () => {
+    const { events, add } = log();
+    add("staff.inject", "instr", 60, vish);
+    const { perUser, team } = computeReport(events, [member("a", "t1")]);
+    expect(cell(perUser[0].rubric, "Help-desk tickets").score).toBe(0);
+    expect(team.injects[0].handled).toBe(false);
+  });
+});
+
+describe("computeReport — overload episodes need a minimum duration (fix 6)", () => {
+  const run = (releaseAt: number) => {
+    const { events, add } = log();
+    for (const id of ["e1", "e2", "e3"]) add("alert.claimed", "a", 10, { event_id: id }, "t1");
+    add("coordination.nudge", "mgr", 20, { target: "a" }, "mgr");
+    add("alert.released", "a", releaseAt, { event_id: "e1" }, "t1");
+    add("session.ended", "instr", 400);
+    return cell(computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!.rubric, "Load balancing").score;
+  };
+  it("a 30-second spike is not overload", () => { expect(run(40)).toBeNull(); });
+  it("≥60s at ≥ OVERLOAD_CASES, nudged by the Manager, scores Load balancing", () => { expect(run(100)).toBe(12); });
+});
+
+describe("computeReport — evidence-based triage (fix 7)", () => {
+  it("a disposition on a log the analyst never opened counts at reduced weight", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "n1", expected_verdict: "benign" });
+    add("feed.event", null, 2, { id: "n2", expected_verdict: "benign" });
+    add("event.opened", "a", 10, { event_id: "n1", dwell_ms: 8000 }, "t1");
+    add("disposition.set", "a", 20, { event_id: "n1", verdict: "benign" }, "t1");
+    add("disposition.set", "a", 21, { event_id: "n2", verdict: "benign" }, "t1");
+    const a = computeReport(events, [member("a", "t1")]).perUser[0];
+    expect(a.dispAcc).toBe(75); // (1 + 0.5) / 2
+    expect(a.dispUnopened).toBe(1);
+    expect(a.dispCorrect).toBe(2);
+  });
+
+  it("a session with NO click telemetry is not down-weighted", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "n1", expected_verdict: "benign" });
+    add("disposition.set", "a", 20, { event_id: "n1", verdict: "benign" }, "t1");
+    expect(computeReport(events, [member("a", "t1")]).perUser[0].dispAcc).toBe(100);
+  });
+
+  it("a very short average read time caps Time-to-triage at 4", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "h1", expected_verdict: "benign", severity: "high" });
+    add("event.opened", "a", 15, { event_id: "h1", dwell_ms: 1000 }, "t1");
+    add("disposition.set", "a", 20, { event_id: "h1", verdict: "benign" }, "t1");
+    expect(cell(computeReport(events, [member("a", "t1")]).perUser[0].rubric, "Time-to-triage").score).toBe(4);
+  });
+});
+
+describe("computeReport — Tier-3 (fix 8)", () => {
+  const caseFeed = (add: ReturnType<typeof log>["add"]) =>
+    add("feed.event", null, 5, { id: "a1", expected_verdict: "tp", incident_id: "inc-A", mitre_technique: "T1078", user_email: "m.torres@nexacorp.com", hostname: "WS-ENG-2093.nexacorp.com" });
+
+  it("a confirmed scope with hosts + users + techniques reaches 12 (was capped at 8)", () => {
+    const { events, add } = log();
+    add("scope.confirmed", "t3", 60, { hosts: ["WS-1"], users: ["u1"], techniques: ["T1078"] }, "t3");
+    expect(cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Final scope (confirmed)").score).toBe(12);
+  });
+
+  it("hunt quality accepts a sub-technique of an observed technique and entity matches by local-part / short host", () => {
+    const hunt = (technique: string) => {
+      const { events, add } = log(); caseFeed(add);
+      add("hunt.logged", "t3", 60, { hypothesis: "short", finding: words(15, "m.torres logged on to ws-eng-2093 over RDP"), technique, conclusion: "confirmed" }, "t3");
+      return cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Hunt quality").score;
+    };
+    expect(hunt("T1078.004")).toBe(12); // 35 + 25 + 15 = 75
+    expect(hunt("T1566")).toBe(8);      // valid but unrelated technique: 35 + 12 + 15 = 62
+  });
+
+  it("a REFUTED hunt with evidence earns full technique credit", () => {
+    const hunt = (conclusion: string) => {
+      const { events, add } = log(); caseFeed(add);
+      add("hunt.logged", "t3", 60, { hypothesis: "short", finding: words(15, "m.torres ws-eng-2093 stage-2 blocked per #240"), technique: "T1105", conclusion }, "t3");
+      return cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Hunt quality").score;
+    };
+    expect(hunt("refuted")).toBe(12);
+    expect(hunt("confirmed")).toBe(8);
+  });
+
+  it("a hunt linked to an elevation (event_id) answers it", () => {
+    const { events, add } = log();
+    add("elevation.requested", "t2", 100, { event_id: "a1", summary: "s", hunt_ask: "sweep" }, "t2");
+    add("elevation.requested", "t2", 110, { event_id: "a2", summary: "s", hunt_ask: "sweep" }, "t2");
+    add("hunt.logged", "t3", 200, { event_id: "a1", hypothesis: "h", finding: "f", technique: "T1078", conclusion: "confirmed" }, "t3");
+    const half = computeReport(events, [member("t2", "t2"), member("t3", "t3")]).perUser.find(u => u.user_id === "t3")!;
+    expect(cell(half.rubric, "Elevations answered").score).toBe(4); // 1 of 2 (a2 nobody took)
+    add("hunt.logged", "t3", 260, { event_id: "a2", hypothesis: "h", finding: "f", technique: "T1078", conclusion: "refuted" }, "t3");
+    const full = computeReport(events, [member("t2", "t2"), member("t3", "t3")]).perUser.find(u => u.user_id === "t3")!;
+    expect(cell(full.rubric, "Elevations answered").score).toBe(12);
+  });
+
+  it("hypothesis→conclusion is timed from the hunt that led to the confirmation, not the first (proactive) hunt", () => {
+    const { events, add } = log();
+    add("hunt.logged", "t3", 60, { hypothesis: "early proactive hunt" }, "t3");
+    add("hunt.logged", "t3", 900, { hypothesis: "the hunt that confirmed it" }, "t3");
+    add("scope.confirmed", "t3", 960, { hosts: ["WS-1"] }, "t3");
+    expect(cell(computeReport(events, [member("t3", "t3")]).perUser[0].rubric, "Hypothesis→conclusion time").score).toBe(12); // 1 min
+  });
+});
+
+describe("computeReport — TI substance + insufficient evidence (fix 9)", () => {
+  it("non-empty but unrelated fields don't score; <2 measured cells ⇒ insufficient evidence, no %", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", mitre_technique: "T1566" });
+    add("intel.published", "ti", 100, { actor: "APT29", technique: "T1000", next_expected: "x" }, "ti");
+    const ti = computeReport(events, [member("ti", "ti")]).perUser[0];
+    expect(cell(ti.rubric, "Attribution accuracy").score).toBe(0);
+    expect(cell(ti.rubric, "Next-step prediction").score).toBeNull(); // nothing arrived after it
+    expect(ti.measuredCells).toBe(1);
+    expect(ti.insufficientEvidence).toBe(true);
+    expect(ti.rubricPct).toBeNull();
+  });
+
+  it("attribution tied to an observed technique, a prediction that came true and a verified IOC score; the decoy IOC costs", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", mitre_technique: "T1566", network: { domain: "invoice-doc-share.net" } });
+    add("feed.event", null, 300, { id: "a2", expected_verdict: "tp", mitre_technique: "T1021.001", mitre_tactic: "Lateral Movement", hostname: "WS-ENG-2093" });
+    add("intel.published", "ti", 100, { actor: "FIN-style phishing crew", technique: "T1566.002", next_expected: "lateral movement over RDP to engineering hosts", ioc: "invoice-doc-share.net" }, "ti");
+    add("intel.published", "ti", 120, { actor: "OSINT cluster", technique: "T1566", next_expected: "", ioc: "8.8.8.8" }, "ti");
+    const ti = computeReport(events, [member("ti", "ti")]).perUser[0];
+    expect(cell(ti.rubric, "Attribution accuracy").score).toBe(12);
+    expect(cell(ti.rubric, "Next-step prediction").score).toBe(4); // 1 of 2
+    expect(cell(ti.rubric, "IOC precision").score).toBe(4);        // 1 of 2 (8.8.8.8 isn't in the attack)
+    expect(ti.insufficientEvidence).toBe(false);
+    expect(ti.rubricPct).toBe(56); // 20 / 36
+  });
+});
+
+describe("computeReport — Tier-2 containment quality + report accuracy (fix 10)", () => {
+  it("approved + executed containment and a correct report verdict score full", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "a1", expected_verdict: "tp", incident_id: "inc-A" });
+    add("report.submitted", "t2", 90, { event_id: "a1", verdict: "true_positive", summary: "s", findings: "f", recommendation: "r" }, "t2");
+    add("containment.requested", "t2", 100, { event_id: "a1", target: "WS-1", reason: "isolate the beaconing host" }, "t2");
+    add("containment.approved", "mgr", 120, { event_id: "a1" }, "mgr");
+    add("containment.executed", "t2", 140, { event_id: "a1", target: "WS-1" }, "t2");
+    const t2 = computeReport(events, [member("t2", "t2"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "t2")!;
+    expect(cell(t2.rubric, "Containment quality").score).toBe(12);
+    expect(cell(t2.rubric, "Report accuracy").score).toBe(12);
+  });
+
+  it("a denied request and a re-targeted request lower containment quality; a wrong report verdict lowers accuracy", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "a1", expected_verdict: "tp", incident_id: "inc-A" });
+    add("feed.event", null, 2, { id: "n1", expected_verdict: "benign" });
+    add("report.submitted", "t2", 90, { event_id: "a1", verdict: "true_positive" }, "t2");
+    add("report.submitted", "t2", 95, { event_id: "n1", verdict: "true_positive" }, "t2");
+    add("containment.requested", "t2", 100, { event_id: "a1", target: "WS-FIN-2847", reason: "isolate the host now" }, "t2");
+    add("containment.denied", "mgr", 130, { event_id: "a1", reason: "wrong asset" }, "mgr");
+    add("containment.requested", "t2", 200, { event_id: "a1", target: "SRV-DC01", reason: "disable the rogue admin" }, "t2");
+    add("containment.approved", "mgr", 220, { event_id: "a1" }, "mgr");
+    add("containment.executed", "t2", 240, { event_id: "a1", target: "SRV-DC01" }, "t2");
+    const t2 = computeReport(events, [member("t2", "t2"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "t2")!;
+    expect(cell(t2.rubric, "Containment quality").score).toBe(4); // (0 + 1) / 2 = 50%
+    expect(cell(t2.rubric, "Report accuracy").score).toBe(4);     // 1 of 2
+
+    const { events: ev2, add: add2 } = log();
+    add2("containment.requested", "t2", 100, { event_id: "a1", target: "WS-A" }, "t2");
+    add2("containment.requested", "t2", 150, { event_id: "a1", target: "WS-B" }, "t2"); // re-targeted
+    add2("containment.approved", "mgr", 160, { event_id: "a1" }, "mgr");
+    add2("containment.executed", "t2", 170, { event_id: "a1", target: "WS-B" }, "t2");
+    const t2b = computeReport(ev2, [member("t2", "t2"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "t2")!;
+    expect(cell(t2b.rubric, "Containment quality").score).toBe(8); // (0.25 + 1) / 2 = 63%
+  });
+});
+
+describe("computeReport — timing (fix 11)", () => {
+  it("MTTR uses the FIRST escalation — a duplicate raised after the resolve doesn't drop the case", () => {
+    const { events, add } = log();
+    add("escalation.requested", "a", 100, { event_id: "e1" }, "t1");
+    add("escalation.acknowledged", "t2", 130, { event_id: "e1" }, "t2");
+    add("escalation.resolved", "t2", 220, { event_id: "e1" }, "t2");
+    add("escalation.requested", "b", 260, { event_id: "e1" }, "t1");
+    const { team, perUser } = computeReport(events, [member("a", "t1"), member("b", "t1"), member("t2", "t2")]);
+    expect(team.mttrS).toBe(120);
+    expect(team.handoffLatS).toBe(30);
+    expect(cell(perUser.find(u => u.user_id === "t2")!.rubric, "Ack latency").score).toBe(12);
+  });
+
+  it("a bounced escalation is a closed loop", () => {
+    const { events, add } = log();
+    add("escalation.requested", "a", 30, { event_id: "e1" }, "t1");
+    add("escalation.requested", "a", 40, { event_id: "e2" }, "t1");
+    add("escalation.bounced", "t2", 60, { event_id: "e1", reason: "duplicate" }, "t2");
+    add("escalation.acknowledged", "t2", 90, { event_id: "e2" }, "t2");
+    expect(computeReport(events, [member("a", "t1"), member("t2", "t2")]).team.loopClosure).toBe(100);
+  });
+
+  it("team MTTD = the first CORRECT escalation of a malicious log (an earlier FP escalation doesn't count)", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "a1", expected_verdict: "tp" });
+    add("feed.event", null, 2, { id: "n1", expected_verdict: "benign" });
+    add("escalation.requested", "a", 50, { event_id: "n1" }, "t1");
+    add("escalation.requested", "a", 122, { event_id: "a1" }, "t1");
+    add("escalation.requested", "b", 530, { event_id: "a1" }, "t1");
+    expect(computeReport(events, [member("a", "t1"), member("b", "t1")]).team.timeToDetectS).toBe(122);
+  });
+});
+
+describe("computeReport — curveballs need supporting telemetry (fix 12)", () => {
+  const twist = { kind: "twist", text: "EDR update: a host is beaconing to a NEW C2 domain", expected_response: "re-scope", linked_objective: "adaptability" };
+  const support = (add: ReturnType<typeof log>["add"], sec: number) =>
+    add("feed.event", null, sec, { id: "tw-1", expected_verdict: "tp", incident_id: "inc-A", supports_inject: "msel_twist", hostname: "WS-FIN-2847", network: { domain: "new-c2-sync.net" } });
+
+  it("a twist is handled when a response references its supporting telemetry", () => {
+    const { events, add } = log();
+    add("staff.inject", "instr", 60, { ...twist, id: "msel_twist" });
+    support(add, 90);
+    add("hunt.logged", "t3", 200, { hypothesis: "beacon", finding: "WS-FIN-2847 resolves new-c2-sync.net every 60s" }, "t3");
+    expect(computeReport(events, [member("t3", "t3")]).team.injects[0]).toMatchObject({ scored: true, handled: true, evaluable: true });
+  });
+
+  it("v2: the merged original_id links the inject to its telemetry; a scope change BEFORE the telemetry doesn't count, a re-scope after it does", () => {
+    const { events, add } = log();
+    add("staff.inject", "instr", 60, { ...twist, id: "m0a1b2c3d", original_id: "msel_twist" });
+    add("scope.set", "t2", 70, { hosts: ["SRV-9"] }, "t2");
+    support(add, 90);
+    expect(computeReport(events, [member("t2", "t2")]).team.injects[0]).toMatchObject({ scored: true, handled: false });
+    add("scope.set", "t2", 150, { hosts: ["SRV-9", "SRV-10"] }, "t2");
+    expect(computeReport(events, [member("t2", "t2")]).team.injects[0]).toMatchObject({ scored: true, handled: true });
+  });
+
+  it("a decoy is handled when nobody escalated its supporting benign telemetry, and missed when the team chased it", () => {
+    const decoy = { kind: "false_lead", text: "Marketing SaaS looks like exfil", expected_response: "reject", linked_objective: "discrimination" };
+    const build = (chase: boolean) => {
+      const { events, add } = log();
+      add("staff.inject", "instr", 60, { ...decoy, id: "msel_false_lead" });
+      add("feed.event", null, 80, { id: "fl-1", expected_verdict: "benign", supports_inject: "msel_false_lead" });
+      if (chase) add("escalation.requested", "a", 120, { event_id: "fl-1" }, "t1");
+      return computeReport(events, [member("a", "t1")]).team;
+    };
+    expect(build(false).injects[0]).toMatchObject({ decoy: true, scored: true, handled: true });
+    expect(build(true).injects[0]).toMatchObject({ decoy: true, scored: true, handled: false });
+    expect(build(false).injectsScored).toBe(1);
+  });
+});
+
+describe("computeReport — review fixes (2026-09-27)", () => {
+  it("a manual ticket that merely says \"don't\" is expected to be HANDLED, not refused", () => {
+    const { events, add } = log();
+    add("staff.inject", "instr", 60, { kind: "ticket", text: "User says they don't have VPN access after the password reset" });
+    add("ticket.answered", "a", 90, { ticket_seq: 2, decision: "handled", response: "restored access" }, "t1");
+    const a = computeReport(events, [member("a", "t1")]).perUser.find(u => u.user_id === "a")!;
+    expect(cell(a.rubric, "Help-desk tickets").score).toBe(12);
+  });
+
+  it("an instructor-typed twist does not borrow the scripted twist's telemetry", () => {
+    const { events, add } = log();
+    add("feed.event", null, 5, { id: "sup1", expected_verdict: "tp", supports_inject: "msel_twist", hostname: "WS-9" });
+    add("staff.inject", "instr", 60, { kind: "twist", text: "manual curveball" }); // no id / original_id → manual
+    const [r] = computeReport(events, [member("t2", "t2")]).team.injects;
+    expect(r.evaluable).toBe(false);
+  });
+
+  it("an escalation ends the claim (no phantom load if the follow-up release is lost)", () => {
+    const { events, add } = log();
+    for (const id of ["x1", "x2", "x3"]) {
+      add("feed.event", null, 1, { id, expected_verdict: "tp" });
+      add("alert.claimed", "a", 10, { event_id: id }, "t1");
+      add("escalation.requested", "a", 20, { event_id: id, summary: "suspicious activity" }, "t1");
+    }
+    add("coordination.nudge", "mgr", 200, { target: "a", reason: "overloaded", load: 3 }, "mgr");
+    add("session.ended", null, 400);
+    const mgr = computeReport(events, [member("a", "t1"), member("mgr", "mgr")]).perUser.find(u => u.user_id === "mgr")!;
+    expect(cell(mgr.rubric, "Load balancing").score).toBeNull(); // A never carried 3 live claims for ≥60s
   });
 });

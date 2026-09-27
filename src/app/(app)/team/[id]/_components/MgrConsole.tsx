@@ -5,15 +5,21 @@ import { Button } from "@/components/ui/Button";
 import { Users } from "lucide-react";
 import type { RosterMember, Ev } from "@/lib/team/types";
 import { ROLE_LABEL } from "./shared";
+import { useServerNow } from "@/lib/team/clock";
+import { openLoadByUser } from "@/lib/team/projections";
 
 // ── SOC Manager console ──────────────────────────────────────────────────────
 export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   // G-16: structured passdown (App. D) instead of a free-text blob.
   const [ho, setHo] = useState({ open_cases: "", blockers: "", next: "" });
   const [busy, setBusy] = useState(false);
-  const workload = roster.filter(r => r.role !== "instructor").map(m => ({
-    name: m.name, role: m.role,
-    actions: events.filter(e => e.actor_id === m.user_id && e.type !== "event.opened" && e.type !== "member.ready").length,
+  // Open work (claims + owned cases) is the load that matters; a raw action count
+  // made a fast clicker look "busiest" (Manager playtest) — it's shown only as context.
+  const now = useServerNow(15_000);
+  const load = openLoadByUser(events, now);
+  const workload = roster.filter(r => r.role !== "instructor" && r.role !== "observer").map(m => ({
+    name: m.name, role: m.role, open: load.get(m.user_id) ?? 0,
+    actions: events.filter(e => e.actor_id === m.user_id && e.type !== "event.opened" && e.type !== "member.ready" && e.type !== "message.sent").length,
   }));
   const canPost = ho.open_cases.trim().length >= 5 && ho.next.trim().length >= 3;
   async function post() {
@@ -32,7 +38,7 @@ export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; ev
         {workload.map(w => (
           <div key={w.name} className="flex items-center justify-between text-xs">
             <span className="text-slate-300">{w.name} <span className="font-mono text-[10px] text-slate-500">{ROLE_LABEL[w.role] ?? w.role}</span></span>
-            <span className="font-mono text-slate-400">{w.actions} actions</span>
+            <span className="font-mono text-slate-400"><b className={w.open >= 3 ? "text-neon-amber" : "text-slate-300"}>{w.open} open</b> · <span className="text-slate-500">{w.actions} actions</span></span>
           </div>
         ))}
       </div>

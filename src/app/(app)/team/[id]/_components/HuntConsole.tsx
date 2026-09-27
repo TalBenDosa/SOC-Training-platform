@@ -7,24 +7,29 @@ import { ThreatIntelDrawer, type ThreatQuery } from "@/components/threat-intel/T
 import { ArrowUpRight, Check, ShieldAlert, ChevronDown, Search } from "lucide-react";
 import type { Ev, ScopeState } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
+import type { ScopeSnapshot } from "@/lib/team/projections";
 import { enrichSnapshot } from "./shared";
 import { ScopeConsole } from "./ScopeConsole";
 
 // ── T3 threat-hunt console ───────────────────────────────────────────────────
-export function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, onPivot }: {
-  scope: ScopeState; elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
+export function HuntConsole({ scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot }: {
+  scope: ScopeState; scopes?: Map<string, ScopeSnapshot>; incidents?: string[]; incidentOf?: Map<string, string>;
+  elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
-  const [f, setF] = useState({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed" });
+  // event_id = the elevation this hunt answers (T3 playtest: hunts weren't linked to the
+  // hand-off); incident = the optional incident label so findings group per incident.
+  const [f, setF] = useState({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed", event_id: "", incident: "" });
   const [busy, setBusy] = useState(false);
   const [busyElev, setBusyElev] = useState<string | null>(null);
   const [openElev, setOpenElev] = useState<number | null>(null);
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null); // A3: live threat-intel enrichment
   async function log() {
     if (f.hypothesis.trim().length < 8) return;
-    setBusy(true); const ok = await act("hunt.logged", { ...f }); setBusy(false);
-    if (ok) setF({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed" });
+    const { event_id, incident, ...rest } = f;
+    setBusy(true); const ok = await act("hunt.logged", { ...rest, event_id: event_id || undefined, incident: incident.trim() || undefined }); setBusy(false);
+    if (ok) setF(s => ({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed", event_id: s.event_id, incident: s.incident }));
   }
   return (
     <div className="space-y-4">
@@ -64,7 +69,7 @@ export function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, 
                   )}
                   {snap && isOpen && <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40"><DetailPanelBody event={snap} onThreatQuery={setThreatQuery} onPivot={onPivot} /></div>}
                   {!done && <Button variant="outline" size="sm" className="mt-2" disabled={b} onClick={async () => { setBusyElev(e.seq + ""); await act("elevation.acknowledged", { event_id: eid }); setBusyElev(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Take the hunt</Button>}
-                  {done && <p className="mt-1 text-[11px] text-neon-green">✓ taken — record findings below</p>}
+                  {done && <p className="mt-1 flex items-center gap-2 text-[11px] text-neon-green">✓ taken — record findings below{f.event_id !== eid && <button onClick={() => setF(s => ({ ...s, event_id: eid, incident: s.incident || incidentOf?.get(eid) || "" }))} className="text-cyber-300 underline-offset-2 hover:underline">link my next finding to this →</button>}</p>}
                 </div>
               );
             })}
@@ -78,6 +83,15 @@ export function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, 
         </div>
         <p className="mt-1 text-[11px] text-slate-400">Beyond the queue: form a hypothesis, hunt the feed, record what you found.</p>
         <div className="mt-2 space-y-2">
+          {/* Link the finding to the elevation it answers + an optional incident label */}
+          <div className="flex gap-1.5">
+            <select value={f.event_id} onChange={e => { const v = e.target.value; setF(s => ({ ...s, event_id: v, incident: s.incident || (v && incidentOf?.get(v)) || "" })); }} className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+              <option value="">answers: — own hunt (no elevation) —</option>
+              {elevations.map(e => { const p = e.payload as { event_id?: string; summary?: string }; return <option key={e.seq} value={String(p.event_id)}>answers: {asStr(p.summary).slice(0, 60) || `elevation #${e.seq}`}</option>; })}
+            </select>
+            <input value={f.incident} onChange={e => setF(s => ({ ...s, incident: e.target.value }))} list="hunt-incidents" placeholder="Incident (optional)" className="w-36 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <datalist id="hunt-incidents">{incidents.map(i => <option key={i} value={i} />)}</datalist>
+          </div>
           <input value={f.hypothesis} onChange={e => setF(s => ({ ...s, hypothesis: e.target.value }))} placeholder="Hypothesis — name the entities (e.g. 'lateral movement from FIN-WS-07 to DC01 via SMB')" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
           <textarea value={f.finding} onChange={e => setF(s => ({ ...s, finding: e.target.value }))} placeholder="Finding / evidence — cite the hosts, users, IPs, hashes or techniques you verified it against" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
           <div className="flex gap-1.5">
@@ -88,12 +102,12 @@ export function HuntConsole({ scope, elevations, elevAcked, nameOf, act, onEdr, 
               <option value="inconclusive">inconclusive</option>
             </select>
           </div>
-          <p className="text-[10px] text-slate-500">Scored on substance: a hypothesis that names real entities, a finding that cites the evidence, a valid in-case technique, and a clear conclusion — a disproved (refuted) hypothesis with evidence counts fully.</p>
+          <p className="text-[10px] text-slate-500">Scored on substance: a hypothesis that names real entities, a finding that cites the evidence, a valid in-case technique, and a clear conclusion — a disproved (refuted) hypothesis with evidence counts fully. Findings land in the Shared Case for the whole team.</p>
           <Button variant="primary" size="sm" disabled={busy || f.hypothesis.trim().length < 8} onClick={log}>Log hunt finding</Button>
         </div>
       </Card>
       {/* G-10: Tier-3 owns the FINAL scope — confirm or amend what Tier-2 proposed */}
-      <ScopeConsole scope={scope} mode="confirm" act={act} />
+      <ScopeConsole scope={scope} scopes={scopes} incidents={incidents} mode="confirm" act={act} />
       {/* A3: live threat-intel enrichment when a hash/IP/domain is checked in a log */}
       {threatQuery && <ThreatIntelDrawer key="t3-threat" query={threatQuery} onClose={() => setThreatQuery(null)} />}
     </div>

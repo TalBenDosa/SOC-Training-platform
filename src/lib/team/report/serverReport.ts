@@ -20,8 +20,12 @@ import { computeReport } from "./computeReport";
 export type AnswerMap = Record<string, Record<string, unknown>>;
 export type ServerReport = ReturnType<typeof computeReport> & { answers: AnswerMap };
 
-const FEED_ANSWER_KEYS = ["expected_verdict", "fp_explanation"] as const;
-const INJECT_ANSWER_KEYS = ["kind", "expected_response", "linked_objective"] as const;
+// incident_id (per-incident detection) and supports_inject (which MSEL inject a feed log
+// backs) are needed to SCORE the shift; original_id / expected_decision let a curveball be
+// matched to its supporting telemetry and a help-desk ticket be judged on its decision.
+// All are reveal-safe once the session has ended (the report is only served then).
+const FEED_ANSWER_KEYS = ["expected_verdict", "fp_explanation", "incident_id", "supports_inject"] as const;
+const INJECT_ANSWER_KEYS = ["kind", "expected_response", "linked_objective", "original_id", "expected_decision"] as const;
 
 function pick(src: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};

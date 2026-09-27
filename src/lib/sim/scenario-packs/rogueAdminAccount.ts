@@ -63,7 +63,8 @@ export function buildRogueAdminAccountScenario(
 
   const events: TelemetryEvent[] = [
     // 1. CONTROL part 1 — an authorised onboarding request.
-    serviceNowRecord({
+    {
+      ...serviceNowRecord({
       companyId: cx, id: "evt_ra_01_ticket", ts: T(0), table: "sc_req_item", number: onboardingTicket, state: "Work in Progress",
       shortDescription: "New hire onboarding — standard user account", severity: "informational",
       extra: {
@@ -72,7 +73,10 @@ export function buildRogueAdminAccountScenario(
         "servicenow.assigned_to": admin.email, "servicenow.opened_at": "2026-06-11 09:42:00", "servicenow.sys_updated_on": "2026-06-11 14:10:00",
       },
       description: "New-hire onboarding request RITM0092416 was approved by HR Operations and assigned to the Service Desk queue, requested for n.peretz@nexacorp.com and assigned to t.aharoni.",
-    }),
+      }),
+      // The control: an authorised request — legitimate activity inside the incident's story.
+      is_baseline: true,
+    },
 
     // 2. CONTROL part 2 — the 4720 the ticket authorised, in daylight (confirmed).
     {
@@ -81,19 +85,20 @@ export function buildRogueAdminAccountScenario(
         subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0x8A31C05", targetUser: newHire.sam, targetSid: newHireSid,
         samAccountName: newHire.sam, displayName: "Noa Peretz", upn: newHire.email, primaryGroupId: "513", uac: "%%2080\n\t\t%%2082\n\t\t%%2084",
         recordId: "5540118", severity: "informational",
-        description: "t.aharoni created the domain account n.peretz on DC01 at 14:16 (Event 4720), six minutes after the onboarding request reached the Service Desk queue.",
+        description: "t.aharoni created the domain account n.peretz on DC01 (Event 4720) after the onboarding request reached the Service Desk queue.",
       }),
+      is_baseline: true,
       it_verify_result: "confirmed",
       it_verify_message: "Service Desk confirms this account was provisioned under approved onboarding request RITM0092416.",
     },
 
-    // 3. 22:47 — the administrator's session opens from an unexpected place (T1078).
+    // 3. The administrator's session opens from an unexpected place (T1021.001 over a valid account).
     winLogon({
       companyId: cx, id: "evt_ra_03_admin_logon", ts: T(N), host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: admin.email,
       targetUser: admin.sam, targetSid: adminSid, subjectUser: "SRV-ADM-07$", subjectSid: "S-1-5-18", logonId: "0xB17C440",
       logonType: 10, authPackage: "Negotiate", logonProcess: "User32 ", workstation: originHost.hostname, srcIp: originHost.ip, srcPort: "58114",
-      processName: "C:\\Windows\\System32\\svchost.exe", recordId: "2214905", severity: "medium", mitre: "T1078", tactic: "Initial Access",
-      description: "At 22:47 the t.aharoni account opened a LogonType 10 Remote Desktop session on the administrative server SRV-ADM-07, WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
+      processName: "C:\\Windows\\System32\\svchost.exe", recordId: "2214905", severity: "medium", mitre: "T1021.001", tactic: "Lateral Movement",
+      description: "The t.aharoni account opened a LogonType 10 Remote Desktop session on the administrative server SRV-ADM-07, WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
     }),
 
     // 4. The privilege set the admin session is issued (4672).
@@ -109,10 +114,10 @@ export function buildRogueAdminAccountScenario(
     {
       ...winAccountCreate({
         companyId: cx, id: "evt_ra_05_acct_create", ts: T(N + 4 * MIN), host: dc.hostname, fqdn: dc.fqdn, userEmail: admin.email,
-        subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0xB17C440", targetUser: rogue.sam, targetSid: rogueSid,
-        samAccountName: rogue.sam, displayName: "S. Katz", upn: rogue.email, primaryGroupId: "513", uac: "%%2080\n\t\t%%2082\n\t\t%%2084",
+        subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0x9C2F5B1", targetUser: rogue.sam, targetSid: rogueSid,
+        samAccountName: rogue.sam, displayName: "S. Katz", upn: rogue.email, primaryGroupId: "513", uac: "%%2082\n\t\t%%2084",
         recordId: "5548907", severity: "high", mitre: "T1136.002", tactic: "Persistence",
-        description: "At 22:51 the same t.aharoni session created the domain user s.katz on DC01 — Event 4720, same creator and same directory as the record written at 14:16.",
+        description: "t.aharoni created the domain user s.katz on DC01 — Event 4720, the same creator and the same directory as the n.peretz record created earlier under RITM0092416.",
       }),
       it_verify_result: "unverified",
       it_verify_message: "Service Desk searched the request and change queues for the last 30 days and found no record referencing this account name.",
@@ -122,10 +127,10 @@ export function buildRogueAdminAccountScenario(
     {
       ...winGroupMemberAdd({
         companyId: cx, id: "evt_ra_06_group_add_domain", ts: T(N + 7 * MIN), eventId: "4728", host: dc.hostname, fqdn: dc.fqdn, userEmail: admin.email,
-        targetUser: admin.sam, subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0xB17C440",
+        targetUser: admin.sam, subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0x9C2F5B1",
         memberName: "CN=s.katz,OU=Users,OU=Corp,DC=nexacorp,DC=com", memberSid: rogueSid, groupName: "Domain Admins",
-        groupSid: "S-1-5-21-3421479547-3897544621-1789562108-512", recordId: "5548931", severity: "critical", mitre: "T1098", tactic: "Persistence",
-        description: "Three minutes after it was created, s.katz was added to the security-enabled global group Domain Admins on DC01 (Event 4728), by t.aharoni.",
+        groupSid: "S-1-5-21-3421479547-3897544621-1789562108-512", recordId: "5548931", severity: "critical", mitre: "T1098.007", tactic: "Persistence",
+        description: "The newly created account s.katz was added to the security-enabled global group Domain Admins on DC01 (Event 4728), by t.aharoni.",
       }),
       edr_scope: "non_edr",
     },
@@ -136,16 +141,16 @@ export function buildRogueAdminAccountScenario(
       targetUser: admin.sam, subjectUser: admin.sam, subjectSid: adminSid, subjectLogonId: "0xB17C440",
       memberName: "-", memberSid: rogueSid, groupName: "Administrators", groupDomain: "Builtin", groupSid: "S-1-5-32-544",
       recordId: "2215044", severity: "high", mitre: "T1098", tactic: "Persistence",
-      description: "Two minutes later s.katz was added to the local Administrators group on SRV-ADM-07, recorded as Event 4732 on the member server itself.",
+      description: "s.katz was added to the local Administrators group on SRV-ADM-07, recorded as Event 4732 on the member server itself.",
     }),
 
-    // 8. 23:02 — the new account uses itself, from the same host (T1078).
+    // 8. The new account uses itself, from the same host (T1021.001).
     winLogon({
       companyId: cx, id: "evt_ra_08_new_acct_logon", ts: T(N + 15 * MIN), host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: rogue.email,
       targetUser: rogue.sam, targetSid: rogueSid, subjectUser: "SRV-ADM-07$", subjectSid: "S-1-5-18", logonId: "0xB18F2A9",
       logonType: 10, authPackage: "Negotiate", logonProcess: "User32 ", workstation: originHost.hostname, srcIp: originHost.ip, srcPort: "58622",
-      processName: "C:\\Windows\\System32\\svchost.exe", recordId: "2215190", severity: "critical", mitre: "T1078", tactic: "Initial Access",
-      description: "At 23:02 s.katz logged on to SRV-ADM-07 with LogonType 10, eleven minutes after the account was created — WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
+      processName: "C:\\Windows\\System32\\svchost.exe", recordId: "2215190", severity: "critical", mitre: "T1021.001", tactic: "Lateral Movement",
+      description: "s.katz logged on to SRV-ADM-07 with LogonType 10 — WorkstationName WS-ENG-2208, IpAddress 10.10.44.61.",
     }),
 
     // 9. The group membership takes effect — the new logon's rights (4672) (unverified).
@@ -158,7 +163,7 @@ export function buildRogueAdminAccountScenario(
         description: "The s.katz logon session on SRV-ADM-07 was issued SeDebugPrivilege, SeBackupPrivilege, SeRestorePrivilege and SeLoadDriverPrivilege among others (Event 4672).",
       }),
       it_verify_result: "unverified",
-      it_verify_message: "Service Desk has no change or onboarding record for s.katz (the 4720 that created the account was already flagged with no ticket). Privileges exercised by an account created out-of-hours with no authorisation must be escalated, not cleared.",
+      it_verify_message: "Service Desk has no change or onboarding record for s.katz — the account that received these privileges has no authorisation on file.",
     },
 
     // 10. The Sentinel correlation that opened the ticket, with directory context.
@@ -172,7 +177,7 @@ export function buildRogueAdminAccountScenario(
         "Actor Department": "Service Desk", "Actor Assigned Device": "WS-ITS-1140", "Actor Logon Hosts (Prior 30d)": ["WS-ITS-1140"],
         "Source Host Observed": originHost.hostname, "Source Host Department": "Engineering", "Source Host Primary User": "y.dagan@nexacorp.com",
       },
-      description: "Sentinel raised the alert at 23:08 with directory context attached: request-record lookups for s.katz, the acting administrator's assigned device and logon history, and WS-ENG-2208's owner.",
+      description: "Sentinel raised the alert with directory context attached: request-record lookups for s.katz, the acting administrator's assigned device and logon history, and WS-ENG-2208's owner.",
     }),
   ];
 

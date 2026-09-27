@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, Siren, X } from "lucide-react";
 import type { Ev, Ioc } from "@/lib/team/types";
-import { asStr, detectIocType, isValidIoc, wordCount } from "@/lib/team/format";
+import { asStr, detectIocType, isValidIoc, wordCount, type ActR } from "@/lib/team/format";
 import { slaMinFor } from "./shared";
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
@@ -14,10 +14,12 @@ const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr
 const SEVERITIES = ["low", "medium", "high", "critical"];
 const MIN_RATIONALE_WORDS = 12; // T1-6 hard gate: "meaningful rationale"
 
-export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, sel, setSel, reportOpen, setReportOpen }: {
+export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, actR, sel, setSel, reportOpen, setReportOpen }: {
   feed: Ev[]; dispositions: Map<string, string>; events: Ev[]; meId: string;
   iocDraft: Ioc[]; setIocDraft: React.Dispatch<React.SetStateAction<Ioc[]>>;
   nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>;
+  /** Outcome-returning act — lets the console see a `claim_held` rejection and offer a take-over. */
+  actR: ActR;
   // sel + reportOpen live in the parent so the 🚩 button on a LOG (in the feed's
   // DetailPanel) can select that event and open this report modal directly.
   sel: string; setSel: (v: string) => void; reportOpen: boolean; setReportOpen: (v: boolean) => void;
@@ -33,29 +35,79 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   // badges age even when no new event arrives.
   const nowMs = useServerNow(15_000);
   const [pulledNote, setPulledNote] = useState<string | null>(null);
+  // Selecting an alert here (queue, Take next, dropdown) opens its report — count it
+  // as an open so a verdict given from this console isn't scored as "unread".
+  useEffect(() => { if (sel) void act("event.opened", { event_id: sel, dwell_ms: 0 }); }, [sel, act]);
   useEffect(() => { if (!pulledNote) return; const t = setTimeout(() => setPulledNote(null), 4000); return () => clearTimeout(t); }, [pulledNote]);
+  // The queue is high/critical by default; medium can be pulled in (early signs of a
+  // story often arrive as medium — T1 playtest).
+  const [withMedium, setWithMedium] = useState(false);
   const queue = feed
     .map(e => { const p = e.payload as { id?: string; severity?: string; source?: string; description?: string; summary?: string; what?: string; hostname?: string }; return { e, eid: String(p.id ?? e.seq), p }; })
-    .filter(({ eid, p }) => !dispositions.has(eid) && (p.severity === "high" || p.severity === "critical"))
-    .map(x => { const mins = x.e.occurred_at ? Math.max(0, Math.floor((nowMs - Date.parse(x.e.occurred_at)) / 60000)) : 0; const rank = x.p.severity === "critical" ? 4 : 3; return { ...x, mins, rank, score: rank * (1 + mins / 5) }; })
+    .filter(({ eid, p }) => !dispositions.has(eid) && (p.severity === "high" || p.severity === "critical" || (withMedium && p.severity === "medium")))
+    .map(x => { const mins = x.e.occurred_at ? Math.max(0, Math.floor((nowMs - Date.parse(x.e.occurred_at)) / 60000)) : 0; const rank = x.p.severity === "critical" ? 4 : x.p.severity === "high" ? 3 : 2; return { ...x, mins, rank, score: rank * (1 + mins / 5) }; })
     .sort((a, b) => b.score - a.score);
   const isLowConf = selDisp === "suspicious"; // T1-2: Suspicious → low-confidence lead
 
   // T1-3: soft-lock claims — the room's ONE claims projection (A3): latest claim per
   // alert, cleared by release/disposition, expired after 5 min on the server clock.
   const claims = useMemo(() => activeClaims(events, nowMs), [events, nowMs]);
-  const claimerOf = (eid: string): { by: string; at: number } | null => {
-    if (dispositions.has(eid)) return null;              // dispositioned → off the clock
-    return claims.get(eid) ?? null;
-  };
+  // The projection already applies the server's rule (a later disposition / release /
+  // escalation ends the claim), so a re-claim after a TP call shows correctly.
+  const claimerOf = (eid: string): { by: string; at: number } | null => claims.get(eid) ?? null;
   const options = feed.map(e => {
     const p = e.payload as { id?: string; description?: unknown; event_type?: unknown }; const id = String(p.id ?? e.seq);
     const c = claimerOf(id); const lock = c && c.by !== meId ? "🔒 " : "";
     return { id, label: `${lock}#${e.seq} ${asStr(p.description) || asStr(p.event_type) || "event"}` };
   });
   const selClaim = sel ? claimerOf(sel) : null;
-  async function claim() { if (!sel) return; setBusy(true); await act("alert.claimed", { event_id: sel }); setBusy(false); }
+  // P0-3: the server rejects a claim on an alert a teammate holds (`claim_held`).
+  // `heldFor` covers the race where our view hasn't received their claim yet; a
+  // take-over is an explicit, confirmed action that resends with `takeover: true`.
+  const [heldFor, setHeldFor] = useState<string | null>(null);
+  const [confirmTake, setConfirmTake] = useState<string | null>(null);
+  useEffect(() => { setConfirmTake(null); setHeldFor(h => (h && h !== sel ? null : h)); }, [sel]);
+  // Once their claim reaches our view the projection shows it — drop the race marker so
+  // a later release by them isn't masked by a stale "claimed just now".
+  useEffect(() => { if (selClaim) setHeldFor(null); }, [selClaim?.by, selClaim?.at]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function claim(takeover = false) {
+    if (!sel) return;
+    setBusy(true);
+    const r = await actR("alert.claimed", takeover ? { event_id: sel, takeover: true } : { event_id: sel }, { handled: ["claim_held"] });
+    setBusy(false);
+    if (r.ok) { setHeldFor(null); setConfirmTake(null); }
+    else if (r.code === "claim_held") setHeldFor(sel);
+  }
   async function release() { if (!sel) return; setBusy(true); await act("alert.released", { event_id: sel }); setBusy(false); }
+  const ago = (at: number) => { const s = Math.max(0, Math.round((nowMs - at) / 1000)); return s < 60 ? `${s}s ago` : `${Math.floor(s / 60)}m ago`; };
+  // One claim banner for the console + the report modal: who holds it, since when,
+  // and a two-step take-over (so taking a teammate's alert is never an accident).
+  const heldByOther = !!sel && ((!!selClaim && selClaim.by !== meId) || heldFor === sel);
+  const claimBanner = (inModal: boolean) => {
+    if (!sel) return null;
+    if (heldByOther) {
+      const theirs = selClaim && selClaim.by !== meId ? selClaim : null;
+      return (
+        <div className="mt-2 rounded border border-neon-amber/40 bg-neon-amber/[0.08] px-2 py-1.5 text-[11px]">
+          <div className="flex items-center gap-2">
+            <span className="text-neon-amber">🔒 {theirs ? nameOf(theirs.by) : "A teammate"} is working this alert ({theirs ? `claimed ${ago(theirs.at)}` : "claimed just now"}).</span>
+            {confirmTake !== sel && <Button variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={() => setConfirmTake(sel)}>Take over</Button>}
+          </div>
+          {confirmTake === sel && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-slate-300">Take it over? Agree it in the war room first — they&apos;ll see it moved to you.</span>
+              <Button variant="primary" size="sm" disabled={busy} onClick={() => claim(true)}>Confirm take-over</Button>
+              <Button variant="outline" size="sm" onClick={() => setConfirmTake(null)}>Cancel</Button>
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (selClaim && selClaim.by === meId) return inModal
+      ? <p className="mt-2 text-[11px] text-neon-green">✓ you claimed this alert</p>
+      : <div className="mt-2 flex items-center gap-2 text-[11px] text-neon-green"><span>✓ you claimed this alert</span><Button variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={release}>Release</Button></div>;
+    return inModal ? null : <div className="mt-2"><Button variant="outline" size="sm" disabled={busy} onClick={() => claim()}>Take this alert</Button></div>;
+  };
 
   // Work-division: escalated (handed-off) alerts, so an orphan check doesn't flag a
   // case that's already moving up the chain.
@@ -83,14 +135,20 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   }
 
   // T1-7: my escalations with live status (sent → acknowledged → bounced/resolved).
+  // Status is per ROUND: only what happened to this log after THIS request (and before
+  // it was escalated again) counts — a re-escalation after a bounce has its own row.
   const myEsc = useMemo(() => {
-    const acked = new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id)));
-    const bounced = new Set(events.filter(e => e.type === "escalation.bounced").map(e => String((e.payload as { event_id?: string }).event_id)));
-    const resolved = new Set(events.filter(e => e.type === "escalation.resolved").map(e => String((e.payload as { event_id?: string }).event_id)));
+    const eidOfEv = (e: Ev) => String((e.payload as { event_id?: string }).event_id);
     return events.filter(e => e.type === "escalation.requested" && e.actor_id === meId).map(e => {
-      const p = e.payload as { event_id?: string; summary?: string; what?: string; reason?: string }; const eid = String(p.event_id);
-      const status = resolved.has(eid) ? "resolved" : bounced.has(eid) ? "bounced" : acked.has(eid) ? "acknowledged" : "sent";
-      const reason = asStr((events.filter(e2 => e2.type === "escalation.bounced" && String((e2.payload as { event_id?: string }).event_id) === eid).slice(-1)[0]?.payload as { reason?: string } | undefined)?.reason);
+      const p = e.payload as { event_id?: string; summary?: string; what?: string }; const eid = String(p.event_id);
+      let status = "sent", reason = "";
+      for (const e2 of events) {
+        if (e2.seq <= e.seq || eidOfEv(e2) !== eid) continue;
+        if (e2.type === "escalation.requested") break;               // next round starts
+        if (e2.type === "escalation.resolved") status = "resolved";
+        else if (e2.type === "escalation.bounced") { status = "bounced"; reason = asStr((e2.payload as { reason?: string }).reason); }
+        else if (e2.type === "escalation.acknowledged" && status === "sent") status = "acknowledged";
+      }
       return { seq: e.seq, eid, label: asStr(p.summary) || asStr(p.what) || "escalation", status, reason };
     });
   }, [events, meId]);
@@ -106,7 +164,7 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   const rationaleWords = wordCount(form.observations);
   // T1-6 quality gate — every condition must hold before Escalate is allowed.
   const gate = {
-    summary: !!form.summary.trim(),
+    summary: form.summary.trim().length >= 5,   // server minimum (0073)
     rationale: rationaleWords >= MIN_RATIONALE_WORDS,
     ioc: iocDraft.length >= 1,
     severity: !!form.severity,
@@ -119,14 +177,21 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   // soft-claim automatically so two Tier-1s don't work the same log — unless a
   // teammate already holds it (then the modal shows a "Take over" banner instead).
   useEffect(() => {
-    if (reportOpen && sel && !selClaim) { act("alert.claimed", { event_id: sel }); }
+    if (reportOpen && sel && !selClaim) void claim();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportOpen, sel]);
 
   async function disp(v: string) {
-    if (!sel) return; setBusy(true); await act("disposition.set", { event_id: sel, verdict: v }); setBusy(false);
+    if (!sel) return;
+    setBusy(true);
+    const r = await actR("disposition.set", { event_id: sel, verdict: v }, { handled: ["claim_held"] });
+    if (!r.ok) { setBusy(false); if (r.code === "claim_held") setHeldFor(sel); return; }
     // FP/Benign close at T1 and release any soft claim so a teammate can reuse the row.
     if (v === "false_positive" || v === "benign") await act("alert.released", { event_id: sel });
+    // TP / suspicious → you're about to write the escalation: re-take the claim (a
+    // disposition ends it server-side) so a teammate can't grab the log mid-report.
+    else await actR("alert.claimed", { event_id: sel }, { handled: ["claim_held"] });
+    setBusy(false);
   }
   async function escalate() {
     if (!canEscalate) return;
@@ -143,14 +208,16 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
     }
     const fe = full as { hostname?: string; user_email?: string; user?: { email?: string } } | undefined;
     const entity = asStr(fe?.hostname) || asStr(fe?.user_email) || asStr(fe?.user?.email) || "the affected asset";
-    const ok = await act("escalation.requested", {
+    const res = await actR("escalation.requested", {
       event_id: sel, summary: form.summary, observations: form.observations, assessment: form.assessment,
       iocs: iocDraft, requested_action: form.requested_action, severity: form.severity,
       confidence: isLowConf ? 0.3 : 0.7, low_confidence: isLowConf || undefined,
       hostname: asStr(fe?.hostname) || undefined, entity, snapshot,
       what: form.summary, why: form.observations, // back-compat aliases
-    });
-    if (ok) await act("alert.released", { event_id: sel }); // escalated → hand off the claim
+    }, { handled: ["claim_held"] });
+    const ok = res.ok;
+    if (res.code === "claim_held") setHeldFor(sel);
+    if (ok) await act("alert.released", { event_id: sel }); // escalated → hand off the claim (the load replay reads the release)
     setBusy(false);
     if (ok) { setForm({ summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" }); setIocDraft([]); setSel(""); setReportOpen(false); }
   }
@@ -170,12 +237,14 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" /> Alert queue ({queue.length})</h3>
         <div className="flex items-center gap-2">
           {queue.length > 0 && <Button variant="outline" size="sm" disabled={busy} onClick={takeNext}>Take next</Button>}
-          <span className="font-mono text-[10px] text-slate-400">high/critical · un-triaged</span>
+          <label className="flex items-center gap-1 font-mono text-[10px] text-slate-400" title="Early signs of an attack often arrive as medium — pull them into the queue">
+            <input type="checkbox" checked={withMedium} onChange={e => setWithMedium(e.target.checked)} className="h-3 w-3" /> {withMedium ? "medium+" : "high/critical"} · un-triaged
+          </label>
         </div>
       </div>
       {pulledNote && <p role="status" className="mt-1.5 text-[11px] text-neon-green">{pulledNote}</p>}
       {queue.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-400">Queue clear — no high/critical alert is waiting for a disposition. Watch the feed.</p>
+        <p className="mt-2 text-xs text-slate-400">Queue clear — no {withMedium ? "medium+" : "high/critical"} alert is waiting for a disposition. Watch the feed.</p>
       ) : (
         <div className="mt-2 space-y-1">
           {queueDisplay.slice(0, 8).map(({ e, eid, p, mins, rank, orphan }) => { const breached = mins >= slaMinFor(p.severity ?? "high"); return (
@@ -215,17 +284,8 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
           {options.map(o => <option key={o.id} value={o.id}>{o.label}{dispositions.get(o.id) ? ` · ${dispositions.get(o.id)}` : ""}</option>)}
         </select>
       </label>
-      {/* T1-3: soft-claim so two Tier-1 analysts don't work the same alert */}
-      {sel && (
-        selClaim && selClaim.by !== meId
-          ? <div className="mt-2 flex items-center gap-2 rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1 text-[11px]">
-              <span className="text-neon-amber">🔒 claimed by {nameOf(selClaim.by)}</span>
-              <Button variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={claim}>Take over</Button>
-            </div>
-          : selClaim && selClaim.by === meId
-            ? <div className="mt-2 flex items-center gap-2 text-[11px] text-neon-green"><span>✓ you claimed this alert</span><Button variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={release}>Release</Button></div>
-            : <div className="mt-2"><Button variant="outline" size="sm" disabled={busy} onClick={claim}>Take this alert</Button></div>
-      )}
+      {/* T1-3: soft-claim so two Tier-1 analysts don't work the same alert (server-enforced, P0-3) */}
+      {claimBanner(false)}
       {/* T1-2: four dispositions incl. Suspicious */}
       <div className="mt-2 flex flex-wrap gap-1.5">
         {[["true_positive", "true positive"], ["false_positive", "false positive"], ["benign", "benign"], ["suspicious", "suspicious"]].map(([v, label]) => (
@@ -264,14 +324,7 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
           </div>
 
           {/* Claim status — surfaced INSIDE the modal so the 🚩 path can't hide a teammate's lock */}
-          {selClaim && selClaim.by !== meId ? (
-            <div className="mt-2 flex items-center gap-2 rounded border border-neon-amber/40 bg-neon-amber/[0.08] px-2 py-1.5 text-[11px]">
-              <span className="text-neon-amber">🔒 {nameOf(selClaim.by)} is already working this alert.</span>
-              <Button variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={claim}>Take over</Button>
-            </div>
-          ) : selClaim && selClaim.by === meId ? (
-            <p className="mt-2 text-[11px] text-neon-green">✓ you claimed this alert</p>
-          ) : null}
+          {claimBanner(true)}
 
           {/* Disposition — triage before escalate. Set it right here if it isn't yet. */}
           <div className="mt-2">

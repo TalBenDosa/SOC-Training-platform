@@ -344,7 +344,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "m.nguyen granted Okta Super Organization Admin role on LAP-DEV-12 — unverified",
     it_verify_result: "unverified",
-    it_verify_message: "IT has no record of a request to elevate m.nguyen to Okta Super Admin. m.nguyen is a mid-level developer with no business need for this role. No open or recently approved change ticket exists. This event occurred outside business hours. Investigate immediately — possible account compromise.",
+    it_verify_message: "IT has no record of a request to elevate m.nguyen to Okta Super Admin, and no open or recently approved change ticket exists. m.nguyen is a mid-level developer.",
     raw: {
       "okta.eventType": "user.account.privilege.grant", "okta.target.alternateId": "m.nguyen@rocketstack.io",
       "okta.target.type": "User",
@@ -892,6 +892,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "SentinelOne", hostname: "WS-MED-022", user_email: "dr.vandijk@medcorehealth.org",
     user_title: "Cardiologist",
     src_ip: "192.168.10.22",
+    expected_verdict: "tp",
     description: "WINWORD.EXE on WS-MED-022 spawned cmd.exe, which wrote whoami output to a temp file",
     mitre_technique: "T1566.001",
     process: { name: "cmd.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 6610, user: "dr.vandijk", cmdline: "cmd.exe /c whoami /all > C:\\Users\\DOCVDIJK\\AppData\\Local\\Temp\\~tmp88A.txt", integrity: "high" },
@@ -1053,6 +1054,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     id: "mc_s1_010", ts: "2026-05-10T12:30:00.000Z",
     source: "edr", event_type: "file_create", severity: "medium",
     vendor: "SentinelOne", hostname: "WS-NURS-044", src_ip: "192.168.10.44",
+    expected_verdict: "tp",
     description: "OUTLOOK.EXE dropped MedConf_Invoice.zip on WS-NURS-044 Desktop",
     file: { path: "C:\\Users\\m.verhoeven\\Desktop\\MedConf_Invoice.zip", sha256: "ae5949f8d2f7e02942e7e7a528edea083f876cffa946879983a6f67331f69443" },
     mitre_technique: "T1566.001",
@@ -1093,6 +1095,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     source: "dns", event_type: "dns_query", severity: "medium",
     vendor: "Infoblox DNS", hostname: "WS-MED-022", src_ip: "192.168.10.22",
     network: { domain: "a0d3f.medcore-portal.eu" },
+    expected_verdict: "tp",
     description: "WS-MED-022 queried the subdomain a0d3f.medcore-portal.eu and received 185.220.101.72",
     mitre_technique: "T1568.002",
     raw: { "dns.question.name": "a0d3f.medcore-portal.eu", "dns.question.type": "A", "dns.response_code": "NOERROR", "dns.answers.data": "185.220.101.72", "dns.answers.ttl": "60", "infoblox.view": "Internal", "infoblox.zone_type": "Forward", "action_result": "allowed" }
@@ -1285,6 +1288,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     id: "mc_az_003", ts: "2026-05-10T09:48:00.000Z",
     source: "cloud_azure", event_type: "cloud_api_call", severity: "medium",
     vendor: "Microsoft Entra ID", user_email: "dr.vandijk@medcorehealth.org", src_ip: "192.168.10.22",
+    expected_verdict: "tp",
     description: "dr.vandijk's account queried the full Azure AD user directory — unusual for a clinical account",
     mitre_technique: "T1087.002",
     raw: { "azure.activitylogs.operationName": "Microsoft.Graph/users/read", "azure.resource.id": "/v1.0/users", "azure.activitylogs.resultType": "Succeeded", "azure.client_app": "Microsoft Office", "action_result": "allowed" }
@@ -1311,6 +1315,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     id: "mc_vpn_002", ts: "2026-05-10T10:15:00.000Z",
     source: "vpn", event_type: "vpn_login", severity: "medium",
     vendor: "Cisco AnyConnect", user_email: "dr.peters@medcorehealth.org", src_ip: "41.213.88.12",
+    expected_verdict: "escalate",
     description: "dr.peters connected VPN from Nigeria (unusual location)",
     mitre_technique: "T1078",
     raw: { "cisco.asa.message_id": "113039", "cisco.asa.session_type": "AnyConnect-Parent", "cisco.asa.tunnel_group": "Physicians-Full", "source.geo.country_iso_code": "NG", "source.geo.city_name": "Lagos", "cisco.asa.aaa_server_group": "duo_push", "cisco.mfa_response_time_ms": "47210", "action_result": "allowed" }
@@ -1369,7 +1374,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "admin.vandenberg added svc-labsystem to Domain Admins",
     expected_verdict: "tp", is_detection: true,
     it_verify_result: "unverified",
-    it_verify_message: "IT has no open or closed change ticket for adding the svc-labsystem service account to Domain Admins. Service accounts should never be in the Domain Admins group — this violates MedCore security policy and NEN 7510 compliance requirements. No maintenance windows are active. Investigate immediately — possible attacker privilege escalation via service account.",
+    it_verify_message: "IT has no open or closed change ticket for adding the svc-labsystem service account to Domain Admins, and no maintenance window is active.",
     raw: {
       "winlog.event_id": "4728",
       "winlog.event_data.SubjectUserName": "admin.vandenberg",
@@ -2513,7 +2518,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     description: "security-admin added n.schulz to Core-Banking-DB-Admins group",
     expected_verdict: "tp", is_detection: true,
     it_verify_result: "unverified",
-    it_verify_message: "IT has no record of a request to add n.schulz to Core-Banking-DB-Admins. n.schulz is in Application Development — not a DBA role. This group grants direct read/write access to transaction tables in the core banking database, which is subject to PCI-DSS segregation-of-duties controls. No open change ticket, no CAB approval. Escalate to CISO immediately.",
+    it_verify_message: "IT has no record of a request to add n.schulz to Core-Banking-DB-Admins — no open change ticket and no CAB approval. n.schulz works in Application Development.",
     raw: {
       "okta.eventType": "group.user_membership.add", "okta.target.displayName": "Core-Banking-DB-Admins",
       "okta.target.alternateId": "n.schulz@quantumbank.ch",

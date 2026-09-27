@@ -144,7 +144,8 @@ function HandoffLadder({ events, nameOf }: { events: Ev[]; nameOf: (u: string | 
       if (!start) continue; // only real T1→ handoff chains
       const hops = raw.slice().sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
       const acked = hops.some(h => h.type === "escalation.acknowledged");
-      const closed = hops.some(h => h.type === "escalation.resolved" || h.type === "containment.executed");
+      // A bounce is an explicit answer back to Tier-1 — the loop CLOSED (same rule as the report).
+      const closed = hops.some(h => h.type === "escalation.resolved" || h.type === "containment.executed" || h.type === "escalation.bounced");
       const status = closed ? "closed" : !acked ? "dropped" : "open";
       let prev = start.at;
       const steps = hops.map(h => { const d = prev != null && h.at != null ? (h.at - prev) / 1000 : null; prev = h.at ?? prev; return { type: h.type, who: h.who, d }; });
@@ -200,12 +201,14 @@ function csvCell(v: unknown): string {
 }
 
 const LEGEND: Record<string, string> = {
-  "MTTD": "Mean time to detect — shift start → first escalation of a real attack.",
+  "Incidents detected": "Real incidents the team caught — any of an incident's attack logs escalated, or marked true positive / suspicious. Scored per incident, not per log.",
+  "MTTD": "Mean time to detect — shift start → the first CORRECT escalation of a real attack log.",
   "Handoff latency": "How long an escalation waited before a Tier-2 acknowledged it (median).",
-  "Handoff loop closure": "Share of escalations a Tier-2 actually acknowledged (a closed loop).",
+  "Handoff loop closure": "Share of escalated logs a Tier-2 closed the loop on — acknowledged, bounced back or resolved.",
   "MTTC": "Mean time to contain — containment request → isolation executed.",
-  "MTTR": "Mean time to resolve — escalation → case resolved.",
+  "MTTR": "Mean time to resolve — FIRST escalation → case resolved.",
   "Shared picture": "Contested = two analysts gave opposite verdicts on the same event.",
+  "Insufficient evidence": "Fewer than 2 criteria could be measured for this seat — no score is shown rather than a misleading 100%.",
 };
 
 /**
@@ -256,17 +259,24 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   const visible = perUser;   // the server already limited this to my card unless I'm staff / the Manager
 
   function exportCsv() {
-    const header = ["Name", "Role", "Rubric score %", "Logs opened", "Avg dwell (s)", "Dispositions", "Disposition accuracy %", "Escalations", "Escalation quality", "Acks", "Containment requests", "Containment decisions", "Role actions", "First action (s)", "Contribution"];
-    const rows = perUser.map(u => [u.name, u.role, u.rubricPct ?? "", u.opened, u.avgDwellS ?? "", u.dispCount, u.dispAcc ?? "", u.escCount, u.escQuality ?? "", u.acks, u.contReq, u.contDecided, u.roleActions, u.firstActionS ?? "", u.contribution]);
+    const header = ["Name", "Role", "Rubric score %", "Criteria measured", "Logs opened", "Avg dwell (s)", "Dispositions", "Disposition accuracy %", "Dispositions on unopened logs", "Escalations", "Escalation quality", "Acks", "Containment requests", "Containment decisions", "Role actions", "First action (s)", "Contribution"];
+    const rows = perUser.map(u => [u.name, u.role, u.insufficientEvidence ? "insufficient evidence" : (u.rubricPct ?? ""), u.measuredCells ?? "", u.opened, u.avgDwellS ?? "", u.dispCount, u.dispAcc ?? "", u.dispUnopened ?? "", u.escCount, u.escQuality ?? "", u.acks, u.contReq, u.contDecided, u.roleActions, u.firstActionS ?? "", u.contribution]);
     const csv = [header, ...rows].map(r => r.map(csvCell).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a"); a.href = url; a.download = `team-exercise-report-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
   }
   const lcTone = team.loopClosure != null ? (team.loopClosure >= 80 ? "good" as const : team.loopClosure < 50 ? "warn" as const : undefined) : undefined;
+  // Per-incident detection (fix round 2026-09-27). A report cached before it existed
+  // has no incident fields — fall back to the old yes/no.
+  const incidents = team.incidents ?? [];
+  const incTotal = team.incidentsTotal ?? 0;
+  const incDetected = team.incidentsDetected ?? 0;
+  const incValue = incTotal ? `${incDetected}/${incTotal}` : (team.detected ? "Yes" : "No");
+  const incTone = incTotal ? (incDetected === incTotal ? "good" as const : "warn" as const) : (team.detected ? "good" as const : "warn" as const);
   const groups: { title: string; items: [string, string, ("good" | "warn" | undefined)?][] }[] = [
     { title: "Detection", items: [
-      ["Attack detected", team.detected ? "Yes" : "No", team.detected ? "good" : "warn"],
+      ["Incidents detected", incValue, incTone],
       ["MTTD", team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"],
       ["Logs", String(team.logs)],
       ["Disposition accuracy", team.dispAcc != null ? `${team.dispAcc}%` : "—"],
@@ -293,7 +303,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
 
   return (
     <div className="space-y-5">
-      <Card className={team.detected ? "border-neon-green/30" : "border-neon-amber/30"}>
+      <Card className={incTone === "good" ? "border-neon-green/30" : "border-neon-amber/30"}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-white">Shift review</h2>
           {me.is_staff && seesAll && <Button variant="outline" size="sm" onClick={exportCsv}>Export CSV</Button>}
@@ -301,7 +311,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         <p className="mt-0.5 text-[11px] text-slate-400">A no-fault learning debrief — surfacing and fixing a mistake scores <b className="text-slate-300">for</b> you, not against. Start with the debrief below; the numbers support the conversation.</p>
         {/* U2: the four headline numbers the briefing promised (accuracy · timeliness · coordination) */}
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Metric label="Attack detected" value={team.detected ? "Yes" : "No"} tone={team.detected ? "good" : "warn"} />
+          <span title={LEGEND["Incidents detected"]}><Metric label={incTotal ? "Incidents detected" : "Attack detected"} value={incValue} tone={incTone} /></span>
           <span title={LEGEND["MTTD"]}><Metric label="MTTD (time to detect)" value={team.timeToDetectS != null ? `${team.timeToDetectS}s` : "—"} /></span>
           <Metric label="Disposition accuracy" value={team.dispAcc != null ? `${team.dispAcc}%` : "—"} />
           <span title={LEGEND["Handoff loop closure"]}><Metric label="Handoff loop closure" value={team.loopClosure != null ? `${team.loopClosure}%` : "—"} tone={lcTone} /></span>
@@ -330,6 +340,34 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           </div>
         )}
       </Card>
+
+      {/* Per-incident detection — was each real incident caught? (fix round 2026-09-27, P0-1) */}
+      {incidents.length > 0 && (
+        <Card>
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Incidents — did we catch each one?</h3>
+            <span className="font-mono text-[10px] text-slate-400">{incDetected}/{incTotal} detected</span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Scored per incident, not per log: an incident counts as caught once <b className="text-slate-300">any</b> of its attack logs was escalated or marked true positive / suspicious.</p>
+          <div className="mt-3 space-y-2">
+            {incidents.map(inc => (
+              <div key={inc.id} className="rounded-lg border border-border/50 bg-bg px-2.5 py-2">
+                <div className="flex items-start gap-2">
+                  <span className="min-w-0 flex-1 text-[11px] text-slate-300">{inc.label}</span>
+                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${!inc.detected ? "border-severity-high/50 bg-severity-high/15 text-severity-high" : inc.escalated ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber"}`}>{!inc.detected ? "missed" : inc.escalated ? "escalated" : "marked only"}</span>
+                </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {inc.attackEvents} attack log{inc.attackEvents === 1 ? "" : "s"}
+                  {inc.firstSeenS != null ? ` · first seen ${inc.firstSeenS}s` : ""}
+                  {inc.detected && inc.detectS != null ? ` · caught at ${inc.detectS}s` : ""}
+                  {inc.detected && inc.dwellS != null ? ` (${inc.dwellS}s after it surfaced)` : ""}
+                  {inc.contained ? " · contained" : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Guided hot-wash FIRST — the debrief conversation, reconstructed from the log (U2) */}
       <HotWash events={revealed} nameOf={nameOf} />
@@ -366,16 +404,24 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           </div>
           <p className="mt-1 text-[11px] text-slate-400">Scripted pressure &amp; tickets during the shift — and whether the team produced the expected response.</p>
           <div className="mt-3 space-y-2">
-            {team.injects.map((inj, i) => (
+            {team.injects.map((inj, i) => {
+              // `evaluable` is absent on reports cached before the fix round ⇒ treat as evaluable.
+              const notEvaluable = inj.evaluable === false;
+              const badge = notEvaluable ? "not evaluable" : !inj.scored ? (inj.decoy ? "decoy" : "FYI") : inj.decoy ? (inj.handled ? "decoy · rejected" : "decoy · chased") : inj.handled ? "handled" : "missed";
+              const tone = notEvaluable || !inj.scored ? (inj.decoy && !notEvaluable ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-500")
+                : inj.handled ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/50 bg-severity-high/15 text-severity-high";
+              return (
               <div key={i} className="rounded-lg border border-border/50 bg-bg px-2.5 py-2">
                 <div className="flex items-start gap-2">
                   <span className="min-w-0 flex-1 text-[11px] text-slate-300">{inj.text}</span>
-                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${inj.decoy ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : !inj.scored ? "border-border text-slate-500" : inj.handled ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/50 bg-severity-high/15 text-severity-high"}`}>{inj.decoy ? "decoy" : !inj.scored ? "FYI" : inj.handled ? "handled" : "missed"}</span>
+                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${tone}`}>{badge}</span>
                 </div>
+                {inj.note && <p className="mt-1 text-[10px] text-slate-400">{inj.note}</p>}
                 {inj.decoy && <p className="mt-1 text-[10px] text-cyber-300/80">Decoy — did the team correctly reject it, or chase a false lead?</p>}
                 {inj.expected && <p className="mt-1 text-[10px] text-slate-500"><span className="text-slate-400">Expected:</span> {inj.expected}{inj.objective && inj.objective !== "—" ? ` · ${inj.objective}` : ""}</p>}
               </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
@@ -388,18 +434,31 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
               <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{ROLE_LABEL[u.role] ?? u.role}</span>
             </div>
             {/* G-11: role rubric is the real score; contribution kept as a secondary signal */}
-            <div className="mt-2 flex items-center gap-2">
-              <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg"><span className="block h-full bg-cyber-500" style={{ width: `${u.rubricPct ?? 0}%` }} /></div>
-              <span className="shrink-0 font-mono text-xs font-bold text-cyber-300">{u.rubricPct != null ? `${u.rubricPct}` : "—"}<span className="text-slate-500">/100</span></span>
-            </div>
-            <p className="mt-1 text-[10px] text-slate-500">role rubric score · contribution {u.contribution}/100</p>
+            {u.insufficientEvidence ? (
+              // Fewer than 2 measured criteria: no % (a 100% built on one cell misleads).
+              <div className="mt-2 flex items-center gap-2" title={LEGEND["Insufficient evidence"]}>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg" />
+                <span className="shrink-0 rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-neon-amber">insufficient evidence</span>
+              </div>
+            ) : (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg"><span className="block h-full bg-cyber-500" style={{ width: `${u.rubricPct ?? 0}%` }} /></div>
+                <span className="shrink-0 font-mono text-xs font-bold text-cyber-300">{u.rubricPct != null ? `${u.rubricPct}` : "—"}<span className="text-slate-500">/100</span></span>
+              </div>
+            )}
+            <p className="mt-1 text-[10px] text-slate-500">
+              {u.insufficientEvidence
+                ? `only ${u.measuredCells ?? 0} of ${u.rubric.length} criteria could be measured this shift — no score`
+                : `role rubric score${u.measuredCells != null ? ` · ${u.measuredCells}/${u.rubric.length} criteria measured` : ""}`} · contribution {u.contribution}/100
+            </p>
             {u.rubric.length > 0 && (
               <div className="mt-2 space-y-1">
                 {u.rubric.map(cell => (
-                  <div key={cell.label} className="flex items-center gap-2 text-[11px]">
+                  <div key={cell.label} className="flex items-center gap-2 text-[11px]" title={cell.note}>
                     <span className="min-w-0 flex-1 truncate text-slate-400">{cell.label}</span>
                     {cell.score == null
-                      ? <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[9px] uppercase text-slate-600">{cell.note ?? "n/a"}</span>
+                      // A null cell never shows its (positive-sounding) description as if it were a result.
+                      ? <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[9px] uppercase text-slate-600">{cell.note === "not yet measured" ? "not measured" : "n/a"}</span>
                       : <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${cell.score >= 12 ? "bg-neon-green/15 text-neon-green" : cell.score >= 8 ? "bg-cyber-500/15 text-cyber-300" : cell.score >= 4 ? "bg-neon-amber/15 text-neon-amber" : "bg-severity-high/15 text-severity-high"}`}>{cell.score}</span>}
                   </div>
                 ))}
@@ -409,7 +468,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
               <Line label="Logs opened" value={String(u.opened)} />
               <Line label="Avg dwell" value={u.avgDwellS != null ? `${u.avgDwellS}s` : "—"} />
               <Line label="First action" value={u.firstActionS != null ? `${u.firstActionS}s` : "—"} />
-              <Line label="Dispositions" value={`${u.dispCount}${u.dispAcc != null ? ` · ${u.dispAcc}%` : ""}`} />
+              <Line label="Dispositions" value={`${u.dispCount}${u.dispAcc != null ? ` · ${u.dispAcc}%` : ""}${u.dispUnopened ? ` · ${u.dispUnopened} unread` : ""}`} />
               <Line label="Escalations" value={`${u.escCount}${u.escQuality != null ? ` · q${u.escQuality}` : ""}`} />
               <Line label="Acknowledged" value={String(u.acks)} />
               <Line label="Containment" value={`${u.contReq} req · ${u.contDecided} dec`} />
@@ -418,7 +477,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           </Card>
         ))}
       </div>
-      <p className="text-xs text-slate-400">Per-user rubric (0/4/8/12 per criterion) + team report, computed on the server from the full action log. A criterion marked n/a had nothing to measure in this shift — it never lowers the score.</p>
+      <p className="text-xs text-slate-400">Per-user rubric (0/4/8/12 per criterion) + team report, computed on the server from the full action log. A criterion marked n/a or not measured had nothing to measure in this shift — it is left out of the score, and a card with fewer than 2 measured criteria shows <b className="text-neon-amber">insufficient evidence</b> instead of a %. &quot;Suspicious&quot; earns partial credit; a verdict on a log you never opened counts at reduced weight. Hover a criterion for how it is measured.</p>
     </div>
   );
 }

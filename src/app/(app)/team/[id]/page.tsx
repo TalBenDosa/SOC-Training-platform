@@ -25,11 +25,11 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
-import { asStr, detectIocType, friendlyActionError, hashString } from "@/lib/team/format";
+import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
-import { activeClaims } from "@/lib/team/projections";
+import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
@@ -48,6 +48,7 @@ import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
 import { SecondaryPanels } from "./_components/SecondaryPanels";
+import { TeamIntel } from "./_components/TeamIntel";
 
 const IMPACTS = ["host", "user", "segment", "org"];
 
@@ -320,10 +321,13 @@ export default function TeamRoomPage() {
   // different action in between gets a fresh key — ready → unready → ready or
   // claim → release → claim must all go through (a time-bucket key replayed them).
   const lastIntentRef = useRef<{ sig: string; key: string; at: number } | null>(null);
-  const act = useCallback(async (type: string, payload: Record<string, unknown>) => {
+  // actR: the full outcome incl. the server's rejection code, so a console can
+  // RECOVER (claim_held / case_owned → offer an explicit take-over). `handled` codes
+  // don't raise the banner — the caller renders its own inline prompt for them.
+  const actR = useCallback(async (type: string, payload: Record<string, unknown>, opts?: { handled?: ActionErrorCode[] }): Promise<ActOutcome> => {
     const sb = getSupabaseBrowserClient();
     const quiet = type === "event.opened";               // click telemetry never raises a banner
-    if (!sb) { if (!quiet) showError("Not connected — reload the page."); return false; }
+    if (!sb) { if (!quiet) showError("Not connected — reload the page."); return { ok: false, code: null }; }
     const sig = `${type}:${hashString(JSON.stringify(payload ?? {}))}`;
     const now = Date.now();
     const last = lastIntentRef.current;
@@ -332,15 +336,21 @@ export default function TeamRoomPage() {
       : `${sig}:${now.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     lastIntentRef.current = { sig, key: idem, at: now };
     const { data, error: e } = await sb.rpc("apply_session_action", { p_session: id, p_type: type, p_payload: payload, p_idempotency_key: idem });
-    if (e) { if (!quiet) showError(friendlyActionError(e.message)); return false; }
+    if (e) {
+      const code = actionErrorCode(e.message);
+      if (!quiet && !(code && opts?.handled?.includes(code))) showError(friendlyActionError(e.message));
+      return { ok: false, code, message: friendlyActionError(e.message) };
+    }
     // C1: merge our own row straight away — our action must never depend on its broadcast.
     const row = data as Ev | null;
     if (row && typeof row.seq === "number") {
       mergeEvents([{ seq: row.seq, type: row.type, actor_id: row.actor_id ?? null, role: row.role ?? null, payload: row.payload ?? {}, occurred_at: row.occurred_at }]);
     }
     if (!quiet) setError(null);
-    return true;
+    return { ok: true, code: null };
   }, [id, mergeEvents, showError]);
+  // The boolean form every other caller uses (unchanged contract).
+  const act = useCallback(async (type: string, payload: Record<string, unknown>) => (await actR(type, payload)).ok, [actR]);
 
   async function setReady(ready: boolean) {
     setBusy(true); setError(null);
@@ -549,18 +559,11 @@ export default function TeamRoomPage() {
   }, [v2, phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
-  const escalations = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
-  const acked = useMemo(() => new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String(e.payload.event_id))), [events]);
-  // G-07 escalation state machine.
-  const escBounced = useMemo(() => new Set(events.filter(e => e.type === "escalation.bounced").map(e => String(e.payload.event_id))), [events]);
-  const escResolved = useMemo(() => new Set(events.filter(e => e.type === "escalation.resolved").map(e => String(e.payload.event_id))), [events]);
-  // Routed escalations: who first acknowledged (= claimed) each escalation, so a
-  // second Tier-2 sees it's already being worked and doesn't double-handle it.
-  const ackedBy = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const e of events) if (e.type === "escalation.acknowledged") { const id = String(e.payload.event_id); if (!m.has(id)) m.set(id, e.actor_id ?? ""); }
-    return m;
-  }, [events]);
+  // G-07 escalation state machine — per ROUND (a bounced/resolved log can be escalated
+  // again) with the owner = first acknowledger or an explicit take-over (P0-3).
+  // `escalations` = the current round of each escalated log (one inbox row per log).
+  const escStates = useMemo(() => escalationStates(events), [events]);
+  const escalations = useMemo(() => [...escStates.values()].filter(s => s.rounds > 0).map(s => s.request).sort((a, b) => a.seq - b.seq), [escStates]);
   // Explicit Tier-2 → Tier-3 elevations (deep hunt). A separate queue so T3 gets
   // work handed to it, not just a shared inbox.
   const elevations = useMemo(() => events.filter(e => e.type === "elevation.requested"), [events]);
@@ -590,19 +593,16 @@ export default function TeamRoomPage() {
     const mins = Math.floor((nowTick - Date.parse(firstAttack.occurred_at)) / 60000);
     return mins >= 3 ? `High-signal activity has been in the feed for ~${mins} min with no escalation yet. Is the team watching the right log? Triage it and escalate if it's real.` : null;
   }, [feed, events, v2, nowTick]);
-  const contReq = useMemo(() => events.filter(e => e.type === "containment.requested"), [events]);
-  const contDecided = useMemo(() => new Set(events.filter(e => e.type === "containment.approved" || e.type === "containment.denied").map(e => String(e.payload.event_id))), [events]);
-  // G-09: approved-but-not-yet-executed containments, and the set already executed.
-  const contApproved = useMemo(() => new Set(events.filter(e => e.type === "containment.approved").map(e => String(e.payload.event_id))), [events]);
-  const contExecuted = useMemo(() => new Set(events.filter(e => e.type === "containment.executed").map(e => String(e.payload.event_id))), [events]);
-  // G-10: latest working scope (T2 sets, T3 confirms) — the explicit scope wins over auto-derived.
-  const scopeState = useMemo(() => {
-    const setEvt = [...events].reverse().find(e => e.type === "scope.set" || e.type === "scope.confirmed");
-    const confirmed = events.some(e => e.type === "scope.confirmed");
-    if (!setEvt) return null;
-    const p = setEvt.payload as { hosts?: string[]; users?: string[]; techniques?: string[] };
-    return { hosts: p.hosts ?? [], users: p.users ?? [], techniques: p.techniques ?? [], confirmed, by: setEvt.actor_id };
-  }, [events]);
+  // G-09 + P0-4: containment requests keyed by REQUEST seq (a new request after a
+  // denial is its own pending row; approve/deny/execute apply per request).
+  const containments = useMemo(() => containmentRequests(events), [events]);
+  // G-10: latest working scope (T2 sets, T3 confirms). `confirmed` only while the
+  // LATEST scope event is the confirmation (it used to stick after a later scope.set).
+  // Per-incident scopes + incident labels power the per-incident case view.
+  const scopes = useMemo(() => scopeByIncident(events), [events]);
+  const scopeState = useMemo(() => { const s = latestScope(events); return s ? { hosts: s.hosts, users: s.users, techniques: s.techniques, confirmed: s.confirmed, by: s.by } : null; }, [events]);
+  const incidents = useMemo(() => incidentLabels(events), [events]);
+  const incidentOf = useMemo(() => incidentByEvent(events), [events]);
   const dispositions = useMemo(() => new Map(events.filter(e => e.type === "disposition.set").map(e => [String(e.payload.event_id), String(e.payload.verdict)])), [events]);
   // G-04b: per-row triage state for the shared feed badges (reflects the player's own
   // actions — claimed/dispositioned/escalated — never ground truth).
@@ -749,12 +749,18 @@ export default function TeamRoomPage() {
             call-out of the overloaded person (no-fault framing, U6); the Manager's
             Situation Board keeps the per-name detail. */}
         {phase === "running" && activeNudge && (() => {
-          const p = activeNudge.payload as { target?: string };
+          const p = activeNudge.payload as { target?: string; load?: number };
           const targetRole = roster.find(r => r.user_id === p.target)?.role;
           const queue = targetRole === "t1" ? "The Tier-1 alert queue" : targetRole === "t2" || targetRole === "t3" ? "The investigation queue" : "A teammate's queue";
+          // T1-B playtest: the overloaded analyst got the same "if you're light…" line as
+          // everyone else. They get a personal, actionable one (live load, else the nudge's).
+          const mine = !!me && p.target === me.id;
+          const myLoad = mine ? (openLoadByUser(events, nowTick).get(me!.id) ?? (typeof p.load === "number" ? p.load : 0)) : 0;
           return (
             <div role="status" className="flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-3 py-2 text-sm text-cyber-200">
-              <Siren className="h-4 w-4 shrink-0 text-cyber-300" /> <span><b>{queue}</b> is backing up — {nameOf(activeNudge.actor_id)} asks the team to rebalance. If you&apos;re light, take the next case.</span>
+              <Siren className="h-4 w-4 shrink-0 text-cyber-300" /> {mine
+                ? <span><b>You&apos;re carrying {myLoad > 0 ? myLoad : "several"} open case{myLoad === 1 ? "" : "s"}</b> — {nameOf(activeNudge.actor_id)} asks you to hand one off or release a claim you&apos;re not actively working.</span>
+                : <span><b>{queue}</b> is backing up — {nameOf(activeNudge.actor_id)} asks the team to rebalance. If you&apos;re light, take the next case.</span>}
               <button onClick={() => setDismissedNudgeSeq(activeNudge.seq ?? 0)} aria-label="Dismiss rebalance request" className="ml-auto shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
             </div>
           );
@@ -895,7 +901,7 @@ export default function TeamRoomPage() {
                       severityFilter={fSeverity} sourceFilter={fSource} search={fSearch}
                       userFilter={fUser} hostFilter={fHost} ipFilter={fIp}
                       // I5: only the CLOSE carries the dwell the AAR uses — the open event was pure overhead.
-                      onRowOpened={(eid, dwellMs) => { if (dwellMs && dwellMs > 0) void act("event.opened", { event_id: eid, dwell_ms: dwellMs }); }}
+                      onRowOpened={(eid, dwellMs) => { void act("event.opened", { event_id: eid, dwell_ms: Math.max(0, dwellMs ?? 0) }); }} /* open (dwell 0) AND close — a verdict given with the row still open counts as read */
                       onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }}
                       onAddIoc={me.role === "t1" ? (value) => setIocDraft(d => d.some(x => x.value.toLowerCase() === value.toLowerCase()) ? d : [...d, { type: detectIocType(value), value, source: "picked" }]) : undefined}
                       rowStatus={rowStatus}
@@ -919,18 +925,20 @@ export default function TeamRoomPage() {
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className="space-y-4">
-                {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
+                {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <HuntConsole scope={scopeState} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} acked={acked} ackedBy={ackedBy} escBounced={escBounced} escResolved={escResolved} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} contReq={contReq} contApproved={contApproved} contExecuted={contExecuted} scope={scopeState} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
+                {me.role === "t3" && <HuntConsole scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
-                    decision log, SITREP) as well as shift management. 'lead'/'de'/'ti'
-                    branches stay for backward-compatibility with older sessions. */}
-                {(me.role === "lead" || me.role === "mgr") && <LeadConsole contReq={contReq} contDecided={contDecided} escalations={escalations} acked={acked} events={events} nameOf={nameOf} act={act} />}
+                    decision log, SITREP) as well as shift management. 'lead'/'de' branches
+                    stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
+                {(me.role === "lead" || me.role === "mgr") && <LeadConsole events={events} nameOf={nameOf} act={act} />}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
-                {me.role === "ti" && <TIConsole act={act} />}
+                {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}
                 {me.role === "mgr" && <MgrConsole roster={roster} events={events} act={act} />}
-                {me.role === "instructor" && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} />}
+                {me.role === "instructor" && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} />}
+                {/* Team intel — its own visible card (was buried in a folded tab) */}
+                <TeamIntel events={events} nameOf={nameOf} />
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}
                 <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
                 {/* Shared context every role can consult, but folded so the role panel stays dominant */}

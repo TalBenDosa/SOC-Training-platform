@@ -12,9 +12,12 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "dispAcc": null,
       "dispCorrect": 0,
       "dispCount": 0,
+      "dispUnopened": 0,
       "escCount": 0,
       "escQuality": null,
       "firstActionS": null,
+      "insufficientEvidence": true,
+      "measuredCells": 0,
       "name": "Member B",
       "opened": 0,
       "role": "lead",
@@ -53,9 +56,12 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "dispAcc": 0,
       "dispCorrect": 0,
       "dispCount": 1,
+      "dispUnopened": 0,
       "escCount": 1,
       "escQuality": 53,
       "firstActionS": 431,
+      "insufficientEvidence": false,
+      "measuredCells": 6,
       "name": "Member C",
       "opened": 0,
       "role": "t1",
@@ -63,16 +69,17 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "rubric": [
         {
           "label": "Disposition accuracy",
+          "note": "latest verdict per log; suspicious = partial credit; logs you never opened count at reduced weight",
           "score": 0,
         },
         {
           "label": "Escalation precision",
-          "note": "of what you escalated, how much was a real attack (vs ground truth)",
+          "note": "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)",
           "score": 0,
         },
         {
           "label": "Attack recall (team)",
-          "note": "share of real attacks the T1 team escalated at all",
+          "note": "share of real incidents the team caught — any of its attack logs escalated or marked TP/suspicious",
           "score": 0,
         },
         {
@@ -81,7 +88,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
         },
         {
           "label": "Handoff coordination",
-          "note": "share of your escalations Tier-2 acknowledged",
+          "note": "share of your escalations Tier-2 closed the loop on (acknowledged or bounced)",
           "score": 12,
         },
         {
@@ -90,7 +97,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
         },
         {
           "label": "Backup & load-balancing",
-          "note": "took an alert off an overloaded teammate",
+          "note": "took over an alert from an overloaded teammate, or rescued a stale (abandoned) claim — a plain collision earns nothing",
           "score": null,
         },
         {
@@ -100,6 +107,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
         },
         {
           "label": "Help-desk tickets",
+          "note": "the right call (verify / refuse) on the tickets injected — not how many you clicked",
           "score": null,
         },
       ],
@@ -115,9 +123,12 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "dispAcc": null,
       "dispCorrect": 0,
       "dispCount": 0,
+      "dispUnopened": 0,
       "escCount": 0,
       "escQuality": null,
       "firstActionS": 500,
+      "insufficientEvidence": false,
+      "measuredCells": 3,
       "name": "Member D",
       "opened": 0,
       "role": "t2",
@@ -141,6 +152,11 @@ exports[`computeReport — characterization (real ended session) > produces the 
           "score": 12,
         },
         {
+          "label": "Containment quality",
+          "note": "a denied or later re-targeted request lowers it; executed after approval raises it",
+          "score": 4,
+        },
+        {
           "label": "Backup & load-balancing",
           "note": "picked up a case while a teammate was overloaded",
           "score": null,
@@ -149,8 +165,13 @@ exports[`computeReport — characterization (real ended session) > produces the 
           "label": "Incident report",
           "score": null,
         },
+        {
+          "label": "Report accuracy",
+          "note": "your report's verdict vs the incident's ground truth",
+          "score": null,
+        },
       ],
-      "rubricPct": 100,
+      "rubricPct": 78,
       "user_id": "00000000-0000-4000-8000-000000000004",
     },
   ],
@@ -169,6 +190,22 @@ exports[`computeReport — characterization (real ended session) > produces the 
     "evidencePinned": 0,
     "executed": 0,
     "handoffLatS": 68,
+    "incidentRecall": 0,
+    "incidents": [
+      {
+        "attackEvents": 8,
+        "contained": false,
+        "detectS": null,
+        "detected": false,
+        "dwellS": null,
+        "escalated": false,
+        "firstSeenS": 117,
+        "id": "inc:ics:1",
+        "label": "WS-ACC-4477 downloaded Invoice_84421.iso, 6.8 MB, from invoice-doc-share.net at 10:05, logged by the file-filter profile as log-only.",
+      },
+    ],
+    "incidentsDetected": 0,
+    "incidentsTotal": 1,
     "injects": [],
     "injectsHandled": 0,
     "injectsScored": 0,
@@ -177,6 +214,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
     "mttcS": null,
     "mttrS": null,
     "timeToDetectS": null,
+    "version": 2,
   },
 }
 `;

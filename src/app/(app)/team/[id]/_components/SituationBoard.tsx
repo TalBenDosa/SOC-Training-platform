@@ -9,7 +9,7 @@ import { sevColor, asStr } from "@/lib/team/format";
 import { OVERLOAD_CASES } from "@/lib/team/report/computeReport";
 import { ROLE_LABEL, Metric } from "./shared";
 import { useServerNow } from "@/lib/team/clock";
-import { openLoadByUser } from "@/lib/team/projections";
+import { openLoadByUser, escalationStates, isOpenEscalation } from "@/lib/team/projections";
 
 const MAX_SPAN = 7;
 export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online, act }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string; roster: RosterMember[]; online: Set<string>; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
@@ -24,8 +24,11 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [liveFeed]);
   const feedById = useMemo(() => new Map(feed.map(e => [String((e.payload as { id?: string }).id ?? e.seq), e.payload as Record<string, unknown>])), [feed]);
-  const escs = useMemo(() => events.filter(e => e.type === "escalation.requested"), [events]);
-  const ackedIds = useMemo(() => new Set(events.filter(e => e.type === "escalation.acknowledged").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // One row per escalated log (its current round) with the state machine: open →
+  // taken (owner) → resolved, or bounced back to Tier-1 — a bounced case is NOT open
+  // (Manager playtest: "oldest unacked" warned from T+13 to the end on bounced rows).
+  const escStates = useMemo(() => escalationStates(events), [events]);
+  const escs = useMemo(() => [...escStates.values()].filter(s => s.rounds > 0).map(s => s.request).sort((a, b) => a.seq - b.seq), [escStates]);
   // B11: command awareness — team presence + per-analyst open load + live MTTA +
   // oldest-unacked, so the Manager commands from state instead of waiting for a request.
   // C5: ages on the server clock (re-rendered every 15s, so "oldest unacked" climbs live).
@@ -40,10 +43,12 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
     // released / dispositioned, not stale) + first-acked unresolved T2/T3 cases. The
     // AAR replays the same rule, so the Manager is scored on what this board showed.
     const loadByUser = openLoadByUser(events, now);
-    const unacked = escs.filter(e => !ackedIds.has(String((e.payload as { event_id?: string }).event_id)));
+    const stOf = (e: Ev) => escStates.get(String((e.payload as { event_id?: string }).event_id));
+    const unacked = escs.filter(e => { const s = stOf(e); return !!s && isOpenEscalation(s); });
+    const bounced = escs.filter(e => stOf(e)?.bounced).length;
     const oldestUnacked = unacked.length ? Math.max(...unacked.map(e => e.occurred_at ? Math.max(0, Math.floor((now - Date.parse(e.occurred_at)) / 60000)) : 0)) : null;
-    return { players, loadByUser, mtta, oldestUnacked, onlineCount: players.filter(p => online.has(p.user_id)).length };
-  }, [roster, events, escs, ackedIds, online, now]);
+    return { players, loadByUser, mtta, oldestUnacked, openCount: unacked.length, bounced, onlineCount: players.filter(p => online.has(p.user_id)).length };
+  }, [roster, events, escs, escStates, online, now]);
   // Active mutual-monitoring (Salas): online analysts carrying ≥ OVERLOAD_CASES open
   // cases — the Manager nudges the team to rebalance instead of only watching load.
   const overloaded = useMemo(() => team.players
@@ -111,19 +116,24 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
         </Card>
       )}
       <Card>
-        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-neon-amber" /> Escalation queue ({escs.length})</h3>
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-neon-amber" /> Escalation queue ({escs.length})
+          <span className="ml-auto font-mono text-[10px] font-normal text-slate-400">{team.openCount} open{team.bounced ? ` · ${team.bounced} bounced` : ""}</span></h3>
         {escs.length === 0 ? <p className="mt-2 text-xs text-slate-500">No escalations from Tier-1 yet.</p> : (
           <div className="mt-2 max-h-[420px] space-y-1.5 overflow-y-auto">
             {escs.slice().reverse().map(e => {
-              const p = e.payload as { what?: string; event_id?: string; impact?: string };
+              const p = e.payload as { what?: string; summary?: string; event_id?: string; impact?: string };
               const fe = feedById.get(String(p.event_id)) as { severity?: string; hostname?: string } | undefined;
-              const isAck = ackedIds.has(String(p.event_id));
+              const st = escStates.get(String(p.event_id));
+              const state = st?.resolved ? "resolved" : st?.bounced ? "bounced" : st?.acked ? "taken" : "open";
+              const tone = state === "resolved" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : state === "taken" ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : state === "bounced" ? "border-border text-slate-500" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber";
+              const mins = e.occurred_at ? Math.max(0, Math.floor((now - Date.parse(e.occurred_at)) / 60000)) : 0;
               return (
-                <div key={e.seq} className="flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1.5 text-xs">
+                <div key={e.seq} className={`flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1.5 text-xs ${state === "bounced" || state === "resolved" ? "opacity-70" : ""}`}>
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sevColor(fe?.severity)}`} />
-                  <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.what) || "escalation"}{fe?.hostname ? ` · ${fe.hostname}` : ""}</span>
-                  <span className="shrink-0 font-mono text-[10px] text-slate-500">{nameOf(e.actor_id)}</span>
-                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${isAck ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber"}`}>{isAck ? "ack" : "open"}</span>
+                  <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.summary) || asStr(p.what) || "escalation"}{fe?.hostname ? ` · ${fe.hostname}` : ""}</span>
+                  <span className="shrink-0 font-mono text-[10px] text-slate-500" title="escalated by → owner">{nameOf(e.actor_id)}{st?.owner ? ` → ${nameOf(st.owner)}` : ""}</span>
+                  {state === "open" && <span className="shrink-0 font-mono text-[9px] text-slate-500">{mins}m</span>}
+                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${tone}`} title={state === "bounced" && st?.bounceReason ? st.bounceReason : undefined}>{state}</span>
                 </div>
               );
             })}

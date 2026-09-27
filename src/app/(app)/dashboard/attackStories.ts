@@ -1082,9 +1082,9 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
       block["s1.threat.classification"] = "Malware";
       block["s1.threat.mitigationStatus"] = edrAction(e) === "detect_only" ? "not_mitigated" : "mitigated";
       block["s1.detection.classification"] = "Malware";
-    } else {
-      block["s1.detection.classification"] = "Benign";
     }
+    // Non-detection Deep Visibility telemetry carries no classification — stamping
+    // "Benign" on a story's malicious PowerShell told the analyst the answer (wrongly).
   } else if (target === "sophos") {
     block["sophos.event_type"] = SOPHOS_EVENT_TYPE[et] ?? (isDetection ? "Malware" : "Event");
     block["sophos.detection_name"] = isDetection ? (String(src["threat.name"] ?? "") || "Troj/Agent-A") : "none";
@@ -1176,15 +1176,70 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const victimDomain = victim?.includes("@") ? victim.split("@")[1] : undefined;
   if (victimDomain && companyDomain && victimDomain !== companyDomain) pairs.push([victimDomain, companyDomain]);
 
-  // Story hostnames → the company's asset pool (deterministic per distinct host).
+  // Story hostnames → the company's asset pool, ROLE-AWARE (P0-4, 2026-09-27 live
+  // playtest). The old pick hashed every story host into the whole registry, so a
+  // domain controller could land on a Finance workstation (4720/4728 "logged on
+  // WS-FIN-2847") and containment was aimed at the wrong machine. Now:
+  //   • a domain controller maps to the company's DC,
+  //   • a server maps to a company server (registry first, then the pool's servers),
+  //   • a workstation maps to a company workstation — the victim's workstation to one
+  //     the replacement victim actually uses in the feed (or one nobody else owns), so
+  //     a story never borrows another employee's desk.
+  // Deterministic per distinct host, and no two story hosts collide onto one asset.
   const storyHosts = [...new Set(s.events.map(e => e.hostname).filter((h): h is string => !!h))];
   const hostMap = new Map<string, string>();
-  // Pick each host deterministically from the pool by hashing its name (so distinct
-  // story hosts spread across the company's assets instead of all landing on the
-  // first one), but offset by its position so two story hosts never collide onto one.
   const hostHash = (h: string) => { let x = 2166136261; for (let i = 0; i < h.length; i++) { x ^= h.charCodeAt(i); x = Math.imul(x, 16777619); } return Math.abs(x); };
-  storyHosts.forEach((h, i) => {
-    const t = registryHostPool.length ? registryHostPool[(hostHash(h) + i) % registryHostPool.length] : h;
+  const isDcHost = (h: string) => (assets && h === assets.dc) || /(^|[^a-z0-9])dc[-_]?\d*([^a-z]|$)/i.test(h);
+  const isServerHost = (h: string) => !isDcHost(h) && (
+    (assets ? h === assets.fileServer : false) ||
+    /^(srv|svr|server|prod|db|web|app|sql|k8s)[-_]/i.test(h) ||
+    /[-_](srv|sql|fs|file|files|app|web|db|exch|adm|jmp|jump|emr|erp|wms|sap|linux|lnx|backup)[-_]?\d*$/i.test(h) ||
+    /[-_](srv|sql|fs|file|files|app|web|db|emr|erp|wms|sap|linux|lnx)\d*[-_]/i.test(h)
+  );
+  // Who works on each pool host (most frequent human user) — used to keep a story
+  // off another employee's workstation.
+  const ownerCount = new Map<string, Map<string, number>>();
+  for (const e of companyPool) {
+    if (!e.hostname || !e.user_email || SERVICE_ACCOUNT.test(e.user_email)) continue;
+    const m = ownerCount.get(e.hostname) ?? new Map<string, number>();
+    m.set(e.user_email, (m.get(e.user_email) ?? 0) + 1);
+    ownerCount.set(e.hostname, m);
+  }
+  const ownerOf = (h: string) => { const m = ownerCount.get(h); return m ? [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] : undefined; };
+  const assetHosts = [...new Set([...registryHostPool, ...hostPool])];
+  const dcTargets = [...new Set([...(assets ? [assets.dc] : []), ...assetHosts.filter(isDcHost)])];
+  const serverTargets = [...new Set([...registryHostPool.filter(isServerHost), ...hostPool.filter(isServerHost)])];
+  const workstationTargets = registryHostPool.filter(h => !isDcHost(h) && !isServerHost(h));
+  const used = new Set<string>();
+  const pickFrom = (cands: string[], h: string, allowReuse = false): string | undefined => {
+    if (cands.length === 0) return undefined;
+    const start = hostHash(h) % cands.length;
+    for (let k = 0; k < cands.length; k++) { const c = cands[(start + k) % cands.length]; if (!used.has(c)) return c; }
+    return allowReuse ? cands[start] : undefined;
+  };
+  const storyHostUsers = new Map<string, Set<string>>();
+  for (const e of s.events) if (e.hostname && e.user_email) {
+    const set = storyHostUsers.get(e.hostname) ?? new Set<string>();
+    set.add(e.user_email); storyHostUsers.set(e.hostname, set);
+  }
+  storyHosts.forEach((h) => {
+    let t: string | undefined;
+    if (isDcHost(h)) {
+      // The company's primary DC first (it is where the feed's own domain events live).
+      t = dcTargets.find(c => !used.has(c)) ?? dcTargets[0];
+    } else if (isServerHost(h)) {
+      t = pickFrom(serverTargets, h) ?? pickFrom(workstationTargets.length ? [] : registryHostPool, h, true);
+    } else {
+      const users = storyHostUsers.get(h);
+      const victimHost = !!(victim && users?.has(victim));
+      const newUser = victimHost ? replacement : undefined;
+      const owned = newUser ? workstationTargets.filter(w => ownerOf(w) === newUser) : [];
+      const unowned = workstationTargets.filter(w => !ownerOf(w));
+      const notOthers = workstationTargets.filter(w => { const o = ownerOf(w); return !o || (users?.has(o) ?? false) || o === newUser; });
+      t = pickFrom(owned, h) ?? pickFrom(unowned, h) ?? pickFrom(notOthers, h) ?? pickFrom(workstationTargets, h, true);
+    }
+    if (!t) t = registryHostPool.length ? registryHostPool[hostHash(h) % registryHostPool.length] : h;
+    used.add(t);
     if (t !== h) { hostMap.set(h, t); pairs.push([h, t]); }
   });
 
@@ -1262,27 +1317,106 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const clean = pairs.filter(([f, t]) => f && t && f !== t).sort((a, b) => b[0].length - a[0].length);
   const subStr = (str: string) => { let o = str; for (const [f, t] of clean) if (o.includes(f)) o = o.split(f).join(t); return o; };
   // Nothing to change AND no EDR schema to normalise → return the story untouched.
-  if (clean.length === 0 && !targetNs) return s;
+  if (clean.length === 0 && !targetNs && !assets) return s;
 
-  return {
-    ...s,
-    events: s.events.map(e => {
-      const adapted = {
-        ...e,
-        user_email: victim && e.user_email === victim && replacement ? replacement : e.user_email,
-        hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
-        src_ip:     e.src_ip && ipMap.has(e.src_ip) ? ipMap.get(e.src_ip)! : e.src_ip,
-        dst_ip:     e.dst_ip && ipMap.has(e.dst_ip) ? ipMap.get(e.dst_ip)! : e.dst_ip,
-        description: e.description ? subStr(e.description) : e.description,
-        process: e.process ? (deepReplace(e.process, clean) as typeof e.process) : e.process,
-        network: e.network ? (deepReplace(e.network, clean) as typeof e.network) : e.network,
-        raw: e.raw ? (deepReplace(e.raw, clean) as typeof e.raw) : e.raw,
-      };
-      // Reshape a foreign-EDR raw block into the company's own vendor convention.
-      if (adapted.source === "edr" && targetNs && edrNsOfKeys(adapted.raw) && edrNsOfKeys(adapted.raw) !== targetNs) {
-        adapted.raw = reshapeEdrRaw(adapted, targetNs) as typeof adapted.raw;
-      }
-      return adapted;
-    }),
+  // Every structured sub-object is rewritten, not just process/network/raw: the victim
+  // swap used to miss `file` (playtest 2026-09-27: file.path C:\Users\d.rosen\… beside a
+  // raw C:\Users\d.morgan\… in the SAME log), and registry/dns/cloud/user carry names too.
+  const rep = <T,>(v: T): T => (v ? (deepReplace(v, clean) as T) : v);
+  const adaptedEvents = s.events.map(e => {
+    const adapted = {
+      ...e,
+      // Other story identities keep their name but take the company's domain.
+      user_email: victim && e.user_email === victim && replacement ? replacement : (e.user_email ? subStr(e.user_email) : e.user_email),
+      hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
+      src_ip:     e.src_ip && ipMap.has(e.src_ip) ? ipMap.get(e.src_ip)! : e.src_ip,
+      dst_ip:     e.dst_ip && ipMap.has(e.dst_ip) ? ipMap.get(e.dst_ip)! : e.dst_ip,
+      description: e.description ? subStr(e.description) : e.description,
+      process: rep(e.process),
+      network: rep(e.network),
+      file: rep(e.file),
+      registry: rep(e.registry),
+      dns: rep(e.dns),
+      cloud: rep(e.cloud),
+      user: rep(e.user),
+      raw: rep(e.raw),
+    };
+    // Reshape a foreign-EDR raw block into the company's own vendor convention.
+    if (adapted.source === "edr" && targetNs && edrNsOfKeys(adapted.raw) && edrNsOfKeys(adapted.raw) !== targetNs) {
+      adapted.raw = reshapeEdrRaw(adapted, targetNs) as typeof adapted.raw;
+    }
+    return adapted;
+  });
+
+  return { ...s, events: normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents) };
+}
+
+// ── Entity-model guards (P0-4, 2026-09-27 live playtest) ─────────────────────
+// Domain-scope Windows events are written by the domain controller that processed
+// the change — never by a workstation. Global/universal group changes and Kerberos
+// ticket events are DC-only by definition; account-lifecycle events are DC-side when
+// the target account lives in the domain (TargetDomainName ≠ the host itself).
+const DC_ONLY_EVENT_IDS = new Set(["4728", "4729", "4756", "4757", "4768", "4769", "4771"]);
+const DOMAIN_ACCOUNT_EVENT_IDS = new Set(["4720", "4722", "4725", "4726", "4738", "4740", "4767"]);
+const HOST_KEY = /(^|\.)(computer_name|Computer|ComputerName|DeviceName)$|^host\.(name|hostname)$/;
+
+function winEventId(raw: Record<string, unknown> | undefined): string {
+  if (!raw) return "";
+  return String(raw["winlog.event_id"] ?? raw["event.code"] ?? raw["EventID"] ?? raw["event_id"] ?? "");
+}
+
+function pinDomainEventsToDc(events: TelemetryEvent[], dc: string, domain: string): TelemetryEvent[] {
+  return events.map(e => {
+    if (e.source !== "windows_security" && e.source !== "ad") return e;
+    const id = winEventId(e.raw);
+    if (!id || !e.hostname || e.hostname === dc) return e;
+    let domainScope = DC_ONLY_EVENT_IDS.has(id);
+    if (!domainScope && DOMAIN_ACCOUNT_EVENT_IDS.has(id)) {
+      const tdn = Object.entries(e.raw ?? {}).find(([k]) => /TargetDomainName$/.test(k))?.[1];
+      const short = e.hostname.split(".")[0].toUpperCase();
+      domainScope = typeof tdn === "string" && tdn.trim() !== "" && tdn.toUpperCase() !== short && tdn.toUpperCase() !== "BUILTIN";
+    }
+    if (!domainScope) return e;
+    const old = e.hostname;
+    const raw: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(e.raw ?? {})) {
+      raw[k] = HOST_KEY.test(k) && typeof v === "string"
+        ? (v.includes(".") ? `${dc}.${domain}` : dc)
+        : v;
+    }
+    return { ...e, hostname: dc, raw, description: e.description ? e.description.split(old).join(dc) : e.description };
+  });
+}
+
+// A Windows LogonId is a per-machine session handle: the same value on two hosts is
+// two unrelated sessions, and teaching "same LogonId ⇒ same session" across machines
+// is a wrong pivot. When a story reuses one LogonId on several hosts, the first host
+// keeps it and every other host gets its own stable value.
+const WELL_KNOWN_LOGON_IDS = new Set(["0x3e7", "0x3e4", "0x3e5", "0x0", "0x3e3", "-", ""]);
+function normalizeLogonIds(events: TelemetryEvent[]): TelemetryEvent[] {
+  const firstHost = new Map<string, string>();
+  const isLogonKey = (k: string) => /LogonId$/i.test(k);
+  for (const e of events) {
+    if (!e.hostname) continue;
+    for (const [k, v] of Object.entries(e.raw ?? {})) {
+      if (!isLogonKey(k) || typeof v !== "string" || WELL_KNOWN_LOGON_IDS.has(v.toLowerCase())) continue;
+      if (!firstHost.has(v)) firstHost.set(v, e.hostname);
+    }
+  }
+  const derive = (v: string, host: string) => {
+    let x = 2166136261; const s = `${v}@${host}`;
+    for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); }
+    return "0x" + ((x >>> 0) % 0xfffffff + 0x1000000).toString(16).toUpperCase();
   };
+  return events.map(e => {
+    if (!e.hostname || !e.raw) return e;
+    let changed = false;
+    const raw: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(e.raw)) {
+      if (isLogonKey(k) && typeof v === "string" && firstHost.has(v) && firstHost.get(v) !== e.hostname) {
+        raw[k] = derive(v, e.hostname); changed = true;
+      } else raw[k] = v;
+    }
+    return changed ? { ...e, raw } : e;
+  });
 }
