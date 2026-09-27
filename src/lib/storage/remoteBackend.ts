@@ -20,14 +20,25 @@
  *    them. Persisting the queue to localStorage would close that.
  *  - No cross-tab sync — two open tabs each hold their own cache; last write
  *    wins. A `postgres_changes` subscription would fix this later.
- *  - `room_progress`/`dashboard_sessions`/`scenario_history` upsert the ENTIRE
- *    decoded value on every `set()` rather than diffing — correct, but does
- *    more writes than strictly necessary. Fine at this data volume.
+ *
+ * ROOM WRITES (audit 2026-09): `room_progress` used to upsert EVERY room in one
+ * statement on every save, so one rejected row (a row stranded under a previous
+ * org by RLS, or a value over the 0025 CHECK cap on an org-authored room) failed
+ * the whole statement — and every later room save with it. Now only the room(s)
+ * whose entry actually changed are upserted, one statement per room, with
+ * xp_earned clamped to the DB cap. A newer write for a room supersedes an older
+ * held (failed) write for the same room, so a replay can't resurrect stale data.
+ *
+ * SERVER TOTAL: after a room/scenario write lands (and nothing else is in
+ * flight or held), the cached total is refreshed from profiles.xp — the value
+ * the leaderboard shows — so the Topbar / progress page converge on it instead
+ * of drifting on optimistic arithmetic.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StorageBackend } from "./backend";
 import { LEARNER_KEYS } from "./keys";
-import type { RoomProgressMap, ScenarioRecord } from "./progress";
+import { XP_CHANGED_EVENT, type RoomProgressMap, type ScenarioRecord } from "./progress";
+import { clampRoomXp } from "@/lib/rooms/progressMerge";
 import type { DashboardSessionRecord } from "@/app/(app)/dashboard/useLiveEvents";
 import { setSyncState, SYNC_RETRY_EVENT } from "./syncState";
 
@@ -75,9 +86,17 @@ export function createRemoteBackend(
   // the same rows rather than recomputing them from a cache that has since moved
   // on (the append-only cases diff against the cache, so recomputing would send
   // nothing). See syncState.ts for why only idempotent writes auto-retry.
-  type Pending = { action: string; idempotent: boolean; run: () => PromiseLike<{ error: unknown }> };
+  type Pending = {
+    action: string;
+    idempotent: boolean;
+    run: () => PromiseLike<{ error: unknown }>;
+    /** Writes sharing a key supersede each other (e.g. one room's row). */
+    dedupeKey?: string;
+  };
   const pending = new Map<number, Pending>();
   let seq = 0;
+  let inflight = 0;     // writes sent, not yet answered
+  let writeEpoch = 0;   // bumps on every write sent — stale total refreshes are dropped
 
   function publish() {
     const all = [...pending.values()];
@@ -92,20 +111,58 @@ export function createRemoteBackend(
    * to replay blindly (upserts keyed on the primary key); append-only inserts
    * are not, and are held for an explicit retry instead.
    */
-  function run(action: string, idempotent: boolean, thunk: () => PromiseLike<{ error: unknown }>) {
-    const id = ++seq;
-    thunk().then(({ error }) => {
-      if (error) {
-        log(action, error);
-        pending.set(id, { action, idempotent, run: thunk });
-        publish();
+  function run(
+    action: string,
+    idempotent: boolean,
+    thunk: () => PromiseLike<{ error: unknown }>,
+    opts: { dedupeKey?: string; refreshTotal?: boolean } = {},
+  ) {
+    const { dedupeKey, refreshTotal = false } = opts;
+    if (dedupeKey) {
+      // This write carries the newest state for the key — an older held write
+      // for the same key must never be replayed over it.
+      let dropped = false;
+      for (const [pid, p] of pending) {
+        if (p.dedupeKey === dedupeKey) { pending.delete(pid); dropped = true; }
       }
+      if (dropped) publish();
+    }
+    const id = ++seq;
+    inflight++;
+    writeEpoch++;
+    const hold = (err: unknown) => {
+      log(action, err);
+      pending.set(id, { action, idempotent, run: thunk, dedupeKey });
+      publish();
+    };
+    thunk().then(({ error }) => {
+      inflight--;
+      if (error) hold(error);
+      else if (refreshTotal) refreshTotalXp();
     }, err => {
       // Network-level rejection (offline, DNS, CORS) — same handling.
-      log(action, err);
-      pending.set(id, { action, idempotent, run: thunk });
-      publish();
+      inflight--;
+      hold(err);
     });
+  }
+
+  /**
+   * Re-read the server-authoritative total (profiles.xp, recomputed by the DB
+   * trigger inside the write that just landed) into the cache and announce it.
+   * Skipped while other writes are in flight or held — their optimistic XP is
+   * not on the server yet, so the server value would briefly look like a drop.
+   */
+  function refreshTotalXp() {
+    if (inflight > 0 || pending.size > 0) return;
+    const epoch = writeEpoch;
+    Promise.resolve(supabase.from("profiles").select("xp").eq("id", userId).maybeSingle()).then(({ data, error }) => {
+      if (error || !data || typeof data.xp !== "number") return;
+      if (epoch !== writeEpoch || inflight > 0 || pending.size > 0) return; // a newer write will refresh
+      cache.set(LEARNER_KEYS.totalXp, String(data.xp));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(XP_CHANGED_EVENT, { detail: { total: data.xp } }));
+      }
+    }, () => { /* best-effort; the optimistic value stays */ });
   }
 
   /** Re-send held writes. `includeNonIdempotent` only when the user asked. */
@@ -113,7 +170,7 @@ export function createRemoteBackend(
     for (const [id, p] of [...pending.entries()]) {
       if (!p.idempotent && !includeNonIdempotent) continue;
       pending.delete(id);
-      run(p.action, p.idempotent, p.run);
+      run(p.action, p.idempotent, p.run, { dedupeKey: p.dedupeKey, refreshTotal: true });
     }
     publish();
   }
@@ -141,19 +198,26 @@ export function createRemoteBackend(
       }
       case LEARNER_KEYS.roomProgress: {
         const map = safeParse<RoomProgressMap>(value, {});
-        const rows = Object.entries(map).map(([roomId, entry]) => ({
-          user_id: userId,
-          ...org,
-          room_id: roomId,
-          completed_task_ids: entry.completedTaskIds,
-          xp_earned: entry.xpEarned,
-          per_task_xp: entry.perTaskXp ?? {},
-          telemetry: entry.telemetry ?? [],
-          completed_at: entry.completedAt ?? null,
-        }));
-        if (rows.length === 0) return;
-        // Upsert keyed on (user_id, room_id) — safe to replay.
-        run("roomProgress", true, () => supabase.from("room_progress").upsert(rows, { onConflict: "user_id,room_id" }));
+        const prev = safeParse<RoomProgressMap>(cache.get(key), {});
+        for (const [roomId, entry] of Object.entries(map)) {
+          // Only rooms whose entry actually changed — one row per statement, so
+          // a single rejected row can't block every other room's save.
+          if (prev[roomId] && JSON.stringify(prev[roomId]) === JSON.stringify(entry)) continue;
+          const row: Record<string, unknown> = {
+            user_id: userId,
+            ...org, // current org — re-stamps a row created under a previous org (0074)
+            room_id: roomId,
+            completed_task_ids: entry.completedTaskIds ?? [],
+            xp_earned: clampRoomXp(entry.xpEarned ?? 0), // 0025 CHECK: 0..1000
+            per_task_xp: entry.perTaskXp ?? {},
+            telemetry: entry.telemetry ?? [],
+            completed_at: entry.completedAt ?? null,
+          };
+          // Upsert keyed on (user_id, room_id) — safe to replay.
+          run("roomProgress", true,
+            () => supabase.from("room_progress").upsert(row, { onConflict: "user_id,room_id" }),
+            { dedupeKey: `room:${roomId}`, refreshTotal: true });
+        }
         return;
       }
       case LEARNER_KEYS.dashboardSessions: {
@@ -199,7 +263,7 @@ export function createRemoteBackend(
         }));
         // Append-only, and a duplicate row here double-counts XP through the
         // recompute trigger — so never replayed without the user asking.
-        run("scenarioHistory", false, () => supabase.from("scenario_history").insert(historyRows));
+        run("scenarioHistory", false, () => supabase.from("scenario_history").insert(historyRows), { refreshTotal: true });
         return;
       }
       case LEARNER_KEYS.clearedCompanies: {
@@ -245,12 +309,16 @@ export function createRemoteBackend(
   };
 
   async function hydrate(): Promise<{ wasEmpty: boolean; rowsMissing: boolean }> {
-    const [profileRes, userProgressRes, roomRes, sessionsRes, scenariosRes] = await Promise.all([
+    const [profileRes, userProgressRes, roomRes, sessionsRes, scenariosRes, quizRes, lessonRes] = await Promise.all([
       supabase.from("profiles").select("xp").eq("id", userId).maybeSingle(),
       supabase.from("user_progress").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("room_progress").select("*").eq("user_id", userId),
       supabase.from("dashboard_sessions").select("*").eq("user_id", userId).order("played_at", { ascending: true }),
       supabase.from("scenario_history").select("*").eq("user_id", userId).order("completed_at", { ascending: true }),
+      // Streak signal only (XP for these is server-written). A missing table
+      // (database without 0070/0074 yet) just yields no dates.
+      supabase.from("quiz_progress").select("first_completed_at, last_completed_at").eq("user_id", userId),
+      supabase.from("lesson_progress").select("completed_at").eq("user_id", userId),
     ]);
 
     const xp = profileRes.data?.xp ?? 0;
@@ -297,6 +365,16 @@ export function createRemoteBackend(
       report: row.report ?? undefined, // null / absent (pre-migration) → undefined
     }));
     cache.set(LEARNER_KEYS.scenarioHistory, JSON.stringify(scenarios));
+
+    const quizDates = new Set<string>();
+    for (const row of (quizRes?.data ?? []) as { first_completed_at?: string | null; last_completed_at?: string | null }[]) {
+      if (row.first_completed_at) quizDates.add(row.first_completed_at);
+      if (row.last_completed_at) quizDates.add(row.last_completed_at);
+    }
+    cache.set(LEARNER_KEYS.quizActivity, JSON.stringify([...quizDates].sort()));
+    const lessonDates = ((lessonRes?.data ?? []) as { completed_at?: string | null }[])
+      .map(r => r.completed_at).filter((d): d is string => !!d).sort();
+    cache.set(LEARNER_KEYS.lessonActivity, JSON.stringify(lessonDates));
 
     const wasEmpty = xp === 0 && roomMap && Object.keys(roomMap).length === 0
       && sessions.length === 0 && scenarios.length === 0;

@@ -85,6 +85,25 @@ export function addTotalXp(delta: number): number {
   return next;
 }
 
+/**
+ * Fired once a signed-in learner's REMOTE backend is installed (after the async
+ * hydrate). Components that read progress once on mount (RoomClient) re-read on
+ * this, because on a hard reload they mount while the backend is still the
+ * empty guest/localStorage one — reading "no progress" and then saving over the
+ * real server row was the room half of "my points don't go up" (audit 2026-09).
+ */
+export const PROGRESS_HYDRATED_EVENT = "soc:progress-hydrated";
+let hydrated = false;
+export function broadcastProgressHydrated(): void {
+  hydrated = true;
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(PROGRESS_HYDRATED_EVENT));
+}
+/** True once the remote backend has been installed in this page's lifetime. */
+export function isProgressHydrated(): boolean {
+  return hydrated;
+}
+
 // ─── Room progress ─────────────────────────────────────────────────────────────
 export function getRoomProgress(): RoomProgressMap {
   return readJson<RoomProgressMap>(LEARNER_KEYS.roomProgress, {});
@@ -137,4 +156,29 @@ export function getLastSession(): string | null {
 }
 export function setLastSession(iso: string): void {
   backend.set(LEARNER_KEYS.lastSession, iso);
+}
+
+// ─── Quiz / lesson activity (streak signal) ─────────────────────────────────────
+// Quizzes and lessons are credited SERVER-side (quiz_progress / lesson_progress),
+// so their XP never goes through this facade — but the streak needs to know a
+// learner did one today. Signed-in: hydrated from those tables by remoteBackend
+// and appended here on a successful finish/complete (cache-only, never written
+// back). Guests: kept in localStorage like everything else.
+const ACTIVITY_CAP = 120;
+function appendActivity(key: string, iso: string): void {
+  const list = readJson<string[]>(key, []);
+  if (list.includes(iso)) return;
+  writeJson(key, [...list, iso].slice(-ACTIVITY_CAP));
+}
+export function getQuizActivityDates(): string[] {
+  return readJson<string[]>(LEARNER_KEYS.quizActivity, []);
+}
+export function recordQuizActivity(iso: string = new Date().toISOString()): void {
+  appendActivity(LEARNER_KEYS.quizActivity, iso);
+}
+export function getLessonActivityDates(): string[] {
+  return readJson<string[]>(LEARNER_KEYS.lessonActivity, []);
+}
+export function recordLessonActivity(iso: string = new Date().toISOString()): void {
+  appendActivity(LEARNER_KEYS.lessonActivity, iso);
 }

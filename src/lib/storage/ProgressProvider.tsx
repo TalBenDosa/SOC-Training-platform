@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { setStorageBackend, localStorageBackend } from "./backend";
 import { createRemoteBackend } from "./remoteBackend";
-import { broadcastXpChanged } from "./progress";
+import { broadcastXpChanged, broadcastProgressHydrated } from "./progress";
 import { LEARNER_KEYS } from "./keys";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 
@@ -96,6 +96,10 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       // leaderboard shows, instead of the stale mount-time value (0 on a fresh
       // device). Harmless on the reload path below — the reload re-reads anyway.
       broadcastXpChanged();
+      // Components that read progress once on mount (RoomClient) mounted against
+      // the empty pre-hydrate backend on a hard reload; tell them to re-read so
+      // they don't resume from nothing and save over the server row.
+      broadcastProgressHydrated();
       // Reload only when the backend actually changed under mounted components:
       // a sign-in/out transition, or a one-time guest-progress import. NEVER on
       // plain `wasEmpty` (that's true on every load for any new account and

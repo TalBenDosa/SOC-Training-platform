@@ -10,12 +10,13 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { RANKS, rankForXp, nextRank, rankProgress } from "@/lib/progression/ranks";
+import { computeStreak, collectActivityDates } from "@/lib/progression/streak";
 import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText, Users } from "lucide-react";
 import Link from "next/link";
 import { ROOMS_META } from "@/data/roomsMeta";
 import {
   getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions,
-  getClearedCompanies, XP_CHANGED_EVENT,
+  getClearedCompanies, XP_CHANGED_EVENT, getQuizActivityDates, getLessonActivityDates,
   getStreakFreezeDates as facadeGetStreakFreezes,
   saveStreakFreezeDates as facadeSaveStreakFreezes,
 } from "@/lib/storage/progress";
@@ -84,20 +85,8 @@ interface RoomTaskTelemetry {
   decisionLatencyMs: number;
 }
 
-/** Consecutive-day streak ending today (or yesterday) from activity dates */
-function computeStreak(dates: string[]): number {
-  if (dates.length === 0) return 0;
-  const daySet = new Set(dates.map(d => new Date(d).toDateString()));
-  let streak = 0;
-  const cursor = new Date();
-  // Allow the streak to be "alive" if the last activity was yesterday
-  if (!daySet.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
-  while (daySet.has(cursor.toDateString())) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
+// computeStreak / collectActivityDates: shared with the Topbar (useStreak) via
+// src/lib/progression/streak.ts, so both always show the same number.
 
 // ─── Streak freeze ────────────────────────────────────────────────────────────
 // Duolingo-style grace: a missed day doesn't have to silently kill a streak the
@@ -377,6 +366,7 @@ export default function ProgressPage() {
   const [openReport,       setOpenReport]       = useState<number | null>(null);
   const [dashSessions,     setDashSessions]     = useState<DashboardSession[]>([]);
   const [roomDates,        setRoomDates]        = useState<string[]>([]);
+  const [quizLessonDates,  setQuizLessonDates]  = useState<string[]>([]);
   const [roomTelemetry,    setRoomTelemetry]    = useState<RoomTaskTelemetry[]>([]);
   const [clearedCount,     setClearedCount]     = useState(0);
   const [skillsData,       setSkillsData]       = useState(ZERO_SKILLS);
@@ -400,6 +390,9 @@ export default function ProgressPage() {
     // Read total XP (via the storage facade — Phase-1 seam)
     setTotalXp(getTotalXp());
     setStreakFreezeDates(loadStreakFreezeDates());
+    // Quiz + lesson completions count toward the streak too (recorded
+    // server-side since 0070 / 0074) — same sources as the Topbar flame.
+    try { setQuizLessonDates([...getQuizActivityDates(), ...getLessonActivityDates()]); } catch { /* ignore */ }
 
     // Room completions count toward the streak too — a learner who does rooms
     // daily should not show a streak of 0 just because they haven't run a
@@ -466,12 +459,13 @@ export default function ProgressPage() {
   // Streak freezes are merged straight into the activity list — a frozen day
   // counts exactly like a real one, both for the streak number and for whether
   // the chain-bridging conditions below see it as "covered."
-  const activityDates = [
-    ...scenarioHistory.map(s => s.date),
-    ...dashSessions.map(s => s.date),
-    ...roomDates,
-    ...streakFreezeDates,
-  ];
+  const activityDates = collectActivityDates({
+    scenarioDates: scenarioHistory.map(s => s.date),
+    dashboardDates: dashSessions.map(s => s.date),
+    roomDates,
+    quizDates: quizLessonDates,
+    freezeDates: streakFreezeDates,
+  });
   const streak = computeStreak(activityDates);
 
   const activityDaySet = new Set(activityDates.map(d => new Date(d).toDateString()));
