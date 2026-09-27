@@ -118,7 +118,8 @@ const WELCOME_KEY = "soc_welcome_seen_v1";
 function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeTour: () => void }) {
   return (
     // Overlay is fixed and scrollable so the card never pushes the page (no jump).
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
+    // data-blocks-announcements: the plan-announcement popup waits until this closes.
+    <div data-blocks-announcements className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
       {/* Card is capped at viewport height and scrolls internally if needed. */}
       <div className="relative w-full max-w-[30rem] max-h-[86vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl shadow-black/60">
 

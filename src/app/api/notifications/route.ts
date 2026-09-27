@@ -31,7 +31,7 @@ export async function GET() {
 
   const [list, count] = await Promise.all([
     supabase.from("notifications")
-      .select("id, kind, title, body, link, created_at, read_at")
+      .select("id, kind, title, body, link, assignment_id, created_at, read_at")
       .eq("user_id", user.id).eq("org_id", orgId)
       .order("created_at", { ascending: false }).order("id", { ascending: false })
       .limit(NOTIFICATION_LIMITS.page),
@@ -54,6 +54,7 @@ export async function GET() {
     title: r.title as string,
     body: (r.body as string | null) ?? null,
     link: isSafeLink(r.link) ? r.link : null,
+    assignment_id: typeof r.assignment_id === "string" ? r.assignment_id : null,
     created_at: r.created_at as string,
     read_at: (r.read_at as string | null) ?? null,
   }));

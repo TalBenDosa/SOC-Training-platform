@@ -13,6 +13,8 @@ export interface NotificationItem {
   title: string;
   body: string | null;
   link: string | null;
+  /** The plan the notice is about (null for a plan since deleted, or none). */
+  assignment_id: string | null;
   created_at: string;
   read_at: string | null;
 }

@@ -4,6 +4,7 @@ import { MotionProvider } from "@/components/MotionProvider";
 import { EarnMoment } from "@/components/EarnMoment";
 import { SyncStatus } from "@/components/system/SyncStatus";
 import { ReportProblem } from "@/components/feedback/ReportProblem";
+import { PlanAnnouncementModal } from "@/components/plans/PlanAnnouncementModal";
 import { affiliationExpired } from "@/lib/org/affiliationGate";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +26,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <SyncStatus />
       {/* Global technical-bug reporter — floats on every app page */}
       <ReportProblem />
+      {/* New / updated learning plan → one popup (learners are never emailed
+          about plans). Shares the bell's notifications store; renders nothing
+          for guests, users without an org, or when nothing is unread. */}
+      <PlanAnnouncementModal />
     </MotionProvider>
   );
 }

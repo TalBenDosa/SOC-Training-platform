@@ -3,7 +3,8 @@
  * The Topbar notification bell (migration 0076). Fully functional by design —
  * the old decorative bell was removed precisely because it did nothing:
  *
- *  - polls GET /api/notifications every 60 s while the tab is visible, and
+ *  - reads the shared notifications store (one poll for the bell AND the
+ *    plan-announcement popup): GET /api/notifications every 60 s while the tab is visible, and
  *    again (debounced to ONE request) when the window regains focus / the tab
  *    becomes visible; stops polling entirely once the server says the feature
  *    isn't available to this user (`enabled: false`, e.g. no organisation);
@@ -17,66 +18,25 @@
  * Hidden entirely for guests and for users without an organisation (the API
  * answers `enabled: false`), so it never shows as an empty control.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, CheckCheck, Loader2 } from "lucide-react";
-import { useAuth } from "@/lib/auth/AuthContext";
 import { cn } from "@/lib/utils";
-import { isSafeLink, timeAgo, type NotificationItem, type NotificationsResponse } from "@/lib/notifications/types";
-import { shouldPoll, startNotificationPolling } from "@/lib/notifications/polling";
+import { isSafeLink, timeAgo, type NotificationItem } from "@/lib/notifications/types";
+import { useNotifications } from "@/lib/notifications/useNotifications";
 
 // Every page renders its own Topbar, so the bell remounts on navigation. The
-// last response is kept for a few seconds so clicking around doesn't refetch
-// on every page; the poll and focus refreshes always go to the server.
-const REUSE_MS = 15_000;
-let last: { userId: string; at: number; data: NotificationsResponse } | null = null;
+// inbox lives in the shared store (lib/notifications/store.ts) — the same one
+// the plan-announcement popup reads — so remounting reuses the last response
+// and there is only ever ONE poll, whichever consumers are mounted.
 
 export function NotificationBell() {
-  const { user } = useAuth();
   const router = useRouter();
-  const cached = user && last?.userId === user.id ? last.data : null;
-  const [enabled, setEnabled] = useState(Boolean(cached?.enabled));
-  const [items, setItems] = useState<NotificationItem[]>(cached?.notifications ?? []);
-  const [unread, setUnread] = useState(cached?.unread ?? 0);
+  const { userId, enabled, items, unread, loaded, error, refresh, markRead, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
-  const [loaded, setLoaded] = useState(Boolean(cached));
-  const [error, setError] = useState(false);
-  // The user id for which the server answered `enabled: false` — no more polling for them.
-  const [offFor, setOffFor] = useState<string | null>(cached && !cached.enabled && user ? user.id : null);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const userIdRef = useRef<string | null>(user?.id ?? null);
-  userIdRef.current = user?.id ?? null;
-
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notifications", { cache: "no-store" });
-      if (!res.ok) { setError(true); return; }
-      const d: NotificationsResponse = await res.json();
-      if (userIdRef.current) last = { userId: userIdRef.current, at: Date.now(), data: d };
-      setEnabled(Boolean(d.enabled));
-      if (!d.enabled && userIdRef.current) setOffFor(userIdRef.current);
-      setItems(Array.isArray(d.notifications) ? d.notifications : []);
-      setUnread(typeof d.unread === "number" ? d.unread : 0);
-      setError(false);
-    } catch {
-      setError(true);
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
-
-  // Poll while visible + ONE (debounced) refresh when the window wakes up.
-  // Nothing at all once the server has said "not available" for this user.
-  const userId = user?.id ?? null;
-  const poll = shouldPoll(userId, offFor);
-  useEffect(() => {
-    if (!userId) { setEnabled(false); setItems([]); setUnread(0); last = null; return; }
-    if (!poll) return;
-    if (!(last && last.userId === userId && Date.now() - last.at < REUSE_MS)) refresh();
-    return startNotificationPolling(refresh);
-  }, [userId, poll, refresh]);
 
   // Dialog behaviour: focus into the panel on open; Escape / outside click close.
   useEffect(() => {
@@ -98,37 +58,19 @@ export function NotificationBell() {
     setOpen(false);
   }
 
-  async function markRead(body: { ids: string[] } | { all: true }) {
-    try {
-      await fetch("/api/notifications/read", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-    } catch { /* the next poll reconciles */ }
-  }
-
   function openItem(n: NotificationItem) {
-    if (!n.read_at) {
-      // Optimistic: the badge drops at once; the POST persists it.
-      const now = new Date().toISOString();
-      setItems(list => list.map(x => (x.id === n.id ? { ...x, read_at: now } : x)));
-      setUnread(u => Math.max(0, u - 1));
-      last = null;
-      void markRead({ ids: [n.id] });
-    }
+    // Optimistic: the badge drops at once; the POST persists it.
+    if (!n.read_at) void markRead([n.id]);
     setOpen(false);
     if (isSafeLink(n.link)) router.push(n.link);
   }
 
   function markAll() {
     if (unread === 0) return;
-    const now = new Date().toISOString();
-    setItems(list => list.map(x => (x.read_at ? x : { ...x, read_at: now })));
-    setUnread(0);
-    last = null;
-    void markRead({ all: true }).then(refresh);
+    void markAllRead();
   }
 
-  if (!user || !enabled) return null;
+  if (!userId || !enabled) return null;
 
   const badge = unread > 9 ? "9+" : String(unread);
   return (
@@ -136,7 +78,7 @@ export function NotificationBell() {
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => { setOpen(v => !v); if (!open) refresh(); }}
+        onClick={() => { setOpen(v => !v); if (!open) void refresh(); }}
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
         aria-haspopup="dialog"
         aria-expanded={open}
