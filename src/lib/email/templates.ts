@@ -151,3 +151,30 @@ export function lapsedNudgeEmail(args: {
 
   return { subject: `Your SOC training is waiting — ${daysAway} days idle`, html, text };
 }
+
+/** Escape text for an HTML email body (plan titles are manager-authored). */
+function esc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/**
+ * Sent (only when the manager ticks "Also email recipients") alongside the
+ * in-app notification for a learning plan: a new plan, new items in a plan, or
+ * changed personal priorities. Deliberately short — the in-app plan card is the
+ * source of truth; the email only says "something is waiting" and links to it.
+ */
+export function planNotificationEmail(args: { heading: string; body: string | null; link: string; orgName?: string | null }): {
+  subject: string; html: string; text: string;
+} {
+  const heading = args.heading.slice(0, 200);
+  const body = (args.body ?? "").slice(0, 500);
+  const from = args.orgName ? ` from ${args.orgName}` : "";
+  const html = shell(
+    esc(heading),
+    `${body ? `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">${esc(body)}</p>` : ""}
+     <p style="margin:0 0 4px;">${button(esc(args.link), "Open my learning plan")}</p>
+     <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">You're receiving this because your training administrator${esc(from)} assigned you work on HACK THE SOC. You'll also find it under the bell in the app.</p>`,
+  );
+  const text = `${heading}\n\n${body ? `${body}\n\n` : ""}Open your learning plan: ${args.link}\n\nYou're receiving this because your training administrator${from} assigned you work on HACK THE SOC.`;
+  return { subject: heading, html, text };
+}

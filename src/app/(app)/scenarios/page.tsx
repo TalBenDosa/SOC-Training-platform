@@ -9,6 +9,8 @@ import { getRoomProgress } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import { SCENARIO_PREP } from "@/lib/scenarios/prep";
 import { ROOMS_META } from "@/data/roomsMeta";
+import { AssignedChip } from "@/components/plans/AssignedChip";
+import { useAssignedItems } from "@/lib/plans/useAssigned";
 import {
   Sparkles, ShieldQuestion, Cloud, Mail, KeyRound, Lock, UserX,
   BotIcon, EyeOff, GraduationCap, Target, ArrowRight,
@@ -70,6 +72,8 @@ export default function ScenariosPage() {
   const [hidden, setHidden]       = useState<string[]>([]);
   const [published, setPublished] = useState<PublishedScenario[]>([]);
   const [doneRooms, setDoneRooms] = useState<Set<string>>(new Set());
+  // "Assigned" chips (one cached request); empty for solo learners.
+  const assigned = useAssignedItems();
 
   useEffect(() => {
     try {
@@ -150,7 +154,12 @@ export default function ScenariosPage() {
                 typeLabel="Simulation"
                 title={s.title}
                 subtitle={s.summary}
-                cornerBadge={<span className={diffPill(s.difficulty)}>{s.difficulty}</span>}
+                cornerBadge={
+                  <div className="flex items-center gap-2">
+                    <AssignedChip info={assigned[`scenario:${s.slug}`]} className="backdrop-blur-sm" />
+                    <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
+                  </div>
+                }
                 meta={<>+250 XP · ~45 min</>}
                 cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25">Launch <ArrowRight className="h-3.5 w-3.5" /></span>}
               >
@@ -185,6 +194,7 @@ export default function ScenariosPage() {
               subtitle={s.briefing}
               cornerBadge={
                 <div className="flex items-center gap-2">
+                  <AssignedChip info={assigned[`scenario:${s.scenario_id}`]} className="backdrop-blur-sm" />
                   <span className="rounded border border-cyber-500/30 bg-black/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyber-200 backdrop-blur-sm">Custom</span>
                   <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
                 </div>

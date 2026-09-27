@@ -8,6 +8,7 @@ import { ROOMS_META, type RoomMeta } from "@/data/roomsMeta";
 import { getRoomProgress } from "@/lib/storage/progress";
 import { isRoomLocked, recommendNextRoom } from "@/lib/rooms/recommend";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
+import { useAssignedItems } from "@/lib/plans/useAssigned";
 import { useBranding } from "@/lib/auth/useBranding";
 import { fetchOrgRoomMetas } from "@/lib/content/publicContent";
 import { BookOpen } from "lucide-react";
@@ -30,6 +31,8 @@ export default function RoomsPage() {
   const [progress, setProgress] = useState<AllProgress>({});
   const [filter, setFilter]     = useState<Category>("All");
   const [orgRooms, setOrgRooms] = useState<RoomMeta[]>([]);
+  // "Assigned" chips — one cached request for the whole grid; empty for solo learners.
+  const assigned = useAssignedItems();
 
   useEffect(() => {
     // Read via the storage facade (Phase-1 seam): DB-backed room_progress for
@@ -159,6 +162,7 @@ export default function RoomsPage() {
               room={room}
               progress={progress[room.id] ?? null}
               locked={isLocked(room.id)}
+              assigned={assigned[`room:${room.id}`]}
               onClick={() => router.push(`/rooms/${room.id}`)}
             />
           ))}

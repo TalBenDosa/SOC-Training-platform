@@ -8,6 +8,9 @@ import { fetchPublishedLessons } from "@/lib/content/publicContent";
 import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen, ListChecks, BookMarked } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
+import { AssignedChip } from "@/components/plans/AssignedChip";
+import { useAssignedItems } from "@/lib/plans/useAssigned";
+import type { AssignedInfo } from "@/lib/plans/assigned";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
 
@@ -250,7 +253,7 @@ function renderTextBlocks(text: string, keyPrefix: string) {
 
 // ─── Lesson Card ──────────────────────────────────────────────────────────────
 
-function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }) {
+function LessonCard({ lesson, onClick, assigned }: { lesson: Lesson; onClick: () => void; assigned?: AssignedInfo }) {
   const diffCls = DIFF_COLORS[lesson.difficulty] ?? DIFF_COLORS.intermediate;
   const tags     = tagsForLesson(lesson);
   const pages    = lesson.sections.length + 1; // intro + sections
@@ -270,6 +273,7 @@ function LessonCard({ lesson, onClick }: { lesson: Lesson; onClick: () => void }
           <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap ${diffCls}`}>
             {capitalize(lesson.difficulty)}
           </span>
+          <AssignedChip info={assigned} className="whitespace-nowrap" />
           {isExpanded && (
             <span className="flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap text-emerald-300">
               <Layers className="h-3 w-3" />
@@ -576,6 +580,8 @@ export default function LearnPage() {
   const [level,      setLevel]      = useState("all");
   const [openLesson, setOpenLesson] = useState<Lesson | null>(null);
   const [mounted,    setMounted]    = useState(false);
+  // "Assigned" chips for org-authored library lessons that sit in a plan.
+  const assigned = useAssignedItems();
 
   // Admin-published lessons now live in the durable content_lessons table
   // (migration 0019), not per-browser localStorage — this is what makes them
@@ -705,7 +711,7 @@ export default function LearnPage() {
             <p className="mb-4 text-[12px] text-slate-400">{filtered.length} item{filtered.length !== 1 ? "s" : ""}</p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map(l => (
-                <LessonCard key={l.id} lesson={l} onClick={() => setOpenLesson(l)} />
+                <LessonCard key={l.id} lesson={l} onClick={() => setOpenLesson(l)} assigned={assigned[`lesson:${l.id}`]} />
               ))}
             </div>
           </>

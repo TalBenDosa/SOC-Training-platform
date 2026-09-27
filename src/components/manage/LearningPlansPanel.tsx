@@ -47,8 +47,10 @@ interface Draft {
   groupIds: string[];
   userIds: string[];
   items: PlanItem[];
+  /** "Also email recipients" — per save, always starts OFF (in-app notifications are always sent). */
+  notifyEmail: boolean;
 }
-const EMPTY: Draft = { title: "", instructions: "", due: "", priority: 2, audience: "org", groupIds: [], userIds: [], items: [] };
+const EMPTY: Draft = { title: "", instructions: "", due: "", priority: 2, audience: "org", groupIds: [], userIds: [], items: [], notifyEmail: false };
 
 export const memberName = (m: RosterMember) => m.display_name || m.handle || m.user_id.slice(0, 8);
 
@@ -126,6 +128,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
       groupIds: p.targets.group_ids,
       userIds: p.targets.user_ids,
       items: p.items.map(({ kind, id, priority, note }) => ({ kind, id, ...(priority ? { priority } : {}), ...(note ? { note } : {}) })),
+      notifyEmail: false,
     });
   }
 
@@ -148,13 +151,17 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
       audience: draft.audience,
       targets: { group_ids: draft.groupIds, user_ids: draft.userIds },
       items: draft.items,
+      notify_email: draft.notifyEmail,
     };
     const res = await fetch("/api/org/assignments", {
       method: draft.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
     });
     setBusy(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not save the plan."); return; }
-    setNotice(draft.id ? "Plan updated." : "Plan assigned.");
+    const out = await res.json().catch(() => ({}));
+    const n = typeof out?.notified === "number" ? out.notified : 0;
+    const told = n > 0 ? ` ${n} learner${n === 1 ? "" : "s"} notified${draft.notifyEmail ? " (and emailed)" : ""}.` : "";
+    setNotice((draft.id ? "Plan updated." : "Plan assigned.") + told);
     setDraft(null);
     await load();
   }
@@ -337,7 +344,19 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                 </p>
               )}
 
-              <Button variant="primary" size="sm" disabled={busy} onClick={save} className="mt-auto">
+              <label
+                className="mt-auto flex cursor-pointer items-start gap-2 rounded-md border border-border bg-bg px-2.5 py-2 text-[11px] text-slate-300"
+                title="Learners always get an in-app notification. Tick to also send each of them one short email."
+              >
+                <input type="checkbox" checked={draft.notifyEmail} onChange={e => setDraft(d => d && { ...d, notifyEmail: e.target.checked })} className="mt-0.5 accent-cyan-500" />
+                <span>
+                  Also email recipients
+                  <span className="block text-[10px] text-slate-500">
+                    {draft.id ? "Only people newly receiving it, or told about new items." : "Everyone this plan reaches gets an in-app notification either way."}
+                  </span>
+                </span>
+              </label>
+              <Button variant="primary" size="sm" disabled={busy} onClick={save}>
                 {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
                 {draft.id ? "Save changes" : "Assign plan"}
               </Button>

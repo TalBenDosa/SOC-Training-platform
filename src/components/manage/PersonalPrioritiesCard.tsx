@@ -30,6 +30,8 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
   const [instructions, setInstructions] = useState("");
   const [due, setDue] = useState("");
   const [dirty, setDirty] = useState(false);
+  // "Also email" — per save, starts OFF; the in-app notification is always sent.
+  const [notifyEmail, setNotifyEmail] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -74,11 +76,14 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
     setBusy(true); setError(null);
     const res = await fetch(`/api/org/students/${studentId}/plan`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items, instructions: instructions.trim(), due_at: due || null }),
+      body: JSON.stringify({ items, instructions: instructions.trim(), due_at: due || null, notify_email: notifyEmail }),
     });
     setBusy(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not save."); return; }
-    setNotice(items.length ? `Saved — ${studentName} sees these first in “My learning plan”.` : "Personal priorities cleared.");
+    const out = await res.json().catch(() => ({}));
+    const told = out?.notified > 0 ? ` ${studentName} was notified${notifyEmail ? " (and emailed)" : ""}.` : "";
+    setNotice(items.length ? `Saved — ${studentName} sees these first in “My learning plan”.${told}` : "Personal priorities cleared.");
+    setNotifyEmail(false);
     await load();
   }
 
@@ -117,11 +122,20 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
                 placeholder={`A note for ${studentName} (optional)`}
                 className="resize-none rounded-md border border-border bg-bg px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
               />
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="flex flex-1 items-center gap-2 rounded-md border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-400">
                   <Clock className="h-3.5 w-3.5 shrink-0" /> due
                   <input type="date" value={due} onChange={e => { setDue(e.target.value); setDirty(true); }} className="min-w-0 flex-1 bg-transparent text-slate-100 focus:outline-none" />
                 </label>
+                {items.length > 0 && (
+                  <label
+                    className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-[11px] text-slate-300"
+                    title={`${studentName} always gets an in-app notification when the list changes. Tick to also send one short email.`}
+                  >
+                    <input type="checkbox" checked={notifyEmail} onChange={e => setNotifyEmail(e.target.checked)} className="accent-cyan-500" />
+                    Also email {studentName.split(" ")[0] || "learner"}
+                  </label>
+                )}
                 <Button variant="primary" size="sm" disabled={busy || !dirty} onClick={save}>
                   {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
                   {items.length === 0 && data.personal ? "Clear plan" : "Save"}

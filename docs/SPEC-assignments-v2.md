@@ -53,8 +53,33 @@ instructions field, no target), learner `AssignedWork` on `/rooms` only; complet
   (personal plan first), instructions/notes shown, done ✓, due/overdue, deep links to each item.
 - "Assigned" chip on assigned items in room/lesson/quiz lists (nice-to-have).
 
+## v2.1 — "Assigned" chips + notifications (migration `0076_notifications.sql`)
+- **Assigned chips**: room cards, Learning Path lesson rows (+ an "N lessons assigned to you · M done" count on the
+  path page), library lesson cards (org lessons), quiz cards and scenario cards show `Assigned` / `Assigned · High` /
+  `Assigned · Low` / `Assigned · Done` for items in any plan the current learner receives. Data: ONE request per page,
+  `GET /api/org/assignments?view=assigned-keys` → `{ items: { "kind:id": { priority, due_at, done, personal } } }`
+  (built from `loadLearnerPlans`, so the same recipient rules; effective priority = item priority, else plan priority;
+  highest wins across plans; earliest due date), cached in memory by `useAssignedItems()` (60 s, per user). Nothing
+  renders for guests, users without an org, or unassigned items.
+- **Notifications**: `notifications (org_id, user_id, kind, title, body, link, assignment_id, created_at, read_at)` —
+  composite FKs to `org_members` and `assignments (id, org_id)` (cascade), in-app links only (`/…`). RLS: a user
+  SELECTs their own rows and may UPDATE only `read_at` (column grant) on their own rows; no client INSERT/DELETE
+  (service role in the plan routes). Kinds: `plan_assigned` (create → every recipient; edit → NEW recipients),
+  `plan_updated` (edit that ADDS items → existing recipients), `personal_plan` (personal plan whose item set changed).
+  Archive / unarchive / delete / clearing a personal plan notify nobody; the acting manager, inactive members and
+  platform admins are never notified. `src/lib/plans/notify.ts`.
+- **Email** (opt-in per save, "Also email recipients", default OFF): one short email per notified recipient via
+  `sendEmail`, addresses from `org_member_emails` filtered to the notification rows, run after the response
+  (`next/server` `after()`), paced (2 at a time, ~1 s apart, max 100 per save), stops early when email isn't
+  configured; failures are logged, never returned.
+- **API**: `GET /api/notifications` (own, newest 30 + unread count; `enabled: false` without an org),
+  `POST /api/notifications/read` (`{ ids }` ≤ 100 or `{ all: true }`) — both through the user's own RLS client.
+- **UI**: working bell in the Topbar (unread badge, dropdown, click = mark read + navigate, "Mark all read"; polls every
+  60 s while visible + on focus).
+
 ## Non-goals
-Notifications/emails, instructor role access to `/manage` (stays org_admin), gamified rewards for plans.
+Realtime push, per-user notification preferences, instructor role access to `/manage` (stays org_admin), gamified
+rewards for plans.
 
 ## Verification
 Unit tests for item sanitising, targeting resolution, completion; migration applied to STAGING with RLS checks

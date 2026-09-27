@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
@@ -8,6 +8,7 @@ import {
   ASSIGNMENT_COLUMNS, PlanDataError, loadLearnerPlans, loadProgress, resolveItems, toPlanDataError, type AssignmentDbRow,
 } from "@/lib/plans/server";
 import { PLAN_LIMITS, type LearnerPlan, type Priority, type ResolvedPlanItem } from "@/lib/plans/types";
+import { deliverNotifications, emailOrigin, itemSetChanged, noticeText } from "@/lib/plans/notify";
 
 /**
  * One learner's PERSONAL plan (migration 0075: assignments.personal_user_id —
@@ -23,6 +24,11 @@ import { PLAN_LIMITS, type LearnerPlan, type Priority, type ResolvedPlanItem } f
  *
  * org_admin only, pinned to the caller's org, and the learner is verified to be
  * a member of THAT org before anything is read or written.
+ *
+ * A save that changes the SET of items (added or removed — not a reorder / note
+ * edit) notifies the learner in-app ("personal_plan", migration 0076), and —
+ * with `notify_email: true` — emails them too, after the response. Clearing the
+ * plan notifies nobody. A notification failure never fails the save.
  */
 
 export const runtime = "nodejs";
@@ -139,6 +145,12 @@ export async function PUT(req: Request, { params }: Ctx) {
 
   if (!c.active) return fail(400, "Personal priorities can only be set for active learners.");
 
+  // The current item set, to decide afterwards whether the learner is told.
+  const { data: prev, error: prevErr } = await admin.from("assignments").select("items")
+    .eq("org_id", orgId).eq("personal_user_id", studentId).maybeSingle();
+  if (prevErr) return dataFail(toPlanDataError(prevErr, "read"), "read", "Could not save the plan.");
+  const prevItems = sanitizePlanItems(prev?.items, () => true);
+
   // One statement, keyed on the (org_id, personal_user_id) unique constraint:
   // two managers saving the same learner's first plan at once both succeed
   // (last write wins) instead of one hitting a duplicate-key error.
@@ -161,6 +173,34 @@ export async function PUT(req: Request, { params }: Ctx) {
     await admin.from("assignments").update({ created_by: userId }).eq("id", data.id).eq("org_id", orgId).is("created_by", null);
   }
 
-  await logAudit({ actorId: userId, action: "org.student_plan.save", targetTable: "assignments", targetId: data.id, metadata: { orgId, studentId, items: items.length } });
-  return NextResponse.json({ ok: true, id: data.id });
+  // Tell the learner when what they have to do changed (best effort).
+  const emailLearner = body.notify_email === true;
+  let notified = 0;
+  if (studentId !== userId && itemSetChanged(prevItems, items)) {
+    try {
+      const text = noticeText("personal_plan", { title: "Personal priorities", due_at: due.value }, items.flatMap(i => {
+        const e = catalog.index.get(`${i.kind}:${i.id}`);
+        return e ? [{ title: e.title, href: e.href }] : [];
+      }));
+      const res = await deliverNotifications(admin, {
+        orgId, actorId: userId, assignmentId: data.id,
+        batches: [{ kind: "personal_plan", userIds: [studentId], ...text }],
+        // Verified above: an active member of this org, not a platform admin.
+        eligible: new Set([studentId]),
+        email: emailLearner, origin: emailOrigin(req),
+      });
+      notified = res.notified;
+      if (res.emailJob) {
+        try { after(res.emailJob); } catch (e) { console.error("[student plan] could not schedule the email:", e instanceof Error ? e.message : e); }
+      }
+    } catch (e) {
+      console.error("[student plan] notify failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
+  await logAudit({
+    actorId: userId, action: "org.student_plan.save", targetTable: "assignments", targetId: data.id,
+    metadata: { orgId, studentId, items: items.length, notified, emailed: emailLearner && notified > 0 },
+  });
+  return NextResponse.json({ ok: true, id: data.id, notified });
 }

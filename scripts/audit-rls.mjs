@@ -28,6 +28,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const USER_DATA_TABLES = new Set([
   "profiles", "user_progress", "room_progress", "dashboard_sessions",
   "scenario_history", "task_attempts", "ai_usage", "account_deletion_requests",
+  "notifications", // 0076 — own inbox only
 ]);
 
 function readDbUrl() {

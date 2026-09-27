@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getAuthedUser, requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
@@ -12,7 +12,13 @@ import {
   resolveItems, toPlanDataError, type AssignmentDbRow,
 } from "@/lib/plans/server";
 import { resolveRecipients, type TargetRow } from "@/lib/plans/targeting";
-import { PLAN_LIMITS, type Audience, type Priority, type StaffPlan } from "@/lib/plans/types";
+import { PLAN_LIMITS, type Audience, type PlanItem, type Priority, type StaffPlan } from "@/lib/plans/types";
+import { deriveAssignedKeys } from "@/lib/plans/assigned";
+import {
+  addedItems, deliverNotifications, emailOrigin, loadOrgAudience, loadTargets, noticeText, planEditNotices,
+  planRecipientIds, toTargetRows, type NoticeBatch, type OrgAudience,
+} from "@/lib/plans/notify";
+import type { PlanCatalog } from "@/lib/plans/catalog";
 
 /**
  * Learning plans (v1: migration 0021 · v2: migration 0075, docs/SPEC-assignments-v2.md).
@@ -32,9 +38,23 @@ import { PLAN_LIMITS, type Audience, type Priority, type StaffPlan } from "@/lib
  * Progress is DERIVED from room_progress / scenario_history / quiz_progress /
  * lesson_progress, never stored — an item finished before it was assigned is
  * done the moment it's assigned.
+ *
+ * GET ?view=assigned-keys — any signed-in user: a compact { items: { "kind:id":
+ *   { priority, due_at, done, personal } } } map of everything the CALLER
+ *   receives (same recipient rules as the learner view), for the "Assigned"
+ *   chips on the content lists. Empty for users without an org.
+ *
+ * Notifications (migration 0076, src/lib/plans/notify.ts): a create notifies
+ * every recipient (plan_assigned); an edit notifies NEW recipients
+ * (plan_assigned) and — only if new items were added — existing ones
+ * (plan_updated). Archive / unarchive / delete notify nobody. `notify_email:
+ * true` also emails those recipients, after the response (next/server after()).
+ * A notification failure never fails the save.
  */
 
 export const runtime = "nodejs";
+// Room for the paced "Also email recipients" job that runs after the response.
+export const maxDuration = 60;
 
 const fail = (status: number, error: string) => NextResponse.json({ error }, { status });
 
@@ -126,19 +146,56 @@ async function targetSync(c: Ctx, assignmentId: string, wanted: Targets | null, 
   };
 }
 
+// ── Notifications ────────────────────────────────────────────────────────────
+/** Titles + deep links of items, from the catalogue (unknown ids are skipped). */
+function describe(items: readonly PlanItem[], catalog: PlanCatalog) {
+  return items.flatMap(i => {
+    const e = catalog.index.get(`${i.kind}:${i.id}`);
+    return e ? [{ title: e.title, href: e.href }] : [];
+  });
+}
+
+/**
+ * Write the notifications and, when asked, queue the emails to run AFTER the
+ * response. Returns how many learners were notified; never throws.
+ */
+async function notify(c: Ctx, req: Request, assignmentId: string, batches: NoticeBatch[], aud: OrgAudience, email: boolean): Promise<number> {
+  const { notified, emailJob } = await deliverNotifications(c.admin, {
+    orgId: c.orgId, actorId: c.userId, assignmentId, batches, eligible: aud.eligible, email, origin: emailOrigin(req),
+  });
+  if (emailJob) {
+    try { after(emailJob); } catch (e) { console.error("[assignments] could not schedule plan emails:", e instanceof Error ? e.message : e); }
+  }
+  return notified;
+}
+
 // ── GET ──────────────────────────────────────────────────────────────────────
 export async function GET(req: Request) {
   const user = await getAuthedUser();
   if (!user) return fail(401, "Authentication required.");
   const isStaff = user.isPlatformAdmin || user.orgRole === "org_admin" || user.orgRole === "instructor";
-  if (!user.orgId) return NextResponse.json({ plans: [], is_staff: false });
+  const view = new URL(req.url).searchParams.get("view");
+  if (!user.orgId) return NextResponse.json(view === "assigned-keys" ? { items: {} } : { plans: [], is_staff: false });
   const orgId = user.orgId;
 
   const admin = getSupabaseAdminClient();
   if (!admin) return fail(503, "Server not configured.");
 
+  // ── "Assigned" chips: what the caller receives, as a key → info map ──────
+  // Everyone (staff included) gets their OWN assignments here — a manager can be
+  // a direct target too.
+  if (view === "assigned-keys") {
+    try {
+      const plans = await loadLearnerPlans(admin, orgId, user.id, "self");
+      return NextResponse.json({ items: deriveAssignedKeys(plans) }, { headers: { "Cache-Control": "private, no-store" } });
+    } catch (e) {
+      if (e instanceof PlanDataError && e.kind === "schema") return NextResponse.json({ items: {} });
+      return dataFail(e, "assigned keys failed", "Could not load your assignments.");
+    }
+  }
+
   // ── Learner view: only what the caller is a recipient of ─────────────────
-  if (!isStaff || new URL(req.url).searchParams.get("view") === "mine") {
+  if (!isStaff || view === "mine") {
     try {
       // "self": the learner's own progress counts wherever it was earned (as v1).
       const plans = await loadLearnerPlans(admin, orgId, user.id, "self");
@@ -282,11 +339,26 @@ export async function POST(req: Request) {
     }
   }
 
+  // Everyone the new plan reaches gets "plan_assigned" (best effort).
+  const emailRecipients = body.notify_email === true;
+  let notified = 0;
+  try {
+    const aud = await loadOrgAudience(c.admin, c.orgId, targets?.group_ids ?? []);
+    const recipients = planRecipientIds({ audience, personal_user_id: null }, toTargetRows(targets), aud);
+    const text = noticeText("plan_assigned", { title, due_at: due.value }, describe(items, catalog));
+    notified = await notify(c, req, data.id, [{ kind: "plan_assigned", userIds: recipients, ...text }], aud, emailRecipients);
+  } catch (e) {
+    console.error("[assignments] create: notify failed:", e instanceof Error ? e.message : e);
+  }
+
   await logAudit({
     actorId: c.userId, action: "org.assignments.create", targetTable: "assignments", targetId: data.id,
-    metadata: { orgId: c.orgId, items: items.length, audience, groups: targets?.group_ids.length ?? 0, users: targets?.user_ids.length ?? 0 },
+    metadata: {
+      orgId: c.orgId, items: items.length, audience, groups: targets?.group_ids.length ?? 0, users: targets?.user_ids.length ?? 0,
+      notified, emailed: emailRecipients && notified > 0,
+    },
   });
-  return NextResponse.json({ id: data.id });
+  return NextResponse.json({ id: data.id, notified });
 }
 
 // ── PATCH — edit / reorder / retarget / archive ─────────────────────────────
@@ -299,7 +371,7 @@ export async function PATCH(req: Request) {
   const id = body.id;
 
   const { data: existing, error: readErr } = await c.admin.from("assignments")
-    .select("id, audience, personal_user_id").eq("id", id).eq("org_id", c.orgId).maybeSingle();
+    .select("id, title, items, due_at, audience, personal_user_id, archived_at").eq("id", id).eq("org_id", c.orgId).maybeSingle();
   if (readErr) return writeFail(readErr, "update: read", "Could not update the plan.");
   if (!existing) return fail(404, "No such plan in your organisation.");
   if (existing.personal_user_id) return fail(400, "Personal plans are edited from the student's page.");
@@ -318,8 +390,9 @@ export async function PATCH(req: Request) {
     patch.due_at = due.value;
   }
   if ("priority" in body) patch.priority = parsePriority(body.priority);
+  let catalog: PlanCatalog | null = null;
   if ("items" in body) {
-    const catalog = await getPlanCatalog(c.admin, c.orgId);
+    catalog = await getPlanCatalog(c.admin, c.orgId);
     const items = sanitizePlanItems(body.items, catalog.isKnown);
     if (items.length === 0) return fail(400, "Pick at least one module.");
     patch.items = items;
@@ -344,6 +417,27 @@ export async function PATCH(req: Request) {
   }
   if (!sync && Object.keys(patch).length === 0) return fail(400, "Nothing to update.");
 
+  // Who has the plan BEFORE this save — read now, while the old targets are
+  // still in place. Only for edits that can change who has it or what's in it,
+  // on a live plan; archive / unarchive never notify.
+  const existingAudience: Audience = existing.audience === "targeted" ? "targeted" : "org";
+  let before: { recipients: string[]; aud: OrgAudience; afterTargets: TargetRow[]; afterAudience: Audience } | null = null;
+  if (!("archived" in body) && !existing.archived_at && ("items" in body || "audience" in body || "targets" in body)) {
+    try {
+      const currentTargets = await loadTargets(c.admin, c.orgId, id);
+      const afterAudience = (patch.audience as Audience | undefined) ?? existingAudience;
+      const afterTargets = sync ? toTargetRows(targets) : currentTargets;
+      const groupIds = [...currentTargets, ...afterTargets].map(t => t.group_id).filter((g): g is string => !!g);
+      const aud = await loadOrgAudience(c.admin, c.orgId, groupIds);
+      before = {
+        recipients: planRecipientIds({ audience: existingAudience, personal_user_id: null }, currentTargets, aud),
+        aud, afterTargets, afterAudience,
+      };
+    } catch (e) {
+      console.error("[assignments] update: could not resolve recipients for notifications:", e instanceof Error ? e.message : e);
+    }
+  }
+
   if (sync && !(await sync.add())) return fail(500, "Could not save the plan's recipients.");
   if (Object.keys(patch).length) {
     const { error } = await c.admin.from("assignments").update(patch).eq("id", id).eq("org_id", c.orgId);
@@ -351,11 +445,38 @@ export async function PATCH(req: Request) {
   }
   if (sync && !(await sync.prune())) return fail(500, "The plan was saved, but old recipients could not be removed.");
 
+  // New recipients → "plan_assigned"; existing recipients → "plan_updated", but
+  // only when new items were added. Best effort — the save already succeeded.
+  const emailRecipients = body.notify_email === true;
+  let notified = 0;
+  if (before) {
+    try {
+      const afterRecipients = planRecipientIds({ audience: before.afterAudience, personal_user_id: null }, before.afterTargets, before.aud);
+      const beforeItems = sanitizePlanItems(existing.items, () => true);
+      const afterItems = (patch.items as PlanItem[] | undefined) ?? beforeItems;
+      const newItems = "items" in patch ? addedItems(beforeItems, afterItems) : [];
+      const { assigned, updated } = planEditNotices(before.recipients, afterRecipients, newItems.length);
+      if (assigned.length || updated.length) {
+        const cat = catalog ?? await getPlanCatalog(c.admin, c.orgId, needsOrgCatalog([afterItems]));
+        const info = {
+          title: (patch.title as string | undefined) ?? existing.title,
+          due_at: "due_at" in patch ? (patch.due_at as string | null) : existing.due_at,
+        };
+        notified = await notify(c, req, id, [
+          { kind: "plan_assigned", userIds: assigned, ...noticeText("plan_assigned", info, describe(afterItems, cat)) },
+          { kind: "plan_updated", userIds: updated, ...noticeText("plan_updated", info, describe(newItems, cat)) },
+        ], before.aud, emailRecipients);
+      }
+    } catch (e) {
+      console.error("[assignments] update: notify failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
   await logAudit({
     actorId: c.userId, action: "archived" in body ? (body.archived === true ? "org.assignments.archive" : "org.assignments.unarchive") : "org.assignments.update",
-    targetTable: "assignments", targetId: id, metadata: { orgId: c.orgId, fields: Object.keys(patch) },
+    targetTable: "assignments", targetId: id, metadata: { orgId: c.orgId, fields: Object.keys(patch), notified, emailed: emailRecipients && notified > 0 },
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, notified });
 }
 
 // ── DELETE — remove a plan (its targets cascade) ────────────────────────────
