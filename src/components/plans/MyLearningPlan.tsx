@@ -41,39 +41,70 @@ function ItemRow({ it }: { it: ResolvedPlanItem }) {
   );
 }
 
+/**
+ * One plan as a collapsible card. Collapsed by default — a long plan (20+ rooms)
+ * used to fill the whole screen — showing just what a learner scans for: title,
+ * who set it, priority, due date, a progress bar and the next open task. Tapping
+ * the card reveals the manager's instructions and the full task list.
+ */
 function PlanBlock({ p }: { p: LearnerPlan }) {
+  const [open, setOpen] = useState(false);
   const statuses = p.items.map(i => i.status ?? "not_started");
   const { done, tracked } = countDone(statuses);
   const complete = tracked > 0 && done === tracked;
   const overdue = isOverdue(p.due_at, statuses);
+  const pct = tracked > 0 ? Math.round((done / tracked) * 100) : 0;
+  const next = p.items.find(i => i.status !== "done" && i.status !== "untracked");
+  const panelId = `plan-${p.id}`;
   return (
-    <div className="rounded-lg border border-border bg-bg p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-white">{p.title}</p>
-          {p.personal ? (
-            <span className="inline-flex items-center gap-1 rounded border border-neon-purple/40 bg-neon-purple/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-purple">
-              <User className="h-2.5 w-2.5" /> Personal
-            </span>
-          ) : (
-            <span className="text-[10px] text-slate-500">for {p.via.join(", ")}</span>
-          )}
-          {p.priority === 1 && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-amber">High priority</span>}
+    <div className={`rounded-lg border bg-bg transition ${open ? "border-neon-purple/40" : "border-border hover:border-neon-purple/30"}`}>
+      <button type="button" onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls={panelId}
+        className="w-full rounded-lg p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-purple/50">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="truncate text-sm font-semibold text-white">{p.title}</p>
+              {p.personal ? (
+                <span className="inline-flex items-center gap-1 rounded border border-neon-purple/40 bg-neon-purple/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-purple">
+                  <User className="h-2.5 w-2.5" /> Personal
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-500">for {p.via.join(", ")}</span>
+              )}
+              {p.priority === 1 && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-amber">High priority</span>}
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5" aria-hidden>
+                <div className={`h-full rounded-full ${complete ? "bg-neon-green" : "bg-cyber-500"}`} style={{ width: `${pct}%` }} />
+              </div>
+              <span className={`shrink-0 font-mono text-[11px] font-bold ${complete ? "text-neon-green" : "text-cyber-300"}`}>{done}/{tracked}</span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+              {p.due_at && (
+                <span className={overdue ? "font-semibold text-severity-high" : "text-slate-400"}>
+                  <CalendarClock className="mr-1 inline h-3 w-3" />
+                  {overdue ? "Overdue — " : "Due "}{formatDueDate(p.due_at)}
+                </span>
+              )}
+              {!open && (complete
+                ? <span className="inline-flex items-center gap-1 text-neon-green"><CheckCircle2 className="h-3 w-3" /> All done</span>
+                : next && <span className="min-w-0 truncate text-slate-400">Next: <span className="text-slate-200">{next.title}</span></span>)}
+            </div>
+          </div>
+          <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[11px] text-slate-400">
+            <span className="hidden sm:inline">{open ? "Hide tasks" : `${p.items.length} tasks`}</span>
+            <ChevronDown className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          {p.due_at && (
-            <span className={`text-[11px] ${overdue ? "font-semibold text-severity-high" : "text-slate-400"}`}>
-              <CalendarClock className="mr-1 inline h-3 w-3" />
-              {overdue ? "Overdue — " : "Due "}{formatDueDate(p.due_at)}
-            </span>
-          )}
-          <span className={`font-mono text-[11px] font-bold ${complete ? "text-neon-green" : "text-cyber-300"}`}>{done}/{tracked}</span>
+      </button>
+      {open && (
+        <div id={panelId} className="border-t border-border/60 px-3 pb-3 pt-2">
+          {p.instructions && <p className="mb-2 whitespace-pre-line text-[11px] text-slate-400">{p.instructions}</p>}
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {p.items.map(it => <ItemRow key={itemKey(it)} it={it} />)}
+          </div>
         </div>
-      </div>
-      {p.instructions && <p className="mt-1 whitespace-pre-line text-[11px] text-slate-400">{p.instructions}</p>}
-      <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-        {p.items.map(it => <ItemRow key={itemKey(it)} it={it} />)}
-      </div>
+      )}
     </div>
   );
 }
