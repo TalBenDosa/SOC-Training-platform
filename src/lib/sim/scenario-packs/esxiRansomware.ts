@@ -716,7 +716,7 @@ export function buildEsxiRansomwareScenario(
         {
           value: "spray_and_grant",
           label:
-            "The SSO password spray at 21:54, and the Administrator role granted to svc-monitor at 22:04",
+            "The SSO password spray at 21:54, and the Administrator role granted to svc-monitor ten minutes later at 22:04",
         },
         {
           value: "ssh_and_shell",
@@ -785,12 +785,12 @@ export function buildEsxiRansomwareScenario(
         {
           value: "sso_spray",
           label:
-            "The burst of vCenter BadUsernameSessionEvent rejections from a single source at 21:54",
+            "The burst of vCenter SSO BadUsernameSessionEvent rejections, all from one source address, at 21:54",
         },
         {
           value: "heartbeat_loss",
           label:
-            "The loss of 71 Falcon sensor heartbeats inside a five-minute window starting at 22:22",
+            "The loss of 71 Falcon sensor heartbeats inside a five-minute window starting at 22:22, across the guest estate",
         },
       ],
       answer: "ssh_enabled",
@@ -822,7 +822,7 @@ export function buildEsxiRansomwareScenario(
         {
           value: "vpn_group",
           label:
-            "Membership of the VPN-Contractors group, whose policy permits routed access into the management VLAN",
+            "Membership of the VPN-Contractors group, whose tunnel policy permits routed access straight into the management VLAN",
         },
       ],
       answer: "admin_role",
@@ -854,7 +854,7 @@ export function buildEsxiRansomwareScenario(
         {
           value: "t1529",
           label:
-            "T1529 System Shutdown/Reboot — the outage was the objective and encryption was added opportunistically",
+            "T1529 System Shutdown/Reboot — the outage itself was the objective and encryption was added opportunistically",
         },
       ],
       answer: "t1489",

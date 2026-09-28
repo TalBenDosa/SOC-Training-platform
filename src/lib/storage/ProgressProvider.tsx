@@ -70,7 +70,15 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       const { orgId } = decodeOrgClaim(session?.access_token);
 
       const { backend: remote, hydrate } = createRemoteBackend(supabase, currentId, orgId);
-      const { wasEmpty, rowsMissing } = await hydrate();
+      let { wasEmpty, rowsMissing, failed } = await hydrate();
+      if (failed.length > 0) {
+        // A transient read failure used to fill the cache with empty lists and
+        // /progress showed "0 attempted" for a learner whose rows were safely in
+        // the DB. Retry once before settling for a partial load.
+        console.warn("[ProgressProvider] hydrate read failed, retrying:", failed.join(", "));
+        await new Promise(r => setTimeout(r, 800));
+        ({ wasEmpty, rowsMissing, failed } = await hydrate());
+      }
 
       if (rowsMissing) {
         // Valid session, but the account's rows are gone — the user was deleted
@@ -82,6 +90,8 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       }
 
       const hasLocalProgress = Object.values(localSnapshot).some(v => v && v !== "0" && v !== "[]" && v !== "{}");
+      // `wasEmpty` is already false when any read failed — a partial load must
+      // never look like a brand-new account and pull guest data over it.
       const imported = wasEmpty && hasLocalProgress;
       if (imported) {
         for (const [key, value] of Object.entries(localSnapshot)) {
@@ -99,7 +109,9 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
       // Components that read progress once on mount (RoomClient) mounted against
       // the empty pre-hydrate backend on a hard reload; tell them to re-read so
       // they don't resume from nothing and save over the server row.
-      broadcastProgressHydrated();
+      // Pages gate their first read on this (useProgressSnapshot) so a signed-in
+      // learner never sees the empty pre-hydrate backend rendered as zeros.
+      broadcastProgressHydrated(failed);
       // Reload only when the backend actually changed under mounted components:
       // a sign-in/out transition, or a one-time guest-progress import. NEVER on
       // plain `wasEmpty` (that's true on every load for any new account and

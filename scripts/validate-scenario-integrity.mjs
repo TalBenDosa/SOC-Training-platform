@@ -126,9 +126,21 @@ for (const def of SCENARIOS) {
   }
 }
 
+// A vendor legitimately spans more than one source only when the SAME product is
+// written at two genuinely different planes. The Windows Security event log is the
+// canonical case: a domain controller's copy is the directory plane ("ad"), a member
+// server's own copy is host telemetry ("windows_security") — one product (event ids
+// 4624/4625/4776/5145/7045…), two collection points. This is NOT the "GitHub as
+// CloudTrail" mistake F-04 targets; both sources here are Windows Security itself.
+const ALLOWED_MULTI_SOURCE = new Map([
+  ["windows security", new Set(["ad", "windows_security"])],
+]);
+
 // ── F-04 cross-corpus consistency (after the full sweep) ─────────────────────
 for (const [vn, rec] of vendorIndex) {
-  if (rec.sources.size > 1) {
+  const allowed = ALLOWED_MULTI_SOURCE.get(vn);
+  const spurious = allowed ? [...rec.sources.keys()].filter(s => !allowed.has(s)) : [...rec.sources.keys()];
+  if (rec.sources.size > 1 && !(allowed && spurious.length === 0)) {
     add("ERROR", "(corpus)", vn, `vendor mapped to ${rec.sources.size} different sources: ${[...rec.sources.keys()].join(", ")} — a vendor must map to exactly one source`);
   }
   if (rec.spellings.size > 1) {

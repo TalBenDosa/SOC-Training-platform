@@ -12,11 +12,11 @@
  *
  *  · RETRYABLE   — idempotent upserts (room progress, user_progress). Re-running
  *                  them is free of side effects, so they auto-retry on reconnect.
- *  · NEEDS_RETRY — append-only inserts (dashboard sessions, scenario history).
- *                  Re-running one that actually committed would duplicate a row,
- *                  and for scenario_history a duplicate double-counts XP through
- *                  the recompute trigger. Those are surfaced for an explicit,
- *                  user-initiated retry rather than retried silently.
+ *  · NEEDS_RETRY — append-only inserts (dashboard sessions). Re-running one
+ *                  that actually committed would duplicate a row, so those are
+ *                  surfaced for an explicit, user-initiated retry rather than
+ *                  retried silently. (scenario_history used to be one of these;
+ *                  it is now written only by the server-side grade route.)
  */
 export const SYNC_STATE_EVENT = "soc:sync-state";
 

@@ -11,7 +11,9 @@ import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { useAssignedItems } from "@/lib/plans/useAssigned";
 import { useBranding } from "@/lib/auth/useBranding";
 import { fetchOrgRoomMetas } from "@/lib/content/publicContent";
-import { BookOpen } from "lucide-react";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { BookOpen, Loader2 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 type RoomProgress = {
@@ -34,13 +36,25 @@ export default function RoomsPage() {
   // "Assigned" chips — one cached request for the whole grid; empty for solo learners.
   const assigned = useAssignedItems();
 
+  // #1: this page used to read room progress ONCE on mount — before the
+  // signed-in learner's remote backend had hydrated — so it rendered this
+  // browser's (empty) guest data: "0/108 rooms", everything locked, while the
+  // same account showed rooms completed elsewhere. Read only once the source is
+  // authoritative, and re-read on every change signal.
+  const { ready, version, slow } = useProgressSnapshot();
+  const { user } = useAuth();
+
   useEffect(() => {
+    if (!ready) return;
     // Read via the storage facade (Phase-1 seam): DB-backed room_progress for
     // signed-in users, localStorage for guests — same key. Keeps the rooms-list
     // completion/unlock state consistent with what RoomClient now writes.
     try {
       setProgress(getRoomProgress() as AllProgress);
     } catch { /* storage blocked */ }
+  }, [ready, version]);
+
+  useEffect(() => {
     // Per-org authored rooms (migration 0043) — RLS returns only this org's
     // published rooms; they merge in alongside the static built-ins.
     fetchOrgRoomMetas().then(rooms => setOrgRooms(rooms as unknown as RoomMeta[])).catch(() => {});
@@ -91,7 +105,9 @@ export default function RoomsPage() {
               <p className="mt-1 max-w-3xl text-sm text-slate-300">
                 Each room is a structured training module combining reading material, multiple-choice questions,
                 real SIEM log analysis, and flag challenges. Complete tasks in order to earn XP and unlock
-                advanced rooms. Your progress is saved locally as you go.
+                advanced rooms. {user
+                  ? "Your progress is saved to your account as you go, on every device."
+                  : "Your progress is saved in this browser as you go — sign in to keep it on your account."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-400">
                 <span>· Self-paced</span>
@@ -103,17 +119,25 @@ export default function RoomsPage() {
             {/* Progress summary */}
             <div className="hidden lg:flex flex-col items-end gap-1 shrink-0">
               <p className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold">Your Progress</p>
-              <p className="text-2xl font-bold font-mono text-white">
-                {totalCompleted}/{allRooms.length}
-              </p>
-              <p className="text-[11px] text-slate-400">rooms complete</p>
-              <p className="mt-1 text-sm font-semibold text-neon-amber font-mono">+{totalXp} XP</p>
+              {ready ? (
+                <>
+                  <p className="text-2xl font-bold font-mono text-white">
+                    {totalCompleted}/{allRooms.length}
+                  </p>
+                  <p className="text-[11px] text-slate-400">rooms complete</p>
+                  <p className="mt-1 text-sm font-semibold text-neon-amber font-mono">+{totalXp} XP</p>
+                </>
+              ) : (
+                <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+                </p>
+              )}
             </div>
           </div>
         </Card>
 
         {/* Start Here / Continue — makes the beginner's first choice for them */}
-        {recommendedRoom && (
+        {ready && recommendedRoom && (
           <button
             onClick={() => router.push(`/rooms/${recommendedRoom.id}`)}
             className="group flex w-full items-center gap-4 rounded-xl border border-neon-green/40 bg-gradient-to-r from-neon-green/10 to-transparent px-5 py-4 text-left transition hover:border-neon-green/70 hover:from-neon-green/15"
@@ -154,7 +178,22 @@ export default function RoomsPage() {
           </span>
         </div>
 
-        {/* Room grid */}
+        {/* Room grid — skeletons until progress is loaded, so rooms never flash
+            as locked / not started for a learner who has completed them. */}
+        {!ready && (
+          <div aria-busy="true">
+            <p className="mb-3 flex items-center gap-2 text-xs text-slate-400">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {slow ? "Still loading your room progress — try reloading the page." : "Loading your room progress…"}
+            </p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className="h-44 animate-pulse rounded-lg border border-border bg-bg-elevated" />
+              ))}
+            </div>
+          </div>
+        )}
+        {ready && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map(room => (
             <RoomCard
@@ -167,8 +206,9 @@ export default function RoomsPage() {
             />
           ))}
         </div>
+        )}
 
-        {filtered.length === 0 && (
+        {ready && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-16 text-center">
             <BookOpen className="h-12 w-12 text-slate-400 mb-4" />
             <p className="text-sm text-slate-400">No rooms in this category yet.</p>

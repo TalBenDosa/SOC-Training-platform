@@ -24,7 +24,9 @@ function serverIpFor(domain: string): string {
   return `${firsts[h % firsts.length]}.${(h >> 3) % 254 + 1}.${(h >> 8) % 254 + 1}.${(h >> 16) % 254 + 1}`;
 }
 
-const PAN_TYPE = { alert: "THREAT", deny: "THREAT", block: "THREAT", allow: "TRAFFIC" } as const;
+// Zones every emitted session crosses — a real TRAFFIC/THREAT record always names both.
+const FROM_ZONE = "trust";
+const TO_ZONE = "untrust";
 
 export interface PanWebOpts extends Ctx {
   url: string;                 // full https URL
@@ -52,8 +54,11 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
   const method = o.method ?? "GET";
   const action = o.action ?? "alert";
   const dstIp = o.dstIp ?? serverIpFor(o.domain);
-  const panType = PAN_TYPE[action];
-  const subtype = o.file ? "file" : method === "POST" ? "end" : "url";
+  // A URL-filtering record is always type THREAT (subtype url) whatever the action;
+  // a file-blocking/WildFire verdict on a download is THREAT/file. There is no
+  // TRAFFIC/url combination in PAN-OS.
+  const panType = "THREAT";
+  const subtype = o.file ? "file" : "url";
   const panUrl = o.url.replace(/^https?:\/\//, "");
   const srcUser = r.domainUser.toLowerCase();   // PAN logs domain\user in lower case
   const blocked = action === "deny" || action === "block";
@@ -74,6 +79,8 @@ export function panWeb(o: PanWebOpts): TelemetryEvent {
       "pan.subtype": subtype,
       "pan.action": actionStr,
       "pan.rule": blocked ? "BLOCK-NEWLY-REGISTERED" : "CORP-WEB-OUTBOUND",
+      "pan.from_zone": FROM_ZONE,
+      "pan.to_zone": TO_ZONE,
       "pan.src": r.srcIp,
       "pan.srcuser": srcUser,
       "pan.dst": dstIp,
@@ -111,9 +118,11 @@ export interface PanConnectionOpts extends Ctx {
   url?: string;                // optional (a WebSocket upgrade URL)
   bytesIn?: number;
   bytesOut?: number;
-  elapsedSec?: number;
+  elapsedSec?: number;         // session duration (TRAFFIC/end elapsed_time)
   repeatCount?: number;        // PAN aggregates repeated identical sessions (repeatcnt) — a beacon tell
   end?: boolean;               // true → a TRAFFIC/end session summary (else a start/alert)
+  sessionEndReason?: string;   // TRAFFIC/end session_end_reason (default tcp-fin)
+  decrypted?: boolean;         // SSL decryption applied — only then can a URL PATH be logged
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -126,29 +135,47 @@ export function panConnection(o: PanConnectionOpts): TelemetryEvent {
   const transport = o.transport ?? "tcp";
   const port = o.remotePort ?? 443;
   const actionStr = action === "block" ? "block-url" : action;
+  // Log type/subtype must be a real PAN-OS pair:
+  //   end                → TRAFFIC/end   (session summary: bytes, elapsed, end reason)
+  //   alert/deny/block   → THREAT/url    (URL-filtering record)
+  //   allow (not end)    → TRAFFIC/start (session open — no volume yet)
+  const isEnd = !!o.end;
+  const isThreat = !isEnd && action !== "allow";
+  const panType = isThreat ? "THREAT" : "TRAFFIC";
+  const subtype = isEnd ? "end" : isThreat ? "url" : "start";
+  // Without decryption the firewall only sees the TLS SNI/hostname, never a path.
+  const app = o.app ?? "ssl";
+  const encrypted = app === "ssl" && !o.decrypted;
+  const loggedUrl = o.url
+    ? (encrypted ? o.url.replace(/^https?:\/\//, "").split("/")[0] : o.url.replace(/^https?:\/\//, ""))
+    : undefined;
+  const showUrl = isThreat && loggedUrl;          // only URL/THREAT records carry a url field
+  const showBytes = isEnd;                        // byte counters are final only at session end
   return {
     id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
     event_type: action === "deny" || action === "block" ? "net_blocked" : "net_connection",
     severity: o.severity ?? "medium", hostname: r.host, src_ip: r.srcIp, dst_ip: dstIp,
     dst_port: port, protocol: transport, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    network: { domain: o.domain, url: o.url, bytes_in: o.bytesIn, bytes_out: o.bytesOut },
+    network: { domain: o.domain, ...(showUrl ? { url: loggedUrl } : {}), ...(showBytes ? { bytes_in: o.bytesIn, bytes_out: o.bytesOut } : {}) },
     description: o.description ?? `${r.host} ${o.end ? "closed" : "opened"} a ${o.app ?? transport} connection to ${o.domain ?? dstIp}`,
     raw: {
-      "pan.type": o.end ? "TRAFFIC" : (action === "alert" ? "THREAT" : "TRAFFIC"),
-      "pan.subtype": o.end ? "end" : "url",
+      "pan.type": panType,
+      "pan.subtype": subtype,
       "pan.action": actionStr,
       "pan.rule": "CORP-WEB-OUTBOUND",
+      "pan.from_zone": FROM_ZONE,
+      "pan.to_zone": TO_ZONE,
       "pan.src": r.srcIp,
       ...(r.domainUser !== "-" ? { "pan.srcuser": r.domainUser.toLowerCase() } : {}),
       "pan.dst": dstIp,
       "pan.dport": String(port),
-      "pan.app": o.app ?? "ssl",
+      "pan.app": app,
       ...(o.category ? { "pan.category": o.category } : {}),
-      ...(o.url ? { "pan.url": o.url.replace(/^https?:\/\//, "") } : {}),
-      ...(o.bytesOut !== undefined ? { "pan.bytes_sent": String(o.bytesOut) } : {}),
-      ...(o.bytesIn !== undefined ? { "pan.bytes_received": String(o.bytesIn) } : {}),
-      ...(o.elapsedSec !== undefined ? { "pan.elapsed_time": String(o.elapsedSec) } : {}),
+      ...(showUrl ? { "pan.url": loggedUrl } : {}),
+      ...(showBytes && o.bytesOut !== undefined ? { "pan.bytes_sent": String(o.bytesOut) } : {}),
+      ...(showBytes && o.bytesIn !== undefined ? { "pan.bytes_received": String(o.bytesIn) } : {}),
+      ...(isEnd ? { "pan.elapsed_time": String(o.elapsedSec ?? 0), "pan.session_end_reason": o.sessionEndReason ?? "tcp-fin" } : {}),
       ...(o.repeatCount !== undefined ? { "pan.repeat_count": String(o.repeatCount) } : {}),
       "source.ip": r.srcIp,
       ...(o.domain ? { "url.domain": o.domain } : {}),

@@ -1,11 +1,17 @@
 "use client";
 /**
  * Team-SOC training — index (Phase 0.3). Staff see the Session Builder (pick a
- * company + difficulty, invite org members with roles); everyone sees the
- * sessions they belong to and can enter the lobby. The exercise itself lives at
- * /team/[id].
+ * company + difficulty + optional storyline, invite org members with roles);
+ * everyone sees the sessions they belong to and can enter the lobby. The exercise
+ * itself lives at /team/[id].
+ *
+ * Exercise-report #18: the builder now says exactly why "Create & open lobby" is
+ * disabled (builderStatus), searches the roster, names the org it invites from
+ * (candidates are scoped server-side to the caller's org — /api/team/candidates),
+ * shows a loading state instead of a false "No active members", and lets staff
+ * pin the storyline (team_sessions.scenario_id, already in the schema).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
@@ -14,7 +20,8 @@ import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
-import { Users, Plus, Loader2, AlertTriangle, ChevronRight, Radio } from "lucide-react";
+import { Users, Plus, Loader2, AlertTriangle, ChevronRight, Radio, Search, Info, Building2 } from "lucide-react";
+import { builderStatus, filterCandidates, looksLikeEmail, MAX_INVITES, type Candidate } from "./_lib/builder";
 
 type Diff = "easy" | "medium" | "hard";
 // Team role set: T1 & T2 take MANY players; T3 and the SOC Manager are single-seat.
@@ -23,12 +30,14 @@ const PLAY_ROLES = [
   { id: "t3", label: "Tier-3 / Threat Hunter" }, { id: "mgr", label: "SOC Manager" },
 ];
 const SINGLE_SEAT = new Set(["t3", "mgr"]); // at most one participant each
+const ORG_ROLE_LABEL: Record<string, string> = { org_admin: "admin", instructor: "instructor", student: "student" };
 
 interface SessionRow {
   id: string; company_id: string; difficulty: string; status: string; created_at: string;
   my_role: string | null; player_count: number; ready_count: number;
 }
-interface Member { user_id: string; display_name: string | null; handle: string | null; status: string }
+interface OrgInfo { id: string; name: string; is_root: boolean }
+interface Storyline { id: string; title: string; complexity: string; steps: number }
 
 const STATUS_STYLE: Record<string, string> = {
   lobby: "border-neon-amber/40 bg-neon-amber/10 text-neon-amber",
@@ -41,8 +50,12 @@ const STATUS_STYLE: Record<string, string> = {
 export default function TeamIndexPage() {
   usePageTitle("Team training");
   const router = useRouter();
-  const { isPlatformAdmin, orgRole } = useOrgContext();
+  const { isPlatformAdmin, orgRole, orgName, loading: claimLoading } = useOrgContext();
   const isStaff = isPlatformAdmin || orgRole === "org_admin" || orgRole === "instructor";
+  // Creating a session is org_admin / platform-admin only on the server
+  // (POST /api/team/sessions → requireOrgAdmin). Instructors get an explanation
+  // instead of a builder whose roster and Create button would both 403.
+  const canCreate = isPlatformAdmin || orgRole === "org_admin";
 
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +64,13 @@ export default function TeamIndexPage() {
   // builder state
   const [company, setCompany] = useState(COMPANY_PROFILES[0]?.id ?? "nexacorp");
   const [difficulty, setDifficulty] = useState<Diff>("medium");
-  const [roster, setRoster] = useState<Member[]>([]);
+  const [storylines, setStorylines] = useState<Storyline[] | null>(null);
+  const [storyline, setStoryline] = useState("");   // "" = random pick at start
+  const [roster, setRoster] = useState<Candidate[] | null>(null);   // null = not loaded yet
+  const [rosterError, setRosterError] = useState<string | null>(null);
+  const [org, setOrg] = useState<OrgInfo | null>(null);
+  const [query, setQuery] = useState("");
+  const [emailMatch, setEmailMatch] = useState<{ q: string; user_id: string | null } | null>(null);
   const [picked, setPicked] = useState<Record<string, string>>({}); // user_id -> role
   const [creating, setCreating] = useState(false);
 
@@ -63,12 +82,65 @@ export default function TeamIndexPage() {
     setSessions((await res.json()).sessions ?? []);
   }
   async function loadRoster() {
-    const res = await fetch("/api/org/members");
-    if (!res.ok) return;
+    setRosterError(null);
+    const res = await fetch("/api/team/candidates").catch(() => null);
+    if (!res || !res.ok) {
+      setRosterError((await res?.json().catch(() => ({})))?.error ?? "network error");
+      setRoster([]);
+      return;
+    }
     const data = await res.json();
-    setRoster((data.members ?? []).filter((m: Member) => m.status === "active"));
+    setOrg(data.org ?? null);
+    setRoster(data.members ?? []);
   }
-  useEffect(() => { load(); if (isStaff) loadRoster(); }, [isStaff]);
+  useEffect(() => { load(); }, []);
+  useEffect(() => { if (canCreate) loadRoster(); }, [canCreate]);
+
+  // Storylines that fit the chosen company + difficulty (staff-only list).
+  useEffect(() => {
+    if (!canCreate) return;
+    let cancelled = false;
+    setStorylines(null);
+    fetch(`/api/team/storylines?company=${encodeURIComponent(company)}&difficulty=${difficulty}`)
+      .then(r => (r.ok ? r.json() : { storylines: [] }))
+      .then(d => {
+        if (cancelled) return;
+        const list: Storyline[] = d.storylines ?? [];
+        setStorylines(list);
+        setStoryline(cur => (cur && list.some(s => s.id === cur) ? cur : ""));
+      })
+      .catch(() => { if (!cancelled) setStorylines([]); });
+    return () => { cancelled = true; };
+  }, [canCreate, company, difficulty]);
+
+  // A full e-mail in the search box → exact server-side match within the org
+  // (the list itself never carries addresses). Debounced; POST keeps it out of URLs.
+  useEffect(() => {
+    const q = query.trim();
+    if (!canCreate || !looksLikeEmail(q)) { setEmailMatch(null); return; }
+    const t = setTimeout(async () => {
+      const res = await fetch("/api/team/candidates", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: q }),
+      }).catch(() => null);
+      const data = res && res.ok ? await res.json().catch(() => ({})) : {};
+      setEmailMatch({ q, user_id: typeof data.user_id === "string" ? data.user_id : null });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query, canCreate]);
+
+  const emailMode = looksLikeEmail(query);
+  const emailId = emailMatch && emailMatch.q === query.trim() ? emailMatch.user_id : null;
+  const visible = useMemo(
+    () => (roster ? filterCandidates(roster, query, picked, emailId) : []),
+    [roster, query, picked, emailId],
+  );
+  const orgLabel = org?.name ?? orgName ?? null;
+  const status = builderStatus({
+    rosterLoading: roster === null, rosterError, rosterCount: roster?.length ?? 0, orgName: orgLabel, picked,
+  });
+  const roleCounts = PLAY_ROLES
+    .map(r => ({ ...r, n: Object.values(picked).filter(v => v === r.id).length }))
+    .filter(r => r.n > 0);
 
   function togglePick(userId: string) {
     setPicked(p => {
@@ -90,12 +162,12 @@ export default function TeamIndexPage() {
   }
 
   async function createSession() {
+    if (!status.canCreate) { setError(status.blocker); return; }
     const invites = Object.entries(picked).map(([user_id, role]) => ({ user_id, role }));
-    if (invites.length === 0) { setError("Invite at least one member to the exercise."); return; }
     setCreating(true); setError(null);
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company_id: company, difficulty, invites }),
+      body: JSON.stringify({ company_id: company, difficulty, invites, ...(storyline ? { scenario_id: storyline } : {}) }),
     });
     setCreating(false);
     const data = await res.json().catch(() => ({}));
@@ -115,12 +187,20 @@ export default function TeamIndexPage() {
           </div>
         )}
 
-        {isStaff && (
+        {/* Instructors run and review sessions but can't create them (server: org_admin). */}
+        {!claimLoading && isStaff && !canCreate && (
+          <div className="flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-4 py-3 text-sm text-slate-300">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-cyber-300" />
+            <span>Creating a team exercise needs an organisation admin. Ask your admin to open a lobby and invite the class — your org&apos;s sessions then appear below.</span>
+          </div>
+        )}
+
+        {canCreate && (
           <Card>
             <h2 className="flex items-center gap-2 text-sm font-bold text-white">
               <Plus className="h-4 w-4 text-cyber-300" /> New team exercise
             </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <label className="block text-sm">
                 <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Company</span>
                 <select value={company} onChange={e => setCompany(e.target.value)}
@@ -135,53 +215,100 @@ export default function TeamIndexPage() {
                   <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
                 </select>
               </label>
+              <label className="block text-sm">
+                <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Storyline</span>
+                <select value={storyline} onChange={e => setStoryline(e.target.value)} disabled={storylines === null}
+                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 disabled:opacity-50 focus:border-cyber-500/50 focus:outline-none">
+                  <option value="">{storylines === null ? "Loading storylines…" : "Random — picked at start"}</option>
+                  {(storylines ?? []).map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+                </select>
+              </label>
             </div>
+            <p className="mt-1.5 text-[11px] text-slate-500">
+              The storyline is the primary incident the team investigates{difficulty === "easy" ? "" : " (medium and hard add a second, random concurrent incident)"}. Only staff see its name — players have to work it out.
+            </p>
 
             <div className="mt-4">
-              <p className="mb-1 text-xs uppercase tracking-wider text-slate-400">Invite &amp; assign roles</p>
-              <p className="mb-2 text-[11px] text-slate-500">Tier-1 &amp; Tier-2 can hold several analysts each · Tier-3 and SOC Manager are single-seat.</p>
-              {roster.length === 0 ? (
-                <p className="text-sm text-slate-400">No active members to invite. Add students to your class first.</p>
+              <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-xs uppercase tracking-wider text-slate-400">Invite &amp; assign roles</p>
+                {orgLabel && (
+                  <p className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                    <Building2 className="h-3 w-3" aria-hidden /> Inviting from <span className="font-semibold text-slate-200">{orgLabel}</span>
+                    {roster && !rosterError && <span className="text-slate-500">· {roster.length} active member{roster.length === 1 ? "" : "s"}</span>}
+                  </p>
+                )}
+              </div>
+              <p className="mb-2 text-[11px] text-slate-500">
+                Tier-1 &amp; Tier-2 can hold several analysts each · Tier-3 and SOC Manager are single-seat · up to {MAX_INVITES} invitees now, more from inside the lobby.
+              </p>
+              {isPlatformAdmin && (
+                <p className="mb-2 text-[11px] text-slate-500">
+                  {org?.is_root
+                    ? "You're in the Main environment (platform-level accounts). To run an exercise for a college, switch to its environment in the sidebar first."
+                    : "Super-admin: the session is created in this environment. Switch environments in the sidebar to run one for another college."}
+                </p>
+              )}
+
+              {roster === null ? (
+                <div className="flex items-center gap-2 py-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading members…</div>
+              ) : rosterError ? (
+                <p className="text-sm text-severity-high">Couldn&apos;t load members: {rosterError}</p>
+              ) : roster.length === 0 ? (
+                <p className="text-sm text-slate-400">No other active members in {orgLabel ?? "your organisation"} yet. Add students to your class first.</p>
               ) : (
-                <div className="space-y-1.5">
-                  {roster.map(m => {
-                    const on = !!picked[m.user_id];
-                    return (
-                      <div key={m.user_id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition ${on ? "border-cyber-500/40 bg-cyber-500/[0.06]" : "border-border"}`}>
-                        <input type="checkbox" checked={on} onChange={() => togglePick(m.user_id)} className="h-4 w-4 accent-cyber-500" />
-                        <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
-                          {m.display_name || m.handle || m.user_id.slice(0, 8)}
-                          {m.handle && <span className="ml-1 font-mono text-[11px] text-slate-500">@{m.handle}</span>}
-                        </span>
-                        <select value={picked[m.user_id] ?? "t1"} disabled={!on}
-                          onChange={e => setRole(m.user_id, e.target.value)}
-                          className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-slate-200 disabled:opacity-40 focus:border-cyber-500/50 focus:outline-none">
-                          {PLAY_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}{SINGLE_SEAT.has(r.id) ? " · 1 seat" : " · multi"}</option>)}
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="relative mb-2">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" aria-hidden />
+                    <input value={query} onChange={e => setQuery(e.target.value)} type="search"
+                      aria-label="Search members by name, handle or e-mail"
+                      placeholder="Search by name, @handle or full e-mail…"
+                      className="w-full rounded-lg border border-border bg-bg py-2 pl-8 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/50 focus:outline-none" />
+                  </div>
+                  {emailMode && emailMatch?.q === query.trim() && !emailId && (
+                    <p className="mb-2 text-[11px] text-slate-500">No active member of {orgLabel ?? "your organisation"} has that e-mail.</p>
+                  )}
+                  {!emailMode && query.trim() && visible.length === 0 && (
+                    <p className="mb-2 text-[11px] text-slate-500">No member matches &ldquo;{query.trim()}&rdquo;.</p>
+                  )}
+                  <div className="max-h-[360px] space-y-1.5 overflow-y-auto pr-1">
+                    {visible.map(m => {
+                      const on = !!picked[m.user_id];
+                      return (
+                        <div key={m.user_id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 transition ${on ? "border-cyber-500/40 bg-cyber-500/[0.06]" : "border-border"}`}>
+                          <input type="checkbox" checked={on} onChange={() => togglePick(m.user_id)} className="h-4 w-4 accent-cyber-500"
+                            aria-label={`Invite ${m.display_name || m.handle || "member"}`} />
+                          <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+                            {m.display_name || m.handle || m.user_id.slice(0, 8)}
+                            {m.handle && <span className="ml-1 font-mono text-[11px] text-slate-500">@{m.handle}</span>}
+                            {m.role && m.role !== "student" && <span className="ml-1.5 rounded border border-border px-1 py-px text-[9px] uppercase tracking-wider text-slate-500">{ORG_ROLE_LABEL[m.role] ?? m.role}</span>}
+                          </span>
+                          <select value={picked[m.user_id] ?? "t1"} disabled={!on}
+                            onChange={e => setRole(m.user_id, e.target.value)}
+                            aria-label="Exercise role"
+                            className="rounded-md border border-border bg-bg px-2 py-1 text-xs text-slate-200 disabled:opacity-40 focus:border-cyber-500/50 focus:outline-none">
+                            {PLAY_ROLES.map(r => <option key={r.id} value={r.id}>{r.label}{SINGLE_SEAT.has(r.id) ? " · 1 seat" : " · multi"}</option>)}
+                          </select>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
 
-            {Object.keys(picked).length > 0 && !Object.values(picked).includes("t1") && (
-              <p className="mt-3 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-2 text-[11px] text-neon-amber">
-                ⚠ No Tier-1 assigned — with no analyst triaging the feed, nothing will get escalated. Add at least one Tier-1.
-              </p>
-            )}
-            {/* U5: without a Tier-2, every escalation dead-ends in the queue. */}
-            {Object.values(picked).includes("t1") && !Object.values(picked).some(r => r === "t2" || r === "t3") && (
-              <p className="mt-3 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-2 text-[11px] text-neon-amber">
-                ⚠ No Tier-2 or Tier-3 assigned — Tier-1 escalations will have nobody to pick them up. Add a Tier-2 investigator.
-              </p>
-            )}
-            <div className="mt-4 flex items-center gap-3">
-              <Button variant="primary" size="sm" disabled={creating || Object.keys(picked).length === 0} onClick={createSession}>
+            {status.warnings.map(w => (
+              <p key={w} className="mt-3 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-2 text-[11px] text-neon-amber">⚠ {w}</p>
+            ))}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button variant="primary" size="sm" disabled={creating || !status.canCreate} onClick={createSession}
+                aria-describedby="team-create-hint">
                 {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
                 Create &amp; open lobby
               </Button>
-              <span className="text-xs text-slate-500">You&apos;ll run it as instructor; invitees ready-up in the lobby.</span>
+              {/* #18: say exactly why the button is disabled and what to do. */}
+              <span id="team-create-hint" role="status" className={`min-w-0 flex-1 text-xs ${status.canCreate ? "text-slate-500" : "text-neon-amber"}`}>
+                {status.blocker ?? `${roleCounts.map(r => `${r.n}× ${r.label}`).join(" · ")}. You'll run it as instructor; each invitee clicks Ready in the lobby, then you press Start.`}
+              </span>
             </div>
           </Card>
         )}

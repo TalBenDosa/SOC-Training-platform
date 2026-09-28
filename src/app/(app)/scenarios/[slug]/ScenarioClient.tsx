@@ -1,22 +1,35 @@
 "use client";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo, type MutableRefObject, type TextareaHTMLAttributes } from "react";
+import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
-import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, FileText, Trophy, Shield } from "lucide-react";
+import { Play, Send, ChevronRight, Search, Info, Target, Plus, X, ShieldAlert, ShieldCheck, ShieldX, FileText, Trophy, Shield, RotateCcw, Lock, Clock, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { addTotalXp, appendScenarioRecord } from "@/lib/storage/progress";
+import { recordScenarioCompletion } from "@/lib/storage/progress";
+import { describeScenarioXp } from "@/lib/storage/scenarioXp";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { CompletionModal, type GradeResult } from "@/components/scenarios/CompletionModal";
-import type { ScenarioBundle, TelemetryEvent } from "@/lib/sim/types";
+import type { ScenarioBundle, ScenarioQuestion, Severity, TelemetryEvent } from "@/lib/sim/types";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
-  type ThreatQuery,
+  type ThreatQuery, type IocTruth,
 } from "@/components/threat-intel/ThreatIntelDrawer";
-import { shuffleSeeded } from "@/lib/lessons/shuffle";
 import { EdrConsole } from "@/components/edr/EdrConsole";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 import type { EdrInvestigation } from "@/lib/edr/investigations";
+import { buildAlertIndex, effectiveSeverity, severityLabel, severityAtLeast } from "@/lib/scenarios/eventClass";
+import { parseSearchQuery, matchesQuery } from "@/lib/scenarios/logSearch";
+import {
+  buildEntityIndex, pivotsForEvent, crossHostTimeline, type EntityStats, type EntityIndex,
+} from "@/lib/scenarios/correlate";
+import {
+  displayedOptions, optionLetter, remapExplanation, buildOptionTokens, decodeAnswers, cryptoRandom,
+  type OptionTokenMap,
+} from "@/lib/scenarios/quizDisplay";
+import {
+  loadInvestigationStart, saveInvestigationStart, clearInvestigationStart, elapsedSeconds,
+} from "@/lib/scenarios/investigationClock";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,10 +41,28 @@ function formatTime(s: number) {
   return `${m}:${sec}`;
 }
 
+/**
+ * The scenario's OWN EDR cases (one per edr/hybrid incident). Every EDR entry
+ * point on this page goes here — never to /edr, which opens whatever live
+ * SOC-Dashboard shift is stashed in the browser (the exercise landed on a
+ * different company, RocketStack, from a scenario — finding #31). The builder's
+ * summary is written for the live feed ("the attack running in your SOC
+ * Dashboard feed"), so it is replaced with scenario wording. `iocTruth` makes
+ * "Look up hash" agree with the threat-intel drawer on this case.
+ */
+function scenarioInvestigations(events: TelemetryEvent[], title: string, iocTruth: IocTruth | null): EdrInvestigation[] {
+  return buildInvestigationsFromScenario({ title, events, iocTruth }).map(inv => ({
+    ...inv,
+    summary: `Endpoint view of this scenario's incident on ${inv.host.name}, built from the scenario's own telemetry. Walk the process tree, confirm the payload, and decide containment.`,
+  }));
+}
+
+const utcTime = (ts: string) => new Date(ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" });
+
 // ─── Source / severity maps ───────────────────────────────────────────────────
 
 const SOURCE_LABEL: Record<string, string> = {
-  edr: "EDR", sysmon: "Sysmon", ad: "Active Directory",
+  edr: "EDR", sysmon: "Sysmon", ad: "Active Directory", windows_security: "Windows Security",
   o365: "Office 365", okta: "Okta", firewall: "Firewall",
   dns: "DNS", vpn: "VPN", cloudtrail: "Azure/AWS", proxy: "Proxy",
   dlp: "DLP", k8s_audit: "K8s",
@@ -43,6 +74,7 @@ const SOURCE_COLORS: Record<string, string> = {
   edr:        "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
   sysmon:     "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
   ad:         "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
+  windows_security: "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
   o365:       "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
   okta:       "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
   firewall:   "bg-severity-high/20 text-severity-high border-severity-high/30",
@@ -57,10 +89,11 @@ const SOURCE_COLORS: Record<string, string> = {
   infra_monitor:  "bg-slate-400/20 text-slate-300 border-slate-400/30",
 };
 
-const SEV_LEVEL: Record<string, number> = {
-  critical: 10, high: 8, medium: 5, low: 3, informational: 1,
-};
-
+// The severity column used to print SEV_LEVEL (critical 10 / high 8 / medium 5 /
+// low 3 / info 1) — a number that read like a Wazuh 0–15 rule level and was
+// not one, stamped on raw telemetry ("ProcessRollup2 · LVL 10"). It now shows
+// an honest word label from effectiveSeverity(): the vendor's severity on an
+// alert, INFO on telemetry (findings #5 / #20).
 const SEV_BADGE: Record<string, string> = {
   critical:      "bg-severity-critical/15 text-severity-critical border-severity-critical/40",
   high:          "bg-severity-high/15 text-severity-high border-severity-high/40",
@@ -71,7 +104,12 @@ const SEV_BADGE: Record<string, string> = {
 
 // ─── Log row detail panel ─────────────────────────────────────────────────────
 
-function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (q: ThreatQuery) => void }) {
+function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
+  ev: TelemetryEvent;
+  isAlert: boolean;
+  effSev: Severity;
+  onThreatQuery: (q: ThreatQuery) => void;
+}) {
   const [showJson, setShowJson] = useState(false);
 
   // "Rule Description" used to render `Detection: ${ev.mitre_technique}` — so
@@ -89,9 +127,10 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
   );
   const basicInfo: [string, string][] = [
     ["Event Action",     vendorAction || ev.event_type.replace(/_/g, " ")],
+    ["Event Class",      isAlert ? "Alert — raised by a detection analytic" : "Telemetry — raw event (no vendor severity)"],
     ["Source Type",      SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase()],
     ["Timestamp",        `${new Date(ev.ts).toLocaleString("en-GB", { timeZone: "UTC" })} UTC`],
-    ["Severity",         (ev.severity ?? "informational").toUpperCase()],
+    ["Severity",         effSev.toUpperCase()],
     ["Username",         ev.user_email ?? "—"],
     ["Hostname",         ev.hostname ?? "—"],
     ["IP Address",       ev.src_ip ?? ev.dst_ip ?? "—"],
@@ -102,7 +141,7 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
     ["event.id",       ev.id],
     ["event.provider", ev.vendor ?? ev.source.toUpperCase()],
     ["event.type",     ev.event_type.replace(/_/g, " ")],
-    ["event.severity", (ev.severity ?? "informational").toUpperCase()],
+    ["event.severity", effSev.toUpperCase()],
     ...(ev.mitre_technique ? [["threat.technique.id", ev.mitre_technique]  as [string, string]] : []),
     ...(ev.user_email ? [["user.email",    ev.user_email]           as [string, string]] : []),
     ...(ev.hostname   ? [["host.name",     ev.hostname]             as [string, string]] : []),
@@ -133,7 +172,13 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
   const rawBool: [string, string][] = Object.entries(ev.raw ?? {})
     .filter(([, v]) => typeof v === "boolean")
     .map(([k, v]) => [k, v ? "true" : "false"] as [string, string]);
-  const detailedFields: [string, string][] = [...ecsCore, ...rawFields, ...rawBool];
+  // A raw block often repeats an ECS field the typed event already carries
+  // (source.ip, destination.port…): show it once, not twice with a clashing key.
+  const seen = new Set(ecsCore.map(([k, v]) => `${k}=${v}`));
+  const detailedFields: [string, string][] = [
+    ...ecsCore,
+    ...[...rawFields, ...rawBool].filter(([k, v]) => !seen.has(`${k}=${v}`)),
+  ];
 
   return (
     <td colSpan={6} className="bg-[#080d14] p-0">
@@ -164,6 +209,8 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
 
         {showJson ? (
           <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[10px] leading-relaxed text-slate-300">
+            {/* `ev` here is the viewer's display projection — its `severity` is
+                the effective one the row shows, so the JSON agrees with the table. */}
             {JSON.stringify(ev, null, 2)}
           </pre>
         ) : (
@@ -188,14 +235,14 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
             <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Detailed Log Data</p>
               <div className="space-y-1.5">
-                {detailedFields.map(([k, v]) => {
+                {detailedFields.map(([k, v], i) => {
                   const showHash   = isSha256Field(k, v);
                   const showIp     = isIpCheckField(k, v);
                   const showDomain = isDomainCheckField(k, v);
                   const hasBtn     = showHash || showIp || showDomain;
 
                   return (
-                    <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
+                    <div key={`${i}:${k}`} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
                       <span className="w-64 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
                       <div className="flex flex-col gap-1.5 min-w-0">
                         <span className={cn(
@@ -242,23 +289,45 @@ function LogDetail({ ev, onThreatQuery }: { ev: TelemetryEvent; onThreatQuery: (
 
 // ─── Single log row ───────────────────────────────────────────────────────────
 
-function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident, canInvestigate, onInvestigate }: {
+const ENTITY_LABEL: Record<EntityStats["entity"]["type"], string> = {
+  user: "User", host: "Host", ip: "IP", hash: "Hash",
+};
+
+/** What the row's Correlate menu can pivot on. */
+type Pivot =
+  | { kind: "entity"; id: string; label: string }
+  | { kind: "incident"; id: string };
+
+const LogRow = memo(function LogRow({
+  ev, isAlert, effSev, onThreatQuery, focused, dimmed, pivots, incidentSize, onPivot,
+  canInvestigate, onInvestigate, focusReq,
+}: {
   ev: TelemetryEvent;
+  /** Product detection (see eventClass.ts) — carries the ALERT badge. */
+  isAlert: boolean;
+  /** Severity the row shows: vendor severity on an alert, informational on telemetry. */
+  effSev: Severity;
   onThreatQuery: (q: ThreatQuery) => void;
-  /** true when this row shares the incident currently in focus. */
+  /** true when this row belongs to the active pivot. */
   focused?: boolean;
-  /** true when an incident is in focus and this row is NOT part of it. */
+  /** true when a pivot is active and this row is NOT part of it. */
   dimmed?: boolean;
-  /** toggle the focused incident (null clears it). */
-  onFocusIncident?: (id: string | null) => void;
+  /** Entities of this row that also appear in other events (cross-host first). */
+  pivots: EntityStats[];
+  /** Events sharing this row's incident_id (0 when it has none). */
+  incidentSize: number;
+  onPivot: (p: Pivot | null) => void;
   /** true when this detection's incident is endpoint-investigable (edr/hybrid). */
   canInvestigate?: boolean;
   /** open this incident in the embedded EDR console. */
-  onInvestigate?: () => void;
+  onInvestigate: (incidentId: string) => void;
+  /** Bumped by the timeline when it asks this row to expand + scroll into view. */
+  focusReq?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const level = SEV_LEVEL[ev.severity ?? "informational"] ?? 1;
-  const sevBadge = SEV_BADGE[ev.severity ?? "informational"];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const rowRef = useRef<HTMLTableRowElement>(null);
+  const sevBadge = SEV_BADGE[effSev];
   const srcLabel = SOURCE_LABEL[ev.source] ?? ev.source.toUpperCase();
   const srcColor = SOURCE_COLORS[ev.source] ?? SOURCE_COLORS.proxy;
   // Render in UTC explicitly. This is deterministic on the server AND the client
@@ -266,12 +335,14 @@ function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident, canInvest
   // mismatch (SSR-UTC vs client-local) AND makes the table agree with the briefing,
   // which is written in UTC. (See the "Timestamps, Timezones & Building a Timeline"
   // room: a mature SIEM stores UTC — here we also display it.)
-  const timeStr = new Date(ev.ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" });
-  // An alert-grade EDR detection — the row that opens the ticket, as opposed to
-  // the pivot-only process/file/registry telemetry around it (SPEC-edr-scenario
-  // -integration §4). Marking it lets the analyst read the queue at a glance
-  // instead of a flat wall of equally-weighted rows.
-  const isDetection = !!ev.is_detection;
+  const timeStr = utcTime(ev.ts);
+
+  // The cross-host timeline asked for this row: open it and bring it into view.
+  useEffect(() => {
+    if (!focusReq) return;
+    setExpanded(true);
+    rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focusReq]);
 
   const description = ev.description ??
     (ev.process ? `${ev.process.name}${ev.process.parent_name ? ` ← ${ev.process.parent_name}` : ""}` :
@@ -280,16 +351,19 @@ function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident, canInvest
     ev.file?.path ? ev.file.path :
     ev.event_type);
 
+  const canCorrelate = pivots.length > 0 || incidentSize > 1;
+
   return (
     <>
       <tr
+        ref={rowRef}
         onClick={() => setExpanded(v => !v)}
         className={cn(
           "cursor-pointer border-t border-border/60 transition-colors",
           expanded ? "bg-bg-hover" : "hover:bg-bg-hover/60",
-          ev.severity === "critical" && "border-l-2 border-l-severity-critical",
-          ev.severity === "high"     && "border-l-2 border-l-severity-high",
-          isDetection && "bg-cyber-500/[0.06]",
+          effSev === "critical" && "border-l-2 border-l-severity-critical",
+          effSev === "high"     && "border-l-2 border-l-severity-high",
+          isAlert && "bg-cyber-500/[0.06]",
           focused && "bg-cyber-500/15 ring-1 ring-inset ring-cyber-500/40",
           dimmed && "opacity-40",
         )}
@@ -306,9 +380,9 @@ function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident, canInvest
             <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", srcColor)}>
               {srcLabel}
             </span>
-            {isDetection && (
+            {isAlert && (
               <span
-                title="Detection — the alert-grade event that opens the ticket"
+                title="Alert — raised by a detection analytic (the event that opens the ticket). Unbadged rows are raw telemetry."
                 className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/15 px-1 py-0.5 text-[8px] font-bold uppercase tracking-wider text-cyber-300"
               >
                 <span className="h-1 w-1 rounded-full bg-cyber-300" /> Alert
@@ -318,111 +392,224 @@ function LogRow({ ev, onThreatQuery, focused, dimmed, onFocusIncident, canInvest
         </td>
         <td className="py-2.5 pr-3">
           <span className="block text-[11px] text-slate-300 leading-relaxed line-clamp-2">{description}</span>
-          <div className="mt-0.5 flex items-center gap-2">
+          <div className="relative mt-0.5 flex items-center gap-2">
             {ev.mitre_technique && (
               <span className="font-mono text-[9px] text-neon-purple/70">{ev.mitre_technique}</span>
             )}
-            {ev.incident_id && onFocusIncident && (
+            {canCorrelate && (
               <button
-                onClick={e => { e.stopPropagation(); onFocusIncident(focused ? null : ev.incident_id!); }}
-                title={focused ? "Clear correlation" : "Correlate — highlight every event of this incident"}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (focused) { onPivot(null); setMenuOpen(false); } else setMenuOpen(v => !v);
+                }}
+                title={focused ? "Clear correlation" : "Correlate — pivot on a user, host, IP or hash across every host"}
                 className={cn(
                   "inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[8px] font-semibold uppercase tracking-wider transition",
-                  focused ? "bg-cyber-500/25 text-cyber-200" : "text-slate-500 hover:text-cyber-300",
+                  focused || menuOpen ? "bg-cyber-500/25 text-cyber-200" : "text-slate-500 hover:text-cyber-300",
                 )}
               >
                 🔗 {focused ? "correlated" : "correlate"}
               </button>
             )}
-            {canInvestigate && onInvestigate && (
+            {canInvestigate && ev.incident_id && (
               <button
-                onClick={e => { e.stopPropagation(); onInvestigate(); }}
+                onClick={e => { e.stopPropagation(); onInvestigate(ev.incident_id!); }}
                 title="Open this incident on the endpoint — walk the process tree in the EDR console"
                 className="inline-flex items-center gap-0.5 rounded border border-cyber-500/40 bg-cyber-500/15 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-cyber-200 transition hover:bg-cyber-500/25"
               >
                 🔎 Investigate in EDR
               </button>
             )}
+            {menuOpen && !focused && (
+              <div
+                onClick={e => e.stopPropagation()}
+                className="absolute left-0 top-full z-20 mt-1 w-80 rounded border border-border bg-bg-elevated p-2 shadow-xl"
+              >
+                <p className="mb-1.5 px-1 text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                  Pivot across all hosts on…
+                </p>
+                <ul className="space-y-0.5">
+                  {pivots.slice(0, 8).map(p => (
+                    <li key={`${p.entity.type}:${p.entity.key}`}>
+                      <button
+                        onClick={() => {
+                          onPivot({ kind: "entity", id: `${p.entity.type}:${p.entity.key}`, label: `${ENTITY_LABEL[p.entity.type]} ${p.entity.display}` });
+                          setMenuOpen(false);
+                        }}
+                        className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[10px] text-slate-200 hover:bg-cyber-500/10"
+                      >
+                        <span className="w-9 shrink-0 font-mono text-[9px] uppercase text-slate-400">{ENTITY_LABEL[p.entity.type]}</span>
+                        <span className="min-w-0 flex-1 truncate font-mono">{p.entity.display}</span>
+                        <span className="shrink-0 font-mono text-[9px] text-slate-400">
+                          {p.eventIds.length} ev · {p.hosts.length} host{p.hosts.length !== 1 ? "s" : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                  {incidentSize > 1 && ev.incident_id && (
+                    <li>
+                      <button
+                        onClick={() => { onPivot({ kind: "incident", id: ev.incident_id! }); setMenuOpen(false); }}
+                        className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[10px] text-slate-300 hover:bg-cyber-500/10"
+                      >
+                        <span className="w-9 shrink-0 font-mono text-[9px] uppercase text-slate-400">Case</span>
+                        <span className="flex-1">Same EDR incident (this host)</span>
+                        <span className="shrink-0 font-mono text-[9px] text-slate-400">{incidentSize} ev</span>
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         </td>
         <td className="py-2.5 pr-4">
-          <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded border font-mono text-[10px] font-bold", sevBadge)}>
-            {level}
+          <span
+            title={isAlert ? "Vendor severity of the alert" : "Raw telemetry carries no vendor severity"}
+            className={cn("inline-flex h-5 min-w-[2.5rem] items-center justify-center rounded border px-1 font-mono text-[9px] font-bold tracking-wider", sevBadge)}
+          >
+            {severityLabel(effSev)}
           </span>
         </td>
       </tr>
       {expanded && (
         <tr>
-          <LogDetail ev={ev} onThreatQuery={onThreatQuery} />
+          <LogDetail ev={ev} isAlert={isAlert} effSev={effSev} onThreatQuery={onThreatQuery} />
         </tr>
       )}
     </>
   );
-}
+});
+
+const NO_PIVOTS: EntityStats[] = [];
 
 // ─── Log viewer ───────────────────────────────────────────────────────────────
 
-function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
-  const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
+type ViewerTab = "events" | "timeline";
+
+/**
+ * Memoised: its only prop is the (stable) event array, so typing in the report,
+ * answering the quiz or the timer ticking no longer re-renders every row and
+ * every expanded detail pane. With all events expanded, a ~1,900-character
+ * narrative used to freeze the tab (finding #29).
+ */
+const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTruth }: {
+  events: TelemetryEvent[];
+  title: string;
+  /** Server-computed IOC truth (page.tsx → buildIocTruth) — TI verdicts follow the case. */
+  iocTruth: IocTruth | null;
+}) {
+  const [threatQuery, setThreatQueryRaw] = useState<ThreatQuery | null>(null);
+  // Every lookup opened from this page carries the scenario's truth table, so an
+  // attacker IOC enriches as malicious here exactly as in the EDR console.
+  const setThreatQuery = useCallback(
+    (q: ThreatQuery | null) => setThreatQueryRaw(q ? { ...q, truth: iocTruth } : null),
+    [iocTruth],
+  );
   const [search, setSearch]       = useState("");
   const [sevFilter, setSevFilter] = useState<"all" | "medium" | "high">("all");
   const [showAll, setShowAll]     = useState(false);
-  // De-flood: hide EDR telemetry rows, leaving detections + SIEM logs. The hidden
+  const [tab, setTab]             = useState<ViewerTab>("events");
+  // De-flood: hide EDR telemetry rows, leaving alerts + SIEM logs. The hidden
   // process/file telemetry is then walked inside the EDR console tree (the pivot).
   // Default off so it never removes an event a scenario question references.
   const [detectionsOnly, setDetectionsOnly] = useState(false);
-  // Correlation: the incident_id currently highlighted across the whole feed.
-  const [focusIncident, setFocusIncident] = useState<string | null>(null);
+  // Correlation: the entity (or incident) currently pivoted on across the feed.
+  const [pivot, setPivot] = useState<Pivot | null>(null);
+  // Timeline → table focus: which row to expand/scroll, and a nonce so re-clicking works.
+  const [focusReq, setFocusReq] = useState<{ id: string; n: number } | null>(null);
   // EDR pivot: one ISOLATED investigation per incident_id (edr/hybrid only) — each
   // a separate case in the console switcher. `edrCaseId` = the open case (null = closed).
-  const edrInvestigations = useMemo(() => buildInvestigationsFromScenario({ events }), [events]);
+  const edrInvestigations = useMemo(() => scenarioInvestigations(events, title, iocTruth), [events, title, iocTruth]);
   const edrIncidentIds = useMemo(() => new Set(edrInvestigations.map(i => i.id)), [edrInvestigations]);
   const [edrCaseId, setEdrCaseId] = useState<string | null>(null);
 
-  const filtered = useMemo(() => {
-    // Sort by timestamp before filtering. Scenario builders declare events in
-    // narrative order, which is not always chronological — a lateral-movement
-    // event can be listed before the credential dump that enabled it while
-    // carrying a later `ts`. A log viewer that renders array order therefore
-    // showed the student an out-of-order kill chain and broke timeline
-    // reasoning. Sorting a COPY here fixes every scenario at once and leaves
-    // the source arrays (used by the attack-chain reconstruction) untouched.
-    return [...events]
-      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
-      .filter(ev => {
-      if (detectionsOnly
-        && (ev.source === "edr" || ev.source === "sysmon" || ev.source === "av" || ev.source === "windows_security" || ev.source === "linux_audit")
-        && !ev.is_detection) return false;
-      if (sevFilter === "high"   && ev.severity !== "high" && ev.severity !== "critical") return false;
-      if (sevFilter === "medium" && (!ev.severity || SEV_LEVEL[ev.severity] < 4)) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        return (
-          (ev.hostname ?? "").toLowerCase().includes(q) ||
-          (ev.user_email ?? "").toLowerCase().includes(q) ||
-          (ev.mitre_technique ?? "").toLowerCase().includes(q) ||
-          (ev.event_type ?? "").toLowerCase().includes(q) ||
-          (ev.description ?? "").toLowerCase().includes(q) ||
-          (ev.process?.name ?? "").toLowerCase().includes(q) ||
-          (ev.network?.domain ?? "").toLowerCase().includes(q) ||
-          (ev.file?.path ?? "").toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [events, sevFilter, search, detectionsOnly]);
+  // One classification feeds the badge, the severity column, the filters and
+  // the header count — so the count always equals the badges shown.
+  const alertIds = useMemo(() => buildAlertIndex(events), [events]);
+  // Display projection: the object the row renders, the Raw JSON shows and the
+  // search indexes. Its `severity` is the effective one, so a ProcessRollup2
+  // does not read "critical" in the JSON while its row says INFO.
+  const view = useMemo(() => {
+    const m = new Map<string, { ev: TelemetryEvent; isAlert: boolean; effSev: Severity }>();
+    for (const e of events) {
+      const isAlert = alertIds.has(e.id);
+      const effSev = effectiveSeverity(e, isAlert);
+      m.set(e.id, { ev: { ...e, severity: effSev }, isAlert, effSev });
+    }
+    return m;
+  }, [events, alertIds]);
+  const entityIndex: EntityIndex = useMemo(() => buildEntityIndex(events), [events]);
+  // Precomputed so each memoised row receives a STABLE pivots array.
+  const pivotsByEvent = useMemo(
+    () => new Map(events.map(e => [e.id, pivotsForEvent(entityIndex, e.id)] as const)),
+    [events, entityIndex],
+  );
+  const incidentSizes = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of events) if (e.incident_id) m.set(e.incident_id, (m.get(e.incident_id) ?? 0) + 1);
+    return m;
+  }, [events]);
 
+  // Sort by timestamp once. Scenario builders declare events in narrative
+  // order, which is not always chronological — a lateral-movement event can be
+  // listed before the credential dump that enabled it while carrying a later
+  // `ts`. Sorting a COPY fixes every scenario at once and leaves the source
+  // arrays (used by the attack-chain reconstruction) untouched.
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime()),
+    [events],
+  );
+  const terms = useMemo(() => parseSearchQuery(search), [search]);
+
+  const passes = useCallback((ev: TelemetryEvent) => {
+    const v = view.get(ev.id)!;
+    if (detectionsOnly
+      && (ev.source === "edr" || ev.source === "sysmon" || ev.source === "av" || ev.source === "windows_security" || ev.source === "linux_audit")
+      && !v.isAlert && !ev.is_detection) return false;
+    if (sevFilter === "high"   && !severityAtLeast(v.effSev, "high")) return false;
+    if (sevFilter === "medium" && !severityAtLeast(v.effSev, "medium")) return false;
+    // Full-text over every field name and value of the record, plus field:value
+    // syntax (logSearch.ts) — `user:svc_backup`, `dst_ip:10.20.6.28`, a hash.
+    return matchesQuery(v.ev, terms);
+  }, [view, detectionsOnly, sevFilter, terms]);
+
+  const filtered = useMemo(() => sorted.filter(passes), [sorted, passes]);
   const visible = showAll ? filtered : filtered.slice(0, 30);
 
-  // Chronological events of the focused incident — drives the correlation banner
-  // and mini-timeline. Uses the FULL event set so an incident stays whole even
-  // under a severity filter or the 30-row cap.
-  const incidentEvents = useMemo(() => {
-    if (!focusIncident) return [] as TelemetryEvent[];
-    return [...events]
-      .filter(e => e.incident_id === focusIncident)
-      .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
-  }, [events, focusIncident]);
+  // Events of the active pivot, chronological, from the FULL set — a pivot stays
+  // whole even under a severity filter or the 30-row cap.
+  const pivotIds = useMemo(() => {
+    if (!pivot) return null;
+    if (pivot.kind === "incident") return new Set(events.filter(e => e.incident_id === pivot.id).map(e => e.id));
+    return new Set(entityIndex.byEntity.get(pivot.id)?.eventIds ?? []);
+  }, [pivot, events, entityIndex]);
+  const pivotEvents = useMemo(
+    () => (pivotIds ? sorted.filter(e => pivotIds.has(e.id)) : []),
+    [pivotIds, sorted],
+  );
+  const pivotHosts = useMemo(() => [...new Set(pivotEvents.map(e => e.hostname ?? "—"))], [pivotEvents]);
+
+  // Unified cross-host timeline: the pivot's events when one is active, else all.
+  const timeline = useMemo(
+    () => crossHostTimeline(pivotIds ? pivotEvents : sorted),
+    [pivotIds, pivotEvents, sorted],
+  );
+
+  const onInvestigate = useCallback((incidentId: string) => setEdrCaseId(incidentId), []);
+
+  /** Timeline click → show that event in the table, expanded and in view. */
+  const focusEvent = useCallback((id: string) => {
+    const ev = events.find(e => e.id === id);
+    if (!ev) return;
+    // Clear whatever would hide it, then make sure the 30-row cap doesn't.
+    if (!passes(ev)) { setSearch(""); setSevFilter("all"); setDetectionsOnly(false); }
+    setShowAll(true);
+    setTab("events");
+    setFocusReq(prev => ({ id, n: (prev?.n ?? 0) + 1 }));
+  }, [events, passes]);
+
+  const alertCount = alertIds.size;
 
   return (
     <>
@@ -430,9 +617,23 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold text-white">Security Events</h3>
         <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-400">
-          {filtered.length} events
+          {filtered.length} events · {alertCount} alert{alertCount !== 1 ? "s" : ""}
         </span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex gap-1">
+          {(["events", "timeline"] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition",
+                tab === t ? "bg-cyber-500/20 text-cyber-300 border border-cyber-500/30" : "text-slate-400 hover:text-slate-300",
+              )}
+            >
+              {t === "events" ? "Events" : "Timeline · all hosts"}
+            </button>
+          ))}
+        </div>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="flex gap-1">
             {(["all", "medium", "high"] as const).map(f => (
               <button
@@ -465,39 +666,47 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
             <input
               type="text"
-              placeholder="Search events…"
+              placeholder="Search all fields — e.g. user:svc_backup"
+              title={'Searches every field name and value of the raw log. Terms are ANDed. field:value (user:, host:, ip:, src_ip:, dst_ip:, hash:, process:, cmd:, domain:, port: or any raw field name), "quoted phrase", -exclude.'}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="rounded border border-border bg-bg-elevated pl-6 pr-3 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none w-44"
+              className="rounded border border-border bg-bg-elevated pl-6 pr-3 py-1 text-[11px] text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none w-64"
             />
           </div>
         </div>
       </div>
 
-      {focusIncident && incidentEvents.length > 0 && (
+      {pivot && pivotEvents.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-cyber-500/25 bg-cyber-500/[0.05] px-4 py-2.5">
-          <span className="text-[11px] font-semibold text-cyber-200">🔗 Correlated incident</span>
-          <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-300">
-            {incidentEvents.length} events · {new Set(incidentEvents.map(e => e.source)).size} sources
+          <span className="text-[11px] font-semibold text-cyber-200">
+            🔗 {pivot.kind === "entity" ? `Pivot: ${pivot.label}` : "Correlated incident"}
           </span>
-          {/* Mini-timeline: one dot per event in time order; detections stand out. */}
+          <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-300">
+            {pivotEvents.length} events · {pivotHosts.length} host{pivotHosts.length !== 1 ? "s" : ""} · {new Set(pivotEvents.map(e => e.source)).size} sources
+          </span>
+          <span className="font-mono text-[10px] text-slate-400">{pivotHosts.join(" → ")}</span>
+          {/* Mini-timeline: one dot per event in time order; alerts stand out. Click to focus. */}
           <div className="flex items-center gap-1">
-            {incidentEvents.map(e => (
-              <span
+            {pivotEvents.map(e => (
+              <button
                 key={e.id}
-                title={`${new Date(e.ts).toLocaleTimeString("en-GB", { hour12: false, timeZone: "UTC" })} UTC · ${SOURCE_LABEL[e.source] ?? e.source}${e.is_detection ? " · DETECTION" : ""}`}
+                onClick={() => focusEvent(e.id)}
+                title={`${utcTime(e.ts)} UTC · ${e.hostname ?? "—"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · ALERT" : ""}`}
                 className={cn(
                   "h-2.5 w-2.5 rounded-full border",
-                  e.is_detection      ? "bg-cyber-400 border-cyber-300"
-                  : e.severity === "critical" ? "bg-severity-critical/70 border-severity-critical"
-                  : e.severity === "high"     ? "bg-severity-high/70 border-severity-high"
-                  : "bg-slate-500/50 border-slate-500",
+                  alertIds.has(e.id) ? "bg-cyber-400 border-cyber-300" : "bg-slate-500/50 border-slate-500",
                 )}
               />
             ))}
           </div>
           <button
-            onClick={() => setFocusIncident(null)}
+            onClick={() => setTab("timeline")}
+            className="text-[10px] font-semibold text-cyber-300 transition hover:text-cyber-200"
+          >
+            open as timeline →
+          </button>
+          <button
+            onClick={() => setPivot(null)}
             className="ml-auto text-[10px] font-semibold text-slate-400 transition hover:text-white"
           >
             clear ✕
@@ -505,6 +714,60 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
         </div>
       )}
 
+      {tab === "timeline" ? (
+        <div className="max-h-[520px] overflow-y-auto">
+          <p className="border-b border-border/60 px-4 py-2 text-[10px] text-slate-400">
+            {pivot ? "Every event of the pivot" : "Every event of the scenario"} on one clock, across all hosts.
+            Click an entry to open it in the event table.
+          </p>
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
+              <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                <th className="py-2 pl-4 pr-3">Time (UTC)</th>
+                <th className="py-2 pr-3">Δ</th>
+                <th className="py-2 pr-3">Host</th>
+                <th className="py-2 pr-3">Source</th>
+                <th className="py-2 pr-4">Event</th>
+              </tr>
+            </thead>
+            <tbody>
+              {timeline.map(({ event: e, host, offsetSec }, i) => {
+                const hostChanged = i > 0 && timeline[i - 1].host !== host;
+                return (
+                  <tr
+                    key={e.id}
+                    onClick={() => focusEvent(e.id)}
+                    className={cn(
+                      "cursor-pointer border-t border-border/60 transition-colors hover:bg-bg-hover/60",
+                      hostChanged && "border-t-cyber-500/40",
+                      alertIds.has(e.id) && "bg-cyber-500/[0.06]",
+                    )}
+                  >
+                    <td className="whitespace-nowrap py-2 pl-4 pr-3 font-mono text-[11px] text-slate-400">{utcTime(e.ts)}</td>
+                    <td className="whitespace-nowrap py-2 pr-3 font-mono text-[10px] text-slate-500">+{formatTime(offsetSec)}</td>
+                    <td className={cn("whitespace-nowrap py-2 pr-3 font-mono text-[11px]", hostChanged ? "text-cyber-200" : "text-slate-200")}>{host}</td>
+                    <td className="whitespace-nowrap py-2 pr-3">
+                      <span className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider", SOURCE_COLORS[e.source] ?? SOURCE_COLORS.proxy)}>
+                        {SOURCE_LABEL[e.source] ?? e.source.toUpperCase()}
+                      </span>
+                      {alertIds.has(e.id) && (
+                        <span className="ml-1.5 text-[8px] font-bold uppercase tracking-wider text-cyber-300">Alert</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 text-[11px] text-slate-300">
+                      <span className="line-clamp-1">
+                        {e.process?.name
+                          ? `${e.process.name}${e.process.cmdline ? ` — ${e.process.cmdline}` : ""}`
+                          : e.network?.domain ?? e.network?.url ?? e.file?.path ?? e.event_type.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
       <div className="max-h-[520px] overflow-y-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
@@ -514,22 +777,30 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
               <th className="py-2 pr-3">Agent</th>
               <th className="py-2 pr-3">Source</th>
               <th className="py-2 pr-3">Description</th>
-              <th className="py-2 pr-4">Lvl</th>
+              <th className="py-2 pr-4" title="Vendor severity on alerts; INFO on raw telemetry">Severity</th>
             </tr>
           </thead>
           <tbody>
-            {visible.map(ev => (
-              <LogRow
-                key={ev.id}
-                ev={ev}
-                onThreatQuery={setThreatQuery}
-                onFocusIncident={setFocusIncident}
-                focused={!!focusIncident && ev.incident_id === focusIncident}
-                dimmed={!!focusIncident && ev.incident_id !== focusIncident}
-                canInvestigate={!!ev.is_detection && !!ev.incident_id && edrIncidentIds.has(ev.incident_id)}
-                onInvestigate={() => ev.incident_id && setEdrCaseId(ev.incident_id)}
-              />
-            ))}
+            {visible.map(ev => {
+              const v = view.get(ev.id)!;
+              return (
+                <LogRow
+                  key={ev.id}
+                  ev={v.ev}
+                  isAlert={v.isAlert}
+                  effSev={v.effSev}
+                  onThreatQuery={setThreatQuery}
+                  pivots={pivotsByEvent.get(ev.id) ?? NO_PIVOTS}
+                  incidentSize={ev.incident_id ? incidentSizes.get(ev.incident_id) ?? 0 : 0}
+                  onPivot={setPivot}
+                  focused={!!pivotIds && pivotIds.has(ev.id)}
+                  dimmed={!!pivotIds && !pivotIds.has(ev.id)}
+                  canInvestigate={(v.isAlert || !!ev.is_detection) && !!ev.incident_id && edrIncidentIds.has(ev.incident_id)}
+                  onInvestigate={onInvestigate}
+                  focusReq={focusReq?.id === ev.id ? focusReq.n : undefined}
+                />
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-8 text-center text-xs text-slate-400">No events match the filter.</td>
@@ -538,8 +809,9 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
           </tbody>
         </table>
       </div>
+      )}
 
-      {!showAll && filtered.length > 30 && (
+      {tab === "events" && !showAll && filtered.length > 30 && (
         <div className="border-t border-border px-4 py-2.5 text-center">
           <button onClick={() => setShowAll(true)} className="text-xs text-cyber-300 hover:text-cyber-200 transition">
             Show all {filtered.length} events ↓
@@ -563,7 +835,7 @@ function ScenarioLogViewer({ events }: { events: TelemetryEvent[] }) {
     )}
     </>
   );
-}
+});
 
 // ─── Embedded EDR console panel (the scenario pivot) ───────────────────────────
 
@@ -629,29 +901,54 @@ const REPORT_TABS: { id: ReportTab; label: string }[] = [
   { id: "verdict",   label: "Verdict"   },
 ];
 
+/**
+ * A textarea that owns its own value. The parent keeps the text in a ref (read
+ * at submit) and is only told when something it RENDERS changes — so a
+ * keystroke re-renders this box, not the page (finding #29).
+ */
+const DraftTextarea = memo(function DraftTextarea({ initial, onChange, ...rest }: {
+  initial: string;
+  onChange: (v: string) => void;
+} & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "value" | "defaultValue" | "onChange">) {
+  const [value, setValue] = useState(initial);
+  return (
+    <textarea
+      {...rest}
+      value={value}
+      onChange={e => { setValue(e.target.value); onChange(e.target.value); }}
+    />
+  );
+});
+
 function InvestigationPanel({
   phase,
-  notes,
+  draftKey,
+  notesRef,
+  notesFilled,
   onNotesChange,
   iocs,
   onAddIoc,
   onRemoveIoc,
   verdict,
   onVerdictChange,
-  verdictReason,
+  reasonRef,
   onVerdictReasonChange,
   onSubmit,
   quizComplete,
 }: {
   phase: Phase;
-  notes: string;
+  /** Bumped on retry so the draft boxes remount empty. */
+  draftKey: number;
+  notesRef: MutableRefObject<string>;
+  /** Derived in the parent; flips only when the narrative crosses 10 chars. */
+  notesFilled: boolean;
   onNotesChange: (v: string) => void;
   iocs: ManualIoc[];
   onAddIoc: (ioc: ManualIoc) => void;
   onRemoveIoc: (id: string) => void;
   verdict: "tp" | "fp" | null;
   onVerdictChange: (v: "tp" | "fp") => void;
-  verdictReason: string;
+  reasonRef: MutableRefObject<string>;
   onVerdictReasonChange: (v: string) => void;
   onSubmit: () => void;
   quizComplete: boolean;
@@ -667,7 +964,7 @@ function InvestigationPanel({
     setNewValue("");
   };
 
-  const disabled = phase === "idle";
+  const disabled = phase !== "investigating";
   const inputCls = cn(
     "w-full rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-[#2dd4bf]/40 focus:outline-none",
     disabled && "opacity-40 cursor-not-allowed"
@@ -675,7 +972,7 @@ function InvestigationPanel({
 
   // Section completion: has meaningful content
   const sectionDone: Record<ReportTab, boolean> = {
-    narrative: notes.trim().length > 10,
+    narrative: notesFilled,
     iocs:      iocs.length > 0,
     verdict:   verdict !== null,
   };
@@ -733,11 +1030,12 @@ function InvestigationPanel({
           <div>
             <p className="mb-0.5 text-sm font-semibold text-white">Narrative</p>
             <p className="mb-3 text-[11px] text-slate-400">Document your investigation process step by step</p>
-            <textarea
+            <DraftTextarea
+              key={draftKey}
               rows={10}
               disabled={disabled}
-              value={notes}
-              onChange={e => onNotesChange(e.target.value)}
+              initial={notesRef.current}
+              onChange={onNotesChange}
               className={inputCls + " resize-none"}
               placeholder={
                 disabled
@@ -875,11 +1173,12 @@ function InvestigationPanel({
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                   Reasoning
                 </p>
-                <textarea
+                <DraftTextarea
+                  key={draftKey}
                   rows={3}
                   disabled={disabled}
-                  value={verdictReason}
-                  onChange={e => onVerdictReasonChange(e.target.value)}
+                  initial={reasonRef.current}
+                  onChange={onVerdictReasonChange}
                   className={inputCls + " resize-none"}
                   placeholder="Explain why this is a TP or FP based on the evidence you found..."
                 />
@@ -917,65 +1216,366 @@ function InvestigationPanel({
   );
 }
 
+// ─── Investigation timer ──────────────────────────────────────────────────────
+
+/**
+ * Its own component with its own interval, so the page does not re-render every
+ * second. Elapsed is WALL time since the persisted start (finding #27) — a
+ * reload resumes it and a throttled background tab cannot under-report.
+ */
+function InvestigationTimer({ startMs }: { startMs: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="font-mono text-lg font-bold text-cyber-300">{formatTime(elapsedSeconds(startMs, now))}</span>;
+}
+
+// ─── Completed state (debrief) ────────────────────────────────────────────────
+
+/**
+ * The page's completed state (finding #31). "Continue" on the score modal used
+ * to drop the learner back to "Start Investigation" with nothing on screen. The
+ * page now stays complete and shows what the grade response actually returned:
+ * the summary, every question's result with its (letter-remapped) explanation,
+ * the report rubric, and the attack timeline IF the server released the debrief.
+ * Nothing the server withheld is inferred or shown (IOC values stay server-side;
+ * only the cited/total counts come back).
+ */
+function ScenarioDebrief({ result, questions, events, title, iocTruth, timeTaken, verdict, onRetry, onShowScoreCard }: {
+  result: GradeResult;
+  questions: ScenarioQuestion[];
+  events: TelemetryEvent[];
+  title: string;
+  iocTruth: IocTruth | null;
+  timeTaken: number;
+  verdict: "tp" | "fp" | null;
+  onRetry: () => void;
+  onShowScoreCard: () => void;
+}) {
+  // The scenario's OWN EDR cases — never a link to /edr, which shows whatever
+  // live-dashboard shift is stashed in the browser (a different company).
+  const investigations = useMemo(() => scenarioInvestigations(events, title, iocTruth), [events, title, iocTruth]);
+  const [edrOpen, setEdrOpen] = useState(false);
+  const qById = useMemo(() => new Map(questions.map(q => [q.id, q])), [questions]);
+  const r = result.report;
+  const bd = r?.breakdown;
+  const correctCount = result.perQuestion.filter(q => q.correct).length;
+  // Best-attempt XP accounting comes from the server (#30) — not recomputed here.
+  const xp = describeScenarioXp(result);
+
+  return (
+    <div className={cn(
+      "rounded border px-5 py-4 space-y-5",
+      result.passed ? "border-neon-green/25 bg-neon-green/[0.04]" : "border-severity-high/25 bg-severity-high/[0.04]",
+    )}>
+      <div className="flex flex-wrap items-center gap-3">
+        {result.passed
+          ? <Trophy className="h-5 w-5 text-neon-green" />
+          : <ShieldX className="h-5 w-5 text-severity-high" />}
+        <h3 className="text-sm font-bold text-white">
+          {result.passed ? "Case closed — passed" : "Case closed — not passed"}
+        </h3>
+        <Badge variant="outline">{result.score}% overall</Badge>
+        <div className="ml-auto flex flex-wrap gap-2">
+          <button
+            onClick={onRetry}
+            className="flex items-center gap-1.5 rounded border border-cyber-500/30 bg-cyber-500/10 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition hover:bg-cyber-500/20"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Retry scenario
+          </button>
+          {investigations.length > 0 && (
+            <button
+              onClick={() => setEdrOpen(true)}
+              className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/5"
+            >
+              <Shield className="h-3.5 w-3.5" /> Review in EDR console
+            </button>
+          )}
+          <button
+            onClick={onShowScoreCard}
+            className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/5"
+          >
+            <Trophy className="h-3.5 w-3.5" /> Score card
+          </button>
+          <Link
+            href="/scenarios"
+            className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/5"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> All scenarios
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {[
+          { label: "Score",  value: `${result.score}%`, hint: result.passed ? "passed (≥ 70%)" : "70% to pass" },
+          { label: "Quiz",   value: `${correctCount}/${result.perQuestion.length}`, hint: result.quizScore !== undefined ? `${result.quizScore}%` : "" },
+          { label: "Report", value: r ? `${r.score}/100` : "—", hint: r ? `${r.words} words` : "" },
+          { label: xp.label, value: `+${xp.added}`, hint: xp.added !== result.xpEarned ? `this run ${result.xpEarned} XP` : "best attempt counts" },
+          { label: "Time",   value: formatTime(timeTaken), hint: "not graded" },
+        ].map(s => (
+          <div key={s.label} className="rounded border border-border bg-[#080d14] px-3 py-2.5 text-center">
+            <p className="font-mono text-lg font-bold text-white">{s.value}</p>
+            <p className="mt-0.5 text-[10px] uppercase tracking-widest text-slate-400">{s.label}</p>
+            {s.hint && <p className="mt-0.5 text-[9px] text-slate-500">{s.hint}</p>}
+          </div>
+        ))}
+      </div>
+
+      {r && (
+        <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Report</p>
+          <p className="text-xs text-slate-300">
+            Your verdict: <span className="font-mono font-bold">{verdict ? verdict.toUpperCase() : "none"}</span>
+            {" — "}
+            {r.verdictCorrect
+              ? <span className="text-neon-green">matches the evidence</span>
+              : <span className="text-severity-high">does not match the evidence</span>}
+            {" · "}cited {r.iocsCited} of {r.iocsTotal} key indicators
+            {r.fabricated ? <span className="text-severity-high"> · {r.fabricated} cited indicator{r.fabricated !== 1 ? "s" : ""} not in the telemetry</span> : null}
+          </p>
+          {bd ? (
+            <div className="mt-3 space-y-3">
+              {bd.summary && <p className="text-xs leading-relaxed text-slate-300">{bd.summary}</p>}
+              <ul className="space-y-1.5">
+                {bd.items.map(it => (
+                  <li key={it.key} className="flex gap-3 text-[11px]">
+                    <span className="w-28 shrink-0 text-slate-300">{it.label}</span>
+                    <span className={cn("w-14 shrink-0 font-mono", it.points >= it.max ? "text-neon-green" : "text-slate-200")}>{it.points}/{it.max}</span>
+                    <span className="text-slate-400">{it.detail}</span>
+                  </li>
+                ))}
+              </ul>
+              {bd.cappedByVerdict && (
+                <p className="text-[11px] text-severity-high">The report score was capped because the verdict does not match the evidence.</p>
+              )}
+              {/* Indicators are shown only when the server released them. */}
+              {(bd.citedIndicators.length > 0 || (bd.missedIndicators && bd.missedIndicators.length > 0)) && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {bd.citedIndicators.length > 0 && (
+                    <div>
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-neon-green/80">Key indicators you cited</p>
+                      <ul className="space-y-0.5">{bd.citedIndicators.map(v => <li key={v} className="break-all font-mono text-[10px] text-slate-300">{v}</li>)}</ul>
+                    </div>
+                  )}
+                  {bd.missedIndicators && bd.missedIndicators.length > 0 && (
+                    <div>
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-severity-high/80">Key indicators you missed</p>
+                      <ul className="space-y-0.5">{bd.missedIndicators.map(v => <li key={v} className="break-all font-mono text-[10px] text-slate-300">{v}</li>)}</ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(bd.fabricatedValues.length > 0 || bd.misattributedValues.length > 0) && (
+                <p className="text-[11px] text-severity-high">
+                  {bd.fabricatedValues.length > 0 && <>Not in the telemetry: <span className="font-mono">{bd.fabricatedValues.join(", ")}</span>. </>}
+                  {bd.misattributedValues.length > 0 && <>Benign/internal tagged as hostile: <span className="font-mono">{bd.misattributedValues.join(", ")}</span>.</>}
+                </p>
+              )}
+              {bd.improvements.length > 0 && (
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">What a senior analyst would add</p>
+                  <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-slate-300">
+                    {bd.improvements.map((t, i) => <li key={i}>{t}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Object.entries(r.rubric).map(([k, v]) => (
+                <span key={k} className="rounded border border-border bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-300">
+                  {k} {v}
+                </span>
+              ))}
+            </div>
+          )}
+          {xp.note && <p className="mt-2 text-[11px] text-slate-400">{xp.note}</p>}
+        </div>
+      )}
+
+      {result.aiFeedback && (
+        <div className="rounded border border-cyber-500/20 bg-cyber-500/5 px-4 py-3">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-cyber-300/70">Analyst feedback</p>
+          <p className="text-xs leading-relaxed text-slate-300">{result.aiFeedback}</p>
+        </div>
+      )}
+
+      <div>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Question results</p>
+        <ol className="space-y-2">
+          {result.perQuestion.map((pq, i) => {
+            const q = qById.get(pq.id);
+            const shown = q ? displayedOptions(q) : [];
+            // Letter of an option LABEL as the learner saw it ("B. …").
+            const letterOf = (label: string) => {
+              const idx = shown.findIndex(o => o.label === label);
+              return idx >= 0 ? `${optionLetter(idx)}. ` : "";
+            };
+            const fmt = (a: string | string[] | null) =>
+              a == null ? null : (Array.isArray(a) ? a : [a]).map(l => `${letterOf(l)}${l}`).join(" · ");
+            const explanation = remapExplanation(pq.explanation, q);
+            return (
+              <li key={pq.id} className={cn(
+                "rounded border px-3 py-2.5",
+                pq.correct ? "border-neon-green/20 bg-neon-green/5" : "border-severity-high/20 bg-severity-high/5",
+              )}>
+                <div className="flex items-start gap-2">
+                  {pq.correct
+                    ? <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neon-green" />
+                    : <ShieldX className="mt-0.5 h-3.5 w-3.5 shrink-0 text-severity-high" />}
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-xs text-slate-200">
+                      <span className="mr-1.5 font-mono text-[10px] text-slate-400">Q{i + 1}.</span>{pq.prompt}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Your answer: <span className={pq.correct ? "text-neon-green" : "text-severity-high"}>{fmt(pq.yourAnswer) || "—"}</span>
+                    </p>
+                    {!pq.correct && pq.correctAnswer != null && (
+                      <p className="text-[11px] text-slate-400">
+                        Correct: <span className="text-neon-green">{fmt(pq.correctAnswer)}</span>
+                      </p>
+                    )}
+                    {explanation && <p className="text-[11px] leading-relaxed text-slate-300">{explanation}</p>}
+                  </div>
+                  <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-400">{pq.correct ? `+${pq.xp} XP` : "0 XP"}</span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      {result.debrief?.killchain && result.debrief.killchain.length > 0 ? (
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Attack timeline</p>
+          <ol className="space-y-1">
+            {[...result.debrief.killchain]
+              .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
+              .map((k, i) => (
+                <li key={i} className="flex gap-3 text-[11px]">
+                  <span className="w-16 shrink-0 font-mono text-slate-400">{utcTime(k.ts)}</span>
+                  <span className="w-32 shrink-0 font-semibold text-slate-200">{k.phase}</span>
+                  <span className="text-slate-300">{k.action}</span>
+                </li>
+              ))}
+          </ol>
+        </div>
+      ) : result.debriefWithheld ? (
+        <p className="rounded border border-dashed border-border/60 px-4 py-3 text-[11px] text-slate-400">
+          The full debrief (story and attack timeline) unlocks on a complete attempt — answer every question and write a report.
+        </p>
+      ) : null}
+
+      {edrOpen && investigations.length > 0 && (
+        <ScenarioEdrPanel investigations={investigations} caseId={investigations[0].id} onClose={() => setEdrOpen(false)} />
+      )}
+    </div>
+  );
+}
+
 // ─── Main client component ────────────────────────────────────────────────────
 
-export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug: string }) {
+export function ScenarioClient({ bundle, slug, iocTruth = null }: {
+  bundle: ScenarioBundle;
+  slug: string;
+  /** Digest-keyed IOC verdicts computed server-side from the FULL bundle. */
+  iocTruth?: IocTruth | null;
+}) {
   const [phase, setPhase]               = useState<Phase>("idle");
-  const [elapsed, setElapsed]           = useState(0);
+  // Hydration gate (finding #28): the Start button is inert until the client has
+  // mounted, so the first click is never swallowed by a not-yet-hydrated button.
+  const [mounted, setMounted]           = useState(false);
+  // Persisted investigation start (epoch ms) — see investigationClock.ts.
+  const [startMs, setStartMs]           = useState<number | null>(null);
+  // Final wall-clock time, frozen at submit for the score card / debrief.
+  const [timeTaken, setTimeTaken]       = useState(0);
+  // Answers are keyed by OPAQUE per-load option tokens (finding #4) and decoded
+  // to real option ids only in the grade request.
   const [answers, setAnswers]           = useState<Record<string, string | string[]>>({});
+  const [tokens, setTokens]             = useState<OptionTokenMap | null>(null);
   const [gradeResult, setGradeResult]   = useState<GradeResult | null>(null);
+  const [showScoreCard, setShowScoreCard] = useState(false);
   const [isGrading, setIsGrading]       = useState(false);
   const [gradingError, setGradingError] = useState<string | null>(null);
 
-  // IOC tracker — which bundle IOCs have been tagged as evidence
-
-  // Investigation log state
-  const [notes, setNotes]                   = useState("");
+  // Investigation log state. The two free-text fields live in refs and their
+  // own DraftTextarea state (finding #29); the page only re-renders when the
+  // narrative crosses the "section done" threshold.
+  const notesRef                            = useRef("");
+  const reasonRef                           = useRef("");
+  const [notesFilled, setNotesFilled]       = useState(false);
+  const [draftKey, setDraftKey]             = useState(0);
   const [manualIocs, setManualIocs]         = useState<ManualIoc[]>([]);
   const [verdict, setVerdict]               = useState<"tp" | "fp" | null>(null);
-  const [verdictReason, setVerdictReason]   = useState("");
+  const [submittedVerdict, setSubmittedVerdict] = useState<"tp" | "fp" | null>(null);
 
-  // Timer
+  const alertCount = useMemo(() => buildAlertIndex(bundle.events).size, [bundle.events]);
+
+  // Mount: fresh option tokens (client-only — the questions are not rendered
+  // before Start, so there is no SSR markup to mismatch) and resume a running
+  // investigation after a reload.
   useEffect(() => {
-    if (phase !== "investigating") return;
-    const id = setInterval(() => setElapsed(s => s + 1), 1000);
-    return () => clearInterval(id);
-  }, [phase]);
+    setTokens(buildOptionTokens(bundle.questions, cryptoRandom));
+    const resumed = loadInvestigationStart(slug);
+    if (resumed !== null) {
+      setStartMs(resumed);
+      setPhase("investigating");
+    }
+    setMounted(true);
+  }, [bundle.questions, slug]);
 
-  const handleStart = () => {
-    setElapsed(0);
+  const handleNotesChange = useCallback((v: string) => {
+    notesRef.current = v;
+    setNotesFilled(v.trim().length > 10); // bail-out render when unchanged
+  }, []);
+  const handleReasonChange = useCallback((v: string) => { reasonRef.current = v; }, []);
+
+  const resetDraft = () => {
     setAnswers({});
     setManualIocs([]);
-    setNotes("");
+    notesRef.current = "";
+    reasonRef.current = "";
+    setNotesFilled(false);
+    setDraftKey(k => k + 1);
     setVerdict(null);
-    setVerdictReason("");
     setGradeResult(null);
     setGradingError(null);
+    setShowScoreCard(false);
+  };
+
+  const handleStart = () => {
+    if (!mounted) return;
+    const now = Date.now();
+    resetDraft();
+    setStartMs(now);
+    saveInvestigationStart(slug, now);
     setPhase("investigating");
   };
 
   const handleRetry = () => {
+    resetDraft();
+    clearInvestigationStart(slug);
+    setStartMs(null);
+    setTimeTaken(0);
+    // New tokens per attempt, too.
+    setTokens(buildOptionTokens(bundle.questions, cryptoRandom));
     setPhase("idle");
-    setGradeResult(null);
-    setElapsed(0);
-    setAnswers({});
-    setManualIocs([]);
-    setNotes("");
-    setVerdict(null);
-    setVerdictReason("");
   };
 
-  const handleAnswer = useCallback((questionId: string, value: string, multi: boolean) => {
+  const handleAnswer = useCallback((questionId: string, token: string, multi: boolean) => {
     if (phase !== "investigating") return;
     setAnswers(prev => {
       if (multi) {
         const existing = (prev[questionId] as string[] | undefined) ?? [];
-        const next = existing.includes(value)
-          ? existing.filter(v => v !== value)
-          : [...existing, value];
+        const next = existing.includes(token)
+          ? existing.filter(v => v !== token)
+          : [...existing, token];
         return { ...prev, [questionId]: next };
       }
-      return { ...prev, [questionId]: value };
+      return { ...prev, [questionId]: token };
     });
   }, [phase]);
 
@@ -994,10 +1594,28 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
     return true;
   });
 
-  const canSubmit = allAnswered && verdict !== null && !isGrading;
+  const canSubmit = allAnswered && verdict !== null && !isGrading && !!tokens;
+
+  // Explanations cite authored option letters; options are shuffled for
+  // display. The score card gets the same letter-remapped copy the debrief
+  // renders (finding #15). CompletionModal itself is unchanged.
+  const displayResult = useMemo<GradeResult | null>(() => {
+    if (!gradeResult) return null;
+    const qById = new Map(bundle.questions.map(q => [q.id, q]));
+    return {
+      ...gradeResult,
+      perQuestion: gradeResult.perQuestion.map(pq => ({
+        ...pq,
+        explanation: remapExplanation(pq.explanation, qById.get(pq.id)),
+      })),
+    };
+  }, [gradeResult, bundle.questions]);
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !tokens) return;
+    const taken = elapsedSeconds(startMs);
+    const notes = notesRef.current;
+    const verdictReason = reasonRef.current;
     setPhase("submitted");
     setIsGrading(true);
     setGradingError(null);
@@ -1006,9 +1624,11 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          answers,
-          // No timeTaken: investigation time isn't graded (FB-007). It is still
-          // kept in the local history record below and shown in the modal.
+          // Tokens → real option ids. The server grades exactly as before.
+          answers: decodeAnswers(answers, tokens),
+          // Wall time since the persisted start. NOT graded (FB-007) — the grade
+          // route only stores it on the scenario_history row it writes.
+          timeTaken: taken,
           iocTagged: manualIocs.length,
           verdict,
           verdictReason,
@@ -1019,21 +1639,26 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
       if (!res.ok) throw new Error("Grading failed");
       const result: GradeResult = await res.json();
       setGradeResult(result);
+      setTimeTaken(taken);
+      setSubmittedVerdict(verdict);
+      setShowScoreCard(true);
       setPhase("complete");
+      // The run is over — a reload must not resume its clock.
+      clearInvestigationStart(slug);
 
-      // Persist through the storage facade (Phase-1 seam). For a signed-in user
-      // this reaches the DB `scenario_history` table via remoteBackend; for a
-      // guest it writes the same "soc_scenario_history" localStorage key. ONE
-      // write, no double-entry. (Was a raw localStorage.setItem that never
-      // reached the DB — see AppSec finding #6 / persistence-migration Stage 1.)
+      // The grade route is the only server-side writer of scenario_history.
+      // recordScenarioCompletion mirrors the attempt into the facade (the local
+      // copy /progress reads for guests) and moves the displayed XP total
+      // truthfully: the server's authoritative totalXp when present, else only
+      // the improvement over the best attempt (#30) — never the full run XP.
       try {
-        appendScenarioRecord({
+        recordScenarioCompletion({
           slug,
           title: bundle.title,
           score:    result.score,
           // FB-007: XP is accuracy + report quality only — no speed bonus.
           xpEarned: result.xpEarned,
-          timeTaken: elapsed,
+          timeTaken: taken,
           date: new Date().toISOString(),
           // Keep the actual written deliverable, not just the score, so it can be
           // reviewed later (and surfaced to instructors in the org console).
@@ -1045,9 +1670,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
             rubric: result.report?.rubric,
             passed: result.passed,
           },
-        });
-        // Cumulative XP total — also via the facade.
-        addTotalXp(result.xpEarned);
+        }, result);
       } catch { /* ignore storage errors */ }
     } catch {
       setGradingError("Could not submit. Check your connection and retry.");
@@ -1078,16 +1701,18 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           {phase === "idle" && (
             <button
               onClick={handleStart}
-              className="flex items-center gap-2 rounded border border-cyber-500/30 bg-cyber-500/10 px-4 py-2 text-sm font-semibold text-cyber-300 hover:bg-cyber-500/20 transition"
+              disabled={!mounted}
+              aria-busy={!mounted}
+              className="flex items-center gap-2 rounded border border-cyber-500/30 bg-cyber-500/10 px-4 py-2 text-sm font-semibold text-cyber-300 hover:bg-cyber-500/20 transition disabled:cursor-wait disabled:opacity-50"
             >
-              <Play className="h-4 w-4" /> Start Investigation
+              <Play className="h-4 w-4" /> {mounted ? "Start Investigation" : "Loading…"}
             </button>
           )}
           {phase === "investigating" && (
             <>
               <div className="flex items-center gap-3 rounded border border-cyber-500/20 bg-cyber-500/5 px-4 py-1.5">
                 <span className="h-2 w-2 rounded-full bg-cyber-400 animate-pulse" />
-                <span className="font-mono text-lg font-bold text-cyber-300">{formatTime(elapsed)}</span>
+                <InvestigationTimer startMs={startMs} />
                 <span className="text-xs text-slate-400">Investigation Time</span>
               </div>
               {/* Progress indicators */}
@@ -1126,6 +1751,22 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
               <span className="animate-pulse">Analysing your investigation…</span>
             </div>
           )}
+          {phase === "complete" && gradeResult && (
+            <div className="flex w-full flex-wrap items-center gap-3 text-sm">
+              <span className={cn("font-semibold", gradeResult.passed ? "text-neon-green" : "text-severity-high")}>
+                {gradeResult.passed ? "Completed — passed" : "Completed — not passed"} · {gradeResult.score}%
+              </span>
+              <span className="flex items-center gap-1 text-xs text-slate-400">
+                <Clock className="h-3.5 w-3.5" /> {formatTime(timeTaken)}
+              </span>
+              <button
+                onClick={handleRetry}
+                className="ml-auto flex items-center gap-1.5 rounded border border-cyber-500/30 bg-cyber-500/10 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition hover:bg-cyber-500/20"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Retry
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1141,7 +1782,9 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         <div className="rounded border border-border/60 bg-[#0d1520] px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
             <Badge>{phase === "complete" ? "Debrief" : "Open Ticket"}</Badge>
-            <Badge variant="outline">{bundle.alerts.length} alerts</Badge>
+            {/* Same classification as the table's ALERT badges (eventClass.ts),
+                so this count always equals the badges shown (finding #5). */}
+            <Badge variant="outline">{alertCount} alert{alertCount !== 1 ? "s" : ""}</Badge>
             <Badge variant="outline">{bundle.events.length} events</Badge>
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">
@@ -1149,7 +1792,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           </p>
           <p className="text-sm leading-relaxed text-slate-300">
             {phase === "complete"
-              ? (gradeResult?.debrief?.narrative || bundle.narrative)
+              ? (gradeResult?.debrief?.narrative || bundle.narrative || "The full story unlocks on a complete attempt.")
               : (bundle.briefing ?? "An alert fired on a monitored asset and was queued for triage. Work the log evidence below and write up what you find.")}
           </p>
           {phase !== "complete" && (
@@ -1163,7 +1806,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         {/* Learning objectives name the techniques the questions ask about
             ("PsExec lateral movement via SMB pass-the-hash" answers the lateral
             movement question outright), so they belong in the debrief too. */}
-        {phase === "complete" && (
+        {phase === "complete" && (gradeResult?.debrief?.learningObjectives ?? bundle.learning_objectives).length > 0 && (
         <div className="rounded border border-neon-purple/20 bg-neon-purple/5 px-5 py-4">
           <div className="flex items-center gap-2 mb-3">
             <div className="rounded border border-neon-purple/30 bg-neon-purple/10 p-1.5">
@@ -1182,26 +1825,44 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         </div>
         )}
 
+        {/* Completed state — summary, per-question results, retry (finding #31). */}
+        {phase === "complete" && gradeResult && (
+          <ScenarioDebrief
+            result={gradeResult}
+            questions={bundle.questions}
+            events={bundle.events}
+            title={bundle.title}
+            iocTruth={iocTruth}
+            timeTaken={timeTaken}
+            verdict={submittedVerdict}
+            onRetry={handleRetry}
+            onShowScoreCard={() => setShowScoreCard(true)}
+          />
+        )}
+
         {/* Security Events Log */}
-        <ScenarioLogViewer events={bundle.events} />
+        <ScenarioLogViewer events={bundle.events} title={bundle.title} iocTruth={iocTruth} />
 
         {/* Investigation Panel */}
         <InvestigationPanel
           phase={phase}
-          notes={notes}
-          onNotesChange={setNotes}
+          draftKey={draftKey}
+          notesRef={notesRef}
+          notesFilled={notesFilled}
+          onNotesChange={handleNotesChange}
           iocs={manualIocs}
           onAddIoc={handleAddIoc}
           onRemoveIoc={handleRemoveIoc}
           verdict={verdict}
           onVerdictChange={setVerdict}
-          verdictReason={verdictReason}
-          onVerdictReasonChange={setVerdictReason}
+          reasonRef={reasonRef}
+          onVerdictReasonChange={handleReasonChange}
           onSubmit={handleSubmit}
           quizComplete={allAnswered}
         />
 
-        {/* Analyst Quiz */}
+        {/* Analyst Quiz — the per-question results replace it once complete. */}
+        {phase !== "complete" && (
         <Card>
           <h3 className="text-sm font-semibold text-white">Analyst Quiz</h3>
           <p className="mt-1 text-xs text-slate-400">
@@ -1209,11 +1870,21 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
               ? "Click \"Start Investigation\" above to begin. The timer is just for your reference — take the time you need; it doesn't affect your score or XP."
               : "Answer all questions then submit your investigation."}
           </p>
+          {/* Finding #4: the questions are not shown before the investigation
+              starts — reading them first turns the logs into a lookup exercise.
+              (Grading and the answer key are server-side regardless.) */}
+          {phase === "idle" || !tokens ? (
+            <div className="mt-4 flex items-center gap-3 rounded-md border border-dashed border-border/60 px-4 py-6 text-xs text-slate-400">
+              <Lock className="h-4 w-4 shrink-0 text-slate-500" />
+              {bundle.questions.length} question{bundle.questions.length !== 1 ? "s" : ""} unlock when you start the investigation.
+            </div>
+          ) : (
           <ol className="mt-4 space-y-5">
             {bundle.questions.map((q, idx) => {
               const isMulti = q.kind === "multi";
               const currentAnswer = answers[q.id];
               const answered = Array.isArray(currentAnswer) ? currentAnswer.length > 0 : !!currentAnswer;
+              const qTokens = tokens.toToken.get(q.id);
 
               return (
                 <li key={q.id} className={cn(
@@ -1236,14 +1907,16 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
                           across the 89 scenario questions, the correct answer was the
                           FIRST option 56 times (63%), so a student who never read a
                           question and always clicked the top choice scored 63%.
-                          Grading compares o.value to q.answer, never position, so
-                          reordering is presentation-only. */}
-                      {shuffleSeeded(q.options, q.id ?? q.prompt).map(o => {
+                          Grading compares option ids to q.answer, never position, so
+                          reordering is presentation-only. The letter shown here is
+                          the one the remapped explanations cite. */}
+                      {displayedOptions(q).map((o, di) => {
+                        const token = qTokens?.get(o.value) ?? "";
                         const selected = isMulti
-                          ? (currentAnswer as string[] | undefined)?.includes(o.value)
-                          : currentAnswer === o.value;
+                          ? (currentAnswer as string[] | undefined)?.includes(token)
+                          : currentAnswer === token;
                         return (
-                          <li key={o.value}>
+                          <li key={token || di}>
                             <label className={cn(
                               "flex cursor-pointer items-center gap-2 rounded border px-2.5 py-1.5 text-xs transition-colors",
                               selected
@@ -1254,11 +1927,12 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
                               <input
                                 type={isMulti ? "checkbox" : "radio"}
                                 name={q.id}
-                                value={o.value}
+                                value={token}
                                 checked={!!selected}
-                                onChange={() => handleAnswer(q.id, o.value, isMulti)}
+                                onChange={() => handleAnswer(q.id, token, isMulti)}
                                 className="accent-cyber-400"
                               />
+                              <span className="font-mono text-[10px] text-slate-400">{optionLetter(di)}.</span>
                               <span>{o.label}</span>
                             </label>
                           </li>
@@ -1273,17 +1947,20 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
               );
             })}
           </ol>
+          )}
         </Card>
+        )}
       </div>
 
-      {/* Completion Modal */}
-      {phase === "complete" && gradeResult && (
+      {/* Score card. "Continue" now just closes it — the page stays in its
+          completed state instead of resetting to Start (finding #31). */}
+      {phase === "complete" && displayResult && showScoreCard && (
         <CompletionModal
-          result={gradeResult}
+          result={displayResult}
           scenarioTitle={bundle.title}
-          timeTaken={elapsed}
+          timeTaken={timeTaken}
           onRetry={handleRetry}
-          onClose={() => setPhase("idle")}
+          onClose={() => setShowScoreCard(false)}
         />
       )}
     </div>

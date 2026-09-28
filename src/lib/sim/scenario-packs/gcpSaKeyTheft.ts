@@ -624,10 +624,10 @@ export function buildGcpSaKeyTheftScenario(
         "The benign control (gcpkey_00) and the pivotal event (gcpkey_03) both call CreateServiceAccountKey and both mint a user-managed key. Reading the two records against each other, what separates the malicious one?",
       hint: "Compare the calling principal and the request_metadata.caller_ip on each — a pipeline identity from Google's network versus a login from somewhere else.",
       options: [
-        { value: "principal_and_ip", label: "gcpkey_03 is called by a developer login (dnash@acme-data.io) from an internet caller_ip against an account it does not own, while gcpkey_00 is the terraform-ci-sa pipeline identity calling from a Cloud Build address" },
-        { value: "key_algorithm", label: "gcpkey_03 requests a stronger key algorithm than the benign run, and any RSA-2048 user-managed key is minted only by attackers" },
-        { value: "method_differs", label: "gcpkey_03 uses a different, undocumented admin method, whereas the benign run uses the supported one" },
-        { value: "response_count", label: "gcpkey_03 returns more response items than gcpkey_00, and the higher item count is what marks it as theft" },
+        { value: "principal_and_ip", label: "The suspect key was minted by dnash@acme-data.io from an internet caller_ip on an SA it does not own; the benign one by terraform-ci-sa from Cloud Build" },
+        { value: "key_algorithm", label: "The suspect call requests a stronger key algorithm than the benign run, and user-managed RSA-2048 keys are something only attackers mint in this project" },
+        { value: "method_differs", label: "The suspect call uses a different, undocumented IAM admin method to mint the key, whereas the benign Terraform run uses the supported API method" },
+        { value: "response_count", label: "The suspect call returns more response items than the benign one, and a key-create that returns multiple keys is the signature of credential theft" },
       ],
       answer: "principal_and_ip",
       explanation:
@@ -641,10 +641,10 @@ export function buildGcpSaKeyTheftScenario(
         "After the developer identity was seen, the calls that read the datalake bucket and the secret carry principalEmail = data-pipeline-sa, not dnash@acme-data.io. Why does the acting identity change partway through the chain?",
       hint: "Think about what the minted key and the GenerateAccessToken call give the operator that the developer login on its own did not.",
       options: [
-        { value: "acts_as_sa", label: "The minted key and the access token let the operator authenticate AS the service account, so from that point the audit log records the SA as the principal even though the same external caller_ip drives it" },
+        { value: "acts_as_sa", label: "With the minted key and token the operator authenticates AS the SA, so the log names the SA as principal while the same external caller_ip drives it" },
         { value: "log_rotation", label: "Cloud Audit Logs rotate the principal field to the resource owner after a few minutes, so the change is an artifact of logging rather than a change of actor" },
         { value: "sa_woke_up", label: "The real data-pipeline-sa resumed its scheduled job at that moment, so the later reads are the legitimate pipeline and unrelated to the earlier activity" },
-        { value: "impersonation_blocked", label: "The principal changed because GenerateAccessToken failed and GCP fell back to the service account's own identity automatically" },
+        { value: "impersonation_blocked", label: "The principal changed because GenerateAccessToken failed and GCP automatically fell back to the service account's own identity to complete the calls" },
       ],
       answer: "acts_as_sa",
       explanation:
@@ -658,10 +658,10 @@ export function buildGcpSaKeyTheftScenario(
         "The data-pipeline-sa is a real account that reads acme-prod-datalake every day as part of the pipeline, so its storage reads are expected. Which single observation shows this run was not the pipeline doing its job?",
       hint: "Look at request_metadata.caller_ip on the SA's reads and compare it with where this account's work normally originates.",
       options: [
-        { value: "caller_ip_external", label: "Every read on the SA carries request_metadata.caller_ip 185.129.62.66 — an internet address — where the pipeline's real work originates from inside Google's network" },
-        { value: "role_missing", label: "The SA no longer held storage.objects.get, so the reads must have been made by a different, forged identity" },
-        { value: "wrong_bucket", label: "The reads targeted a bucket the SA had never been granted access to, which is what proves the run was hostile" },
-        { value: "night_hours", label: "The reads happened at night, and any service-account activity outside business hours is by definition an incident" },
+        { value: "caller_ip_external", label: "Every read by the SA carries caller_ip 185.129.62.66, an internet address, while the pipeline's real work originates inside Google's network" },
+        { value: "role_missing", label: "The SA no longer held storage.objects.get at the time, so the successful reads must have been made by a different, forged identity using its name" },
+        { value: "wrong_bucket", label: "The reads targeted a bucket the SA had never been granted access to, and access outside its IAM bindings is what proves the run was hostile" },
+        { value: "night_hours", label: "The reads happened overnight, well outside business hours, and service-account activity at that time is enough on its own to declare an incident" },
       ],
       answer: "caller_ip_external",
       explanation:
@@ -675,10 +675,10 @@ export function buildGcpSaKeyTheftScenario(
         "Event Threat Detection produced two findings — Persistence: New Service Account Key and Exfiltration: Cloud Storage Object Read. What does each tell you about a different stage of the incident?",
       hint: "One fires on an Admin Activity write that created a credential; the other fires on the Data Access reads that pulled records out.",
       options: [
-        { value: "persist_then_exfil", label: "The first marks the credential being planted on the account, the second marks the records then being pulled out — the persistence foothold, and then the reach it enabled" },
-        { value: "duplicate_finding", label: "Both findings describe the same key-creation event, so one can be closed as a duplicate of the other without further review" },
-        { value: "exfil_causes_key", label: "The object-read finding fires first and triggers the key finding, because reading objects is what makes GCP register the key as anomalous" },
-        { value: "separate_incidents", label: "The two findings are on unrelated resources and should be tracked as two independent incidents with no shared cause" },
+        { value: "persist_then_exfil", label: "The first marks a durable credential planted on the account, the second the records then pulled out — the foothold, and the reach it bought" },
+        { value: "duplicate_finding", label: "Both findings describe the same key-creation event raised by two detectors, so one can be closed as a duplicate of the other without further review" },
+        { value: "exfil_causes_key", label: "The object-read finding fires first and triggers the key finding, because reading objects is what makes GCP register the new key as anomalous" },
+        { value: "separate_incidents", label: "The two findings are on unrelated resources in different projects and should be tracked as two independent incidents with no shared root cause" },
       ],
       answer: "persist_then_exfil",
       explanation:
@@ -692,8 +692,8 @@ export function buildGcpSaKeyTheftScenario(
         "You are scoping containment. A developer login from the internet minted a user-managed key on an over-permissioned service account and used it to read a datalake and a stored secret. Which response matches the evidence?",
       hint: "Think about the durable key that survives a password reset, the secret that was read, and everything the SA's roles could reach — not just the objects you watched leave.",
       options: [
-        { value: "delete_key_rotate_scope", label: "Delete the user-managed key on data-pipeline-sa, reset dnash's credentials and revoke its sessions, rotate the warehouse secret that was read, then scope the exposure to everything the SA's roles could reach and right-size those roles" },
-        { value: "reset_dev_only", label: "Reset dnash@acme-data.io's password; since that login started the intrusion, changing it invalidates the key and fully closes the incident" },
+        { value: "delete_key_rotate_scope", label: "Delete the SA's user-managed key, reset and revoke dnash, rotate the secret that was read, and scope to everything the SA's roles could reach" },
+        { value: "reset_dev_only", label: "Reset dnash@acme-data.io's password and revoke its sessions; since that login started the intrusion, changing it invalidates the key and closes the incident" },
         { value: "block_ip_only", label: "Block 185.129.62.66 at the perimeter; because every call came from that one address, blocking it contains the incident and no credential change is needed" },
         { value: "rotate_ci_sa", label: "Rotate the terraform-ci-sa credentials from the benign control, since it is the account that routinely creates service-account keys in this project" },
       ],

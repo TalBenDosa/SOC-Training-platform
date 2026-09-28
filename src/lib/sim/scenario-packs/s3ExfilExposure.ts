@@ -234,10 +234,10 @@ export function buildS3ExfilExposureScenario(
         "The GetObject burst (s3exfil_07) and the benign backup read (s3exfil_00) both pull thousands of objects from the same bucket. Reading the two records against each other, what marks s3exfil_07 as the malicious one?",
       hint: "Compare the caller identity and where each request came from — an internet address versus a private path into the account.",
       options: [
-        { value: "outside_vs_vpce", label: "s3exfil_07 comes from an internet address on a standalone access key, while s3exfil_00 is the expected role reaching the bucket through a VPC endpoint from a private in-account address" },
-        { value: "volume_alone", label: "s3exfil_07 returns more objects, and any GetObject call that touches more than ten thousand keys in one window is malicious purely on the count regardless of the caller" },
-        { value: "key_name", label: "s3exfil_07 names a .parquet object under the exports prefix, and reading a data-export file format is what distinguishes theft from an ordinary backup" },
-        { value: "region_diff", label: "s3exfil_07 ran in a different AWS region from the backup job, and a region mismatch between two reads of one bucket is the only reliable tell" },
+        { value: "outside_vs_vpce", label: "s3exfil_07 is a standalone access key calling from an internet address, while s3exfil_00 is the expected role reaching the bucket through a VPC endpoint from a private in-account address" },
+        { value: "volume_alone", label: "s3exfil_07 returns far more objects in a shorter window than the nightly job, and a read of that size against a regulated bucket is enough on its own to call it exfiltration, whoever the caller is" },
+        { value: "key_name", label: "s3exfil_07 requests .parquet files under exports/, and pulling a data-export file format rather than backup snapshots is what separates theft from the replication job's reads" },
+        { value: "region_diff", label: "s3exfil_07 was served from a different AWS region than the replication job, and a region mismatch between two reads of the same bucket is the clearest sign an unapproved second party is involved" },
       ],
       answer: "outside_vs_vpce",
       explanation:
@@ -251,10 +251,10 @@ export function buildS3ExfilExposureScenario(
         "Before any object was read, three management events (s3exfil_02, s3exfil_03, s3exfil_04) touched the bucket. Which of these was the change that actually let an unauthenticated request reach the objects?",
       hint: "One account-level guard has to be off before a permissive bucket policy or ACL can take effect at all.",
       options: [
-        { value: "bpa_off", label: "PutBucketPublicAccessBlock setting all four block flags to false — with Block Public Access on, the permissive policy and ACL that followed would have been overridden and denied" },
-        { value: "list_objects", label: "ListObjectsV2 enumerating the exports prefix, because listing the keys is what exposes the objects to an outside caller in the first place" },
-        { value: "getobject", label: "The GetObject burst itself, since each individual read re-grants public permission on the object it returns before serving it" },
-        { value: "gd_finding", label: "The GuardDuty Policy:S3/BucketAnonymousAccessGranted finding, because raising the finding is the step that switches the bucket into its public state" },
+        { value: "bpa_off", label: "PutBucketPublicAccessBlock setting all four block flags to false — while Block Public Access was on, the permissive policy and ACL that followed would have been overridden" },
+        { value: "list_objects", label: "ListObjectsV2 enumerating the exports/ prefix, because returning the 20,000 key names to the caller is the step that publishes each object's location and makes it fetchable from outside" },
+        { value: "getobject", label: "The GetObject burst itself, since S3 evaluates each anonymous read by re-granting public permission on the object it serves, so the reads are what actually switched the exposure on" },
+        { value: "gd_finding", label: "The GuardDuty Policy:S3/BucketAnonymousAccessGranted finding, because GuardDuty applies the PUBLIC effective permission it reports, and that switch is what let outside requests in" },
       ],
       answer: "bpa_off",
       explanation:
@@ -268,10 +268,10 @@ export function buildS3ExfilExposureScenario(
         "The reporting-export-svc key is a real service credential that runs jobs in this account every day, so its activity is expected. Which single observation shows this particular run was not that service doing its job?",
       hint: "Look at the sourceIPAddress carried on the management writes and the reads, and compare it with where this key's work normally originates.",
       options: [
-        { value: "internet_source", label: "Every management write and every read on the key carries an internet sourceIPAddress rather than the in-account origin the service normally uses — the same remote host GuardDuty keyed both of its findings on" },
-        { value: "key_disabled", label: "The access key had already been disabled in IAM, so any call it made proves the credential was being replayed after revocation" },
-        { value: "mfa_absent", label: "The calls carried no MFA context, and a service key making S3 calls without an MFA claim is by itself proof of misuse" },
-        { value: "root_identity", label: "The calls were made by the account root user rather than the service key, which is never used for automated S3 work" },
+        { value: "internet_source", label: "Every write and read on the key carries an internet sourceIPAddress instead of the service's usual in-account origin — the same remote host both GuardDuty findings were raised on" },
+        { value: "key_disabled", label: "The access key had already been deactivated in IAM before these calls, so every request it made in this window proves the credential was being replayed by someone after revocation" },
+        { value: "mfa_absent", label: "The calls carried no MFA context in their session attributes, and a service key making bucket-configuration writes without an MFA claim is by itself proof the key was misused" },
+        { value: "root_identity", label: "The bucket-configuration writes were made by the account root user rather than the service key, and root is not used for automated S3 work, so the service could not have done this" },
       ],
       answer: "internet_source",
       explanation:
@@ -285,10 +285,10 @@ export function buildS3ExfilExposureScenario(
         "GuardDuty produced two findings on this bucket — Policy:S3/BucketAnonymousAccessGranted and Exfiltration:S3/ObjectRead.Unusual. What does each one tell you about a different stage of the incident?",
       hint: "One finding fires on a configuration change; the other fires on the objects actually being pulled down.",
       options: [
-        { value: "config_then_read", label: "The first fires on the config write that opened the store, the second on the records then being drained out — the origin and then the resulting loss, read in that sequence" },
+        { value: "config_then_read", label: "The first fires on the config write that opened the store, the second on the records then being drained out — the origin, then the resulting loss" },
         { value: "same_event", label: "Both findings describe the identical event and GuardDuty simply emitted it twice, so only one of the two needs to be triaged and the other can be closed as a duplicate" },
         { value: "read_first", label: "The object-read finding fires first and causes the anonymous-access finding, because reading objects is what forces AWS to mark the bucket policy as public afterwards" },
-        { value: "unrelated", label: "The two findings are on unrelated resources — one on an EC2 instance and one on the bucket — and should be tracked as two separate incidents entirely" },
+        { value: "unrelated", label: "The two findings are on unrelated resources — one on an EC2 instance profile and one on the bucket — so they should be tracked and escalated as two separate incidents" },
       ],
       answer: "config_then_read",
       explanation:
@@ -302,10 +302,10 @@ export function buildS3ExfilExposureScenario(
         "You are scoping containment. A leaked IAM access key was used from the internet to open the bucket and read roughly 41 GB of regulated exports. Which response matches the evidence?",
       hint: "Think about the credential still in the attacker's hands, the bucket left in an open state, and the exposure of everything the key could reach — not only the one prefix you watched being read.",
       options: [
-        { value: "revoke_close_assess", label: "Disable and rotate the reporting-export-svc key, re-enable Block Public Access and strip the public policy and ACL, then scope the exposure to every object the key could reach and open a data-loss review for the regulated records" },
-        { value: "block_ip_only", label: "Block 91.242.217.35 at the edge; because the leaked key was only ever seen from that one address, blocking it fully contains the incident and no credential change is needed" },
-        { value: "delete_object", label: "Delete the single patients-000001.parquet object named in the GetObject record, since removing the file that was read closes the exposure and the rest of the bucket was never at risk" },
-        { value: "rotate_backup", label: "Rotate the medcore-backup-replicator role that appears in the benign nightly read, as it is the identity that had standing access to the exports bucket all along" },
+        { value: "revoke_close_assess", label: "Disable and rotate the reporting-export-svc key, restore Block Public Access and remove the public policy and ACL, then treat everything the key could reach as exposed and open a data-loss review" },
+        { value: "block_ip_only", label: "Block 91.242.217.35 at the perimeter and in the bucket policy; since the leaked key was only ever seen from that one address, cutting it off contains the incident without a credential change" },
+        { value: "delete_object", label: "Delete the patients-000001.parquet object named in the GetObject record and restore it from backup, since the file shown in the log is the exposed item and the rest of the bucket was not read" },
+        { value: "rotate_backup", label: "Rotate the medcore-backup-replicator role credentials and review its VPC endpoint policy, since that role holds standing access to the exports bucket and is the likelier source of the leak" },
       ],
       answer: "revoke_close_assess",
       explanation:

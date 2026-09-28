@@ -471,7 +471,7 @@ export function buildMobileMdmCompromiseScenario(
       hint: "Look at which event carries is_detection. Nothing walked a host process tree — one management-plane sensor reported the handset's health.",
       kind: "single",
       options: [
-        { value: "mtd_signal", label: "evt_mmc_03_mtd_threat_signal — the Mobile-Threat-Defense connector reporting the phone rooted at a High device threat level: an MDM control-plane signal, not a host process detection" },
+        { value: "mtd_signal", label: "The Mobile-Threat-Defense connector reporting the phone rooted at a High device threat level — an MDM control-plane signal, not a host detection" },
         { value: "edr_laptop", label: "An EDR agent on the user's laptop flagged a malicious binary in memory, and the case begins by walking that host's process tree back to its parent" },
         { value: "firewall_block", label: "A perimeter firewall denied the Amsterdam hosting IP on an outbound connection, and that single blocked session is what opened the ticket for triage" },
         { value: "dlp_block", label: "A DLP policy blocked a sensitive file leaving SharePoint Online toward the phone, and that blocked exfiltration attempt is what raised the alert" },
@@ -488,9 +488,9 @@ export function buildMobileMdmCompromiseScenario(
       hint: "Compare deviceDetail.isCompliant, the ipAddress / country, and conditionalAccessStatus between the 20:20 and 21:14 sign-ins.",
       kind: "single",
       options: [
-        { value: "noncompliant_ca_gap", label: "It runs with deviceDetail.isCompliant false from a foreign hosting IP, yet its conditionalAccessStatus is still success — access allowed off a device the MDM had already failed" },
-        { value: "resulttype", label: "The later sign-in carries resultType 0, and by definition any Entra sign-in that returns resultType 0 is a confirmed account takeover regardless of context" },
-        { value: "ismanaged_false", label: "The later sign-in reports deviceDetail.isManaged false, which proves the phone had been unenrolled from Intune management just before the corporate access" },
+        { value: "noncompliant_ca_gap", label: "isCompliant false from a foreign hosting IP, yet conditionalAccessStatus success — access allowed off a device the MDM had already failed" },
+        { value: "resulttype", label: "The later sign-in carries resultType 0, the Entra code that marks a sign-in completed with a token replayed from another device" },
+        { value: "ismanaged_false", label: "The later sign-in reports deviceDetail.isManaged false, showing the phone had been unenrolled from Intune just before the corporate access" },
         { value: "appdisplayname", label: "The appDisplayName differs between the two sign-ins, and a change of target application between logons is the field that identifies the compromise" },
       ],
       answer: "noncompliant_ca_gap",
@@ -505,7 +505,7 @@ export function buildMobileMdmCompromiseScenario(
       hint: "If 'device went non-compliant' decided it, both would be incidents. Compare the reason, whether a threat signal fired, and whether a non-store app appeared.",
       kind: "single",
       options: [
-        { value: "reason_and_threat", label: "The reason and its corroboration: s.mendel's phone only failed a pending OS-update check and self-remediated, with no threat signal or sideloaded app — d.okafor's flip followed a rooted-device signal" },
+        { value: "reason_and_threat", label: "The reason behind each flip: s.mendel's phone failed a pending OS-update check and self-remediated; d.okafor's followed a rooted-device signal and a sideload" },
         { value: "severity_decides", label: "Severity magnitude decides it — s.mendel's record carries a lower severity than d.okafor's, so the severity value alone cleanly separates a benign blip from a real compromise" },
         { value: "same_verdict", label: "Nothing separates them — both managed phones went non-compliant on the same night, so both records must be treated as confirmed mobile device compromises until proven otherwise" },
         { value: "flagged_or_not", label: "Whether Intune recorded it at all — only d.okafor's phone produced a compliance record, so the mere presence of the record is what tells the two devices apart" },
@@ -522,7 +522,7 @@ export function buildMobileMdmCompromiseScenario(
       hint: "Look at mobileApp.publisher and intune.installStateDetail on evt_mmc_02, then at the timing against evt_mmc_03.",
       kind: "single",
       options: [
-        { value: "sideload_then_root", label: "A non-managed app of unknown publisher, installed from outside the catalog, then a rooted-device signal six minutes later — the sideload is the plausible entry before the elevation" },
+        { value: "sideload_then_root", label: "A non-managed app of unknown publisher installed from outside the catalog, then a rooted-device signal six minutes later — the plausible entry point" },
         { value: "store_update", label: "A routine managed-store update that Intune itself pushed to the device, entirely unrelated to the device-threat-level signal that happened to arrive a few minutes afterward" },
         { value: "mtd_agent", label: "The Defender for Endpoint threat-defense agent installing on the phone, which is exactly why the rooted-device signal appeared on the very next device sync" },
         { value: "os_patch", label: "The pending OS security update installing itself, the same benign cause that put s.mendel's managed phone into a non-compliant state earlier the same night" },
@@ -538,7 +538,7 @@ export function buildMobileMdmCompromiseScenario(
         "You are writing the verdict and the response. The evidence is a rooted managed phone, a non-store app, and corporate mail and file access from that non-compliant device. How should this be classified and handled?",
       kind: "single",
       options: [
-        { value: "compromise_wipe_revoke", label: "Confirmed device compromise — retire the phone in Intune, revoke the user's sessions and tokens, reset the credential, review what was reached, and close the Conditional-Access gap" },
+        { value: "compromise_wipe_revoke", label: "Confirmed device compromise — retire the phone in Intune, revoke sessions and tokens, reset the credential, review what was reached, and close the Conditional-Access gap" },
         { value: "benign_travel", label: "Benign — the phone merely went non-compliant for a moment and every sign-in used a valid account from an enrolled corporate device, so the ticket can be closed with no action taken" },
         { value: "reset_password_only", label: "Reset the user's password and treat the matter as closed, since a fresh password immediately ends the access without any need to touch the enrolled device or its session tokens" },
         { value: "wait_for_edr", label: "Hold the case open — without a corroborating endpoint EDR detection there is no confirmed intrusion yet, so wait for a host signal before escalating this as a real incident" },

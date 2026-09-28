@@ -608,10 +608,10 @@ export function buildLinuxPrivescSuidScenario(
         "Event lpe_03 is an auditd USER_CMD record for `sudo -l` run by www-data, with res=failed. Before you know how the attacker reached root, what does this single record already tell you?",
       hint: "Read the res field together with the sudo message, and remember what sudo would have logged if the password were merely wrong.",
       options: [
-        { value: "no_sudo_path", label: "www-data has no sudo entitlement, so whatever escalation follows did NOT go through sudo — a different mechanism must be responsible" },
-        { value: "wrong_pw", label: "www-data typed the wrong sudo password, so the same sudo rule is probably still usable with the correct one" },
-        { value: "will_escalate", label: "A failed sudo -l is the normal first step of a working sudo exploit, so root was almost certainly obtained through sudo moments later" },
-        { value: "no_tty", label: "The terminal is (none), so auditd could not have recorded the command at all and the record must be spurious" },
+        { value: "no_sudo_path", label: "www-data has no sudo entitlement at all, so the escalation that follows must use some mechanism other than sudo" },
+        { value: "wrong_pw", label: "www-data mistyped the sudo password, so the same sudo rule is probably still usable once the right password is supplied" },
+        { value: "will_escalate", label: "A failed sudo -l is the usual reconnaissance step before a sudo exploit, so root was most likely reached through sudo next" },
+        { value: "no_tty", label: "The terminal is (none), so auditd could not have captured a real command and this record is a spurious artefact" },
       ],
       answer: "no_sudo_path",
       explanation:
@@ -625,10 +625,10 @@ export function buildLinuxPrivescSuidScenario(
         "In lpe_05 the SYSCALL for the find execve shows uid=33 but euid=0, and the PATH details give /usr/bin/find as mode 0104755. Which mechanism does this combination describe?",
       hint: "Compare the real uid with the effective uid, and read the leading digits of the file mode.",
       options: [
-        { value: "suid_bit", label: "/usr/bin/find carries the setuid bit (mode 04755), so executing it sets euid to the file owner (root) regardless of who runs it" },
-        { value: "sudo_rule", label: "A narrow sudoers rule lets www-data run find as root without a password, which is why euid becomes 0" },
-        { value: "kernel_exploit", label: "A kernel vulnerability was exploited to overwrite the process credentials, forcing euid to 0" },
-        { value: "world_writable", label: "/usr/bin/find is world-writable, so www-data replaced it with a copy that runs as root" },
+        { value: "suid_bit", label: "/usr/bin/find carries the setuid bit (mode 04755), so executing it sets euid to the file owner, root, whoever runs it" },
+        { value: "sudo_rule", label: "A narrow NOPASSWD sudoers rule lets www-data run find as root, which is why the execve shows euid 0 with uid 33" },
+        { value: "kernel_exploit", label: "A kernel privilege-escalation exploit overwrote the process's cred structure in memory, forcing its euid to 0" },
+        { value: "world_writable", label: "/usr/bin/find is world-writable, so www-data swapped in its own copy that runs as root when it is executed" },
       ],
       answer: "suid_bit",
       explanation:
@@ -642,10 +642,10 @@ export function buildLinuxPrivescSuidScenario(
         "You need to prove the escalation actually succeeded — that commands are now running with root privilege, not merely that an exploit was attempted. Which event demonstrates it most directly?",
       hint: "Look for an action that is impossible for uid 33 but succeeds, and check the euid on that same record.",
       options: [
-        { value: "shadow_read", label: "lpe_07 — cat /etc/shadow succeeds (exit=3, a valid fd) with euid=0, reading a 0640 root:shadow file that www-data cannot open" },
-        { value: "suid_enum", label: "lpe_04 — the find / -perm -4000 enumeration that located the setuid binary in the first place" },
-        { value: "id_disc", label: "lpe_02 — the id command, which reported the account's identity at the start of the session" },
-        { value: "siem_alert", label: "lpe_10 — the Sentinel correlation alert that named the escalation technique" },
+        { value: "shadow_read", label: "The /etc/shadow read — it succeeds (exit=3, a valid fd) with euid=0 on a 0640 root:shadow file www-data cannot open" },
+        { value: "suid_enum", label: "The find / -perm -4000 enumeration — it located the setuid binary and listed root-owned files across the filesystem" },
+        { value: "id_disc", label: "The id command at the start of the session — it reports the account's identity, including any effective root uid" },
+        { value: "siem_alert", label: "The Sentinel correlation alert — it confirms the escalation technique and the root shell from Falcon's own detection" },
       ],
       answer: "shadow_read",
       explanation:
@@ -661,8 +661,8 @@ export function buildLinuxPrivescSuidScenario(
       options: [
         { value: "auid", label: "The admin's root action carries auid=1001 (a human loginuid); the intrusion's root actions carry auid=4294967295 — no login session behind them" },
         { value: "authz", label: "The admin's escalation has an authorization record (sudo USER_CMD, res=success); the intrusion's euid=0 appears with no sudo and no authorization record at all" },
-        { value: "asroot", label: "Only the intrusion's processes ever run as root — the administrator's sudo command never actually reached uid/euid 0" },
-        { value: "hostname", label: "The two occur on different hosts, so the admin activity is irrelevant to the web-app-07 incident and can be set aside" },
+        { value: "asroot", label: "Only the intrusion's processes run as root — the administrator's sudo command stayed at the admin's own uid 1001 throughout the session" },
+        { value: "hostname", label: "The two occur on different hosts, so the admin's sudo session is irrelevant to the web-app-07 incident and can be set aside entirely" },
       ],
       answer: ["auid", "authz"],
       explanation:

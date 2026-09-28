@@ -838,8 +838,8 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       kind: "single",
       options: [
         { value: "qualys", label: "64.39.106.131 — a single fixed IP, a self-identifying scanner User-Agent, every payload blocked, and no database or endpoint activity follows it" },
-        { value: "atk_a", label: "45.146.130.72 — its requests all returned 404 or 403, so nothing it sent ever reached application code or produced a result" },
-        { value: "atk_c", label: "91.242.229.35 — it used an ordinary browser User-Agent and the WAF allowed it, which is what normal customer traffic looks like" },
+        { value: "atk_a", label: "45.146.130.72 — its requests all returned 404 or 403, so nothing it sent ever reached application code or produced a usable result for it" },
+        { value: "atk_c", label: "91.242.229.35 — it used an ordinary desktop browser User-Agent and the WAF allowed its request, which is exactly what normal customer traffic looks like" },
         { value: "none", label: "None of them are noise — all three addresses sent the same payload families, so all three must be treated as active attackers" },
       ],
       answer: "qualys",
@@ -854,7 +854,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       kind: "single",
       options: [
         { value: "oversize", label: "The 12,438-byte body exceeded the 8 KB body-inspection limit, and SizeRestrictions_BODY was overridden to count-only, so the oversized request was passed on uninspected" },
-        { value: "iprep", label: "The source address had a clean reputation and no matching entry in the IP reputation rule group, so the web ACL short-circuited evaluation before the SQLi rules ran" },
+        { value: "iprep", label: "The source address had a clean reputation and no matching entry in the IP reputation rule group, so the web ACL short-circuited evaluation before the managed SQLi rules ran" },
         { value: "method", label: "The managed SQLi rule group only inspects GET query strings, so a POST request is never evaluated against SQL injection signatures by that rule group at all" },
         { value: "sensitivity", label: "The SQLi rule group was running at LOW sensitivity, which does not match UNION-based payloads and only detects simple tautologies such as OR 1=1" },
       ],
@@ -871,7 +871,7 @@ export function buildWebShellRceScenario(scenarioId = "webshell-sqli-2026"): Sce
       kind: "single",
       options: [
         { value: "waf_pivot", label: "Pivot to the AWS WAF ALLOW record for the same URI and timestamp — its httpRequest.clientIp holds the real caller, since IIS logs only the load balancer" },
-        { value: "trust_iis", label: "Treat 10.40.12.9 as the attacker and hunt internally, because the web server's own access log is the authoritative record of who connected to it" },
+        { value: "trust_iis", label: "Treat 10.40.12.9 as the attacker and hunt internally, because the web server's own access log is the authoritative record of who actually connected to it" },
         { value: "dns_lookup", label: "Resolve the csHost value back through DNS to obtain the public address that the storefront hostname pointed at when the request arrived" },
         { value: "edr_socket", label: "Use the Defender network events on WEB-SHOP-01, which record the remote address of every inbound socket the IIS worker process accepted" },
       ],

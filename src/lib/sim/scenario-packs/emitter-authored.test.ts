@@ -347,43 +347,99 @@ describe("emitter-authored scenario packs", () => {
 
   it("multiHostIntrusion builds a coherent 3-host campaign from emitters only (PAN + CrowdStrike + WinSec)", () => {
     const s = buildMultiHostIntrusionScenario();
-    expect(s.events.length).toBe(13);
+    // 1 credential-source baseline + 7 (WS) + 4 (FS) + 8 (BK) = 20 events
+    expect(s.events.length).toBe(20);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "Palo Alto Networks PAN-OS", "CrowdStrike Falcon", "Windows Security",
     ]));
-    // the foothold crux: encoded PowerShell beacon under Office, one stable tree
+    // chronological order holds even with jitter (except the baseline, flagged is_baseline)
+    const nonBaseline = s.events.filter(e => !e.is_baseline);
+    for (let i = 1; i < nonBaseline.length; i++) {
+      expect(new Date(nonBaseline[i].ts).getTime()).toBeGreaterThanOrEqual(new Date(nonBaseline[i - 1].ts).getTime());
+    }
+    // the credential source: svc_backup has a live service (Type 5) session on FS-SRV-03
+    const svcSession = s.events.find(e => e.id === "evt_mhi_fs0_svc_session");
+    expect(svcSession?.is_baseline).toBe(true);
+    expect(svcSession?.raw?.["winlog.event_data.LogonType"]).toBe("5");
+    // the foothold crux: encoded PowerShell beacon under Office, real Falcon fields
     const beacon = s.events.find(e => e.id === "evt_mhi_ws3_beacon");
     expect(beacon?.is_detection).toBe(true);
     expect(beacon?.process?.hash?.sha256).toBeTruthy();
-    expect(beacon?.process?.parent_pid).toBe(6112);
-    // the C2 heartbeat is an aggregated TLS session (repeat_count), not a bare GET
-    const c2 = s.events.find(e => e.id === "evt_mhi_ws4_c2");
+    expect(beacon?.raw?.["crowdstrike.SHA256HashData"]).toBeTruthy();
+    expect(beacon?.raw?.["crowdstrike.MD5HashData"]).toBeTruthy();
+    // Falcon UPIDs: the beacon's ParentProcessId equals cmd.exe's TargetProcessId
+    const macroCmd = s.events.find(e => e.id === "evt_mhi_ws2_macro_spawn");
+    expect(beacon?.raw?.["crowdstrike.ParentProcessId"]).toBe(macroCmd?.raw?.["crowdstrike.TargetProcessId"]);
+    // RawProcessId is the OS PID and is a multiple of 4
+    expect(Number(beacon?.raw?.["crowdstrike.RawProcessId"]) % 4).toBe(0);
+    // a DnsRequest for the C2 domain, attributed to powershell
+    const dns = s.events.find(e => e.id === "evt_mhi_ws4_dns");
+    expect(dns?.raw?.["crowdstrike.event_simpleName"]).toBe("DnsRequest");
+    expect(dns?.raw?.["crowdstrike.DomainName"]).toBe("cdn-sync-eu.example");
+    expect(dns?.process?.name).toBe("powershell.exe");
+    // the C2 heartbeat: an aggregated TRAFFIC/end session with an end reason and elapsed
+    const c2 = s.events.find(e => e.id === "evt_mhi_ws6_c2_fw");
     expect(c2?.event_type).toBe("net_connection");
+    expect(c2?.raw?.["pan.type"]).toBe("TRAFFIC");
+    expect(c2?.raw?.["pan.subtype"]).toBe("end");
     expect(c2?.raw?.["pan.app"]).toBe("ssl");
     expect(c2?.raw?.["pan.repeat_count"]).toBe("14");
-    // the lateral hop lands as a Type-3 NTLM logon from the foothold host
+    expect(c2?.raw?.["pan.session_end_reason"]).toBe("tcp-fin");
+    expect(c2?.raw?.["pan.elapsed_time"]).toBe("840");
+    // an encrypted URL record never carries a path — only the hostname (or no url)
+    expect(c2?.raw?.["pan.url"]).toBeUndefined();
+    // the lateral hop lands as a Type-3 NTLM logon from the foothold host, on the member
+    // server's own log (windows_security) with a real domain SID and a logon id
     const logon = s.events.find(e => e.id === "evt_mhi_fs1_logon");
+    expect(logon?.source).toBe("windows_security");
     expect(logon?.raw?.["winlog.event_data.LogonType"]).toBe("3");
     expect(logon?.raw?.["winlog.event_data.AuthenticationPackageName"]).toBe("NTLM");
     expect(logon?.raw?.["winlog.event_data.IpAddress"]).toBe("10.20.6.28");
+    expect(logon?.raw?.["winlog.event_data.TargetUserSid"]).toMatch(/^S-1-5-21-/);
+    expect(logon?.raw?.["winlog.event_data.TargetLogonId"]).toMatch(/^0x/);
+    expect(logon?.raw?.["winlog.event_data.LmPackageName"]).toBe("NTLM V2");
+    expect(logon?.raw?.["winlog.event_data.IpPort"]).not.toBe("0");
     // the credential-theft crux: LSASS full-access read (0x1FFFFF)
     const lsass = s.events.find(e => e.id === "evt_mhi_fs3_lsass");
     expect(lsass?.event_type).toBe("process_access");
     expect(lsass?.raw?.["crowdstrike.GrantedAccess"]).toBe("0x1FFFFF");
     expect(lsass?.raw?.["crowdstrike.CrossProcessTargetName"]).toBe("lsass.exe");
-    // the rename tell: OriginalFileName rclone.exe on an unsigned ProgramData binary
-    const stage = s.events.find(e => e.id === "evt_mhi_bk1_stage");
-    expect(stage?.raw?.["process.original_file_name"]).toBe("rclone.exe");
+    expect(lsass?.raw?.["crowdstrike.event_simpleName"]).not.toBe("ProcessAccessIOC"); // real name
+    // the missing link: svc_backup (from the dump) logs on to BKP-SRV-02 from FS-SRV-03,
+    // plus 7045 PSEXESVC and 5145 ADMIN$/IPC$ for the PsExec step
+    const bkLogon = s.events.find(e => e.id === "evt_mhi_bk0_logon");
+    expect(bkLogon?.raw?.["winlog.event_data.TargetUserName"]).toBe("svc_backup");
+    expect(bkLogon?.raw?.["winlog.event_data.IpAddress"]).toBe("10.20.7.33");
+    expect(s.events.find(e => e.id === "evt_mhi_bk3_service")?.raw?.["winlog.event_id"]).toBe("7045");
+    expect(s.events.find(e => e.id === "evt_mhi_bk1_admin_share")?.raw?.["winlog.event_data.ShareName"]).toBe("\\\\*\\ADMIN$");
+    expect(s.events.find(e => e.id === "evt_mhi_bk2_ipc_share")?.raw?.["winlog.event_data.RelativeTargetName"]).toBe("svcctl");
+    // the rename tell: OriginalFilename rclone.exe on an unsigned ProgramData binary
+    const stage = s.events.find(e => e.id === "evt_mhi_bk4_stage");
+    expect(stage?.raw?.["crowdstrike.OriginalFilename"]).toBe("rclone.exe");
     expect(stage?.raw?.["process.code_signature.status"]).toBe("unsigned");
-    // the exfil crux: the same binary pushing to the cloud-storage host
-    const exfil = s.events.find(e => e.id === "evt_mhi_bk2_exfil_proc");
+    // #7: the exfil is a NEW process — a different PID from the staging copy
+    const exfil = s.events.find(e => e.id === "evt_mhi_bk5_exfil_proc");
     expect(exfil?.is_detection).toBe(true);
     expect(exfil?.process?.name).toBe("svchost-update.exe");
-    expect(exfil?.raw?.["destination.domain"]).toBe("store.filedrop-transfer.net");
+    expect(exfil?.network?.domain).toBe("store.filedrop-transfer.example");
+    expect(exfil?.process?.pid).not.toBe(stage?.process?.pid);
+    // Falcon connection events carry no ECS destination.* / byte counts
+    expect(exfil?.raw?.["destination.domain"]).toBeUndefined();
+    expect(exfil?.raw?.["crowdstrike.RemoteAddressIP4"]).toBe("198.51.100.23");
+    // the exfil VOLUME lives on the firewall's session-end record, not the Falcon event
+    const fw = s.events.find(e => e.id === "evt_mhi_bk6_fw");
+    expect(fw?.raw?.["pan.subtype"]).toBe("end");
+    expect(fw?.raw?.["pan.session_end_reason"]).toBe("tcp-fin");
+    expect(fw?.raw?.["pan.bytes_sent"]).toBe("3650722000");
+    // safe IOCs only: documentation ranges + .example
+    for (const i of s.iocs ?? []) {
+      if (i.type === "ip") expect(i.value).toMatch(/^(192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)/);
+      if (i.type === "domain") expect(i.value).toMatch(/\.example$/);
+    }
     // the three summary alerts carry their scoping hints
-    expect(s.events.find(e => e.id === "evt_mhi_ws5_alert")?.edr_scope).toBe("edr");
+    expect(s.events.find(e => e.id === "evt_mhi_ws7_alert")?.edr_scope).toBe("edr");
     expect(s.events.find(e => e.id === "evt_mhi_fs4_alert")?.edr_scope).toBe("hybrid");
-    expect(s.events.find(e => e.id === "evt_mhi_bk4_alert")?.edr_scope).toBe("edr");
+    expect(s.events.find(e => e.id === "evt_mhi_bk7_alert")?.edr_scope).toBe("edr");
     // three hosts → three isolated EDR incidents, all correlated by the campaign
     const invs = buildInvestigationsFromScenario({ title: s.title, events: s.events });
     const hosts = new Set(invs.map(i => i.host.name));
@@ -441,7 +497,7 @@ describe("emitter-authored scenario packs", () => {
     // the wiper runs as SYSTEM off the SCM
     const exec = s.events.find(e => e.id === "dw_01_wiper_exec");
     expect(exec?.process?.user).toBe("NT AUTHORITY\\SYSTEM");
-    expect(exec?.raw?.["process.integrity_level"]).toBe("System");
+    expect(exec?.raw?.["crowdstrike.IntegrityLevel"]).toBe("16384");
     // BYOVD: Sysmon Event 6 driver load, validly signed 3rd-party driver
     const drv = s.events.find(e => e.id === "dw_02_driver_load");
     expect(drv?.raw?.["winlog.event_id"]).toBe("6");
@@ -749,7 +805,7 @@ describe("emitter-authored scenario packs", () => {
     expect(escape?.is_detection).toBe(true);
     // the pool connection carries the mining IOCs
     const pool = s.events.find(e => e.id === "evt_ce_06_pool_connection");
-    expect(pool?.raw?.["destination.domain"]).toBe("pool.supportxmr.com");
+    expect(pool?.network?.domain).toBe("pool.supportxmr.com");
     expect(pool?.dst_port).toBe(3333);
     // GuardDuty corroborates from the cloud plane with a DNS finding
     const gd = s.events.find(e => e.id === "evt_ce_07_guardduty_node");

@@ -16,6 +16,17 @@ import { netbiosUser } from "../fabric";
 
 const VENDOR = "Microsoft Sentinel";
 
+/**
+ * Sentinel's alert/incident severity enum is High | Medium | Low | Informational —
+ * there is no "Critical". A caller asking for critical gets the product's ceiling
+ * (High) both in the raw block and on the event, so the feed never shows a
+ * severity the named product cannot produce.
+ */
+function sentinelSev(s: Severity | undefined): Exclude<Severity, "critical"> {
+  const v = s ?? "high";
+  return v === "critical" ? "high" : v;
+}
+
 export interface SentinelAlertOpts extends Ctx {
   alertName: string;
   ruleId?: string;
@@ -35,7 +46,7 @@ export interface SentinelAlertOpts extends Ctx {
 }
 export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
   const r = resolve(o);
-  const sev = o.severity ?? "high";
+  const sev = sentinelSev(o.severity);
   const ext: Record<string, string | string[] | number> = {};
   for (const [k, v] of Object.entries(o.extendedProperties ?? {})) ext[`ExtendedProperties.${k}`] = v;
   return {
@@ -114,7 +125,7 @@ export function sentinelUeba(o: SentinelUebaOpts): TelemetryEvent {
   for (const f of o.indicators ?? []) ind[f] = "true";
   return {
     id: o.id, ts: o.ts, source: "siem", vendor: VENDOR, event_type: o.eventType ?? "ueba_anomaly",
-    severity: o.severity ?? "high", src_ip: o.srcIp, user_email: email, user_title: o.userTitle ?? o.title,
+    severity: sentinelSev(o.severity), src_ip: o.srcIp, user_email: email, user_title: o.userTitle ?? o.title,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     ...(o.expectedVerdict ? { expected_verdict: o.expectedVerdict } : {}),
     ...(o.fpExplanation ? { fp_explanation: o.fpExplanation } : {}),
@@ -124,7 +135,7 @@ export function sentinelUeba(o: SentinelUebaOpts): TelemetryEvent {
     description: o.description ?? `${VENDOR} UEBA raised ${o.alertName} for ${sam}`,
     raw: {
       "AlertName": o.alertName,
-      "AlertSeverity": o.alertSeverity ?? SEV_NAME[o.severity ?? "high"],
+      "AlertSeverity": o.alertSeverity ?? SEV_NAME[sentinelSev(o.severity)],
       ...(o.ruleId ? { "alert.rule.id": o.ruleId } : {}),
       ...ind,
       "entity.name": sam,

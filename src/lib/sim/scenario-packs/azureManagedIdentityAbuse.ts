@@ -587,10 +587,10 @@ export function buildAzureManagedIdentityAbuseScenario(
         "The alert that opened the ticket is the data access to Key Vault and Storage. Reading backward, which earlier event is the one that EXPLAINS how svc-billing-connector came to be signing in from an unfamiliar address at all?",
       hint: "The identity had to gain a usable authentication factor before it could sign in. Which audit line gave it one?",
       options: [
-        { value: "cred_add", label: "amia_01 — 'Add service principal credentials' appended a new client secret to the svc-billing-connector app registration" },
-        { value: "role", label: "amia_05 — the roleAssignments/write that granted the Key Vault Secrets Officer role at the resource-group scope" },
-        { value: "graph_signin", label: "amia_02 — the non-interactive service-principal sign-in to Microsoft Graph from the new address" },
-        { value: "subenum", label: "amia_04 — the subscriptions/resourceGroups/read that enumerated the prod-analytics subscription" },
+        { value: "cred_add", label: "The 'Add service principal credentials' record that appended a new client secret to svc-billing-connector" },
+        { value: "role", label: "The roleAssignments/write granting Key Vault Secrets Officer at rg-billing-prod, which authorised the outside sign-ins" },
+        { value: "graph_signin", label: "The first non-interactive service-principal sign-in to Microsoft Graph, where the new address first shows up" },
+        { value: "subenum", label: "The resourceGroups/read enumeration of prod-analytics-sub — the earliest Azure Activity record in the whole chain" },
       ],
       answer: "cred_add",
       explanation:
@@ -604,10 +604,10 @@ export function buildAzureManagedIdentityAbuseScenario(
         "The benign control (amia_00) and the intrusion's pivot (amia_01) are BOTH the 'Add service principal credentials' operation with ResultStatus Success. Which combination of fields separates the malicious one from the sanctioned rotation?",
       hint: "Compare the Actor type and identity, the ActorIpAddress, and whether a change record backs each one.",
       options: [
-        { value: "actor_ip_change", label: "The actor is a workload identity (Actor.Type 2) from an unfamiliar address, and no change record backs it — the benign one is a named engineer from the known pipeline runner under CHG-2211" },
-        { value: "operation", label: "The malicious record uses a different Operation value, which is how the audit log flags an unauthorized credential add" },
-        { value: "result", label: "The malicious record carries ResultStatus Failure, showing the tenant rejected the credential before it could be used" },
-        { value: "target_app", label: "Only the malicious record targets an app registration at all; the benign rotation modifies a user account, not a service principal" },
+        { value: "actor_ip_change", label: "Actor is a workload identity (Actor.Type 2) from an unknown address with no change behind it; the benign add is a named engineer under CHG-2211" },
+        { value: "operation", label: "The malicious record carries a different Operation value, which is how the Entra audit log labels a credential add it deems unauthorized" },
+        { value: "result", label: "The malicious record carries ResultStatus Failure, showing the tenant rejected the credential add before the secret could ever be used" },
+        { value: "target_app", label: "Only the malicious record targets an app registration; the benign rotation modifies a user account's password profile, not a service principal" },
       ],
       answer: "actor_ip_change",
       explanation:
@@ -621,10 +621,10 @@ export function buildAzureManagedIdentityAbuseScenario(
         "Events amia_02 and amia_03 are sign-ins for svc-billing-connector. Which fields establish that these are service-principal (application) sign-ins rather than a user logging in?",
       hint: "Look at the sign-in log category, whether a user or a service_principal_id is present, and the interactivity flag.",
       options: [
-        { value: "sp_category", label: "The category is ServicePrincipalSignInLogs, the records carry a service_principal_id and app_id with no user, and is_interactive is false" },
-        { value: "mfa_fail", label: "The records show an MFA challenge that was satisfied, which only application sign-ins can perform" },
-        { value: "user_upn", label: "They carry a user_principal_name ending in the tenant domain, which is the marker of an application identity" },
-        { value: "conditional", label: "conditional_access_status is 'success', proving a Conditional Access policy evaluated an interactive user session" },
+        { value: "sp_category", label: "Category ServicePrincipalSignInLogs, a service_principal_id and app_id with no user attached, and is_interactive set to false" },
+        { value: "mfa_fail", label: "The records show an MFA challenge that was satisfied, a step only application sign-ins holding a client secret can complete" },
+        { value: "user_upn", label: "They carry a user_principal_name ending in the tenant domain, which is how Entra marks an application identity in the sign-in log" },
+        { value: "conditional", label: "conditional_access_status reads 'success', proving a user-targeted Conditional Access policy evaluated and passed these sessions" },
       ],
       answer: "sp_category",
       explanation:
@@ -658,7 +658,7 @@ export function buildAzureManagedIdentityAbuseScenario(
         { value: "revoke_secret", label: "Remove the attacker-added client secret (keyId b7e42c8a…) from svc-billing-connector and revoke its active tokens" },
         { value: "undo_role", label: "Reverse the roleAssignments/write and rotate the Key Vault secret and Storage keys the identity read" },
         { value: "block_ip_only", label: "Block 45.155.205.211 at the network edge — cutting the address ends the incident on its own" },
-        { value: "reset_engineer", label: "Reset the platform engineer d.almeida's password, since amia_00 shows that account adding a service-principal secret" },
+        { value: "reset_engineer", label: "Reset the platform engineer d.almeida's password, since the audit log shows that account adding a service-principal secret" },
       ],
       answer: ["revoke_secret", "undo_role"],
       explanation:

@@ -94,14 +94,25 @@ export function addTotalXp(delta: number): number {
  */
 export const PROGRESS_HYDRATED_EVENT = "soc:progress-hydrated";
 let hydrated = false;
-export function broadcastProgressHydrated(): void {
+let loadFailed: string[] = [];
+/**
+ * `failed` — tables whose server read failed even after a retry. The remote
+ * backend is still installed (writes must keep working), but pages must not
+ * present the resulting empty lists as "you have no progress".
+ */
+export function broadcastProgressHydrated(failed: string[] = []): void {
   hydrated = true;
+  loadFailed = [...failed];
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(PROGRESS_HYDRATED_EVENT));
+  window.dispatchEvent(new CustomEvent(PROGRESS_HYDRATED_EVENT, { detail: { failed: loadFailed } }));
 }
 /** True once the remote backend has been installed in this page's lifetime. */
 export function isProgressHydrated(): boolean {
   return hydrated;
+}
+/** Tables the signed-in hydrate could not read (empty = full load). */
+export function getProgressLoadFailures(): string[] {
+  return loadFailed;
 }
 
 // ─── Room progress ─────────────────────────────────────────────────────────────
@@ -125,8 +136,51 @@ export function appendDashboardSession(record: DashboardSessionRecord, cap = 50)
 export function getScenarioHistory(): ScenarioRecord[] {
   return readJson<ScenarioRecord[]>(LEARNER_KEYS.scenarioHistory, []);
 }
+/**
+ * Append a finished attempt to the history. Signed-in: CACHE-ONLY — the grade
+ * route already wrote the scenario_history row server-side (the remote backend
+ * no longer inserts it; see remoteBackend.ts). Guests: localStorage as before.
+ */
 export function appendScenarioRecord(record: ScenarioRecord): void {
   writeJson(LEARNER_KEYS.scenarioHistory, [...getScenarioHistory(), record]);
+}
+
+/** Highest xpEarned among this device's/account's recorded attempts at `slug`. */
+export function bestScenarioXp(history: ScenarioRecord[], slug: string): number {
+  return history.filter(r => r.slug === slug).reduce((m, r) => Math.max(m, r.xpEarned ?? 0), 0);
+}
+
+/**
+ * The XP a finished attempt actually adds to the total when only the BEST
+ * attempt per scenario counts (#30): prefer the server's delta; otherwise
+ * derive it from the local history (read BEFORE appending this attempt).
+ */
+export function scenarioXpDelta(
+  result: { xpEarned: number; xpDelta?: number | null },
+  priorHistory: ScenarioRecord[],
+  slug: string,
+): number {
+  if (typeof result.xpDelta === "number") return Math.max(0, result.xpDelta);
+  return Math.max(0, (result.xpEarned ?? 0) - bestScenarioXp(priorHistory, slug));
+}
+
+/**
+ * One call for the completion path: record the attempt and move the displayed
+ * total truthfully. Uses the server's authoritative `totalXp` when the grade
+ * response carries it; otherwise adds only the improvement over the best
+ * attempt — never the full run XP on a retry that didn't beat it.
+ */
+export function recordScenarioCompletion(
+  record: ScenarioRecord,
+  result: { xpEarned: number; xpDelta?: number | null; totalXp?: number | null },
+): void {
+  const prior = getScenarioHistory();
+  appendScenarioRecord(record);
+  if (typeof result.totalXp === "number") setTotalXp(result.totalXp);
+  else {
+    const delta = scenarioXpDelta(result, prior, record.slug);
+    if (delta > 0) addTotalXp(delta);
+  }
 }
 
 // ─── Cleared companies ───────────────────────────────────────────────────────────

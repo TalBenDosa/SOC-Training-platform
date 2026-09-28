@@ -10,6 +10,7 @@
  * Malicious-process hashes reuse the REAL MalwareBazaar samples in
  * hashDatabase.ts, so "Look up hash" resolves to a genuine verdict.
  */
+import type { IocTruth } from "./iocIntel";
 
 // "abused" = a legitimately-signed system binary or LOLBin (powershell.exe, cmd.exe,
 // sqlservr.exe, rundll32.exe…) being used for malicious ends. A real EDR never labels
@@ -47,7 +48,10 @@ export interface EdrProcess {
   path: string;
   signed: boolean;
   sha256?: string;
-  startedAt: string;      // HH:MM:SS
+  /** PE OriginalFileName from the log (OriginalFileName / process.original_file_name) —
+   *  the rename tell when it differs from the on-disk name (rclone.exe → svchost-update.exe). */
+  originalFileName?: string;
+  startedAt: string;      // HH:MM:SS ("—" = started before the telemetry window)
   verdict: Verdict;       // ground truth (drives grading; not all shown as labels)
   /** Why it's suspicious/malicious — revealed in the debrief, not up front. */
   note?: string;
@@ -88,8 +92,46 @@ export interface EdrInvestigation {
    * hard-coded key from another host/company.
    */
   autoruns?: { key: string; value: string }[];
+  /**
+   * Persistence the case's telemetry shows beyond Run keys — scheduled tasks,
+   * installed services, WMI event subscriptions. The RTR shell lists them among the
+   * host's normal (benign) entries so the analyst has to spot the odd one out.
+   */
+  persistence?: {
+    tasks?: { name: string; action: string; author?: string }[];
+    services?: { name: string; binPath: string; account?: string; start?: string; running?: boolean }[];
+    wmi?: { filter: string; query?: string; consumer: string; command: string }[];
+  };
+  /** PIDs the telemetry names for background processes (e.g. the lsass.exe an
+   *  LSASS-dump targeted) so the RTR `ps` baseline prints the same PID. */
+  knownPids?: Record<string, number>;
+  /** The EDR sensor installed on the host (drives its service/process in the baseline). */
+  edrAgent?: { name: string; path: string; service: string; display: string };
+  /** Scenario IOC truth table (see iocIntel.ts) — makes "Look up hash" agree with the
+   *  threat-intel drawer on the same case. */
+  iocTruth?: IocTruth | null;
   /** The one process the analyst should isolate/flag as the payload. */
   answer: { pid: number; explanation: string };
+}
+
+/**
+ * Incident score / severity band from the investigation's own detections — the
+ * Falcon-style roll-up in the console header and the Incidents list. The band is
+ * never lower than the worst detection (one Critical detection is a Critical
+ * incident, not "40 · High"); each further detection adds weight on top.
+ */
+export function incidentScore(detections: EdrDetection[]): { score: number; band: "Critical" | "High" | "Medium" | "Low" | "None"; techniques: string[] } {
+  const BASE: Record<string, number> = { critical: 90, high: 70, medium: 45, low: 20 };
+  const ORDER = ["low", "medium", "high", "critical"];
+  if (detections.length === 0) return { score: 0, band: "None", techniques: [] };
+  const worst = detections.reduce((w, d) => (ORDER.indexOf(d.severity) > ORDER.indexOf(w) ? d.severity : w), "low" as EdrDetection["severity"]);
+  const extra = detections.reduce((s, d) => s + (BASE[d.severity] ?? 0) / 18, 0) - (BASE[worst] ?? 0) / 18;
+  const score = Math.min(100, Math.round((BASE[worst] ?? 0) + extra));
+  const band = worst === "critical" ? "Critical" : worst === "high" ? "High" : worst === "medium" ? "Medium" : "Low";
+  // ATT&CK chips show real technique IDs only; a prevention/quarantine detection
+  // still counts toward the score and the detection count but carries no T-code.
+  const techniques = Array.from(new Set(detections.map(d => d.technique).filter(t => /^T\d{4}/.test(t))));
+  return { score, band, techniques };
 }
 
 export const EDR_INVESTIGATIONS: EdrInvestigation[] = [

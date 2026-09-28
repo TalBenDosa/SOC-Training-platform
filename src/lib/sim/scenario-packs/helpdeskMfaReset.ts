@@ -256,19 +256,19 @@ export function buildHelpdeskMfaResetScenario(
         {
           value: "concurrent_sessions",
           label:
-            "evt_hmr_03_second_baseline_signin + evt_hmr_07_new_geo_signin — the same account, genuinely MFA-satisfied, from London and from Amsterdam sixteen minutes apart",
+            "London sign-in at 09:45 + Amsterdam sign-in at 10:01 — the same account, MFA-satisfied, from two cities sixteen minutes apart",
         },
         {
           value: "ticket_pair",
-          label: "evt_hmr_02_ticket_created + evt_hmr_04_ticket_resolved — the ticket was opened and closed unusually fast",
+          label: "Ticket created at 09:41 + ticket resolved at 09:52 — an MFA-reset ticket opened and closed in eleven minutes, far faster than normal",
         },
         {
           value: "reset_alone",
-          label: "evt_hmr_05_mfa_reset on its own — any MFA reset by the help desk is inherently a red flag",
+          label: "The help-desk MFA reset at 09:53 on its own — removing a user's second factor is inherently a red flag for account takeover",
         },
         {
           value: "vdi_alone",
-          label: "evt_hmr_08_vdi_session on its own — a session landing on a VDI host is unusual by itself",
+          label: "The VDI session at 10:06 on its own — an interactive logon landing on a VDI host is unusual enough to confirm the intrusion",
         },
       ],
       answer: "concurrent_sessions",
@@ -286,19 +286,19 @@ export function buildHelpdeskMfaResetScenario(
         {
           value: "ip_and_concurrent",
           label:
-            "The new device was registered from an IP that matches neither the help desk network nor either of l.ferreira's own sign-ins, while her own session was still active elsewhere",
+            "The device was registered from an IP seen nowhere else for her or the help desk, while her own London session was still live",
         },
         {
           value: "verification_dob",
-          label: "The caller was verified using date of birth, which on its own always means the call was fraudulent",
+          label: "The caller was verified by date of birth alone, a knowledge factor weak enough that it marks the call as social engineering",
         },
         {
           value: "any_reset_bad",
-          label: "Any MFA reset performed over the phone rather than in person should be treated as compromise",
+          label: "The reset was performed over the phone rather than in person, and remote MFA resets should be handled as compromise by default",
         },
         {
           value: "ticket_priority",
-          label: "The ticket was logged as priority 3 rather than priority 1, which is inconsistent with a real lockout",
+          label: "The ticket was logged as priority 3 rather than priority 1, which is inconsistent with a user who is genuinely locked out",
         },
       ],
       answer: "ip_and_concurrent",
@@ -316,19 +316,19 @@ export function buildHelpdeskMfaResetScenario(
         {
           value: "identity_vs_network",
           label:
-            "Once MFA is cleared and a password is known, anyone can act as that identity — initiatedBy proves which account was used, not who controlled it; the ipAddress field is what shows this wasn't her",
+            "initiatedBy shows which account acted, not who was at the keyboard; with MFA cleared anyone with the password could, and ipAddress shows it wasn't her",
         },
         {
           value: "field_wrong",
-          label: "This field is only populated for admin-initiated actions, so it must be a logging error here",
+          label: "initiatedBy.user is only populated for admin-initiated actions, so a user UPN appearing here indicates a logging or ingestion error",
         },
         {
           value: "self_service_impossible",
-          label: "Users cannot register their own security info through self-service, so this record is necessarily forged",
+          label: "Users cannot register their own security info through self-service in this tenant, so the record must have been forged by the attacker",
         },
         {
           value: "doesnt_matter",
-          label: "It doesn't matter who initiated it, because the activity itself — registering an Authenticator — is not a sensitive action",
+          label: "It doesn't matter who initiated it, because registering an Authenticator is a low-sensitivity, self-service action that Entra does not treat as privileged",
         },
       ],
       answer: "identity_vs_network",
@@ -345,19 +345,19 @@ export function buildHelpdeskMfaResetScenario(
         {
           value: "revoke_and_delete",
           label:
-            "Revoke l.ferreira's sessions and refresh tokens, delete the Authenticator method added at evt_hmr_06, reset the password, and verify her identity out-of-band",
+            "Revoke her sessions and tokens, delete the Authenticator added at 09:58, reset the password, and verify her out-of-band",
         },
         {
           value: "reset_password_only",
-          label: "Reset the password a second time, note the earlier reset in the ticket, and consider the matter closed",
+          label: "Reset the password a second time, require MFA on next sign-in, note the earlier reset in the ticket, and close the matter",
         },
         {
           value: "block_ip_only",
-          label: "Block 185.220.101.47 at the perimeter — with the attacker IP blocked, their access to the account is gone",
+          label: "Block 185.220.101.47 at the perimeter and on the VDI gateway — with the attacker's IP blocked, their access to the account is gone",
         },
         {
           value: "retrain_agent",
-          label: "The account itself is fine; this only calls for retraining James Oduya on the verification procedure he skipped",
+          label: "Leave the account as is and retrain James Oduya on the caller-verification procedure he skipped, since that process gap caused this",
         },
       ],
       answer: "revoke_and_delete",

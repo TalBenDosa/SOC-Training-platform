@@ -1055,7 +1055,7 @@ export default function DashboardPage() {
             <div className="flex-1 text-sm">
               <p className="font-semibold text-white">New here? Start with the fundamentals.</p>
               <p className="mt-0.5 text-slate-400">
-                This is a live feed of real production logs — no hints. You&apos;ll get far more out of it
+                This is a live feed of realistic, simulated production logs — no hints. You&apos;ll get far more out of it
                 after a few graded rooms build the basics. You can still explore now.
               </p>
               <Link href="/rooms" className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-cyber-300 hover:text-cyber-200">

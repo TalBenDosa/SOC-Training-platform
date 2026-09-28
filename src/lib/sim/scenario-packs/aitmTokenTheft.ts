@@ -622,7 +622,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       hint: "Compare the Entra client address with the address m.delgado's own browser traffic came from.",
       kind: "single",
       options: [
-        { value: "a", label: "It is 45.87.81.126 in Amsterdam — the host her browser was posting the sign-in form to" },
+        { value: "a", label: "It is 45.87.81.126 in Amsterdam — the host her browser posted the sign-in form to" },
         { value: "b", label: "It is 81.174.22.63 in London — the corporate egress, matching her own browsing traffic" },
         { value: "c", label: "It is 91.132.139.204 in Frankfurt — the host that reuses the session six minutes later" },
         { value: "d", label: "It is a Microsoft service address, because the request was relayed inside the tenant" },
@@ -652,10 +652,10 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       hint: "Look for a field that should be unique to one browser on one machine.",
       kind: "single",
       options: [
-        { value: "a", label: "aitm_02 and aitm_05 — the same look-alike URL appears in the click record and the proxy POST" },
-        { value: "b", label: "aitm_06 and aitm_09 — one sessionId, two IPs, two autonomous systems, two browsers, six minutes" },
-        { value: "c", label: "aitm_09 and aitm_11 — the mailbox bind follows the Frankfurt sign-in inside the same two minutes" },
-        { value: "d", label: "aitm_06 and aitm_08 — a London baseline user appearing in Europe twice in the same window" },
+        { value: "a", label: "The URL Defense click and the proxy POST — the same look-alike URL shows up in both the click and the form submit" },
+        { value: "b", label: "The Amsterdam sign-in and the Frankfurt Chrome 121 sign-in — one sessionId, two IPs, two ASNs, two browsers" },
+        { value: "c", label: "The Chrome 121 sign-in and the OWA MailItemsAccessed bind — mailbox access follows it within two minutes" },
+        { value: "d", label: "The Amsterdam sign-in and the LT-SLS-0117 Frankfurt sign-in — a London baseline seen in Europe twice at once" },
       ],
       answer: "b",
       explanation:
@@ -668,8 +668,8 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       kind: "single",
       options: [
         { value: "a", label: "It has its own sessionId and a fresh Authenticator approval on a compliant Entra-joined device" },
-        { value: "b", label: "It is a lower-severity record, and Entra assigned it no sign-in risk during authentication" },
-        { value: "c", label: "It comes from Germany, which is allow-listed, while the replay came from the Netherlands" },
+        { value: "b", label: "It is a lower-severity record, and Entra assigned it no sign-in risk at all during authentication" },
+        { value: "c", label: "It comes from Germany, which is allow-listed, whereas the replay came in from the Netherlands" },
         { value: "d", label: "It is an interactive sign-in, and interactive sign-ins can never come from a replayed cookie" },
       ],
       answer: "a",
@@ -682,10 +682,10 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
       hint: "Two artefacts here outlive a password change.",
       kind: "single",
       options: [
-        { value: "a", label: "Reset the password, then have the user re-approve MFA on her phone to restore a trusted session" },
+        { value: "a", label: "Reset the password, then have the user re-approve MFA on her own phone to restore a trusted session" },
         { value: "b", label: "Block 91.132.139.204 at the perimeter and purge the lure message from every mailbox in the tenant" },
         { value: "c", label: "Revoke refresh tokens and sessions, delete the attacker-registered method, then reset the password" },
-        { value: "d", label: "Disable the account for 24 hours and re-enable it once the look-alike domain has been taken down" },
+        { value: "d", label: "Disable the account for 24 hours and re-enable it once the look-alike domain has been fully taken down" },
       ],
       answer: "c",
       explanation:

@@ -108,7 +108,11 @@ describe("emitters — cross-vendor", () => {
     ];
     for (const e of inb) {
       expect(e.src_ip).toBe("203.0.113.9");           // remote is the attacker source
-      expect(e.raw?.["network.direction"]).toBe("inbound");
+      // Direction lives in the vendor-native field: CrowdStrike records it as
+      // ConnectionDirection ("1" inbound) on NetworkReceiveAcceptIP4; S1/MDE use ECS
+      // network.direction. (Falcon does not emit ECS network.* on a connection event.)
+      const dir = e.raw?.["network.direction"] ?? (e.raw?.["crowdstrike.ConnectionDirection"] === "1" ? "inbound" : undefined);
+      expect(dir).toBe("inbound");
     }
   });
 });

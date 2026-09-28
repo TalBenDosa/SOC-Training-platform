@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildInvestigationFromStory } from "./fromLiveStory";
-import { buildProcessTree } from "./investigations";
+import { buildInvestigationFromStory, buildInvestigationsFromScenario } from "./fromLiveStory";
+import { buildProcessTree, incidentScore } from "./investigations";
+import { buildHostBaseline } from "./hostBaseline";
+import { buildMultiHostIntrusionScenario } from "@/lib/sim/scenario-packs/multiHostIntrusion";
 import { lookupHash } from "@/lib/sim/hashDatabase";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import {
@@ -117,5 +119,137 @@ describe("buildInvestigationFromStory", () => {
     expect(invs.length).toBeGreaterThan(0);
     expect(invs.some(inv => inv!.detections.length > 0)).toBe(true);
     expect(invs.some(inv => inv!.answer.pid > 0)).toBe(true);
+  });
+});
+
+// ─── Exercise-report fixes (#8 lineage, #9 network attribution, #23 header, log-audit timeline) ───
+
+// The client-side projection the scenario page ships (F-02): no description, no MITRE
+// mapping, no expected verdict — the EDR console is built from THIS in the browser.
+const project = (events: TelemetryEvent[]): TelemetryEvent[] => events.map(e => {
+  const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
+  for (const k of Object.keys(raw)) if (/\.description$/i.test(k)) delete raw[k];
+  return { ...e, description: undefined, mitre_technique: undefined, mitre_tactic: undefined, expected_verdict: undefined, raw };
+});
+
+const mhi = buildMultiHostIntrusionScenario();
+type Inv = ReturnType<typeof buildInvestigationsFromScenario>[number];
+const VIEWS: [string, Inv[]][] = [
+  ["server (full events)", buildInvestigationsFromScenario({ title: mhi.title, events: mhi.events })],
+  ["client (F-02 projection)", buildInvestigationsFromScenario({ title: mhi.title, events: project(mhi.events) })],
+];
+const byHost = (invs: Inv[], host: string) => invs.find(i => i.host.name === host)!;
+const firstTsOfPid = (pid: number, host: string) =>
+  mhi.events.filter(e => e.hostname === host && e.process?.pid === pid).map(e => e.ts).sort()[0];
+const PERIMETER = new Set(["firewall", "proxy", "dns", "ids", "waf", "vpn", "nac", "email_gateway", "dhcp"]);
+
+describe.each(VIEWS)("multi-host intrusion EDR cases — %s", (_label, invs) => {
+  it("builds one isolated case per host", () => {
+    expect(invs.map(i => i.host.name).sort()).toEqual(["BKP-SRV-02", "FIN-WS-08", "FS-SRV-03"]);
+  });
+
+  it("#8: no synthetic explorer.exe (PID 90000 / PPID 0) on any host", () => {
+    for (const inv of invs) {
+      expect(inv.processes.some(p => p.pid >= 90000)).toBe(false);
+      // an explorer.exe may only appear when the telemetry names one
+      const logged = mhi.events.some(e => e.hostname === inv.host.name &&
+        (e.process?.name?.toLowerCase() === "explorer.exe" || e.process?.parent_name?.toLowerCase() === "explorer.exe"));
+      if (!logged) expect(inv.processes.some(p => p.name.toLowerCase() === "explorer.exe")).toBe(false);
+    }
+  });
+
+  it("#8: PSEXESVC runs as SYSTEM under services.exe, and ps prints that same services.exe", () => {
+    const fs = byHost(invs, "FS-SRV-03");
+    const psexe = fs.processes.find(p => p.name.toLowerCase() === "psexesvc.exe")!;
+    expect(psexe).toBeDefined();
+    const parent = fs.processes.find(p => p.pid === psexe.ppid);
+    expect(parent?.name).toBe("services.exe");
+    expect(psexe.user).toBe("NT AUTHORITY\\SYSTEM");
+    expect(fs.host.os).toMatch(/Server/);
+    // one services.exe across tree + RTR background
+    const all = [...fs.processes, ...buildHostBaseline(fs)];
+    expect(all.filter(p => p.name.toLowerCase() === "services.exe").map(p => p.pid)).toEqual([parent!.pid]);
+  });
+
+  it("#9: the C2 belongs to powershell (the beacon), not cmd.exe, and no connection predates its process", () => {
+    const ws = byHost(invs, "FIN-WS-08");
+    const ps = ws.processes.find(p => p.name.toLowerCase() === "powershell.exe")!;
+    const cmd = ws.processes.find(p => p.name.toLowerCase() === "cmd.exe")!;
+    expect(ps.network!.length).toBeGreaterThan(0);
+    expect(cmd.network ?? []).toEqual([]);
+    for (const inv of invs) for (const p of inv.processes) for (const c of p.network ?? []) {
+      const start = firstTsOfPid(p.pid, inv.host.name);
+      if (start) expect(c.ts >= start.slice(11, 19), `${p.name}(${p.pid}) conn ${c.ts} before start ${start}`).toBe(true);
+    }
+  });
+
+  it("log audit: firewall lines stay out of the EDR timeline — one connection is shown once", () => {
+    for (const inv of invs) {
+      const endpointEvents = mhi.events.filter(e => e.incident_id === inv.id && !PERIMETER.has(e.source)).length;
+      expect(inv.timeline.length).toBe(Math.min(20, endpointEvents));
+      // netstat never lists the same remote endpoint twice
+      const conns = inv.processes.flatMap(p => (p.network ?? []).map(c => `${c.remote_ip}:${c.remote_port}`)).filter(k => !k.startsWith("resolver"));
+      expect(new Set(conns).size).toBe(conns.length);
+      // timeline text is factual even when the description is stripped
+      expect(inv.timeline.every(t => t.text.length > 12)).toBe(true);
+    }
+  });
+
+  it("#23: the header derives from the detections — Critical, with the ATT&CK technique", () => {
+    const want: Record<string, string> = { "FIN-WS-08": "T1059.001", "FS-SRV-03": "T1003.001", "BKP-SRV-02": "T1567.002" };
+    for (const inv of invs) {
+      const s = incidentScore(inv.detections);
+      expect(s.band).toBe("Critical");
+      expect(s.score).toBeGreaterThanOrEqual(90);
+      expect(s.techniques).toContain(want[inv.host.name]);
+    }
+  });
+
+  it("grading: every case has a real payload — 'resolve as benign' is never the right answer here", () => {
+    for (const inv of invs) {
+      expect(inv.answer.pid).toBeGreaterThan(0);
+      expect(inv.processes.some(p => p.pid === inv.answer.pid)).toBe(true);
+    }
+  });
+
+  it("#23: the renamed rclone carries its PE OriginalFileName into the process panel", () => {
+    const bkp = byHost(invs, "BKP-SRV-02");
+    expect(bkp.processes.filter(p => p.name === "svchost-update.exe").some(p => p.originalFileName === "rclone.exe")).toBe(true);
+  });
+});
+
+describe("network attribution rules (#9) on a minimal story", () => {
+  const base = { vendor: "CrowdStrike Falcon", hostname: "WS-1", src_ip: "10.0.0.5", raw: {} };
+  const story = {
+    id: "attr", title: "attr",
+    events: [
+      // a perimeter line BEFORE any process existed — must not be pinned on anything
+      { ...base, id: "fw0", ts: "2026-09-01T10:00:00Z", source: "firewall", event_type: "net_connection", dst_ip: "203.0.113.10", dst_port: 443, network: { domain: "early.example" } },
+      { ...base, id: "p1", ts: "2026-09-01T10:01:00Z", source: "edr", event_type: "process_create", severity: "low", process: { pid: 4100, name: "cmd.exe", parent_pid: 3000, parent_name: "explorer.exe", cmdline: "cmd /c x" } },
+      { ...base, id: "p2", ts: "2026-09-01T10:01:05Z", source: "edr", event_type: "process_create", severity: "critical", is_detection: true, process: { pid: 4200, name: "powershell.exe", parent_pid: 4100, parent_name: "cmd.exe", cmdline: "powershell -enc AAA" } },
+      // the sensor's connection names its process
+      { ...base, id: "n1", ts: "2026-09-01T10:02:00Z", source: "edr", event_type: "net_connection", dst_ip: "203.0.113.20", dst_port: 443, process: { pid: 4200, name: "powershell.exe" }, network: { domain: "c2.example" } },
+      // the firewall's view of the SAME connection — a duplicate, not a second row
+      { ...base, id: "fw1", ts: "2026-09-01T10:02:10Z", source: "firewall", event_type: "net_connection", dst_ip: "203.0.113.20", dst_port: 443, network: { domain: "c2.example" } },
+    ] as TelemetryEvent[],
+  };
+  const inv = buildInvestigationFromStory(story)!;
+
+  it("attributes the sensor connection to the PID it names, once", () => {
+    expect(inv.processes.find(p => p.pid === 4200)!.network!.map(c => c.remote_ip)).toEqual(["203.0.113.20"]);
+    expect(inv.processes.find(p => p.pid === 4100)!.network).toEqual([]);
+  });
+  it("never gives a process traffic from before it existed", () => {
+    expect(inv.processes.flatMap(p => p.network ?? []).some(c => c.remote_ip === "203.0.113.10")).toBe(false);
+  });
+  it("keeps the real explorer.exe as the user-app root (no invented PID)", () => {
+    expect(inv.processes.find(p => p.pid === 3000)?.name).toBe("explorer.exe");
+    expect(inv.processes.some(p => p.pid >= 90000)).toBe(false);
+  });
+  it("keeps firewall lines out of the endpoint timeline", () => {
+    expect(inv.timeline.length).toBe(3);
+  });
+  it("does not mutate the caller's event array", () => {
+    expect(story.events.length).toBe(5);
   });
 });

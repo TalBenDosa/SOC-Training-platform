@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUser, requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
+import { resolveTeamStory } from "@/lib/team/buildTimeline";
 
 /**
  * Team-SOC sessions (Phase 0.3). Create = org_admin/instructor only, and always
@@ -33,7 +34,12 @@ export async function POST(req: Request) {
   if (!COMPANY_IDS.has(company_id)) return NextResponse.json({ error: "Unknown company." }, { status: 400 });
   const difficulty = DIFF.has(String(body.difficulty)) ? String(body.difficulty) : "medium";
   const format = FORMATS.has(String(body.format)) ? String(body.format) : "team_shift";
+  // Optional staff-chosen storyline (an attack-story id). Must be one the builder
+  // would offer for this company + difficulty; empty = random pick at /start.
   const scenario_id = body.scenario_id ? String(body.scenario_id).slice(0, 120) : null;
+  if (scenario_id && !resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id)) {
+    return NextResponse.json({ error: "That storyline isn't available for this company and difficulty." }, { status: 400 });
+  }
 
   const rawInvites = Array.isArray(body.invites) ? body.invites : [];
   const invites = rawInvites

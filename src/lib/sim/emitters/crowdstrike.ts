@@ -18,9 +18,46 @@
  */
 import type { TelemetryEvent, Severity, ExpectedVerdict, EventType } from "../types";
 import { makeSha256 } from "../iocs";
+import { hashString } from "../rng";
 import { type Ctx, resolve, pidFrom, SEV_NAME, downloadsPath } from "./_core";
 
 const VENDOR = "CrowdStrike Falcon";
+
+// ── Falcon field dictionary helpers ──────────────────────────────────────────────────
+// Falcon keys a process by its OWN id, not the OS PID:
+//   TargetProcessId  — Falcon's unique process id (UPID) of the process the event is about
+//   ParentProcessId  — the parent's Falcon UPID (ProcessRollup2)
+//   ContextProcessId — the Falcon UPID of the process that PERFORMED a network / DNS /
+//                      file action (NetworkConnectIP4, DnsRequest, …) — i.e. that
+//                      process's TargetProcessId
+//   RawProcessId     — the operating-system PID (what Task Manager / ps shows)
+// The UPID is derived from (sensor, OS pid) so a child's ParentProcessId always equals
+// its parent's TargetProcessId, and a connection's ContextProcessId equals the
+// connecting process's TargetProcessId — the pivot an analyst actually performs.
+export function falconUpid(aid: string, osPid: number): string {
+  const h = hashString(`upid:${aid}:${osPid}`);
+  return String(4_294_967_296 + (h % 900_000_000) * 97 + (osPid % 97));
+}
+/** ImageFileName as the sensor records it: an NT device path on Windows. */
+function imageFileName(path: string): string {
+  if (!/^[A-Za-z]:\\/.test(path)) return path;             // Linux / macOS: already absolute
+  return `\\Device\\HarddiskVolume3\\${path.slice(3)}`;
+}
+/** Falcon FilePath is the containing directory (with a trailing separator). */
+function dirOf(path: string): string {
+  const i = Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/"));
+  return i >= 0 ? path.slice(0, i + 1) : path;
+}
+function platformOf(path: string): "Win" | "Lin" | "Mac" {
+  if (/^[A-Za-z]:\\/.test(path)) return "Win";
+  return /^\/(Applications|Users|Library|System|private)\//.test(path) ? "Mac" : "Lin";
+}
+/** A stable MD5-shaped digest paired with a SHA256 (both hashes describe one file). */
+export function md5For(sha256: string): string {
+  return makeSha256(`md5:${sha256}`).slice(0, 32);
+}
+// Falcon IntegrityLevel is the mandatory-label RID in decimal.
+const INTEG_RID = { low: "4096", medium: "8192", high: "12288", system: "16384" } as const;
 
 // ── Incident alert (DetectionSummaryEvent, no process node) ──────────────────────────
 // A behavioural Falcon detection that summarises a chain (or a browser/renderer finding)
@@ -42,6 +79,17 @@ export interface CsAlertOpts extends Ctx {
   isDetection?: boolean;        // default true; set false for a precursor summary that isn't the ticket-opener
   runAsUser?: string;           // UserName override (verbatim, e.g. "root")
   extra?: Record<string, string | number>; // extra registry-valid raw fields (host.os.*, crowdstrike.*)
+  // The triggering process, as the DetectionSummaryEvent records it. A real Falcon
+  // detection always names the process + its hashes; pass these so the alert is
+  // pivotable on its own (FileName / FilePath / CommandLine / SHA256String / MD5String).
+  processName?: string;
+  processPath?: string;
+  cmdline?: string;
+  sha256?: string;
+  pid?: number;
+  parentPath?: string;          // ParentImageFileName (full path)
+  parentCmdline?: string;       // ParentCommandLine
+  grandparentPath?: string;     // GrandparentImageFileName
   description?: string;
 }
 export function csAlert(o: CsAlertOpts): TelemetryEvent {
@@ -58,6 +106,10 @@ export function csAlert(o: CsAlertOpts): TelemetryEvent {
     severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? true,
     expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
+    // A real DetectionSummaryEvent names the flagged file + its hash. Surfacing it as a
+    // structured `file` keeps enrichment identical whether an IOC is looked up from the
+    // alert or from the process events (deterministic cross-surface intel).
+    ...(o.processName ? { file: { name: o.processName, path: o.processPath ?? o.processName, ...(o.sha256 ? { sha256: o.sha256 } : {}) } } : {}),
     description: o.description ?? `${VENDOR} raised ${o.threatName} on ${r.host}`,
     raw: {
       "crowdstrike.event_simpleName": "DetectionSummaryEvent",
@@ -72,6 +124,14 @@ export function csAlert(o: CsAlertOpts): TelemetryEvent {
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.UserName": o.runAsUser ?? r.domainUser,
       "crowdstrike.aid": r.sensorId,
+      ...(o.processName ? { "crowdstrike.FileName": o.processName } : {}),
+      ...(o.processPath ? { "crowdstrike.FilePath": dirOf(o.processPath) } : {}),
+      ...(o.cmdline ? { "crowdstrike.CommandLine": o.cmdline } : {}),
+      ...(o.pid !== undefined ? { "crowdstrike.ProcessId": falconUpid(r.sensorId, o.pid) } : {}),
+      ...(o.parentPath ? { "crowdstrike.ParentImageFileName": o.parentPath } : {}),
+      ...(o.parentCmdline ? { "crowdstrike.ParentCommandLine": o.parentCmdline } : {}),
+      ...(o.grandparentPath ? { "crowdstrike.GrandparentImageFileName": o.grandparentPath } : {}),
+      ...(o.sha256 ? { "crowdstrike.SHA256String": o.sha256, "crowdstrike.MD5String": md5For(o.sha256) } : {}),
       "threat.name": o.threatName,
       ...(o.extra ?? {}),
       ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
@@ -135,10 +195,12 @@ export function csDetection(o: CsDetectionOpts): TelemetryEvent {
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.UserName": r.domainUser,
       "crowdstrike.FileName": o.processName,
-      "crowdstrike.FilePath": path,
+      "crowdstrike.FilePath": dirOf(path),
       "crowdstrike.CommandLine": cmdline,
+      ...(o.parentName ? { "crowdstrike.ParentImageFileName": o.parentName } : {}),
+      "crowdstrike.SHA256String": sha256,
+      "crowdstrike.MD5String": md5For(sha256),
       "crowdstrike.aid": r.sensorId,
-      "file.hash.sha256": sha256,
       "threat.name": o.threatName,
       "action_result": d.result,
       "quarantine.status": d.quarantine,
@@ -172,7 +234,6 @@ export interface CsProcessOpts extends Ctx {
   eventType?: EventType;        // override (e.g. "scheduled_task" for a schtasks.exe run)
   description?: string;
 }
-const INTEG_LABEL = { low: "Low", medium: "Medium", high: "High", system: "System" } as const;
 export function csProcess(o: CsProcessOpts): TelemetryEvent {
   const r = resolve(o);
   const pid = o.pid ?? pidFrom(o.id);
@@ -180,7 +241,6 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
   const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
   const sha256 = o.sha256;
   const userFull = o.runAsUser ?? r.domainUser;
-  const userBare = o.runAsUser ? (o.runAsUser.split("\\").pop() ?? o.runAsUser) : r.bareUser;
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: o.eventType ?? "process_create",
     severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
@@ -191,22 +251,28 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
     process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: userFull, ...(o.integrity ? { integrity: o.integrity } : {}), hash: sha256 ? { sha256 } : undefined },
     raw: {
       "crowdstrike.event_simpleName": o.simpleName ?? "ProcessRollup2",
-      "crowdstrike.ComputerName": r.host,
-      "crowdstrike.UserName": userFull,
-      "crowdstrike.FileName": o.processName,
-      "crowdstrike.FilePath": path,
-      "crowdstrike.CommandLine": o.cmdline,
-      "crowdstrike.ParentProcessName": o.parentName ?? "",
-      "crowdstrike.TargetProcessId_decimal": String(pid),
-      "crowdstrike.ContextProcessId_decimal": String(ppid),
+      "crowdstrike.event_platform": platformOf(path),
       "crowdstrike.aid": r.sensorId,
-      ...(sha256 ? { "process.hash.sha256": sha256 } : {}),
+      "crowdstrike.ComputerName": r.host,
+      "crowdstrike.TargetProcessId": falconUpid(r.sensorId, pid),
+      "crowdstrike.ParentProcessId": falconUpid(r.sensorId, ppid),
+      "crowdstrike.RawProcessId": String(pid),
+      "crowdstrike.ImageFileName": imageFileName(path),
+      "crowdstrike.FileName": o.processName,
+      "crowdstrike.FilePath": dirOf(path),
+      "crowdstrike.CommandLine": o.cmdline,
+      ...(o.parentName ? { "crowdstrike.ParentBaseFileName": o.parentName } : {}),
+      "crowdstrike.UserName": userFull,
+      ...(sha256 ? { "crowdstrike.SHA256HashData": sha256, "crowdstrike.MD5HashData": md5For(sha256) } : {}),
+      ...(o.integrity ? { "crowdstrike.IntegrityLevel": INTEG_RID[o.integrity] } : {}),
+      // PE version-info OriginalFilename (Falcon's PeVersionInfo data, shown on the
+      // process details panel) — the rename tell.
+      ...(o.originalFileName ? { "crowdstrike.OriginalFilename": o.originalFileName } : {}),
+      // Authenticode result as shown on Falcon's process-details panel. ProcessRollup2
+      // itself has no signing field; this is the one normalized attribute kept, because
+      // several benign-control scenarios hinge on "signed by Microsoft" vs "unsigned".
       ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
       ...(o.signatureSubject ? { "process.code_signature.subject_name": o.signatureSubject } : {}),
-      ...(o.integrity ? { "process.integrity_level": INTEG_LABEL[o.integrity] } : {}),
-      ...(o.originalFileName ? { "process.original_file_name": o.originalFileName } : {}),
-      "process.command_line": o.cmdline,
-      "user.name": userBare,
       ...(o.extra ?? {}),
     },
   };
@@ -262,7 +328,7 @@ export interface CsProcessAccessOpts extends Ctx {
   targetProcess?: string;       // the process being read/hooked/injected
   targetPid?: number;
   grantedAccess?: string;       // access mask, e.g. 0x1FFFFF (PROCESS_ALL_ACCESS) — the LSASS tell
-  simpleName?: string;          // override the Falcon event name (e.g. "ProcessAccessIOC" for a MiniDump)
+  simpleName?: string;          // override the Falcon event name
   api?: string;                 // e.g. SetWindowsHookExW / OpenProcess / WriteProcessMemory
   threatName?: string;          // detection name when this is alert-grade
   mitre?: string;
@@ -287,11 +353,15 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
     process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
     raw: {
       "crowdstrike.event_simpleName": o.simpleName ?? (o.api?.startsWith("SetWindowsHook") ? "SuspiciousWindowsHook" : "CrossProcessOpen"),
+      "crowdstrike.event_platform": platformOf(path),
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.UserName": r.domainUser,
       "crowdstrike.aid": r.sensorId,
+      // ContextProcessId = the ACTING process's Falcon UPID; RawProcessId its OS pid.
+      "crowdstrike.ContextProcessId": falconUpid(r.sensorId, pid),
+      "crowdstrike.RawProcessId": String(pid),
       "crowdstrike.FileName": o.processName,
-      "crowdstrike.FilePath": path,
+      "crowdstrike.FilePath": dirOf(path),
       "crowdstrike.CommandLine": cmdline,
       ...(o.threatName ? { "crowdstrike.DetectName": o.threatName } : {}),
       ...(o.tactic ? { "crowdstrike.Tactic": o.tactic } : {}),
@@ -300,9 +370,8 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
       ...(o.targetProcess ? { "crowdstrike.CrossProcessTargetName": o.targetProcess } : {}),
       ...(o.targetPid ? { "crowdstrike.CrossProcessTargetPid": String(o.targetPid) } : {}),
       ...(o.grantedAccess ? { "crowdstrike.GrantedAccess": o.grantedAccess } : {}),
-      ...(o.sha256 ? { "process.hash.sha256": o.sha256 } : {}),
+      ...(o.sha256 ? { "crowdstrike.SHA256HashData": o.sha256, "crowdstrike.MD5HashData": md5For(o.sha256) } : {}),
       ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
-      "event.action": "process_access",
     },
   };
 }
@@ -311,6 +380,7 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
 export interface CsNetworkOpts extends Ctx {
   remoteIp: string;
   remotePort: number;
+  localPort?: number;           // client ephemeral port (deterministic if omitted)
   direction?: "outbound" | "inbound";
   transport?: "tcp" | "udp";
   application?: "tls" | "http" | "dns" | "ssh";  // layer-7, its own field (not proto)
@@ -347,17 +417,21 @@ export function csNetwork(o: CsNetworkOpts): TelemetryEvent {
     network: { domain: o.domain, ...(o.bytesOut !== undefined ? { bytes_out: o.bytesOut } : {}), ...(o.bytesIn !== undefined ? { bytes_in: o.bytesIn } : {}) },
     description: o.description ?? `${dir === "inbound" ? "Inbound" : "Outbound"} ${transport.toUpperCase()} connection ${dir === "inbound" ? "to" : "from"} ${r.host} ${dir === "inbound" ? "from" : "to"} ${o.remoteIp}:${o.remotePort}`,
     raw: {
-      "crowdstrike.event_simpleName": "NetworkConnectIP4",
-      "crowdstrike.ComputerName": r.host,
+      // A real NetworkConnectIP4 (NetworkReceiveAcceptIP4 for inbound): Local*/Remote*
+      // address + port pairs, IANA protocol number, ConnectionDirection (0 = outbound,
+      // 1 = inbound) and the connecting process's Falcon UPID in ContextProcessId. It
+      // carries NO domain name and NO byte counts — those live in DnsRequest and in
+      // the firewall's session record respectively.
+      "crowdstrike.event_simpleName": dir === "inbound" ? "NetworkReceiveAcceptIP4" : "NetworkConnectIP4",
       "crowdstrike.aid": r.sensorId,
-      ...(o.processName ? { "crowdstrike.ContextBaseFileName": o.processName, "crowdstrike.ContextProcessId_decimal": String(pid) } : {}),
-      "source.ip": remote.src,
-      "destination.ip": remote.dst,
-      "destination.port": String(o.remotePort),
-      "network.direction": dir,
-      "network.transport": transport,
-      ...(o.application ? { "network.application": o.application } : {}),
-      ...(o.domain ? { "destination.domain": o.domain } : {}),
+      "crowdstrike.ComputerName": r.host,
+      ...(o.processName && pid !== undefined ? { "crowdstrike.ContextProcessId": falconUpid(r.sensorId, pid), "crowdstrike.ContextBaseFileName": o.processName } : {}),
+      "crowdstrike.LocalAddressIP4": r.srcIp,
+      "crowdstrike.LocalPort": String(o.localPort ?? (49152 + (hashString(`lport:${o.id}`) % 16383))),
+      "crowdstrike.RemoteAddressIP4": o.remoteIp,
+      "crowdstrike.RemotePort": String(o.remotePort),
+      "crowdstrike.Protocol": transport === "udp" ? "17" : "6",
+      "crowdstrike.ConnectionDirection": dir === "inbound" ? "1" : "0",
       ...(o.extra ?? {}),
     },
   };
@@ -368,29 +442,40 @@ export interface CsDnsOpts extends Ctx {
   domain: string;
   resolvedIp?: string;
   qtype?: string;               // "A" | "AAAA" | "TXT" …
+  processName?: string;         // the requesting process (ContextBaseFileName)
+  processPath?: string;
+  cmdline?: string;
+  pid?: number;                 // its OS pid — becomes ContextProcessId (Falcon UPID)
+  parentName?: string;
+  parentPid?: number;
+  sha256?: string;
   mitre?: string;
   tactic?: string;
   severity?: Severity;
   isDetection?: boolean;
   description?: string;
 }
+const DNS_RTYPE: Record<string, string> = { A: "1", NS: "2", CNAME: "5", MX: "15", TXT: "16", AAAA: "28", SRV: "33" };
 export function csDns(o: CsDnsOpts): TelemetryEvent {
   const r = resolve(o);
+  const qtype = o.qtype ?? "A";
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "dns_query",
     severity: o.severity ?? "medium", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     incident_id: o.incidentId,
-    dns: { query: o.domain, query_type: o.qtype ?? "A", response: o.resolvedIp },
+    dns: { query: o.domain, query_type: qtype, response: o.resolvedIp },
     network: { domain: o.domain },
+    ...(o.processName && o.pid !== undefined ? { process: { pid: o.pid, name: o.processName, path: o.processPath ?? `C:\\Windows\\System32\\${o.processName}`, cmdline: o.cmdline ?? o.processName, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined } } : {}),
     description: o.description ?? `${r.host} resolved ${o.domain}`,
     raw: {
       "crowdstrike.event_simpleName": "DnsRequest",
-      "crowdstrike.ComputerName": r.host,
       "crowdstrike.aid": r.sensorId,
-      "dns.question.name": o.domain,
-      "dns.question.type": o.qtype ?? "A",
-      ...(o.resolvedIp ? { "dns.resolved_ip": o.resolvedIp } : {}),
+      "crowdstrike.ComputerName": r.host,
+      ...(o.processName && o.pid !== undefined ? { "crowdstrike.ContextProcessId": falconUpid(r.sensorId, o.pid), "crowdstrike.ContextBaseFileName": o.processName } : {}),
+      "crowdstrike.DomainName": o.domain,
+      "crowdstrike.RequestType": DNS_RTYPE[qtype] ?? qtype,
+      ...(o.resolvedIp ? { "crowdstrike.IP4Records": `${o.resolvedIp};` } : {}),
     },
   };
 }
@@ -445,8 +530,7 @@ export function csFile(o: CsFileOpts): TelemetryEvent {
       "crowdstrike.event_simpleName": simpleName,
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.aid": r.sensorId,
-      ...(o.actorProcess ? { "crowdstrike.ContextBaseFileName": o.actorProcess, "crowdstrike.ContextProcessId_decimal": String(o.actorPid ?? pidFrom(o.id)) } : {}),
-      ...(o.actorParentName ? { "crowdstrike.ParentProcessName": o.actorParentName } : {}),
+      ...(o.actorProcess ? { "crowdstrike.ContextBaseFileName": o.actorProcess, "crowdstrike.ContextProcessId": falconUpid(r.sensorId, o.actorPid ?? pidFrom(o.id)) } : {}),
       ...(o.runAsUser ? { "crowdstrike.UserName": o.runAsUser, "user.name": o.runAsUser.split("\\").pop() ?? o.runAsUser } : {}),
       "file.path": o.path,
       "file.name": name,

@@ -15,6 +15,7 @@
  * weights to load before drawing.
  */
 import type { Rank } from "@/lib/progression/ranks";
+import { certificateIssuer, PRODUCTION_HOST } from "./issuer";
 
 const W = 1200;
 const H = 630;
@@ -66,8 +67,50 @@ export interface CertData {
   xp: number;
   /** Pre-formatted date, e.g. "25 Jul 2026". */
   date: string;
-  /** Issuing college (multi-tenant). When set, printed in the footer. */
+  /** Learner's org name (multi-tenant). A real org is printed as the issuer. */
   orgName?: string | null;
+  /** Learner's org id — the platform's own system org is never the issuer. */
+  orgId?: string | null;
+}
+
+/** Minimal slice of CanvasRenderingContext2D the meta-row measurement needs. */
+export interface MeasureCtx {
+  font: string;
+  measureText(text: string): { width: number };
+}
+
+/**
+ * Width of each meta-row cell: max(value width in the VALUE font, tracked label
+ * width in the LABEL font). The old inline version set the value font once and
+ * then measured the label — which switched `ctx.font` to the 13px label font —
+ * so every value after the first was measured at 13px instead of 26px. Cells
+ * came out too narrow and neighbours overlapped ("1,500 XP28 Sep 2026"). Each
+ * measurement now sets its own font.
+ */
+export function measureMetaCells(
+  ctx: MeasureCtx,
+  cells: { v: string; l: string }[],
+  valueFont: string,
+  labelFont: string,
+  labelTracking: number,
+): number[] {
+  return cells.map(c => {
+    ctx.font = valueFont;
+    const vw = ctx.measureText(c.v).width;
+    ctx.font = labelFont;
+    const chars = [...c.l];
+    let lw = 0;
+    chars.forEach((ch, i) => {
+      lw += ctx.measureText(ch).width;
+      if (i < chars.length - 1) lw += labelTracking;
+    });
+    return Math.max(vw, lw);
+  });
+}
+
+/** Footer line: the issuer (a real org, else the platform) and the production domain. */
+export function certificateFooter(orgId: string | null | undefined, orgName: string | null | undefined): string {
+  return `Issued by ${certificateIssuer(orgId, orgName)} · SOC Analyst Training · ${PRODUCTION_HOST}`;
 }
 
 /** Read a next/font family list from a CSS variable, with a safe fallback. */
@@ -122,7 +165,7 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   ctx.scale(scale, scale);
   ctx.textBaseline = "middle";
 
-  const { meta, name, xp, date, orgName } = data;
+  const { meta, name, xp, date, orgName, orgId } = data;
   const accent = meta.accent;
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -294,13 +337,8 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
     { v: date, l: "ACHIEVED" },
     { v: meta.track, l: "TRACK" },
   ];
-  const gap = 44;
-  ctx.font = valueFont;
-  const cellW = cells.map(c => {
-    const vw = ctx.measureText(c.v).width;
-    const lw = measureTracked([{ text: c.l, color: "#000" }], labelFont, 2);
-    return Math.max(vw, lw);
-  });
+  const gap = 56;
+  const cellW = measureMetaCells(ctx, cells, valueFont, labelFont, 2);
   const totalW = cellW.reduce((a, b) => a + b, 0) + gap * (cells.length - 1);
   let cursor = CX - totalW / 2;
   const valueY = 528;
@@ -322,9 +360,7 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   });
 
   // ── footer ───────────────────────────────────────────────────────────────
-  const footerText = orgName
-    ? `Issued by ${orgName} · HACK THE SOC · hack-the-soc.vercel.app`
-    : "SOC Analyst Training Platform · hack-the-soc.vercel.app";
+  const footerText = certificateFooter(orgId, orgName);
   drawTracked([{ text: footerText, color: "#475569" }], CX, 604, `400 15px "${sansF}"`, 0.5);
 }
 

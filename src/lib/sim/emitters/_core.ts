@@ -54,9 +54,10 @@ export function resolve(c: Ctx): Resolved {
   };
 }
 
-/** A stable decimal PID from a seed. */
+/** A stable decimal PID from a seed. Windows process ids are always multiples of 4
+ *  (they are handle-table indices), so every generated PID is too (1000–63996). */
 export function pidFrom(seed: string): number {
-  return 1000 + (hashString(`pid:${seed}`) % 63000);
+  return 4 * (250 + (hashString(`pid:${seed}`) % 15750));
 }
 
 /** Human severity label most EDRs print. */
