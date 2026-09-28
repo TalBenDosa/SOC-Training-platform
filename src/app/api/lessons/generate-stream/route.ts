@@ -439,7 +439,7 @@ export async function POST(req: Request) {
 
   if (!process.env.OPENAI_API_KEY) {
     return new Response(
-      `data: ${JSON.stringify({ type: "error", message: "OPENAI_API_KEY not configured in .env.local" })}\n\n`,
+      `data: ${JSON.stringify({ type: "error", message: "AI lesson generation isn't enabled on this deployment." })}\n\n`,
       { status: 200, headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" } },
     );
   }
@@ -510,7 +510,7 @@ export async function POST(req: Request) {
         const raw = err instanceof Error ? err.message : String(err);
         let message = raw;
         if (raw.includes("API key") || raw.includes("401") || raw.includes("authentication") || raw.includes("Incorrect")) {
-          message = "OpenAI API key error — check OPENAI_API_KEY in .env.local";
+          message = "AI lesson generation is temporarily unavailable. Please try again later.";
         } else if (raw.includes("quota") || raw.includes("429") || raw.includes("rate") || raw.includes("insufficient_quota")) {
           message = "OpenAI quota exceeded — check your billing at platform.openai.com";
         } else if (raw.includes("model") || raw.includes("404")) {

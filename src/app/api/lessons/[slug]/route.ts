@@ -34,7 +34,7 @@ export async function GET(
 ) {
   // L-02 (defense-in-depth): assert the auth posture explicitly here rather than
   // leaning only on the edge middleware's default-deny. Guests are DELIBERATELY
-  // allowed — they receive stub content (this is the no-Supabase / no-API-key
+  // allowed — they receive a "being prepared" notice (the no-Supabase / no-API-key
   // convention), so we do not 401; a hard gate would break local dev and the
   // guest experience. `getAuthedUser()` is React-cache()d, so this shares its
   // read with the one inside resolveGeneratedLesson (no extra round-trip).

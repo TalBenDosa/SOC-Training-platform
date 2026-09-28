@@ -17,6 +17,7 @@ import "server-only";
 import { findLesson } from "@/lib/lessons/paths";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
+import { PATH_LESSON_RELATED } from "@/data/pathLessonRelated";
 
 export interface LessonPage {
   pageNumber: number;
@@ -45,6 +46,10 @@ export interface GeneratedLesson {
   lessonTitle: string;
   pages: LessonPage[];
   quiz: LessonQuizQuestion[];
+  /** True when the lesson has no content yet — the reader shows a "being
+   *  prepared" notice with `related` Library lessons instead of pages/quiz. */
+  preparing?: boolean;
+  related?: { id: string; title: string }[];
 }
 
 // ─── Client-safe projections (answer key removed) ───────────────────────────────
@@ -127,70 +132,17 @@ Cover the topic progressively across 10 pages — start with foundations and bui
 Include realistic examples (log snippets, alert fields, MITRE technique IDs) throughout.`;
 }
 
-// ─── Stub content (when no API key) ──────────────────────────────────────────
+// ─── "Being prepared" (no content yet) ───────────────────────────────────────────
+//
+// Replaces the old placeholder stub, which rendered filler text and a developer
+// note ("Configure ANTHROPIC_API_KEY in your .env.local") to real customers.
+// A lesson with no content now says so honestly and points to hand-written
+// Library lessons on the same subject. It has no quiz, so it can't be passed
+// or credited until real content exists.
 
-function buildStub(lessonTitle: string, topic: string): GeneratedLesson {
-  return {
-    lessonSlug: "",
-    lessonTitle,
-    pages: Array.from({ length: 10 }, (_, i) => ({
-      pageNumber: i + 1,
-      title: i === 0 ? `Introduction: ${lessonTitle}` : `Part ${i + 1}: ${topic.split(",")[i % 3] ?? topic}`,
-      body: `## ${i === 0 ? "Introduction" : `Part ${i + 1}`}\n\nThis lesson covers **${lessonTitle}**.\n\n${topic}\n\n> **Note:** This is stub content. Configure \`ANTHROPIC_API_KEY\` in your \`.env.local\` to generate real AI-written lesson content.\n\nKey concepts for SOC analysts:\n- Understanding the fundamentals\n- Applying this knowledge during investigations\n- Practical examples from real-world incidents`,
-      codeExample: i % 3 === 0 ? `# Example relevant to ${lessonTitle}\nEventID=4688 ProcessName=powershell.exe CommandLine="-EncodedCommand <base64>"` : undefined,
-      keyPoints: [
-        `Core concept ${i + 1}a for ${lessonTitle}`,
-        `Practical application in a SOC context`,
-        `How this relates to MITRE ATT&CK`,
-      ],
-    })),
-    quiz: [
-      {
-        question: `What is the primary purpose of ${lessonTitle} in a SOC context?`,
-        options: [
-          { label: "Improving threat detection coverage", value: "a" },
-          { label: "Reducing false positives", value: "b" },
-          { label: "Both detection and response operations", value: "c" },
-          { label: "Compliance reporting only", value: "d" },
-        ],
-        answer: "c",
-        explanation: `${lessonTitle} supports both detection and response operations in a SOC environment.`,
-      },
-      {
-        question: "Which MITRE ATT&CK tactic involves adversaries running malicious code?",
-        options: [
-          { label: "Initial Access (TA0001)", value: "a" },
-          { label: "Execution (TA0002)", value: "b" },
-          { label: "Persistence (TA0003)", value: "c" },
-          { label: "Defense Evasion (TA0005)", value: "d" },
-        ],
-        answer: "b",
-        explanation: "Execution (TA0002) covers techniques where adversaries run malicious code on target systems.",
-      },
-      {
-        question: "A process tree shows WINWORD.EXE → powershell.exe → cmd.exe. What does this indicate?",
-        options: [
-          { label: "Normal Office automation", value: "a" },
-          { label: "Macro-based initial access (T1566.001)", value: "b" },
-          { label: "User browsing activity", value: "c" },
-          { label: "Windows Update process", value: "d" },
-        ],
-        answer: "b",
-        explanation: "Office spawning PowerShell then cmd.exe is a classic indicator of macro-based malware execution (T1566.001 + T1059.001).",
-      },
-      {
-        question: "When should an analyst escalate to Tier 2?",
-        options: [
-          { label: "Every alert regardless of severity", value: "a" },
-          { label: "Only critical severity alerts", value: "b" },
-          { label: "When the alert is confirmed malicious or investigation scope exceeds L1 capability", value: "c" },
-          { label: "After 24 hours of investigation", value: "d" },
-        ],
-        answer: "c",
-        explanation: "Escalation happens when an alert is confirmed true positive or when the investigation requires deeper forensic capabilities beyond Tier 1.",
-      },
-    ],
-  };
+function buildPreparing(routeSlug: string, lessonSlug: string, lessonTitle: string): GeneratedLesson {
+  const related = PATH_LESSON_RELATED[routeSlug] ?? [];
+  return { lessonSlug, lessonTitle, pages: [], quiz: [], preparing: true, related };
 }
 
 // ─── Slug parsing ───────────────────────────────────────────────────────────────
@@ -208,11 +160,11 @@ export type ResolveLessonResult =
 
 /**
  * Resolve a route slug to the FULL lesson (answer key included), generating and
- * caching via Claude when configured or falling back to the stub. This is the
+ * caching via Claude when configured or falling back to a "being prepared" notice. This is the
  * single source of truth used by the GET route (stripped before responding) and
  * the quiz grader (reads the full quiz server-side).
  *
- * Guest / no-API-key / over-budget callers get the stub — unchanged behaviour,
+ * Guest / no-API-key / over-budget callers get the "being prepared" notice — unchanged behaviour,
  * kept identical to the previous inline GET so nothing about the guest path or
  * the paid-LLM budgeting regresses.
  */
@@ -233,20 +185,18 @@ export async function resolveGeneratedLesson(raw: string): Promise<ResolveLesson
   if (cached) return { full: cached };
 
   // Real AI generation is gated behind a signed-in user so anonymous callers
-  // can't run up the AI bill by enumerating lesson slugs. Guests get the stub.
+  // can't run up the AI bill by enumerating lesson slugs. Guests get the "being prepared" notice.
   const apiKey = process.env.ANTHROPIC_API_KEY;
   const authed = apiKey ? await getAuthedUser() : null;
-  // Spend ceiling (migration 0024) — over budget, serve the stub rather than
+  // Spend ceiling (migration 0024) — over budget, serve the notice rather than
   // generating. Treated exactly like "no AI backend" so the cache isn't poisoned.
   const overBudget = authed ? !(await checkAiBudget(authed.orgId)).allowed : false;
   if (!apiKey || !authed || overBudget) {
-    const stub = buildStub(found.lesson.title, found.lesson.topic);
-    stub.lessonSlug = lessonSlug;
-    // Only persist the stub when there is genuinely no AI backend; if AI exists
-    // but the caller is a guest, don't poison the cache for a future signed-in
-    // user who should receive real generated content.
-    if (!apiKey) cache.set(cacheKey, stub);
-    return { full: stub };
+    const preparing = buildPreparing(raw, lessonSlug, found.lesson.title);
+    // Only cache when there is genuinely no AI backend; if AI exists but the
+    // caller is a guest, don't poison the cache for a future signed-in user.
+    if (!apiKey) cache.set(cacheKey, preparing);
+    return { full: preparing };
   }
 
   try {
@@ -298,8 +248,6 @@ export async function resolveGeneratedLesson(raw: string): Promise<ResolveLesson
     return { full: result };
   } catch (err) {
     console.error("[lessons API]", err);
-    const stub = buildStub(found.lesson.title, found.lesson.topic);
-    stub.lessonSlug = lessonSlug;
-    return { full: stub };
+    return { full: buildPreparing(raw, lessonSlug, found.lesson.title) };
   }
 }
