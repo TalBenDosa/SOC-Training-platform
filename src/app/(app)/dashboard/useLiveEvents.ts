@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { getRuleDescription, WIN_EVENT_VIEWER_DESCRIPTIONS } from "@/lib/sim/ruleDescriptions";
+import { describeEvent } from "@/lib/sim/describeEvent";
 import {
   initWorldState, generateBenignEvent,
   pickPlaybook, startAttack, advanceAttack, attackDue,
@@ -172,165 +173,6 @@ function buildRuleId(event: TelemetryEvent, index: number): string {
   return `${base}.${calculateRuleLevel(event)}`;
 }
 
-function buildDescription(event: TelemetryEvent): string {
-  // L-05 — the authored description states the CONCLUSION on attack events (names
-  // the tool, does the base32/base64 math, gives the domain age, decodes the TXT),
-  // which the banner promises the analyst will do themselves. Noise descriptions,
-  // by contrast, are factual ("LT-ENG-4400 looked up login.microsoftonline.com").
-  // So the authored line is only used for NON-attack events (no mitre_technique);
-  // attack events fall through to the factual, observable-derived line below. The
-  // interpretation is revealed in the report/debrief, not handed over in the feed.
-  // The authored description is a clear, beginner-friendly line — used for NON-attack
-  // events (whose authored text is factual). Attack events (mitre_technique present)
-  // skip it and fall through to the observable-derived line, so the feed describes
-  // rather than explains.
-  if (!event.mitre_technique && event.description && event.description.trim().length > 12) {
-    return event.description;
-  }
-
-  // Otherwise fall back to the exact Event Viewer description text for the code
-  const eventCode = event.raw?.["event.code"] as string | undefined;
-  if (eventCode && WIN_EVENT_VIEWER_DESCRIPTIONS[eventCode]) {
-    return WIN_EVENT_VIEWER_DESCRIPTIONS[eventCode];
-  }
-
-  const p    = event.process;
-  const n    = event.network;
-  const host = event.hostname ? ` on ${event.hostname}` : "";
-  const who  = event.user_email ? event.user_email.split("@")[0]
-               : event.hostname ?? "System";
-
-  switch (event.event_type) {
-    case "process_create":
-      return p ? `${p.parent_name || "System"} started ${p.name}${host}` : `New process started${host}`;
-    case "file_create":
-    case "file_modify":
-      return p ? `${p.name} created a file${host}` : `File created${host}`;
-    case "file_delete":
-      return `File deleted${host}`;
-    case "net_connection":
-      return `${event.hostname || who} connected to ${n?.domain || event.dst_ip || "external host"}`;
-    case "net_blocked":
-      return `Connection blocked to ${n?.domain || event.dst_ip || "external host"}`;
-    case "dns_query":
-      return `${event.hostname || who} looked up ${event.dns?.query || n?.domain || "a domain"}`;
-    case "auth_success":
-      return `${who} logged in${host}`;
-    case "auth_failure":
-      return `${who} failed to log in${host}`;
-    case "mfa_challenge":
-    case "mfa_push_sent":
-      return `${who} received a two-factor auth challenge`;
-    case "mfa_denied":
-      return `${who} rejected an unexpected two-factor push`;
-    case "vpn_login":
-      return `${who} connected via VPN`;
-    case "vpn_logout":
-      return `${who} disconnected from VPN`;
-    case "vpn_failed":
-      return `${who} failed to connect via VPN`;
-    case "account_modify":
-      return `${who} changed account settings${host}`;
-    case "account_create":
-      return `New account created for ${who}`;
-    case "account_delete":
-      return `Account deleted${host}`;
-    case "account_lockout":
-      return `${who} account was locked out`;
-    case "group_modify":
-      return `Group membership changed${host}`;
-    case "privilege_escalation":
-      return `${who} gained elevated privileges${host}`;
-    case "cloud_api_call":
-    case "cloud_storage_access":
-      return `${who} made a cloud API call`;
-    case "cloud_role_change":
-      return `${who} changed a cloud role`;
-    case "av_detection":
-    case "av_quarantine":
-    case "av_blocked":
-    case "edr_alert":
-      return `Threat detected on ${event.hostname || "endpoint"}`;
-    case "email_received":
-      return `${who} received an email`;
-    case "email_sent":
-      return `${who} sent an email`;
-    case "email_blocked":
-    case "email_quarantined":
-      return `Suspicious email blocked for ${who}`;
-    case "sharepoint_access":
-    case "sharepoint_download":
-      return `${who} accessed a file in SharePoint`;
-    case "teams_message":
-      return `${who} sent a Teams message`;
-    case "scheduled_task":
-      return `Scheduled task ran${host}`;
-    case "service_install":
-      return `New service installed${host}`;
-    case "registry_set":
-    case "registry_delete":
-      return `Registry entry modified${host}`;
-    case "dlp_alert":
-    case "dlp_block":
-      return `Data policy alert for ${who}`;
-    case "ids_signature":
-    case "ids_blocked":
-      return `Intrusion detection alert${host}`;
-    case "waf_allow":
-      return `Web request to ${n?.domain || "server"}`;
-    case "waf_block":
-      return `Web attack blocked${host}`;
-    case "db_query":
-      return `${who} ran a database query`;
-    case "db_auth":
-      return `${who} logged in to database`;
-    case "ueba_anomaly":
-    case "risk_score_change":
-      return `Unusual behaviour detected for ${who}`;
-    case "nac_quarantine":
-      return `Device quarantined on network${host}`;
-    case "nac_allow":
-      return `Device allowed on network${host}`;
-    case "http_request":
-      return `${who} browsed to ${n?.domain || event.dst_ip || "a website"}`;
-    case "http_blocked":
-      return `Web request blocked for ${who}`;
-    case "mfa_disabled":
-      return `MFA removed from account for ${who}`;
-    case "policy_modification":
-      return `Security policy modified${host}`;
-    case "privileged_operation":
-      return `Privileged operation performed by ${who}${host}`;
-    case "kerberos_tgt":
-      return `Kerberos TGT requested for ${who}${host}`;
-    case "kerberos_tgs":
-      return `Kerberos service ticket requested by ${who}${host}`;
-    case "audit_log_cleared":
-      return `Security audit log cleared${host}`;
-    case "ssh_login":
-      return `${who} connected via SSH${host}`;
-    case "ssh_failed":
-      return `Failed SSH login attempt${host}`;
-    case "sudo_command":
-      return `${who} ran a privileged command via sudo${host}`;
-    case "db_query":
-      return `${who} ran a database query`;
-    case "db_auth":
-      return `${who} logged in to database`;
-    case "db_failed":
-      return `Failed database login for ${who}`;
-    case "k8s_pod_create":
-      return `Kubernetes pod created${host}`;
-    case "k8s_pod_delete":
-      return `Kubernetes pod deleted${host}`;
-    case "k8s_exec":
-      return `kubectl exec into pod${host}`;
-    case "k8s_rbac":
-      return `Kubernetes RBAC role binding changed${host}`;
-    default:
-      return `${event.event_type.replace(/_/g, " ")}${host}`;
-  }
-}
 
 // ─── Shuffle deck helpers (no-duplicate event rotation) ───────────────────────
 
@@ -743,7 +585,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     raw,
     ruleLevel: calculateRuleLevel(event),
     ruleId: buildRuleId(event, index),
-    displayDescription: buildDescription(event),
+    displayDescription: describeEvent(event),
   };
 }
 

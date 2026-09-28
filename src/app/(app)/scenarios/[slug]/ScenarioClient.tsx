@@ -15,6 +15,7 @@ import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery, type IocTruth,
 } from "@/components/threat-intel/ThreatIntelDrawer";
+import { describeEventForRow } from "@/lib/sim/describeEvent";
 import { EdrConsole } from "@/components/edr/EdrConsole";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 import type { EdrInvestigation } from "@/lib/edr/investigations";
@@ -344,12 +345,9 @@ const LogRow = memo(function LogRow({
     rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [focusReq]);
 
-  const description = ev.description ??
-    (ev.process ? `${ev.process.name}${ev.process.parent_name ? ` ← ${ev.process.parent_name}` : ""}` :
-    ev.network?.domain ? ev.network.domain :
-    ev.network?.url ? ev.network.url :
-    ev.file?.path ? ev.file.path :
-    ev.event_type);
+  // Same plain-language line as the Live SOC feed (observable fields only — the
+  // authored description is withheld on this page because it states the answer).
+  const row = describeEventForRow(ev);
 
   const canCorrelate = pivots.length > 0 || incidentSize > 1;
 
@@ -391,7 +389,15 @@ const LogRow = memo(function LogRow({
           </div>
         </td>
         <td className="py-2.5 pr-3">
-          <span className="block text-[11px] text-slate-300 leading-relaxed line-clamp-2">{description}</span>
+          {row.user && (
+            <div className="mb-0.5 flex flex-wrap items-center gap-1">
+              <span className="font-mono text-[11px] font-bold leading-none text-cyber-300">{row.user}</span>
+              {row.title && (
+                <span className="rounded border border-slate-600/50 bg-slate-800/70 px-1.5 py-px text-[9px] font-medium leading-none text-slate-400">{row.title}</span>
+              )}
+            </div>
+          )}
+          <span className="block text-[11px] text-slate-300 leading-relaxed line-clamp-2">{row.action}</span>
           <div className="relative mt-0.5 flex items-center gap-2">
             {ev.mitre_technique && (
               <span className="font-mono text-[9px] text-neon-purple/70">{ev.mitre_technique}</span>
