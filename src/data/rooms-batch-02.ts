@@ -613,13 +613,13 @@ The two you will lean on most in day-to-day investigation are **A/AAAA** (what I
 
 **DNS Response Codes**
 
-Every DNS answer carries a **response code** (RCODE) — a number in the DNS header that DNS logs usually show by its name. The four you will see constantly (defined in RFC 1035):
+Every DNS answer carries a **response code** (RCODE) — a number in the DNS header that DNS logs usually show by its name. The four you will see constantly (numbered in RFC 1035; the NOERROR/NXDOMAIN-style names are the ones logs and tools use):
 
 | Name | RCODE | Meaning | What it tells an analyst |
 |---|---|---|---|
 | NOERROR | 0 | The query succeeded | The domain exists — check what IP it resolved to |
 | SERVFAIL | 2 | The server failed to complete the lookup | Often a broken or misconfigured domain; a spike can indicate resolver trouble |
-| NXDOMAIN | 3 | Non-existent domain — the name is not registered | One is a typo; hundreds from one host in minutes is a classic DGA malware pattern |
+| NXDOMAIN | 3 | Non-existent domain — the queried name does not exist (an unregistered domain, or a subdomain that was never created) | One is a typo; hundreds from one host in minutes is a classic DGA malware pattern |
 | REFUSED | 5 | The server refused to answer (policy) | A client asking a server it is not allowed to use |
 
 **DNS Security Threats:**
@@ -1323,7 +1323,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         type: "flag" as const,
         id: "fw-f1",
         prompt:
-          "In the port scan IDS alert above, what was the value of the 'action' field? This tells you what the IDS did when it detected the scan.",
+          "In the port scan detection event above, what was the value of the 'action' field? This tells you what the sensor did when it detected the scan.",
         answer: "alert",
         hint: "Look in the raw log data for the 'action' field. Remember the difference between an IDS and an IPS: only one of them can block traffic.",
         xp: 25,

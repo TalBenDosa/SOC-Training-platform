@@ -14,7 +14,30 @@
  * means "no details saved".
  */
 
-const KEY = "room_review_v1";
+const PREFIX = "room_review_v1";
+
+// The records hold answer keys (correct index / verdict / solution) and the
+// learner's own report, so they are scoped to the signed-in user and wiped on
+// sign-out — on a shared lab machine the next student must not inherit them.
+let owner: string | null = null;
+const storageKey = () => `${PREFIX}:${owner ?? "guest"}`;
+
+/** Called by AuthProvider whenever the session changes. */
+export function setReviewOwner(userId: string | null) {
+  owner = userId;
+  try { window.localStorage.removeItem(PREFIX); } catch { /* legacy unscoped key from the first release */ }
+}
+
+/** Remove every saved review record on this device (sign-out). */
+export function clearReviewStore() {
+  try {
+    const ls = window.localStorage;
+    for (let i = ls.length - 1; i >= 0; i--) {
+      const k = ls.key(i);
+      if (k && (k === PREFIX || k.startsWith(`${PREFIX}:`))) ls.removeItem(k);
+    }
+  } catch { /* blocked storage — nothing was saved */ }
+}
 
 export type QuestionReview = { selected: number | null; answer: number | null; explanation: string; correct: boolean };
 
@@ -33,7 +56,7 @@ type Store = Record<string /* roomId */, Record<string /* taskId */, ReviewRecor
 
 function readStore(): Store {
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(storageKey());
     const parsed = raw ? JSON.parse(raw) : {};
     return parsed && typeof parsed === "object" ? (parsed as Store) : {};
   } catch {
@@ -42,7 +65,7 @@ function readStore(): Store {
 }
 
 function writeStore(store: Store) {
-  try { window.localStorage.setItem(KEY, JSON.stringify(store)); } catch { /* quota / blocked — review details are optional */ }
+  try { window.localStorage.setItem(storageKey(), JSON.stringify(store)); } catch { /* quota / blocked — review details are optional */ }
 }
 
 /** Save (or merge, for multi-question log analysis) one task's review record. */

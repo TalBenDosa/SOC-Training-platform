@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "@/lib/supabase/config";
 import { logAudit } from "@/lib/audit/logAudit";
 import { checkRateLimit } from "@/lib/security/rateLimit";
@@ -17,12 +18,13 @@ import { validatePasswordChange } from "@/app/(app)/account/accountValidation";
  * with a fresh `signInWithPassword` for the session user's own email.
  *
  * HOW. The verification runs on a throwaway, non-persisting anon client — it
- * never touches the caller's cookies. The password update is then made through
- * that SAME freshly-authenticated client, which also satisfies Supabase's
- * "secure password change" (recent-login) setting if it is enabled. Finally the
- * throwaway session is revoked (scope "local" = only that session), so this
- * route leaves no extra refresh token behind and the user's own session in the
- * browser keeps working.
+ * never touches the caller's cookies — and that throwaway session is revoked
+ * right after (scope "local" = only that session). The password is then changed
+ * through the caller's OWN cookie-bound session. That matters: Supabase Auth
+ * revokes every session except the one making the change, so updating through
+ * the throwaway client would silently sign the learner out of this browser too
+ * (independent review of FB-011). Done this way, other devices are signed out
+ * (a good thing after a password change) and this browser stays signed in.
  *
  * No service-role key is involved: the user can only ever change their OWN
  * password, because the email comes from the validated session, not the body.
@@ -80,22 +82,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Your current password is incorrect.", field: "current_password" }, { status: 400 });
   }
 
-  try {
-    const { error: updErr } = await verifier.auth.updateUser({ password: v.value.next });
-    if (updErr) {
-      const code = (updErr as { code?: string }).code;
-      if (code === "same_password") {
-        return NextResponse.json({ error: "The new password must be different from your current one.", field: "new_password" }, { status: 400 });
-      }
-      if (code === "weak_password") {
-        return NextResponse.json({ error: `That password is too weak: ${updErr.message}`, field: "new_password" }, { status: 400 });
-      }
-      return NextResponse.json({ error: "Could not update your password. Please try again." }, { status: 500 });
+  // The current password is proven — drop the throwaway session straight away.
+  await verifier.auth.signOut({ scope: "local" }).catch(() => {});
+
+  const own = await getSupabaseServerClient();
+  if (!own) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+  const { error: updErr } = await own.auth.updateUser({ password: v.value.next });
+  if (updErr) {
+    const code = (updErr as { code?: string }).code;
+    if (code === "same_password") {
+      return NextResponse.json({ error: "The new password must be different from your current one.", field: "new_password" }, { status: 400 });
     }
-  } finally {
-    // Revoke ONLY the throwaway verification session (never "global", which
-    // would sign the user out everywhere, including this browser).
-    await verifier.auth.signOut({ scope: "local" }).catch(() => {});
+    if (code === "weak_password") {
+      return NextResponse.json({ error: `That password is too weak: ${updErr.message}`, field: "new_password" }, { status: 400 });
+    }
+    if (code === "reauthentication_needed" || code === "session_not_found") {
+      return NextResponse.json({ error: "For security, sign out and sign back in, then change your password." }, { status: 401 });
+    }
+    return NextResponse.json({ error: "Could not update your password. Please try again." }, { status: 500 });
   }
 
   await logAudit({

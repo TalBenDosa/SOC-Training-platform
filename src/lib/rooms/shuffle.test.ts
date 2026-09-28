@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   optionDisplayOrder, toOriginalIndex, toDisplayIndex, displayOptions,
   isPinnedOption, referencesOtherOptions, scrambleAwayFromAnswer, countFixedPoints,
-  seededRandom, shuffleWithSeed,
+  seededRandom, shuffleWithSeed, remapOptionLetters,
 } from "./shuffle";
 
 const OPTS = ["Alpha option", "Bravo option", "Charlie option", "Delta option"];
@@ -142,5 +142,21 @@ describe("scrambleAwayFromAnswer", () => {
     const items = [{ id: "x" }, { id: "y" }];
     const out = scrambleAwayFromAnswer(items, ["x", "y"], i => i.id, seededRandom(1));
     expect(out.map(i => i.id)).toEqual(["y", "x"]);
+  });
+});
+
+describe("remapOptionLetters", () => {
+  // order[display] = original: authored a,b,c,d shown as c,a,d,b
+  const order = [2, 0, 3, 1];
+  it("renames letter references to the letters the learner saw", () => {
+    expect(remapOptionLetters("Option c is wrong. Option a invents a range.", order))
+      .toBe("Option a is wrong. Option b invents a range.");
+    expect(remapOptionLetters("Options A and D both fail; (b) is the trap. Answer C.", order))
+      .toBe("Options B and C both fail; (d) is the trap. Answer A.");
+  });
+  it("leaves prose, out-of-range letters and identity order alone", () => {
+    expect(remapOptionLetters("Other options and alerts matter.", order)).toBe("Other options and alerts matter.");
+    expect(remapOptionLetters("Option f is not an option here.", order)).toBe("Option f is not an option here.");
+    expect(remapOptionLetters("Option c is wrong.", [0, 1, 2, 3])).toBe("Option c is wrong.");
   });
 });

@@ -28,8 +28,7 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  // i.ytimg.com: poster thumbnails for the explainer videos (FB-008).
-  "img-src 'self' data: blob: https://*.supabase.co https://avatars.githubusercontent.com https://i.ytimg.com",
+  "img-src 'self' data: blob: https://*.supabase.co https://avatars.githubusercontent.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
   // In-app "College Materials" viewer: PDFs render in a SAME-ORIGIN blob: iframe

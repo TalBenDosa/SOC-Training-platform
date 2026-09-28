@@ -224,7 +224,7 @@ export default function AccountPage() {
         return;
       }
       setPwCurrent(""); setPwNew(""); setPwConfirm("");
-      setToast("Password updated. Use your new password next time you sign in.");
+      setToast("Password updated. Other devices were signed out — use your new password there.");
     } catch {
       failPw(null, "Network error — check your connection and try again.");
     } finally {

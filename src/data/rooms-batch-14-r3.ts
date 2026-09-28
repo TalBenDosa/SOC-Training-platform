@@ -198,7 +198,6 @@ const lolbinEvent: TelemetryEvent = {
     "change_management.ticket_id": "CHG0041823",
     "change_management.scheduled_window": "2024-11-05T20:00:00Z to 2024-11-05T22:00:00Z",
     "change_management.actual_time": "2024-11-05T19:55:03Z",
-    "change_management.minutes_early": 5,
     "action_result": "allowed",
   },
 };
@@ -689,7 +688,7 @@ const edgeCaseRoom = {
       event: lolbinEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is legitimate administrative work, not Squiblydoo abuse. The command line registers a local file path (C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll), not a remote scriptlet fetched over the network — and network.connection_made is false, meaning no outbound call followed execution at all, which is the single clearest technical distinction between real regsvr32/scrobj.dll abuse and routine local DLL registration. The file is signed, with file.publisher showing 'NexaCorp Internal Engineering' — an internal, known publisher, not an unsigned or externally-sourced binary. The process was launched from a batch script (deploy_report_engine.bat) under an open change-management ticket, CHG0041823, and change_management.minutes_early shows the command ran only 5 minutes before its approved window opened — not outside it in any meaningful sense, just an administrator starting slightly early. Every one of these facts is independently checkable in the raw event; none of them require trusting the analyst's gut. The correct action is to close this as a false positive, but log the 5-minute early-start deviation back to the change-management process as a minor process note, since consistently starting outside approved windows is worth flagging to the change board even when the activity itself is benign.",
+        "This is legitimate administrative work, not Squiblydoo abuse. The command line registers a local file path (C:\\AppDeploy\\ReportEngine\\ReportViewerCtl.dll), not a remote scriptlet fetched over the network — and network.connection_made is false, meaning no outbound call followed execution at all, which is the single clearest technical distinction between real regsvr32/scrobj.dll abuse and routine local DLL registration. The file is signed, with file.publisher showing 'NexaCorp Internal Engineering' — an internal, known publisher, not an unsigned or externally-sourced binary. The process was launched from a batch script (deploy_report_engine.bat) under an open change-management ticket, CHG0041823, and comparing change_management.actual_time (19:55:03Z) with the start of change_management.scheduled_window (20:00Z) shows the command ran only about 5 minutes before its approved window opened — not outside it in any meaningful sense, just an administrator starting slightly early. Every one of these facts is independently checkable in the raw event; none of them require trusting the analyst's gut. The correct action is to close this as a false positive, but log the 5-minute early-start deviation back to the change-management process as a minor process note, since consistently starting outside approved windows is worth flagging to the change board even when the activity itself is benign.",
       fp_trap:
         "regsvr32.exe is one of the most well-known LOLBins in the MITRE ATT&CK framework, and T1218.010 on an alert is exactly the kind of label that pushes a junior analyst straight to escalation without reading further — 'regsvr32 fired, technique matches a real attack technique, escalate now.' That instinct treats the BINARY as the signal, when the reading in this room already established that the signal is never which binary ran, it's what the binary was told to do and what happened immediately afterward. A local, signed, version-controlled DLL path with no outbound connection and a matching change ticket is the textbook legitimate use of the exact same tool attackers abuse — same binary, same MITRE technique ID, completely different intent, and the raw fields prove it without requiring any assumption.",
       xp: 30,
@@ -767,7 +766,7 @@ const edgeCaseRoom = {
       prompt:
         "Look at the LOLBin regsvr32 event. Compare the change_management.scheduled_window start time to the change_management.actual_time the command actually ran. How many minutes EARLY did the command execute relative to the start of the approved maintenance window? (Enter a number only.)",
       answer: "5",
-      hint: "change_management.scheduled_window starts at 2024-11-05T20:00:00Z. change_management.actual_time is 2024-11-05T19:55:03Z. The minutes_early field confirms the answer directly.",
+      hint: "Take the START of the scheduled window (the first timestamp in that field) and subtract the actual run time. Round down to whole minutes.",
       xp: 25,
     },
 

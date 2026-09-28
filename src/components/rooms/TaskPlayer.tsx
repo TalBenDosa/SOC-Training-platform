@@ -20,7 +20,7 @@ import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetr
 import { MermaidDiagram } from "./MermaidDiagram";
 import { RichText } from "@/components/lessons/RichText";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
-import { displayOptions, newShuffleSeed, shuffleWithSeed } from "@/lib/rooms/shuffle";
+import { displayOptions, newShuffleSeed, optionDisplayOrder, remapOptionLetters, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import { saveTaskReview, type ReviewRecord } from "./reviewStore";
 import { ListenButton } from "@/components/media/ListenButton";
 import { VideoSection } from "@/components/media/VideoEmbed";
@@ -626,7 +626,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
           correct ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high",
         )}>
           <p className="font-semibold mb-1">{correct ? `Correct! +${awardedXp} XP` : "Incorrect"}</p>
-          <p className="text-slate-300">{explanation}</p>
+          <p className="text-slate-300">{remapOptionLetters(explanation, optionDisplayOrder(task.options, shuffleSeed))}</p>
         </div>
       )}
       {revealed && (
@@ -766,7 +766,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
                   isCorrect ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high",
                 )}>
                   <p className="font-semibold mb-1">{isCorrect ? `Correct! +${q.xp} XP` : "Incorrect"}</p>
-                  <p className="text-slate-300">{result.explanation}</p>
+                  <p className="text-slate-300">{remapOptionLetters(result.explanation, optionDisplayOrder(q.options, `${shuffleSeed}:q${i}`))}</p>
                 </div>
               )}
             </div>

@@ -567,7 +567,7 @@ export const roomsBatch49 = [
         "event": null,
         "prompt": "This room's regsvr32 reading names the researcher who first documented the /i:URL scrobj.dll abuse pattern, and the nickname the security community still uses for it. What is that nickname?",
         "answer": "Squiblydoo",
-        "hint": "Revisit this room's regsvr32 reading about scriptlets being loaded instead of DLLs — the nickname is in its title.",
+        "hint": "It's a single, playful-sounding word coined by the researcher who documented the /i:URL scrobj.dll trick. Recall it from the reading rather than searching for it.",
         "xp": 15
       }
     ]

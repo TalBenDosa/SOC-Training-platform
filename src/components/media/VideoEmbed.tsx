@@ -8,8 +8,8 @@
  * privacy-enhanced youtube-nocookie.com embed from `embedUrl()`.
  *
  * CSP: needs `frame-src https://www.youtube-nocookie.com` (next.config.mjs).
- * The poster thumbnail comes from i.ytimg.com; if img-src doesn't allow it the
- * image simply fails and a plain poster is shown instead.
+ * The poster is local (gradient + title) — no i.ytimg.com thumbnail — so the
+ * "nothing until play" promise really holds.
  */
 import React, { useState } from "react";
 import { ExternalLink, Play, Youtube } from "lucide-react";
@@ -23,7 +23,6 @@ function watchUrl(v: VideoRef): string {
 
 export function VideoEmbed({ video, className }: { video: VideoRef; className?: string }) {
   const [active, setActive] = useState(false);
-  const [thumbOk, setThumbOk] = useState(true);
   if (!isYouTubeId(video.youtubeId)) return null;
 
   const base = embedUrl(video);
@@ -49,16 +48,9 @@ export function VideoEmbed({ video, className }: { video: VideoRef; className?: 
             aria-label={`Play video: ${video.title}`}
             className="group absolute inset-0 flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#0d1520] to-[#05080d] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-500/60"
           >
-            {thumbOk && (
-              // eslint-disable-next-line @next/next/no-img-element -- remote poster, deliberately not routed through next/image
-              <img
-                src={`https://i.ytimg.com/vi/${video.youtubeId}/hqdefault.jpg`}
-                alt=""
-                loading="lazy"
-                onError={() => setThumbOk(false)}
-                className="absolute inset-0 h-full w-full object-cover opacity-60 transition-opacity group-hover:opacity-80"
-              />
-            )}
+            {/* No remote poster: a YouTube thumbnail would contact Google before the learner
+                chooses to play. The title stands in for it. */}
+            <span className="relative max-w-[85%] text-center text-sm font-medium text-slate-200 line-clamp-2">{video.title}</span>
             <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-red-600/90 shadow-lg shadow-black/50 transition-transform group-hover:scale-105">
               <Play className="h-6 w-6 translate-x-0.5 fill-white text-white" aria-hidden />
             </span>

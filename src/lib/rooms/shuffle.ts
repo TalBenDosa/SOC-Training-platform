@@ -105,6 +105,36 @@ export function toDisplayIndex(order: readonly number[], originalIndex: number):
   return order.indexOf(originalIndex);
 }
 
+/**
+ * Rewrite option-letter references in an authored explanation ("Option c is
+ * wrong", "Options A and D", "(b) is the trap") so they name the letters the
+ * learner actually SAW. Authors wrote explanations against the authored order;
+ * once options are shuffled those letters would point at the wrong buttons
+ * (review of FB-002). Only letters that exist in this question are touched, and
+ * the original case is kept. Review mode shows authored order, so it passes the
+ * identity order and nothing changes.
+ */
+export function remapOptionLetters(text: string, order: readonly number[]): string {
+  if (!text || order.every((o, i) => o === i)) return text;
+  const map = (ch: string): string => {
+    const lower = ch.toLowerCase();
+    const orig = lower.charCodeAt(0) - 97;
+    if (orig < 0 || orig >= order.length) return ch;
+    const disp = order.indexOf(orig);
+    if (disp < 0) return ch;
+    const out = String.fromCharCode(97 + disp);
+    return ch === lower ? out : out.toUpperCase();
+  };
+  return text
+    // "option c", "Options A, B and D", "options a & c"
+    .replace(/\b([Oo]ptions?)\s+([a-fA-F](?:\s*(?:,|and|&|or)\s*[a-fA-F])*)\b/g,
+      (_m, word: string, list: string) => `${word} ${list.replace(/\b[a-fA-F]\b/g, map)}`)
+    // "(b)" / "(C)" used as an option label
+    .replace(/\(([a-fA-F])\)/g, (_m, ch: string) => `(${map(ch)})`)
+    // "Answer B" / "answer b"
+    .replace(/\b([Aa]nswer)\s+([a-fA-F])\b/g, (_m, word: string, ch: string) => `${word} ${map(ch)}`);
+}
+
 /** Convenience: the option list in display order, each carrying its original index. */
 export function displayOptions(
   options: readonly string[],
