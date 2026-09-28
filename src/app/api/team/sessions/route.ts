@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuthedUser, requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { getAuthedUser, requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { resolveTeamStory } from "@/lib/team/buildTimeline";
@@ -19,7 +19,7 @@ const COMPANY_IDS = new Set(COMPANY_PROFILES.map(c => c.id));
 
 // ── POST — create a session + invite members ────────────────────────────────
 export async function POST(req: Request) {
-  const gate = await requireOrgAdmin("team.session.create");
+  const gate = await requireOrgStaff("team.session.create");
   if ("error" in gate) return gate.error;
   const { user } = gate;
   const orgId = user.orgId;

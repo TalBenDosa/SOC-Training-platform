@@ -55,7 +55,8 @@ export default function TeamIndexPage() {
   // Creating a session is org_admin / platform-admin only on the server
   // (POST /api/team/sessions → requireOrgAdmin). Instructors get an explanation
   // instead of a builder whose roster and Create button would both 403.
-  const canCreate = isPlatformAdmin || orgRole === "org_admin";
+  // Org admins and instructors can open a lobby (server: requireOrgStaff).
+  const canCreate = isStaff;
 
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,13 +188,6 @@ export default function TeamIndexPage() {
           </div>
         )}
 
-        {/* Instructors run and review sessions but can't create them (server: org_admin). */}
-        {!claimLoading && isStaff && !canCreate && (
-          <div className="flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-4 py-3 text-sm text-slate-300">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-cyber-300" />
-            <span>Creating a team exercise needs an organisation admin. Ask your admin to open a lobby and invite the class — your org&apos;s sessions then appear below.</span>
-          </div>
-        )}
 
         {canCreate && (
           <Card>

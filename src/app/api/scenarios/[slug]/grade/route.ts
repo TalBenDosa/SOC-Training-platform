@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { decodeAnswer } from "@/lib/scenarios/optionToken";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
@@ -50,11 +51,20 @@ export async function POST(
   // `timeTaken` is NOT graded (FB-007) — it is only stored on the history row
   // (clamped to an integer 0..86400 s) so /progress can show time spent.
   const {
-    answers = {},
+    answers: rawAnswers = {},
     verdict = null, verdictReason = "", analystNotes = "",
     indicators = [],
   } = body;
   const timeTaken = clampTimeTaken(body.timeTaken);
+  // The page ships keyed option tokens (optionToken) — map them back to the
+  // authored values before grading. Raw values from older clients pass through.
+  const answers: Record<string, string | string[]> = {};
+  if (rawAnswers && typeof rawAnswers === "object") {
+    for (const q of bundle.questions) {
+      const v = decodeAnswer(slug, q, (rawAnswers as Record<string, string | string[]>)[q.id]);
+      if (v !== undefined) answers[q.id] = v;
+    }
+  }
 
   // Grade each question.
   //
@@ -153,8 +163,12 @@ export async function POST(
   // The verdict is the analyst's headline output — a wrong call is called out
   // explicitly (it was silent before) and caps the report score.
   const calledVerdict = verdict === "tp" ? "malicious" : verdict === "fp" ? "benign" : "no verdict";
+  // The true verdict is only named on a genuine attempt (every question answered
+  // + a written report) — otherwise a blank POST would reveal it for free.
   const verdictNote = verdictWrong
-    ? ` ⚠ Your verdict was wrong — you called this ${calledVerdict}, the evidence shows ${expectedVerdict}. The verdict is the single most important output of an investigation, so a wrong call caps the report below passing.`
+    ? (attemptedAll && words > 0
+        ? ` ⚠ Your verdict was wrong — you called this ${calledVerdict}, the evidence shows ${expectedVerdict}. The verdict is the single most important output of an investigation, so a wrong call caps the report below passing.`
+        : ` ⚠ Your verdict was wrong — you called this ${calledVerdict}. A wrong call caps the report below passing.`)
     : "";
   const fabricationNote = fabricated.length > 0
     ? ` ⚠ Your report cited ${fabricated.length} indicator${fabricated.length > 1 ? "s" : ""} that appear nowhere in this incident's telemetry — never invent evidence; cite only what the logs actually show.`
@@ -255,7 +269,10 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
   let totalXp: number | null = null;
   let persisted = false;
   const admin = getSupabaseAdminClient();
-  if (admin) {
+  // Only a genuine attempt is recorded: a history row counts as a completion
+  // for learning plans, streaks and org analytics, so an empty POST must not
+  // create one. (Same gate that releases the debrief.)
+  if (admin && releaseDebrief) {
     const prev = await admin
       .from("scenario_history")
       .select("xp_earned")

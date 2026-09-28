@@ -80,6 +80,8 @@ export function buildMacosTccPkgScenario(
   // The .pkg / Mach-O payload hash — appears on the install, the MDE
   // corroboration and the detection.
   const pkgHash = makeSha256("macos_tcc_pkg_meetsync_postinstall_root_launchdaemon_2026");
+  // /usr/sbin/installer is Apple's own binary — its process hash is NOT the package's.
+  const installerHash = makeSha256("macos_usr_sbin_installer_apple_system_binary");
 
   // Falcon sensor identifiers on the MacBook.
   const sensorId = "6d0b93a41f7c4e28b5a2c907e13f8a44";
@@ -105,7 +107,7 @@ export function buildMacosTccPkgScenario(
     csProcess({
       companyId: cx, id: "mtp_01_pkg_install", ts: T(0), host: host.name, user: user.email, runAsUser: "root",
       processName: "installer", processPath: "/usr/sbin/installer", cmdline: `installer -pkg ${pkgPath} -target /`,
-      parentName: "Installer", parentPid: 1, pid: 4207, sha256: pkgHash,
+      parentName: "Installer", parentPid: 1, pid: 4207, sha256: installerHash,
       mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
       extra: { ...osx, ...appleSigned, "file.name": pkgName, "file.path": pkgPath, "file.hash.sha256": pkgHash, "file.signature.status": "revoked", "file.signature.subject_name": "Developer ID Installer: Bright Meridian Ltd (7Q9K2M4X8Z)", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "/usr/sbin/installer installed MeetSync-Installer.pkg (from ~/Downloads) to the system. Falcon recorded the package's Developer ID Installer signature as REVOKED and the file still carrying the com.apple.quarantine attribute; the payload SHA256 is the one seen again in the later events.",
@@ -127,7 +129,7 @@ export function buildMacosTccPkgScenario(
       processName: "sh", processPath: "/bin/sh", cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
       parentName: "installer", pid: 4221, parentPid: 4207, runAsUser: "root", accountName: "root", accountDomain: host.name,
       mitre: "T1059.004", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { "Timestamp": T(5 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": "/usr/sbin/installer", "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`, "InitiatingProcessId": "4207", "InitiatingProcessSHA256": pkgHash, "ReportId": "88301744", "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { "Timestamp": T(5 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": "/usr/sbin/installer", "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`, "InitiatingProcessId": "4207", "InitiatingProcessSHA256": installerHash, "ReportId": "88301744", "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "Defender for Endpoint, also deployed on this Mac, independently recorded the same postinstall /bin/sh child of the installer running under the root account. Its DeviceProcessEvents row ties the shell to the same initiating package payload SHA256.",
     }),
 

@@ -173,6 +173,28 @@ function rawStr(raw: Record<string, unknown> | undefined, ...keys: string[]): st
   return "";
 }
 
+/**
+ * True when `hash` is the image hash of this event's own process AND that image is
+ * a trusted OS-vendor binary (Microsoft / Apple signed, or living in the system
+ * directories). A LOLBin used in an attack — powershell, cmd, rundll32 — is still
+ * a clean file: blocking its hash would break Windows, so it must never inherit an
+ * incident's guilt by association (review of finding #2, content C1).
+ */
+function isTrustedSystemImage(e: TelemetryEvent, hash: string): boolean {
+  const raw = e.raw;
+  const own = [e.process?.hash?.sha256, rawStr(raw, "crowdstrike.SHA256HashData"), rawStr(raw, "process.hash.sha256"),
+    rawStr(raw, "SHA256"), rawStr(raw, "InitiatingProcessSHA256")]
+    .filter((x): x is string => !!x).map(x => x.toLowerCase());
+  if (!own.includes(hash.toLowerCase())) return false;
+  const sig = rawStr(raw, "process.code_signature.status", "mde.SignatureStatus").toLowerCase();
+  if (/unsigned|invalid|revoked|adhoc/.test(sig)) return false;
+  const subject = rawStr(raw, "process.code_signature.subject_name", "mde.Signer");
+  const path = (e.process?.path ?? rawStr(raw, "process.executable", "crowdstrike.ImageFileName", "FolderPath")).toLowerCase();
+  const vendorSigned = /trusted|valid|signed/.test(sig) && /microsoft|apple/i.test(subject);
+  const systemDir = /\\windows\\(system32|syswow64)\\|^\/(usr\/(s?bin|libexec)|bin|sbin|system)\//.test(path);
+  return vendorSigned || (systemDir && !sig);
+}
+
 /** The attack role an event plays, from its MITRE tactic/technique (typed or raw). */
 export function roleFromEvent(e: TelemetryEvent): IocRole | undefined {
   const tactic = `${e.mitre_tactic ?? ""} ${rawStr(e.raw, "crowdstrike.Tactic", "threat.tactic.name")}`.toLowerCase();
@@ -347,7 +369,8 @@ export function buildIocTruth(bundle: { events: TelemetryEvent[]; iocs?: IOC[] }
         const shared = type === "ip" && isSharedProviderIp(value);
         // A file hash only inherits the incident's guilt from an attack-grade event —
         // a benign signed binary that merely appears in low telemetry keeps its own read.
-        if (inAttack && !(shared && !attackGrade) && (type !== "hash" || attackGrade)) {
+        const trustedImage = type === "hash" && isTrustedSystemImage(e, value);
+        if (inAttack && !trustedImage && !(shared && !attackGrade) && (type !== "hash" || attackGrade)) {
           const v: IocVerdict = attackGrade ? "malicious" : "suspicious";
           // A host a file was downloaded from, in an attack incident, is the delivery point.
           const delivered = type !== "hash" && (e.event_type === "http_request" || !!e.network?.url) &&
@@ -669,7 +692,7 @@ export function domainIntel(value: string, opts: { event?: TelemetryEvent; truth
     : a.role === "dns-tunnel" ? ["DNS Tunneling", "Data Exfiltration"]
     : a.role === "dga" ? ["Domain Generation Algorithm", "Malware C2"]
     : a.verdict === "malicious" ? ["Malicious", "Suspicious Activity"] : ["Suspicious", "Uncategorized"];
-  if (bad && ageDays <= 30) categories.push("Newly Registered Domain");
+  if (bad && ageDays <= 45) categories.push("Newly Registered Domain"); // same window the truth uses for attacker domains
   const detectionCount = a.verdict === "malicious" ? between(domain, 2, 9, 21) : a.verdict === "suspicious" ? between(domain, 2, 1, 4) : 0;
   const tags = !bad ? [] : [
     ...(a.role === "c2" ? ["c2"] : a.role === "exfil" ? ["exfil"] : a.role === "delivery" ? ["phishing"] : []),

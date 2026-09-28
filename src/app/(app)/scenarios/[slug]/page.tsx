@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { buildIocTruth } from "@/lib/edr/iocIntel";
+import { optionToken } from "@/lib/scenarios/optionToken";
 import { ScenarioClient } from "./ScenarioClient";
 
 export default async function ScenarioPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -78,8 +79,11 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
         raw,
       };
     }),
+    // Option values are swapped for keyed tokens — authored ids like
+    // "wrong_folder" would otherwise name the answer in the page payload.
     questions: bundle.questions.map(q => ({
       ...q,
+      options: q.options?.map(o => ({ ...o, value: optionToken(slug, q.id, o.value) })),
       answer: Array.isArray(q.answer) ? [] : "",
       explanation: "",
     })),

@@ -375,17 +375,19 @@ describe("emitter-authored scenario packs", () => {
     // a DnsRequest for the C2 domain, attributed to powershell
     const dns = s.events.find(e => e.id === "evt_mhi_ws4_dns");
     expect(dns?.raw?.["crowdstrike.event_simpleName"]).toBe("DnsRequest");
-    expect(dns?.raw?.["crowdstrike.DomainName"]).toBe("cdn-sync-eu.example");
+    expect(dns?.raw?.["crowdstrike.DomainName"]).toBe("cdn-sync-eu.net");
     expect(dns?.process?.name).toBe("powershell.exe");
-    // the C2 heartbeat: an aggregated TRAFFIC/end session with an end reason and elapsed
+    // the C2 check-in: a TRAFFIC/end session record, written when the session ended
     const c2 = s.events.find(e => e.id === "evt_mhi_ws6_c2_fw");
     expect(c2?.event_type).toBe("net_connection");
     expect(c2?.raw?.["pan.type"]).toBe("TRAFFIC");
     expect(c2?.raw?.["pan.subtype"]).toBe("end");
     expect(c2?.raw?.["pan.app"]).toBe("ssl");
-    expect(c2?.raw?.["pan.repeat_count"]).toBe("14");
     expect(c2?.raw?.["pan.session_end_reason"]).toBe("tcp-fin");
-    expect(c2?.raw?.["pan.elapsed_time"]).toBe("840");
+    expect(c2?.raw?.["pan.elapsed_time"]).toBe("20");
+    // an end record can't precede the session's end: start (EDR connect) + elapsed
+    const start = s.events.find(e => e.id === "evt_mhi_ws5_c2_edr")!;
+    expect(new Date(c2!.ts).getTime()).toBe(new Date(start.ts).getTime() + 20_000);
     // an encrypted URL record never carries a path — only the hostname (or no url)
     expect(c2?.raw?.["pan.url"]).toBeUndefined();
     // the lateral hop lands as a Type-3 NTLM logon from the foothold host, on the member
@@ -421,20 +423,25 @@ describe("emitter-authored scenario packs", () => {
     const exfil = s.events.find(e => e.id === "evt_mhi_bk5_exfil_proc");
     expect(exfil?.is_detection).toBe(true);
     expect(exfil?.process?.name).toBe("svchost-update.exe");
-    expect(exfil?.network?.domain).toBe("store.filedrop-transfer.example");
+    expect(exfil?.network?.domain).toBe("store.filedrop-transfer.net");
     expect(exfil?.process?.pid).not.toBe(stage?.process?.pid);
     // Falcon connection events carry no ECS destination.* / byte counts
     expect(exfil?.raw?.["destination.domain"]).toBeUndefined();
-    expect(exfil?.raw?.["crowdstrike.RemoteAddressIP4"]).toBe("198.51.100.23");
+    expect(exfil?.raw?.["crowdstrike.RemoteAddressIP4"]).toBe("185.199.53.14");
     // the exfil VOLUME lives on the firewall's session-end record, not the Falcon event
     const fw = s.events.find(e => e.id === "evt_mhi_bk6_fw");
     expect(fw?.raw?.["pan.subtype"]).toBe("end");
     expect(fw?.raw?.["pan.session_end_reason"]).toBe("tcp-fin");
     expect(fw?.raw?.["pan.bytes_sent"]).toBe("3650722000");
-    // safe IOCs only: documentation ranges + .example
+    // IOCs follow the live-feed convention (D-02): realistic addresses — never a
+    // documentation range or .example name (a giveaway next to realistic noise),
+    // and never shared CDN front-ends (Cloudflare 104.16.0.0/13, 104.24.0.0/14).
     for (const i of s.iocs ?? []) {
-      if (i.type === "ip") expect(i.value).toMatch(/^(192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)/);
-      if (i.type === "domain") expect(i.value).toMatch(/\.example$/);
+      if (i.type === "ip") {
+        expect(i.value).not.toMatch(/^(192\.0\.2\.|198\.51\.100\.|203\.0\.113\.)/);
+        expect(i.value).not.toMatch(/^104\.(1[6-9]|2[0-7])\./);
+      }
+      if (i.type === "domain") expect(i.value).not.toMatch(/\.(example|test|invalid)$/);
     }
     // the three summary alerts carry their scoping hints
     expect(s.events.find(e => e.id === "evt_mhi_ws7_alert")?.edr_scope).toBe("edr");

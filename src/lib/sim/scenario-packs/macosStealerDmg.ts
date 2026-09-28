@@ -116,7 +116,7 @@ export function buildMacosStealerDmgScenario(
       companyId: cx, id: "msd_02_dmg_mount_run", ts: T(3 * MIN), host: host.name, user: user.email, runAsUser: user.sam,
       processName: "PixelForge Pro", processPath: VOL, cmdline: VOL, parentName: "launchd", parentPid: 1, pid: 4102,
       sha256: stealerHash, mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx, "process.code_signature.status": "adhoc", "process.code_signature.subject_name": "-", "file.name": "PixelForge Pro.app", "file.path": "/Volumes/PixelForge Pro/PixelForge Pro.app", "file.hash.sha256": stealerHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { ...osx, "process.code_signature.status": "adhoc", "process.code_signature.subject_name": "-", "file.name": "PixelForge Pro", "file.path": VOL, "file.hash.sha256": stealerHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "The disk image mounted at /Volumes/PixelForge Pro and its app launched from that mount point. Falcon recorded the binary as ad-hoc signed (no Developer ID, not notarized) and still carrying the com.apple.quarantine attribute; its SHA256 matches the downloaded DMG payload.",
     }),
 

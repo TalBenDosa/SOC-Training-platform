@@ -172,8 +172,11 @@ export function scenarioXpDelta(
  */
 export function recordScenarioCompletion(
   record: ScenarioRecord,
-  result: { xpEarned: number; xpDelta?: number | null; totalXp?: number | null },
+  result: { xpEarned: number; xpDelta?: number | null; totalXp?: number | null; persisted?: boolean },
 ): void {
+  // The server didn't record this attempt (incomplete, or the write failed) —
+  // don't show a history entry or XP the account doesn't have.
+  if (result.persisted === false) return;
   const prior = getScenarioHistory();
   appendScenarioRecord(record);
   if (typeof result.totalXp === "number") setTotalXp(result.totalXp);

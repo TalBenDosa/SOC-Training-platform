@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { storiesForCompany } from "@/app/(app)/dashboard/attackStories";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 
@@ -19,7 +19,7 @@ const DIFF = new Set(["easy", "medium", "hard"]);
 const COMPANY_IDS = new Set(COMPANY_PROFILES.map(c => c.id));
 
 export async function GET(req: Request) {
-  const g = await requireOrgAdmin();
+  const g = await requireOrgStaff();
   if ("error" in g) return g.error;
 
   const url = new URL(req.url);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isRootOrg, ROOT_ENVIRONMENT_LABEL } from "@/lib/org/rootEnvironment";
 
@@ -14,7 +14,7 @@ import { isRootOrg, ROOT_ENVIRONMENT_LABEL } from "@/lib/org/rootEnvironment";
  * switcher (which restamps the JWT org); the response names the org so the
  * builder can say where it's inviting from.
  *
- * Same gate as the org roster (org_admin or platform admin) — this endpoint must
+ * Same gate as creating a session (org staff: org_admin, instructor or platform admin) — this endpoint must
  * not widen who can enumerate an org's members. Platform super-admins are
  * invisible to per-org views (as in /api/org/members) and the caller is omitted
  * (they join as the instructor).
@@ -27,7 +27,7 @@ import { isRootOrg, ROOT_ENVIRONMENT_LABEL } from "@/lib/org/rootEnvironment";
  */
 
 async function gate() {
-  const g = await requireOrgAdmin("team.candidates");
+  const g = await requireOrgStaff("team.candidates");
   if ("error" in g) return { error: g.error } as const;
   const orgId = g.user.orgId;
   if (!orgId) return { error: NextResponse.json({ error: "No organisation in session." }, { status: 400 }) } as const;

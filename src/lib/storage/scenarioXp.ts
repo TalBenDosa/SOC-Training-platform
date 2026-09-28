@@ -13,6 +13,8 @@ export interface ScenarioXpInput {
   prevBestXp?: number | null;
   bestXp?: number | null;
   persisted?: boolean;
+  /** Server withheld the debrief: not every question answered / no report. */
+  debriefWithheld?: boolean;
 }
 
 export interface ScenarioXpView {
@@ -28,6 +30,14 @@ export interface ScenarioXpView {
 
 export function describeScenarioXp(r: ScenarioXpInput): ScenarioXpView {
   const run = Math.max(0, Math.round(r.xpEarned ?? 0));
+  if (r.persisted === false && r.debriefWithheld) {
+    return {
+      added: 0,
+      label: "Not Recorded",
+      note: "Only complete attempts are recorded and earn XP — answer every question and write your report, then submit again.",
+      headlineOnly: false,
+    };
+  }
   const unsaved = r.persisted === false
     ? "This attempt couldn't be saved to your account — check your connection before retrying."
     : null;

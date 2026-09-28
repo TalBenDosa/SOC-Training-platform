@@ -89,7 +89,9 @@ export function buildReportBreakdown(input: BreakdownInput): ReportBreakdown {
       detail: !verdict
         ? "No verdict given — the verdict is the headline of the report."
         : verdictWrong
-          ? `You called it ${called}; the evidence shows ${expectedVerdict}. A wrong verdict caps the whole report at 49.`
+          ? (revealKey
+              ? `You called it ${called}; the evidence shows ${expectedVerdict}. A wrong verdict caps the whole report at 49.`
+              : `You called it ${called}, and that is not what the evidence shows. A wrong verdict caps the whole report at 49.`)
           : `Correct — ${expectedVerdict}.`,
     },
     {
@@ -117,7 +119,9 @@ export function buildReportBreakdown(input: BreakdownInput): ReportBreakdown {
   // ── What you missed — most consequential first ────────────────────────────
   const improvements: string[] = [];
   if (!verdict) improvements.push("State a verdict (malicious or benign) — without it the report can't be acted on.");
-  else if (verdictWrong) improvements.push(`Re-check the verdict: this incident is ${expectedVerdict}. Walk the events in order and ask what each one proves.`);
+  else if (verdictWrong) improvements.push(revealKey
+    ? `Re-check the verdict: this incident is ${expectedVerdict}. Walk the events in order and ask what each one proves.`
+    : "Re-check the verdict. Walk the events in order and ask what each one proves.");
   if (scored.fabricated.length > 0) {
     improvements.push(`Remove indicators that are not in the logs: ${scored.fabricated.slice(0, 5).join(", ")}. Cite only values you can point to in an event.`);
   }

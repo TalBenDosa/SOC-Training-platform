@@ -109,11 +109,11 @@ describe("IOC enrichment is deterministic — same IOC, same answer everywhere (
   });
 
   it("a URL lookup and a domain lookup give the same verdict and the same WHOIS date", () => {
-    const url = "https://cdn-sync-eu.example/api/v2/heartbeat";
+    const url = "https://cdn-sync-eu.net/api/v2/heartbeat";
     const a = domainIntel(url, { truth });
-    const b = domainIntel("cdn-sync-eu.example", { truth });
-    const c = domainIntel("cdn-sync-eu.example/api/v2/heartbeat", { truth });   // PAN url.full has no scheme
-    expect(a.domain).toBe("cdn-sync-eu.example");
+    const b = domainIntel("cdn-sync-eu.net", { truth });
+    const c = domainIntel("cdn-sync-eu.net/api/v2/heartbeat", { truth });   // PAN url.full has no scheme
+    expect(a.domain).toBe("cdn-sync-eu.net");
     expect(a.lookedUp).toBe(url);
     for (const x of [a, c]) {
       expect(x.verdict).toBe(b.verdict);
@@ -124,12 +124,12 @@ describe("IOC enrichment is deterministic — same IOC, same answer everywhere (
   });
 
   it("the same value always digests the same, case/URL-insensitively", () => {
-    expect(iocDigest("domain", "HTTPS://Cdn-Sync-EU.example/x")).toBe(iocDigest("domain", "cdn-sync-eu.example"));
+    expect(iocDigest("domain", "HTTPS://Cdn-Sync-EU.net/x")).toBe(iocDigest("domain", "cdn-sync-eu.net"));
     expect(iocDigest("hash", "AB".repeat(32))).toBe(iocDigest("hash", "ab".repeat(32)));
   });
 
   it("repeated lookups are stable", () => {
-    expect(ipIntel("192.0.2.44", { truth })).toEqual(ipIntel("192.0.2.44", { truth }));
+    expect(ipIntel("45.137.101.22", { truth })).toEqual(ipIntel("45.137.101.22", { truth }));
     expect(hashIntel("c".repeat(64))).toEqual(hashIntel("c".repeat(64)));
   });
 });

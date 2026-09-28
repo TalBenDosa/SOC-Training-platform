@@ -76,3 +76,11 @@ describe("scenario XP facade helpers", () => {
     expect(getTotalXp()).toBe(2567);
   });
 });
+
+describe("describeScenarioXp — incomplete attempt", () => {
+  it("says the run was not recorded and shows no XP", () => {
+    const v = describeScenarioXp({ xpEarned: 120, persisted: false, debriefWithheld: true });
+    expect(v.added).toBe(0);
+    expect(v.label).toBe("Not Recorded");
+  });
+});
