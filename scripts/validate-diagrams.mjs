@@ -27,12 +27,18 @@ const u = f => pathToFileURL(path.join(process.cwd(), f)).href;
 const { isMermaidSource } = await import(u("src/lib/lessons/mermaid.ts"));
 const { BUILTIN_LESSONS } = await import(u("src/data/builtinLessons.ts"));
 const { ROOMS } = await import(u("src/data/rooms.ts"));
+const { PATH_LESSON_CONTENT } = await import(u("src/data/pathLessonContent/index.ts"));
 
 const diagrams = [];
 for (const l of BUILTIN_LESSONS)
   for (const s of l.sections ?? [])
     if (s.codeExample && isMermaidSource(s.codeExample))
       diagrams.push({ where: `lesson/${l.slug} — ${s.heading}`, src: s.codeExample });
+// Learning Path lessons (hand-written, src/data/pathLessonContent)
+for (const [key, l] of Object.entries(PATH_LESSON_CONTENT))
+  for (const p of l.pages ?? [])
+    if (p.codeExample && isMermaidSource(p.codeExample))
+      diagrams.push({ where: `path/${key} — p${p.pageNumber} ${p.title}`, src: p.codeExample });
 for (const r of ROOMS)
   for (const t of r.tasks ?? [])
     if (t.diagram) diagrams.push({ where: `room/${r.id}/${t.id}`, src: t.diagram });

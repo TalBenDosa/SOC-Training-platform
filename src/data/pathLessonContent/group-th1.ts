@@ -947,7 +947,7 @@ export const lessons_th1: Record<string, AuthoredPathLesson> = {
           "Reaching for a heavier tool like make-series before a simpler summarize answers the question directly adds unnecessary complexity.",
           "This decision path complements, rather than replaces, the judgment every hit still requires from the standard analyst questions."
         ],
-        "codeExample": "flowchart TD\n    A[What does the question actually ask?] -->|How many events?| B[count()]\n    A -->|How many distinct values?| C[dcount()]\n    A -->|Trend or burst over time?| D[bin Timestamp, size inside summarize]\n    A -->|Latest or most extreme row per entity?| E[arg_max or arg_min]\n    A -->|What is normal for this entity?| F[percentile / percentiles]\n    A -->|Shape of a sequence over time?| G[make-series plus time-series functions]"
+        "codeExample": "flowchart TD\n    A[\"What does the question actually ask?\"] -->|\"How many events?\"| B[\"count()\"]\n    A -->|\"How many distinct values?\"| C[\"dcount()\"]\n    A -->|\"Trend or burst over time?\"| D[\"bin(Timestamp, size) inside summarize\"]\n    A -->|\"Latest or most extreme row per entity?\"| E[\"arg_max() or arg_min()\"]\n    A -->|\"What is normal for this entity?\"| F[\"percentile() / percentiles()\"]\n    A -->|\"Shape of a sequence over time?\"| G[\"make-series plus time-series functions\"]"
       },
       {
         "pageNumber": 9,
