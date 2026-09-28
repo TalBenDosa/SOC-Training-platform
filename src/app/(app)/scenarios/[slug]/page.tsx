@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { buildIocTruth } from "@/lib/edr/iocIntel";
-import { optionToken } from "@/lib/scenarios/optionToken";
+import { optionToken, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
 import { ScenarioClient } from "./ScenarioClient";
 
 export default async function ScenarioPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -94,5 +94,8 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
   // the malicious IOCs — and makes every TI lookup and EDR hash lookup on the
   // page agree with the scenario's own detections.
   const iocTruth = buildIocTruth({ events: bundle.events ?? [], iocs: bundle.iocs ?? [] });
-  return <ScenarioClient bundle={withheld} slug={slug} iocTruth={iocTruth} />;
+  // Authored event ids name the answer ("…_beacon", "…_exfil…") and show in each
+  // row's Raw JSON — ship opaque ids instead (question text is rewritten to match).
+  const idMap = eventIdMap(slug, (bundle.events ?? []).map(e => e.id));
+  return <ScenarioClient bundle={maskEventIds(withheld, idMap)} slug={slug} iocTruth={iocTruth} />;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { decodeAnswer } from "@/lib/scenarios/optionToken";
+import { decodeAnswer, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
@@ -303,7 +303,10 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
   // flagged as unsaved when `persisted` is false).
   const xp = persisted && prevBestXp != null ? xpDeltaFor(xpEarned, prevBestXp) : null;
 
-  return NextResponse.json({
+  // Same opaque event ids the page showed, so explanations and the debrief point
+  // at rows the learner can actually find.
+  const idMap = eventIdMap(slug, (bundle.events ?? []).map(e => e.id));
+  return NextResponse.json(maskEventIds({
     score, xpEarned, timeBonusXp, perQuestion, aiFeedback, passed,
     quizScore,
     // Best-attempt XP accounting (#30). `xpEarned` stays this run's XP.
@@ -333,5 +336,5 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
       misattributed: misattributed.length,
       breakdown,
     },
-  });
+  }, idMap));
 }

