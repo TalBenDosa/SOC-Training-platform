@@ -28,7 +28,8 @@ const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.supabase.co https://avatars.githubusercontent.com",
+  // i.ytimg.com: poster thumbnails for the explainer videos (FB-008).
+  "img-src 'self' data: blob: https://*.supabase.co https://avatars.githubusercontent.com https://i.ytimg.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
   // In-app "College Materials" viewer: PDFs render in a SAME-ORIGIN blob: iframe
@@ -37,7 +38,8 @@ const csp = [
   // materials open INSIDE the platform instead of a separate browser tab.
   // object-src stays 'none' — we use <iframe>/<video>, never <object>/<embed>.
   // blob: → in-app PDF viewer; officeapps.live.com → read-only PPTX slide viewer.
-  "frame-src 'self' blob: https://view.officeapps.live.com https://*.officeapps.live.com",
+  // youtube-nocookie.com: privacy-enhanced explainer-video embeds (FB-008), loaded only on click.
+  "frame-src 'self' blob: https://view.officeapps.live.com https://*.officeapps.live.com https://www.youtube-nocookie.com",
   "media-src 'self' blob: https://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",

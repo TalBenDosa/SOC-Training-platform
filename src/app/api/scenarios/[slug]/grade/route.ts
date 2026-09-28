@@ -44,8 +44,10 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
+  // `timeTaken` may still arrive in the body (older clients send it) but is
+  // deliberately ignored: investigation time is not graded (FB-007).
   const {
-    answers = {}, timeTaken = 0,
+    answers = {},
     verdict = null, verdictReason = "", analystNotes = "",
     indicators = [],
   } = body;
@@ -136,11 +138,12 @@ export async function POST(
     Math.round(reportScore * 1.5);
   // FB-007: no speed bonus. Rewarding a short investigation time pushed learners to
   // optimize for finishing fast (quantity) over investigating well (quality), which is
-  // the opposite of the analyst habit we want to build. XP now comes only from accuracy
-  // and report quality. (Field kept in the response — always 0 — so consumers/UI that
-  // read `timeBonusXp` stay backward-compatible and simply render nothing.)
+  // the opposite of the analyst habit we want to build. Score and XP come only from
+  // accuracy and report quality — time is not an input anywhere in this route (it is
+  // not even passed to the AI feedback prompt, so the feedback can't praise speed).
+  // `timeBonusXp` stays in the response, always 0, only so a browser tab still running
+  // the previous client bundle (which adds it to xpEarned) doesn't compute NaN mid-deploy.
   const timeBonusXp = 0;
-  void timeTaken; // retained for logging/telemetry; no longer scored
 
   // AI feedback (Claude) — falls back to static text if no API key
   // The verdict is the analyst's headline output — a wrong call is called out
@@ -191,7 +194,6 @@ export async function POST(
 Student completed "${bundle.title}" scenario.
 Quiz: ${quizScore}% (${correctCount}/${bundle.questions.length} correct)
 Report: ${reportScore}/100 — verdict ${verdict ?? "not given"} (expected ${expectedVerdict}), ${words} words, cited ${iocsCited}/${scenarioIocValues.length} key indicators
-Time taken: ${Math.floor(timeTaken / 60)}m ${timeTaken % 60}s
 ${wrongSummary ? `Questions missed: ${wrongSummary}` : "All questions correct!"}
 
 Their written analysis:
@@ -199,7 +201,7 @@ Their written analysis:
 ${reportText.slice(0, 1500) || "(left blank)"}
 """
 
-Write exactly 3 sentences of actionable, encouraging feedback. One sentence on the quiz, and TWO on the quality of their written analysis specifically — whether the verdict is supported, whether they cited the right evidence, and what a senior analyst would have added. Be concrete about their actual words.`,
+Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on how fast or slow they were — speed is not graded; thoroughness and accuracy are. One sentence on the quiz, and TWO on the quality of their written analysis specifically — whether the verdict is supported, whether they cited the right evidence, and what a senior analyst would have added. Be concrete about their actual words.`,
         }],
       });
 

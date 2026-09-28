@@ -1,13 +1,15 @@
 "use client";
 import { useState } from "react";
-import { ShieldCheck, ShieldX, Trophy, RotateCcw, ArrowRight, Download, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { ShieldCheck, ShieldX, Trophy, RotateCcw, ArrowRight, Download, Loader2, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
 
 export interface GradeResult {
   score: number;
   xpEarned: number;
-  timeBonusXp: number;
+  /** @deprecated Always 0 — speed is no longer rewarded (FB-007). Not read by the UI. */
+  timeBonusXp?: number;
   perQuestion: {
     id: string;
     correct: boolean;
@@ -73,7 +75,8 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
   // to a single real person's name, so every certificate anyone generated bore
   // that name. Falls back to the email local part / "analyst" for guests.
   const analystName = useDisplayName();
-  const totalXp = result.xpEarned + result.timeBonusXp;
+  // FB-007: XP is accuracy + report quality only; time is shown, never scored.
+  const totalXp = result.xpEarned;
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
   const handleDownloadCert = async () => {
@@ -257,12 +260,6 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
             <ScoreBar score={result.score} />
           </div>
 
-          {result.timeBonusXp > 0 && (
-            <div className="rounded border border-neon-green/20 bg-neon-green/5 px-3 py-2 text-xs text-neon-green">
-              Time bonus: +{result.timeBonusXp} XP for completing in {formatTime(timeTaken)}
-            </div>
-          )}
-
           {/* Question breakdown */}
           <div>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
@@ -336,6 +333,13 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
               {downloading ? "Generating…" : "Certificate (PDF)"}
             </button>
           )}
+          {/* Back to the list, where this scenario now shows "✓ Completed" (FB-006). */}
+          <Link
+            href="/scenarios"
+            className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/5 transition"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> All scenarios
+          </Link>
           <button
             onClick={onClose}
             className="flex items-center gap-1.5 rounded bg-cyber-500/20 border border-cyber-500/30 px-3 py-1.5 text-xs font-medium text-cyber-300 hover:bg-cyber-500/30 transition"

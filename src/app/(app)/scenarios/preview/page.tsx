@@ -71,12 +71,13 @@ function isEventFp(ev: TelemetryEvent): boolean {
   return ev.raw?.["fp"] === true || ev.raw?.["fp"] === "true";
 }
 
-// Scoring logic
+// Scoring logic. Investigation time is deliberately NOT an input (FB-007): a
+// speed bonus rewarded finishing fast over investigating well. Time is still
+// shown on the results screen as information only.
 function calcScore(
   events: TelemetryEvent[],
   taggedIocs: Ioc[],
   fpEvents: string[],   // ids of events analyst marked as FP
-  timeSec: number,
   notes: string,
   verdict: string,
 ): { total: number; breakdown: { label: string; pts: number; earned: number }[] } {
@@ -89,16 +90,14 @@ function calcScore(
   const fpPts       = Math.max(0, correctFpFound * 15 - falseFpMarked * 10);
   const notesPts    = notes.trim().length > 80 ? 15 : notes.trim().length > 20 ? 8 : 0;
   const verdictPts  = verdict.trim().length > 60 ? 20 : verdict.trim().length > 20 ? 10 : 0;
-  const timePts     = timeSec < 600 ? 10 : timeSec < 1200 ? 7 : timeSec < 1800 ? 4 : 0;
 
   return {
-    total: Math.min(100, iocPts + fpPts + notesPts + verdictPts + timePts),
+    total: Math.min(100, iocPts + fpPts + notesPts + verdictPts),
     breakdown: [
       { label: "IOC Evidence Tagged",     pts: 40, earned: iocPts },
       { label: "False Positive Detection", pts: 30, earned: Math.min(30, fpPts) },
       { label: "Investigation Notes",     pts: 15, earned: notesPts },
       { label: "Analyst Verdict",         pts: 20, earned: verdictPts },
-      { label: "Speed Bonus",             pts: 10, earned: timePts },
     ],
   };
 }
@@ -375,7 +374,7 @@ function CompletionOverlay({
   const allIocs = extractIocs(scenario.events);
   const realFpCount = scenario.events.filter(isEventFp).length;
   const correctFp = fpMarked.filter(id => scenario.events.find(e => e.id === id && isEventFp(e))).length;
-  const score = calcScore(scenario.events, taggedIocs, fpMarked, timeTaken, notes, verdict);
+  const score = calcScore(scenario.events, taggedIocs, fpMarked, notes, verdict);
   const grade = score.total >= 85 ? "A" : score.total >= 70 ? "B" : score.total >= 55 ? "C" : "D";
   const gradeColor = grade === "A" ? "text-neon-green" : grade === "B" ? "text-cyber-300" : grade === "C" ? "text-neon-amber" : "text-severity-high";
 

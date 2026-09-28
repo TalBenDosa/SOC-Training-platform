@@ -552,7 +552,7 @@ const mfaSessionTokenAttacksRoom = {
       prompt:
         "This room covered five ATT&CK techniques. Which exact technique ID (format Txxxx) covers an attacker stealing an OAuth access token through a malicious application's illicit consent grant -- the cloud-native cousin of Windows OS token impersonation?",
       answer: "T1528",
-      hint: "Covered in the reading titled 'Token Theft on Two Layers: Windows OS Tokens (T1134.001) vs Stolen OAuth Tokens (T1528)' -- it is explicitly named as the technique detected through sign-in and consent logs, not endpoint telemetry.",
+      hint: "Revisit the reading on token theft on two layers. You want the cloud/OAuth half — the technique detected through sign-in and consent logs, not the Windows-token technique detected through endpoint telemetry.",
       xp: 15,
     },
   ],

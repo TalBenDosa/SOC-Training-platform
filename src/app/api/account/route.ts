@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
+import { checkRateLimit } from "@/lib/security/rateLimit";
+import { validateFullName, validateHandle } from "@/app/(app)/account/accountValidation";
 
 /**
  * Right to deletion — the data subject's own endpoint.
@@ -59,10 +61,19 @@ export async function GET() {
 }
 
 /**
- * PATCH — update the fields a learner is allowed to change themselves.
- * Currently the display name (FB-011). The handle and login email are stable
- * identifiers and are not editable here; the password is changed client-side via
- * the session (auth.updateUser), never through this admin endpoint.
+ * PATCH — update the profile fields a learner may change themselves (FB-011):
+ *   - `display_name` — the full name printed on rank certificates.
+ *   - `handle`       — the public nickname (leaderboard, Topbar).
+ *
+ * WHY THE SERVICE ROLE, AND WHY THAT IS SAFE. The write goes through the admin
+ * client, so RLS and the privileged-column guard trigger do not run for it. The
+ * protection is therefore HERE: the update object is built from an explicit
+ * whitelist of exactly these two columns — nothing from the request body is
+ * spread into it — so role / xp / xp_offset / org_id / is_platform_admin can
+ * never be touched by this endpoint, whatever the client sends.
+ *
+ * The login email is not editable (changing it needs a verified re-confirmation
+ * flow); the password has its own re-authenticating route (./password).
  */
 export async function PATCH(req: Request) {
   const user = await getAuthedUser();
@@ -72,24 +83,88 @@ export async function PATCH(req: Request) {
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown> = {};
-  try { body = await req.json(); } catch { /* body is optional */ }
+  try { body = await req.json(); } catch { /* validated below */ }
+  if (!body || typeof body !== "object" || Array.isArray(body)) body = {};
 
-  const displayName = typeof body.display_name === "string" ? body.display_name.trim().slice(0, 60) : "";
-  if (displayName.length < 2) {
-    return NextResponse.json({ error: "Display name must be at least 2 characters." }, { status: 400 });
+  const wantsName = "display_name" in body;
+  const wantsHandle = "handle" in body;
+  if (!wantsName && !wantsHandle) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
-  const { error } = await admin.from("profiles").update({ display_name: displayName }).eq("id", user.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { data: current } = await admin
+    .from("profiles").select("handle, display_name").eq("id", user.id).maybeSingle();
+  if (!current) return NextResponse.json({ error: "Profile not found." }, { status: 404 });
+
+  // Explicit whitelist — see header. Never spread `body` into this.
+  const update: { display_name?: string; handle?: string } = {};
+
+  if (wantsName) {
+    const v = validateFullName(body.display_name);
+    if (!v.ok) return NextResponse.json({ error: v.error, field: "display_name" }, { status: 400 });
+    if (v.value !== current.display_name) update.display_name = v.value;
+  }
+
+  if (wantsHandle) {
+    const v = validateHandle(body.handle);
+    if (!v.ok) return NextResponse.json({ error: v.error, field: "handle" }, { status: 400 });
+
+    if (v.value !== (current.handle ?? "").toLowerCase()) {
+      // Availability: checked GLOBALLY (like handle_available() at signup —
+      // stricter than the per-org unique index, so a handle is unambiguous
+      // platform-wide). LIKE wildcards are escaped: `_` is legal in handles.
+      const pattern = v.value.replace(/[\\%_]/g, (c) => `\\${c}`);
+      const { data: taken, error: lookupErr } = await admin
+        .from("profiles").select("id").ilike("handle", pattern).neq("id", user.id).limit(1);
+      if (lookupErr) return NextResponse.json({ error: "Could not check that handle. Try again." }, { status: 500 });
+      if (taken && taken.length > 0) {
+        return NextResponse.json({ error: `"${v.value}" is already taken. Pick another handle.`, field: "handle" }, { status: 409 });
+      }
+      // Handle churn is the one abuse vector here (leaderboard impersonation /
+      // confusion), so cap actual changes per user
+      // (counted only once the name is known to be free). Generous for honest use.
+      const rl = await checkRateLimit(`handle-change:${user.id}`, 3, 24 * 60 * 60 * 1000);
+      if (!rl.ok) {
+        return NextResponse.json(
+          { error: "You've changed your handle several times today. Please try again tomorrow.", field: "handle" },
+          { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+        );
+      }
+
+      update.handle = v.value;
+    }
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ display_name: current.display_name, handle: current.handle, unchanged: true });
+  }
+
+  const { data: saved, error } = await admin
+    .from("profiles").update(update).eq("id", user.id)
+    .select("display_name, handle").single();
+  if (error) {
+    // 23505 = the (org_id, lower(handle)) unique index — a concurrent claim won
+    // the race between our availability check and this write.
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "That handle was just taken. Pick another one.", field: "handle" }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Could not save your changes. Please try again." }, { status: 500 });
+  }
 
   await logAudit({
     actorId: user.id,
-    action: "account.display_name_updated",
+    action: "account.profile_updated",
     targetTable: "profiles",
     targetId: user.id,
+    // Field names only for the name (it's PII); old/new handle are public
+    // nicknames and are exactly what an impersonation investigation needs.
+    metadata: {
+      fields: Object.keys(update),
+      ...(update.handle ? { old_handle: current.handle, new_handle: update.handle } : {}),
+    },
   });
 
-  return NextResponse.json({ display_name: displayName });
+  return NextResponse.json({ display_name: saved.display_name, handle: saved.handle });
 }
 
 /**

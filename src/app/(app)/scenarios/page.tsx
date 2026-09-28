@@ -1,13 +1,14 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { LibraryCard } from "@/components/ui/LibraryCard";
 import { SCENARIOS } from "@/lib/sim/scenarios";
-import { getRoomProgress, getScenarioHistory } from "@/lib/storage/progress";
+import { getRoomProgress, getScenarioHistory, PROGRESS_HYDRATED_EVENT, XP_CHANGED_EVENT } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import { SCENARIO_PREP } from "@/lib/scenarios/prep";
+import { bestScoresBySlug, matchesDoneFilter, DONE_FILTERS, type DoneFilter } from "@/lib/scenarios/completion";
 import { ROOMS_META } from "@/data/roomsMeta";
 import { AssignedChip } from "@/components/plans/AssignedChip";
 import { useAssignedItems } from "@/lib/plans/useAssigned";
@@ -74,34 +75,68 @@ export default function ScenariosPage() {
   const [doneRooms, setDoneRooms] = useState<Set<string>>(new Set());
   // FB-006: best score per completed scenario slug, so the list can mark what's done.
   const [bestScore, setBestScore] = useState<Record<string, number>>({});
+  // FB-006: "Show: All / Not done / Completed" filter over built-in + custom scenarios.
+  const [doneFilter, setDoneFilter] = useState<DoneFilter>("all");
   // "Assigned" chips (one cached request); empty for solo learners.
   const assigned = useAssignedItems();
 
-  useEffect(() => {
+  // Learner progress read through the storage facade. MUST re-run after the
+  // signed-in remote backend is installed: on a hard load (refresh, new tab,
+  // landing here first) this page mounts while the backend is still the empty
+  // guest/localStorage one, so a mount-only read saw "no history" and the
+  // Completed badge never appeared even though scenario_history had the rows
+  // (FB-006 root cause). Also re-read when XP changes (a scenario write just
+  // landed) and when the tab becomes visible again (finished in another tab).
+  const readProgress = useCallback(() => {
     try {
-      setHidden(JSON.parse(localStorage.getItem("admin_hidden_scenarios") ?? "[]"));
       // Which rooms has the learner actually completed? Drives the soft
       // readiness hint below (via the same facade the Rooms page uses).
       const rp = getRoomProgress() as Record<string, { completedAt?: string }>;
       setDoneRooms(new Set(Object.entries(rp).filter(([, v]) => v?.completedAt).map(([id]) => id)));
-      // FB-006: a scenario was "completed" if it has any history record; keep the best score.
-      const best: Record<string, number> = {};
-      for (const h of getScenarioHistory()) {
-        if (!h.slug) continue;
-        best[h.slug] = Math.max(best[h.slug] ?? 0, h.score ?? 0);
-      }
-      setBestScore(best);
+      // A scenario is "completed" if it has any history record; keep the best score.
+      setBestScore(bestScoresBySlug(getScenarioHistory()));
     } catch { /* storage blocked */ }
+  }, []);
+
+  useEffect(() => {
+    try {
+      setHidden(JSON.parse(localStorage.getItem("admin_hidden_scenarios") ?? "[]"));
+    } catch { /* storage blocked */ }
+    readProgress();
+    const onVisible = () => { if (document.visibilityState === "visible") readProgress(); };
+    window.addEventListener(PROGRESS_HYDRATED_EVENT, readProgress);
+    window.addEventListener(XP_CHANGED_EVENT, readProgress);
+    window.addEventListener("pageshow", readProgress);
+    document.addEventListener("visibilitychange", onVisible);
     // Admin-published scenarios now live in the durable content_scenarios
     // table (migration 0019), not per-browser localStorage — this is what
     // makes them actually visible to real students for the first time.
     fetchPublishedScenarios<PublishedScenario>().then(setPublished);
-  }, []);
+    return () => {
+      window.removeEventListener(PROGRESS_HYDRATED_EVENT, readProgress);
+      window.removeEventListener(XP_CHANGED_EVENT, readProgress);
+      window.removeEventListener("pageshow", readProgress);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [readProgress]);
 
   const prepGaps = (slug: string) =>
     (SCENARIO_PREP[slug] ?? []).filter(id => !doneRooms.has(id));
 
   const visibleBuiltIn = SCENARIOS.filter(s => !hidden.includes(s.slug));
+  const authored = published.filter(s => s.kind === "authored" && s.scenario_id);
+  const shownBuiltIn = visibleBuiltIn.filter(s => matchesDoneFilter(s.slug, bestScore, doneFilter));
+  const shownAuthored = authored.filter(s => matchesDoneFilter(s.scenario_id!, bestScore, doneFilter));
+  // Legacy AI-preview scenarios aren't server-graded and record no history, so
+  // they can never be "completed" — show them under All / Not done only.
+  const shownGenerated = doneFilter === "done" ? [] : published.filter(s => s.kind !== "authored");
+  const completedCount =
+    visibleBuiltIn.filter(s => bestScore[s.slug] !== undefined).length +
+    authored.filter(s => bestScore[s.scenario_id!] !== undefined).length;
+  const trackableCount = visibleBuiltIn.length + authored.length;
+  const nothingShown =
+    (visibleBuiltIn.length > 0 || published.length > 0) &&
+    shownBuiltIn.length + shownAuthored.length + shownGenerated.length === 0;
 
   function launchGenerated(scenario: PublishedScenario) {
     try {
@@ -149,9 +184,36 @@ export default function ScenariosPage() {
           </div>
         )}
 
+        {/* Show filter + completion count (FB-006) */}
+        {trackableCount > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div role="group" aria-label="Show scenarios" className="flex items-center gap-1 rounded-lg border border-border bg-bg-elevated p-1">
+              <span className="px-2 text-[11px] text-slate-400">Show:</span>
+              {DONE_FILTERS.map(f => (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setDoneFilter(f.value)}
+                  aria-pressed={doneFilter === f.value}
+                  className={
+                    doneFilter === f.value
+                      ? "rounded-md border border-cyber-500/50 bg-cyber-500/15 px-3 py-1 text-xs font-semibold text-cyber-300"
+                      : "rounded-md border border-transparent px-3 py-1 text-xs text-slate-400 transition hover:text-slate-200"
+                  }
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-slate-400">
+              <span className="font-semibold text-neon-green">{completedCount}</span> of {trackableCount} completed
+            </span>
+          </div>
+        )}
+
         {/* Built-in scenarios */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {visibleBuiltIn.map((s, i) => {
+          {shownBuiltIn.map((s, i) => {
             const Icon = ICON[s.attack_kind] ?? ShieldQuestion;
             return (
               <LibraryCard
@@ -194,7 +256,7 @@ export default function ScenariosPage() {
               page (/scenarios/[id]), not the client-side preview. Their card
               deliberately shows only title + briefing + difficulty; the verdict,
               IOCs and answers live server-side (migration 0041). */}
-          {published.filter(s => s.kind === "authored" && s.scenario_id).map((s, i) => (
+          {shownAuthored.map((s, i) => (
             <LibraryCard
               key={s.scenario_id}
               href={`/scenarios/${encodeURIComponent(s.scenario_id!)}`}
@@ -208,7 +270,7 @@ export default function ScenariosPage() {
                 <div className="flex items-center gap-2">
                   <AssignedChip info={assigned[`scenario:${s.scenario_id}`]} className="backdrop-blur-sm" />
                   {bestScore[s.scenario_id!] !== undefined && (
-                    <span className="rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase text-neon-green">✓ Completed</span>
+                    <span className="rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase text-neon-green">✓ Completed{bestScore[s.scenario_id!] > 0 ? ` · ${bestScore[s.scenario_id!]}%` : ""}</span>
                   )}
                   <span className="rounded border border-cyber-500/30 bg-black/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cyber-200 backdrop-blur-sm">Custom</span>
                   <span className={diffPill(s.difficulty)}>{s.difficulty}</span>
@@ -220,7 +282,7 @@ export default function ScenariosPage() {
           ))}
 
           {/* AI-generated / published scenarios (legacy client-preview path) */}
-          {published.filter(s => s.kind !== "authored").map((s, i) => {
+          {shownGenerated.map((s, i) => {
             const Icon = ICON[s.attack_kind] ?? BotIcon;
             return (
               <LibraryCard
@@ -244,6 +306,21 @@ export default function ScenariosPage() {
             );
           })}
         </div>
+
+        {/* Empty result for the current Show filter */}
+        {nothingShown && (
+          <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-12 text-center">
+            <ShieldQuestion className="h-10 w-10 text-slate-400 mb-3" />
+            <p className="text-sm text-slate-400">
+              {doneFilter === "done"
+                ? "No completed scenarios yet — finish one and it will show up here."
+                : "You've completed every scenario. Nice work!"}
+            </p>
+            <button type="button" onClick={() => setDoneFilter("all")} className="mt-3 text-xs font-semibold text-cyber-300 hover:text-cyber-200">
+              Show all
+            </button>
+          </div>
+        )}
 
         {visibleBuiltIn.length === 0 && published.length === 0 && (
           <div className="flex flex-col items-center justify-center rounded border border-border/40 bg-bg-elevated py-16 text-center">

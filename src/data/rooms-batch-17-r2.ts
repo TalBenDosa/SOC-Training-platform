@@ -656,9 +656,9 @@ const dnsDeepDiveRoom = {
       type: "flag" as const,
       id: "dns-f1",
       prompt:
-        "Look at Log Analysis 2, the DGA-shaped NXDOMAIN burst. What is the exact rcode_name value returned for the sample query to kqxpzr4t.top? Enter it exactly as shown in the raw log.",
-      answer: "NXDOMAIN",
-      hint: "Look at the rcode_name field in the raw Zeek dns.log record for WKS-OPS22's sample query.",
+        "Look at Log Analysis 2, the burst of failed lookups from WKS-OPS22. Which server answered the sample query to kqxpzr4t.top? Enter its IP address exactly as shown in the raw Zeek dns.log record.",
+      answer: "10.40.0.53",
+      hint: "Zeek names the two ends of every connection id.orig_h (the originator — the host that sent the query) and id.resp_h (the responder).",
       xp: 25,
     },
   ],

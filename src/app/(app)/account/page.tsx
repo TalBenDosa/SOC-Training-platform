@@ -1,23 +1,33 @@
 "use client";
 /**
- * Account page — identity, and the right-to-deletion controls.
+ * Account page — identity, self-service profile edits, password change, and
+ * the right-to-deletion controls.
  *
- * Exists because the privacy policy promised a deletion right the product had
- * no mechanism for (docs/PPA-COMPLIANCE-ASSESSMENT.md §5.1). Two paths, decided
- * by the server from the account's org, not by anything the client asserts:
- * a solo learner deletes immediately; a student enrolled through a college
- * files a request their institution actions, because their results are also the
- * college's assessment record.
+ * Deletion exists because the privacy policy promised a deletion right the
+ * product had no mechanism for (docs/PPA-COMPLIANCE-ASSESSMENT.md §5.1). Two
+ * paths, decided by the server from the account's org, not by anything the
+ * client asserts: a solo learner deletes immediately; a student enrolled through
+ * a college files a request their institution actions, because their results
+ * are also the college's assessment record.
+ *
+ * FB-011 — editable details. Full name and handle are saved via PATCH
+ * /api/account (whitelisted columns only); the password via POST
+ * /api/account/password, which re-verifies the CURRENT password first. Both
+ * share validation with the server (./accountValidation) so the form and the
+ * API can never disagree. Email stays read-only.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { AlertTriangle, Building2, Clock, ShieldCheck, Pencil, KeyRound, Check } from "lucide-react";
+import { AlertTriangle, Building2, Clock, ShieldCheck, Pencil, KeyRound, Check, Mail } from "lucide-react";
+import {
+  validateFullName, validateHandle, validatePasswordChange,
+  FULL_NAME_MAX, PASSWORD_MIN, type Validation,
+} from "./accountValidation";
 
 interface AccountInfo {
   handle: string | null;
@@ -26,6 +36,113 @@ interface AccountInfo {
   enrolled: boolean;
   org_name: string | null;
   deletion_request: { id: string; status: string; requested_at: string } | null;
+}
+
+const INPUT_CLS =
+  "w-full rounded-lg border bg-slate-900/60 px-3 py-2 text-sm text-white focus:outline-none";
+const inputBorder = (invalid: boolean) =>
+  invalid ? "border-red-500/70 focus:border-red-400" : "border-slate-700 focus:border-cyber-500";
+
+/**
+ * One inline-editable profile field: read view with an Edit button, and an
+ * accessible edit form (label, hint, aria-invalid, aria-describedby, focus on
+ * open/error, focus back to the Edit button on close).
+ */
+function EditableField({
+  id, label, value, hint, maxLength, validate, onSave, inputProps,
+}: {
+  id: string;
+  label: string;
+  value: string | null;
+  hint: string;
+  maxLength: number;
+  validate: (raw: string) => Validation<string>;
+  /** Resolves to an error message, or null on success. */
+  onSave: (value: string) => Promise<string | null>;
+  inputProps?: React.InputHTMLAttributes<HTMLInputElement>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const editBtnRef = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef(false);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+    else if (returnFocus.current) { editBtnRef.current?.focus(); returnFocus.current = false; }
+  }, [editing]);
+
+  function close() { returnFocus.current = true; setEditing(false); setError(null); }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const v = validate(draft);
+    if (!v.ok) { setError(v.error); inputRef.current?.focus(); return; }
+    setSaving(true); setError(null);
+    const err = await onSave(v.value);
+    setSaving(false);
+    if (err) { setError(err); inputRef.current?.focus(); return; }
+    close();
+  }
+
+  const hintId = `${id}-hint`;
+  const errId = `${id}-error`;
+
+  if (!editing) {
+    return (
+      <div className="flex items-start justify-between gap-4">
+        <dt className="text-slate-400">{label}</dt>
+        <dd className="flex items-center gap-2 text-right text-slate-200">
+          <span className="break-all">{value ?? "—"}</span>
+          <button
+            ref={editBtnRef} type="button"
+            onClick={() => { setDraft(value ?? ""); setError(null); setEditing(true); }}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-cyber-300 hover:bg-cyber-500/10 focus:outline-none focus:ring-2 focus:ring-cyber-400/50"
+            aria-label={`Edit ${label.toLowerCase()}`}
+          >
+            <Pencil className="h-3 w-3" aria-hidden="true" /> Edit
+          </button>
+        </dd>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <dt className="sr-only">{label}</dt>
+      <dd>
+        <form onSubmit={submit} noValidate className="rounded-lg border border-slate-700/60 bg-slate-900/30 p-3">
+          <label htmlFor={id} className="block text-xs font-semibold text-slate-300">{label}</label>
+          <input
+            ref={inputRef} id={id} value={draft} maxLength={maxLength}
+            onChange={e => { setDraft(e.target.value); if (error) setError(null); }}
+            onKeyDown={e => { if (e.key === "Escape") close(); }}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? `${errId} ${hintId}` : hintId}
+            className={`mt-1 ${INPUT_CLS} ${inputBorder(!!error)}`}
+            {...inputProps}
+          />
+          <p id={hintId} className="mt-1 text-[11px] text-slate-500">{hint}</p>
+          {error && <p id={errId} role="alert" className="mt-1 text-xs text-red-400">{error}</p>}
+          <div className="mt-2 flex gap-2">
+            <Button type="submit" size="sm" variant="primary" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+            <Button type="button" size="sm" variant="ghost" disabled={saving} onClick={close}>Cancel</Button>
+          </div>
+        </form>
+      </dd>
+    </div>
+  );
+}
+
+type PwField = "current_password" | "new_password" | "confirm_password";
+
+/** Map a password-validation message to the field it concerns (for focus + aria-invalid). */
+function pwFieldFor(msg: string): PwField {
+  if (/current/i.test(msg) && !/different/i.test(msg)) return "current_password";
+  if (/match/i.test(msg)) return "confirm_password";
+  return "new_password";
 }
 
 export default function AccountPage() {
@@ -42,56 +159,82 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [filed, setFiled] = useState(false);
 
-  // FB-011: edit display name + change password.
-  const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState("");
-  const [savingName, setSavingName] = useState(false);
-  const [nameMsg, setNameMsg] = useState<string | null>(null);
-  const [pw1, setPw1] = useState("");
-  const [pw2, setPw2] = useState("");
-  const [savingPw, setSavingPw] = useState(false);
-  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // FB-011: success toast (auto-hides; announced politely to screen readers).
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
-  async function saveDisplayName() {
-    const next = nameDraft.trim();
-    if (next.length < 2) { setNameMsg("Name must be at least 2 characters."); return; }
-    setSavingName(true); setNameMsg(null);
+  // FB-011: change password.
+  const [pwCurrent, setPwCurrent] = useState("");
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
+  const [pwError, setPwError] = useState<{ field: PwField | null; text: string } | null>(null);
+  const pwCurrentRef = useRef<HTMLInputElement>(null);
+  const pwNewRef = useRef<HTMLInputElement>(null);
+  const pwConfirmRef = useRef<HTMLInputElement>(null);
+  const pwRefs: Record<PwField, React.RefObject<HTMLInputElement | null>> = {
+    current_password: pwCurrentRef,
+    new_password: pwNewRef,
+    confirm_password: pwConfirmRef,
+  };
+
+  /** PATCH one profile field; returns an error message or null. */
+  async function saveProfile(field: "display_name" | "handle", value: string): Promise<string | null> {
     try {
       const res = await fetch("/api/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ display_name: next }),
+        body: JSON.stringify({ [field]: value }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Could not update your name.");
-      setInfo(prev => prev ? { ...prev, display_name: data.display_name } : prev);
-      setEditingName(false);
-    } catch (e) {
-      setNameMsg(e instanceof Error ? e.message : "Could not update your name.");
-    } finally {
-      setSavingName(false);
+      if (!res.ok) return data.error ?? "Could not save your changes.";
+      setInfo(prev => prev ? { ...prev, display_name: data.display_name ?? prev.display_name, handle: data.handle ?? prev.handle } : prev);
+      if (!data.unchanged) setToast(field === "handle" ? "Handle updated." : "Name updated.");
+      return null;
+    } catch {
+      return "Network error — check your connection and try again.";
     }
   }
 
-  async function changePassword() {
-    if (pw1.length < 8) { setPwMsg({ ok: false, text: "Password must be at least 8 characters." }); return; }
-    if (pw1 !== pw2) { setPwMsg({ ok: false, text: "The two passwords don't match." }); return; }
-    setSavingPw(true); setPwMsg(null);
+  function failPw(field: PwField | null, text: string) {
+    setPwError({ field, text });
+    if (field) pwRefs[field].current?.focus();
+  }
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    const v = validatePasswordChange({ current: pwCurrent, next: pwNew, confirm: pwConfirm });
+    if (!v.ok) { failPw(pwFieldFor(v.error), v.error); return; }
+    setSavingPw(true); setPwError(null);
     try {
-      // Session-authenticated: the logged-in user updates their own password;
-      // Supabase requires a valid session, no admin key involved.
-      const supabase = getSupabaseBrowserClient();
-      if (!supabase) throw new Error("Auth is not available right now. Please reload and try again.");
-      const { error: err } = await supabase.auth.updateUser({ password: pw1 });
-      if (err) throw new Error(err.message);
-      setPw1(""); setPw2("");
-      setPwMsg({ ok: true, text: "Password updated." });
-    } catch (e) {
-      setPwMsg({ ok: false, text: e instanceof Error ? e.message : "Could not update your password." });
+      const res = await fetch("/api/account/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: pwCurrent, new_password: pwNew, confirm_password: pwConfirm }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg: string = data.error ?? "Could not update your password.";
+        const field = (data.field as PwField | undefined) ?? (res.status === 400 ? pwFieldFor(msg) : null);
+        failPw(field, msg);
+        return;
+      }
+      setPwCurrent(""); setPwNew(""); setPwConfirm("");
+      setToast("Password updated. Use your new password next time you sign in.");
+    } catch {
+      failPw(null, "Network error — check your connection and try again.");
     } finally {
       setSavingPw(false);
     }
   }
+
+  const pwInvalid = (f: PwField) => pwError?.field === f;
+  const pwDescribedBy = (f: PwField, hintId?: string) =>
+    [pwInvalid(f) ? "pw-error" : null, hintId].filter(Boolean).join(" ") || undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -150,38 +293,34 @@ export default function AccountPage() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-bold text-white">Account</h1>
-      <p className="mt-1 text-sm text-slate-400">{user?.email}</p>
+      <p className="mt-1 text-sm text-slate-400">Manage your profile, password and data.</p>
 
       <Card className="mt-8">
         <h2 className="text-sm font-bold text-white">Your details</h2>
         <dl className="mt-4 space-y-3 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-slate-400">Handle</dt>
-            <dd className="text-slate-200">{info?.handle ?? "—"}</dd>
-          </div>
           <div className="flex items-start justify-between gap-4">
-            <dt className="text-slate-400 pt-1.5">Display name</dt>
-            <dd className="text-slate-200">
-              {editingName ? (
-                <div className="flex flex-col items-end gap-1.5">
-                  <input
-                    autoFocus value={nameDraft} onChange={e => setNameDraft(e.target.value)} maxLength={60}
-                    onKeyDown={e => { if (e.key === "Enter") saveDisplayName(); if (e.key === "Escape") setEditingName(false); }}
-                    className="w-56 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-sm text-white focus:border-cyber-500 focus:outline-none"
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="primary" disabled={savingName} onClick={saveDisplayName}>{savingName ? "Saving…" : "Save"}</Button>
-                    <Button size="sm" variant="ghost" disabled={savingName} onClick={() => { setEditingName(false); setNameMsg(null); }}>Cancel</Button>
-                  </div>
-                  {nameMsg && <p className="text-[11px] text-red-400">{nameMsg}</p>}
-                </div>
-              ) : (
-                <button onClick={() => { setNameDraft(info?.display_name ?? ""); setEditingName(true); setNameMsg(null); }} className="inline-flex items-center gap-1.5 text-slate-200 hover:text-cyber-300 transition-colors">
-                  {info?.display_name ?? "—"} <Pencil className="h-3 w-3 opacity-60" />
-                </button>
-              )}
+            <dt className="flex items-center gap-1.5 text-slate-400"><Mail className="h-3.5 w-3.5" aria-hidden="true" /> Email</dt>
+            <dd className="text-right">
+              <span className="break-all text-slate-200">{user?.email ?? "—"}</span>
+              <span className="mt-0.5 block text-[11px] text-slate-500">
+                Your login email can&apos;t be changed here.{info?.enrolled ? " Ask your course administrator if it needs to change." : ""}
+              </span>
             </dd>
           </div>
+          <EditableField
+            id="account-handle" label="Handle" value={info?.handle ?? null} maxLength={20}
+            hint="Your public nickname on the leaderboard. 3–20 characters: lowercase letters, numbers and underscores. Must be unique."
+            validate={validateHandle}
+            onSave={v => saveProfile("handle", v)}
+            inputProps={{ autoComplete: "username", autoCapitalize: "none", spellCheck: false }}
+          />
+          <EditableField
+            id="account-name" label="Full name" value={info?.display_name ?? null} maxLength={FULL_NAME_MAX}
+            hint={`Printed on the rank certificates you earn. 2–${FULL_NAME_MAX} characters.`}
+            validate={validateFullName}
+            onSave={v => saveProfile("display_name", v)}
+            inputProps={{ autoComplete: "name" }}
+          />
           <div className="flex justify-between gap-4">
             <dt className="text-slate-400">XP</dt>
             <dd className="text-slate-200 tabular-nums">{info?.xp ?? 0}</dd>
@@ -205,31 +344,53 @@ export default function AccountPage() {
       {/* ── Change password (FB-011) ────────────────────────────────────── */}
       <Card className="mt-6">
         <h2 className="flex items-center gap-2 text-sm font-bold text-white">
-          <KeyRound className="h-4 w-4 text-cyber-300" /> Change password
+          <KeyRound className="h-4 w-4 text-cyber-300" aria-hidden="true" /> Change password
         </h2>
-        <p className="mt-2 text-xs text-slate-400">Set a new password for {user?.email}. At least 8 characters.</p>
-        <div className="mt-3 space-y-2 max-w-sm">
-          <input
-            type="password" autoComplete="new-password" placeholder="New password" value={pw1}
-            onChange={e => { setPw1(e.target.value); setPwMsg(null); }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-cyber-500 focus:outline-none"
-          />
-          <input
-            type="password" autoComplete="new-password" placeholder="Confirm new password" value={pw2}
-            onChange={e => { setPw2(e.target.value); setPwMsg(null); }}
-            onKeyDown={e => { if (e.key === "Enter") changePassword(); }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-cyber-500 focus:outline-none"
-          />
-          <Button variant="primary" disabled={savingPw || !pw1 || !pw2} onClick={changePassword}>
-            {savingPw ? "Updating…" : "Update password"}
-          </Button>
-          {pwMsg && (
-            <p className={`flex items-center gap-1.5 text-xs ${pwMsg.ok ? "text-neon-green" : "text-red-400"}`}>
-              {pwMsg.ok && <Check className="h-3.5 w-3.5" />}{pwMsg.text}
-            </p>
-          )}
-        </div>
-        <p className="mt-4 text-[11px] text-slate-500">Your handle ({info?.handle ?? "—"}) and login email are fixed identifiers and can&apos;t be changed here.</p>
+        <p className="mt-2 text-xs text-slate-400">
+          For your security, confirm your current password first. The new one must be at least {PASSWORD_MIN} characters.
+        </p>
+        <form onSubmit={changePassword} noValidate className="mt-4 max-w-sm space-y-3">
+          {/* Hidden username so password managers file the new password under the right account. */}
+          <input type="email" name="username" autoComplete="username" value={user?.email ?? ""} readOnly hidden />
+          <div>
+            <label htmlFor="pw-current" className="mb-1 block text-xs font-semibold text-slate-400">Current password</label>
+            <input
+              ref={pwCurrentRef} id="pw-current" type="password" autoComplete="current-password"
+              value={pwCurrent} onChange={e => { setPwCurrent(e.target.value); setPwError(null); }}
+              aria-invalid={pwInvalid("current_password") || undefined}
+              aria-describedby={pwDescribedBy("current_password")}
+              className={`${INPUT_CLS} ${inputBorder(pwInvalid("current_password"))}`}
+            />
+          </div>
+          <div>
+            <label htmlFor="pw-new" className="mb-1 block text-xs font-semibold text-slate-400">New password</label>
+            <input
+              ref={pwNewRef} id="pw-new" type="password" autoComplete="new-password" minLength={PASSWORD_MIN}
+              value={pwNew} onChange={e => { setPwNew(e.target.value); setPwError(null); }}
+              aria-invalid={pwInvalid("new_password") || undefined}
+              aria-describedby={pwDescribedBy("new_password", "pw-new-hint")}
+              className={`${INPUT_CLS} ${inputBorder(pwInvalid("new_password"))}`}
+            />
+            <p id="pw-new-hint" className="mt-1 text-[11px] text-slate-500">At least {PASSWORD_MIN} characters, different from your current password.</p>
+          </div>
+          <div>
+            <label htmlFor="pw-confirm" className="mb-1 block text-xs font-semibold text-slate-400">Confirm new password</label>
+            <input
+              ref={pwConfirmRef} id="pw-confirm" type="password" autoComplete="new-password"
+              value={pwConfirm} onChange={e => { setPwConfirm(e.target.value); setPwError(null); }}
+              aria-invalid={pwInvalid("confirm_password") || undefined}
+              aria-describedby={pwDescribedBy("confirm_password")}
+              className={`${INPUT_CLS} ${inputBorder(pwInvalid("confirm_password"))}`}
+            />
+          </div>
+          {pwError && <p id="pw-error" role="alert" className="text-xs text-red-400">{pwError.text}</p>}
+          <div className="flex flex-wrap items-center gap-4">
+            <Button type="submit" variant="primary" disabled={savingPw || !pwCurrent || !pwNew || !pwConfirm}>
+              {savingPw ? "Updating…" : "Update password"}
+            </Button>
+            <Link href="/reset-password" className="text-xs text-cyber-300 hover:underline">Forgot your password?</Link>
+          </div>
+        </form>
       </Card>
 
       {/* ── Deletion ─────────────────────────────────────────────────────── */}
@@ -301,6 +462,15 @@ export default function AccountPage() {
 
         {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       </Card>
+
+      {/* Success toast (FB-011). The live region stays mounted so it is registered before it speaks. */}
+      <div role="status" aria-live="polite" className="pointer-events-none fixed bottom-6 right-6 z-50">
+        {toast && (
+          <div className="flex items-center gap-2 rounded-lg border border-neon-green/40 bg-bg-elevated px-4 py-3 text-sm text-neon-green shadow-glow">
+            <Check className="h-4 w-4" aria-hidden="true" /> {toast}
+          </div>
+        )}
+      </div>
     </main>
   );
 }

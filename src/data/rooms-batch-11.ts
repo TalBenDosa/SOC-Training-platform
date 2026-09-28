@@ -567,7 +567,7 @@ const rooms = [
         type: "flag",
         id: "priv-flag2",
         prompt:
-          "Look at the xp_cmdshell log analysis event above. What is the exact name of the SQL Server extended stored procedure the attacker used to break out of the database and execute operating-system commands? Enter it exactly as it appears in the sql.stored_procedure field.",
+          "Look at the sqlservr.exe log analysis event above. What is the exact name of the SQL Server extended stored procedure the attacker used to break out of the database and execute operating-system commands? Enter it exactly as it appears in the sql.stored_procedure field.",
         answer: "xp_cmdshell",
         hint: "Look at the 'sql.stored_procedure' field in the raw log. It is a built-in SQL Server feature, disabled by default, that lets a database user run OS shell commands.",
         xp: 30,

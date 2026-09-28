@@ -20,17 +20,31 @@ import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetr
 import { MermaidDiagram } from "./MermaidDiagram";
 import { RichText } from "@/components/lessons/RichText";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
-import { shuffleSeeded } from "@/lib/lessons/shuffle";
+import { displayOptions, newShuffleSeed, shuffleWithSeed } from "@/lib/rooms/shuffle";
+import { saveTaskReview, type ReviewRecord } from "./reviewStore";
+import { ListenButton } from "@/components/media/ListenButton";
+import { VideoSection } from "@/components/media/VideoEmbed";
+import type { VideoRef } from "@/lib/media/videos";
 
-// HTS-LEARN-001: room options were rendered in SOURCE order, so a correct-answer
-// position bias in the data ("b" correct in most questions) was directly clickable —
-// a student could pass by always picking the same slot. We shuffle options for DISPLAY
-// with a per-question seed while keeping each option's SOURCE index for selection,
-// submission and reveal — so the server's index-based grading contract is unchanged.
-// (Lesson quizzes and scenario questions already shuffle at render the same way.)
-type DisplayOption = { label: string; srcIdx: number };
-const displayOptions = (options: readonly string[], seed: string): DisplayOption[] =>
-  shuffleSeeded(options.map((label, srcIdx) => ({ label, srcIdx })), seed);
+// FB-002 / HTS-LEARN-001: a correct-answer position bias in the data (slot 1–2
+// correct far more often than 3–4) was directly clickable. Options are shuffled
+// for DISPLAY only (src/lib/rooms/shuffle.ts — "All/None of the above" pinned,
+// letter-referencing questions left alone). Selection state, submission and the
+// server's reveal all stay in ORIGINAL indices, so the index-based grading
+// contract is unchanged; only the order on screen — and the A/B/C/D letters,
+// which follow DISPLAY position so they can't betray the authored slot — move.
+//
+// One random seed per PAGE LOAD (combined with the task/question id): stable
+// across re-renders and task revisits, reshuffled on reload. Lazily created on
+// the client — TaskPlayer never renders during SSR (RoomClient waits for mount).
+let pageLoadSeed: string | null = null;
+function pageSeed(): string {
+  if (pageLoadSeed === null) pageLoadSeed = newShuffleSeed();
+  return pageLoadSeed;
+}
+
+/** Persist what the learner answered + what the grader revealed, for Review mode. */
+type RecordFn = (record: ReviewRecord) => void;
 
 interface TaskPlayerProps {
   roomId: string;
@@ -38,6 +52,8 @@ interface TaskPlayerProps {
   onComplete: (xpEarned: number, telemetry?: TaskTelemetryEntry) => void;
   isCompleted: boolean;
   prevLogEvent?: TelemetryEvent;
+  /** Explainer videos to show on a reading task (room overview + task-specific). */
+  videos?: VideoRef[];
 }
 
 /** POSTs a task submission to the server-side grader (src/lib/rooms/grading.ts)
@@ -304,11 +320,13 @@ function InteractiveLogEventCard({
 
 // ─── MCQ Option Button ──────────────────────────────────────────────────────────
 interface OptionProps {
-  label: string; index: number; selected: boolean; revealed: boolean; correctIndex: number; onSelect: () => void;
+  /** `index` is the ORIGINAL option index (compared to the revealed answer);
+   *  `displayIndex` is the on-screen position (drives the A/B/C/D letter). */
+  label: string; index: number; displayIndex: number; selected: boolean; revealed: boolean; correctIndex: number; onSelect: () => void;
 }
-function OptionButton({ label, index, selected, revealed, correctIndex, onSelect }: OptionProps) {
+function OptionButton({ label, index, displayIndex, selected, revealed, correctIndex, onSelect }: OptionProps) {
   const isCorrect = index === correctIndex;
-  const letter = String.fromCharCode(65 + index);
+  const letter = String.fromCharCode(65 + displayIndex);
   const classes = cn(
     "w-full rounded-lg border px-4 py-3 text-left text-sm transition-all",
     revealed
@@ -333,8 +351,38 @@ function OptionButton({ label, index, selected, revealed, correctIndex, onSelect
 // The room reading renderer is the shared theory-content renderer (RichText) — the
 // same one the Learning Path lessons use — so tables, code blocks and ordered lists
 // render identically here and never fall through to raw `| pipe |` / literal `- `.
-function RichContent({ content }: { content: string }) {
+export function RichContent({ content }: { content: string }) {
   return <RichText content={content} className="space-y-5" />;
+}
+
+/**
+ * The readable body of a reading task — shared by the live player and the
+ * read-only Review mode so both render identical content. Carries the Listen
+ * control (FB-009, reads heading + content) and any explainer videos (FB-008).
+ */
+export function ReadingBody({ task, videos }: { task: ReadingTask; videos?: VideoRef[] }) {
+  return (
+    <>
+      <div className="space-y-3">
+        <h2 className="text-3xl font-bold text-white leading-tight">{task.heading}</h2>
+        <ListenButton text={`${task.heading}.\n\n${task.content}`} />
+      </div>
+      <VideoSection videos={videos} />
+      <RichContent content={task.content} />
+      {task.diagram && <MermaidDiagram chart={task.diagram} caption={task.diagramCaption} />}
+      {task.image && <LessonFigure image={task.image} />}
+      {task.codeExample && (
+        <div className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-elevated/40">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Example</span>
+          </div>
+          <pre className="px-4 py-4 font-mono text-sm text-cyber-300 overflow-x-auto leading-relaxed whitespace-pre-wrap">
+            {task.codeExample}
+          </pre>
+        </div>
+      )}
+    </>
+  );
 }
 
 // ─── Reading Task ───────────────────────────────────────────────────────────────
@@ -350,8 +398,8 @@ const READING_XP_DEFAULT = 5;
  * still reports 0 to the room score; the engagement XP is awarded separately by
  * RoomClient so it never touches the pass gate.
  */
-function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
-  const [shuffleSeed] = useState(() => Math.random().toString(36).slice(2)); // FB-002: fresh checkpoint option order per load
+function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord, videos }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn; videos?: VideoRef[] }) {
+  const shuffleSeed = `${pageSeed()}:${task.id}`; // FB-002: checkpoint option order, fresh per load
   const endRef = useRef<HTMLDivElement | null>(null);
   const [reachedEnd, setReachedEnd] = useState(false);
   const [dwellDone,  setDwellDone]  = useState(false);
@@ -395,20 +443,7 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: stri
 
   return (
     <div className="space-y-7">
-      <h2 className="text-3xl font-bold text-white leading-tight">{task.heading}</h2>
-      <RichContent content={task.content} />
-      {task.diagram && <MermaidDiagram chart={task.diagram} caption={task.diagramCaption} />}
-      {task.image && <LessonFigure image={task.image} />}
-      {task.codeExample && (
-        <div className="rounded-lg border border-border bg-[#080d14] overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-elevated/40">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Example</span>
-          </div>
-          <pre className="px-4 py-4 font-mono text-sm text-cyber-300 overflow-x-auto leading-relaxed whitespace-pre-wrap">
-            {task.codeExample}
-          </pre>
-        </div>
-      )}
+      <ReadingBody task={task} videos={videos} />
 
       {/* End-of-content sentinel for the scroll gate */}
       <div ref={endRef} aria-hidden className="h-px w-full" />
@@ -432,13 +467,19 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: stri
                   key={i}
                   disabled={cpCorrect || cpBusy}
                   onClick={async () => {
+                    // `i` is the ORIGINAL index (display order is presentation only).
                     setCpChoice(i);
                     setCpBusy(true);
                     try {
                       const result = await submitTask(roomId, task.id, { selectedIndex: i });
-                      setCpAnswer(typeof result.reveal.answer === "number" ? result.reveal.answer : null);
-                      setCpExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : undefined);
-                      if (result.correct) setCpCorrect(true);
+                      const answer = typeof result.reveal.answer === "number" ? result.reveal.answer : null;
+                      const explanation = typeof result.reveal.explanation === "string" ? result.reveal.explanation : undefined;
+                      setCpAnswer(answer);
+                      setCpExplanation(explanation);
+                      if (result.correct) {
+                        setCpCorrect(true);
+                        onRecord({ type: "reading", checkpoint: { selected: i, answer, explanation: explanation ?? "", correct: true } });
+                      }
                     } finally {
                       setCpBusy(false);
                     }
@@ -493,11 +534,10 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: stri
 }
 
 // ─── Question Task ──────────────────────────────────────────────────────────────
-function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: QuestionTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
-  // FB-002: shuffle options with a fresh random seed PER MOUNT (not a fixed task-id
-  // seed) so the correct answer isn't always in the same slot across loads — you
-  // can't guess by position. Stable within a mount so options don't jump on re-render.
-  const [shuffleSeed] = useState(() => Math.random().toString(36).slice(2));
+function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QuestionTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  // FB-002: page-load seed + task id — the correct answer isn't in a predictable
+  // slot, options never jump on re-render, and a reload reshuffles.
+  const shuffleSeed = `${pageSeed()}:${task.id}`;
   const [selected, setSelected]   = useState<number | null>(null);
   const [revealed, setReveal]     = useState(isCompleted);
   const [confirmed, setConfirmed] = useState(isCompleted);
@@ -531,20 +571,27 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
     if (selected === null) return;
     setBusy(true);
     try {
+      // `selected` is already the ORIGINAL option index (see displayOptions below),
+      // and the revealed `answer` is original too — both compared in original space.
       const result = await submitTask(roomId, task.id, { selectedIndex: selected, attemptNumber: wrongOnce ? 2 : 1 });
+      const expl = typeof result.reveal.explanation === "string" ? result.reveal.explanation : "";
       if (result.correct) {
+        const answer = typeof result.reveal.answer === "number" ? result.reveal.answer : selected;
         setCorrect(true);
         setAwardedXp(result.xpEarned);
-        setAnswerIndex(typeof result.reveal.answer === "number" ? result.reveal.answer : selected);
-        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+        setAnswerIndex(answer);
+        setExplanation(expl);
         setReveal(true); setConfirmed(true);          // correct → award (full or half)
+        onRecord({ type: "question", selected, answer, explanation: expl, correct: true });
       } else if (!wrongOnce) {
         setWrongOnce(true); setSelected(null);        // first miss → nudge + one more try, no reveal
       } else {
+        const answer = typeof result.reveal.answer === "number" ? result.reveal.answer : null;
         setAwardedXp(0);
-        setAnswerIndex(typeof result.reveal.answer === "number" ? result.reveal.answer : null);
-        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+        setAnswerIndex(answer);
+        setExplanation(expl);
         setReveal(true); setConfirmed(true);          // second miss → reveal + 0 XP
+        onRecord({ type: "question", selected, answer, explanation: expl, correct: false });
       }
     } finally {
       setBusy(false);
@@ -555,9 +602,9 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
     <div className="space-y-5">
       <p className="text-slate-200 leading-relaxed text-base">{task.question}</p>
       <div className="space-y-2">
-        {displayOptions(task.options, shuffleSeed).map(({ label, srcIdx }) => (
+        {displayOptions(task.options, shuffleSeed).map(({ label, srcIdx, displayIdx }) => (
           <OptionButton
-            key={srcIdx} label={label} index={srcIdx}
+            key={srcIdx} label={label} index={srcIdx} displayIndex={displayIdx}
             selected={selected === srcIdx} revealed={revealed} correctIndex={answerIndex ?? -1}
             onSelect={() => !revealed && setSelected(srcIdx)}
           />
@@ -592,8 +639,8 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
 }
 
 // ─── Log Analysis Task ──────────────────────────────────────────────────────────
-function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: LogAnalysisTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
-  const [shuffleSeed] = useState(() => Math.random().toString(36).slice(2)); // FB-002: fresh option order per load
+function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: LogAnalysisTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const shuffleSeed = `${pageSeed()}:${task.id}`; // FB-002: option order, fresh per load (per question below)
   const [iocs, setIocs]           = useState<IocEntry[]>([]);
   const [answers, setAnswers]     = useState<(number | null)[]>(Array(task.questions.length).fill(null));
   const [revealed, setRevealed]   = useState<boolean[]>(Array(task.questions.length).fill(false));
@@ -640,15 +687,16 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
     if (selected === null || confirmed[i] || busy[i]) return;
     setBusy(prev => prev.map((v, idx) => idx === i ? true : v));
     try {
+      // questionIndex is the AUTHORED question position (questions aren't
+      // reordered); selectedIndex is the ORIGINAL option index.
       const result = await submitTask(roomId, task.id, { questionIndex: i, selectedIndex: selected });
-      setResults(prev => ({
-        ...prev,
-        [i]: {
-          correct: result.correct,
-          answer: typeof result.reveal.answer === "number" ? result.reveal.answer : selected,
-          explanation: typeof result.reveal.explanation === "string" ? result.reveal.explanation : "",
-        },
-      }));
+      const entry = {
+        correct: result.correct,
+        answer: typeof result.reveal.answer === "number" ? result.reveal.answer : selected,
+        explanation: typeof result.reveal.explanation === "string" ? result.reveal.explanation : "",
+      };
+      setResults(prev => ({ ...prev, [i]: entry }));
+      onRecord({ type: "log_analysis", questions: { [i]: { selected, ...entry } } });
       setRevealed(prev  => prev.map((v, idx) => idx === i ? true : v));
       setConfirmed(prev => prev.map((v, idx) => idx === i ? true : v));
       setTotalXp(prev => prev + result.xpEarned);
@@ -699,9 +747,9 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
               )}
 
               <div className="space-y-2">
-                {displayOptions(q.options, `${shuffleSeed}:q${i}`).map(({ label, srcIdx }) => (
+                {displayOptions(q.options, `${shuffleSeed}:q${i}`).map(({ label, srcIdx, displayIdx }) => (
                   <OptionButton
-                    key={srcIdx} label={label} index={srcIdx}
+                    key={srcIdx} label={label} index={srcIdx} displayIndex={displayIdx}
                     selected={answers[i] === srcIdx} revealed={revealed[i]} correctIndex={result?.answer ?? -1}
                     onSelect={() => !revealed[i] && setAnswers(prev => prev.map((v, j) => j === i ? srcIdx : v))}
                   />
@@ -748,7 +796,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted }: { roomId: 
 }
 
 // ─── Flag Task ──────────────────────────────────────────────────────────────────
-function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: { roomId: string; task: FlagTask; onComplete: (xp: number) => void; isCompleted: boolean; prevLogEvent?: TelemetryEvent }) {
+function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRecord }: { roomId: string; task: FlagTask; onComplete: (xp: number) => void; isCompleted: boolean; prevLogEvent?: TelemetryEvent; onRecord: RecordFn }) {
   const [input, setInput]       = useState("");
   const [status, setStatus]     = useState<"idle" | "correct" | "wrong" | "checking">("idle");
   const [showHint, setShowHint] = useState(false);
@@ -780,6 +828,7 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: { r
     if (result.correct) {
       setAwardedXp(result.xpEarned);
       setStatus("correct");
+      onRecord({ type: "flag", value: input.trim(), correct: true });
     } else {
       setStatus("wrong");
     }
@@ -852,7 +901,7 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: { r
 }
 
 // ─── Read-Only Event Card (used by AnalystChoicePlayer) ─────────────────────────
-function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
+export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
   const [expanded, setExpanded] = useState(true);
   const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.edr;
   return (
@@ -890,7 +939,17 @@ function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
 }
 
 // ─── Analyst Choice Task ─────────────────────────────────────────────────────────
-function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: AnalystChoiceTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+export const ANALYST_VERDICTS = [
+  { key: "true_positive",  label: "True Positive",   desc: "Real threat — take action now",   activeClass: "border-red-500/70 bg-red-500/15 text-red-300"          },
+  { key: "false_positive", label: "False Positive",  desc: "Benign — close this alert",       activeClass: "border-neon-green/70 bg-neon-green/15 text-neon-green"  },
+  { key: "escalate",       label: "Escalate to T2",  desc: "Needs senior analyst review",     activeClass: "border-neon-amber/70 bg-neon-amber/15 text-neon-amber"  },
+  { key: "informational",  label: "Informational",   desc: "Log and monitor — no action",     activeClass: "border-slate-500/70 bg-slate-500/15 text-slate-300"     },
+] as const;
+
+function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: AnalystChoiceTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  // FB-002: verdict cards in a per-load order too, so "the answer is usually the
+  // first card" can't become a habit. Submitted by verdict KEY — no index mapping.
+  const VERDICTS = React.useMemo(() => shuffleWithSeed(ANALYST_VERDICTS, `${pageSeed()}:${task.id}:verdicts`), [task.id]);
   const [selected, setSelected] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   // One forgiving second chance at half credit; a wrong first verdict does not
@@ -908,34 +967,33 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted }: { roomId
     setBusy(true);
     try {
       const result = await submitTask(roomId, task.id, { verdict: selected, attemptNumber: wrongOnce ? 2 : 1 });
+      const expl = typeof result.reveal.explanation === "string" ? result.reveal.explanation : "";
+      const trap = typeof result.reveal.fp_trap === "string" ? result.reveal.fp_trap : undefined;
       if (result.correct) {
+        const cv = typeof result.reveal.correct_verdict === "string" ? result.reveal.correct_verdict : selected;
         setAwardedXp(result.xpEarned);
         setResultCorrect(true);
-        setCorrectVerdict(typeof result.reveal.correct_verdict === "string" ? result.reveal.correct_verdict : selected);
-        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
-        setFpTrap(typeof result.reveal.fp_trap === "string" ? result.reveal.fp_trap : undefined);
+        setCorrectVerdict(cv);
+        setExplanation(expl);
+        setFpTrap(trap);
         setRevealed(true);
+        onRecord({ type: "analyst_choice", selected, correctVerdict: cv, explanation: expl, fpTrap: trap, correct: true });
       } else if (!wrongOnce) {
         setWrongOnce(true); setSelected(null);
       } else {
+        const cv = typeof result.reveal.correct_verdict === "string" ? result.reveal.correct_verdict : null;
         setAwardedXp(0);
         setResultCorrect(false);
-        setCorrectVerdict(typeof result.reveal.correct_verdict === "string" ? result.reveal.correct_verdict : null);
-        setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
-        setFpTrap(typeof result.reveal.fp_trap === "string" ? result.reveal.fp_trap : undefined);
+        setCorrectVerdict(cv);
+        setExplanation(expl);
+        setFpTrap(trap);
         setRevealed(true);
+        onRecord({ type: "analyst_choice", selected, correctVerdict: cv, explanation: expl, fpTrap: trap, correct: false });
       }
     } finally {
       setBusy(false);
     }
   }
-
-  const VERDICTS = [
-    { key: "true_positive",  label: "True Positive",   desc: "Real threat — take action now",   activeClass: "border-red-500/70 bg-red-500/15 text-red-300"          },
-    { key: "false_positive", label: "False Positive",  desc: "Benign — close this alert",       activeClass: "border-neon-green/70 bg-neon-green/15 text-neon-green"  },
-    { key: "escalate",       label: "Escalate to T2",  desc: "Needs senior analyst review",     activeClass: "border-neon-amber/70 bg-neon-amber/15 text-neon-amber"  },
-    { key: "informational",  label: "Informational",   desc: "Log and monitor — no action",     activeClass: "border-slate-500/70 bg-slate-500/15 text-slate-300"     },
-  ] as const;
 
   const isCorrect = resultCorrect;
 
@@ -1033,7 +1091,7 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted }: { roomId
 }
 
 // ─── Matching Task ────────────────────────────────────────────────────────────────
-function MatchingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: MatchingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: MatchingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   // { leftId -> right TEXT }. The right side has no id: the server delivers it
   // as bare shuffled strings precisely so no id can tie a right item back to
@@ -1069,15 +1127,17 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
     setBusy(true);
     try {
       const res = await submitTask(roomId, task.id, { connections });
-      setAwardedXp(res.xpEarned);
-      setResult({
+      const r = {
         correctCount: Number(res.reveal.correctCount ?? 0),
         total: Number(res.reveal.total ?? task.left.length),
         perPair: Array.isArray(res.reveal.perPair) ? res.reveal.perPair : [],
         solution: Array.isArray(res.reveal.solution) ? res.reveal.solution : [],
         explanation: typeof res.reveal.explanation === "string" ? res.reveal.explanation : "",
-      });
+      };
+      setAwardedXp(res.xpEarned);
+      setResult(r);
       setRevealed(true);
+      onRecord({ type: "matching", connections, perPair: r.perPair, solution: r.solution, explanation: r.explanation, correct: res.correct });
     } finally {
       setBusy(false);
     }
@@ -1217,7 +1277,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
 }
 
 // ─── Ordering Task ────────────────────────────────────────────────────────────────
-function OrderingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: OrderingTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: OrderingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const [placed, setPlaced] = useState<(string | null)[]>(Array(task.items.length).fill(null));
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -1248,15 +1308,17 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
     setBusy(true);
     try {
       const res = await submitTask(roomId, task.id, { placed });
-      setXpEarned(res.xpEarned);
-      setResult({
+      const r = {
         correctCount: Number(res.reveal.correctCount ?? 0),
         total: Number(res.reveal.total ?? task.items.length),
         perSlot: Array.isArray(res.reveal.perSlot) ? res.reveal.perSlot : [],
         correctOrder: Array.isArray(res.reveal.correctOrder) ? res.reveal.correctOrder : [],
         explanation: typeof res.reveal.explanation === "string" ? res.reveal.explanation : "",
-      });
+      };
+      setXpEarned(res.xpEarned);
+      setResult(r);
       setRevealed(true);
+      onRecord({ type: "ordering", placed, perSlot: r.perSlot, correctOrder: r.correctOrder, explanation: r.explanation, correct: res.correct });
     } finally {
       setBusy(false);
     }
@@ -1439,7 +1501,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted }: { roomId: str
 // pre-written query does — closes the platform's one real KQL/SPL practice gap.
 const BLANK_TOKEN = /\{\{([a-zA-Z0-9_]+)\}\}/g;
 
-function QueryFillPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: QueryFillTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QueryFillTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const [values, setValues]     = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy]         = useState(false);
@@ -1464,11 +1526,13 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted }: { roomId: st
       const blanks = Array.isArray(result.reveal.blanks) ? result.reveal.blanks : [];
       const byId: Record<string, { correct: boolean; answers: string[] }> = {};
       for (const b of blanks) byId[b.id] = { correct: !!b.correct, answers: Array.isArray(b.answers) ? b.answers : [] };
+      const expl = typeof result.reveal.explanation === "string" ? result.reveal.explanation : "";
       setBlankResults(byId);
-      setExplanation(typeof result.reveal.explanation === "string" ? result.reveal.explanation : "");
+      setExplanation(expl);
       setXpEarned(result.xpEarned);
       setAllCorrect(result.correct);
       setRevealed(true);
+      onRecord({ type: "query_fill", values, blanks: byId, explanation: expl, correct: result.correct });
     } finally {
       setBusy(false);
     }
@@ -1566,7 +1630,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted }: { roomId: st
   );
 }
 
-function WrittenReportPlayer({ roomId, task, onComplete, isCompleted }: { roomId: string; task: WrittenReportTask; onComplete: (xp: number) => void; isCompleted: boolean }) {
+function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: WrittenReportTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const [text, setText]         = useState("");
   const [busy, setBusy]         = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -1580,17 +1644,19 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted }: { roomId
     setBusy(true);
     try {
       const res = await submitTask(roomId, task.id, { text });
-      setResult({
+      const r = {
         score: Number(res.reveal.score) || 0,
         words: Number(res.reveal.words) || 0,
         iocsCited: Number(res.reveal.iocsCited) || 0,
         iocsTotal: Number(res.reveal.iocsTotal) || 0,
         fabricatedCount: Number(res.reveal.fabricatedCount) || 0,
         explanation: typeof res.reveal.explanation === "string" ? res.reveal.explanation : "",
-      });
+      };
+      setResult(r);
       setXpEarned(res.xpEarned);
       setPassed(res.correct);
       setRevealed(true);
+      onRecord({ type: "written_report", text, ...r, correct: res.correct });
     } finally {
       setBusy(false);
     }
@@ -1674,7 +1740,7 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted }: { roomId
 }
 
 // ─── Main TaskPlayer ────────────────────────────────────────────────────────────
-export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: TaskPlayerProps) {
+export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, videos }: TaskPlayerProps) {
   // Behavioral telemetry (Phase 1 — see ANALYST_TELEMETRY_PLAN.md): timing is
   // captured here at the dispatcher, via event delegation, so none of the 7
   // sub-players below need to know telemetry exists. isCompleted tasks (the
@@ -1685,17 +1751,22 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
     onComplete(xp, isCompleted ? undefined : finalize());
   }, [onComplete, finalize, isCompleted]);
 
+  // FB-001: remember the learner's answer + the grader's reveal on this device
+  // so the read-only Review mode can show them later without re-submitting.
+  const onRecord = useCallback((record: ReviewRecord) => saveTaskReview(roomId, task.id, record), [roomId, task.id]);
+  const common = { roomId, onComplete: handleComplete, isCompleted, onRecord };
+
   const player = (() => {
     switch (task.type) {
-      case "reading":         return <ReadingPlayer      roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "question":        return <QuestionPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "log_analysis":    return <LogAnalysisPlayer  roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "flag":            return <FlagPlayer         roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} prevLogEvent={prevLogEvent} />;
-      case "analyst_choice":  return <AnalystChoicePlayer roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "matching":        return <MatchingPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "ordering":        return <OrderingPlayer     roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "query_fill":      return <QueryFillPlayer    roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
-      case "written_report":  return <WrittenReportPlayer roomId={roomId} task={task} onComplete={handleComplete} isCompleted={isCompleted} />;
+      case "reading":         return <ReadingPlayer       {...common} task={task} videos={videos} />;
+      case "question":        return <QuestionPlayer      {...common} task={task} />;
+      case "log_analysis":    return <LogAnalysisPlayer   {...common} task={task} />;
+      case "flag":            return <FlagPlayer          {...common} task={task} prevLogEvent={prevLogEvent} />;
+      case "analyst_choice":  return <AnalystChoicePlayer {...common} task={task} />;
+      case "matching":        return <MatchingPlayer      {...common} task={task} />;
+      case "ordering":        return <OrderingPlayer      {...common} task={task} />;
+      case "query_fill":      return <QueryFillPlayer     {...common} task={task} />;
+      case "written_report":  return <WrittenReportPlayer {...common} task={task} />;
       default:                return null;
     }
   })();

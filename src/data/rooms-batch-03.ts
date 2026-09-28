@@ -276,7 +276,7 @@ const activeDirectory: Room = {
       type: "flag",
       id: "ad-flag1",
       prompt:
-        "Look at the log analysis event above (Event ID 4769). What is the exact TicketEncryptionType value in hexadecimal that indicates Kerberoasting? Enter it exactly as shown in the raw log (e.g. 0x17).",
+        "Look at the log analysis event above (Event ID 4769). What is the exact TicketEncryptionType value in hexadecimal that indicates Kerberoasting? Enter it exactly as shown in the raw log (format: 0x followed by two hex digits).",
       answer: "0x17",
       hint: "Look at the 'winlog.event_data.TicketEncryptionType' field in the raw log. It should be a hexadecimal value starting with '0x'. RC4-HMAC is the older, weaker algorithm.",
       xp: 40,
@@ -707,9 +707,9 @@ const windowsEventLogs: Room = {
       type: "flag",
       id: "win-evtlogs-flag1",
       prompt:
-        "Look at the log analysis event above (Event ID 4625 — password spray). What is the exact SubStatus value shown in the raw log that tells you the account exists but the password was wrong? Enter it exactly (e.g. 0xC000006A).",
+        "Look at the log analysis event above (Event ID 4625 — password spray). What is the exact SubStatus value shown in the raw log that tells you the account exists but the password was wrong? Enter it exactly as shown in the raw log (format: 0x followed by eight hex digits).",
       answer: "0xC000006A",
-      hint: "Find the 'winlog.event_data.SubStatus' field in the raw log. SubStatus codes are hexadecimal values starting with '0xC'. The one for 'wrong password' begins with 0xC000006.",
+      hint: "Find the 'winlog.event_data.SubStatus' field in the raw log — not the Status field, which is a more general failure code.",
       xp: 30,
     } satisfies FlagTask,
 
@@ -890,7 +890,7 @@ const linuxFundamentals: Room = {
       prompt:
         "Look at the log analysis event above. What command was run with sudo? Look at the 'process.args' field in the raw log. Enter the command that was executed after sudo (the argument that was passed to sudo).",
       answer: "bash",
-      hint: "The process.args field shows the full command as an array: ['sudo', 'bash']. The command run AS root (the argument passed to sudo) is the second element.",
+      hint: "The process.args field shows the full command as an array. The first element is sudo itself; the command run AS root (the argument passed to sudo) is the second element.",
       xp: 25,
     } satisfies FlagTask,
 

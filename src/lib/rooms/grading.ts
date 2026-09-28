@@ -36,6 +36,18 @@ export type GradeResult =
   | { ok: true; correct: boolean; xpEarned: number; reveal: Record<string, unknown> }
   | { ok: false; error: string; status: number };
 
+/**
+ * Extra accepted answers for specific flag tasks, keyed "roomId:taskId" (flag
+ * ids are only unique within a room). Used when a flag has more than one
+ * professionally correct spelling — e.g. a DNS NXDOMAIN response is also RCODE 3.
+ * Kept here, server-side, rather than as a field on the task: sanitize.ts strips
+ * only `answer` from flag tasks, so an extra field would ship to the browser.
+ */
+const FLAG_ALIASES: Record<string, string[]> = {
+  "networking-protocols:net-prot-f1": ["RCODE 3", "RCODE=3", "RCODE3", "3", "Non-Existent Domain", "NX DOMAIN"],
+  "endpoint-security-fundamentals:ep-sec-f1": ["-EncodedCommand"],
+};
+
 function fail(error: string, status = 400): GradeResult {
   return { ok: false, error, status };
 }
@@ -92,7 +104,9 @@ export function gradeTask(task: RoomTask, submission: any, room?: Room): GradeRe
     case "flag": {
       const value = submission?.value;
       if (typeof value !== "string") return fail("value (string) is required.");
-      const correct = value.trim().toLowerCase() === task.answer.trim().toLowerCase();
+      const given = value.trim().toLowerCase();
+      const aliases = room ? FLAG_ALIASES[`${room.id}:${task.id}`] ?? [] : [];
+      const correct = [task.answer, ...aliases].some(a => a.trim().toLowerCase() === given);
       return {
         ok: true,
         correct,

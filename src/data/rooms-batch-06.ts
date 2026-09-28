@@ -1087,9 +1087,9 @@ Based on your analysis:
     {
       type: "flag",
       id: "ep-sec-f1",
-      prompt: "Look at the CrowdStrike alert log above. The PowerShell command uses a specific flag to hide the console window from the user. Read the command line and enter that flag exactly as it appears there — the flag plus its value (it starts with `-W`).",
-      answer: "-W Hidden",
-      hint: "Look at the crowdstrike.CommandLine field in the raw log. Find the flag that controls the window style. It is two characters followed by a space and a word.",
+      prompt: "Look at the CrowdStrike alert log above. Falcon killed the process, but your ticket still has to say what the script actually did — and from this alert alone, you can't. One of the flags in the PowerShell command line is the reason. Enter that flag exactly as it appears in the command line (the flag only, without the value that follows it).",
+      answer: "-Enc",
+      hint: "Read the crowdstrike.CommandLine field flag by flag. Most of the flags change HOW PowerShell runs (profile, prompts, window, policy); only one changes whether a human can READ what it ran. The 'Common PowerShell Flags' table in the reading maps each short form to its meaning.",
       xp: 50,
     } satisfies FlagTask,
 
