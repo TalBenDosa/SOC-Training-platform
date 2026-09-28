@@ -16,7 +16,6 @@ import type {
   SanitizedReadingTask as ReadingTask,
 } from "@/lib/rooms/sanitize";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import type { VideoRef } from "@/lib/media/videos";
 import type { ReviewRecord, QuestionReview } from "./reviewStore";
 import { ReadingBody, ReadOnlyEventCard, ANALYST_VERDICTS } from "./TaskPlayer";
 
@@ -27,7 +26,6 @@ interface TaskReviewProps {
   earnedXp?: number;
   maxXp: number;
   prevLogEvent?: TelemetryEvent;
-  videos?: VideoRef[];
 }
 
 function XpChip({ earned, max }: { earned?: number; max: number }) {
@@ -104,12 +102,12 @@ function ResultLine({ correct }: { correct: boolean }) {
   );
 }
 
-function ReadingReview({ task, record, videos }: { task: ReadingTask; record?: ReviewRecord; videos?: VideoRef[] }) {
+function ReadingReview({ task, record }: { task: ReadingTask; record?: ReviewRecord }) {
   const cp = task.checkpoint;
   const rev = record?.type === "reading" ? record.checkpoint : undefined;
   return (
     <div className="space-y-7">
-      <ReadingBody task={task} videos={videos} />
+      <ReadingBody task={task} />
       {cp && (
         <div className="rounded-lg border border-cyber-500/25 bg-cyber-500/5 p-4 space-y-3">
           <p className="text-sm font-semibold text-white">Quick check</p>
@@ -122,12 +120,12 @@ function ReadingReview({ task, record, videos }: { task: ReadingTask; record?: R
   );
 }
 
-export function TaskReview({ task, record, earnedXp, maxXp, prevLogEvent, videos }: TaskReviewProps) {
+export function TaskReview({ task, record, earnedXp, maxXp, prevLogEvent }: TaskReviewProps) {
   const header = <XpChip earned={earnedXp} max={maxXp} />;
 
   switch (task.type) {
     case "reading":
-      return <ReadingReview task={task} record={record} videos={videos} />;
+      return <ReadingReview task={task} record={record} />;
 
     case "question": {
       const rev = record?.type === "question" ? record : undefined;

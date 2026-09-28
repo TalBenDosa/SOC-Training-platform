@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { TaskPlayer } from "@/components/rooms/TaskPlayer";
 import { TaskReview } from "@/components/rooms/TaskReview";
 import { loadRoomReview, type ReviewRecord } from "@/components/rooms/reviewStore";
-import { ROOM_VIDEOS, ROOM_TASK_VIDEOS } from "@/data/roomVideos";
-import type { VideoRef } from "@/lib/media/videos";
 import {
   ArrowLeft, BookOpen, CheckCircle2, Circle, ChevronRight, ChevronLeft,
   Trophy, Zap, FileText, HelpCircle, Search, Flag, RotateCcw, Terminal, Shield, Eye, X,
@@ -115,19 +113,6 @@ export function RoomClient({ room }: RoomClientProps) {
   const [reviewMode, setReviewMode]             = useState(false);
   const [reviewRecords, setReviewRecords]       = useState<Record<string, ReviewRecord>>({});
 
-  // FB-008: explainer videos — the room's overview videos sit on its FIRST
-  // reading task; a task-specific video sits on its own reading task.
-  const videosFor = useCallback((task: RoomTask): VideoRef[] | undefined => {
-    if (task.type !== "reading") return undefined;
-    const firstReadingId = room.tasks.find(t => t.type === "reading")?.id;
-    const list: VideoRef[] = [
-      ...(task.id === firstReadingId ? ROOM_VIDEOS[room.id] ?? [] : []),
-      ...(ROOM_TASK_VIDEOS[`${room.id}:${task.id}`] ? [ROOM_TASK_VIDEOS[`${room.id}:${task.id}`]] : []),
-    ];
-    const seen = new Set<string>();
-    const unique = list.filter(v => (seen.has(v.youtubeId) ? false : (seen.add(v.youtubeId), true)));
-    return unique.length ? unique : undefined;
-  }, [room]);
 
   const maxXp   = maxRoomXp(room);
   // Max XP per GRADEABLE task — the 65% gate counts only these. Reading tasks'
@@ -681,7 +666,6 @@ export function RoomClient({ room }: RoomClientProps) {
                 earnedXp={perTaskXp[currentTask.id]}
                 maxXp={taskMaxXp(currentTask)}
                 prevLogEvent={prevLogEvent}
-                videos={videosFor(currentTask)}
               />
               <div className="mt-8 flex items-center justify-between gap-3">
                 <Button variant="outline" size="md" disabled={currentTaskIndex === 0} onClick={() => goToTask(currentTaskIndex - 1)}>
@@ -709,7 +693,6 @@ export function RoomClient({ room }: RoomClientProps) {
               onComplete={handleTaskComplete}
               isCompleted={completedTaskIds.has(currentTask.id)}
               prevLogEvent={prevLogEvent}
-              videos={videosFor(currentTask)}
             />
           )}
 

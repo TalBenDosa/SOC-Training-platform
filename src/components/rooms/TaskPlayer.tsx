@@ -23,8 +23,6 @@ import { LessonFigure } from "@/components/lessons/LessonFigure";
 import { displayOptions, newShuffleSeed, optionDisplayOrder, remapOptionLetters, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import { saveTaskReview, type ReviewRecord } from "./reviewStore";
 import { ListenButton } from "@/components/media/ListenButton";
-import { VideoSection } from "@/components/media/VideoEmbed";
-import type { VideoRef } from "@/lib/media/videos";
 
 // FB-002 / HTS-LEARN-001: a correct-answer position bias in the data (slot 1–2
 // correct far more often than 3–4) was directly clickable. Options are shuffled
@@ -52,8 +50,6 @@ interface TaskPlayerProps {
   onComplete: (xpEarned: number, telemetry?: TaskTelemetryEntry) => void;
   isCompleted: boolean;
   prevLogEvent?: TelemetryEvent;
-  /** Explainer videos to show on a reading task (room overview + task-specific). */
-  videos?: VideoRef[];
 }
 
 /** POSTs a task submission to the server-side grader (src/lib/rooms/grading.ts)
@@ -358,16 +354,15 @@ export function RichContent({ content }: { content: string }) {
 /**
  * The readable body of a reading task — shared by the live player and the
  * read-only Review mode so both render identical content. Carries the Listen
- * control (FB-009, reads heading + content) and any explainer videos (FB-008).
+ * control (FB-009, reads heading + content).
  */
-export function ReadingBody({ task, videos }: { task: ReadingTask; videos?: VideoRef[] }) {
+export function ReadingBody({ task }: { task: ReadingTask }) {
   return (
     <>
       <div className="space-y-3">
         <h2 className="text-3xl font-bold text-white leading-tight">{task.heading}</h2>
         <ListenButton text={`${task.heading}.\n\n${task.content}`} />
       </div>
-      <VideoSection videos={videos} />
       <RichContent content={task.content} />
       {task.diagram && <MermaidDiagram chart={task.diagram} caption={task.diagramCaption} />}
       {task.image && <LessonFigure image={task.image} />}
@@ -398,7 +393,7 @@ const READING_XP_DEFAULT = 5;
  * still reports 0 to the room score; the engagement XP is awarded separately by
  * RoomClient so it never touches the pass gate.
  */
-function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord, videos }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn; videos?: VideoRef[] }) {
+function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const shuffleSeed = `${pageSeed()}:${task.id}`; // FB-002: checkpoint option order, fresh per load
   const endRef = useRef<HTMLDivElement | null>(null);
   const [reachedEnd, setReachedEnd] = useState(false);
@@ -443,7 +438,7 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord, videos
 
   return (
     <div className="space-y-7">
-      <ReadingBody task={task} videos={videos} />
+      <ReadingBody task={task} />
 
       {/* End-of-content sentinel for the scroll gate */}
       <div ref={endRef} aria-hidden className="h-px w-full" />
@@ -1740,7 +1735,7 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
 }
 
 // ─── Main TaskPlayer ────────────────────────────────────────────────────────────
-export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, videos }: TaskPlayerProps) {
+export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent }: TaskPlayerProps) {
   // Behavioral telemetry (Phase 1 — see ANALYST_TELEMETRY_PLAN.md): timing is
   // captured here at the dispatcher, via event delegation, so none of the 7
   // sub-players below need to know telemetry exists. isCompleted tasks (the
@@ -1758,7 +1753,7 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
 
   const player = (() => {
     switch (task.type) {
-      case "reading":         return <ReadingPlayer       {...common} task={task} videos={videos} />;
+      case "reading":         return <ReadingPlayer       {...common} task={task} />;
       case "question":        return <QuestionPlayer      {...common} task={task} />;
       case "log_analysis":    return <LogAnalysisPlayer   {...common} task={task} />;
       case "flag":            return <FlagPlayer          {...common} task={task} prevLogEvent={prevLogEvent} />;

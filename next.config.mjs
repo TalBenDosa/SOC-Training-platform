@@ -37,8 +37,7 @@ const csp = [
   // materials open INSIDE the platform instead of a separate browser tab.
   // object-src stays 'none' — we use <iframe>/<video>, never <object>/<embed>.
   // blob: → in-app PDF viewer; officeapps.live.com → read-only PPTX slide viewer.
-  // youtube-nocookie.com: privacy-enhanced explainer-video embeds (FB-008), loaded only on click.
-  "frame-src 'self' blob: https://view.officeapps.live.com https://*.officeapps.live.com https://www.youtube-nocookie.com",
+  "frame-src 'self' blob: https://view.officeapps.live.com https://*.officeapps.live.com",
   "media-src 'self' blob: https://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",
