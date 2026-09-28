@@ -121,3 +121,44 @@ describe("Phase 4 — authored edr_scope matches buildable EDR investigations", 
     expect(problems, problems.join("\n")).toEqual([]);
   });
 });
+
+// Exercise-report guards (#8 / #9 / #23), across EVERY scenario and both the server
+// build and the client-side F-02 projection (description / MITRE / verdict stripped):
+// no invented explorer.exe root, service binaries under services.exe, no connection
+// attributed to a process before it existed, every detection on a real tree node.
+describe("EDR integrity — lineage and network attribution hold registry-wide", () => {
+  it("holds for every buildable scenario case", async () => {
+    const { SCENARIOS } = await import("@/lib/sim/scenarios");
+    const { buildInvestigationsFromScenario } = await import("./fromLiveStory");
+    const project = (events: TelemetryEvent[]) => events.map(e => ({ ...e, description: undefined, mitre_technique: undefined, mitre_tactic: undefined, expected_verdict: undefined }));
+    const problems: string[] = [];
+    let cases = 0;
+    for (const s of SCENARIOS as ReadonlyArray<{ slug: string; build: () => { title?: string; events: TelemetryEvent[] } }>) {
+      const bundle = s.build();
+      for (const events of [bundle.events, project(bundle.events)]) {
+        for (const inv of buildInvestigationsFromScenario({ title: bundle.title, events })) {
+          cases++;
+          const pids = new Set(inv.processes.map(p => p.pid));
+          const hostEvents = bundle.events.filter(e => e.incident_id === inv.id);
+          const loggedExplorer = hostEvents.some(e => /^explorer\.exe$/i.test(e.process?.name ?? "") || /^explorer\.exe$/i.test(e.process?.parent_name ?? ""));
+          for (const p of inv.processes) {
+            if (p.pid >= 90000) problems.push(`${s.slug}/${inv.id}: synthetic pid ${p.pid} (${p.name})`);
+            if (/^explorer\.exe$/i.test(p.name) && !loggedExplorer) problems.push(`${s.slug}/${inv.id}: invented explorer.exe ${p.pid}`);
+            if (/^psexesvc\.exe$/i.test(p.name)) {
+              const parent = inv.processes.find(x => x.pid === p.ppid);
+              if (parent && !/^services\.exe$/i.test(parent.name)) problems.push(`${s.slug}/${inv.id}: PSEXESVC under ${parent.name}`);
+            }
+            const first = hostEvents.filter(e => e.process?.pid === p.pid && e.hostname === inv.host.name).map(e => e.ts).sort()[0];
+            for (const c of p.network ?? []) {
+              if (first && c.ts < first.slice(11, 19)) problems.push(`${s.slug}/${inv.id}: ${p.name}(${p.pid}) owns ${c.remote_ip} at ${c.ts}, before it started ${first.slice(11, 19)}`);
+            }
+          }
+          for (const d of inv.detections) if (!pids.has(d.pid)) problems.push(`${s.slug}/${inv.id}: detection on missing pid ${d.pid}`);
+          if (inv.answer.pid !== -1 && !pids.has(inv.answer.pid)) problems.push(`${s.slug}/${inv.id}: answer pid ${inv.answer.pid} not in tree`);
+        }
+      }
+    }
+    expect(cases).toBeGreaterThan(10);
+    expect(problems, problems.join("\n")).toEqual([]);
+  });
+});

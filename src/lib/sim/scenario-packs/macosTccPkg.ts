@@ -80,6 +80,8 @@ export function buildMacosTccPkgScenario(
   // The .pkg / Mach-O payload hash — appears on the install, the MDE
   // corroboration and the detection.
   const pkgHash = makeSha256("macos_tcc_pkg_meetsync_postinstall_root_launchdaemon_2026");
+  // /usr/sbin/installer is Apple's own binary — its process hash is NOT the package's.
+  const installerHash = makeSha256("macos_usr_sbin_installer_apple_system_binary");
 
   // Falcon sensor identifiers on the MacBook.
   const sensorId = "6d0b93a41f7c4e28b5a2c907e13f8a44";
@@ -105,7 +107,7 @@ export function buildMacosTccPkgScenario(
     csProcess({
       companyId: cx, id: "mtp_01_pkg_install", ts: T(0), host: host.name, user: user.email, runAsUser: "root",
       processName: "installer", processPath: "/usr/sbin/installer", cmdline: `installer -pkg ${pkgPath} -target /`,
-      parentName: "Installer", parentPid: 1, pid: 4207, sha256: pkgHash,
+      parentName: "Installer", parentPid: 1, pid: 4207, sha256: installerHash,
       mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
       extra: { ...osx, ...appleSigned, "file.name": pkgName, "file.path": pkgPath, "file.hash.sha256": pkgHash, "file.signature.status": "revoked", "file.signature.subject_name": "Developer ID Installer: Bright Meridian Ltd (7Q9K2M4X8Z)", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "/usr/sbin/installer installed MeetSync-Installer.pkg (from ~/Downloads) to the system. Falcon recorded the package's Developer ID Installer signature as REVOKED and the file still carrying the com.apple.quarantine attribute; the payload SHA256 is the one seen again in the later events.",
@@ -127,7 +129,7 @@ export function buildMacosTccPkgScenario(
       processName: "sh", processPath: "/bin/sh", cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
       parentName: "installer", pid: 4221, parentPid: 4207, runAsUser: "root", accountName: "root", accountDomain: host.name,
       mitre: "T1059.004", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { "Timestamp": T(5 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": "/usr/sbin/installer", "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`, "InitiatingProcessId": "4207", "InitiatingProcessSHA256": pkgHash, "ReportId": "88301744", "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { "Timestamp": T(5 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": "/usr/sbin/installer", "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`, "InitiatingProcessId": "4207", "InitiatingProcessSHA256": installerHash, "ReportId": "88301744", "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "Defender for Endpoint, also deployed on this Mac, independently recorded the same postinstall /bin/sh child of the installer running under the root account. Its DeviceProcessEvents row ties the shell to the same initiating package payload SHA256.",
     }),
 
@@ -221,10 +223,10 @@ export function buildMacosTccPkgScenario(
         "Two .pkg installs appear on MB-PM-07: the Zoom install (mtp_00) and the MeetSync install (mtp_01). Which observation separates the benign install from the malicious one?",
       hint: "Compare the package signature on each, and look at what each install's postinstall script does and under which account.",
       options: [
-        { value: "sig_rootscript", label: "Zoom's package signature is valid and notarized and its postinstall stays a per-user helper, while MeetSync's signature is revoked and its postinstall runs as root to alter the privacy database and add a system launch item" },
-        { value: "installer_path", label: "Zoom ran from /Applications and MeetSync ran through /usr/sbin/installer, and any app set up by the command-line installer is malicious by definition" },
-        { value: "quarantine_flag", label: "MeetSync carried a com.apple.quarantine attribute and Zoom did not, and the presence of that attribute alone proves the download was hostile" },
-        { value: "pkg_size", label: "The MeetSync package is far larger than the Zoom package, and any macOS installer above a certain size is a repackaged malicious build" },
+        { value: "sig_rootscript", label: "Zoom is validly signed and notarized with a per-user postinstall; MeetSync's signature is revoked and its postinstall runs as root to edit TCC.db" },
+        { value: "installer_path", label: "Zoom was dropped into /Applications but MeetSync went through /usr/sbin/installer, and a command-line installer run is the malicious tell here" },
+        { value: "quarantine_flag", label: "MeetSync still carried com.apple.quarantine and Zoom did not, which shows only the MeetSync package was fetched from a hostile source" },
+        { value: "pkg_size", label: "The MeetSync package is several times the size of Zoom's, the typical footprint of an installer repackaged with an extra hidden payload" },
       ],
       answer: "sig_rootscript",
       explanation:
@@ -238,10 +240,10 @@ export function buildMacosTccPkgScenario(
         "In mtp_04 the root postinstall runs /usr/bin/sqlite3 against ~/Library/Application Support/com.apple.TCC/TCC.db, inserting rows keyed to kTCCServiceSystemPolicyAllFiles and kTCCServiceScreenCapture. What did this achieve?",
       hint: "TCC is the macOS subsystem that gates access to protected resources; think about what an allow-row in its database means and who normally creates it.",
       options: [
-        { value: "grant_no_prompt", label: "It granted the app Full Disk Access and Screen Recording by writing the approvals straight into the privacy database, so no macOS consent prompt was ever shown to the user" },
-        { value: "repair_perms", label: "It ran a routine disk-permission repair that macOS performs at the end of every package install to fix ownership on the new files" },
-        { value: "license_db", label: "It stored the app's license key in a local database so the product could validate its activation offline on future launches" },
-        { value: "index_files", label: "It rebuilt the Spotlight metadata index for the user's home folder so the newly installed app could search Documents and Desktop" },
+        { value: "grant_no_prompt", label: "It granted Full Disk Access and Screen Recording by writing approvals straight into TCC.db, so no consent prompt was ever shown" },
+        { value: "repair_perms", label: "It ran the disk-permission repair that macOS performs at the end of a package install to fix ownership and ACLs on new files" },
+        { value: "license_db", label: "It stored the app's licence entitlement in a local SQLite database so activation can be validated offline on future launches" },
+        { value: "index_files", label: "It rebuilt the Spotlight metadata index for the user's home folder so the newly installed app could search the Documents and Desktop folders" },
       ],
       answer: "grant_no_prompt",
       explanation:
@@ -255,10 +257,10 @@ export function buildMacosTccPkgScenario(
         "Reading mtp_04 (the TCC.db write) together with mtp_05 (the LaunchDaemon) and mtp_06 (the file reads): which statement correctly describes what protected resource was reached and why the foothold survives a reboot?",
       hint: "Distinguish a LaunchDaemon in /Library/LaunchDaemons from a per-user LaunchAgent, and connect the TCC grant to what meetsyncd was then able to read.",
       options: [
-        { value: "fda_daemon_boot", label: "The TCC grant gave the app Full Disk Access, so meetsyncd could read the user's Documents and Desktop; because its launch item is a root LaunchDaemon in /Library/LaunchDaemons, launchd restarts it automatically at every boot" },
-        { value: "agent_login_only", label: "The item is a per-user LaunchAgent, so it only runs when j.okafor logs in and stops touching protected files the moment the user signs out" },
-        { value: "cron_temp", label: "Persistence is a temporary cron entry that expires after the first run, and the file reads were possible only while the installer was still open" },
-        { value: "quarantine_relaunch", label: "The com.apple.quarantine attribute is what relaunches the helper after reboot, and Full Disk Access is granted automatically to any notarized installer" },
+        { value: "fda_daemon_boot", label: "Full Disk Access let meetsyncd read Documents and Desktop; as a root LaunchDaemon in /Library/LaunchDaemons it starts at every boot" },
+        { value: "agent_login_only", label: "It is a per-user LaunchAgent, so it runs only while the user is logged in and loses access to protected files once they sign out" },
+        { value: "cron_temp", label: "Persistence is a one-shot cron entry that expires after its first run, and the file reads worked only while the installer window was open" },
+        { value: "quarantine_relaunch", label: "The quarantine attribute makes launchd relaunch the helper after reboot, and Full Disk Access comes with any notarized installer" },
       ],
       answer: "fda_daemon_boot",
       explanation:
@@ -272,10 +274,10 @@ export function buildMacosTccPkgScenario(
         "You need to point to the single event where the actor actually reached the user's protected data. Which one is it?",
       hint: "Separate granting a permission and installing persistence from actually opening a protected file; check which process reads a file under the user's home.",
       options: [
-        { value: "data_read", label: "mtp_06 — meetsyncd reading Q3-Roadmap.pdf under ~/Documents, a protected folder reachable only because Full Disk Access was granted" },
-        { value: "tcc_write", label: "mtp_04 — the sqlite3 write to TCC.db, which changed a permission setting but did not itself open any of the user's documents" },
-        { value: "daemon_load", label: "mtp_05 — the launchctl load of the LaunchDaemon, which established persistence but read none of the user's files" },
-        { value: "detect_row", label: "mtp_07 — the Falcon detection record, which is where the collected documents are stored after they are read" },
+        { value: "data_read", label: "meetsyncd opening Q3-Roadmap.pdf under ~/Documents, a protected folder it reaches through the Full Disk Access grant" },
+        { value: "tcc_write", label: "The sqlite3 write into TCC.db — the step that handed the helper its access to every protected file on the user's disk" },
+        { value: "daemon_load", label: "The launchctl load of the root LaunchDaemon — the moment meetsyncd started running with root access to the home folder" },
+        { value: "detect_row", label: "The Falcon detection record, which captures the collected documents into the cloud console once they have been read" },
       ],
       answer: "data_read",
       explanation:
@@ -292,7 +294,7 @@ export function buildMacosTccPkgScenario(
         { value: "remove_reset_tcc", label: "Remove the LaunchDaemon plist and the MeetSync support directory, stop the running helper, and reset the tampered TCC entries — treating the Full Disk Access and Screen Recording grants as abused" },
         { value: "isolate_rebuild", label: "Isolate the host and, because unknown root code executed, rebuild it from a known-good image rather than trusting on-host cleanup, and rotate the user's credentials and secrets that were within reach" },
         { value: "delete_pkg_only", label: "Just delete MeetSync-Installer.pkg from the Downloads folder, since removing the installer file also removes the launch item and reverts the TCC changes on its own" },
-        { value: "gatekeeper_rescan", label: "Run a Gatekeeper rescan of /Applications, which will re-evaluate the app's signature and automatically remove the daemon and the TCC grants" },
+        { value: "gatekeeper_rescan", label: "Run a Gatekeeper rescan of /Applications, which re-evaluates the app's revoked signature and automatically removes the daemon and the TCC grants it relied on" },
       ],
       answer: ["remove_reset_tcc", "isolate_rebuild"],
       explanation:

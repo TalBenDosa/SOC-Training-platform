@@ -18,6 +18,7 @@ import { Download, Share2, Linkedin, Copy, Check, X, PartyPopper } from "lucide-
 import type { Rank } from "@/lib/progression/ranks";
 import { certMetaForRank, drawCertificate, canvasToPng, type CertMeta } from "@/lib/certificate/renderCertificate";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
+import { PRODUCTION_ORIGIN } from "@/lib/certificate/issuer";
 
 interface Props {
   rank: Rank;
@@ -30,13 +31,15 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
   const [ready, setReady] = useState(false);
-  const { orgName } = useOrgContext();
+  const { orgName, orgId } = useOrgContext();
   const meta: CertMeta = certMetaForRank(rank);
   // The rank's own threshold is the milestone — not the learner's live total,
   // which may already be higher by the time they dismiss the modal.
   const milestoneXp = rank.minXp;
   const filename = `HackTheSOC-${meta.title.replace(/\s+/g, "")}-${rank.id}.png`;
-  const site = typeof window !== "undefined" ? window.location.origin : "https://hack-the-soc.vercel.app";
+  // Always the canonical production domain — window.location.origin baked a
+  // localhost / vercel.app preview URL into shared posts (#32).
+  const site = PRODUCTION_ORIGIN;
   const shortTier = meta.tier.split(" · ")[0];
   const shareText = `I just reached ${meta.title} · ${shortTier} on HACK THE SOC 🛡️ — training to become a SOC analyst.`;
 
@@ -46,14 +49,14 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     setReady(false);
-    drawCertificate(canvas, { meta, name, xp: milestoneXp, date: format(new Date(), "d MMM yyyy"), orgName }).then(() => {
+    drawCertificate(canvas, { meta, name, xp: milestoneXp, date: format(new Date(), "d MMM yyyy"), orgName, orgId }).then(() => {
       if (!cancelled) setReady(true);
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rank.id, name, orgName]);
+  }, [rank.id, name, orgName, orgId]);
 
   // ESC closes, matching every other overlay on the platform.
   useEffect(() => {

@@ -5,9 +5,11 @@
  *
  * Lifted out of the dashboard's EventFeed so the scenario log viewer can offer
  * the identical affordance instead of a second, divergent implementation. The
- * verdict is derived from the event's own raw fields (malware.family,
- * av.verdict, quarantine.status, action_result) plus its severity, so a lookup
- * always agrees with the log the analyst is reading.
+ * verdict and every enrichment detail come from src/lib/edr/iocIntel.ts: the
+ * scenario's IOC truth table when the caller passes one (so an attacker IOC is
+ * never "Comcast residential, 0/90"), otherwise the event's own vendor fields —
+ * with ASN / WHOIS / detection counts seeded by the IOC value, so the same IOC
+ * returns the same answer on every lookup surface (URL and domain included).
  */
 
 import { useEffect } from "react";
@@ -15,464 +17,49 @@ import { motion } from "framer-motion";
 import { Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { resolveCountry } from "@/lib/geo/resolveGeo";
+import {
+  hashIntel, ipIntel, domainIntel,
+  type HashIntel, type IpIntel, type DomainIntel, type IocTruth, type IocVerdict,
+} from "@/lib/edr/iocIntel";
+
+// The field predicates the log viewers use to decide where a "Check …" button goes.
+// They live with the intel logic now; re-exported so existing imports keep working.
+export { isSha256Field, isIpCheckField, isDomainCheckField } from "@/lib/edr/iocIntel";
+export type { IocTruth } from "@/lib/edr/iocIntel";
+
 // ─── Threat Intel types ────────────────────────────────────────────────────────
 
+/**
+ * A lookup request. `truth` is the scenario's IOC truth table (built server-side by
+ * buildIocTruth over the full bundle) — when present it decides the verdict, so an
+ * attacker IOC enriches as malicious on every surface even though the client-side
+ * event has had its description / MITRE mapping stripped. Without it the verdict
+ * falls back to what the event itself says. Every detail (ASN, WHOIS age, counts)
+ * is seeded by the IOC value, so the same IOC always returns the same answer.
+ */
 export type ThreatQuery =
-  | { type: "hash";   value: string; event: TelemetryEvent }
-  | { type: "ip";     value: string; event: TelemetryEvent }
-  | { type: "domain"; value: string; event: TelemetryEvent };
+  | { type: "hash";   value: string; event: TelemetryEvent; truth?: IocTruth | null }
+  | { type: "ip";     value: string; event: TelemetryEvent; truth?: IocTruth | null }
+  | { type: "domain"; value: string; event: TelemetryEvent; truth?: IocTruth | null };
 
-interface EngineResult { name: string; detected: boolean; result?: string }
-
-interface HashIntelData {
-  hash: string;
-  malicious: boolean;
-  detectionCount: number;
-  malwareName?: string;
-  malwareFamily?: string;
-  fileType: string;
-  fileName?: string;
-  firstSeen: string;
-  lastSeen: string;
-  tags: string[];
-  engines: EngineResult[];
-}
-
-interface IpIntelData {
-  ip: string;
-  abusive: boolean;
-  confidence: number;
-  country?: string;
-  countryFlag: string;
-  isp?: string;
-  usageType?: string;
-  totalReports: number;
-  lastReported?: string;
-  categories: string[];
-}
-
-interface DomainIntelData {
-  domain: string;
-  malicious: boolean;
-  detectionCount: number;
-  registrar?: string;
-  creationDate?: string;
-  ageDays: number;
-  categories: string[];
-  tags: string[];
-}
-
-// ─── AV detection tables ───────────────────────────────────────────────────────
-
-const AV_ENGINES = [
-  "CrowdStrike Falcon",
-  "Microsoft Defender",
-  "Kaspersky",
-  "Sophos",
-  "ESET-NOD32",
-  "Symantec",
-  "Trend Micro",
-  "Bitdefender",
-  "Malwarebytes",
-  "McAfee",
-  "Avast",
-  "SentinelOne",
-];
-
-const FAMILY_DETECTIONS: Record<string, Record<string, string>> = {
-  CobaltStrike: {
-    "CrowdStrike Falcon":  "CobaltStrike.Beacon.C",
-    "Microsoft Defender":  "Backdoor:Win64/CobaltStrike.A!dha",
-    "Kaspersky":           "Backdoor.Win64.CobaltStrike.gen",
-    "Sophos":              "Mal/Cobalt-B",
-    "ESET-NOD32":          "Win64/CobaltStrike.A",
-    "Symantec":            "Backdoor.Cobeacon",
-    "Trend Micro":         "TROJ_COBEACON.SM",
-    "Bitdefender":         "Gen:Variant.Backdoor.CobaltStrike.1",
-    "Malwarebytes":        "Backdoor.CobaltStrike",
-    "McAfee":              "RDN/Generic BackDoor.t",
-  },
-  WannaCry: {
-    "CrowdStrike Falcon":  "Ransom.WannaCry.WIN",
-    "Microsoft Defender":  "Ransom:Win32/WannaCrypt.B",
-    "Kaspersky":           "Ransom.Win32.WannaCryptor.gen",
-    "Sophos":              "Troj/WannaCry-A",
-    "ESET-NOD32":          "Win32/Filecoder.WannaCryptor.D",
-    "Symantec":            "Ransom.Wannacry",
-    "Trend Micro":         "RANSOM_WCRY.SM",
-    "Bitdefender":         "Gen:Variant.Ransom.WannaCry.2",
-    "Malwarebytes":        "Ransom.WannaCryptDecryptor",
-    "McAfee":              "Ransom-WannaCry!0",
-    "Avast":               "Win32:WannaCry-A [Ransom]",
-    "SentinelOne":         "Ransom.WannaCry",
-  },
-  NotPetya: {
-    "CrowdStrike Falcon":  "Wiper.NotPetya.WIN",
-    "Microsoft Defender":  "Trojan:Win32/Petya.A!dha",
-    "Kaspersky":           "Trojan-Ransom.Win32.ExPetr.a",
-    "Sophos":              "Mal/NotPetya-A",
-    "ESET-NOD32":          "Win32/Diskcoder.C",
-    "Symantec":            "Ransom.Petya",
-    "Trend Micro":         "TROJ_PETYA.SMA",
-    "Bitdefender":         "Gen:Variant.Ransom.Petya.3",
-    "Malwarebytes":        "Ransom.Petya",
-    "McAfee":              "RDN/Petya.worm",
-  },
-  Mimikatz: {
-    "CrowdStrike Falcon":  "HackTool.Mimikatz.WIN",
-    "Microsoft Defender":  "HackTool:Win32/Mimikatz.A",
-    "Kaspersky":           "HackTool.Win64.Mimikatz.gen",
-    "Sophos":              "HPmal/Mimikatz-A",
-    "ESET-NOD32":          "Win64/HackTool.Mimikatz.E",
-    "Symantec":            "Hacktool.Mimikatz",
-    "Trend Micro":         "HKTL_MIMIKATZ.SM",
-    "Bitdefender":         "Gen:Variant.HackTool.Mimikatz.4",
-    "Malwarebytes":        "HackTool.Mimikatz",
-    "McAfee":              "Credential-Mimikatz!",
-    "Avast":               "Win32:Hacktool-A",
-  },
-  Emotet: {
-    "CrowdStrike Falcon":  "Trojan.Emotet.WIN",
-    "Microsoft Defender":  "Trojan:Win32/Emotet.A!ml",
-    "Kaspersky":           "Trojan-Banker.Win32.Emotet.gen",
-    "Sophos":              "Mal/Emotet-G",
-    "ESET-NOD32":          "Win32/Emotet.BD",
-    "Symantec":            "Trojan.Emotet",
-    "Trend Micro":         "TSPY_EMOTET.SM",
-    "Bitdefender":         "Gen:Variant.Trojan.Emotet.14",
-    "Malwarebytes":        "Trojan.Emotet",
-    "McAfee":              "Emotet-FBF!",
-    "Avast":               "Win32:Emotet-A [Trj]",
-    "SentinelOne":         "Trojan.Emotet",
-  },
-  GenericKD: {
-    "CrowdStrike Falcon":  "Trojan.GenericKD.WIN",
-    "Microsoft Defender":  "Trojan:Win32/GenericKD.A!ml",
-    "Kaspersky":           "Trojan.Win32.GenericKD.gen",
-    "Sophos":              "Mal/Generic-A",
-    "ESET-NOD32":          "Win32/Trojan.GenericKD",
-    "Symantec":            "Trojan.Gen.2",
-    "Trend Micro":         "TROJ_GENERIC.SM",
-    "Bitdefender":         "Gen:Variant.Trojan.GenericKD.1",
-    "Malwarebytes":        "Trojan.GenericKD",
-    "McAfee":              "RDN/Generic Trojan.t",
-  },
-};
-
-const PUP_DETECTIONS: Record<string, string> = {
-  "CrowdStrike Falcon":  "PUP.Keygen.WIN",
-  "Microsoft Defender":  "PUA:Win32/Keygen",
-  "Kaspersky":           "not-a-virus:RiskTool.Win32.Keygen.gen",
-  "Sophos":              "PUA/Keygen-A",
-  "ESET-NOD32":          "Win32/Keygen.AU",
-  "Malwarebytes":        "PUP.Optional.Keygen",
-};
+type HashIntelData = HashIntel;
+type IpIntelData = IpIntel;
+type DomainIntelData = DomainIntel;
 
 const COUNTRY_FLAGS: Record<string, string> = {
   "Germany": "🇩🇪", "Russia": "🇷🇺", "United States": "🇺🇸",
   "China": "🇨🇳", "Netherlands": "🇳🇱", "France": "🇫🇷",
   "Ukraine": "🇺🇦", "Romania": "🇷🇴", "Brazil": "🇧🇷",
   "United Kingdom": "🇬🇧", "Singapore": "🇸🇬", "India": "🇮🇳",
-  "North Korea": "🇰🇵", "Iran": "🇮🇷",
+  "North Korea": "🇰🇵", "Iran": "🇮🇷", "Moldova": "🇲🇩", "Hong Kong": "🇭🇰", "Nigeria": "🇳🇬",
 };
 
-// Deterministic pseudo-random (same hash always yields same result)
-function seededRng(seed: number, i: number): number {
-  return Math.abs(Math.sin(seed * 9301 + i * 49297 + 233995)) % 1;
-}
-
-// ─── Hash intel builder ────────────────────────────────────────────────────────
-
-/** First non-empty string value among `keys`, or "" — vendors disagree on field names. */
-function pick(raw: Record<string, unknown>, ...keys: string[]): string {
-  for (const k of keys) {
-    const v = raw[k];
-    if (typeof v === "string" && v.trim() !== "") return v.trim();
-  }
-  return "";
-}
-
-function buildHashIntel(hash: string, event: TelemetryEvent): HashIntelData {
-  const raw = event.raw ?? {};
-  const malwareFamily = pick(raw, "malware.family", "threat.family");
-  const malwareName   = pick(raw, "malware.name", "threat.name", "ThreatName");
-  const malwareType   = pick(raw, "malware.type");
-  const avVerdict     = pick(raw, "av.verdict");
-  const quarantine    = pick(raw, "quarantine.status");
-  const actionResult  = pick(raw, "action_result");
-  const severity      = event.severity ?? "informational";
-
-  // Vendor-native detection blocks. Real EDR logs do not carry a `malware.family`
-  // key — CrowdStrike writes crowdstrike.detection.*, and reading only the
-  // normalised names made a quarantined trojan-dropper come back CLEAN while the
-  // log next to it said "Known trojan-dropper signature match, file quarantined".
-  // A verdict that contradicts the log the analyst is reading teaches the wrong
-  // lesson, so these count as detections too.
-  const vendorDetection = pick(raw,
-    "crowdstrike.detection.description",
-    "crowdstrike.detection.scenario",
-    "crowdstrike.detection.technique",
-    "crowdstrike.Technique",
-  );
-  const disposition = pick(raw,
-    "crowdstrike.detection.pattern_disposition_description",
-    "crowdstrike.PatternDispositionDescription",
-  );
-
-  const isPUP = malwareType === "PUP" || malwareName.toLowerCase().includes("pup");
-  // Explicit clean file reputation overrides a purely BEHAVIOURAL EDR detection.
-  // A CrowdStrike behavioural alert (crowdstrike.detection.*) fires on an in-house
-  // tool as readily as on malware — so an event that ALSO carries av.verdict:"clean"
-  // and names no malware family/sample is the textbook false-positive signature
-  // (behavioural alert + clean AV/threat-intel reputation + high prevalence). Reading
-  // its hash as MALICIOUS contradicted the very FP the scenario is teaching. Genuine
-  // malware packs name a malware.family/name (or never set av.verdict:"clean"), so
-  // this override can't turn a real detonation CLEAN.
-  const cleanReputation = avVerdict === "clean" && malwareFamily === "" && malwareName === "";
-  const isMalicious = !isPUP && !cleanReputation && (
-    malwareFamily !== "" || malwareName !== "" || vendorDetection !== "" ||
-    quarantine === "quarantined" || quarantine === "deleted" ||
-    actionResult === "quarantined" || actionResult === "process_killed" ||
-    /quarantine|kill process|prevention|block/i.test(disposition) ||
-    (avVerdict !== "" && avVerdict !== "clean")
-  );
-
-  const seed = (parseInt(hash.slice(0, 8), 16) || 0xdeadbeef);
-
-  let detectionCount = 0;
-  if (isMalicious) {
-    if (severity === "critical") detectionCount = 40 + Math.floor(seededRng(seed, 0) * 20);
-    else if (severity === "high") detectionCount = 28 + Math.floor(seededRng(seed, 1) * 14);
-    else detectionCount = 15 + Math.floor(seededRng(seed, 2) * 12);
-  } else if (isPUP) {
-    detectionCount = 4 + Math.floor(seededRng(seed, 3) * 8);
-  }
-
-  const effectiveFamily = malwareFamily || (isPUP ? "_pup" : "GenericKD");
-  const detectionMap = effectiveFamily === "_pup"
-    ? PUP_DETECTIONS
-    : (FAMILY_DETECTIONS[effectiveFamily] ?? FAMILY_DETECTIONS["GenericKD"] ?? {});
-
-  const detectThreshold = isMalicious
-    ? (severity === "critical" ? 0.85 : severity === "high" ? 0.75 : 0.62)
-    : (isPUP ? 0.42 : 0);
-
-  const engines: EngineResult[] = AV_ENGINES.map((name, i) => {
-    // If file is clean, no engine should ever detect it
-    if (!isMalicious && !isPUP) return { name, detected: false };
-    const specific = detectionMap[name];
-    if (specific) return { name, detected: true, result: specific };
-    if (seededRng(seed + i * 137, i) < detectThreshold) {
-      const n = Math.floor(seededRng(seed + i, 7) * 9999);
-      return { name, detected: true, result: `Generic.${effectiveFamily.replace("_pup", "PUP")}.${n}` };
-    }
-    return { name, detected: false };
-  });
-
-  const tagMap: Record<string, string[]> = {
-    CobaltStrike: ["cobalt-strike", "c2", "beacon", "post-exploitation"],
-    WannaCry:     ["ransomware", "worm", "crypto-locker", "smb-exploit"],
-    NotPetya:     ["wiper", "destructive", "petya", "notpetya"],
-    Mimikatz:     ["credential-theft", "hacktool", "lsass-dump"],
-    Emotet:       ["trojan", "banking", "loader", "botnet"],
-    GenericKD:    ["trojan", "generic", "malware"],
-  };
-  const tags = (!isMalicious && !isPUP)
-    ? []
-    : (tagMap[effectiveFamily] ?? (isPUP ? ["pup", "keygen", "unwanted"] : ["trojan", "malware"]));
-
-  const fileName = String(raw["file.name"] ?? event.file?.path?.split("\\").pop() ?? "");
-  const y = 2017 + Math.floor(seededRng(seed, 99) * 8);
-  const m = String(1 + Math.floor(seededRng(seed, 98) * 12)).padStart(2, "0");
-  const d = String(1 + Math.floor(seededRng(seed, 97) * 27)).padStart(2, "0");
-
-  return {
-    hash, malicious: isMalicious || isPUP, detectionCount,
-    malwareName: malwareName || undefined,
-    malwareFamily: malwareFamily || (isPUP ? "PUP.Keygen" : undefined),
-    fileType: "Win32 EXE",
-    fileName: fileName || undefined,
-    firstSeen: `${y}-${m}-${d}`, lastSeen: "2026-05-10",
-    tags, engines,
-  };
-}
-
-// ─── IP intel builder ──────────────────────────────────────────────────────────
-
-function buildIpIntel(ip: string, event: TelemetryEvent): IpIntelData {
-  const raw = event.raw ?? {};
-
-  // Collect all vendor-specific threat/category fields into a single string for pattern matching
-  const allThreatText = [
-    raw["threat.category"],
-    raw["threat.indicator"],
-    raw["cisco.threat_category"],
-    raw["cp.threat_category"],
-    raw["fortinet.threat_category"],
-    raw["pan.threat_category"],
-    raw["ids.category"],
-    raw["okta.risk.reasons"],
-    // Also scan the description for explicit labels (e.g. "TOR exit node")
-    event.description,
-  ].filter(Boolean).join(" ").toLowerCase();
-
-  const threatCategory  = String(raw["threat.category"]         ?? "").toLowerCase();
-  const threatIndicator = String(raw["threat.indicator"]        ?? "").toLowerCase();
-  const idsCategory     = String(raw["ids.category"]            ?? "").toLowerCase();
-  const wafAttack       = String(raw["waf.attack_type"]         ?? "").toLowerCase();
-  // Resolve the country the SAME way the live feed does (authored geo → any vendor
-  // geo key → deterministic per-IP map) so the pivot never contradicts the feed —
-  // previously this read only source.geo.country_name and, when absent, each branch
-  // below substituted a country hardcoded per THREAT CATEGORY, so one IP showed two
-  // different countries in two views.
-  const country         = resolveCountry(event);
-  const sessionBlocked  = String(raw["session.blocked"]         ?? "").toLowerCase();
-  const eventAction     = String(raw["event.action"]            ?? "").toLowerCase();
-  const isBlocked = sessionBlocked === "true" || eventAction === "block" || eventAction === "deny" ||
-    event.event_type === "net_blocked" || event.event_type === "ids_signature";
-
-  const parts = ip.split(".").map(Number);
-  const seed = parts.reduce((a, b, i) => a + b * Math.pow(256, 3 - i), 0);
-  const flag = COUNTRY_FLAGS[country] ?? "🌐";
-
-  // TOR exit node — catch all vendor-specific fields + description text
-  if (allThreatText.includes("tor") || threatCategory === "tor" || threatIndicator.includes("tor")) {
-    return {
-      ip, abusive: true, confidence: 100,
-      country: country || "Germany", countryFlag: flag || "🇩🇪",
-      isp: "Tor Project Inc.",
-      usageType: "Anonymous Proxy / TOR Exit Node",
-      totalReports: 1847 + Math.floor(seed % 500),
-      lastReported: "2026-05-10",
-      categories: ["Anonymous Proxy", "Hacking", "TOR Exit Node"],
-    };
-  }
-
-  // SQL injection (WAF or IDS)
-  if (wafAttack === "sqli" || wafAttack.includes("sql") ||
-      allThreatText.includes("sql") || allThreatText.includes("injection")) {
-    return {
-      ip, abusive: true, confidence: 87,
-      country: country || "Russia", countryFlag: flag || "🇷🇺",
-      isp: country === "Russia" ? "JSC «ER-Telecom Holding»" : "AS-KIEVNET",
-      usageType: "Data Center / Web Hosting",
-      totalReports: 312 + Math.floor(seed % 200),
-      lastReported: "2026-05-11",
-      categories: ["SQL Injection", "Web Application Attack", "Hacking"],
-    };
-  }
-
-  // Network / port scan
-  if (idsCategory.includes("scan") || idsCategory.includes("nmap") ||
-      allThreatText.includes("scan") || allThreatText.includes("scanner")) {
-    return {
-      ip, abusive: true, confidence: 78,
-      country: country || "Germany", countryFlag: flag || "🇩🇪",
-      isp: country === "Germany" ? "Hetzner Online GmbH" : "DigitalOcean LLC",
-      usageType: "Data Center / Web Hosting",
-      totalReports: 856 + Math.floor(seed % 300),
-      lastReported: "2026-05-11",
-      categories: ["Port Scan", "Network Scan", "Hacking"],
-    };
-  }
-
-  // Botnet / malware C2
-  if (allThreatText.includes("botnet") || allThreatText.includes("c2") ||
-      allThreatText.includes("malware") || allThreatText.includes("cobalt")) {
-    return {
-      ip, abusive: true, confidence: 94,
-      country: country || "Netherlands", countryFlag: flag || "🇳🇱",
-      isp: "Serverius B.V.",
-      usageType: "Data Center / Bulletproof Hosting",
-      totalReports: 1203 + Math.floor(seed % 400),
-      lastReported: "2026-05-11",
-      categories: ["Malware C2", "Botnet", "Hacking"],
-    };
-  }
-
-  // Generic block
-  if (isBlocked) {
-    return {
-      ip, abusive: true, confidence: 82,
-      country: country || "Unknown", countryFlag: flag,
-      isp: "Unknown Hosting Provider",
-      usageType: "Data Center / VPS",
-      totalReports: 423 + Math.floor(seed % 250),
-      lastReported: "2026-05-10",
-      categories: ["Brute Force", "Hacking"],
-    };
-  }
-
-  // Clean
-  return {
-    ip, abusive: false, confidence: 0,
-    country: country || "United States", countryFlag: flag || "🇺🇸",
-    isp: "Comcast Cable Communications",
-    usageType: "Residential / Business",
-    totalReports: 0,
-    categories: [],
-  };
-}
-
-// ─── Domain intel builder ──────────────────────────────────────────────────────
-
-const REGISTRARS = ["NameCheap Inc.", "Namecheap, Inc.", "PDR Ltd. d/b/a PublicDomainRegistry.com", "NICENIC INTERNATIONAL GROUP CO., LIMITED"];
-
-function buildDomainIntel(domain: string, event: TelemetryEvent): DomainIntelData {
-  const raw = event.raw ?? {};
-  const mitre = event.mitre_technique ?? "";
-  const desc = (event.description ?? "").toLowerCase();
-
-  // C2 / beaconing / DNS tunneling / DGA techniques
-  const c2Techniques = new Set(["T1071.001", "T1071.004", "T1568.002", "T1041", "T1048.003"]);
-  const threatCategory = String(raw["threat.category"] ?? raw["threat.name"] ?? "").toLowerCase();
-  const explicitAge = Number(raw["domain.registration_age_days"] ?? NaN);
-
-  const isMalicious =
-    c2Techniques.has(mitre) ||
-    threatCategory.includes("c2") || threatCategory.includes("phish") || threatCategory.includes("malware") ||
-    desc.includes("command server") || desc.includes("command-and-control") || desc.includes("c2") ||
-    (!Number.isNaN(explicitAge) && explicitAge <= 30) ||
-    /registered\s+\d+\s+days?\s+ago/.test(desc);
-
-  const seed = Array.from(domain).reduce((a, c) => a + c.charCodeAt(0), 0) + domain.length * 97;
-
-  const ageDays = !Number.isNaN(explicitAge)
-    ? explicitAge
-    : isMalicious
-      ? 1 + Math.floor(seededRng(seed, 1) * 13)
-      : 800 + Math.floor(seededRng(seed, 1) * 4000);
-
-  const detectionCount = isMalicious
-    ? (event.severity === "critical" ? 22 + Math.floor(seededRng(seed, 2) * 15)
-      : event.severity === "high" ? 12 + Math.floor(seededRng(seed, 2) * 10)
-      : 4 + Math.floor(seededRng(seed, 2) * 6))
-    : 0;
-
-  const categories: string[] = [];
-  if (isMalicious) {
-    if (mitre === "T1071.001") categories.push("Command & Control", "Malware C2");
-    else if (mitre === "T1071.004" || mitre === "T1048.003") categories.push("DNS Tunneling", "Data Exfiltration");
-    else if (mitre === "T1568.002") categories.push("Domain Generation Algorithm", "Malware C2");
-    else categories.push("Malicious", "Suspicious Activity");
-    if (ageDays <= 30) categories.push("Newly Registered Domain");
-  }
-
-  const now = new Date("2026-05-10T00:00:00Z").getTime();
-  const created = new Date(now - ageDays * 86_400_000);
-  const creationDate = created.toISOString().slice(0, 10);
-
-  return {
-    domain,
-    malicious: isMalicious,
-    detectionCount,
-    registrar: REGISTRARS[Math.floor(seededRng(seed, 3) * REGISTRARS.length)],
-    creationDate,
-    ageDays,
-    categories,
-    tags: isMalicious ? ["c2", "recently-registered", "suspicious-tld"].filter((_, i) => seededRng(seed, i + 4) > 0.3) : [],
-  };
+/** Verdict → headline + colour classes, shared by the three panels. */
+function verdictStyle(v: IocVerdict, badWord = "MALICIOUS") {
+  if (v === "malicious") return { label: `⚠ ${badWord}`, text: "text-severity-critical", box: "border-severity-critical/40 bg-severity-critical/10", bar: "bg-severity-critical" };
+  if (v === "suspicious") return { label: "⚠ SUSPICIOUS", text: "text-neon-amber", box: "border-neon-amber/40 bg-neon-amber/10", bar: "bg-neon-amber" };
+  if (v === "internal") return { label: "INTERNAL", text: "text-slate-300", box: "border-border/60 bg-black/20", bar: "bg-slate-500" };
+  return { label: "✓ CLEAN", text: "text-neon-green", box: "border-neon-green/40 bg-neon-green/10", bar: "bg-neon-green" };
 }
 
 // ─── Hash Intel Panel ──────────────────────────────────────────────────────────
@@ -482,6 +69,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
   const total    = data.engines.length;
   const pct      = Math.round((detected / total) * 100);
   const isMal    = data.malicious;
+  const vs       = verdictStyle(data.verdict);
 
   return (
     <div className="flex flex-col h-full">
@@ -504,19 +92,15 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
         </div>
 
         {/* Verdict */}
-        <div className={cn("rounded border px-4 py-3",
-          isMal ? "border-severity-critical/40 bg-severity-critical/10" : "border-neon-green/40 bg-neon-green/10"
-        )}>
+        <div className={cn("rounded border px-4 py-3", vs.box)}>
           <div className="flex items-center justify-between mb-2">
-            <span className={cn("text-base font-black tracking-wider", isMal ? "text-severity-critical" : "text-neon-green")}>
-              {isMal ? "⚠ MALICIOUS" : "✓ CLEAN"}
-            </span>
-            <span className={cn("font-mono text-sm font-bold", isMal ? "text-severity-critical" : "text-neon-green")}>
+            <span className={cn("text-base font-black tracking-wider", vs.text)}>{vs.label}</span>
+            <span className={cn("font-mono text-sm font-bold", vs.text)}>
               {detected} / {total}
             </span>
           </div>
           <div className="w-full h-2 rounded-full bg-slate-700/60 overflow-hidden">
-            <div className={cn("h-full rounded-full", isMal ? "bg-severity-critical" : "bg-neon-green")} style={{ width: `${pct}%` }} />
+            <div className={cn("h-full rounded-full", vs.bar)} style={{ width: `${pct}%` }} />
           </div>
           <p className="text-[10px] text-slate-400 mt-1.5">
             {detected > 0
@@ -549,6 +133,12 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
               <div className="flex gap-3 items-baseline">
                 <span className="w-28 shrink-0 text-[10px] text-slate-400">File Name</span>
                 <span className="font-mono text-[10px] text-slate-200">{data.fileName}</span>
+              </div>
+            )}
+            {data.originalFileName && (
+              <div className="flex gap-3 items-baseline">
+                <span className="w-28 shrink-0 text-[10px] text-slate-400">Original Name (PE)</span>
+                <span className="font-mono text-[10px] text-slate-200">{data.originalFileName}</span>
               </div>
             )}
             <div className="flex gap-3 items-baseline">
@@ -586,11 +176,11 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
               <div key={eng.name} className={cn(
                 "flex items-center justify-between px-3 py-2",
                 i > 0 && "border-t border-border/30",
-                eng.detected ? "bg-severity-critical/5" : ""
+                eng.detected ? (data.verdict === "suspicious" ? "bg-neon-amber/5" : "bg-severity-critical/5") : ""
               )}>
                 <span className={cn("font-medium w-[140px] shrink-0", eng.detected ? "text-slate-200" : "text-slate-400")}>{eng.name}</span>
                 {eng.detected
-                  ? <span className="font-mono text-severity-critical truncate">{eng.result}</span>
+                  ? <span className={cn("font-mono truncate", data.verdict === "suspicious" ? "text-neon-amber" : "text-severity-critical")}>{eng.result}</span>
                   : <span className="text-slate-700">— (no detection)</span>
                 }
               </div>
@@ -613,6 +203,8 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
 
 function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) {
   const pct = data.confidence;
+  const vs = verdictStyle(data.verdict, "ABUSIVE");
+  const flag = (data.country && COUNTRY_FLAGS[data.country]) || "🌐";
 
   return (
     <div className="flex flex-col h-full">
@@ -635,24 +227,22 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
         </div>
 
         {/* Verdict */}
-        <div className={cn("rounded border px-4 py-3",
-          data.abusive ? "border-severity-critical/40 bg-severity-critical/10" : "border-neon-green/40 bg-neon-green/10"
-        )}>
+        <div className={cn("rounded border px-4 py-3", vs.box)}>
           <div className="flex items-center justify-between mb-2">
-            <span className={cn("text-base font-black tracking-wider", data.abusive ? "text-severity-critical" : "text-neon-green")}>
-              {data.abusive ? "⚠ ABUSIVE" : "✓ CLEAN"}
-            </span>
-            <span className={cn("font-mono text-sm font-bold", data.abusive ? "text-severity-critical" : "text-neon-green")}>
-              {pct}% confidence
+            <span className={cn("text-base font-black tracking-wider", vs.text)}>{vs.label}</span>
+            <span className={cn("font-mono text-sm font-bold", vs.text)}>
+              {data.verdict === "internal" ? "private range" : `${pct}% confidence`}
             </span>
           </div>
           <div className="w-full h-2 rounded-full bg-slate-700/60 overflow-hidden">
-            <div className={cn("h-full rounded-full", data.abusive ? "bg-severity-critical" : "bg-neon-green")} style={{ width: `${pct}%` }} />
+            <div className={cn("h-full rounded-full", vs.bar)} style={{ width: `${pct}%` }} />
           </div>
           <p className="text-[10px] text-slate-400 mt-1.5">
-            {data.abusive
-              ? `${data.totalReports.toLocaleString()} abuse reports on record`
-              : "No abuse reports on record"}
+            {data.verdict === "internal"
+              ? "Internal address — no public reputation; investigate it through your own asset inventory"
+              : data.abusive
+                ? `${data.totalReports.toLocaleString()} abuse reports on record`
+                : "No abuse reports on record"}
           </p>
         </div>
 
@@ -662,7 +252,13 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
           {data.country && (
             <div className="flex gap-3 items-baseline">
               <span className="w-28 shrink-0 text-[10px] text-slate-400">Country</span>
-              <span className="text-[10px] text-slate-200">{data.countryFlag} {data.country}</span>
+              <span className="text-[10px] text-slate-200">{data.verdict === "internal" ? "" : `${flag} `}{data.country}</span>
+            </div>
+          )}
+          {data.asn && (
+            <div className="flex gap-3 items-baseline">
+              <span className="w-28 shrink-0 text-[10px] text-slate-400">ASN</span>
+              <span className="font-mono text-[10px] text-slate-200">{data.asn}</span>
             </div>
           )}
           {data.isp && (
@@ -721,6 +317,7 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
 // ─── Domain Intel Panel ────────────────────────────────────────────────────────
 
 function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => void }) {
+  const vs = verdictStyle(data.verdict);
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between border-b border-border/60 px-5 py-4 shrink-0">
@@ -739,18 +336,17 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 mb-1">Domain</p>
           <p className="font-mono text-sm font-bold text-neon-green break-all">{data.domain}</p>
+          {data.lookedUp && (
+            <p className="mt-1 font-mono text-[9px] text-slate-500 break-all">looked up from URL: {data.lookedUp}</p>
+          )}
         </div>
 
         {/* Verdict */}
-        <div className={cn("rounded border px-4 py-3",
-          data.malicious ? "border-severity-critical/40 bg-severity-critical/10" : "border-neon-green/40 bg-neon-green/10"
-        )}>
+        <div className={cn("rounded border px-4 py-3", vs.box)}>
           <div className="flex items-center justify-between mb-2">
-            <span className={cn("text-base font-black tracking-wider", data.malicious ? "text-severity-critical" : "text-neon-green")}>
-              {data.malicious ? "⚠ MALICIOUS" : "✓ CLEAN"}
-            </span>
-            <span className={cn("font-mono text-sm font-bold", data.malicious ? "text-severity-critical" : "text-neon-green")}>
-              {data.detectionCount} / 90 vendors
+            <span className={cn("text-base font-black tracking-wider", vs.text)}>{vs.label}</span>
+            <span className={cn("font-mono text-sm font-bold", vs.text)}>
+              {data.detectionCount} / {data.total} vendors
             </span>
           </div>
           <p className="text-[10px] text-slate-400 mt-1.5">
@@ -772,7 +368,7 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
           {data.creationDate && (
             <div className="flex gap-3 items-baseline">
               <span className="w-28 shrink-0 text-[10px] text-slate-400">Created</span>
-              <span className={cn("font-mono text-[10px]", data.ageDays <= 30 ? "text-severity-critical" : "text-slate-200")}>
+              <span className={cn("font-mono text-[10px]", data.malicious && data.ageDays <= 30 ? "text-severity-critical" : "text-slate-200")}>
                 {data.creationDate} ({data.ageDays} day{data.ageDays === 1 ? "" : "s"} old)
               </span>
             </div>
@@ -820,7 +416,12 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
 
 // ─── Threat Intel Drawer (right-side panel) ────────────────────────────────────
 
-export function ThreatIntelDrawer({ query, onClose }: { query: ThreatQuery; onClose: () => void }) {
+export function ThreatIntelDrawer({ query, onClose, truth }: {
+  query: ThreatQuery;
+  onClose: () => void;
+  /** Scenario IOC truth table (server-built). Also accepted on the query itself. */
+  truth?: IocTruth | null;
+}) {
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -828,9 +429,10 @@ export function ThreatIntelDrawer({ query, onClose }: { query: ThreatQuery; onCl
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const hashData   = query.type === "hash"   ? buildHashIntel(query.value, query.event)   : null;
-  const ipData     = query.type === "ip"     ? buildIpIntel(query.value, query.event)     : null;
-  const domainData = query.type === "domain" ? buildDomainIntel(query.value, query.event) : null;
+  const opts = { event: query.event, truth: query.truth ?? truth ?? null };
+  const hashData   = query.type === "hash"   ? hashIntel(query.value, opts)   : null;
+  const ipData     = query.type === "ip"     ? ipIntel(query.value, opts)     : null;
+  const domainData = query.type === "domain" ? domainIntel(query.value, opts) : null;
 
   return (
     <>
@@ -850,46 +452,4 @@ export function ThreatIntelDrawer({ query, onClose }: { query: ThreatQuery; onCl
       </motion.div>
     </>
   );
-}
-
-// ─── Threat-intel field helpers ────────────────────────────────────────────────
-
-function isPublicIp(val: string): boolean {
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(val)) return false;
-  return !/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|169\.254\.|0\.|255\.)/.test(val);
-}
-
-const IP_FIELD_KEYS = new Set([
-  "source.ip", "destination.ip", "source.nat.ip", "destination.nat.ip", "client.ip", "server.ip",
-]);
-const DOMAIN_FIELD_KEYS = new Set([
-  "dns.question.name", "url.domain", "url.full", "source.domain", "destination.domain",
-]);
-
-/**
- * Does this field hold a SHA256 the analyst can run a threat-intel check on?
- *
- * The key test used to accept only "file.hash.sha256" / "*.sha256", which
- * silently hid the Check Hash button on most real vendor logs — CrowdStrike
- * writes cs.SHA256HashData, Sysmon writes Hashes, Defender writes SHA256, none
- * of which end in ".sha256". Matching on the vendor's actual field names is
- * what makes the button appear where a student would expect it.
- */
-export function isSha256Field(key: string, val: string) {
-  if (!/^[a-f0-9]{64}$/i.test(val)) return false;
-  const k = key.toLowerCase();
-  return (
-    k === "file.hash.sha256" ||
-    k.endsWith(".sha256") ||
-    k.endsWith("sha256hashdata") ||   // CrowdStrike  cs.SHA256HashData
-    k.endsWith("sha256") ||           // Defender / MDE  SHA256, process.hash.sha256
-    k.endsWith(".hashes") || k === "hashes"   // Sysmon  Hashes
-  );
-}
-export function isIpCheckField(key: string, val: string) {
-  return IP_FIELD_KEYS.has(key) && isPublicIp(val);
-}
-export function isDomainCheckField(key: string, val: string) {
-  if (!DOMAIN_FIELD_KEYS.has(key)) return false;
-  return val.includes(".") && !val.includes(" ") && !isPublicIp(val) && val.length > 3;
 }

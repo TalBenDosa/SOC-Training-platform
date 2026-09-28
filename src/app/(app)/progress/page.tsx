@@ -11,15 +11,16 @@ import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
 import { RANKS, rankForXp, nextRank, rankProgress } from "@/lib/progression/ranks";
 import { computeStreak, collectActivityDates } from "@/lib/progression/streak";
-import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText, Users } from "lucide-react";
+import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText, Users, AlertTriangle, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { ROOMS_META } from "@/data/roomsMeta";
 import {
   getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions,
-  getClearedCompanies, XP_CHANGED_EVENT, getQuizActivityDates, getLessonActivityDates,
+  getClearedCompanies, broadcastXpChanged, getQuizActivityDates, getLessonActivityDates,
   getStreakFreezeDates as facadeGetStreakFreezes,
   saveStreakFreezeDates as facadeSaveStreakFreezes,
 } from "@/lib/storage/progress";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -297,6 +298,40 @@ function StatsStrip({ user }: { user: UserData }) {
   );
 }
 
+/**
+ * Shown until the learner's progress source is authoritative. For a signed-in
+ * learner the numbers would otherwise be this browser's empty guest data for a
+ * moment (or for good — the #1 bug), which reads as "your progress is gone".
+ */
+function ProgressLoading({ slow }: { slow: boolean }) {
+  return (
+    <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6" aria-busy="true">
+      <Card className="flex items-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-cyber-300" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-white">Loading your progress…</p>
+          <p className="text-xs text-slate-400">
+            {slow ? "This is taking longer than usual." : "Fetching your saved results from your account."}
+          </p>
+        </div>
+        {slow && (
+          <button
+            onClick={() => window.location.reload()}
+            className="shrink-0 rounded-md border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-bold text-cyber-300 hover:bg-cyber-500/25 transition-colors"
+          >
+            Reload
+          </button>
+        )}
+      </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="h-[104px] animate-pulse rounded-lg border border-border bg-bg-elevated" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -375,24 +410,26 @@ export default function ProgressPage() {
     { day: "Thu", xp: 0 }, { day: "Fri", xp: 0 }, { day: "Sat", xp: 0 }, { day: "Sun", xp: 0 },
   ]);
 
-  // Keep the header total in sync after the async remote hydrate lands (and on
-  // any later XP change). Without this, the header read XP once on mount —
-  // before ProgressProvider finished pulling the server-authoritative
-  // profiles.xp — and stayed on the stale value while the class leaderboard
-  // (which reads the server directly) showed the real total.
-  useEffect(() => {
-    const onXp = () => setTotalXp(getTotalXp());
-    window.addEventListener(XP_CHANGED_EVENT, onXp);
-    return () => window.removeEventListener(XP_CHANGED_EVENT, onXp);
-  }, []);
+  // ONE source, read together (#1 / #6). The page used to read the storage
+  // facade once on mount — before ProgressProvider had installed the signed-in
+  // learner's hydrated remote backend — so every stat except the XP header
+  // (which alone listened for the post-hydrate XP event) showed this browser's
+  // empty guest data: "0 attempted, 0%, 0m" next to a real XP total, and a
+  // streak of 0 while the Topbar flame said 1. Now nothing is read until the
+  // source is authoritative (`ready`), and EVERYTHING re-derives from it on
+  // every change signal (`version`), so no two numbers can come from different
+  // moments or different backends.
+  const { ready, version, slow, failed } = useProgressSnapshot();
 
   useEffect(() => {
-    // Read total XP (via the storage facade — Phase-1 seam)
+    if (!ready) return;
+    // Total XP: profiles.xp (server-authoritative) for signed-in users — the same
+    // value the leaderboard shows and the rank is derived from.
     setTotalXp(getTotalXp());
     setStreakFreezeDates(loadStreakFreezeDates());
     // Quiz + lesson completions count toward the streak too (recorded
     // server-side since 0070 / 0074) — same sources as the Topbar flame.
-    try { setQuizLessonDates([...getQuizActivityDates(), ...getLessonActivityDates()]); } catch { /* ignore */ }
+    try { setQuizLessonDates([...getQuizActivityDates(), ...getLessonActivityDates()]); } catch { setQuizLessonDates([]); }
 
     // Room completions count toward the streak too — a learner who does rooms
     // daily should not show a streak of 0 just because they haven't run a
@@ -411,50 +448,41 @@ export default function ProgressPage() {
       for (const entry of Object.values(rp)) Object.assign(roomPerTaskXp, entry.perTaskXp ?? {});
     } catch { /* ignore corrupt data */ }
 
+    // Last-7-days XP chart — rebuilt from scratch on every read (this effect
+    // re-runs, so accumulating into the previous state would double-count).
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const days: Record<string, number> = {};
+    const addDay = (iso: string, xp: number) => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime()) || d.getTime() < weekAgo) return;
+      const label = dayNames[d.getDay()];
+      days[label] = (days[label] ?? 0) + (xp ?? 0);
+    };
+
     let scenarioAvg = 0;
-    // Read scenario history through the storage facade (Phase-1 seam): DB-backed
-    // `scenario_history` for signed-in users, localStorage for guests — same key.
+    // Scenario history through the storage facade: DB-backed `scenario_history`
+    // for signed-in users, localStorage for guests — same key.
     try {
       const history = getScenarioHistory();
-      if (history.length) {
-        const sorted = history.slice().reverse().slice(0, 20);
-        setScenarioHistory(sorted);
-        scenarioAvg = Math.round(history.reduce((s, r) => s + r.score, 0) / history.length);
+      setScenarioHistory(history.slice().reverse().slice(0, 20));
+      scenarioAvg = history.length ? Math.round(history.reduce((s, r) => s + r.score, 0) / history.length) : 0;
+      history.forEach(r => addDay(r.date, r.xpEarned));
+    } catch { setScenarioHistory([]); }
 
-        // Build last-7-days activity chart from scenario completions
-        const days: Record<string, number> = {};
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        history.forEach(r => {
-          const d = new Date(r.date);
-          const dayLabel = dayNames[d.getDay()];
-          days[dayLabel] = (days[dayLabel] ?? 0) + r.xpEarned;
-        });
-        setActivityData(prev => prev.map(d => ({ ...d, xp: days[d.day] ?? 0 })));
-      }
-    } catch { /* ignore corrupt data */ }
-
-    // Read dashboard sessions and compute real skills
+    let sessions: DashboardSession[] = [];
     try {
-      const sessions = getDashboardSessions() as unknown as DashboardSession[];
-      setDashSessions(sessions);
-      // Merge XP from dashboard sessions into activity chart
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const days: Record<string, number> = {};
-      sessions.forEach(s => {
-        const d = new Date(s.date);
-        const dayLabel = dayNames[d.getDay()];
-        days[dayLabel] = (days[dayLabel] ?? 0) + s.xpEarned;
-      });
-      setActivityData(prev => prev.map(d => ({ ...d, xp: (d.xp ?? 0) + (days[d.day] ?? 0) })));
-      setSkillsData(computeSkills(sessions, scenarioAvg, roomPerTaskXp));
+      sessions = getDashboardSessions() as unknown as DashboardSession[];
+      sessions.forEach(s => addDay(s.date, s.xpEarned));
     } catch { /* ignore corrupt data */ }
+    setDashSessions(sessions);
+    setSkillsData(computeSkills(sessions, scenarioAvg, roomPerTaskXp));
+    setActivityData(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => ({ day, xp: days[day] ?? 0 })));
 
     // Companies secured — drives completion rate + badges. Via the facade so a
     // signed-in user's DB-backed cleared_companies count is consistent everywhere.
-    try {
-      setClearedCount(getClearedCompanies().length);
-    } catch { /* ignore corrupt data */ }
-  }, []);
+    try { setClearedCount(getClearedCompanies().length); } catch { /* ignore corrupt data */ }
+  }, [ready, version]);
 
   // Streak freezes are merged straight into the activity list — a frozen day
   // counts exactly like a real one, both for the streak number and for whether
@@ -487,6 +515,9 @@ export default function ProgressPage() {
     const updated = [...streakFreezeDates, yesterdayD.toISOString()];
     setStreakFreezeDates(updated);
     facadeSaveStreakFreezes(updated);
+    // The Topbar flame (useStreak) recomputes on this signal — keeps it equal
+    // to the Current Streak card instead of lagging until the next XP change.
+    broadcastXpChanged();
   }
   const dashboardMinutes = Math.round(
     dashSessions.reduce((sum, s) => sum + (s.durationMs ?? 0), 0) / 60_000
@@ -532,7 +563,27 @@ export default function ProgressPage() {
         title="Progress Dashboard"
         subtitle="Track your SOC training progress and achievements"
       />
+      {!ready ? (
+        <ProgressLoading slow={slow} />
+      ) : (
       <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6">
+
+        {/* A server read failed even after a retry — say so instead of letting
+            the empty lists read as "you have no progress". */}
+        {failed.length > 0 && (
+          <div className="flex items-center gap-3 rounded-lg border border-severity-high/40 bg-severity-high/5 px-5 py-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-severity-high" />
+            <p className="flex-1 text-sm text-slate-200">
+              Part of your progress couldn&apos;t be loaded from the server, so some numbers below may be incomplete. Your saved progress is not lost.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="shrink-0 rounded-md border border-severity-high/50 bg-severity-high/15 px-3 py-1.5 text-xs font-bold text-severity-high hover:bg-severity-high/25 transition-colors"
+            >
+              Reload
+            </button>
+          </div>
+        )}
 
         {/* XP / Level hero */}
         <XpLevel xp={totalXp} />
@@ -725,7 +776,7 @@ export default function ProgressPage() {
                     <th className="py-2">Date</th>
                     <th className="py-2">Score</th>
                     <th className="py-2">Time</th>
-                    <th className="py-2 pr-5">XP</th>
+                    <th className="py-2 pr-5" title="XP this attempt scored. Only your best attempt per scenario counts toward your total.">Run XP</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -753,7 +804,7 @@ export default function ProgressPage() {
                           <td className="py-2.5 text-slate-400">{new Date(s.date).toLocaleDateString("en-GB")}</td>
                           <td className="py-2.5"><span className={cn("font-mono font-bold", s.score >= 80 ? "text-neon-green" : s.score >= 60 ? "text-severity-medium" : "text-severity-critical")}>{s.score}%</span></td>
                           <td className="py-2.5 font-mono text-slate-400">{mins}:{String(secs).padStart(2,"0")}</td>
-                          <td className="py-2.5 pr-5 font-mono font-bold text-cyber-300">+{s.xpEarned}</td>
+                          <td className="py-2.5 pr-5 font-mono font-bold text-cyber-300">{s.xpEarned}</td>
                         </tr>
                         {isOpen && s.report && (
                           <tr className="border-t border-border/40 bg-bg">
@@ -887,6 +938,7 @@ export default function ProgressPage() {
         </div>
 
       </div>
+      )}
     </div>
   );
 }

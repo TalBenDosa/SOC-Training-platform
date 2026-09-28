@@ -27,7 +27,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const { data: sess } = await admin.from("team_sessions").select("id, org_id, status, company_id, difficulty, seed").eq("id", id).maybeSingle();
+  const { data: sess } = await admin.from("team_sessions").select("id, org_id, status, company_id, difficulty, seed, scenario_id").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
   if (!user.isPlatformAdmin && sess.org_id !== user.orgId) {
     return NextResponse.json({ error: "Not your session." }, { status: 403 });
@@ -50,7 +50,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   let seeded = 0;
   const { count } = await admin.from("session_injects").select("id", { count: "exact", head: true }).eq("session_id", id);
   if ((count ?? 0) === 0) {
-    const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed);
+    // scenario_id = the storyline staff picked in the builder (null → random pick).
+    const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id);
     if (timeline.length) {
       const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));
       const { data: n, error: seedErr } = await admin.rpc("team_seed_timeline", { p_session: id, p_rows: rows });

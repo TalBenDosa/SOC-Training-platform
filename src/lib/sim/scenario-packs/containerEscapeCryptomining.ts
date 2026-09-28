@@ -251,10 +251,10 @@ export function buildContainerEscapeCryptominingScenario(
         "Two Falcon detections fire on the same node: the xmrig process (evt_ce_03) and an nsenter process (evt_ce_04). Which observation proves the workload crossed out of its container onto the worker node, rather than merely running as root while still inside the pod?",
       hint: "Compare the ContainerId recorded on the miner with what the nsenter command line actually joins.",
       options: [
-        { value: "nsenter_hostns", label: "The nsenter command line joins the host's namespaces via --target 1, the node's init process, so the shell it spawns runs against the node's own mount, PID and network namespaces" },
-        { value: "root_in_container", label: "The xmrig process runs as UserName root, and any process that reaches root has by definition already left its container onto the underlying node" },
+        { value: "nsenter_hostns", label: "nsenter joins the host's namespaces via --target 1, the node's init, so the shell it spawns runs in the node's own mount, PID and network space" },
+        { value: "root_in_container", label: "The xmrig process runs as UserName root, and holding root inside the pod is what carries a process out of its container onto the node" },
         { value: "privileged_flag", label: "The pod spec carries securityContext.privileged true, which on its own means every process in the pod is already executing directly on the node" },
-        { value: "pool_egress", label: "The outbound session to the mining pool leaves the node, which shows the miner must be running on the host and not inside a container" },
+        { value: "pool_egress", label: "The outbound session to the mining pool leaves the node itself, which shows the miner must be running on the host rather than inside a container" },
       ],
       answer: "nsenter_hostns",
       explanation:
@@ -268,9 +268,9 @@ export function buildContainerEscapeCryptominingScenario(
         "evt_ce_01 records the creation of the etl-metrics pod. Which combination in its spec is what made a breakout to the node possible in the first place?",
       hint: "Look at the securityContext, the host namespace flags, and where the hostPath volume points.",
       options: [
-        { value: "priv_hostpid_hostpath", label: "privileged true, hostPID true, and a hostPath volume mapping the node root filesystem at /host — the container is handed the node's process namespace and its disk" },
+        { value: "priv_hostpid_hostpath", label: "privileged true, hostPID true and a hostPath mount of the node root at /host — the node's process namespace and disk" },
         { value: "lb_ingress", label: "A LoadBalancer service and a public ingress rule that exposed the pod directly to inbound traffic from the internet" },
-        { value: "no_limits", label: "A missing readiness probe and an unset CPU limit, which let the container consume the entire node's compute" },
+        { value: "no_limits", label: "A missing readiness probe and an unset CPU limit, which together let the container consume the entire node's compute" },
         { value: "latest_tag", label: "An imagePullPolicy of Always pointing at the latest tag, which allowed a fresh image to be pulled on every pod restart" },
       ],
       answer: "priv_hostpid_hostpath",
@@ -285,10 +285,10 @@ export function buildContainerEscapeCryptominingScenario(
         "evt_ce_00 is a cilium pod in kube-system that is also privileged and also mounts a hostPath — yet it is expected. Beyond both being privileged, what actually separates it from the etl-metrics pod?",
       hint: "Weigh who owns each workload and what each one does after it starts, not the privileged flag they share.",
       options: [
-        { value: "owner_and_behaviour", label: "cilium is a sanctioned CNI DaemonSet owned by the kube-system service account and runs no miner and no external connection; etl-metrics is an app-namespace pod that launches xmrig and reaches an outside pool" },
-        { value: "cilium_denied", label: "cilium is not actually privileged — the audit only requests it and the API server denies admission, so no privileged container is ever created" },
-        { value: "identical_time", label: "The two records are identical in every field, so the only way to tell them apart is that cilium was created earlier in the day" },
-        { value: "namespace_trust", label: "cilium sits in kube-system, and any pod in kube-system is trusted while any pod outside it is malicious, whatever it does" },
+        { value: "owner_and_behaviour", label: "cilium is a CNI DaemonSet owned by the kube-system service account with no miner or outside connection; etl-metrics launches xmrig and dials a pool" },
+        { value: "cilium_denied", label: "cilium is not actually privileged — the audit only records the request and the API server denies admission, so no privileged container is ever created" },
+        { value: "identical_time", label: "The two admission records match field for field, so the only thing separating them is that the cilium pod was created earlier that day" },
+        { value: "namespace_trust", label: "cilium sits in kube-system, the namespace reserved for cluster components, and residency there is what marks a privileged pod as sanctioned" },
       ],
       answer: "owner_and_behaviour",
       explanation:
@@ -302,10 +302,10 @@ export function buildContainerEscapeCryptominingScenario(
         "Setting the breakout mechanics aside, what is the operator actually using this node for?",
       hint: "Read the miner's command line and the corroborating cloud finding together.",
       options: [
-        { value: "hijack_compute", label: "Hijacking the node's CPU to mine Monero — xmrig is aimed at an external stratum pool, and GuardDuty separately flagged the node resolving a cryptocurrency domain" },
-        { value: "imds_creds", label: "Stealing the node's IAM role credentials from the instance metadata service to pivot into the wider AWS account" },
-        { value: "db_exfil", label: "Copying the payments database out of the cluster to an attacker-controlled storage bucket" },
-        { value: "ransom_pv", label: "Encrypting the node's persistent volumes and leaving a ransom note for the cluster operators" },
+        { value: "hijack_compute", label: "Hijacking node CPU to mine Monero — xmrig targets an outside stratum pool and GuardDuty saw the node resolve a mining domain" },
+        { value: "imds_creds", label: "Harvesting the node's IAM role credentials from the instance metadata service to pivot into the wider AWS account" },
+        { value: "db_exfil", label: "Copying the payments database out of the cluster through the node to an attacker-controlled S3 storage bucket" },
+        { value: "ransom_pv", label: "Encrypting the node's persistent volumes and leaving a ransom note for the cluster operators in each mounted path" },
       ],
       answer: "hijack_compute",
       explanation:
@@ -319,10 +319,10 @@ export function buildContainerEscapeCryptominingScenario(
         "You are scoping containment. The workload broke out onto ip-10-0-42-17, and the pod is backed by a Deployment pulling registry.internal/etl-metrics:latest. Which response matches the evidence?",
       hint: "Think about what respawns the pod, and the fact that code already ran on the node itself.",
       options: [
-        { value: "cordon_drain_fix", label: "Cordon and drain the node and treat it as compromised, remove the Deployment and quarantine the poisoned image, block egress to the pool domain and IP, and add an admission policy denying privileged/hostPath for app namespaces" },
-        { value: "delete_pod", label: "Delete the running pod; once it is gone the miner stops and the case is closed, since the pod was the only place the code ever executed" },
-        { value: "block_ip", label: "Block the pool IP at the perimeter; with the pool unreachable the miner is neutralised and no host-level action is required" },
-        { value: "scale_zero", label: "Scale the Deployment to zero replicas; no credentials leaked, so stopping the workload is all that is needed" },
+        { value: "cordon_drain_fix", label: "Cordon, drain and replace the node, delete the Deployment and quarantine its image, block the pool, and deny privileged/hostPath in app namespaces" },
+        { value: "delete_pod", label: "Delete the running etl-metrics pod; once it is gone the miner stops and the case can close, since the pod was the only place the miner code executed" },
+        { value: "block_ip", label: "Block the pool IP and domain at the perimeter; with the pool unreachable the miner is neutralised and no host-level action is required" },
+        { value: "scale_zero", label: "Scale the Deployment to zero replicas and rotate the etl-runner token; no credentials leaked, so stopping the workload is enough" },
       ],
       answer: "cordon_drain_fix",
       explanation:

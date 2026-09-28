@@ -105,7 +105,7 @@ function calcScore(
 // ─── Source / severity maps ───────────────────────────────────────────────────
 
 const SOURCE_LABEL: Record<string, string> = {
-  edr: "EDR", sysmon: "Sysmon", ad: "Active Directory",
+  edr: "EDR", sysmon: "Sysmon", ad: "Active Directory", windows_security: "Windows Security",
   o365: "Office 365", okta: "Okta", firewall: "Firewall",
   dns: "DNS", vpn: "VPN", cloudtrail: "AWS/Azure", proxy: "Proxy", dlp: "DLP",
   hr: "HR System", vcs: "Source Control", virtualization: "Virtualization",
@@ -115,6 +115,7 @@ const SOURCE_COLORS: Record<string, string> = {
   edr: "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
   sysmon: "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
   ad: "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
+  windows_security: "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
   o365: "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
   okta: "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
   firewall: "bg-severity-high/20 text-severity-high border-severity-high/30",

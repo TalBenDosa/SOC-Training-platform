@@ -12,8 +12,8 @@
  * goes through `run()`, which holds the failed thunk and reports it via
  * syncState.ts. Idempotent upserts replay automatically on reconnect; append-only
  * inserts wait for an explicit user retry, because replaying one that actually
- * committed would duplicate a row — and a duplicate scenario_history row
- * double-counts XP through the recompute trigger.
+ * committed would duplicate a row (dashboard sessions). scenario_history is no
+ * longer written from the browser at all — the grade route is its only writer.
  *
  * KNOWN SIMPLIFICATIONS (fine for an MVP, worth hardening later):
  *  - Pending writes live in memory only: a hard reload while offline still loses
@@ -47,6 +47,19 @@ function safeParse<T>(raw: string | undefined | null, fallback: T): T {
   try { return JSON.parse(raw) as T; } catch { return fallback; }
 }
 
+export interface HydrateResult {
+  wasEmpty: boolean;
+  rowsMissing: boolean;
+  /**
+   * Tables whose read FAILED (network / RLS / schema error). A failed read used
+   * to be indistinguishable from "no rows": the cache was filled with empty
+   * lists and /progress rendered 0 attempted / 0% — the exact shape of the
+   * "progress isn't saved" report. Callers retry, never treat a partial load as
+   * an empty account (no guest import), and let pages say "couldn't load".
+   */
+  failed: string[];
+}
+
 export interface RemoteBackendHandle {
   backend: StorageBackend;
   /**
@@ -56,7 +69,7 @@ export interface RemoteBackendHandle {
    * trigger) don't exist at all. A valid session pointing at a DELETED user looks exactly like this;
    * the caller should sign out rather than treat it as a fresh account.
    */
-  hydrate: () => Promise<{ wasEmpty: boolean; rowsMissing: boolean }>;
+  hydrate: () => Promise<HydrateResult>;
 }
 
 export function createRemoteBackend(
@@ -246,24 +259,20 @@ export function createRemoteBackend(
         return;
       }
       case LEARNER_KEYS.scenarioHistory: {
+        // CACHE-ONLY since the team-exercise fix round (#30). The browser used
+        // to INSERT scenario_history rows itself, which let any signed-in user
+        // write an arbitrary xp_earned and self-grant XP without being graded.
+        // POST /api/scenarios/[slug]/grade now writes the graded row with the
+        // service-role client (client writes are revoked server-side), so here
+        // the new record only updates the in-memory history for immediate UI.
+        //
+        // The row — and the recomputed profiles.xp — already exist by the time
+        // the caller appends, so re-read the authoritative total. This also
+        // corrects a caller that optimistically added the full run XP locally
+        // when only the improvement over the best attempt actually counts.
         const list = safeParse<ScenarioRecord[]>(value, []);
         const prev = safeParse<ScenarioRecord[]>(cache.get(key), []);
-        const fresh = list.slice(Math.max(0, prev.length));
-        if (fresh.length === 0) return;
-        const historyRows = fresh.map(s => ({
-          user_id: userId,
-          ...org,
-          slug: s.slug,
-          title: s.title,
-          score: s.score,
-          xp_earned: s.xpEarned,
-          time_taken: s.timeTaken,
-          completed_at: s.date,
-          report: s.report ?? null, // requires migration 0017 (jsonb column)
-        }));
-        // Append-only, and a duplicate row here double-counts XP through the
-        // recompute trigger — so never replayed without the user asking.
-        run("scenarioHistory", false, () => supabase.from("scenario_history").insert(historyRows), { refreshTotal: true });
+        if (list.length > prev.length) refreshTotalXp();
         return;
       }
       case LEARNER_KEYS.clearedCompanies: {
@@ -308,7 +317,7 @@ export function createRemoteBackend(
     },
   };
 
-  async function hydrate(): Promise<{ wasEmpty: boolean; rowsMissing: boolean }> {
+  async function hydrate(): Promise<HydrateResult> {
     const [profileRes, userProgressRes, roomRes, sessionsRes, scenariosRes, quizRes, lessonRes] = await Promise.all([
       supabase.from("profiles").select("xp").eq("id", userId).maybeSingle(),
       supabase.from("user_progress").select("*").eq("user_id", userId).maybeSingle(),
@@ -320,6 +329,13 @@ export function createRemoteBackend(
       supabase.from("quiz_progress").select("first_completed_at, last_completed_at").eq("user_id", userId),
       supabase.from("lesson_progress").select("completed_at").eq("user_id", userId),
     ]);
+
+    // Optional tables (quiz/lesson — may not exist on an older database) are
+    // streak signal only; their failure doesn't make the load "partial".
+    const failed = ([
+      ["profiles", profileRes], ["user_progress", userProgressRes], ["room_progress", roomRes],
+      ["dashboard_sessions", sessionsRes], ["scenario_history", scenariosRes],
+    ] as const).filter(([, res]) => !!res.error).map(([name]) => name);
 
     const xp = profileRes.data?.xp ?? 0;
     cache.set(LEARNER_KEYS.totalXp, String(xp));
@@ -380,8 +396,10 @@ export function createRemoteBackend(
       && sessions.length === 0 && scenarios.length === 0;
     // The signup trigger always creates both rows, so both missing means the
     // account itself is gone (deleted user with a still-valid session).
-    const rowsMissing = !profileRes.data && !userProgressRes.data;
-    return { wasEmpty, rowsMissing };
+    // A failed read is NOT a missing account — only a clean read returning
+    // nothing is.
+    const rowsMissing = !profileRes.data && !userProgressRes.data && !profileRes.error && !userProgressRes.error;
+    return { wasEmpty: wasEmpty && failed.length === 0, rowsMissing, failed };
   }
 
   return { backend, hydrate };

@@ -10,7 +10,8 @@ import "server-only";
  * the identical incident and the AAR reconstructs it exactly from the log. The
  * interleaving/cadence/MSEL telemetry is seeded (mulberry32), but the attack-story
  * CHOICE is random (pickStoryForCompany), so two builds with the same seed may
- * pick different stories.
+ * pick different stories — unless staff chose a storyline (scenario_id), which
+ * then always leads as the primary incident.
  *
  * Answer key (contract 1, 2026-09-27 live-playtest fix round): every feed entry's
  * `answer` carries an explicit expected_verdict (tp | escalate | benign | fp —
@@ -21,7 +22,7 @@ import "server-only";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
-import { pickStoryForCompany, instantiateStory } from "@/app/(app)/dashboard/attackStories";
+import { pickStoryForCompany, instantiateStory, storiesForCompany, type AttackStory } from "@/app/(app)/dashboard/attackStories";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
@@ -226,7 +227,20 @@ function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | 
 interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict; incident?: string; supports?: string }
 
 /** Build the ordered, time-stamped feed for a session. */
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string): TimelineEntry[] {
+/**
+ * Staff-chosen storyline (team_sessions.scenario_id, exercise-report #18): the
+ * attack story the instructor picked in the Session Builder, or null when none was
+ * picked / the id isn't a story that fits this company + difficulty (then the
+ * timeline falls back to the random pick). Only stories storiesForCompany() would
+ * offer are accepted, so a hand-crafted id can't smuggle a K8s escape into a
+ * hospital or an advanced chain into an easy session.
+ */
+export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium" | "hard", storyId: string | null | undefined): AttackStory | null {
+  if (!storyId) return null;
+  return storiesForCompany(companyId, difficulty).find(s => s.id === storyId) ?? null;
+}
+
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null): TimelineEntry[] {
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
   const ownPool = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
   const companyPool = (ownPool ?? BENIGN_EVENTS) ?? [];
@@ -236,10 +250,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
 
   // ── Attack stories: one on easy, two concurrent incidents otherwise ──────────
   interface Story { id: string; incident: string; events: TelemetryEvent[] }
-  const buildStory = (avoid?: string): Story | null => {
+  const chosen = resolveTeamStory(companyId, difficulty, storyId);
+  const buildStory = (avoid?: string, forced?: AttackStory | null): Story | null => {
     for (let attempt = 0; attempt < 6; attempt++) {
       try {
-        const story = pickStoryForCompany(companyId, difficulty);
+        const story = forced ?? pickStoryForCompany(companyId, difficulty);
         if (avoid && story.id === avoid) continue;   // server-side there is no anti-repeat memory
         const events = instantiateStory(story, companyPool, edr, companyId).events ?? [];
         if (events.length === 0) return null;
@@ -249,7 +264,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     }
     return null;
   };
-  const story1 = buildStory();
+  const story1 = buildStory(undefined, chosen);   // the staff-chosen storyline leads, when set
   // Second concurrent incident: parallel work for several Tier-1/Tier-2 analysts and a
   // prioritisation call for the Manager. Skipped on easy to keep a beginner single-threaded.
   const story2 = difficulty === "easy" ? null : buildStory(story1?.id);

@@ -589,22 +589,22 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "vpnend_foreign",
           label:
-            "evt_itb_05_vpn_disconnect + evt_itb_06_foreign_signin — session closed at 07:40, and 08:27 came from a different address",
+            "VPN disconnect + New York sign-in — the tunnel closed at 07:40, and 08:27 came from a different address",
         },
         {
           value: "morning_vpnstart",
           label:
-            "evt_itb_01_morning_signin + evt_itb_02_vpn_connect — she signed in from home and then opened a VPN tunnel",
+            "Morning sign-in + VPN connect — she authenticated from home and then opened a tunnel through VPN-GW-01",
         },
         {
           value: "phish_post",
           label:
-            "evt_itb_03_phish_email + evt_itb_04_phish_post — a lure arrived and the linked page received a form submission",
+            "Phishing email + proxy POST — a lure arrived and the linked page then received a form submission from her laptop",
         },
         {
           value: "alert_rule",
           label:
-            "evt_itb_07_travel_alert + evt_itb_08_inbox_rule — the travel anomaly fired and a mailbox rule was then created",
+            "Travel alert + inbox rule — the anomaly fired and a mailbox rule was created on the account shortly afterwards",
         },
       ],
       answer: "vpnend_foreign",
@@ -626,7 +626,7 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "ca_status",
           label:
-            "ConditionalAccessStatus reads success in the morning and notApplied on the foreign sign-in record",
+            "ConditionalAccessStatus reads success in the morning but notApplied on the foreign sign-in, so no policy evaluated it",
         },
         {
           value: "app_used",
@@ -658,7 +658,7 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "geo_city",
           label:
-            "LocationDetails places the sign-in in New York rather than in the London area she normally works from",
+            "LocationDetails places the sign-in in New York, over 5,500 km from the London office where Finance say she is sitting",
         },
         {
           value: "risk_level",
@@ -701,7 +701,7 @@ export function buildImpossibleTravelBasicScenario(
         {
           value: "asn_hosting",
           label:
-            "The sign-in address belongs to a hosting provider rather than to a home or corporate network",
+            "The sign-in address sits on AS14061, a hosting provider, rather than on her home ISP or on the corporate gateway",
         },
       ],
       answer: "session_actions",

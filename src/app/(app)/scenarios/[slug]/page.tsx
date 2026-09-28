@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { buildIocTruth } from "@/lib/edr/iocIntel";
+import { optionToken } from "@/lib/scenarios/optionToken";
 import { ScenarioClient } from "./ScenarioClient";
 
 export default async function ScenarioPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -30,6 +32,12 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     attack_kind: "",
     iocs: [],
     killchain: [],
+    // `alerts` is derived server-side by withAlerts() from every event with a
+    // MITRE id — each carries mitre_technique/mitre_tactic and a title built
+    // from the event, i.e. the very mapping stripped from `events` below. The
+    // client no longer reads it: the alert count and badges are computed from
+    // the events themselves (src/lib/scenarios/eventClass.ts, finding #5).
+    alerts: [],
     // F-02 — the events table is something to INVESTIGATE, not read. Each event's
     // analyst `description` and its MITRE mapping are the exercise (the student
     // writes the description and picks the technique); they are stripped here and
@@ -71,11 +79,20 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
         raw,
       };
     }),
+    // Option values are swapped for keyed tokens — authored ids like
+    // "wrong_folder" would otherwise name the answer in the page payload.
     questions: bundle.questions.map(q => ({
       ...q,
+      options: q.options?.map(o => ({ ...o, value: optionToken(slug, q.id, o.value) })),
       answer: Array.isArray(q.answer) ? [] : "",
       explanation: "",
     })),
   };
-  return <ScenarioClient bundle={withheld} slug={slug} />;
+  // Threat-intel truth (finding #2 contract): computed HERE from the FULL bundle
+  // (authored iocs + attack events), because the client copy above has both
+  // stripped. It ships as digest-keyed verdicts only — not a readable list of
+  // the malicious IOCs — and makes every TI lookup and EDR hash lookup on the
+  // page agree with the scenario's own detections.
+  const iocTruth = buildIocTruth({ events: bundle.events ?? [], iocs: bundle.iocs ?? [] });
+  return <ScenarioClient bundle={withheld} slug={slug} iocTruth={iocTruth} />;
 }

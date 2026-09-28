@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { decodeAnswer } from "@/lib/scenarios/optionToken";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { scoreScenarioReport } from "@/lib/scenarios/reportScoring";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { buildReportBreakdown } from "../../_lib/reportBreakdown";
+import { buildAttemptRow, clampTimeTaken, xpDeltaFor } from "../../_lib/attemptRecord";
 
 export const runtime = "nodejs";
 
@@ -44,13 +48,23 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
-  // `timeTaken` may still arrive in the body (older clients send it) but is
-  // deliberately ignored: investigation time is not graded (FB-007).
+  // `timeTaken` is NOT graded (FB-007) — it is only stored on the history row
+  // (clamped to an integer 0..86400 s) so /progress can show time spent.
   const {
-    answers = {},
+    answers: rawAnswers = {},
     verdict = null, verdictReason = "", analystNotes = "",
     indicators = [],
   } = body;
+  const timeTaken = clampTimeTaken(body.timeTaken);
+  // The page ships keyed option tokens (optionToken) — map them back to the
+  // authored values before grading. Raw values from older clients pass through.
+  const answers: Record<string, string | string[]> = {};
+  if (rawAnswers && typeof rawAnswers === "object") {
+    for (const q of bundle.questions) {
+      const v = decodeAnswer(slug, q, (rawAnswers as Record<string, string | string[]>)[q.id]);
+      if (v !== undefined) answers[q.id] = v;
+    }
+  }
 
   // Grade each question.
   //
@@ -149,8 +163,12 @@ export async function POST(
   // The verdict is the analyst's headline output — a wrong call is called out
   // explicitly (it was silent before) and caps the report score.
   const calledVerdict = verdict === "tp" ? "malicious" : verdict === "fp" ? "benign" : "no verdict";
+  // The true verdict is only named on a genuine attempt (every question answered
+  // + a written report) — otherwise a blank POST would reveal it for free.
   const verdictNote = verdictWrong
-    ? ` ⚠ Your verdict was wrong — you called this ${calledVerdict}, the evidence shows ${expectedVerdict}. The verdict is the single most important output of an investigation, so a wrong call caps the report below passing.`
+    ? (attemptedAll && words > 0
+        ? ` ⚠ Your verdict was wrong — you called this ${calledVerdict}, the evidence shows ${expectedVerdict}. The verdict is the single most important output of an investigation, so a wrong call caps the report below passing.`
+        : ` ⚠ Your verdict was wrong — you called this ${calledVerdict}. A wrong call caps the report below passing.`)
     : "";
   const fabricationNote = fabricated.length > 0
     ? ` ⚠ Your report cited ${fabricated.length} indicator${fabricated.length > 1 ? "s" : ""} that appear nowhere in this incident's telemetry — never invent evidence; cite only what the logs actually show.`
@@ -158,14 +176,30 @@ export async function POST(
   const misattributionNote = misattributed.length > 0
     ? ` ⚠ You tagged ${misattributed.join(", ")} as a hostile indicator — that is a known-benign address (a public DNS resolver, not adversary infrastructure). Tagging a benign or internal asset as malicious is a Tier-1 precision error.`
     : "";
-  const reportNote =
-    reportScore >= 75 ? "Your written report was thorough — verdict, evidence and reasoning all present."
-    : reportScore >= 45 ? "Your report covered the basics; cite more of the incident's indicators and justify the verdict in more depth."
-    : "Your written report was thin. In a real SOC the report IS the deliverable: state a verdict, cite the indicators it rests on, and explain your reasoning.";
+  // The full debrief is the reward for a real attempt — released only when every
+  // question was answered and a non-empty report was written. A blank/garbage
+  // submission (answer-harvesting) gets score + per-question `correct` flags but
+  // no narrative/objectives/kill-chain — and no names of missed key indicators.
+  const releaseDebrief = attemptedAll && words > 0;
+
+  // #16: explain the report score criterion by criterion instead of a generic
+  // "your report was thin". Read-only over the rubric above — the formula is
+  // unchanged (reportScoring.test.ts locks it).
+  const breakdown = buildReportBreakdown({
+    scored: {
+      reportText, words, expectedVerdict, verdictCorrect, verdictWrong,
+      scenarioIocValues, iocsCited, usefulCitedCount, fabricated, misattributed,
+      reportRubric, reportScore,
+    },
+    verdict, verdictReason, indicators,
+    iocs: bundle.iocs,
+    revealKey: releaseDebrief,
+  });
+  const reportNote = breakdown.summary;
 
   let aiFeedback = (passed
-    ? `Good investigation on "${bundle.title}". You identified ${correctCount}/${bundle.questions.length} attack stages and scored ${reportScore}/100 on the report. ${reportNote}`
-    : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}, report ${reportScore}). ${reportNote}`) + verdictNote + misattributionNote + fabricationNote;
+    ? `Good investigation on "${bundle.title}". You identified ${correctCount}/${bundle.questions.length} attack stages. ${reportNote}`
+    : `You scored ${score}% on "${bundle.title}" (quiz ${quizScore}% · ${correctCount}/${bundle.questions.length} correct). ${reportNote}`) + verdictNote + misattributionNote + fabricationNote;
 
   // The paid LLM feedback additionally requires org budget headroom — `gradeUser`
   // itself is guaranteed non-null here, since the whole route is now gated above.
@@ -195,13 +229,15 @@ Student completed "${bundle.title}" scenario.
 Quiz: ${quizScore}% (${correctCount}/${bundle.questions.length} correct)
 Report: ${reportScore}/100 — verdict ${verdict ?? "not given"} (expected ${expectedVerdict}), ${words} words, cited ${iocsCited}/${scenarioIocValues.length} key indicators
 ${wrongSummary ? `Questions missed: ${wrongSummary}` : "All questions correct!"}
+Rubric: ${breakdown.items.map(i => `${i.label} ${i.points}/${i.max}`).join(", ")}
+${breakdown.improvements.length ? `Specific gaps: ${breakdown.improvements.join(" ")}` : "No rubric gaps."}
 
 Their written analysis:
 """
 ${reportText.slice(0, 1500) || "(left blank)"}
 """
 
-Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on how fast or slow they were — speed is not graded; thoroughness and accuracy are. One sentence on the quiz, and TWO on the quality of their written analysis specifically — whether the verdict is supported, whether they cited the right evidence, and what a senior analyst would have added. Be concrete about their actual words.`,
+Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on how fast or slow they were — speed is not graded; thoroughness and accuracy are. One sentence on the quiz, and TWO on the quality of their written analysis specifically — whether the verdict is supported, whether they cited the right evidence, and what a senior analyst would have added. Be concrete about their actual words and name the specific gaps listed above — never say only that the report was "thin".`,
         }],
       });
 
@@ -222,15 +258,61 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
     }
   }
 
-  // The full debrief is the reward for a real attempt — released only when every
-  // question was answered and a non-empty report was written. A blank/garbage
-  // submission (answer-harvesting) gets score + per-question `correct` flags but
-  // no narrative/objectives/kill-chain.
-  const releaseDebrief = attemptedAll && words > 0;
+  // ── Record the attempt (server is the ONLY writer of scenario_history) ─────
+  // #30: the browser used to insert this row itself, so any signed-in user could
+  // write an arbitrary xp_earned and self-grant XP. Now the graded result is
+  // written here with the service-role client; client writes are revoked by the
+  // coordinator's migration, which also makes only the BEST attempt per scenario
+  // count toward profiles.xp. The previous best is read first so the UI can say
+  // truthfully "+N XP (improvement)" or "no new XP — best was X".
+  let prevBestXp: number | null = null;
+  let totalXp: number | null = null;
+  let persisted = false;
+  const admin = getSupabaseAdminClient();
+  // Only a genuine attempt is recorded: a history row counts as a completion
+  // for learning plans, streaks and org analytics, so an empty POST must not
+  // create one. (Same gate that releases the debrief.)
+  if (admin && releaseDebrief) {
+    const prev = await admin
+      .from("scenario_history")
+      .select("xp_earned")
+      .eq("user_id", gradeUser.id)
+      .eq("slug", slug)
+      .order("xp_earned", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!prev.error) prevBestXp = typeof prev.data?.xp_earned === "number" ? prev.data.xp_earned : 0;
+
+    const row = buildAttemptRow({
+      userId: gradeUser.id, orgId: gradeUser.orgId, slug, title: bundle.title,
+      score, xpEarned, timeTaken, verdict, verdictReason, analystNotes,
+      reportScore, rubric: reportRubric, passed,
+    });
+    const ins = await admin.from("scenario_history").insert(row);
+    if (ins.error) {
+      console.error("[scenario grade] scenario_history insert failed:", ins.error.message);
+    } else {
+      persisted = true;
+      // The recompute trigger ran inside the insert — this is the new total.
+      const prof = await admin.from("profiles").select("xp").eq("id", gradeUser.id).maybeSingle();
+      if (!prof.error && typeof prof.data?.xp === "number") totalXp = prof.data.xp;
+    }
+  }
+  // No delta claim unless the attempt was actually recorded AND the previous best
+  // is known (no service key / failed read or insert → the UI shows run XP only,
+  // flagged as unsaved when `persisted` is false).
+  const xp = persisted && prevBestXp != null ? xpDeltaFor(xpEarned, prevBestXp) : null;
 
   return NextResponse.json({
     score, xpEarned, timeBonusXp, perQuestion, aiFeedback, passed,
     quizScore,
+    // Best-attempt XP accounting (#30). `xpEarned` stays this run's XP.
+    prevBestXp,
+    xpDelta: xp ? xp.xpDelta : null,
+    bestXp: xp ? xp.bestXp : null,
+    totalXp,
+    persisted,
+    timeTaken,
     debriefWithheld: !releaseDebrief,
     // Withheld from the page payload so it is not readable in view-source during
     // the investigation; delivered here once a genuine attempt is in.
@@ -249,6 +331,7 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
       verdictWrong,
       fabricated: fabricated.length,
       misattributed: misattributed.length,
+      breakdown,
     },
   });
 }

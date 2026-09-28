@@ -559,22 +559,22 @@ export function buildSoftwareInstallFalsePositiveScenario(
         {
           value: "proc_status",
           label:
-            "evt_sifp_03_installer_run + evt_sifp_09_install_status — management-agent parent and cache folder, plus a matching device record",
+            "The installer launch + the Intune install-status report — a management-agent parent and cache folder, plus a matching device record",
         },
         {
           value: "file_service",
           label:
-            "evt_sifp_04_binary_written + evt_sifp_05_service_install — an unsigned binary placed on disk and then registered as a service",
+            "The Program Files write + the service registration — an unsigned binary placed on disk and then set to auto-start as LocalSystem",
         },
         {
           value: "dns_conn",
           label:
-            "evt_sifp_06_dns + evt_sifp_07_connection — a hostname resolved and a short TLS session opened straight afterwards",
+            "The DNS lookup + the outbound connection — the collector hostname resolved and a short TLS session opened to it straight after",
         },
         {
           value: "alert_prev",
           label:
-            "evt_sifp_08_edr_alert + evt_sifp_10_prevalence — the behavioural detection and the estate-wide review that followed it",
+            "The Falcon detection + the prevalence review — the behavioural alert and the estate-wide Sentinel hash query that followed it",
         },
       ],
       answer: "proc_status",
@@ -597,17 +597,17 @@ export function buildSoftwareInstallFalsePositiveScenario(
         {
           value: "ticket_state",
           label:
-            "The record is a Standard change in Scheduled state, raised by the Endpoint Engineering group that owns workstations",
+            "The record is a Standard change in Scheduled state, raised that morning by the Endpoint Engineering group that owns workstations",
         },
         {
           value: "same_day",
           label:
-            "The change was created the same day as the detection, which puts the two records in the same operational window",
+            "The change was created the same day as the detection, which places the ticket and the alert inside one operational window",
         },
         {
           value: "pe_metadata",
           label:
-            "The binary's PE metadata names the same company and product as the package described in the change record",
+            "The binary's PE metadata names the same company and product as the package in the change record, with a matching description",
         },
       ],
       answer: "all_three",
@@ -629,17 +629,17 @@ export function buildSoftwareInstallFalsePositiveScenario(
         {
           value: "programfiles",
           label:
-            "The file was written under C:\\Program Files, a directory ordinary user processes cannot write to",
+            "The file was written under C:\\Program Files, a protected directory that ordinary user processes and user-level droppers cannot write to",
         },
         {
           value: "system_ctx",
           label:
-            "The whole chain ran as NT AUTHORITY\\SYSTEM, so no ordinary user account was involved at any point",
+            "The whole chain ran as NT AUTHORITY\\SYSTEM, so no user account or interactive session was involved at any point",
         },
         {
           value: "no_block",
           label:
-            "Falcon recorded the detection with no action taken, indicating the sensor did not consider it worth stopping",
+            "Falcon recorded the detection as 'Detection, No Action', indicating the sensor judged the behaviour not worth stopping",
         },
       ],
       answer: "prevalence",
@@ -662,12 +662,12 @@ export function buildSoftwareInstallFalsePositiveScenario(
         {
           value: "unsigned_system",
           label:
-            "An unsigned executable installing a LocalSystem service while no user was logged on to the workstation",
+            "An unsigned executable installing an auto-start LocalSystem service while no user was logged on to the workstation",
         },
         {
           value: "late_hour",
           label:
-            "The whole chain running at 21:00, outside the hours the engineering team is normally at their desks",
+            "The whole chain running at 21:00, well outside the hours the engineering team is normally working at their desks",
         },
         {
           value: "short_session",

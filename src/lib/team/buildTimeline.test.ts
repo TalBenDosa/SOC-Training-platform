@@ -6,7 +6,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   buildTeamTimeline, TEAM_ANSWER_FIELDS, TEAM_TIME_BASE_MS,
-  classifyStoryEvent, classifyPoolEvent, scrubClockPhrases,
+  classifyStoryEvent, classifyPoolEvent, scrubClockPhrases, resolveTeamStory,
 } from "./buildTimeline";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { storiesForCompany, instantiateStory } from "@/app/(app)/dashboard/attackStories";
@@ -232,5 +232,37 @@ describe("content hygiene", () => {
       expect(w.file?.path).toContain(`\\Users\\${user}\\`);
       if (user !== "d.rosen") expect(JSON.stringify([w.raw, w.file, w.process])).not.toContain("d.rosen");
     }
+  });
+});
+
+describe("buildTeamTimeline — staff-chosen storyline (exercise-report #18)", () => {
+  const storyIncidents = (tl: ReturnType<typeof buildTeamTimeline>) =>
+    [...new Set(tl.filter(e => e.channel === "feed" && e.answer?.origin === "story").map(e => String(e.answer?.incident_id)))];
+  const expectedIncident = (s: { id: string; events: TelemetryEvent[] }) =>
+    s.events.find(e => e.incident_id)?.incident_id ?? `story:${s.id}`;
+
+  it("resolveTeamStory accepts only stories offered for that company + difficulty", () => {
+    const easy = storiesForCompany("nexacorp", "easy");
+    expect(easy.length).toBeGreaterThan(1);
+    expect(resolveTeamStory("nexacorp", "easy", easy[0].id)?.id).toBe(easy[0].id);
+    expect(resolveTeamStory("nexacorp", "easy", null)).toBeNull();
+    expect(resolveTeamStory("nexacorp", "easy", "no-such-story")).toBeNull();
+    // an advanced-only story is not accepted for an easy session
+    const hardOnly = storiesForCompany("nexacorp", "hard").find(s => !easy.some(e => e.id === s.id));
+    if (hardOnly) expect(resolveTeamStory("nexacorp", "easy", hardOnly.id)).toBeNull();
+  });
+
+  it("a chosen storyline is always the (easy: only) story incident, build after build", () => {
+    const [a, b] = storiesForCompany("nexacorp", "easy");
+    for (const seed of ["s1", "s2", "s3"]) {
+      expect(storyIncidents(buildTeamTimeline("nexacorp", "easy", seed, a.id))).toEqual([expectedIncident(a)]);
+      expect(storyIncidents(buildTeamTimeline("nexacorp", "easy", seed, b.id))).toEqual([expectedIncident(b)]);
+    }
+  });
+
+  it("medium keeps the chosen story as one of the two incidents; unknown ids fall back to random", () => {
+    const [a] = storiesForCompany("nexacorp", "medium");
+    expect(storyIncidents(buildTeamTimeline("nexacorp", "medium", "s", a.id))).toContain(expectedIncident(a));
+    expect(storyIncidents(buildTeamTimeline("nexacorp", "medium", "s", "bogus")).length).toBeGreaterThan(0);
   });
 });

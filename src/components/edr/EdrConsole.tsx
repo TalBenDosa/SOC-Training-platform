@@ -4,8 +4,10 @@
  * CrowdStrike Falcon / Defender for Endpoint: walk the process ANCESTRY tree,
  * read command lines, look up hashes, then decide (isolate the payload, or
  * resolve as benign). Data is self-contained (src/lib/edr/investigations.ts);
- * hash lookups hit the real hashDatabase so "Look up hash" returns a genuine
- * verdict.
+ * "Look up hash" resolves through the same threat-intel logic as the TI drawer
+ * (src/lib/edr/iocIntel.ts — real hashDatabase samples first, then the scenario's
+ * IOC truth table), so the two surfaces never disagree on one hash. The RTR shell
+ * is src/lib/edr/rtr.ts over the host's normal background (hostBaseline.ts).
  */
 import { useEffect, useMemo, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
@@ -15,8 +17,9 @@ import {
   Cpu, ShieldAlert, ShieldCheck, ChevronRight, ChevronDown, FileSearch, Ban, CheckCircle2,
   XCircle, Clock, Network, FileWarning, Fingerprint, MonitorX, Terminal, AlertTriangle,
 } from "lucide-react";
-import { buildProcessTree, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
-import { lookupHash, vtLabel, vtColor } from "@/lib/sim/hashDatabase";
+import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
+import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
+import { runRtrCommand } from "@/lib/edr/rtr";
 import { isContained, setContained } from "@/lib/edr/containment";
 
 const SEV_STYLE: Record<string, string> = {
@@ -68,7 +71,6 @@ function IncidentsList({ investigations, onOpen, embedded }: {
   onOpen: (id: string) => void;
   embedded?: boolean;
 }) {
-  const SEV_WEIGHT: Record<string, number> = { critical: 40, high: 25, medium: 12, low: 4 };
   return (
     <div>
       {!embedded && <Topbar title="EDR Console" subtitle="Incidents — pick one to investigate" />}
@@ -79,10 +81,8 @@ function IncidentsList({ investigations, onOpen, embedded }: {
           <span className="rounded-full border border-border bg-bg-elevated px-2 py-0.5 text-[10px] text-slate-400">{investigations.length} open</span>
         </div>
         {investigations.map(inv => {
-          const score = Math.min(100, inv.detections.reduce((s, d) => s + (SEV_WEIGHT[d.severity] ?? 0), 0));
-          const band = score >= 70 ? "Critical" : score >= 40 ? "High" : score >= 15 ? "Medium" : "Low";
+          const { score, band, techniques } = incidentScore(inv.detections);
           const bandStyle = band === "Critical" ? "text-severity-critical" : band === "High" ? "text-severity-high" : band === "Medium" ? "text-neon-amber" : "text-neon-green";
-          const techniques = Array.from(new Set(inv.detections.map(d => d.technique)));
           return (
             <button key={inv.id} onClick={() => onOpen(inv.id)}
               className="flex w-full items-center gap-4 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-left transition hover:border-cyber-500/40">
@@ -161,84 +161,26 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
   // Incident Workbench roll-up — the "full picture" a Falcon incident gives:
   // one score, the ATT&CK techniques seen on this host, and the affected
   // entities, all derived from the detections already on the investigation.
-  const workbench = useMemo(() => {
-    const SEV_WEIGHT: Record<string, number> = { critical: 40, high: 25, medium: 12, low: 4 };
-    const score = Math.min(100, inv.detections.reduce((s, d) => s + (SEV_WEIGHT[d.severity] ?? 0), 0));
-    // ATT&CK chips show real technique IDs only; a prevention/quarantine detection
-    // (E-03) still counts toward score/severity/detection-count but carries no T-code.
-    const techniques = Array.from(new Set(inv.detections.map(d => d.technique).filter(t => /^T\d{4}/.test(t))));
-    const band = score >= 70 ? "Critical" : score >= 40 ? "High" : score >= 15 ? "Medium" : "Low";
-    return { score, techniques, band };
-  }, [inv]);
+  // #23: derived from THIS investigation's detections (shared with the Incidents list)
+  // — the band is never lower than the worst detection, so a case whose detections are
+  // Critical and mapped to T1059.001 / T1003.001 reads that way, not "40 · High · none".
+  const workbench = useMemo(() => incidentScore(inv.detections), [inv]);
   const bandStyle = workbench.band === "Critical" ? "text-severity-critical" : workbench.band === "High" ? "text-severity-high" : workbench.band === "Medium" ? "text-neon-amber" : "text-neon-green";
 
-  // RTR-lite: a simulated Real Time Response shell answering from the host's data.
+  // RTR-lite: a simulated Real Time Response shell (src/lib/edr/rtr.ts) answering from
+  // the case's data over the host's normal background, with live kill/contain state.
   function runRtr(raw: string) {
-    const cmd = raw.trim();
-    if (!cmd) return;
-    const [verb, ...args] = cmd.split(/\s+/);
-    // Live host state: a killed/quarantined process is off the host (E-06).
-    const liveProcs = inv.processes.filter(p => !killed.has(p.pid));
-    let out = "";
-    switch (verb.toLowerCase()) {
-      case "help":
-        out = "Commands: ps · netstat · kill <pid> · get <path> · reg query <key> · cat <path> · contain · clear"; break;
-      case "ps":
-        out = ["PID    PPID   USER                 IMAGE", ...liveProcs
-          .slice().sort((a, b) => a.pid - b.pid)
-          .map(p => `${String(p.pid).padEnd(6)} ${String(p.ppid).padEnd(6)} ${p.user.padEnd(20)} ${p.name}`)].join("\n"); break;
-      case "netstat": {
-        // A contained host shows no analyst-visible connections; a killed process's
-        // C2 is gone with it. Both keep netstat consistent with the timeline.
-        if (isolated) { out = "Host network-contained — only sensor traffic allowed. No analyst-visible connections."; break; }
-        const rows = liveProcs.flatMap(p => (p.network ?? []).map(c => {
-          const arrow = c.direction === "inbound" ? "<-" : "->";
-          const app = c.application ? `/${c.application}` : "";
-          return `${(c.proto ?? "tcp").toUpperCase()}${app}  ${p.name}(${p.pid}) ${arrow} ${c.remote_ip}:${c.remote_port}${c.domain ? ` (${c.domain})` : ""}  ${c.direction.toUpperCase()}`;
-        }));
-        out = rows.length ? rows.join("\n") : "No active connections."; break;
-      }
-      case "kill": {
-        const pid = Number(args[0]);
-        const p = inv.processes.find(x => x.pid === pid);
-        if (!p) { out = `No process with pid ${args[0] ?? "?"}.`; break; }
-        if (killed.has(pid)) { out = `Process ${pid} (${p.name}) is already terminated — nothing to kill.`; break; }
-        setKilled(s => { const n = new Set(s); n.add(pid); return n; });
-        out = `Process ${pid} (${p.name}) terminated. It no longer appears in ps/netstat.`; break;
-      }
-      case "get": {
-        const path = args.join(" ");
-        // E-07: accept the image path the console itself shows (p.path), not only a
-        // logged file op — otherwise the natural "pull the file for analysis" step
-        // rejects the exact path on screen and blames the analyst for a typo.
-        const hit = inv.processes.some(p =>
-          (p.path ?? "").toLowerCase() === path.toLowerCase() ||
-          (p.files ?? []).some(f => f.path.toLowerCase() === path.toLowerCase()));
-        out = path ? `Queued "${path}" for upload to the cloud (password: infected).${hit ? " File captured." : " (path not seen on host — check spelling)"}` : "usage: get <full path>"; break;
-      }
-      case "reg":
-        // E-04: report THIS host's autoruns from its own registry telemetry; when the
-        // case has none, say so — never a hard-coded key from another host/company.
-        if (args[0] !== "query") { out = "usage: reg query <key>"; break; }
-        out = inv.autoruns && inv.autoruns.length
-          ? inv.autoruns.map(a => `${a.key}\n    ${a.value}`).join("\n")
-          : "No autorun entries found on this host."; break;
-      case "cat": {
-        const path = args.join(" ");
-        out = path ? `(binary content) ${path} — use 'get' to pull it to the cloud for analysis.` : "usage: cat <path>"; break;
-      }
-      case "contain":
-        if (isolated) { out = "Host is already network-contained."; break; }
-        isolate(true); out = "Host network-contained. Only sensor traffic allowed."; break;
-      case "clear": setRtr([]); return;
-      default: out = `rtr: unknown command '${verb}'. Type 'help'.`;
-    }
-    setRtr(r => [...r, { cmd, out }]);
+    const res = runRtrCommand(raw, { inv, killed, isolated });
+    if (!res) return;
+    if (res.clear) { setRtr([]); return; }
+    if (res.kill != null) setKilled(s => { const n = new Set(s); n.add(res.kill!); return n; });
+    if (res.contain) isolate(true);
+    setRtr(r => [...r, { cmd: raw.trim(), out: res.out }]);
   }
 
   function decide(choice: number /* pid, or -1 for benign */) {
     // A student who flags ANY process the console itself confirms malicious — its
-    // hash resolves malicious under "Look up hash" (lookupHash) — has correctly
+    // hash resolves malicious under "Look up hash" (the same hashIntel call) — has correctly
     // identified a malicious process, so accept it, even when a *different*
     // process is the designated "impact" the debrief highlights (e.g. flagging the
     // Cobalt Strike beacon instead of the LockBit encryptor in the ransomware
@@ -251,7 +193,9 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
       if (inv.answer.pid < 0) return false;
       if (choice === inv.answer.pid) return true;
       const p = inv.processes.find(x => x.pid === choice);
-      return !!(p?.sha256 && lookupHash(p.sha256)?.malicious);
+      if (!p?.sha256) return false;
+      const flagged = p.verdict === "malicious" || p.verdict === "suspicious" || !!detByPid.get(p.pid)?.length;
+      return hashIntel(p.sha256, { truth: inv.iocTruth, process: { signed: p.signed, flagged } }).verdict === "malicious";
     })();
     setDecided({ correct });
     // Flag that the student investigated on the endpoint, so the Dashboard can
@@ -372,6 +316,9 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
                   <div className="space-y-2 px-4 py-3 text-[12px]">
                     <Field label="Command line"><code className="break-all text-slate-200">{sel.cmdline}</code></Field>
                     <Field label="Image path"><code className="break-all text-slate-400">{sel.path}</code></Field>
+                    {sel.originalFileName && (
+                      <Field label="Original name"><code className="break-all text-slate-300">{sel.originalFileName}</code> <span className="text-[10px] text-slate-500">(PE OriginalFileName)</span></Field>
+                    )}
                     <Field label="User"><span className="font-mono text-slate-300">{sel.user}</span></Field>
                     <Field label="Started"><span className="font-mono text-slate-300">{sel.startedAt}</span></Field>
                     <Field label="Signed"><span className={sel.signed ? "text-neon-green" : "text-severity-high"}>{sel.signed ? "Yes" : "No — not signed"}</span></Field>
@@ -383,18 +330,15 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
                         </div>
                         <div className="mt-2 flex items-center gap-2">
                           <Button variant="outline" size="sm" onClick={() => {
-                            const hit = lookupHash(sel.sha256!);
-                            if (hit) { setHashResult(r => ({ ...r, [sel.pid]: { label: vtLabel(hit), bad: hit.malicious } })); return; }
-                            // E-05: no external reputation record for this exact hash —
-                            // but never contradict the console's own verdict. If THIS
-                            // incident already flagged the process (malicious/suspicious
-                            // verdict, or a detection fired on it), report it as known-bad
-                            // from the incident rather than a reassuring "unknown".
-                            const det = detByPid.get(sel.pid)?.[0];
-                            const flagged = sel.verdict === "malicious" || sel.verdict === "suspicious" || !!det;
-                            setHashResult(r => ({ ...r, [sel.pid]: flagged
-                              ? { label: `Malicious — flagged in this incident${det?.name ? ` (${det.name})` : ""}; no external VT record for this exact build`, bad: true }
-                              : { label: "Unknown — no reputation on record", bad: false } }));
+                            // The same resolver as the threat-intel drawer: a real sample
+                            // in hashDatabase first, then the scenario's IOC truth table,
+                            // then the process's own signals (unsigned + flagged by this
+                            // incident => malicious — E-05, never a reassuring "unknown"
+                            // for a binary the console itself flagged). One hash, one
+                            // verdict, on every surface.
+                            const flagged = sel.verdict === "malicious" || sel.verdict === "suspicious" || !!detByPid.get(sel.pid)?.length;
+                            const intel = hashIntel(sel.sha256!, { truth: inv.iocTruth, process: { signed: sel.signed, flagged } });
+                            setHashResult(r => ({ ...r, [sel.pid]: { label: hashVerdictLabel(intel), bad: intel.verdict === "malicious" || intel.verdict === "suspicious" } }));
                           }}><FileSearch className="mr-1.5 h-3.5 w-3.5" /> Look up hash</Button>
                           {hashResult[sel.pid] && (
                             <span className={`text-[12px] font-bold ${hashResult[sel.pid].bad ? "text-severity-critical" : "text-slate-400"}`}>
@@ -481,7 +425,7 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
             <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-neon-green" /> Real Time Response — {inv.host.name}</h2>
             <div className="flex flex-wrap gap-1">
-              {["ps", "netstat", "reg query Run", "help"].map(c => (
+              {["ps", "netstat", "reg query Run", "schtasks /query", "sc query", "wmi", "help"].map(c => (
                 <button key={c} onClick={() => runRtr(c)} className="rounded border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-slate-400 transition hover:text-white">{c}</button>
               ))}
             </div>
@@ -497,7 +441,7 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
           </div>
           <form onSubmit={e => { e.preventDefault(); runRtr(rtrIn); setRtrIn(""); }} className="flex items-center gap-2 border-t border-border px-4 py-2.5">
             <span className="font-mono text-[12px] text-neon-green">&gt;</span>
-            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill <pid> · get <path> · reg query Run"
+            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill <pid> · get <path> · reg query Run · schtasks /query · sc query · wmi"
               className="flex-1 bg-transparent font-mono text-[12px] text-white placeholder-slate-600 focus:outline-none" aria-label="RTR command" />
             <Button type="submit" variant="outline" size="sm">Run</Button>
           </form>

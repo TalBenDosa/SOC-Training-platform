@@ -1,7 +1,7 @@
 {
   "note": "Pre-existing field violations, accepted so the gate can block NEW ones while the backlog is worked down. Shrink this list; never grow it.",
   "generated": "run `node scripts/validate-log-fields.mjs --baseline` to regenerate",
-  "count": 1020,
+  "count": 1019,
   "accepted": [
     "src/app/(app)/dashboard/benignEvents.ts:azure-ad:GeoLocation.location.lat",
     "src/app/(app)/dashboard/benignEvents.ts:azure-ad:GeoLocation.location.lon",
@@ -808,7 +808,6 @@
     "src/lib/sim/scenario-packs/esxiRansomware.ts:fortigate:data.authproto",
     "src/lib/sim/scenario-packs/esxiRansomware.ts:fortigate:data.dst_host",
     "src/lib/sim/scenario-packs/esxiRansomware.ts:fortigate:data.tunnelid",
-    "src/lib/sim/scenario-packs/linuxSshCryptominer.ts:crowdstrike-falcon:host.os.type",
     "src/lib/sim/scenarios.ts:aws-cloudtrail:GeoLocation.city_name",
     "src/lib/sim/scenarios.ts:aws-cloudtrail:GeoLocation.country_name",
     "src/lib/sim/scenarios.ts:aws-cloudtrail:GeoLocation.location.lat",

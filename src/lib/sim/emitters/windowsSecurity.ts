@@ -11,6 +11,7 @@
  */
 import type { TelemetryEvent, Severity, EventType, ExpectedVerdict } from "../types";
 import { assetsFor } from "../fabric";
+import { hashString } from "../rng";
 
 const VENDOR = "Windows Security";
 const NO_SID = "S-1-0-0";
@@ -33,12 +34,35 @@ interface WinCtx {
   severity?: Severity;
   incidentId?: string;
   description?: string;
+  /** Which plane logged it. A domain controller's Security log is the directory
+   *  ("ad", the default); a MEMBER server's own Security/System log is host
+   *  telemetry ("windows_security") — a 4624 written by FS-SRV-03 is not an
+   *  Active Directory event. */
+  logSource?: "ad" | "windows_security";
 }
 function realm(c: WinCtx): string {
   return (c.domain ?? assetsFor(c.companyId)?.netbios ?? "WORKGROUP").toUpperCase();
 }
 function fqdnOf(c: WinCtx): string {
   return c.fqdn ?? `${c.host}.${assetsFor(c.companyId)?.domain ?? "local"}`;
+}
+/** A stable, well-formed domain account SID: one S-1-5-21 domain identifier per
+ *  company, one RID (>= 1100, above the built-ins) per account. A successful logon
+ *  never carries the NULL SID S-1-0-0 as its target. */
+export function domainSidFor(companyId: string | undefined, sam: string): string {
+  const a = 1_000_000_000 + (hashString(`domsid1:${companyId ?? "local"}`) % 1_000_000_000);
+  const b = 1_000_000_000 + (hashString(`domsid2:${companyId ?? "local"}`) % 1_000_000_000);
+  const c = 1_000_000_000 + (hashString(`domsid3:${companyId ?? "local"}`) % 1_000_000_000);
+  const rid = 1100 + (hashString(`rid:${sam.toLowerCase()}`) % 8000);
+  return `S-1-5-21-${a}-${b}-${c}-${rid}`;
+}
+/** A logon session id as Windows prints it (hex LUID). */
+export function logonIdFor(seed: string): string {
+  return `0x${(0x100000 + (hashString(`luid:${seed}`) % 0xEFFFFFF)).toString(16).toUpperCase()}`;
+}
+/** A client ephemeral source port (Windows dynamic range 49152-65535). */
+function ephemeralPort(seed: string): string {
+  return String(49152 + (hashString(`port:${seed}`) % 16383));
 }
 function emailOf(c: WinCtx): string | undefined {
   if (c.userEmail !== undefined) return c.userEmail ?? undefined;
@@ -116,8 +140,9 @@ export function winLogon(o: WinLogonOpts): TelemetryEvent {
   const nb = realm(o);
   const logonType = o.logonType ?? 3;
   const pkg = o.authPackage ?? "NTLM";
+  const isNtlm = /ntlm/i.test(pkg);
   return {
-    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "auth_success",
+    id: o.id, ts: o.ts, source: o.logSource ?? "ad", vendor: VENDOR, event_type: "auth_success",
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, geo: o.geo, incident_id: o.incidentId,
     authentication: { method: pkg, result: "success", logon_type: logonType },
@@ -131,18 +156,23 @@ export function winLogon(o: WinLogonOpts): TelemetryEvent {
       "winlog.event_data.SubjectUserSid": o.subjectSid ?? NO_SID,
       "winlog.event_data.SubjectUserName": o.subjectUser ?? "-",
       "winlog.event_data.SubjectDomainName": o.subjectUser ? nb : "-",
-      "winlog.event_data.TargetUserSid": o.targetSid ?? NO_SID,
+      "winlog.event_data.TargetUserSid": o.targetSid ?? domainSidFor(o.companyId, o.targetUser),
       "winlog.event_data.TargetUserName": o.targetUser,
       "winlog.event_data.TargetDomainName": nb,
-      ...(o.logonId ? { "winlog.event_data.TargetLogonId": o.logonId } : {}),
+      "winlog.event_data.TargetLogonId": o.logonId ?? logonIdFor(o.id),
       "winlog.event_data.LogonType": String(logonType),
-      "winlog.event_data.LogonProcessName": o.logonProcess ?? "NtLmSsp ",
+      "winlog.event_data.LogonProcessName": o.logonProcess ?? (isNtlm ? "NtLmSsp " : "Kerberos"),
       "winlog.event_data.AuthenticationPackageName": pkg,
-      ...(o.lmPackage ? { "winlog.event_data.LmPackageName": o.lmPackage } : {}),
-      ...(o.keyLength ? { "winlog.event_data.KeyLength": o.keyLength } : {}),
+      // LmPackageName is "NTLM V2"/"NTLM V1" on an NTLM logon and "-" otherwise;
+      // KeyLength is 128 for NTLMv2 session security, 0 for Kerberos.
+      "winlog.event_data.LmPackageName": o.lmPackage ?? (isNtlm ? "NTLM V2" : "-"),
+      "winlog.event_data.KeyLength": o.keyLength ?? (isNtlm ? "128" : "0"),
+      "winlog.event_data.ImpersonationLevel": "%%1833",
       "winlog.event_data.WorkstationName": o.workstation ?? "WORKSTATION",
       "winlog.event_data.IpAddress": o.srcIp ?? "-",
-      "winlog.event_data.IpPort": o.srcPort ?? "0",
+      // A remote logon always carries the client's ephemeral port; only a local
+      // logon (no IpAddress) logs 0.
+      "winlog.event_data.IpPort": o.srcPort ?? (o.srcIp ? ephemeralPort(o.id) : "0"),
       "winlog.event_data.ProcessName": o.processName ?? "-",
       "event.code": "4624",
       "event.action": "logged-in",
@@ -322,10 +352,11 @@ export interface WinServiceInstallOpts extends WinCtx {
   serviceType?: string;            // default "user mode service"
   startType?: string;              // default "auto start"
   recordId?: string;
+  installerSid?: string;           // System-log UserID: the account that created the service
 }
 export function winServiceInstall(o: WinServiceInstallOpts): TelemetryEvent {
   return {
-    id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: "service_install",
+    id: o.id, ts: o.ts, source: o.logSource ?? "ad", vendor: VENDOR, event_type: "service_install",
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     description: o.description ?? `7045 — service ${o.serviceName} installed on ${o.host} (${o.imagePath})`,
@@ -335,6 +366,7 @@ export function winServiceInstall(o: WinServiceInstallOpts): TelemetryEvent {
       "winlog.computer_name": fqdnOf(o),
       "winlog.provider_name": "Service Control Manager",
       ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      ...(o.installerSid ? { "winlog.user.identifier": o.installerSid } : {}),
       "winlog.event_data.AccountName": o.accountName ?? "LocalSystem",
       "winlog.event_data.ServiceName": o.serviceName,
       "winlog.event_data.ImagePath": o.imagePath,
@@ -343,6 +375,90 @@ export function winServiceInstall(o: WinServiceInstallOpts): TelemetryEvent {
       "event.code": "7045",
       "event.action": "service-installed",
       "event.outcome": "success",
+    },
+  };
+}
+
+// ── 4776 — the DC attempted to validate an account's credentials (NTLM) ───────────────
+// Logged by the DOMAIN CONTROLLER that validated an NTLM logon on a member server —
+// the directory-side twin of a Type-3 NTLM 4624. Workstation is the CLIENT's name.
+export interface WinCredValidationOpts extends WinCtx {
+  workstation: string;
+  status?: string;              // 0x0 success | 0xC000006A bad password …
+  recordId?: string;
+}
+export function winCredentialValidation(o: WinCredValidationOpts): TelemetryEvent {
+  const status = o.status ?? "0x0";
+  const ok = status === "0x0";
+  return {
+    id: o.id, ts: o.ts, source: o.logSource ?? "ad", vendor: VENDOR, event_type: ok ? "auth_success" : "auth_failure",
+    severity: o.severity ?? "low", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    authentication: { method: "NTLM", result: ok ? "success" : "failure" },
+    description: o.description ?? `4776 — ${o.host} validated NTLM credentials for ${o.targetUser} from ${o.workstation}`,
+    raw: {
+      "winlog.event_id": "4776",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.PackageName": "MICROSOFT_AUTHENTICATION_PACKAGE_V1_0",
+      "winlog.event_data.TargetUserName": o.targetUser,
+      "winlog.event_data.Workstation": o.workstation,
+      "winlog.event_data.Status": status,
+      "event.code": "4776",
+      "event.action": "credential-validated",
+      "event.outcome": ok ? "success" : "failure",
+      "user.name": o.targetUser,
+    },
+  };
+}
+
+// ── 5145 — a network share object was checked for access (detailed file share) ────────
+// The per-FILE twin of 5140: which file under which share, with which access. A PsExec
+// landing shows up as WriteData on PSEXESVC.exe under ADMIN$ plus the svcctl pipe
+// under IPC$ (the Service Control Manager RPC endpoint used to create the service).
+export interface WinDetailedShareOpts extends WinCtx {
+  shareName: string;            // "\\\\*\\ADMIN$" | "\\\\*\\IPC$"
+  shareLocalPath?: string;      // "\\??\\C:\\Windows" (empty for IPC$)
+  relativeTargetName: string;   // "PSEXESVC.exe" | "svcctl"
+  accessMask?: string;          // 0x2 WriteData | 0x3 ReadData+WriteData
+  accessList?: string;          // "%%4417" WriteData …
+  subjectLogonId?: string;
+  srcPort?: string;
+  recordId?: string;
+}
+export function winDetailedShareAccess(o: WinDetailedShareOpts): TelemetryEvent {
+  const nb = realm(o);
+  return {
+    id: o.id, ts: o.ts, source: o.logSource ?? "ad", vendor: VENDOR, event_type: "file_access",
+    severity: o.severity ?? "medium", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    description: o.description ?? `5145 — ${o.targetUser} accessed ${o.relativeTargetName} on ${o.shareName} (${o.host})`,
+    raw: {
+      "winlog.event_id": "5145",
+      "winlog.channel": "Security",
+      "winlog.computer_name": fqdnOf(o),
+      "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+      ...(o.recordId ? { "winlog.record_id": o.recordId } : {}),
+      "winlog.event_data.SubjectUserSid": o.targetSid ?? domainSidFor(o.companyId, o.targetUser),
+      "winlog.event_data.SubjectUserName": o.targetUser,
+      "winlog.event_data.SubjectDomainName": nb,
+      ...(o.subjectLogonId ? { "winlog.event_data.SubjectLogonId": o.subjectLogonId } : {}),
+      "winlog.event_data.ObjectType": "File",
+      "winlog.event_data.IpAddress": o.srcIp ?? "-",
+      "winlog.event_data.IpPort": o.srcPort ?? (o.srcIp ? ephemeralPort(o.id) : "0"),
+      "winlog.event_data.ShareName": o.shareName,
+      "winlog.event_data.ShareLocalPath": o.shareLocalPath ?? "",
+      "winlog.event_data.RelativeTargetName": o.relativeTargetName,
+      "winlog.event_data.AccessMask": o.accessMask ?? "0x2",
+      "winlog.event_data.AccessList": o.accessList ?? "%%4417",
+      "event.code": "5145",
+      "event.action": "detailed-file-share",
+      "event.outcome": "success",
+      ...(o.srcIp ? { "source.ip": o.srcIp } : {}),
+      "user.name": o.targetUser,
+      "user.domain": nb,
     },
   };
 }

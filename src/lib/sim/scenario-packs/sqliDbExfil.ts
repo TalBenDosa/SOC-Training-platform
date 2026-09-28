@@ -601,10 +601,10 @@ export function buildSqliDbExfilScenario(
         "The WAF blocked the ' OR 1=1 probe (sqli_01) with a 403, yet the very next UNION SELECT (sqli_02) came back HTTP 200 from the origin. What does the pair of WAF records actually tell you?",
       hint: "Compare action_result and http.response.status_code across the two events, and read the waf.policy.name on each.",
       options: [
-        { value: "detect_mode", label: "The UNION rule matched but only alerted (action_result=alerted) under a staging policy in detection mode, so the request was passed to the app and executed" },
-        { value: "waf_down", label: "The WAF crashed between the two requests, so the second payload hit the origin with no inspection at all" },
-        { value: "encoded", label: "The second payload was URL-encoded, so the WAF could not decode it and let it through unseen" },
-        { value: "200_blocked", label: "An HTTP 200 from a WAF means the request was sanitized and neutralized before reaching the database" },
+        { value: "detect_mode", label: "The UNION rule matched but only alerted (action_result=alerted) under a staging policy in detection mode, so the request reached the app and ran" },
+        { value: "waf_down", label: "The WAF failed open between the two requests — a crash or bypass meant the second payload reached the origin with no inspection or rule match" },
+        { value: "encoded", label: "The second payload was double URL-encoded, so the signature engine could not normalise the payload and forwarded it to the origin with no signature match" },
+        { value: "200_blocked", label: "An HTTP 200 on the WAF record means the WAF rewrote the request, stripping the injected SQL so only a sanitized query reached the DB" },
       ],
       answer: "detect_mode",
       explanation:
@@ -618,10 +618,10 @@ export function buildSqliDbExfilScenario(
         "You are writing the incident up. A WAF SQLi alert on its own would be scored as an attempt. Which evidence proves customer data actually left the database rather than the injection merely being tried?",
       hint: "Look for a successful read of a real data table, with a row count and an independent corroboration.",
       options: [
-        { value: "bulk_select", label: "sqli_06 / sqli_07 — a successful SELECT of dbo.Customers returning 248,915 rows, corroborated by SQL Server's own audit response_rows for the same statement" },
-        { value: "union_schema", label: "sqli_05 — the UNION query against INFORMATION_SCHEMA.COLUMNS that mapped the tables and columns of the database" },
-        { value: "waf_alert", label: "sqli_02 — the Imperva alert on the UNION SELECT, which is the record that first flagged the injection to the SOC" },
-        { value: "convert_err", label: "sqli_04 — the CONVERT() error whose message leaked the name of the Customers table to the caller" },
+        { value: "bulk_select", label: "The successful SELECT of dbo.Customers returning 248,915 rows, corroborated by SQL Server's own audit response_rows for the same statement" },
+        { value: "union_schema", label: "The UNION query against INFORMATION_SCHEMA.COLUMNS that returned 612 rows mapping every table and column, showing the database was read out" },
+        { value: "waf_alert", label: "The Imperva alert on the UNION SELECT, which recorded the injection reaching the origin with HTTP 200 and is the first proof of success" },
+        { value: "convert_err", label: "The CONVERT() error whose SQL error 245 message leaked the Customers table name back to the caller, proving customer data came out of the DB" },
       ],
       answer: "bulk_select",
       explanation:
@@ -635,10 +635,10 @@ export function buildSqliDbExfilScenario(
         "In every database event the db.user is app_shop from WEB-APP-02 (10.30.4.15), never the attacker's 194.36.191.47. How should that shape how you read the DAM logs?",
       hint: "Think about where SQL injection executes and whose session it borrows once it reaches the database.",
       options: [
-        { value: "rides_app", label: "The injection runs inside the web app's own DB session, so DAM sees app_shop from the app tier; the true origin is upstream and must be tied in from the WAF and app logs" },
-        { value: "insider", label: "app_shop is a rogue database administrator logging in locally, so this is an insider incident and the WAF events are unrelated noise" },
-        { value: "db_exposed", label: "The database is directly exposed to the internet, so 10.30.4.15 must be a NAT address for the attacker connecting straight to the DB" },
-        { value: "spoofed", label: "The attacker spoofed the source IP to 10.30.4.15 inside the SQL packets to hide behind the application server" },
+        { value: "rides_app", label: "The injection runs inside the web app's own DB session, so DAM sees app_shop from the app tier; the real origin is upstream, tied in via WAF and app logs" },
+        { value: "insider", label: "app_shop is a rogue database administrator logging in locally on the database server, so this is an insider incident and the WAF events are unrelated noise" },
+        { value: "db_exposed", label: "The database is directly exposed to the internet, so 10.30.4.15 must be a NAT address fronting the attacker as they connect straight to the DB port" },
+        { value: "spoofed", label: "The attacker forged the source address as 10.30.4.15 inside the injected TDS packets so the DB session would hide behind the trusted application server" },
       ],
       answer: "rides_app",
       explanation:
@@ -652,10 +652,10 @@ export function buildSqliDbExfilScenario(
         "sqli_08 shows sp_configure enabling 'xp_cmdshell' followed by EXEC master..xp_cmdshell 'whoami' succeeding. What did the operator gain, and what made it possible?",
       hint: "Note the db.user.role on the login and what xp_cmdshell does when it runs.",
       options: [
-        { value: "os_exec", label: "OS command execution on the database host as the SQL Server service account — possible because app_shop held the sysadmin role, letting it turn xp_cmdshell on and call it" },
-        { value: "sqli_only", label: "Nothing beyond the earlier injection — xp_cmdshell just returns query results, so it is another way to read tables, not code execution" },
-        { value: "priv_esc_win", label: "Local administrator on Windows via a kernel exploit triggered by the RECONFIGURE statement rebuilding the service token" },
-        { value: "new_login", label: "A new SQL login with sysadmin rights, created by sp_configure, which is what then allowed the whoami to run" },
+        { value: "os_exec", label: "OS command execution on the DB host as the SQL Server service account — possible because app_shop held sysadmin, so it could enable and call xp_cmdshell" },
+        { value: "sqli_only", label: "Nothing beyond the earlier injection — xp_cmdshell only returns result sets from the master database, so it is another way to read tables, not code execution" },
+        { value: "priv_esc_win", label: "Local administrator on Windows through a kernel exploit that the RECONFIGURE statement triggers while it rebuilds the SQL Server service token" },
+        { value: "new_login", label: "A new SQL login holding sysadmin, created by the sp_configure call, which is what then gave the injected session permission to run whoami" },
       ],
       answer: "os_exec",
       explanation:
@@ -669,10 +669,10 @@ export function buildSqliDbExfilScenario(
         "You are scoping containment. Injection reached the DB through a detection-mode WAF rule, 248,915 customer records were read and POSTed to 45.83.192.11, and the app login is sysadmin. Which response matches the evidence?",
       hint: "Address the passthrough, the over-privilege, the OS-command path, the egress, and the confirmed data loss — not just the source IP.",
       options: [
-        { value: "full_scope", label: "Move the Imperva SQLi rules to blocking, strip sysadmin from app_shop and rotate its credentials, disable xp_cmdshell, block and hunt egress to 45.83.192.11, and treat the Customers PII as breached for notification" },
-        { value: "block_src", label: "Block 194.36.191.47 at the WAF — cutting the source address stops any further injection and closes the incident" },
-        { value: "reimage_web", label: "Reimage WEB-APP-02 only — the injection came through the web tier, so rebuilding it removes the vulnerability and ends the exposure" },
-        { value: "reset_bi", label: "Reset the svc_powerbi account and revoke its reporting access, since the large customer read came from the same high-volume query pattern it uses" },
+        { value: "full_scope", label: "Set the Imperva SQLi rules to blocking, remove sysadmin from app_shop and rotate it, disable xp_cmdshell, block and hunt egress to 45.83.192.11, and treat the Customers PII as breached" },
+        { value: "block_src", label: "Block 194.36.191.47 at the WAF and add its /24 to the deny list — cutting off the injecting source stops further queries and closes the incident without touching the DB" },
+        { value: "reimage_web", label: "Reimage WEB-APP-02 and redeploy the storefront code — the injection came through the web tier, so rebuilding it removes the vulnerability and ends the data exposure" },
+        { value: "reset_bi", label: "Reset the svc_powerbi account and revoke its reporting access, since the large customer read matches the same high-volume query pattern that service account runs nightly" },
       ],
       answer: "full_scope",
       explanation:

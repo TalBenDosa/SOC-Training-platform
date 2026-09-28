@@ -116,7 +116,7 @@ export function buildMacosStealerDmgScenario(
       companyId: cx, id: "msd_02_dmg_mount_run", ts: T(3 * MIN), host: host.name, user: user.email, runAsUser: user.sam,
       processName: "PixelForge Pro", processPath: VOL, cmdline: VOL, parentName: "launchd", parentPid: 1, pid: 4102,
       sha256: stealerHash, mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx, "process.code_signature.status": "adhoc", "process.code_signature.subject_name": "-", "file.name": "PixelForge Pro.app", "file.path": "/Volumes/PixelForge Pro/PixelForge Pro.app", "file.hash.sha256": stealerHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { ...osx, "process.code_signature.status": "adhoc", "process.code_signature.subject_name": "-", "file.name": "PixelForge Pro", "file.path": VOL, "file.hash.sha256": stealerHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "The disk image mounted at /Volumes/PixelForge Pro and its app launched from that mount point. Falcon recorded the binary as ad-hoc signed (no Developer ID, not notarized) and still carrying the com.apple.quarantine attribute; its SHA256 matches the downloaded DMG payload.",
     }),
 
@@ -274,10 +274,10 @@ export function buildMacosStealerDmgScenario(
         "Two disk-image app installs appear on MB-CR-14: the Rectangle install (msd_00) and the PixelForge Pro install (msd_02). Which observation separates the benign install from the malicious one?",
       hint: "Compare the code-signature fields on each, and look at what each app does in the seconds after it launches.",
       options: [
-        { value: "sig_behaviour", label: "Rectangle carries a valid Developer ID signature and cleared Gatekeeper, while PixelForge Pro is ad-hoc signed and immediately spawns osascript to prompt for the password" },
-        { value: "volumes_path", label: "Rectangle ran from /Applications while PixelForge Pro ran from /Volumes, and any app that executes from a mounted image is malicious by definition" },
-        { value: "quarantine_flag", label: "PixelForge Pro carried a com.apple.quarantine attribute and Rectangle did not, and the presence of that flag alone proves the download was hostile" },
-        { value: "binary_size", label: "Rectangle is a much smaller binary than PixelForge Pro, and any macOS app package larger than 30 MB is a repackaged cracked build" },
+        { value: "sig_behaviour", label: "Rectangle is Developer ID-signed and cleared Gatekeeper; PixelForge Pro is ad-hoc signed and at once spawns osascript for the password" },
+        { value: "volumes_path", label: "Rectangle ran from /Applications while PixelForge Pro ran from /Volumes, and running straight from a mounted image is the malicious tell" },
+        { value: "quarantine_flag", label: "PixelForge Pro still carried com.apple.quarantine and Rectangle did not, showing only the cracked build was pulled from a hostile site" },
+        { value: "binary_size", label: "PixelForge Pro's binary is several times larger than Rectangle's, the typical footprint of a cracked build repackaged with a payload" },
       ],
       answer: "sig_behaviour",
       explanation:
@@ -308,10 +308,10 @@ export function buildMacosStealerDmgScenario(
         "msd_05 shows /usr/bin/security reading ~/Library/Keychains/login.keychain-db, and msd_06 and msd_07 read the Chrome Cookies file and a crypto-wallet file. Taken together, what is the actor collecting?",
       hint: "Look at what each of those three files stores, and what a class of macOS malware is built to take.",
       options: [
-        { value: "credential_loot", label: "Stored secrets — the login Keychain, browser session cookies and saved logins, and wallet files — the loot of a macOS infostealer" },
-        { value: "crash_logs", label: "Diagnostic and crash logs the installer bundles so it can send a support report back to the software developer" },
-        { value: "import_settings", label: "Configuration files the app reads once at first launch to import the user's existing browser bookmarks and themes" },
-        { value: "integrity_cache", label: "System integrity data that macOS caches and that any notarized application is entitled to read when it starts up" },
+        { value: "credential_loot", label: "Stored secrets — the login Keychain, browser cookies and saved logins, and wallet files: the loot of a macOS infostealer" },
+        { value: "crash_logs", label: "Diagnostic and crash data the installer bundles up so it can file an automatic support report with the software developer" },
+        { value: "import_settings", label: "Profile files the app reads once at first launch to import the user's existing browser bookmarks, sessions and themes" },
+        { value: "integrity_cache", label: "System integrity data that macOS caches and that any notarized application is entitled to read each time it starts up" },
       ],
       answer: "credential_loot",
       explanation:
@@ -325,10 +325,10 @@ export function buildMacosStealerDmgScenario(
         "You need to identify the point where data actually left MB-CR-14, and where it went. Which event shows it?",
       hint: "Separate an inbound download and a local file read from an outbound send; check the HTTP method and direction.",
       options: [
-        { value: "exfil_post", label: "msd_08 — a POST from the host uploads an ~8 MB archive to gate-collect.top (45.147.230.88) over the web proxy" },
-        { value: "dmg_get", label: "msd_01 — the GET that pulled PixelForge_Pro_v7.dmg from pixelforge-crack.top down onto the host" },
-        { value: "keychain_read", label: "msd_05 — the security command reading the login keychain from the user's own home directory" },
-        { value: "detect_row", label: "msd_09 — the Falcon detection record, which is where the collected archive is stored after the upload" },
+        { value: "exfil_post", label: "The outbound POST uploading an ~8 MB archive to gate-collect.top (45.147.230.88) through the web proxy" },
+        { value: "dmg_get", label: "The proxy GET session that moved PixelForge_Pro_v7.dmg between MB-CR-14 and pixelforge-crack.top" },
+        { value: "keychain_read", label: "The security command reading login.keychain-db — the moment the Keychain secrets left the user's control" },
+        { value: "detect_row", label: "The Falcon detection record, which captures the collected archive into the cloud console after the upload" },
       ],
       answer: "exfil_post",
       explanation:

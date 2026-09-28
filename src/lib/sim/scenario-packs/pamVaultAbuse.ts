@@ -533,10 +533,10 @@ export function buildPamVaultAbuseScenario(
         "The break-glass control (evt_pva_00) and the flagged checkout (evt_pva_01) both take the SAME domain-admin object out of the vault, and BOTH happen off-hours. Which combination separates the flagged checkout from the sanctioned one?",
       hint: "Read cyberark.dual_control, access.request.status and pam.session.type on each of the two CyberArk records.",
       options: [
-        { value: "no_approval_no_psm", label: "The flagged checkout shows no dual-control confirmation, no access request, and pam.session.type None (Retrieve Password) — the control was confirmed and ran through a recorded PSM session" },
-        { value: "off_hours", label: "The flagged checkout happens at 02:10 while the control ran in standard business hours, and that shift outside working hours is the single fact that makes it a policy violation" },
+        { value: "no_approval_no_psm", label: "The flagged checkout has no dual-control confirmation, no access request and session type None — the control was approved and ran through recorded PSM" },
+        { value: "off_hours", label: "The flagged checkout happens at 02:10 while the control ran in standard business hours, and that off-hours timing is what makes it a policy violation" },
         { value: "diff_account", label: "The flagged checkout pulls a more privileged account than the control, which retrieved only a lower-tier service credential from a separate area of the same vault" },
-        { value: "diff_safe", label: "The two checkouts are served from different vault safes, and only the safe behind the flagged checkout actually stores domain-admin credentials at all" },
+        { value: "diff_safe", label: "The two checkouts are served from different vault safes, and only the safe behind the flagged checkout holds the domain's admin credentials" },
       ],
       answer: "no_approval_no_psm",
       explanation:
@@ -550,10 +550,10 @@ export function buildPamVaultAbuseScenario(
         "Policy requires privileged credentials to be used through the monitored PSM proxy. Which evidence shows the checked-out credential was instead used OUTSIDE PSM?",
       hint: "Compare the source of the AD logons (WorkstationName / IpAddress) against the PSM proxy host, and read what CyberArk recorded as the session type.",
       options: [
-        { value: "source_not_psm", label: "The 4768 and the 4624 (LogonType 10) originate from WKS-ROPS-14, not the PSM proxy PSM-NEXA-01, and CyberArk logged a Retrieve Password with session type None rather than a PSM Connect" },
-        { value: "special_privs", label: "The 4672 special-privileges assignment proves PSM was skipped, because credentials brokered through a PSM session never trigger a special-privileges event on the target host" },
-        { value: "kerberos", label: "The logons authenticate with Kerberos rather than NTLM, and because PSM proxied sessions always fall back to NTLM, seeing Kerberos here means the proxy was bypassed" },
-        { value: "tgs_dc", label: "The 4769 service-ticket request to the Domain Controller is the proof, since the PSM proxy is specifically designed to block all downstream Kerberos service tickets" },
+        { value: "source_not_psm", label: "The 4768 and RDP 4624 come from WKS-ROPS-14, not the PSM proxy PSM-NEXA-01, and CyberArk logged a Retrieve Password with session type None" },
+        { value: "special_privs", label: "The 4672 special-privileges assignment shows PSM was skipped, because a PSM-brokered session does not raise a 4672 on the target host" },
+        { value: "kerberos", label: "The logons authenticate with Kerberos rather than NTLM, and since PSM proxied sessions fall back to NTLM, Kerberos means the proxy was bypassed" },
+        { value: "tgs_dc", label: "The 4769 service-ticket request to the Domain Controller, since the PSM proxy is designed to stop downstream Kerberos service tickets" },
       ],
       answer: "source_not_psm",
       explanation:
@@ -567,7 +567,7 @@ export function buildPamVaultAbuseScenario(
         "Setting aside how the credential left the vault, how would you characterise what the operator then DID with it across SRV-FIN-DB-02 and DC-NEXA-01?",
       hint: "The credential was a valid, working domain-admin password — nothing was cracked, replayed as a hash, or exploited.",
       options: [
-        { value: "valid_account_remote", label: "Reuse of a legitimate, fully valid domain-admin credential over RDP and SMB to reach servers it never normally touches — valid-account abuse plus remote services, no vulnerability involved" },
+        { value: "valid_account_remote", label: "Reuse of a fully valid domain-admin password over RDP and SMB to reach hosts it does not usually touch — valid-account abuse, no vulnerability involved" },
         { value: "pth", label: "A pass-the-hash attack, in which the operator captured and replayed the NTLM hash of the domain-admin account against SRV-FIN-DB-02 and then the Domain Controller" },
         { value: "kerberoast", label: "Kerberoasting — the 4769 shows the operator harvesting an encrypted service-ticket hash for the account so its password can be cracked offline afterwards" },
         { value: "exploit", label: "Exploitation of an unpatched software vulnerability on SRV-FIN-DB-02 that elevated the logon session to domain-admin rights on the finance server" },
@@ -584,8 +584,8 @@ export function buildPamVaultAbuseScenario(
         "You are scoping containment. A vaulted domain-admin credential was copied out unmonitored and has already reached DC-NEXA-01. Which response matches the evidence?",
       hint: "Think about what actually invalidates a plaintext credential that is now in someone's clipboard, and how far the credential has already travelled.",
       options: [
-        { value: "rotate_hunt_verify", label: "Rotate the adm-nexa-da password in CyberArk at once so the copied plaintext dies, review every adm-nexa-da logon since 02:10 on SRV-FIN-DB-02 and DC-NEXA-01, and verify with r.dunphy whether any emergency justified it" },
-        { value: "block_ws_ip", label: "Block WKS-ROPS-14's address (10.20.6.77) at the firewall — cutting the workstation off the network stops the credential being replayed any further and closes the incident" },
+        { value: "rotate_hunt_verify", label: "Rotate adm-nexa-da in CyberArk so the copied plaintext dies, review its logons since 02:10 on SRV-FIN-DB-02 and DC-NEXA-01, and check any emergency with r.dunphy" },
+        { value: "block_ws_ip", label: "Block WKS-ROPS-14 (10.20.6.77) at the firewall — cutting the workstation off stops the credential being replayed any further and closes the incident" },
         { value: "disable_engineer", label: "Disable r.dunphy's own user account and reset his personal password, since he initiated the checkout and locking his account down removes the exposure entirely" },
         { value: "reimage_db", label: "Reimage SRV-FIN-DB-02, because the credential was used there — wiping and rebuilding the finance server removes the operator's access and ends the incident" },
       ],
@@ -601,10 +601,10 @@ export function buildPamVaultAbuseScenario(
         "Both the break-glass checkout (evt_pva_00) and the 02:10 checkout (evt_pva_01) take a domain-admin credential out of the vault off-hours. Select the TWO observations that mark the 02:10 checkout as a policy violation while clearing the break-glass one.",
       hint: "Compare the authorisation fields on each CyberArk record, and compare whether the credential was brokered into a recorded session or copied out.",
       options: [
-        { value: "no_dualcontrol", label: "The 02:10 checkout has dual_control=not confirmed and access.request.status=not_requested with no change record, whereas the break-glass one was dual-control confirmed under an approved access request tied to CHG0049211" },
-        { value: "retrieve_vs_psm", label: "The 02:10 checkout is a Retrieve Password (Copy) with pam.session.type None and was replayed from the engineer's own workstation, whereas the break-glass one ran through a recorded PSM-RDP session sourced from the PSM proxy" },
-        { value: "only_flagged_priv", label: "Only the 02:10 checkout involved a privileged account — the break-glass checkout used an ordinary unprivileged user" },
-        { value: "diff_domain", label: "The two checkouts occurred against different domains, so the break-glass activity is unrelated to this incident and can be set aside" },
+        { value: "no_dualcontrol", label: "The 02:10 checkout has dual_control=not confirmed and access.request.status=not_requested, whereas the break-glass one was dual-control confirmed under an approved request (CHG0049211)" },
+        { value: "retrieve_vs_psm", label: "The 02:10 checkout is a Retrieve Password (Copy) with session type None, replayed from the engineer's workstation; the break-glass one ran through a recorded PSM-RDP session" },
+        { value: "only_flagged_priv", label: "Only the 02:10 checkout involved a privileged account — the break-glass checkout retrieved an ordinary unprivileged user credential for a routine maintenance task" },
+        { value: "diff_domain", label: "The two checkouts occurred against different AD domains, so the break-glass activity is unrelated to this incident and can be set aside from the scoping" },
       ],
       answer: ["no_dualcontrol", "retrieve_vs_psm"],
       explanation:

@@ -246,10 +246,10 @@ export function buildCicdSupplyChainScenario(
         "cicd_03 (the workflow change that reached main) and cicd_00 (the benign control) both modify .github/workflows/ci.yml. Reading the two audit records against each other, what marks cicd_03 as the malicious one?",
       hint: "Compare how each change reached main: pull request and review versus a direct push, and who the actor was and from where.",
       options: [
-        { value: "override_noreview", label: "cicd_03 reached main through a branch-protection override with no pull request and no review, driven by a maintainer account from an external IP — whereas cicd_00 merged the same file through an approved, reviewed pull request" },
-        { value: "yaml_edit", label: "cicd_03 edits a YAML file under .github/workflows, and any push that changes a workflow definition file is malicious by definition regardless of who made it or how it was reviewed" },
-        { value: "same_shape", label: "Both records are ordinary maintainer activity and carry the same action, so neither can be judged malicious from the audit log — the workflow edit itself is the only signal either one provides" },
-        { value: "benign_is_bad", label: "cicd_00 is actually the malicious change, because merging a pull request to main always bypasses branch protection while a direct push preserves it and is therefore safe" },
+        { value: "override_noreview", label: "The ci.yml push reached main through a branch-protection override with no PR or review, from an external IP; the control went through an approved PR" },
+        { value: "yaml_edit", label: "The push edits a YAML file under .github/workflows, and a change that alters a workflow definition is the malicious act regardless of who made it" },
+        { value: "same_shape", label: "Both are ordinary maintainer activity carrying the same action on the same file, so the audit log cannot separate them — only the diff content itself can" },
+        { value: "benign_is_bad", label: "The PR merge is the malicious one, because merging a pull request to main bypasses branch protection while a direct push to main keeps it enforced" },
       ],
       answer: "override_noreview",
       explanation:
@@ -263,10 +263,10 @@ export function buildCicdSupplyChainScenario(
         "The S3 and Secrets Manager calls (cicd_07 to cicd_09) were made by an assumed-role session, not by a named IAM user. Where did those AWS credentials come from?",
       hint: "Look for the sts.amazonaws.com event and read its userIdentity — what kind of identity assumed the role, and through which provider.",
       options: [
-        { value: "oidc_assume", label: "cicd_06 — the pipeline's GitHub OIDC token was exchanged for the github-actions-deploy role via AssumeRoleWithWebIdentity, and that run executed on the attacker-controlled self-hosted runner" },
-        { value: "hardcoded_keys", label: "Long-lived IAM user access keys that were hard-coded in the repository and included in the malicious commit pushed to the main branch in cicd_03" },
+        { value: "oidc_assume", label: "The pipeline's GitHub OIDC token was exchanged for github-actions-deploy via AssumeRoleWithWebIdentity, on a run that executed on the new self-hosted runner" },
+        { value: "hardcoded_keys", label: "Long-lived IAM user access keys that were hard-coded in the repository and exposed in the ci.yml file that the direct push to main modified" },
         { value: "console_spray", label: "A password-spraying campaign against the AWS Management Console sign-in page for the deploy team, which produced the assumed-role session used later" },
-        { value: "guardduty_issued", label: "GuardDuty issued the temporary credentials to the remote host as part of generating the InstanceCredentialExfiltration finding in cicd_10" },
+        { value: "guardduty_issued", label: "GuardDuty issued the temporary credentials to the remote host while generating its InstanceCredentialExfiltration.OutsideAWS finding for the role" },
       ],
       answer: "oidc_assume",
       explanation:
@@ -280,10 +280,10 @@ export function buildCicdSupplyChainScenario(
         "The github-actions-deploy role runs constantly as part of normal deployments, so its activity is expected. Which single observation shows this particular use of the role was NOT the pipeline doing its job?",
       hint: "Compare where the API calls came from against where a GitHub Actions job would normally originate.",
       options: [
-        { value: "outside_aws_ip", label: "On the AssumeRoleWithWebIdentity, S3 and Secrets Manager calls the source address is the attacker's external IP rather than a GitHub Actions runner range — the role's temporary credentials were used from outside the pipeline, which is what GuardDuty flagged" },
-        { value: "assume_failed", label: "The AssumeRoleWithWebIdentity call failed with an access-denied error, which proves the deploy role could not actually be assumed at all during this activity window" },
-        { value: "wrong_region", label: "The S3 and Secrets Manager calls ran in a different AWS region from the account default, and a region mismatch is the only reliable indicator that a role has been misused" },
-        { value: "secret_404", label: "The GetSecretValue call returned a 404 not-found response, which shows the requested secret did not exist and that therefore no sensitive value was ever actually read" },
+        { value: "outside_aws_ip", label: "The token exchange, S3 and Secrets Manager calls all come from 45.156.128.19, an external address rather than a GitHub Actions runner range" },
+        { value: "assume_failed", label: "The AssumeRoleWithWebIdentity call failed with an access-denied error, proving the deploy role could not actually be assumed during this window" },
+        { value: "wrong_region", label: "The S3 and Secrets Manager calls ran in a different AWS region from the account default, which is the strongest indicator of role misuse" },
+        { value: "secret_404", label: "The GetSecretValue call returned a 404 not-found response, showing the requested secret did not exist, so no sensitive value was read" },
       ],
       answer: "outside_aws_ip",
       explanation:
@@ -297,7 +297,7 @@ export function buildCicdSupplyChainScenario(
         "You are scoping containment. The deploy role's credentials were used from outside AWS to read an S3 secrets file and a production database secret, and the account was compromised on the GitHub side. Which response matches the evidence?",
       hint: "Think about everything the leaked role could reach, and every foothold the attacker left behind — not just the one secret you can see being read.",
       options: [
-        { value: "rotate_revoke_all", label: "Rotate every secret the deploy workflow could read, revoke the role's active sessions, restore branch protection, and remove the attacker's PAT and self-hosted runner — treating all resources the role can reach as exposed" },
+        { value: "rotate_revoke_all", label: "Rotate every secret the deploy role could read, revoke its active sessions, restore branch protection, and remove the attacker's PAT and self-hosted runner — all reachable resources are exposed" },
         { value: "revert_commit", label: "Delete the malicious commit and revert the workflow file to its previous state; once the pipeline definition is clean again, the temporary credentials it already leaked can no longer be replayed against the AWS account" },
         { value: "block_ip_only", label: "Block the attacker's external IP address at the network perimeter, since the leaked credentials only function from that single source address and blocking it therefore fully contains the incident on its own" },
         { value: "rotate_one_secret", label: "Rotate only the single secret returned by the GetSecretValue call, because temporary role credentials expire automatically and the other secrets in the account were never actually displayed on screen" },
@@ -314,10 +314,10 @@ export function buildCicdSupplyChainScenario(
         "The response team resets the m.duarte account password. Which earlier event means that step alone will NOT lock the attacker out of the repository?",
       hint: "Look for a credential the attacker created that lives independently of the account password.",
       options: [
-        { value: "pat_persist", label: "cicd_01 — the fine-grained personal access token the account created; a PAT authenticates independently of the password, so it keeps repository access until it is explicitly revoked" },
-        { value: "run_history", label: "cicd_05 — the completed workflow run; until the run is deleted from the Actions history the attacker retains an authenticated session to the repository through it" },
-        { value: "benign_pr", label: "cicd_00 — the reviewed pull request from the previous day, which is the foothold the attacker has been using to authenticate to the repository all along" },
-        { value: "s3_list", label: "cicd_07 — the S3 ListObjectsV2 call, because the bucket listing permission it used also grants a standing login to the GitHub repository" },
+        { value: "pat_persist", label: "The fine-grained personal access token the account created — a PAT authenticates independently of the password and keeps working until revoked" },
+        { value: "run_history", label: "The completed workflow run on the self-hosted runner — until the run is deleted from Actions history it holds an authenticated session to the repo" },
+        { value: "benign_pr", label: "The reviewed pull request from the previous day, whose merge left the attacker a reviewer token they have used to authenticate ever since" },
+        { value: "s3_list", label: "The S3 ListObjectsV2 call, since the bucket-listing permission the role used also carries a standing login to the linked GitHub repository" },
       ],
       answer: "pat_persist",
       explanation:
