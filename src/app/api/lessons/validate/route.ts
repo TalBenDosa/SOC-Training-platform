@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
   if (!process.env.OPENAI_API_KEY) {
     return Response.json(
-      { error: "OPENAI_API_KEY not configured" },
+      { error: "AI validation isn't enabled on this deployment." },
       { status: 500 }
     );
   }

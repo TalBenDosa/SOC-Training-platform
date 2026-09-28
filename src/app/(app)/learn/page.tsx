@@ -599,7 +599,15 @@ export default function LearnPage() {
     const savedIds = new Set(saved.map(l => l.id));
     const builtins = (BUILTIN_LESSONS as unknown as Lesson[])
       .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id));
-    setLessons([...saved, ...builtins]);
+    const all = [...saved, ...builtins];
+    setLessons(all);
+    // Deep link (?open=<lessonId>) — used by Learning Path lessons that point
+    // to related Library lessons while they are in preparation.
+    try {
+      const openId = new URLSearchParams(window.location.search).get("open");
+      const hit = openId ? all.find(l => l.id === openId) : undefined;
+      if (hit) setOpenLesson(hit);
+    } catch { /* no window / malformed URL */ }
   }
 
   useEffect(() => {

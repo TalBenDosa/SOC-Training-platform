@@ -113,7 +113,7 @@ export async function POST(req: Request) {
   if ("error" in gate) return gate.error;
 
   if (!process.env.OPENAI_API_KEY) {
-    return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 400 });
+    return Response.json({ error: "AI import isn't enabled on this deployment." }, { status: 400 });
   }
 
   const body = await req.json().catch(() => ({})) as Partial<ImportPptxRequest>;
