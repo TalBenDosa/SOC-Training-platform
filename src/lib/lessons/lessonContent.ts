@@ -18,7 +18,6 @@ import { findLesson } from "@/lib/lessons/paths";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { PATH_LESSON_RELATED } from "@/data/pathLessonRelated";
-import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 
 export interface LessonPage {
   pageNumber: number;
@@ -142,10 +141,7 @@ Include realistic examples (log snippets, alert fields, MITRE technique IDs) thr
 // or credited until real content exists.
 
 function buildPreparing(routeSlug: string, lessonSlug: string, lessonTitle: string): GeneratedLesson {
-  const byId = new Map((BUILTIN_LESSONS as unknown as { id: string; title: string }[]).map(l => [l.id, l.title]));
-  const related = (PATH_LESSON_RELATED[routeSlug] ?? [])
-    .filter(id => byId.has(id))
-    .map(id => ({ id, title: byId.get(id)! }));
+  const related = PATH_LESSON_RELATED[routeSlug] ?? [];
   return { lessonSlug, lessonTitle, pages: [], quiz: [], preparing: true, related };
 }
 
