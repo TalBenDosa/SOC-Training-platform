@@ -268,6 +268,7 @@ function claudeEvent(o: ClaudeOpts): TelemetryEvent {
     id: o.id, ts: o.ts, org: { key: "nexacorp" },
     type: o.type as ClaudeActivityType,
     email: o.email, ip: o.ip, userAgent: o.ua,
+    geo: o.ip === OFFICE_IP ? { country: OFFICE_GEO.country, city: OFFICE_GEO.city, lat: OFFICE_GEO.latitude, lon: OFFICE_GEO.longitude } : undefined,
     projectSeed: o.projectId, fileSeed: o.fileId, filename: o.filename,
     firedTimes: o.fired, severity: o.severity, description: o.description,
     mitre: o.mitre, tactic: o.tactic,

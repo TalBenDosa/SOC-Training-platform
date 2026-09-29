@@ -22,6 +22,7 @@
  */
 import type { TelemetryEvent, Severity, EventType } from "../types";
 import { makeSha256 } from "@/lib/sim/iocs";
+import { knownGeoForIp, type GeoPoint } from "@/lib/geo/resolveGeo";
 
 const VENDOR = "Anthropic Claude Enterprise";
 
@@ -58,6 +59,34 @@ const RULES: Record<ClaudeActivityType, { id: string; level: number; description
   platform_memory_deleted:      { id: "100582", level: 5,  description: "Claude Enterprise: memory deleted",                 groups: ["claude", "ai_activity"] },
 };
 
+/** Wazuh compliance tags per rule family (same style as Wazuh's default ruleset). */
+type Compliance = { pci_dss?: string[]; gdpr?: string[]; hipaa?: string[]; nist_800_53?: string[]; tsc?: string[] };
+const AUTH_TAGS: Compliance   = { pci_dss: ["10.2.5"], gdpr: ["IV_32.2"], hipaa: ["164.312.b"], nist_800_53: ["AU.14", "AC.7"], tsc: ["CC6.8", "CC7.2", "CC7.3"] };
+const DATA_TAGS: Compliance   = { pci_dss: ["10.2.1"], gdpr: ["IV_30.1.g"], hipaa: ["164.312.b"], nist_800_53: ["AU.2", "AU.12"], tsc: ["CC7.2"] };
+const ADMIN_TAGS: Compliance  = { pci_dss: ["8.1.2", "10.2.5"], gdpr: ["IV_32.2", "IV_35.7.d"], hipaa: ["164.312.a.2.I", "164.312.b"], nist_800_53: ["AC.2", "IA.4"], tsc: ["CC6.1", "CC6.2", "CC6.3"] };
+const COMPLIANCE: Record<ClaudeActivityType, Compliance> = {
+  sso_login_initiated: AUTH_TAGS, sso_login_succeeded: AUTH_TAGS,
+  claude_chat_created: {}, claude_chat_viewed: DATA_TAGS,
+  claude_project_created: {}, claude_project_viewed: DATA_TAGS,
+  claude_file_uploaded: DATA_TAGS, claude_file_viewed: DATA_TAGS,
+  claude_artifact_created: {}, claude_artifact_viewed: DATA_TAGS, claude_artifact_shared: DATA_TAGS,
+  admin_api_key_created: ADMIN_TAGS, org_user_invite_accepted: ADMIN_TAGS,
+  platform_memory_store_created: {}, platform_memory_created: {}, platform_memory_deleted: DATA_TAGS,
+};
+
+/** ATT&CK names for the techniques Claude activity rules are tagged with (Wazuh rule.mitre.*). */
+const TECHNIQUE_NAMES: Record<string, string> = {
+  "T1078": "Valid Accounts", "T1078.004": "Cloud Accounts",
+  "T1098": "Account Manipulation", "T1098.001": "Additional Cloud Credentials",
+  "T1213": "Data from Information Repositories",
+  "T1530": "Data from Cloud Storage",
+  "T1567": "Exfiltration Over Web Service",
+  "T1552": "Unsecured Credentials", "T1552.001": "Credentials In Files",
+  "T1070": "Indicator Removal",
+};
+
+const isPrivate = (ip?: string) => !ip || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(ip);
+
 /** Normalised event_type for the platform (drives descriptions, filters, alert classing). */
 const EVENT_TYPE: Record<ClaudeActivityType, EventType> = {
   sso_login_initiated: "auth_success", sso_login_succeeded: "auth_success",
@@ -89,6 +118,7 @@ export interface ClaudeOrg {
   agentName?: string;
   agentId?: string;
   managerName?: string;
+  agentIp?: string;
 }
 
 export interface ClaudeActivityOpts {
@@ -109,6 +139,10 @@ export interface ClaudeActivityOpts {
   filename?: string;
   source?: string;                  // data.source (collector channel)
   firedTimes?: number;              // Wazuh rule.firedtimes at this event
+  geo?: GeoPoint;                   // GeoIP of actor.ip_address (Wazuh GeoLocation.*); else known-prefix table
+  service?: string;                 // system_actor → data.actor.service
+  directoryId?: string;             // scim_directory_sync_actor → data.actor.directory_id
+  idpConnectionType?: string;       // scim_directory_sync_actor → data.actor.idp_connection_type
   severity?: Severity;
   mitre?: string;
   tactic?: string;
@@ -141,6 +175,11 @@ export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
     if (userId && actorType === "user_actor") data["data.actor.user_id"] = userId;
     if (o.ip) data["data.actor.ip_address"] = o.ip;
     if (o.userAgent) data["data.actor.user_agent"] = o.userAgent;
+  } else if (actorType === "system_actor") {
+    data["data.actor.service"] = o.service ?? "claude_platform";
+  } else if (actorType === "scim_directory_sync_actor") {
+    data["data.actor.directory_id"] = o.directoryId ?? claudeId("directory", o.org.key);
+    data["data.actor.idp_connection_type"] = o.idpConnectionType ?? "okta";
   } else if (actorType === "api_actor" || actorType === "admin_api_key_actor") {
     data[actorType === "api_actor" ? "data.actor.api_key_id" : "data.actor.admin_api_key_id"] = o.apiKeyId ?? claudeId("apikey", o.id);
     if (o.ip) data["data.actor.ip_address"] = o.ip;
@@ -161,6 +200,9 @@ export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
   }
 
   const epoch = (Date.parse(ingest) / 1000).toFixed(0);
+  const geo = isPrivate(o.ip) ? null : (o.geo ?? knownGeoForIp(o.ip));
+  const tags = COMPLIANCE[o.type];
+  const baseTech = o.mitre?.split(".")[0];
   return {
     id: o.id, ts: o.ts, source: "siem", vendor: VENDOR,
     event_type: EVENT_TYPE[o.type],
@@ -179,6 +221,7 @@ export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
       "input.type": "log",
       "agent.name": o.org.agentName ?? "claude-compliance-collector",
       "agent.id": o.org.agentId ?? "014",
+      "agent.ip": o.org.agentIp ?? "10.0.5.14",
       "manager.name": o.org.managerName ?? "wazuh-manager-01",
       ...data,
       "rule.id": rule.id,
@@ -187,11 +230,28 @@ export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
       "rule.groups": rule.groups,
       "rule.firedtimes": o.firedTimes ?? 1,
       "rule.mail": rule.level >= 10,
+      ...(tags.pci_dss ? { "rule.pci_dss": tags.pci_dss } : {}),
+      ...(tags.gdpr ? { "rule.gdpr": tags.gdpr } : {}),
+      ...(tags.hipaa ? { "rule.hipaa": tags.hipaa } : {}),
+      ...(tags.nist_800_53 ? { "rule.nist_800_53": tags.nist_800_53 } : {}),
+      ...(tags.tsc ? { "rule.tsc": tags.tsc } : {}),
+      ...(o.mitre ? {
+        "rule.mitre.id": [o.mitre],
+        ...(o.tactic ? { "rule.mitre.tactic": [o.tactic] } : {}),
+        ...(TECHNIQUE_NAMES[o.mitre] ?? (baseTech && TECHNIQUE_NAMES[baseTech]) ? { "rule.mitre.technique": [TECHNIQUE_NAMES[o.mitre] ?? TECHNIQUE_NAMES[baseTech!]] } : {}),
+      } : {}),
+      ...(geo ? {
+        "GeoLocation.country_name": geo.country,
+        "GeoLocation.city_name": geo.city,
+        "GeoLocation.location.lat": geo.lat,
+        "GeoLocation.location.lon": geo.lon,
+      } : {}),
       "location": "/var/ossec/logs/claude/compliance_activities.json",
       "decoder.name": "json",
       "id": `${epoch}.${parseInt(makeSha256(`wz:${o.id}`).slice(0, 7), 16)}`,
       "full_log": JSON.stringify(fullLog),
       "timestamp": ingest.replace("Z", "+0000"),
+      "@timestamp": ingest,
       "action_result": "allowed",
     },
   };

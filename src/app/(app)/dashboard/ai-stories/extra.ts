@@ -34,7 +34,8 @@ function buildClaudeSharedSecret(): TelemetryEvent[] {
   const user = "r.cohen@rocketstack.io";
   const officeIp = "94.188.12.44";
   const viewerIp = "185.107.56.212";
-  const base = { org, email: user, ip: officeIp, userAgent: CHROME_MAC, hostname: "LAP-DEV-12" };
+  const officeGeo = { country: "Israel", city: "Tel Aviv", lat: 32.0853, lon: 34.7818 };   // RocketStack HQ
+  const base = { org, email: user, ip: officeIp, geo: officeGeo, userAgent: CHROME_MAC, hostname: "LAP-DEV-12" };
   return [
     claudeActivity({ ...base, id: "aicas1", ts: "2026-09-23T10:12:05.310Z", type: "sso_login_succeeded", firedTimes: 212,
       description: "r.cohen signed in to Claude Enterprise through Okta SSO from the office egress address." }),
