@@ -96,6 +96,7 @@
     "AWS Cost Anomaly Detection": "AWS Cost Anomaly Detection",
     "Azure Activity Log": "Azure Activity Log",
     "Azure Monitor": "Azure Monitor",
+    "Azure OpenAI": "Azure OpenAI",
     "Azure NSG Flow Logs": "Azure NSG Flow Logs",
     "GCP Cloud Audit Logs": "GCP Cloud Audit Logs",
     "Google Workspace Audit": "Google Workspace Audit",

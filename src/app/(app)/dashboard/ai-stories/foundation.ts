@@ -37,6 +37,55 @@ export interface AiStoryDef {
 
 const CX = "nexacorp" as const;
 
+// ── Field-fidelity helpers (identifiers and envelopes the real products add) ─────────────
+
+/** Deterministic version-4-shaped GUID (Falcon event id). */
+function guid(seed: string): string {
+  const h = makeSha256(`aifound:${seed}`);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/** ISO instant a fixed number of milliseconds after ts (event.created, the SIEM ingest time). */
+const ingested = (ts: string, ms: number): string => new Date(Date.parse(ts) + ms).toISOString();
+
+/** A Windows path as the Falcon sensor records it: an NT device path. */
+const ntPath = (p: string): string => `\\Device\\HarddiskVolume3\\${p.slice(3)}`;
+
+/** Falcon sensor envelope carried by every event of one tenant (customer id, sensor build, config). */
+const CS_CID = "3f7e2a1b9c8d4e5f6a7b8c9d0e1f2a3b";
+const csEnvelope = (id: string): Record<string, string> => ({
+  "crowdstrike.event_platform": "Win",
+  "crowdstrike.cid": CS_CID,
+  "crowdstrike.id": guid(`cs:${id}`),
+  "crowdstrike.ConfigBuild": "1007.3.0019807.11",
+  "crowdstrike.ConfigStateHash": "2163484712",
+  "crowdstrike.EffectiveTransmissionClass": "2",
+  "crowdstrike.Entitlements": "15",
+  "event.module": "crowdstrike",
+  "event.dataset": "crowdstrike.fdr",
+});
+
+/** Extra raw fields for a csFile() event: the Falcon envelope, the NT target path and the ECS mapping. */
+function csFileExtra(o: {
+  id: string; ts: string; host: string; user: string; path: string; type: "creation" | "deletion";
+  actor: string; actorPid: number; actorPath: string; actorParent?: string; actorParentPid?: number;
+}): Record<string, string> {
+  return {
+    ...csEnvelope(o.id),
+    "crowdstrike.TargetFileName": ntPath(o.path),
+    "host.name": o.host,
+    "user.name": o.user.split("@")[0],
+    "event.category": "file",
+    "event.type": o.type,
+    "event.outcome": "success",
+    "event.created": ingested(o.ts, 2_300),
+    "process.name": o.actor,
+    "process.pid": String(o.actorPid),
+    "process.executable": o.actorPath,
+    ...(o.actorParent ? { "process.parent.name": o.actorParent, "process.parent.pid": String(o.actorParentPid) } : {}),
+  };
+}
+
 const UA_CHROME =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 const UA_EDGE = `${UA_CHROME} Edg/141.0.0.0`;
@@ -134,6 +183,10 @@ function buildShadowChatUpload(): TelemetryEvent[] {
     // A customer export lands on disk.
     csFile({
       companyId: CX, id: "aishd2", ts: "2026-09-22T09:22:46.581Z", host: c.host, srcIp: c.ip, user: c.user,
+      extra: csFileExtra({
+        id: "aishd2", ts: "2026-09-22T09:22:46.581Z", host: c.host, user: c.user, path: xlsxPath, type: "creation",
+        actor: "chrome.exe", actorPid: 6204, actorPath: CHROME, actorParent: "explorer.exe", actorParentPid: 3844,
+      }),
       path: xlsxPath, sha256: xlsxHash, size: XLSX_SIZE, action: "file_create",
       actorProcess: "chrome.exe", actorPid: 6204, actorPath: CHROME,
       actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
@@ -178,6 +231,10 @@ function buildShadowChatUpload(): TelemetryEvent[] {
     // The same data, re-saved in another format.
     csFile({
       companyId: CX, id: "aishd5", ts: "2026-09-22T09:35:22.905Z", host: c.host, srcIp: c.ip, user: c.user,
+      extra: csFileExtra({
+        id: "aishd5", ts: "2026-09-22T09:35:22.905Z", host: c.host, user: c.user, path: csvPath, type: "creation",
+        actor: "EXCEL.EXE", actorPid: 7284, actorPath: EXCEL, actorParent: "explorer.exe", actorParentPid: 3844,
+      }),
       path: csvPath, sha256: csvHash, size: CSV_SIZE, action: "file_create",
       actorProcess: "EXCEL.EXE", actorPid: 7284, actorPath: EXCEL,
       actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
@@ -222,6 +279,10 @@ function buildShadowChatUpload(): TelemetryEvent[] {
     // The upload copy is removed from disk.
     csFile({
       companyId: CX, id: "aishd8", ts: "2026-09-22T09:44:03.271Z", host: c.host, srcIp: c.ip, user: c.user,
+      extra: csFileExtra({
+        id: "aishd8", ts: "2026-09-22T09:44:03.271Z", host: c.host, user: c.user, path: csvPath, type: "deletion",
+        actor: "explorer.exe", actorPid: 3844, actorPath: "C:\\Windows\\explorer.exe",
+      }),
       path: csvPath, sha256: csvHash, size: CSV_SIZE, action: "file_delete",
       actorProcess: "explorer.exe", actorPid: 3844, actorPath: "C:\\Windows\\explorer.exe",
       actorSigned: "trusted", actorIntegrity: "medium",
@@ -283,6 +344,10 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
     // The new version is unpacked into the profile.
     csFile({
       companyId: CX, id: "aiext3", ts: "2026-09-23T09:38:51.664Z", host: c.host, srcIp: c.ip, user: c.user,
+      extra: csFileExtra({
+        id: "aiext3", ts: "2026-09-23T09:38:51.664Z", host: c.host, user: c.user, path: manifestPath, type: "creation",
+        actor: "chrome.exe", actorPid: 7132, actorPath: CHROME, actorParent: "explorer.exe", actorParentPid: 3844,
+      }),
       path: manifestPath, sha256: makeSha256("aiext_surfguard_manifest_json_5_5_0"), size: 2_731, action: "file_create",
       actorProcess: "chrome.exe", actorPid: 7132, actorPath: CHROME,
       actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
@@ -310,6 +375,24 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
         "infoblox.view": "internal",
         "infoblox.member": "ns-01.nexacorp.com",
         "infoblox.transport": "UDP",
+        "dns.question.name": statsHost,
+        "dns.question.type": "A",
+        "dns.question.class": "IN",
+        "dns.answers.data": statsIp,
+        "dns.answers.ttl": 300,
+        "dns.resolved_ip": statsIp,
+        "dns.response_code": "NOERROR",
+        "network.protocol": "dns",
+        "source.ip": c.ip,
+        "host.name": "ns-01.nexacorp.com",
+        "message": `client @0x7f2b1c04a3d0 ${c.ip}#51422 (${statsHost}): query: ${statsHost} IN A + (10.10.20.5)`,
+        "log.level": "info",
+        "event.action": "dns-query",
+        "event.outcome": "success",
+        "event.module": "infoblox_nios",
+        "event.dataset": "infoblox_nios.log",
+        "event.provider": "named",
+        "event.created": "2026-09-23T09:39:58.512Z",
       },
     },
 
@@ -509,6 +592,10 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
     // The attachment is opened from Outlook.
     csFile({
       companyId: CX, id: "aisvg4", ts: "2026-09-24T08:26:38.552Z", host: c.host, srcIp: c.ip, user: victim,
+      extra: csFileExtra({
+        id: "aisvg4", ts: "2026-09-24T08:26:38.552Z", host: c.host, user: victim, path: svgPath, type: "creation",
+        actor: "OUTLOOK.EXE", actorPid: 5148, actorPath: OUTLOOK, actorParent: "explorer.exe", actorParentPid: 3844,
+      }),
       path: svgPath, sha256: svgHash, size: svgSize, action: "file_create",
       actorProcess: "OUTLOOK.EXE", actorPid: 5148, actorPath: OUTLOOK,
       actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
@@ -523,6 +610,23 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       processName: "msedge.exe", processPath: EDGE,
       cmdline: `"${EDGE}" --single-argument "${svgPath}"`,
       parentName: "OUTLOOK.EXE", parentPid: 5148, pid: 9236,
+      extra: {
+        ...csEnvelope("aisvg5"),
+        "crowdstrike.UserSid": "S-1-5-21-3623811015-3361044348-30300820-1113",
+        "crowdstrike.ImageSubsystem": "2",
+        "host.name": c.host,
+        "user.name": victim.split("@")[0],
+        "user.domain": "NEXACORP",
+        "event.category": "process",
+        "event.type": "start",
+        "event.created": ingested("2026-09-24T08:26:40.907Z", 2_100),
+        "process.name": "msedge.exe",
+        "process.pid": "9236",
+        "process.executable": EDGE,
+        "process.command_line": `"${EDGE}" --single-argument "${svgPath}"`,
+        "process.parent.name": "OUTLOOK.EXE",
+        "process.parent.pid": "5148",
+      },
       sha256: makeSha256("aisvg_microsoft_edge_msedge_exe_141_clean"),
       signed: true, signatureSubject: "Microsoft Corporation", integrity: "medium",
       mitre: "T1204.002", tactic: "Execution", severity: "medium", incidentId: INC,
@@ -623,6 +727,17 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
         "data.office365.Sender": supplier,
         "data.office365.AttachmentName": svgName,
         "data.office365.AttachmentSha256": svgHash,
+        "email.from.display_name": supplierName,
+        "email.sender.address": supplier,
+        "email.to.address": victim,
+        "email.direction": "inbound",
+        "data.office365.CreationTime": "2026-09-24T08:33:51.077Z",
+        "data.office365.Workload": "Exchange",
+        "data.office365.Directionality": "Inbound",
+        "data.office365.SenderIp": eopIp,
+        "data.office365.SenderFromDomain": "brightwaterfreight.co.uk",
+        "data.office365.RecipientEmailAddress": victim,
+        "data.office365.AttachmentCount": "1",
         "action_result": "quarantined",
       },
     },

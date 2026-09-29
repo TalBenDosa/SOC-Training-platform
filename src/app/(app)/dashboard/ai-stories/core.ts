@@ -67,6 +67,71 @@ const CHROME_WIN_UA =
 const OFFICE_IP = "82.132.31.8";   // corporate office egress
 const OFFICE_GEO = { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 };
 
+/** Deterministic lowercase hex of a given length (stable across rebuilds). */
+function hexId(seed: string, len: number): string {
+  let h = 2166136261 >>> 0;
+  let out = "";
+  for (let n = 0; out.length < len; n++) {
+    for (let k = 0; k < seed.length; k++) {
+      h ^= seed.charCodeAt(k) + n;
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    out += h.toString(16).padStart(8, "0");
+  }
+  return out.slice(0, len);
+}
+
+/** Deterministic version-4-shaped GUID (audit record ids, SharePoint site/list ids). */
+function guid(seed: string): string {
+  const x = hexId(seed, 32);
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-4${x.slice(13, 16)}-a${x.slice(17, 20)}-${x.slice(20, 32)}`;
+}
+
+/** The NexaCorp Microsoft 365 tenant (the same id the Copilot audit records carry). */
+const TENANT_ID = "6d1f9a3e-4b27-4c85-9e10-a7c53f82b9d4";
+
+/** Milliseconds after an event's ts at which the SIEM ingested it (event.created). */
+const ingested = (ts: string, ms: number): string => new Date(Date.parse(ts) + ms).toISOString();
+
+/**
+ * Fields the Unified Audit Log writes on every SharePointFileOperation record (RecordType 6):
+ * the record id, tenant, site / web / list / item ids and the browser. There is deliberately no
+ * ObjectId or SiteUrl (absolute tenant host), only SourceRelativeUrl, so no company-specific host
+ * survives the per-company swap.
+ */
+const spFileAudit = (id: string, fileName: string, libraryPath: string, managed: boolean): Record<string, string> => {
+  const site = libraryPath.split("/")[1] ?? libraryPath;
+  return {
+    Id: guid(`ual:${id}`),
+    RecordType: "6",
+    UserType: "0",
+    Version: "1",
+    OrganizationId: TENANT_ID,
+    EventSource: "SharePoint",
+    Site: guid(`site:${site}`),
+    WebId: guid(`web:${site}`),
+    ListId: guid(`list:${libraryPath}`),
+    ListItemUniqueId: guid(`item:${fileName}`),
+    CorrelationId: guid(`corr:${id}`),
+    BrowserName: "Edge",
+    BrowserVersion: "151.0.0.0",
+    IsManagedDevice: String(managed),
+    HighPriorityMediaProcessing: "false",
+  };
+};
+
+/** Diagnostic-log envelope and portal user agent an Entra AuditLogs record carries. */
+const auditEnvelope = (id: string, corr: string, ua: string): Record<string, unknown> => ({
+  "azure.auditlogs.resourceId": `/tenants/${TENANT_ID}/providers/Microsoft.aadiam`,
+  "azure.auditlogs.tenantId": TENANT_ID,
+  "azure.auditlogs.operationVersion": "1.0",
+  "azure.auditlogs.resultSignature": "None",
+  "azure.auditlogs.level": "Informational",
+  "azure.auditlogs.properties.id": `Directory_${corr}_${opaque(`auditid:${id}`, 5).toUpperCase()}`,
+  "azure.auditlogs.properties.additionalDetails[0].key": "User-Agent",
+  "azure.auditlogs.properties.additionalDetails[0].value": ua,
+});
+
 const pwMfa = (t: string, mfaOk = true) => [
   { authenticationStepDateTime: t, authenticationMethod: "Password", authenticationMethodDetail: "Password in the cloud", succeeded: true, authenticationStepResultDetail: "Correct password", authenticationStepRequirement: "Primary authentication" },
   mfaOk
@@ -89,6 +154,17 @@ function buildVoiceReset(): TelemetryEvent[] {
   const AGENT_IP = "10.60.4.18";
   const NEW_IP = "80.94.95.118";   // 80.94.* resolves to Bucharest, Romania (shared geo table)
   const TICKET = "INC0051764";
+  const T_SHORT = "Locked out after phone replacement — urgent MFA reset needed before 09:00 leadership review";
+  const T_DESC = "Caller reports being locked out after replacing a mobile phone and asks for an urgent reset of the password and Microsoft Authenticator so the account can be used before a 09:00 leadership review. Desk agent noted the caller's voice was recognised.";
+  // Fields every ServiceNow incident row carries whatever the update was, plus the Elastic
+  // ServiceNow integration's event envelope (event.module / dataset / provider).
+  const snowRow = (ts: string) => ({
+    "servicenow.category": "Access", "servicenow.subcategory": "MFA Reset", "servicenow.contact_type": "Phone",
+    "servicenow.opened_by": AGENT, "servicenow.opened_at": "2026-09-22 08:34:09", "servicenow.sys_created_on": "2026-09-22 08:34:09",
+    "servicenow.description": T_DESC, "servicenow.cmdb_ci": "Microsoft Entra ID", "servicenow.approval": "not requested",
+    "event.provider": "ServiceNow", "event.module": "servicenow", "event.dataset": "servicenow.event",
+    "event.created": ingested(ts, 1_240), "log.level": "info",
+  });
 
   return [
     // 1. Baseline — the account's normal pattern.
@@ -109,14 +185,13 @@ function buildVoiceReset(): TelemetryEvent[] {
     // 2. The call — a routine-looking MFA-reset ticket opened by phone.
     serviceNowRecord({
       companyId: cx, id: "aihvr2", ts: "2026-09-22T08:34:09.771Z", table: "incident", number: TICKET, state: "New",
-      shortDescription: "Locked out after phone replacement — urgent MFA reset needed before 09:00 leadership review",
+      shortDescription: T_SHORT,
       callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "low",
       extra: {
-        "servicenow.description": "Caller reports being locked out after replacing a mobile phone and asks for an urgent reset of the password and Microsoft Authenticator so the account can be used before a 09:00 leadership review. Desk agent noted the caller's voice was recognised.",
-        "servicenow.category": "Access", "servicenow.subcategory": "MFA Reset", "servicenow.contact_type": "Phone",
+        ...snowRow("2026-09-22T08:34:09.771Z"),
         "servicenow.priority": "2 - High", "servicenow.urgency": "1 - High", "servicenow.impact": "3 - Low",
-        "servicenow.opened_by": AGENT, "servicenow.assignment_group": "IT Service Desk", "servicenow.assigned_to": AGENT,
-        "servicenow.opened_at": "2026-09-22 08:34:09", "servicenow.sys_created_on": "2026-09-22 08:34:09",
+        "servicenow.assignment_group": "IT Service Desk", "servicenow.assigned_to": AGENT,
+        "servicenow.sys_updated_on": "2026-09-22 08:34:09",
         "servicenow.u_identity_verification": "Employee ID stated by caller; voice recognised by service desk agent",
       },
       description: "ServiceNow incident INC0051764 was opened by phone at the IT Service Desk in the name of d.cohen: the caller reports being locked out after replacing a phone and asks for an urgent MFA reset before a 09:00 leadership review. The agent noted that the caller's voice was recognised.",
@@ -140,8 +215,11 @@ function buildVoiceReset(): TelemetryEvent[] {
     // 4. Ticket resolved — verification was a voice match and an employee id.
     serviceNowRecord({
       companyId: cx, id: "aihvr4", ts: "2026-09-22T08:46:52.334Z", table: "incident", number: TICKET, state: "Resolved",
+      shortDescription: T_SHORT,
       callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "low",
       extra: {
+        ...snowRow("2026-09-22T08:46:52.334Z"),
+        "servicenow.priority": "2 - High", "servicenow.urgency": "1 - High", "servicenow.impact": "3 - Low",
         "servicenow.close_code": "Solved (Permanently)",
         "servicenow.close_notes": "Password reset via admin portal and registered authentication methods cleared so the caller can re-enroll Microsoft Authenticator at next sign-in.",
         "servicenow.work_notes": "Identity check: employee ID given by caller, voice recognised by agent. Call-back to the number on file not performed because the caller stated the phone was lost.",
@@ -157,6 +235,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       result: "success", correlationId: "a7e63d02-4b91-4c58-8f27-d15b0c9e3a64",
       initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
       targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1098", tactic: "Persistence", severity: "medium",
+      extra: auditEnvelope("aihvr5", "a7e63d02-4b91-4c58-8f27-d15b0c9e3a64", EDGE_UA),
       description: "j.oduya, holding the Authentication Administrator role and working from the internal help desk network, reset the password of d.cohen's account one minute after closing INC0051764.",
     }),
 
@@ -167,6 +246,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
       targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1556.006", tactic: "Defense Evasion", severity: "high",
       extra: {
+        ...auditEnvelope("aihvr6", "3d90b8f5-71a2-4e64-9b08-c62e4a17d5f3", EDGE_UA),
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[]",
@@ -196,6 +276,11 @@ function buildVoiceReset(): TelemetryEvent[] {
       initiatedByUpn: VICTIM, initiatedById: VICTIM_ID, initiatedByIp: NEW_IP, initiatedByRoles: [],
       targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1098.005", tactic: "Persistence", severity: "high",
       extra: {
+        ...auditEnvelope("aihvr8", "e58c2b07-9a14-4f63-b0d5-18a7c36e4d90", CHROME_WIN_UA),
+        "GeoLocation.country_name": "Romania",
+        "GeoLocation.city_name": "Bucharest",
+        "GeoLocation.latitude": 44.4,
+        "GeoLocation.longitude": 26.1,
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
@@ -221,7 +306,11 @@ function buildVoiceReset(): TelemetryEvent[] {
         companyId: cx, id: "aihvr10", ts: "2026-09-22T09:03:27.842Z", user: VICTIM, operation: "New-InboxRule", workload: "Exchange", srcIp: NEW_IP,
         userAgent: CHROME_WIN_UA, sessionId: "6f2a9c84-0d13-4b7e-85a6-e3c17d40b592",
         parameters: "[{\"Name\":\"ForwardTo\",\"Value\":\"mailbox.archive.2026@proton.me\"},{\"Name\":\"SubjectContainsWords\",\"Value\":\"offer,salary,payroll\"},{\"Name\":\"MarkAsRead\",\"Value\":\"True\"},{\"Name\":\"Name\",\"Value\":\".\"}]",
-        extra: { RecordType: "1", UserType: "0", ClientInfoString: "Client=OWA;Action=ViaProxy" },
+        extra: {
+          RecordType: "1", UserType: "0", ClientInfoString: "Client=OWA;Action=ViaProxy",
+          Id: guid("ual:aihvr10"), Version: "1", OrganizationId: TENANT_ID, ExternalAccess: "false",
+          OriginatingServer: "LO2P265MB4471 (15.20.7182.019)",
+        },
         mitre: "T1114.003", tactic: "Collection", severity: "high",
         description: "From 80.94.95.118 a new inbox rule was created in d.cohen's mailbox that forwards messages with offer, salary or payroll in the subject to an external Proton Mail address and marks them read, seven minutes after the new-device sign-in.",
       }),
@@ -231,8 +320,11 @@ function buildVoiceReset(): TelemetryEvent[] {
     // 11. Afterwards: the ticket note that finally names the voice.
     serviceNowRecord({
       companyId: cx, id: "aihvr11", ts: "2026-09-22T09:41:05.276Z", table: "incident", number: TICKET, state: "In Progress",
+      shortDescription: T_SHORT,
       callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "high",
       extra: {
+        ...snowRow("2026-09-22T09:41:05.276Z"),
+        "servicenow.urgency": "1 - High", "servicenow.impact": "1 - High", "servicenow.assigned_to": AGENT,
         "servicenow.work_notes": "09:38 — d.cohen phoned the desk from the office extension: no call was made this morning, no phone was lost, the laptop has been in use throughout. Desk lead replayed the 08:31 call recording: the voice is indistinguishable from d.cohen's on first listen but speech cadence is unnaturally uniform, there is no room noise, and the caller declined a call-back. Suspected synthetic (AI-cloned) voice used to impersonate d.cohen. Security operations notified.",
         "servicenow.priority": "1 - Critical", "servicenow.assignment_group": "IT Service Desk",
         "servicenow.sys_updated_on": "2026-09-22 09:41:05", "servicenow.sys_updated_by": "s.reinhardt@nexacorp.com",
@@ -307,6 +399,10 @@ function buildClaudeDeparture(): TelemetryEvent[] {
         "workday.access_revocation_scheduled": "2026-10-08T17:00:00Z",
         "event.action": "Worker_Resignation_Submitted",
         "event.outcome": "success",
+        "event.provider": "Workday",
+        "event.module": "workday",
+        "event.created": "2026-09-24T09:14:09.412Z",
+        "log.level": "info",
       },
     },
 
@@ -322,7 +418,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
       ...m365Operation({
         companyId: cx, id: "aicld3", ts: "2026-09-24T19:44:52.310Z", user: USER, operation: "FileDownloaded", workload: "SharePoint", srcIp: HOME_IP,
         fileName: F1.name, fileExtension: "xlsx", fileSize: 2_874_112, userAgent: EDGE_UA,
-        extra: { SourceRelativeUrl: SP_PATH, ItemType: "File" },
+        extra: { SourceRelativeUrl: SP_PATH, ItemType: "File", ...spFileAudit("aicld3", F1.name, SP_PATH, false) },
         mitre: "T1213.002", tactic: "Collection", severity: "medium",
         description: "a.kaplan downloaded Enterprise_Accounts_Renewals_FY27.xlsx from the Sales-Operations SharePoint library at 19:44, from a home internet address, roughly ten and a half hours after the resignation was recorded.",
       }),
@@ -332,7 +428,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
       ...m365Operation({
         companyId: cx, id: "aicld4", ts: "2026-09-24T19:45:41.775Z", user: USER, operation: "FileDownloaded", workload: "SharePoint", srcIp: HOME_IP,
         fileName: F2.name, fileExtension: "docx", fileSize: 1_402_368, userAgent: EDGE_UA,
-        extra: { SourceRelativeUrl: "sites/Sales-Operations/Shared Documents/Contracts", ItemType: "File" },
+        extra: { SourceRelativeUrl: "sites/Sales-Operations/Shared Documents/Contracts", ItemType: "File", ...spFileAudit("aicld4", F2.name, "sites/Sales-Operations/Shared Documents/Contracts", false) },
         mitre: "T1213.002", tactic: "Collection", severity: "medium",
         description: "a.kaplan downloaded Top50_Customer_Contracts_Redlines.docx from the Sales-Operations contracts library 49 seconds after the first download, from the same home address.",
       }),
@@ -480,6 +576,22 @@ function buildCopilotProbe(): TelemetryEvent[] {
           ...(r.label ? { SensitivityLabelId: r.label } : {}),
           Status: "success",
         })),
+        "data.office365.Version": "1",
+        "GeoLocation.country_name": OFFICE_GEO.country,
+        "GeoLocation.city_name": OFFICE_GEO.city,
+        "GeoLocation.latitude": OFFICE_GEO.latitude,
+        "GeoLocation.longitude": OFFICE_GEO.longitude,
+        "source.ip": OFFICE_IP,
+        "user.email": USER,
+        "user.name": "NEXACORP\\s.patel",
+        "event.action": "CopilotInteraction",
+        "event.type": "access",
+        "event.outcome": "success",
+        "event.module": "o365",
+        "event.dataset": "o365.audit",
+        "event.provider": "Copilot",
+        "event.created": ingested(ts, 2_840),
+        "action_result": "allowed",
       },
     };
   };
@@ -489,7 +601,7 @@ function buildCopilotProbe(): TelemetryEvent[] {
     ...m365Operation({
       companyId: cx, id, ts, user: USER, operation, workload: "SharePoint", srcIp: OFFICE_IP,
       fileName, fileExtension: fileName.split(".").pop(), userAgent: EDGE_UA,
-      extra: { SourceRelativeUrl: path, ItemType: "File" },
+      extra: { SourceRelativeUrl: path, ItemType: "File", ...spFileAudit(id, fileName, path, true) },
       mitre: "T1213.002", tactic: "Collection", severity, description,
     }),
     source: "sharepoint" as const,
@@ -558,15 +670,34 @@ function buildCopilotProbe(): TelemetryEvent[] {
       severity: "high", user_email: USER, src_ip: OFFICE_IP,
       mitre_technique: "T1213.002", mitre_tactic: "Collection",
       description: "Microsoft Sentinel UEBA flagged s.patel's activity: first-time access to HR, IT and Finance content areas, none of which the account had touched in its lookback window, all reached in one 30-minute burst through Copilot plus a direct SharePoint open and download.",
+      // One BehaviorAnalytics-style record (the UEBA table's own shape: a single activity with its
+      // insight flags and the user entity), not the Anomalies table's ExtendedProperties bag.
       raw: {
+        "Type": "BehaviorAnalytics",
+        "TimeGenerated": "2026-09-23T13:36:00.000Z",
+        "event.id": guid("aicop8:record"),
         "event.action": "BehaviorAnomalyDetected",
+        "event.category": "file",
+        "event.type": "access",
         "event.outcome": "alerted",
+        "event.provider": "Microsoft Sentinel",
+        "event.created": ingested("2026-09-23T13:36:00.000Z", 4_318),
+        "entity.type": "user",
+        "entity.name": "s.patel",
+        "entity.id": USER_KEY,
+        "user.name": "NEXACORP\\s.patel",
         "user.email": USER,
+        "user.domain": "NEXACORP",
+        "user.department": "Marketing",
+        "source.ip": OFFICE_IP,
+        "source.geo.country_name": OFFICE_GEO.country,
+        "source.geo.city_name": OFFICE_GEO.city,
+        "application.name": "Microsoft 365 Copilot",
         "FirstTimeUserPerformedAction": "True",
         "ActionUncommonlyPerformedByUser": "True",
-        "ExtendedProperties.Contributing Behavior 1": "Copilot read sensitivity-labelled files from HR, IT and Finance libraries never accessed by this user",
-        "ExtendedProperties.Contributing Behavior 2": "Copilot prompts with JailbreakDetected=true on four of five interactions in the same hour",
-        "source.ip": OFFICE_IP,
+        "behavior.name": "Uncommon content access",
+        "behavior.category": "Data access",
+        "behavior.description": "Copilot read sensitivity-labelled files from HR, IT and Finance libraries never accessed by this user; Copilot prompts with JailbreakDetected=true on four of five interactions in the same hour",
       },
     },
 

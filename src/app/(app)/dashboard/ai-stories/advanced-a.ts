@@ -165,12 +165,42 @@ interface GdOpts {
   mitre?: string;
   tactic?: string;
   geo: TelemetryEvent["geo"];
+  /** When the API call behind the finding happened (service.eventFirstSeen / eventLastSeen). */
+  seen: string;
+  /** The finding's own description text (aws.guardduty.description). */
+  detail: string;
 }
+
+/** The account's GuardDuty detector (one per account and region set, a 32-hex id). */
+const GD_DETECTOR = "c6bd3e91f2a84d57b09e1a3c5d7f8e24";
+
+/** Autonomous system number and ISP GuardDuty reports for the hosting networks used below. */
+const GD_NET: Record<string, { asn: string; isp: string }> = {
+  "SCALEWAY S.A.S.": { asn: "12876", isp: "Scaleway" },
+  "DigitalOcean, LLC": { asn: "14061", isp: "DigitalOcean" },
+};
 
 /** One GuardDuty finding (vendor AWS GuardDuty) as the platform's emitter renders it. */
 function gd(o: GdOpts): TelemetryEvent {
   const i = o.ident;
+  const findingId = hex(`gd:${o.id}`, 32);
+  const net = GD_NET[o.asn];
+  const api = "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails";
   const raw: Record<string, unknown> = {
+    "aws.guardduty.schemaVersion": "2.0",
+    "aws.guardduty.id": findingId,
+    "aws.guardduty.arn": `arn:aws:guardduty:${o.region}:${AWS_ACCOUNT}:detector/${GD_DETECTOR}/finding/${findingId}`,
+    "aws.guardduty.accountId": AWS_ACCOUNT,
+    "aws.guardduty.region": o.region,
+    "aws.guardduty.partition": "aws",
+    "aws.guardduty.createdAt": o.ts,
+    "aws.guardduty.updatedAt": o.ts,
+    "aws.guardduty.description": o.detail,
+    "aws.guardduty.service.serviceName": "guardduty",
+    "aws.guardduty.service.detectorId": GD_DETECTOR,
+    "aws.guardduty.service.archived": "false",
+    "aws.guardduty.service.eventFirstSeen": o.seen,
+    "aws.guardduty.service.eventLastSeen": o.seen,
     "aws.guardduty.type": o.type,
     "aws.guardduty.severity": String(o.score),
     ...(o.title ? { "aws.guardduty.title": o.title } : {}),
@@ -181,6 +211,10 @@ function gd(o: GdOpts): TelemetryEvent {
     "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.ipAddressV4": o.ip,
     "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.country.countryName": o.country,
     "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.organization.asnOrg": o.asn,
+    ...(o.geo?.city ? { [`${api}.city.cityName`]: o.geo.city } : {}),
+    ...(o.geo?.latitude !== undefined ? { [`${api}.geoLocation.lat`]: o.geo.latitude } : {}),
+    ...(o.geo?.longitude !== undefined ? { [`${api}.geoLocation.lon`]: o.geo.longitude } : {}),
+    ...(net ? { [`${api}.organization.asn`]: net.asn } : {}),
     "aws.guardduty.resource.resourceType": "AccessKey",
     "aws.guardduty.resource.accessKeyDetails.accessKeyId": i.accessKeyId,
     "aws.guardduty.resource.accessKeyDetails.principalId": i.principalId,
@@ -190,6 +224,10 @@ function gd(o: GdOpts): TelemetryEvent {
     "aws.guardduty.service.count": "1",
     "cloud.account.id": AWS_ACCOUNT,
     "cloud.region": o.region,
+    "source.ip": o.ip,
+    ...((i.userName ?? i.issuerName) ? { "user.name": i.userName ?? i.issuerName } : {}),
+    "event.module": "aws",
+    "event.created": new Date(Date.parse(o.ts) + 1_460).toISOString(),
     ...(o.extra ?? {}),
     "action_result": "detected",
   };
@@ -298,6 +336,14 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     raw: {
       "event.provider": "GitHub Advanced Security",
       "event.action": "created",
+      "event.type": "creation",
+      "event.module": "github",
+      "event.created": "2026-09-22T07:41:59.204Z",
+      "alert.id": "4",
+      "alert.name": "Amazon AWS Access Key ID",
+      "alert.status": "open",
+      "file.path": "scripts/publish_artifacts.sh",
+      "github.org": "platform-eng",
       "github.repo": "platform-eng/release-tooling",
       "github.visibility": "public",
       "github.secret_scanning_alert.number": "4",
@@ -311,6 +357,20 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
       "github.secret_scanning_alert.first_location_detected.path": "scripts/publish_artifacts.sh",
       "github.secret_scanning_alert.first_location_detected.start_line": "14",
       "github.secret_scanning_alert.first_location_detected.commit_sha": "e5c91d20b7a4386f1d0c2e9a7b5f4d3861c0a2ef",
+      "github.secret_scanning_alert.first_location_detected.type": "commit",
+      "github.secret_scanning_alert.first_location_detected.end_line": "14",
+      "github.secret_scanning_alert.first_location_detected.start_column": "26",
+      "github.secret_scanning_alert.first_location_detected.end_column": "45",
+      "github.secret_scanning_alert.first_location_detected.blob_sha": hex("blob:aibk3", 40),
+      "github.secret_scanning_alert.first_location_detected.blob_url": `https://api.github.com/repos/platform-eng/release-tooling/git/blobs/${hex("blob:aibk3", 40)}`,
+      "github.secret_scanning_alert.first_location_detected.commit_url": "https://api.github.com/repos/platform-eng/release-tooling/git/commits/e5c91d20b7a4386f1d0c2e9a7b5f4d3861c0a2ef",
+      "github.secret_scanning_alert.updated_at": "2026-09-22T07:41:58Z",
+      "github.secret_scanning_alert.url": "https://api.github.com/repos/platform-eng/release-tooling/secret-scanning/alerts/4",
+      "github.secret_scanning_alert.locations_url": "https://api.github.com/repos/platform-eng/release-tooling/secret-scanning/alerts/4/locations",
+      "github.secret_scanning_alert.secret": BK_KEY,
+      "github.secret_scanning_alert.validity": "active",
+      "github.secret_scanning_alert.push_protection_bypassed": "false",
+      "github.secret_scanning_alert.has_more_locations": "false",
     },
   },
 
@@ -378,6 +438,8 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     title: "Model invocation logging was disabled in Amazon Bedrock by an IAM identity.",
     api: "DeleteModelInvocationLoggingConfiguration", service: "bedrock.amazonaws.com", ip: BK_IP, country: "France",
     asn: "SCALEWAY S.A.S.", region: "us-east-1", ident: bkCi, geo: BK_GEO, severity: "high", mitre: "T1562.008", tactic: "Defense Evasion",
+    seen: "2026-09-22T08:03:54.037Z",
+    detail: "An IAM identity called DeleteModelInvocationLoggingConfiguration from a remote IP address, turning off model invocation logging in Amazon Bedrock for this Region.",
     description:
       "GuardDuty raised DefenseEvasion:IAMUser/BedrockLoggingDisabled (severity 5, Medium) in us-east-1: Bedrock model invocation logging was disabled through DeleteModelInvocationLoggingConfiguration by access key AKIAXH3KQ7NZ6R2JYFCB from 62.210.71.148 (SCALEWAY S.A.S.). The finding lands about 5 minutes after the call it describes.",
   }),
@@ -387,6 +449,8 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
     id: "aibk11", ts: "2026-09-22T08:34:51.318Z", type: "Impact:IAMUser/AnomalousModelInvocation", score: 2,
     api: "InvokeModelWithResponseStream", service: "bedrock.amazonaws.com", ip: BK_IP, country: "France",
     asn: "SCALEWAY S.A.S.", region: "eu-central-1", ident: bkCi, geo: BK_GEO, severity: "medium", mitre: "T1496.004", tactic: "Impact",
+    seen: "2026-09-22T08:05:44.902Z",
+    detail: "An Amazon Bedrock model was invoked by an IAM identity in a way that differs from the API, model, network and client that GuardDuty has learned for that identity.",
     extra: { "aws.guardduty.resource.modelDetails.0.modelId": "eu.anthropic.claude-sonnet-4-20250514-v1:0" },
     description:
       "GuardDuty raised Impact:IAMUser/AnomalousModelInvocation (severity 2, Low) in eu-central-1 for access key AKIAXH3KQ7NZ6R2JYFCB: the Bedrock API, model, source network and user agent all fall outside what GuardDuty learned for svc-ci-artifacts, which is the runner's Boto3 calls to one Haiku model from a private address (ATLAS AML.T0040).",
@@ -613,6 +677,13 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
     title: "Credentials for instance role customer-api-instance-role were used from an external IP address.",
     api: "ListSecrets", service: "secretsmanager.amazonaws.com", ip: AG_IP, country: "India", asn: "DigitalOcean, LLC",
     region: "us-east-1", ident: agRole, instanceId: AG_INSTANCE, geo: AG_GEO, severity: "high", mitre: "T1552.005", tactic: "Credential Access",
+    seen: "2026-09-23T02:35:09.377Z",
+    detail: "Credentials that were created exclusively for an EC2 instance through an instance launch role are being used from an external IP address.",
+    extra: {
+      "aws.guardduty.resource.instanceDetails.instanceType": "m6i.large",
+      "aws.guardduty.resource.instanceDetails.availabilityZone": "us-east-1b",
+      "aws.guardduty.resource.instanceDetails.imageId": "ami-0c8f2d1a94b7e3560",
+    },
     description:
       "GuardDuty raised UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS (severity 8, High): credentials created for EC2 instance i-0b7e41c93a5d28f60 through its role are being used from an external address, 159.89.212.66. Raised 12 minutes after the first off-instance call; by then the secrets and the export object had already been read.",
   }),
@@ -689,6 +760,14 @@ function cpMail(o: { id: string; ts: string; mail: typeof CP_MAIL1; description:
       "data.office365.Subject": o.mail.subject,
       "data.office365.AttachmentCount": "0",
       "data.office365.UrlCount": "0",
+      "data.office365.RecipientEmailAddress": CP_USER,
+      "data.office365.SenderDisplayName": CP_SENDER_DISPLAY,
+      "data.office365.EmailDirection": "Inbound",
+      "data.office365.EmailLanguage": "en",
+      "data.office365.LatestDeliveryAction": "Delivered",
+      "data.office365.LatestDeliveryLocation": "Inbox",
+      "data.office365.AuthenticationDetails": "{\"SPF\":\"pass\",\"DKIM\":\"pass\",\"DMARC\":\"pass\",\"CompAuth\":\"pass\"}",
+      "data.office365.CreationTime": o.ts,
       "source.ip": CP_SENDER_IP,
       "action_result": "allowed",
     },
@@ -760,6 +839,17 @@ function cpCopilot(o: {
         Status: "success",
         ...(r.email ? { XPIADetected: false } : {}),
       })),
+      "data.office365.Version": "1",
+      "source.ip": CP_EGRESS_IP,
+      "user.email": CP_USER,
+      "user.name": "NEXACORP\\d.cohen",
+      "event.action": "CopilotInteraction",
+      "event.type": "access",
+      "event.outcome": "success",
+      "event.module": "o365",
+      "event.dataset": "o365.audit",
+      "event.provider": "Copilot",
+      "event.created": new Date(t + 3_120).toISOString(),
       "action_result": "allowed",
     },
   };
@@ -916,6 +1006,18 @@ const AI_COPILOT_INDIRECT_INJECTION: TelemetryEvent[] = [
       "data.office365.InternetMessageId": CP_MAIL1.msgId,
       "data.office365.RecipientEmailAddress": CP_USER,
       "data.office365.Sender": CP_SENDER,
+      "data.office365.CreationTime": "2026-09-24T11:31:26.318Z",
+      "data.office365.Workload": "Exchange",
+      "data.office365.Subject": CP_MAIL1.subject,
+      "data.office365.MailboxOwnerUPN": CP_USER,
+      "data.office365.DeliveryLocation": "Deleted items",
+      "data.office365.Directionality": "Inbound",
+      "data.office365.SenderIp": CP_SENDER_IP,
+      "data.office365.SenderFromDomain": "brightline-procurement.com",
+      "email.from.display_name": CP_SENDER_DISPLAY,
+      "email.sender.address": CP_SENDER,
+      "email.to.address": CP_USER,
+      "email.direction": "inbound",
       "action_result": "blocked",
     },
   },

@@ -70,7 +70,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
   const hostIp = "5.188.206.18";       // hosting provider
   const collectorKey = claudeId("apikey", "rs-siem-collector");
   const newKey = claudeId("apikey", "rs-key-0924");
-  const ownerCtx = { org, email: owner, ip: vpnIp, geo: vpnGeo, userAgent: CHROME_WIN };
+  const ownerCtx = { org, email: owner, ip: vpnIp, geo: vpnGeo, asOrg: "M247 Europe SRL", userAgent: CHROME_WIN };
   const newKeyCtx = { org, apiKeyId: newKey, ip: hostIp, userAgent: "python-requests/2.32.3" };
 
   return [

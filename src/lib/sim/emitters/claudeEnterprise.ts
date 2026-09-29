@@ -1,14 +1,15 @@
 /**
  * Anthropic Claude Enterprise audit-log EMITTER — one Compliance API activity as it lands
- * in the training SIEM. Generic on purpose: no collector/SIEM-product envelope, just the
- * activity record itself plus the SIEM's GeoIP enrichment of the actor address.
+ * in the training SIEM. Generic on purpose: no collector/SIEM-product envelope. Two layers:
  *
- *   @timestamp                      event time
- *   id, created_at, type            the activity
- *   organization_id/_uuid           null on sign-in and Compliance API activities
- *   actor.*                         discriminated by actor.type (see below)
- *   claude_chat_id / claude_project_id / claude_file_id / claude_artifact_id / filename
- *   source.geo.country_name/city_name   SIEM GeoIP of actor.ip_address (public IPs only)
+ *  1. The activity record exactly as the Compliance API returns it
+ *     id, created_at, type, organization_id/_uuid (null on sign-in and Compliance API
+ *     activities), actor.* (discriminated by actor.type), claude_chat_id / claude_project_id
+ *     (null for a chat outside a project) / claude_file_id / claude_artifact_id, filename.
+ *  2. The SIEM's generic (ECS-style) normalization and enrichment of that record
+ *     @timestamp, event.{kind,module,dataset,provider,id,action,category,type,outcome,created},
+ *     user.{email,id,name,domain}, source.ip + source.geo.* (GeoIP, public IPs only) +
+ *     source.as.organization.name (when known), user_agent.* (parsed), related.{ip,user}, tags.
  *
  * Field names, activity types and actor fields follow Anthropic's Compliance API reference
  * (platform.claude.com > Manage Claude > Compliance API, checked 2026-09-29):
@@ -83,6 +84,45 @@ const DEFAULT_ACTOR: Partial<Record<ClaudeActivityType, ClaudeActorType>> = {
   compliance_api_accessed: "api_actor",
 };
 
+/** ECS event.category / event.type per activity (what a generic SIEM parser assigns). */
+const ECS: Record<ClaudeActivityType, { cat: string; type: string }> = {
+  sso_login_initiated: { cat: "authentication", type: "info" },
+  sso_login_succeeded: { cat: "authentication", type: "start" },
+  sso_login_failed: { cat: "authentication", type: "start" },
+  claude_chat_created: { cat: "web", type: "creation" }, claude_chat_viewed: { cat: "web", type: "access" }, claude_chat_deleted: { cat: "web", type: "deletion" },
+  claude_project_created: { cat: "web", type: "creation" }, claude_project_viewed: { cat: "web", type: "access" }, claude_project_sharing_updated: { cat: "web", type: "change" },
+  claude_file_uploaded: { cat: "file", type: "creation" }, claude_file_viewed: { cat: "file", type: "access" }, claude_file_deleted: { cat: "file", type: "deletion" },
+  claude_artifact_created: { cat: "web", type: "creation" }, claude_artifact_viewed: { cat: "web", type: "access" },
+  claude_artifact_sharing_updated: { cat: "web", type: "change" }, claude_artifact_published: { cat: "web", type: "change" },
+  admin_api_key_created: { cat: "iam", type: "creation" }, api_key_created: { cat: "iam", type: "creation" },
+  compliance_api_accessed: { cat: "api", type: "access" },
+  org_ip_restriction_deleted: { cat: "configuration", type: "deletion" },
+  org_data_export_started: { cat: "web", type: "start" },
+  org_user_invite_accepted: { cat: "iam", type: "change" },
+  platform_memory_store_created: { cat: "web", type: "creation" }, platform_memory_created: { cat: "web", type: "creation" }, platform_memory_deleted: { cat: "web", type: "deletion" },
+};
+
+const ISO2: Record<string, string> = {
+  "Israel": "IL", "United Kingdom": "GB", "United States": "US", "Russia": "RU", "Netherlands": "NL", "Germany": "DE",
+  "France": "FR", "Switzerland": "CH", "India": "IN", "Ukraine": "UA", "Romania": "RO", "China": "CN", "Singapore": "SG",
+};
+
+/** Minimal user-agent parser (browser/OS for humans, client/library for scripts). */
+function parseUserAgent(ua: string): Record<string, string> {
+  const out: Record<string, string> = { "user_agent.original": ua };
+  const lib = ua.match(/^(python-requests|python-httpx|curl|Go-http-client|axios|node-fetch|anthropic-python|anthropic-typescript)\/([\d.]+)/i);
+  if (lib) return { ...out, "user_agent.name": lib[1], "user_agent.version": lib[2], "user_agent.device.name": "Other" };
+  const edge = ua.match(/Edg\/([\d.]+)/), ff = ua.match(/Firefox\/([\d.]+)/), chrome = ua.match(/Chrome\/([\d.]+)/), safari = ua.match(/Version\/([\d.]+).*Safari/);
+  const b = edge ? ["Edge", edge[1]] : ff ? ["Firefox", ff[1]] : chrome ? ["Chrome", chrome[1]] : safari ? ["Safari", safari[1]] : null;
+  if (b) { out["user_agent.name"] = b[0]; out["user_agent.version"] = b[1]; }
+  const mac = ua.match(/Mac OS X ([\d_]+)/);
+  if (/Windows NT 10\.0/.test(ua)) { out["user_agent.os.name"] = "Windows"; out["user_agent.os.version"] = "10"; }
+  else if (mac) { out["user_agent.os.name"] = "Mac OS X"; out["user_agent.os.version"] = mac[1].replace(/_/g, "."); }
+  else if (/Linux/.test(ua)) out["user_agent.os.name"] = "Linux";
+  out["user_agent.device.name"] = /Mobile|iPhone|Android/.test(ua) ? "Mobile" : "Other";
+  return out;
+}
+
 const isPrivate = (ip?: string) => !ip || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(ip);
 
 /** Stable Compliance-API-style identifiers (base58-ish, "_01" + 22 chars, as in the API docs). */
@@ -120,6 +160,7 @@ export interface ClaudeActivityOpts {
   chatSeed?: string;                // → claude_chat_id
   filename?: string;
   geo?: GeoPoint;                   // GeoIP of actor.ip_address; else known-prefix table
+  asOrg?: string;                   // source.as.organization.name, when the address owner is known
   service?: string | null;          // system_actor → actor.service (nullable)
   directoryId?: string;             // scim_directory_sync_actor → actor.directory_id
   idpConnectionType?: string;       // scim_directory_sync_actor → actor.idp_connection_type (e.g. OktaSCIMV2)
@@ -162,6 +203,15 @@ export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
   }
 
   const geo = isPrivate(o.ip) ? null : (o.geo ?? knownGeoForIp(o.ip));
+  const activityId = claudeId("activity", o.id);
+  const ecs = ECS[o.type];
+  // Activities are queryable ~1 min after they occur; the SIEM poller picks them up shortly after.
+  const created = new Date(Date.parse(o.ts) + 62_000 + (parseInt(makeSha256(o.id).slice(0, 2), 16) % 40) * 1000).toISOString();
+  const [local, domain] = (o.email ?? "").split("@");
+  const userFields: Record<string, unknown> = o.email ? {
+    "user.email": o.email, ...(actorType === "user_actor" ? { "user.id": claudeId("user", o.email) } : {}),
+    "user.name": local, "user.domain": domain,
+  } : {};
   return {
     id: o.id, ts: o.ts, source: "siem", vendor: VENDOR,
     event_type: meta.et,
@@ -177,18 +227,43 @@ export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
     description: o.description ?? `Claude Enterprise ${meta.label}${o.email ? ` by ${o.email}` : ""}${o.filename ? ` (${o.filename})` : ""}.`,
     raw: {
       "@timestamp": o.ts,
-      "id": claudeId("activity", o.id),
+      "id": activityId,
       "created_at": o.ts,
       "type": o.type,
       "organization_id": orgless ? null : claudeId("org", o.org.key),
       "organization_uuid": orgless ? null : uuidFrom(`org:${o.org.key}`),
       ...actor,
       ...(o.chatSeed ? { "claude_chat_id": claudeId("claude_chat", o.chatSeed) } : {}),
-      ...(o.projectSeed ? { "claude_project_id": claudeId("claude_proj", o.projectSeed) } : {}),
+      ...(o.projectSeed ? { "claude_project_id": claudeId("claude_proj", o.projectSeed) }
+        : o.type === "claude_chat_created" ? { "claude_project_id": null } : {}),
       ...(o.fileSeed ? { "claude_file_id": claudeId("claude_file", o.fileSeed) } : {}),
       ...(o.artifactSeed ? { "claude_artifact_id": claudeId("claude_artifact", o.artifactSeed) } : {}),
       ...(o.filename ? { "filename": o.filename } : {}),
-      ...(geo ? { "source.geo.country_name": geo.country, "source.geo.city_name": geo.city } : {}),
+      // ── SIEM normalization / enrichment ──
+      "event.kind": "event",
+      "event.module": "anthropic",
+      "event.dataset": "anthropic.compliance_activities",
+      "event.provider": "claude_enterprise",
+      "event.id": activityId,
+      "event.action": o.type,
+      "event.category": [ecs.cat],
+      "event.type": [ecs.type],
+      "event.outcome": o.type === "sso_login_failed" ? "failure" : "success",
+      "event.created": created,
+      ...userFields,
+      ...(o.ip ? { "source.ip": o.ip } : {}),
+      ...(geo ? {
+        "source.geo.country_name": geo.country,
+        ...(ISO2[geo.country] ? { "source.geo.country_iso_code": ISO2[geo.country] } : {}),
+        "source.geo.city_name": geo.city,
+        "source.geo.location.lat": geo.lat,
+        "source.geo.location.lon": geo.lon,
+      } : {}),
+      ...(o.asOrg ? { "source.as.organization.name": o.asOrg } : {}),
+      ...(o.userAgent ? parseUserAgent(o.userAgent) : {}),
+      ...(o.ip ? { "related.ip": [o.ip] } : {}),
+      ...(o.email ? { "related.user": [o.email] } : {}),
+      "tags": ["claude-enterprise", "compliance-api", "genai"],
     },
   };
 }

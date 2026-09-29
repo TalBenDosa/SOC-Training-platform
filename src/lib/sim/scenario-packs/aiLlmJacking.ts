@@ -105,6 +105,7 @@ export function buildAiLlmJackingScenario(
   const repo = "quantumbank-ch/build-tooling";
   const commitSha = "b7e40c19d2a85f3c61e0a9d47b2c85f0e3a1d694";
   const leakPath = "scripts/eval_smoke.py";
+  const blobSha = makeSha256(`aiw1-lj-blob:${commitSha}`).slice(0, 40);
 
   // ── Models ─────────────────────────────────────────────────────────────────
   const modelPilot = "anthropic.claude-sonnet-4-20250514-v1:0";
@@ -136,6 +137,14 @@ export function buildAiLlmJackingScenario(
     const rec: Record<string, unknown> = {
       "event.provider": "GitHub Advanced Security",
       "event.action": "created",
+      "event.type": "creation",
+      "event.module": "github",
+      "event.created": after(o.ts, 1),
+      "alert.id": "9",
+      "alert.name": "Amazon AWS Access Key ID",
+      "alert.status": "open",
+      "file.path": leakPath,
+      "github.org": repo.split("/")[0],
       "github.repo": repo,
       "github.visibility": "public",
       "github.secret_scanning_alert.number": "9",
@@ -149,6 +158,20 @@ export function buildAiLlmJackingScenario(
       "github.secret_scanning_alert.first_location_detected.path": leakPath,
       "github.secret_scanning_alert.first_location_detected.start_line": "22",
       "github.secret_scanning_alert.first_location_detected.commit_sha": commitSha,
+      "github.secret_scanning_alert.first_location_detected.type": "commit",
+      "github.secret_scanning_alert.first_location_detected.end_line": "22",
+      "github.secret_scanning_alert.first_location_detected.start_column": "36",
+      "github.secret_scanning_alert.first_location_detected.end_column": "55",
+      "github.secret_scanning_alert.first_location_detected.blob_sha": blobSha,
+      "github.secret_scanning_alert.first_location_detected.blob_url": `https://api.github.com/repos/${repo}/git/blobs/${blobSha}`,
+      "github.secret_scanning_alert.first_location_detected.commit_url": `https://api.github.com/repos/${repo}/git/commits/${commitSha}`,
+      "github.secret_scanning_alert.updated_at": o.ts,
+      "github.secret_scanning_alert.url": `https://api.github.com/repos/${repo}/secret-scanning/alerts/9`,
+      "github.secret_scanning_alert.locations_url": `https://api.github.com/repos/${repo}/secret-scanning/alerts/9/locations`,
+      "github.secret_scanning_alert.secret": akia,
+      "github.secret_scanning_alert.validity": "active",
+      "github.secret_scanning_alert.push_protection_bypassed": "false",
+      "github.secret_scanning_alert.has_more_locations": "false",
     };
     return {
       id: o.id, ts: o.ts, source: "vcs", vendor: "GitHub Advanced Security", event_type: "dlp_alert", severity: "high",
@@ -209,13 +232,56 @@ export function buildAiLlmJackingScenario(
       "aws.cost_anomaly.time_period.start": T(15 * MIN),
       "aws.cost_anomaly.time_period.end": o.ts,
       "aws.cost_anomaly.notification_email": "cloud-finops@quantumbank.ch",
+      "aws.cost_anomaly.sns_topic": `arn:aws:sns:us-east-1:${awsAccount}:finops-cost-anomaly-alerts`,
+      "aws.cost_anomaly.detection_method": "DIMENSIONAL",
+      "aws.cost_anomaly.baseline_spend": "41.70",
+      "aws.cost_anomaly.root_cause.usage_type": "USW2-Claude4Opus-input-tokens",
       "cloud.provider": "aws",
       "cloud.account.id": awsAccount,
+      "event.provider": "AWS Cost Anomaly Detection",
+      "event.created": after(o.ts, 3),
+      "action_result": "detected",
     };
     return {
       id: o.id, ts: o.ts, source: "siem", vendor: "AWS Cost Anomaly Detection", event_type: "ueba_anomaly", severity: "high",
       mitre_technique: "T1496.004", mitre_tactic: "Impact", incident_id: INCIDENT,
       description: o.description, raw: rec,
+    };
+  };
+
+  // GuardDuty finding envelope (schema 2.0) and the remote host's location, passed to the shared
+  // guardDutyFinding emitter through `extra` (all aws.guardduty.* plus the shared ECS fields).
+  const gdDetector = "e3a91c57b2d84f06a5c7e18d09b4f362";
+  const gdEnvelope = (o: {
+    id: string; ts: string; seen: string; region: string; detail: string; ip: string;
+    country: string; city: string; lat: number; lon: number; asn: string;
+  }): Record<string, string | number> => {
+    const fid = makeSha256(`aiw1-lj-gd:${o.id}`).slice(0, 32);
+    const remote = "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails";
+    return {
+      "aws.guardduty.schemaVersion": "2.0",
+      "aws.guardduty.id": fid,
+      "aws.guardduty.arn": `arn:aws:guardduty:${o.region}:${awsAccount}:detector/${gdDetector}/finding/${fid}`,
+      "aws.guardduty.accountId": awsAccount,
+      "aws.guardduty.region": o.region,
+      "aws.guardduty.partition": "aws",
+      "aws.guardduty.createdAt": o.ts,
+      "aws.guardduty.updatedAt": o.ts,
+      "aws.guardduty.description": o.detail,
+      "aws.guardduty.service.serviceName": "guardduty",
+      "aws.guardduty.service.detectorId": gdDetector,
+      "aws.guardduty.service.archived": "false",
+      "aws.guardduty.service.eventFirstSeen": o.seen,
+      "aws.guardduty.service.eventLastSeen": o.seen,
+      [`${remote}.country.countryName`]: o.country,
+      [`${remote}.city.cityName`]: o.city,
+      [`${remote}.geoLocation.lat`]: o.lat,
+      [`${remote}.geoLocation.lon`]: o.lon,
+      [`${remote}.organization.asn`]: o.asn,
+      "source.ip": o.ip,
+      "user.name": ciUser,
+      "event.module": "aws",
+      "event.created": after(o.ts, 1),
     };
   };
 
@@ -268,6 +334,12 @@ export function buildAiLlmJackingScenario(
           "servicenow.approved_by": "CAB — Cloud & Infrastructure", "servicenow.cmdb_ci": `AWS account ${awsAccount} — Amazon Bedrock`,
           "servicenow.start_date": "2026-09-22 08:00:00", "servicenow.end_date": "2026-09-22 10:00:00",
           "servicenow.sys_updated_on": "2026-09-21 14:05:00",
+          "servicenow.opened_at": "2026-09-21 09:12:40", "servicenow.sys_created_on": "2026-09-21 09:12:40",
+          "servicenow.opened_by": eng.email, "servicenow.assigned_to": eng.email, "servicenow.requested_for": eng.email,
+          "servicenow.priority": "3 - Moderate", "servicenow.impact": "3 - Low",
+          "servicenow.description": "Enable Anthropic Claude Sonnet 4 model access in Amazon Bedrock (us-east-1) for the wealth-research assistant pilot. Console change by Cloud Platform Engineering inside the approved window.",
+          "event.provider": "ServiceNow", "event.module": "servicenow", "event.dataset": "servicenow.event",
+          "event.created": after(tTicket, 1), "log.level": "info",
         },
         description: "ServiceNow change request CHG0048117 (Normal, approved by CAB): enable Anthropic Claude Sonnet 4 in Amazon Bedrock us-east-1 for the wealth-research assistant pilot, implementation window Tuesday 22 Sep 08:00-10:00 UTC, assigned to Cloud Platform Engineering.",
       }),
@@ -408,6 +480,11 @@ export function buildAiLlmJackingScenario(
         title: "Model invocation logging was disabled in Amazon Bedrock by an IAM identity.", srcIp: ipA, region: pilotRegion, accountId: awsAccount,
         api: "DeleteModelInvocationLoggingConfiguration", serviceName: BEDROCK, callerType: "Remote IP", asnOrg: "M247 Europe SRL",
         resourceType: "AccessKey", userType: "IAMUser", userName: ciUser, accessKeyId: akia, count: 1,
+        extra: gdEnvelope({
+          id: "aiw1_lj_16", ts: J(22 * MIN, "lj16"), seen: J(12 * MIN, "lj13"), region: pilotRegion, ip: ipA,
+          detail: "An IAM identity called DeleteModelInvocationLoggingConfiguration from a remote IP address, turning off model invocation logging in Amazon Bedrock for this Region.",
+          country: "Romania", city: "Bucharest", lat: 44.4268, lon: 26.1025, asn: "9009",
+        }),
         mitre: "T1562.008", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
         description: "GuardDuty raised DefenseEvasion:IAMUser/BedrockLoggingDisabled (severity 5, Medium) in us-east-1: model invocation logging was disabled through DeleteModelInvocationLoggingConfiguration by the svc-build-release access key AKIAXQ7PL2MD4RVN8HJT from 80.94.92.41.",
       }),
@@ -421,7 +498,14 @@ export function buildAiLlmJackingScenario(
         title: "An IAM identity invoked Amazon Bedrock models with anomalous input and output token volume.", srcIp: ipB, region: "us-west-2", accountId: awsAccount,
         api: "InvokeModelWithResponseStream", serviceName: BEDROCK, callerType: "Remote IP", asnOrg: "DigitalOcean, LLC",
         resourceType: "AccessKey", userType: "IAMUser", userName: ciUser, accessKeyId: akia, count: 1,
-        extra: { "aws.guardduty.resource.modelDetails.0.modelId": modelProfile },
+        extra: {
+          ...gdEnvelope({
+            id: "aiw1_lj_17", ts: J(95 * MIN, "lj17"), seen: J(14 * MIN, "lj14"), region: "us-west-2", ip: ipB,
+            detail: "An IAM identity invoked Amazon Bedrock models with input and output token volumes far above the level GuardDuty has learned for the account.",
+            country: "Netherlands", city: "Amsterdam", lat: 52.3676, lon: 4.9041, asn: "14061",
+          }),
+          "aws.guardduty.resource.modelDetails.0.modelId": modelProfile,
+        },
         mitre: "T1496.004", tactic: "Impact", severity: "medium", incidentId: INCIDENT,
         description: "GuardDuty raised Impact:IAMUser/CostHarvesting (severity 2, Low) in us-west-2: the svc-build-release access key's Bedrock input and output token volume is far above the account's baseline, sourced from 178.62.204.77.",
       }),

@@ -80,6 +80,7 @@ import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/comp
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { AI_CORE_STORIES } from "./ai-stories/core";
 import { AI_EXTRA_STORIES } from "./ai-stories/extra";
+import { AI_WAVE2_STORIES } from "./ai-stories/wave2";
 import { AI_FOUNDATION_STORIES } from "./ai-stories/foundation";
 import { AI_ADVANCED_A_STORIES } from "./ai-stories/advanced-a";
 import { buildAiLlmJackingScenario } from "@/lib/sim/scenario-packs/aiLlmJacking";
@@ -852,6 +853,7 @@ const AI_STORIES: AttackStory[] = [
   ...AI_FOUNDATION_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   ...AI_CORE_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   ...AI_EXTRA_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_WAVE2_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   ...AI_ADVANCED_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: buildAiLlmJackingScenario().events }, "advanced", ["quantumbank"]),
 ];
