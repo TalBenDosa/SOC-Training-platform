@@ -16,6 +16,7 @@ import { buildOktaPasswordBurstScenario }    from "./scenario-packs/oktaPassword
 import { buildFakeBrowserUpdateScenario }    from "./scenario-packs/fakeBrowserUpdate";
 import { buildTrojanizedInstallerKeyloggerScenario } from "./scenario-packs/trojanizedInstallerKeylogger";
 import { buildMultiHostIntrusionScenario } from "./scenario-packs/multiHostIntrusion";
+import { buildAiLlmJackingScenario } from "./scenario-packs/aiLlmJacking";
 import { buildGwsPhishingAttachmentScenario } from "./scenario-packs/gwsPhishingAttachment";
 import { buildBundledCryptominerScenario }   from "./scenario-packs/bundledCryptominer";
 import { buildSeoPoisonedInstallerScenario }     from "./scenario-packs/seoPoisonedInstaller";
@@ -3319,6 +3320,11 @@ export const SCENARIOS = [
     difficulty: "advanced", attack_kind: "multi_host_intrusion",
     threat_actor: "Hands-on-keyboard intrusion operator (pre-ransomware)", build: withAlerts(buildMultiHostIntrusionScenario),
     summary: "One operator, three hosts, three separate EDR incidents in forty minutes — foothold, an LSASS dump on the file server, and gigabytes staged and pushed out. Investigate each host as its own case, then tie them into one campaign." },
+  { slug: "ai-llmjacking-bedrock",
+    title: "LLMjacking — Stolen CI Key Used for Bedrock Inference",
+    difficulty: "advanced", attack_kind: "llmjacking",
+    threat_actor: "Financially motivated LLMjacking operator (AI capacity resale)", build: withAlerts(buildAiLlmJackingScenario),
+    summary: "A cost alert and a GuardDuty finding land on QuantumBank's AWS account overnight. Work out from CloudTrail and the Bedrock logs what the CI service identity was used for, by whom, and what the logs no longer show." },
   { slug: "gws-phishing-attachment",
     title: "Shared Invoice — Malicious Attachment via Google Workspace",
     difficulty: "beginner", attack_kind: "phishing_attachment",

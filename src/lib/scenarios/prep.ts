@@ -75,6 +75,7 @@ export const SCENARIO_PREP: Record<string, string[]> = {
   "azure-managed-identity-abuse":  ["azure-security", "cloud-security-monitoring"],
   "cicd-supply-chain":             ["aws-security", "cloud-security-monitoring"],
   "s3-exfil-exposure":             ["aws-security", "cloud-security-monitoring"],
+  "ai-llmjacking-bedrock":         ["aws-security", "cloud-security-monitoring"],
   "gcp-sa-key-theft":              ["gcp-security", "cloud-security-monitoring"],
   "container-escape-cryptomining": ["kubernetes-container-security", "cloud-security-monitoring"],
 

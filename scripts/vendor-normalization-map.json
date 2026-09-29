@@ -146,6 +146,9 @@
     "Cisco ASA": "Cisco ASA",
     "Infoblox NIOS": "Infoblox DNS",
     "Microsoft Intune": "Microsoft Intune",
-    "Workday": "Workday"
+    "Workday": "Workday",
+    "Anthropic Claude Enterprise": "Anthropic Claude Enterprise",
+    "Claude Enterprise": "Anthropic Claude Enterprise",
+    "Anthropic Compliance API": "Anthropic Claude Enterprise"
   }
 }

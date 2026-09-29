@@ -78,6 +78,11 @@ import { buildExfilFirstExtortionScenario }      from "@/lib/sim/scenario-packs/
 import { buildHelpdeskMfaResetScenario }         from "@/lib/sim/scenario-packs/helpdeskMfaReset";
 import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
+import { AI_CORE_STORIES } from "./ai-stories/core";
+import { AI_EXTRA_STORIES } from "./ai-stories/extra";
+import { AI_FOUNDATION_STORIES } from "./ai-stories/foundation";
+import { AI_ADVANCED_A_STORIES } from "./ai-stories/advanced-a";
+import { buildAiLlmJackingScenario } from "@/lib/sim/scenario-packs/aiLlmJacking";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 /**
@@ -839,12 +844,25 @@ const RS_ADVANCED_STORIES: AttackStory[] = [
   story("rs-oauth-consent-chaining", { title: "SaaS OAuth Consent-Chaining → AWS Federation Abuse", events: RS_OAUTH_CONSENT_CHAINING }, "advanced", ["rocketstack"]),
 ];
 
+// ── AI-related attacks — part of every tier, not a separate track ───────────────
+// Insider use of enterprise AI, AI-assisted social engineering, Copilot abuse and
+// stolen AI-service credentials, spread across foundation/core/advanced so analysts
+// meet them as ordinary incidents (research: research/ai-attacks-soc/).
+const AI_STORIES: AttackStory[] = [
+  ...AI_FOUNDATION_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_CORE_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_EXTRA_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_ADVANCED_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: buildAiLlmJackingScenario().events }, "advanced", ["quantumbank"]),
+];
+
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
   ...COMPANY_CHAIN_STORIES,
   ROCKETSTACK_CRED_STUFFING_STORY,
   ...QB_ADVANCED_STORIES,
   ...RS_ADVANCED_STORIES,
+  ...AI_STORIES,
 ];
 
 // ── Company fit ───────────────────────────────────────────────────────────────
@@ -869,6 +887,7 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   windows_security: ["ad", "sysmon", "edr"],   // DC/Windows Security events via the AD channel
   linux_audit:      ["edr", "sysmon"],          // auditd shipped by the endpoint agent
   email_gateway:    ["o365", "gws"],
+  sharepoint:       ["o365"],                   // SharePoint/OneDrive audit arrives through the M365 unified audit log
   waf:              ["firewall", "cloudtrail"],  // WAF is an edge/firewall-class device
   db_monitor:       ["edr", "cloudtrail"],       // database activity monitoring
   cloud_azure:      ["o365", "cloudtrail"],
