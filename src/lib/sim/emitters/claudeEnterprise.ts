@@ -12,13 +12,26 @@
  * to WHICH chat/project/file/artifact, from WHERE — so an investigation correlates
  * activity type, volume, timing, filename and actor context.
  *
- * Actor types follow the Compliance API (`user_actor`, `api_actor`,
- * `admin_api_key_actor`, `unauthenticated_user_actor`, `anthropic_actor`,
- * `system_actor`, `scim_directory_sync_actor`). Activity types used here are the
- * documented ones plus artifact activity implied by `claude_artifact_id`.
+ * Activity semantics follow Anthropic's Compliance API reference (platform.claude.com
+ * > Manage Claude > Compliance API, checked 2026-09-29):
+ *  - every `type` below is a documented activity type (e.g. `claude_artifact_sharing_updated`,
+ *    `compliance_api_accessed`, `api_key_created`, `org_ip_restriction_deleted`);
+ *  - actor union and its fields: user_actor {email_address,user_id,ip_address,user_agent},
+ *    api_actor {api_key_id,ip_address,user_agent}, admin_api_key_actor {admin_api_key_id,
+ *    ip_address,user_agent}, unauthenticated_user_actor {unauthenticated_email_address,
+ *    ip_address,user_agent} (e.g. sso_login_initiated), anthropic_actor {email_address:null},
+ *    system_actor {service|null}, scim_directory_sync_actor {workos_event_id,directory_id,
+ *    idp_connection_type e.g. OktaSCIMV2};
+ *  - organization_id / organization_uuid are null on sign-in events and Compliance API calls;
+ *  - Compliance Access Key calls surface as `compliance_api_accessed` by an api_actor;
+ *    Admin API keys (sk-ant-admin01-) reach the Activity Feed only, never chat/file content;
+ *  - since 2026-09-24 the API returns filename null; `data.filename` here is the collector's
+ *    lookup of the claude_file_* id against the file-metadata endpoint.
  *
- * The customer's own Wazuh rule ids/levels/groups are unknown, so the envelope uses
- * a consistent, plausible custom-rule range (100xxx) with Wazuh-style groups.
+ * Wazuh side (real): JSON decoder (`decoder.name: json`), file input (`input.type: log`,
+ * `location` = the collector's output file), custom rules in Wazuh's local range
+ * (100000-120000), GeoIP enrichment into `GeoLocation.*`, compliance and MITRE tags on rules.
+ * The customer's own rule ids/levels/groups are not known, so they are a consistent local set.
  */
 import type { TelemetryEvent, Severity, EventType } from "../types";
 import { makeSha256 } from "@/lib/sim/iocs";
@@ -31,32 +44,42 @@ export type ClaudeActorType =
   | "anthropic_actor" | "system_actor" | "scim_directory_sync_actor";
 
 export type ClaudeActivityType =
-  | "sso_login_initiated" | "sso_login_succeeded"
-  | "claude_chat_created" | "claude_chat_viewed"
-  | "claude_project_created" | "claude_project_viewed"
-  | "claude_file_uploaded" | "claude_file_viewed"
-  | "claude_artifact_created" | "claude_artifact_viewed" | "claude_artifact_shared"
-  | "admin_api_key_created" | "org_user_invite_accepted"
+  | "sso_login_initiated" | "sso_login_succeeded" | "sso_login_failed"
+  | "claude_chat_created" | "claude_chat_viewed" | "claude_chat_deleted"
+  | "claude_project_created" | "claude_project_viewed" | "claude_project_sharing_updated"
+  | "claude_file_uploaded" | "claude_file_viewed" | "claude_file_deleted"
+  | "claude_artifact_created" | "claude_artifact_viewed" | "claude_artifact_sharing_updated" | "claude_artifact_published"
+  | "admin_api_key_created" | "api_key_created" | "compliance_api_accessed"
+  | "org_ip_restriction_deleted" | "org_data_export_started" | "org_user_invite_accepted"
   | "platform_memory_store_created" | "platform_memory_created" | "platform_memory_deleted";
 
 /** Wazuh custom rule per activity (level, description, groups). Plausible customer ruleset. */
 const RULES: Record<ClaudeActivityType, { id: string; level: number; description: string; groups: string[] }> = {
-  sso_login_initiated:          { id: "100510", level: 3,  description: "Claude Enterprise: SSO login initiated",            groups: ["claude", "authentication"] },
-  sso_login_succeeded:          { id: "100511", level: 3,  description: "Claude Enterprise: SSO login succeeded",            groups: ["claude", "authentication", "authentication_success"] },
-  claude_chat_created:          { id: "100520", level: 3,  description: "Claude Enterprise: chat created",                   groups: ["claude", "ai_activity"] },
-  claude_chat_viewed:           { id: "100521", level: 3,  description: "Claude Enterprise: chat viewed",                    groups: ["claude", "ai_activity"] },
-  claude_project_created:       { id: "100530", level: 3,  description: "Claude Enterprise: project created",                groups: ["claude", "ai_activity"] },
-  claude_project_viewed:        { id: "100531", level: 3,  description: "Claude Enterprise: project viewed",                 groups: ["claude", "ai_activity"] },
-  claude_file_uploaded:         { id: "100540", level: 5,  description: "Claude Enterprise: file uploaded",                  groups: ["claude", "ai_activity", "file_upload"] },
-  claude_file_viewed:           { id: "100541", level: 3,  description: "Claude Enterprise: file viewed",                    groups: ["claude", "ai_activity"] },
-  claude_artifact_created:      { id: "100550", level: 3,  description: "Claude Enterprise: artifact created",               groups: ["claude", "ai_activity"] },
-  claude_artifact_viewed:       { id: "100551", level: 3,  description: "Claude Enterprise: artifact viewed",                groups: ["claude", "ai_activity"] },
-  claude_artifact_shared:       { id: "100552", level: 6,  description: "Claude Enterprise: artifact shared",                groups: ["claude", "ai_activity", "sharing"] },
-  admin_api_key_created:        { id: "100560", level: 8,  description: "Claude Enterprise: admin API key created",          groups: ["claude", "admin_activity", "credential_change"] },
-  org_user_invite_accepted:     { id: "100570", level: 4,  description: "Claude Enterprise: organization invite accepted",   groups: ["claude", "admin_activity", "account_change"] },
-  platform_memory_store_created:{ id: "100580", level: 3,  description: "Claude Enterprise: memory store created",           groups: ["claude", "ai_activity"] },
-  platform_memory_created:      { id: "100581", level: 3,  description: "Claude Enterprise: memory created",                 groups: ["claude", "ai_activity"] },
-  platform_memory_deleted:      { id: "100582", level: 5,  description: "Claude Enterprise: memory deleted",                 groups: ["claude", "ai_activity"] },
+  sso_login_initiated:             { id: "100510", level: 3,  description: "Claude Enterprise: SSO login initiated",                 groups: ["claude", "authentication"] },
+  sso_login_succeeded:             { id: "100511", level: 3,  description: "Claude Enterprise: SSO login succeeded",                 groups: ["claude", "authentication", "authentication_success"] },
+  sso_login_failed:                { id: "100512", level: 5,  description: "Claude Enterprise: SSO login failed",                    groups: ["claude", "authentication", "authentication_failed"] },
+  claude_chat_created:             { id: "100520", level: 3,  description: "Claude Enterprise: chat created",                        groups: ["claude", "ai_activity"] },
+  claude_chat_viewed:              { id: "100521", level: 3,  description: "Claude Enterprise: chat loaded",                         groups: ["claude", "ai_activity"] },
+  claude_chat_deleted:             { id: "100522", level: 5,  description: "Claude Enterprise: chat deleted",                        groups: ["claude", "ai_activity", "data_deletion"] },
+  claude_project_created:          { id: "100530", level: 3,  description: "Claude Enterprise: project created",                     groups: ["claude", "ai_activity"] },
+  claude_project_viewed:           { id: "100531", level: 3,  description: "Claude Enterprise: project loaded",                      groups: ["claude", "ai_activity"] },
+  claude_project_sharing_updated:  { id: "100532", level: 6,  description: "Claude Enterprise: project sharing settings updated",    groups: ["claude", "ai_activity", "sharing"] },
+  claude_file_uploaded:            { id: "100540", level: 5,  description: "Claude Enterprise: file uploaded",                       groups: ["claude", "ai_activity", "file_upload"] },
+  claude_file_viewed:              { id: "100541", level: 3,  description: "Claude Enterprise: file loaded",                         groups: ["claude", "ai_activity"] },
+  claude_file_deleted:             { id: "100542", level: 5,  description: "Claude Enterprise: file deleted",                        groups: ["claude", "ai_activity", "data_deletion"] },
+  claude_artifact_created:         { id: "100550", level: 3,  description: "Claude Enterprise: artifact created",                    groups: ["claude", "ai_activity"] },
+  claude_artifact_viewed:          { id: "100551", level: 3,  description: "Claude Enterprise: artifact loaded",                     groups: ["claude", "ai_activity"] },
+  claude_artifact_sharing_updated: { id: "100552", level: 6,  description: "Claude Enterprise: artifact sharing settings updated",   groups: ["claude", "ai_activity", "sharing"] },
+  claude_artifact_published:       { id: "100553", level: 7,  description: "Claude Enterprise: artifact version published",          groups: ["claude", "ai_activity", "sharing", "public_link"] },
+  admin_api_key_created:           { id: "100560", level: 8,  description: "Claude Enterprise: admin API key created",               groups: ["claude", "admin_activity", "credential_change"] },
+  api_key_created:                 { id: "100561", level: 8,  description: "Claude Enterprise: API key created",                     groups: ["claude", "admin_activity", "credential_change"] },
+  compliance_api_accessed:         { id: "100562", level: 5,  description: "Claude Enterprise: Compliance API accessed",             groups: ["claude", "api_access"] },
+  org_ip_restriction_deleted:      { id: "100565", level: 10, description: "Claude Enterprise: organization IP restriction deleted", groups: ["claude", "admin_activity", "policy_changed"] },
+  org_data_export_started:         { id: "100566", level: 9,  description: "Claude Enterprise: organization data export started",    groups: ["claude", "admin_activity", "data_export"] },
+  org_user_invite_accepted:        { id: "100570", level: 4,  description: "Claude Enterprise: organization invite accepted",        groups: ["claude", "admin_activity", "account_change"] },
+  platform_memory_store_created:   { id: "100580", level: 3,  description: "Claude Enterprise: memory store created",                groups: ["claude", "ai_activity"] },
+  platform_memory_created:         { id: "100581", level: 3,  description: "Claude Enterprise: memory created",                      groups: ["claude", "ai_activity"] },
+  platform_memory_deleted:         { id: "100582", level: 5,  description: "Claude Enterprise: memory deleted",                      groups: ["claude", "ai_activity"] },
 };
 
 /** Wazuh compliance tags per rule family (same style as Wazuh's default ruleset). */
@@ -65,12 +88,13 @@ const AUTH_TAGS: Compliance   = { pci_dss: ["10.2.5"], gdpr: ["IV_32.2"], hipaa:
 const DATA_TAGS: Compliance   = { pci_dss: ["10.2.1"], gdpr: ["IV_30.1.g"], hipaa: ["164.312.b"], nist_800_53: ["AU.2", "AU.12"], tsc: ["CC7.2"] };
 const ADMIN_TAGS: Compliance  = { pci_dss: ["8.1.2", "10.2.5"], gdpr: ["IV_32.2", "IV_35.7.d"], hipaa: ["164.312.a.2.I", "164.312.b"], nist_800_53: ["AC.2", "IA.4"], tsc: ["CC6.1", "CC6.2", "CC6.3"] };
 const COMPLIANCE: Record<ClaudeActivityType, Compliance> = {
-  sso_login_initiated: AUTH_TAGS, sso_login_succeeded: AUTH_TAGS,
-  claude_chat_created: {}, claude_chat_viewed: DATA_TAGS,
-  claude_project_created: {}, claude_project_viewed: DATA_TAGS,
-  claude_file_uploaded: DATA_TAGS, claude_file_viewed: DATA_TAGS,
-  claude_artifact_created: {}, claude_artifact_viewed: DATA_TAGS, claude_artifact_shared: DATA_TAGS,
-  admin_api_key_created: ADMIN_TAGS, org_user_invite_accepted: ADMIN_TAGS,
+  sso_login_initiated: AUTH_TAGS, sso_login_succeeded: AUTH_TAGS, sso_login_failed: AUTH_TAGS,
+  claude_chat_created: {}, claude_chat_viewed: DATA_TAGS, claude_chat_deleted: DATA_TAGS,
+  claude_project_created: {}, claude_project_viewed: DATA_TAGS, claude_project_sharing_updated: DATA_TAGS,
+  claude_file_uploaded: DATA_TAGS, claude_file_viewed: DATA_TAGS, claude_file_deleted: DATA_TAGS,
+  claude_artifact_created: {}, claude_artifact_viewed: DATA_TAGS, claude_artifact_sharing_updated: DATA_TAGS, claude_artifact_published: DATA_TAGS,
+  admin_api_key_created: ADMIN_TAGS, api_key_created: ADMIN_TAGS, compliance_api_accessed: DATA_TAGS,
+  org_ip_restriction_deleted: ADMIN_TAGS, org_data_export_started: DATA_TAGS, org_user_invite_accepted: ADMIN_TAGS,
   platform_memory_store_created: {}, platform_memory_created: {}, platform_memory_deleted: DATA_TAGS,
 };
 
@@ -83,27 +107,37 @@ const TECHNIQUE_NAMES: Record<string, string> = {
   "T1567": "Exfiltration Over Web Service",
   "T1552": "Unsecured Credentials", "T1552.001": "Credentials In Files",
   "T1070": "Indicator Removal",
+  "T1562": "Impair Defenses", "T1562.007": "Disable or Modify Cloud Firewall",
 };
 
 const isPrivate = (ip?: string) => !ip || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(ip);
 
 /** Normalised event_type for the platform (drives descriptions, filters, alert classing). */
 const EVENT_TYPE: Record<ClaudeActivityType, EventType> = {
-  sso_login_initiated: "auth_success", sso_login_succeeded: "auth_success",
-  claude_chat_created: "cloud_api_call", claude_chat_viewed: "cloud_api_call",
-  claude_project_created: "cloud_api_call", claude_project_viewed: "cloud_storage_access",
-  claude_file_uploaded: "cloud_storage_access", claude_file_viewed: "cloud_storage_access",
-  claude_artifact_created: "cloud_api_call", claude_artifact_viewed: "cloud_storage_access", claude_artifact_shared: "cloud_storage_access",
-  admin_api_key_created: "account_modify", org_user_invite_accepted: "account_modify",
+  sso_login_initiated: "auth_success", sso_login_succeeded: "auth_success", sso_login_failed: "auth_failure",
+  claude_chat_created: "cloud_api_call", claude_chat_viewed: "cloud_api_call", claude_chat_deleted: "cloud_api_call",
+  claude_project_created: "cloud_api_call", claude_project_viewed: "cloud_storage_access", claude_project_sharing_updated: "cloud_storage_access",
+  claude_file_uploaded: "cloud_storage_access", claude_file_viewed: "cloud_storage_access", claude_file_deleted: "cloud_storage_access",
+  claude_artifact_created: "cloud_api_call", claude_artifact_viewed: "cloud_storage_access", claude_artifact_sharing_updated: "cloud_storage_access", claude_artifact_published: "cloud_storage_access",
+  admin_api_key_created: "account_modify", api_key_created: "account_modify", compliance_api_accessed: "cloud_api_call",
+  org_ip_restriction_deleted: "account_modify", org_data_export_started: "cloud_storage_access", org_user_invite_accepted: "account_modify",
   platform_memory_store_created: "cloud_api_call", platform_memory_created: "cloud_api_call", platform_memory_deleted: "cloud_api_call",
 };
 
-/** Stable Compliance-API-style identifiers (base58-ish, "_01" + 24 chars). */
+/** Activities not tied to an organization carry organization_id/uuid = null (Compliance API docs). */
+const ORGLESS = new Set<ClaudeActivityType>(["sso_login_initiated", "sso_login_succeeded", "sso_login_failed", "compliance_api_accessed"]);
+/** Default actor per activity when the caller does not choose one. */
+const DEFAULT_ACTOR: Partial<Record<ClaudeActivityType, ClaudeActorType>> = {
+  sso_login_initiated: "unauthenticated_user_actor",
+  compliance_api_accessed: "api_actor",
+};
+
+/** Stable Compliance-API-style identifiers (base58-ish, "_01" + 22 chars, as in the API docs). */
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 export function claudeId(prefix: string, seed: string): string {
   const h = makeSha256(`claude:${prefix}:${seed}`);
   let s = "";
-  for (let i = 0; i < 24; i++) s += B58[parseInt(h.slice(i * 2, i * 2 + 2), 16) % B58.length];
+  for (let i = 0; i < 22; i++) s += B58[parseInt(h.slice(i * 2, i * 2 + 2), 16) % B58.length];
   return `${prefix}_01${s}`;
 }
 const uuidFrom = (seed: string) => {
@@ -140,9 +174,9 @@ export interface ClaudeActivityOpts {
   source?: string;                  // data.source (collector channel)
   firedTimes?: number;              // Wazuh rule.firedtimes at this event
   geo?: GeoPoint;                   // GeoIP of actor.ip_address (Wazuh GeoLocation.*); else known-prefix table
-  service?: string;                 // system_actor → data.actor.service
+  service?: string | null;          // system_actor → data.actor.service (nullable)
   directoryId?: string;             // scim_directory_sync_actor → data.actor.directory_id
-  idpConnectionType?: string;       // scim_directory_sync_actor → data.actor.idp_connection_type
+  idpConnectionType?: string;       // scim_directory_sync_actor → data.actor.idp_connection_type (e.g. OktaSCIMV2)
   severity?: Severity;
   mitre?: string;
   tactic?: string;
@@ -154,7 +188,7 @@ export interface ClaudeActivityOpts {
 }
 
 export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
-  const actorType = o.actorType ?? "user_actor";
+  const actorType = o.actorType ?? DEFAULT_ACTOR[o.type] ?? "user_actor";
   const rule = RULES[o.type];
   const ingest = new Date(Date.parse(o.ts) + 1_000 + (parseInt(makeSha256(o.id).slice(0, 2), 16) % 900)).toISOString();
   const orgId = claudeId("org", o.org.key);
@@ -165,24 +199,32 @@ export function claudeActivity(o: ClaudeActivityOpts): TelemetryEvent {
     "data.id": activityId,
     "data.type": o.type,
     "data.created_at": o.ts,
-    "data.organization_id": orgId,
-    "data.organization_uuid": uuidFrom(`org:${o.org.key}`),
+    "data.organization_id": ORGLESS.has(o.type) ? null : orgId,
+    "data.organization_uuid": ORGLESS.has(o.type) ? null : uuidFrom(`org:${o.org.key}`),
     "data.source": o.source ?? "compliance_api",
     "data.actor.type": actorType,
   };
-  if (actorType === "user_actor" || actorType === "unauthenticated_user_actor") {
+  if (actorType === "user_actor") {
     if (o.email) data["data.actor.email_address"] = o.email;
-    if (userId && actorType === "user_actor") data["data.actor.user_id"] = userId;
+    if (userId) data["data.actor.user_id"] = userId;
     if (o.ip) data["data.actor.ip_address"] = o.ip;
     if (o.userAgent) data["data.actor.user_agent"] = o.userAgent;
+  } else if (actorType === "unauthenticated_user_actor") {
+    if (o.email) data["data.actor.unauthenticated_email_address"] = o.email;
+    if (o.ip) data["data.actor.ip_address"] = o.ip;
+    if (o.userAgent) data["data.actor.user_agent"] = o.userAgent;
+  } else if (actorType === "anthropic_actor") {
+    data["data.actor.email_address"] = null;
   } else if (actorType === "system_actor") {
-    data["data.actor.service"] = o.service ?? "claude_platform";
+    data["data.actor.service"] = o.service ?? null;
   } else if (actorType === "scim_directory_sync_actor") {
+    data["data.actor.workos_event_id"] = claudeId("event", o.id);
     data["data.actor.directory_id"] = o.directoryId ?? claudeId("directory", o.org.key);
-    data["data.actor.idp_connection_type"] = o.idpConnectionType ?? "okta";
+    data["data.actor.idp_connection_type"] = o.idpConnectionType ?? "OktaSCIMV2";
   } else if (actorType === "api_actor" || actorType === "admin_api_key_actor") {
     data[actorType === "api_actor" ? "data.actor.api_key_id" : "data.actor.admin_api_key_id"] = o.apiKeyId ?? claudeId("apikey", o.id);
     if (o.ip) data["data.actor.ip_address"] = o.ip;
+    if (o.userAgent) data["data.actor.user_agent"] = o.userAgent;
   }
   if (o.projectSeed) data["data.claude_project_id"] = claudeId("claude_proj", o.projectSeed);
   if (o.chatSeed) data["data.claude_chat_id"] = claudeId("claude_chat", o.chatSeed);
