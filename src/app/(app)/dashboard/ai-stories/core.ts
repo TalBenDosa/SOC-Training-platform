@@ -42,6 +42,19 @@ export interface AiStoryDef {
 
 // ── small deterministic helpers ────────────────────────────────────────────────
 
+/** Deterministic lowercase hex fragment (for GUID-shaped ids). */
+function hexOf(seed: string, len: number): string {
+  let out = "";
+  let s = seed;
+  while (out.length < len) {
+    let x = 2166136261;
+    for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 16777619); }
+    out += (x >>> 0).toString(16).padStart(8, "0");
+    s = `${s}|${out.length}`;
+  }
+  return out.slice(0, len);
+}
+
 /** Deterministic mixed-case alphanumeric id fragment (looks like a real opaque id). */
 function opaque(seed: string, len: number): string {
   let out = "";
@@ -554,7 +567,7 @@ function buildCopilotProbe(): TelemetryEvent[] {
         "data.office365.Operation": "CopilotInteraction",
         "data.office365.RecordType": "261",
         "data.office365.Workload": "Copilot",
-        "data.office365.Id": `${opaque(`ci:${id}`, 8)}-${opaque(`cj:${id}`, 4)}-4${opaque(`ck:${id}`, 3)}-9${opaque(`cl:${id}`, 3)}-${opaque(`cm:${id}`, 12)}`.toLowerCase(),
+        "data.office365.Id": `${hexOf(`ci:${id}`, 8)}-${hexOf(`cj:${id}`, 4)}-4${hexOf(`ck:${id}`, 3)}-9${hexOf(`cl:${id}`, 3)}-${hexOf(`cm:${id}`, 12)}`,
         "data.office365.CreationTime": ts.replace(/\.\d{3}Z$/, ""),
         "data.office365.OrganizationId": ORG,
         "data.office365.UserId": USER,
