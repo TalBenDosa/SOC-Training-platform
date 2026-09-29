@@ -8,7 +8,7 @@
  *  1. ai-helpdesk-voice-reset        — voice-clone impersonation → MFA reset → new-device
  *                                       sign-in → mailbox forwarding rule
  *  2. ai-claude-enterprise-departure — resignation → after-hours bulk uploads to Claude
- *                                       Enterprise (real Compliance-API shape via Wazuh)
+ *                                       Enterprise (Compliance API activity records)
  *  3. ai-copilot-oversharing-probe   — Copilot jailbreak prompts + sensitivity-labelled
  *                                       HR / IT / finance files read on behalf of a user who
  *                                       never opens them
@@ -21,8 +21,7 @@
  *  - Purview CopilotInteraction carries NO prompt text — only message ids and the
  *    JailbreakDetected flag, plus AccessedResources (Name / Type / SensitivityLabelId / Status).
  *  - Claude Enterprise audit events carry NO prompt or file content — only ids, filename,
- *    actor, type. The Wazuh envelope values (rule.*, decoder.name, location, input.type)
- *    are generic/plausible; the customer's exact custom rule ids are unknown.
+ *    actor, type — the activity record as it lands in the SIEM, no collector envelope.
  *  - SharePoint records intentionally carry SourceRelativeUrl (site + library path) but no
  *    absolute tenant host, so no company-specific host survives the per-company swap.
  */
@@ -252,15 +251,14 @@ interface ClaudeOpts {
   id: string; ts: string; type: string;
   email: string; userId: string; ip: string; ua: string;
   projectId?: string; fileId?: string; filename?: string;
-  ruleId: string; ruleLevel: string; ruleDesc: string; fired: number;
   severity: TelemetryEvent["severity"]; description: string;
   mitre?: string; tactic?: string;
 }
 
 /**
- * One Claude Enterprise Compliance-API activity as ingested by Wazuh — delegated to the
+ * One Claude Enterprise Compliance-API activity as it lands in the SIEM — delegated to the
  * shared emitter (src/lib/sim/emitters/claudeEnterprise.ts) so every Claude log in the
- * platform has the same envelope, rule ids and id formats. No prompt, response or file
+ * platform has the same field set and id formats. No prompt, response or file
  * content is present in this log — only ids, filename, actor and activity type.
  */
 function claudeEvent(o: ClaudeOpts): TelemetryEvent {
@@ -268,9 +266,11 @@ function claudeEvent(o: ClaudeOpts): TelemetryEvent {
     id: o.id, ts: o.ts, org: { key: "nexacorp" },
     type: o.type as ClaudeActivityType,
     email: o.email, ip: o.ip, userAgent: o.ua,
-    geo: o.ip === OFFICE_IP ? { country: OFFICE_GEO.country, city: OFFICE_GEO.city, lat: OFFICE_GEO.latitude, lon: OFFICE_GEO.longitude } : undefined,
+    geo: o.ip === OFFICE_IP ? { country: OFFICE_GEO.country, city: OFFICE_GEO.city, lat: OFFICE_GEO.latitude, lon: OFFICE_GEO.longitude }
+      : o.ip === "86.14.203.57" ? { country: "United Kingdom", city: "Manchester", lat: 53.4808, lon: -2.2426 }   // a.kaplan's home ISP
+      : undefined,
     projectSeed: o.projectId, fileSeed: o.fileId, filename: o.filename,
-    firedTimes: o.fired, severity: o.severity, description: o.description,
+    severity: o.severity, description: o.description,
     mitre: o.mitre, tactic: o.tactic,
   });
 }
@@ -313,7 +313,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     // 2. Baseline — ordinary daytime Claude use from the office.
     claudeEvent({
       id: "aicld2", ts: "2026-09-24T11:26:33.140Z", type: "claude_chat_created", ...base, ip: OFFICE_IP,
-      ruleId: "100913", ruleLevel: "3", ruleDesc: "Claude Enterprise: chat created", fired: 41, severity: "informational",
+      severity: "informational",
       description: "a.kaplan started a new Claude Enterprise chat at 11:26 from the corporate office egress address in a normal browser session. No project, no file upload — this is the account's usual daytime pattern on the sanctioned AI workspace.",
     }),
 
@@ -342,21 +342,21 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     // 5. SSO into Claude Enterprise, outside business hours, from home.
     claudeEvent({
       id: "aicld5", ts: "2026-09-24T20:03:58.221Z", type: "sso_login_initiated", ...base, ip: HOME_IP,
-      ruleId: "100910", ruleLevel: "3", ruleDesc: "Claude Enterprise: SSO login initiated", fired: 12, severity: "low",
+      severity: "low",
       description: "a.kaplan initiated a Claude Enterprise SSO login at 20:03 from the home internet address, about eight and a half hours after the last daytime session from the office.",
     }),
 
     // 6. Opens a project.
     claudeEvent({
       id: "aicld6", ts: "2026-09-24T20:05:31.480Z", type: "claude_project_viewed", ...base, ip: HOME_IP, projectId: PROJECT,
-      ruleId: "100911", ruleLevel: "3", ruleDesc: "Claude Enterprise: project viewed", fired: 7, severity: "low",
+      severity: "low",
       description: "a.kaplan opened a Claude Enterprise project at 20:05. The audit record carries the project id only — no project name, prompt or file content.",
     }),
 
     // 7. First upload — the file just downloaded.
     claudeEvent({
       id: "aicld7", ts: "2026-09-24T20:07:14.902Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F1.id, filename: F1.name,
-      ruleId: "100912", ruleLevel: "6", ruleDesc: "Claude Enterprise: file uploaded to project", fired: 5, severity: "medium",
+      severity: "medium",
       mitre: "T1567", tactic: "Exfiltration",
       description: "a.kaplan uploaded Enterprise_Accounts_Renewals_FY27.xlsx to the Claude Enterprise project — the file downloaded from SharePoint about 22 minutes earlier. This is the company's own tenant, so the upload alone is not a leak; the risk is a leaver consolidating customer data in a place from which it can be pulled back out (ATLAS AML.T0025 when an AI workspace is used as the staging channel).",
     }),
@@ -401,7 +401,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     // 9. Second upload.
     claudeEvent({
       id: "aicld9", ts: "2026-09-24T20:07:52.117Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F2.id, filename: F2.name,
-      ruleId: "100912", ruleLevel: "6", ruleDesc: "Claude Enterprise: file uploaded to project", fired: 6, severity: "high",
+      severity: "high",
       mitre: "T1567", tactic: "Exfiltration",
       description: "a.kaplan uploaded Top50_Customer_Contracts_Redlines.docx to the same Claude Enterprise project 37 seconds after the first upload — the second file downloaded from SharePoint earlier the same evening.",
     }),
@@ -409,13 +409,13 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     // 10-11. Two more files in quick succession.
     claudeEvent({
       id: "aicld10", ts: "2026-09-24T20:12:40.560Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F3.id, filename: F3.name,
-      ruleId: "100912", ruleLevel: "6", ruleDesc: "Claude Enterprise: file uploaded to project", fired: 7, severity: "high",
+      severity: "high",
       mitre: "T1567", tactic: "Exfiltration",
       description: "a.kaplan uploaded Pricing_Model_Discounts_2026.xlsx to the project at 20:12 — a pricing file with no matching SharePoint download in this feed.",
     }),
     claudeEvent({
       id: "aicld11", ts: "2026-09-24T20:12:58.301Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F4.id, filename: F4.name,
-      ruleId: "100912", ruleLevel: "6", ruleDesc: "Claude Enterprise: file uploaded to project", fired: 8, severity: "high",
+      severity: "high",
       mitre: "T1567", tactic: "Exfiltration",
       description: "a.kaplan uploaded Pipeline_Q4_Forecast_Detail.xlsx 18 seconds after the pricing file: four commercially sensitive files (renewals, contracts, pricing, pipeline) are now in one Claude Enterprise project, all uploaded between 20:07 and 20:12 by an employee who resigned that morning.",
     }),
@@ -423,7 +423,7 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     // 12. A chat inside the project.
     claudeEvent({
       id: "aicld12", ts: "2026-09-24T20:16:26.348Z", type: "claude_chat_created", ...base, ip: HOME_IP, projectId: PROJECT,
-      ruleId: "100913", ruleLevel: "3", ruleDesc: "Claude Enterprise: chat created", fired: 42, severity: "medium",
+      severity: "medium",
       description: "a.kaplan created a new chat inside the project holding the four uploaded files at 20:16. The audit log records that the chat exists, not what was asked or answered — establishing what was done with the data needs the Compliance API session content, HR and legal.",
     }),
   ];
