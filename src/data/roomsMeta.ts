@@ -7696,12 +7696,12 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "ai-attacks-soc-detection",
-    "title": "AI Attacks in the SOC: Detecting Prompt Injection, Deepfakes, and Shadow AI",
-    "description": "The threats a SOC analyst now meets in the queue: prompt injection against internal LLM apps, sensitive data leaking out of a model's answers, poisoned training and RAG data, AI-generated deepfake vishing calls, LLM-crafted phishing at scale, and employees pasting secrets into ChatGPT. Grounded in OWASP Top 10 for LLM Applications (2025), MITRE ATLAS, and real incidents including the $25M Arup deepfake fraud.",
+    "title": "AI Attacks in the SOC, Part 1: Prompt Injection and Attacks on LLM Apps",
+    "description": "Part 1 of 3. Why AI is now a SOC problem, then the attacks aimed at the organization's own LLM applications: direct and indirect prompt injection, sensitive data leaking out of a model's answers, poisoned training and RAG data, and model theft — each with the log signals an analyst sees and how to detect it. Grounded in OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
-    "estimatedMinutes": 120,
-    "xp": 425,
+    "estimatedMinutes": 40,
+    "xp": 130,
     "icon": "🧠",
     "prerequisites": [
       "email-security",
@@ -7739,6 +7739,11 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       },
       {
+        "id": "aisoc-f1",
+        "type": "flag",
+        "xp": 20
+      },
+      {
         "id": "aisoc-r4",
         "type": "reading",
         "xp": 0
@@ -7762,7 +7767,22 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aisoc-q4",
         "type": "question",
         "xp": 15
-      },
+      }
+    ]
+  },
+  {
+    "id": "ai-attacks-soc-llm-risks",
+    "title": "AI Attacks in the SOC, Part 2: Agents, Output Handling and Jailbreaks",
+    "description": "Part 2 of 3. The rest of the OWASP Top 10 for LLM Applications in depth: excessive agency when an AI agent holds too much power, improper output handling, unbounded consumption, adversarial evasion of AI models, and jailbreaks — how each turns an injection attempt into real impact, and the controls and detections that stop it.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 40,
+    "xp": 145,
+    "icon": "🧠",
+    "prerequisites": [
+      "ai-attacks-soc-detection"
+    ],
+    "tasks": [
       {
         "id": "aisoc-r7",
         "type": "reading",
@@ -7824,6 +7844,26 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 15
       },
       {
+        "id": "aisoc-q7",
+        "type": "question",
+        "xp": 20
+      }
+    ]
+  },
+  {
+    "id": "ai-attacks-soc-social",
+    "title": "AI Attacks in the SOC, Part 3: Deepfakes, AI Phishing and Shadow AI",
+    "description": "Part 3 of 3. AI used against people and processes: deepfake voice and video vishing (the $25M Arup case), LLM-written phishing and BEC at scale, and employees pasting secrets into public AI tools — then MITRE ATLAS, NIST AI RMF and how to build AI-attack detection use cases for your SOC.",
+    "difficulty": "intermediate",
+    "category": "Threat Detection",
+    "estimatedMinutes": 40,
+    "xp": 150,
+    "icon": "🧠",
+    "prerequisites": [
+      "ai-attacks-soc-llm-risks"
+    ],
+    "tasks": [
+      {
         "id": "aisoc-r8",
         "type": "reading",
         "xp": 0
@@ -7865,19 +7905,9 @@ export const ROOMS_META: RoomMeta[] = [
         "mitreTechnique": "T1567"
       },
       {
-        "id": "aisoc-f1",
-        "type": "flag",
-        "xp": 20
-      },
-      {
         "id": "aisoc-r11",
         "type": "reading",
         "xp": 0
-      },
-      {
-        "id": "aisoc-q7",
-        "type": "question",
-        "xp": 20
       },
       {
         "id": "aisoc-f2",

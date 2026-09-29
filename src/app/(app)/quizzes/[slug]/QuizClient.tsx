@@ -7,6 +7,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import type { Quiz } from "@/lib/quizzes/data";
 import { type ClientQuiz, sanitizeQuizQuestion } from "@/lib/quizzes/sanitize";
 import { addTotalXp, setTotalXp, recordQuizActivity } from "@/lib/storage/progress";
+import { newShuffleSeed, optionDisplayOrder, remapOptionLetters } from "@/lib/rooms/shuffle";
 
 // Guests (no account) keep their best-per-quiz locally so retries don't farm XP.
 const GUEST_QUIZ_BEST_KEY = "soc_quiz_best_local";
@@ -89,6 +90,13 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
   }, [initialQuiz.slug]);
 
   const [phase, setPhase]     = useState<QuizPhase>("idle");
+  // Display-time option shuffle (same mechanism as rooms/lessons, FB-002): authors
+  // cluster the correct answer in one slot, so the order on screen is shuffled per
+  // attempt. Selection, grading and the server reveal stay in ORIGINAL indices;
+  // only the order and the A-D letters shown move. Options render only after
+  // Start, so the per-mount random seed never reaches SSR output.
+  const [shuffleSeed, setShuffleSeed] = useState<string>(() => newShuffleSeed());
+  const orderOf = (q: { id: string; options: string[] }) => optionDisplayOrder(q.options, `${shuffleSeed}:${q.id}`);
   const [current, setCurrent] = useState(0);
   const [stateMap, setStateMap] = useState<Record<string, AnswerState>>({});
   // Server-graded results, keyed by question id (populated on confirm).
@@ -214,6 +222,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
 
   // ── retry ─────────────────────────────────────────────────────
   const handleRetry = () => {
+    setShuffleSeed(newShuffleSeed());
     setStateMap({});
     setResults({});
     setGradeError(null);
@@ -429,7 +438,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
                         </p>
                       )}
                       {r?.explanation && (
-                        <p className="text-[11px] text-slate-400 leading-relaxed">{r.explanation}</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{remapOptionLetters(r.explanation, orderOf(q))}</p>
                       )}
                     </div>
                     {correct && (
@@ -514,7 +523,8 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
 
           {/* Options */}
           <div className="px-6 pb-4 space-y-2">
-            {question.options.map((opt, idx) => {
+            {orderOf(question).map((idx, displayIdx) => {
+              const opt       = question.options[idx];
               const selected  = qState.selected === idx;
               const correctIdx = qResult?.answer ?? null;
               const revCorr   = qState.revealed && correctIdx !== null && idx === correctIdx;
@@ -542,7 +552,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
                     revWrong  && "border-severity-high text-severity-high",
                     qState.revealed && !selected && idx !== correctIdx && "border-slate-700 text-slate-700",
                   )}>
-                    {String.fromCharCode(65 + idx)}
+                    {String.fromCharCode(65 + displayIdx)}
                   </span>
                   <span>{opt}</span>
                   {revCorr  && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-neon-green" />}
@@ -563,7 +573,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
               )}>
                 {isCorrect ? "Correct!" : "Explanation"}
               </p>
-              <p className="text-xs text-slate-300 leading-relaxed">{qResult?.explanation}</p>
+              <p className="text-xs text-slate-300 leading-relaxed">{remapOptionLetters(qResult?.explanation ?? "", orderOf(question))}</p>
             </div>
           )}
 
