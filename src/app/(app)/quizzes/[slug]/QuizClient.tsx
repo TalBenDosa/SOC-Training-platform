@@ -15,7 +15,7 @@ const GUEST_QUIZ_BEST_KEY = "soc_quiz_best_local";
 // Result of crediting the finished quiz to the overall score.
 type SaveState =
   | { status: "idle" | "saving" }
-  | { status: "saved"; delta: number; bestXp: number }
+  | { status: "saved"; delta: number; bestXp: number; runXp?: number }
   | { status: "error" };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -186,7 +186,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
         recordQuizActivity(); // streak signal (quiz_progress.last_completed_at on the server)
         if (typeof data.totalXp === "number") setTotalXp(data.totalXp);
         else if (data.delta > 0) addTotalXp(data.delta);
-        setSave({ status: "saved", delta: data.delta ?? 0, bestXp: data.bestXp ?? 0 });
+        setSave({ status: "saved", delta: data.delta ?? 0, bestXp: data.bestXp ?? 0, runXp: typeof data.xpEarned === "number" ? data.xpEarned : undefined });
       } else if (data?.guest) {
         recordQuizActivity();
         let best: Record<string, number> = {};
@@ -237,6 +237,9 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
   const xpEarned = quiz.questions.reduce((sum, q) => {
     return sum + (results[q.id]?.correct ? q.xp : 0);
   }, 0);
+  // The server's figure once saved (a question first answered wrong earns half
+  // on a retake — first-answer rule, 0078); the local estimate until then.
+  const shownXp = save.status === "saved" && typeof save.runXp === "number" ? save.runXp : xpEarned;
 
   const scorePercent = Math.round((correctCount / totalQ) * 100);
 
@@ -344,14 +347,14 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
                 {scorePercent >= 80 ? "Excellent work!" : scorePercent >= 60 ? "Good effort!" : "Keep practising!"}
               </h2>
               <p className="text-sm text-slate-400">
-                {correctCount}/{totalQ} correct · {formatTime(elapsed)} · +{xpEarned} XP earned
+                {correctCount}/{totalQ} correct · {formatTime(elapsed)} · +{shownXp} XP earned
               </p>
               {/* Whether (and how much of) this attempt reached the overall score */}
               <p aria-live="polite" className={cn("mt-1.5 text-xs",
                 save.status === "error" ? "text-severity-high" : save.status === "saved" && save.delta > 0 ? "text-neon-green" : "text-slate-400")}>
                 {save.status === "saving" && "Saving to your overall score…"}
                 {save.status === "saved" && save.delta > 0 && `✓ +${save.delta} XP added to your overall score`}
-                {save.status === "saved" && save.delta === 0 && (xpEarned > 0
+                {save.status === "saved" && save.delta === 0 && (shownXp > 0
                   ? `Your best on this quiz (${save.bestXp} XP) already counts — beat it to earn more.`
                   : "No XP this time — correct answers earn XP.")}
                 {save.status === "error" && (
@@ -376,7 +379,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
               {[
                 { label: "Score",    value: `${scorePercent}%` },
                 { label: "Time",     value: formatTime(elapsed), icon: Clock },
-                { label: "XP",       value: `+${xpEarned}` },
+                { label: "XP",       value: `+${shownXp}` },
               ].map(s => (
                 <div key={s.label} className="px-4 py-3 text-center">
                   <p className="font-mono text-lg font-bold text-cyber-300">{s.value}</p>

@@ -3,6 +3,7 @@ import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { findLesson } from "@/lib/lessons/paths";
 import { parseLessonSlug } from "@/lib/lessons/lessonContent";
+import { lessonXpFromFirstAnswers } from "@/lib/xp/firstAnswers";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,9 @@ export const runtime = "nodejs";
  *
  * SERVER-AUTHORITATIVE (migration 0074):
  *  - The XP comes from the lesson CATALOG (src/lib/lessons/paths.ts) looked up
- *    here — the client sends no amount.
+ *    here — the client sends no amount. Full XP when the learner's FIRST graded
+ *    answers already passed the knowledge check (graded_first_answers, 0078);
+ *    half when they passed only after the key was revealed.
  *  - complete_lesson() credits it only if the lesson's knowledge check was
  *    PASSED and recorded server-side (the quiz grade route stamps
  *    quiz_passed_at), and only ONCE — the first completion. Repeat calls return
@@ -40,8 +43,16 @@ export async function POST(
   if (!parsed || !found) return NextResponse.json({ error: "Lesson not found." }, { status: 404 });
   const lessonKey = `${parsed.pathSlug}--${parsed.lessonSlug}`;
 
+  const { data: firsts, error: firstErr } = await admin.from("graded_first_answers")
+    .select("correct").eq("user_id", user.id).eq("kind", "lesson").eq("content_id", lessonKey);
+  if (firstErr) {
+    console.error("[lesson complete] first answers read failed:", firstErr.message);
+    return NextResponse.json({ error: "Couldn't save your lesson completion. Please try again." }, { status: 503 });
+  }
+  const lessonXp = lessonXpFromFirstAnswers(found.lesson.xp, (firsts ?? []).map(r => !!r.correct));
+
   const { data, error } = await admin.rpc("complete_lesson", {
-    p_user: user.id, p_key: lessonKey, p_org: user.orgId ?? null, p_xp: found.lesson.xp,
+    p_user: user.id, p_key: lessonKey, p_org: user.orgId ?? null, p_xp: lessonXp,
   });
   if (error) {
     console.error("[lesson complete] complete_lesson failed:", error.message);

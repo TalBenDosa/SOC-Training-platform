@@ -17,7 +17,7 @@
  */
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-async function fetchPublished<T>(table: "content_scenarios" | "content_quizzes" | "content_lessons"): Promise<T[]> {
+async function fetchPublished<T>(table: "content_scenarios" | "content_lessons"): Promise<T[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return []; // guest/local mode — no durable store to read from
   const { data, error } = await supabase
@@ -30,7 +30,19 @@ async function fetchPublished<T>(table: "content_scenarios" | "content_quizzes" 
 }
 
 export const fetchPublishedScenarios = <T,>() => fetchPublished<T>("content_scenarios");
-export const fetchPublishedQuizzes   = <T,>() => fetchPublished<T>("content_quizzes");
+/**
+ * Quizzes come through published_quizzes() (0078): same visibility as the RLS
+ * policy, but answer + explanation are stripped in the database — the content
+ * column itself is not readable by students, so the key never reaches the
+ * browser. Grading happens server-side (POST /api/quizzes/[slug]/grade).
+ */
+export async function fetchPublishedQuizzes<T>(): Promise<T[]> {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc("published_quizzes");
+  if (error || !Array.isArray(data)) return [];
+  return (data as { content: unknown }[]).map(row => row.content as T);
+}
 export const fetchPublishedLessons   = <T,>() => fetchPublished<T>("content_lessons");
 
 /** A published "College Materials" resource for the current org (migration 0038).

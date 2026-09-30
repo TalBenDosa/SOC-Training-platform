@@ -21,15 +21,11 @@
  *  - No cross-tab sync — two open tabs each hold their own cache; last write
  *    wins. A `postgres_changes` subscription would fix this later.
  *
- * ROOM WRITES (audit 2026-09): `room_progress` used to upsert EVERY room in one
- * statement on every save, so one rejected row (a row stranded under a previous
- * org by RLS, or a value over the 0025 CHECK cap on an org-authored room) failed
- * the whole statement — and every later room save with it. Now only the room(s)
- * whose entry actually changed are upserted, one statement per room, with
- * xp_earned clamped to the DB cap. A newer write for a room supersedes an older
- * held (failed) write for the same room, so a replay can't resurrect stale data.
+ * ROOM PROGRESS (0078): never written from the browser — the room-task
+ * complete route records it server-side from the server's own grading records.
+ * The cache still holds the map for immediate UI; hydrate() replaces it.
  *
- * SERVER TOTAL: after a room/scenario write lands (and nothing else is in
+ * SERVER TOTAL: after a write lands (and nothing else is in
  * flight or held), the cached total is refreshed from profiles.xp — the value
  * the leaderboard shows — so the Topbar / progress page converge on it instead
  * of drifting on optimistic arithmetic.
@@ -38,7 +34,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StorageBackend } from "./backend";
 import { LEARNER_KEYS } from "./keys";
 import { XP_CHANGED_EVENT, type RoomProgressMap, type ScenarioRecord } from "./progress";
-import { clampRoomXp } from "@/lib/rooms/progressMerge";
 import type { DashboardSessionRecord } from "@/app/(app)/dashboard/useLiveEvents";
 import { setSyncState, SYNC_RETRY_EVENT } from "./syncState";
 
@@ -210,27 +205,14 @@ export function createRemoteBackend(
         return;
       }
       case LEARNER_KEYS.roomProgress: {
-        const map = safeParse<RoomProgressMap>(value, {});
-        const prev = safeParse<RoomProgressMap>(cache.get(key), {});
-        for (const [roomId, entry] of Object.entries(map)) {
-          // Only rooms whose entry actually changed — one row per statement, so
-          // a single rejected row can't block every other room's save.
-          if (prev[roomId] && JSON.stringify(prev[roomId]) === JSON.stringify(entry)) continue;
-          const row: Record<string, unknown> = {
-            user_id: userId,
-            ...org, // current org — re-stamps a row created under a previous org (0074)
-            room_id: roomId,
-            completed_task_ids: entry.completedTaskIds ?? [],
-            xp_earned: clampRoomXp(entry.xpEarned ?? 0), // 0025 CHECK: 0..1000
-            per_task_xp: entry.perTaskXp ?? {},
-            telemetry: entry.telemetry ?? [],
-            completed_at: entry.completedAt ?? null,
-          };
-          // Upsert keyed on (user_id, room_id) — safe to replay.
-          run("roomProgress", true,
-            () => supabase.from("room_progress").upsert(row, { onConflict: "user_id,room_id" }),
-            { dedupeKey: `room:${roomId}`, refreshTotal: true });
-        }
+        // CACHE-ONLY since 0078 (same pattern as scenarioHistory below). The
+        // browser used to UPSERT room_progress itself, so any signed-in user
+        // could write an arbitrary xp_earned for any room_id. Room XP is now
+        // SERVER-AUTHORITATIVE: POST /api/rooms/[id]/tasks/[taskId]/complete
+        // credits each finished task from the server's own grading records and
+        // returns the authoritative totals (client writes are revoked). Here the
+        // map only updates the in-memory cache for immediate UI; the server
+        // entry wins again on the next hydrate().
         return;
       }
       case LEARNER_KEYS.dashboardSessions: {

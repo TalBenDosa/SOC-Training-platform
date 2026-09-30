@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { resolveGradableQuiz } from "@/lib/quizzes/resolve";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordAndLoadFirstAnswers } from "@/lib/xp/firstAnswers";
 
 export const runtime = "nodejs";
 
@@ -20,10 +22,13 @@ export const runtime = "nodejs";
  * THAT question) has been submitted for it — the QuizClient grades one question
  * at a time, at confirm, so a `{}` POST reveals nothing.
  *
- * No hard auth gate: like the Rooms submit route, quizzes are guest-usable and
- * grading has no user-specific side effect; the edge middleware already
- * default-denies anonymous callers in production. The session is read only to
- * scope org-authored quiz resolution. This keeps local/no-Supabase dev working.
+ * No hard auth gate: like the Rooms submit route, quizzes are guest-usable; the
+ * edge middleware already default-denies anonymous callers in production. This
+ * keeps local/no-Supabase dev working.
+ *
+ * FIRST ANSWER (0078): for a signed-in learner each question's first graded
+ * answer is recorded (graded_first_answers). Once the key is revealed a later
+ * correct answer earns only half its XP at /finish — see src/lib/xp/firstAnswers.ts.
  */
 export async function POST(
   req: Request,
@@ -61,6 +66,18 @@ export async function POST(
       explanation: answered ? q.explanation : null,
     };
   });
+
+  if (user) {
+    const admin = getSupabaseAdminClient();
+    const answered = quiz.questions
+      .map((q, i) => ({ q, r: results[i] }))
+      .filter(({ r }) => r.answer !== null)
+      .map(({ q, r }) => ({ questionId: q.id, answer: answers[q.id], correct: r.correct }));
+    if (admin && answered.length > 0) {
+      // A failed record must not hide the grade; /finish records anything missing.
+      await recordAndLoadFirstAnswers(admin, user.id, "quiz", slug, answered);
+    }
+  }
 
   return NextResponse.json({ results });
 }

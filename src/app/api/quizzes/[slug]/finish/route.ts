@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveGradableQuiz } from "@/lib/quizzes/resolve";
+import { recordAndLoadFirstAnswers, firstAnswerXp } from "@/lib/xp/firstAnswers";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,10 @@ export const runtime = "nodejs";
  * moved (user report 2026-09-24).
  *
  * The client sends every answer it confirmed; the server RE-GRADES them against
- * the full key (never trusts a client-computed score), then records the attempt
+ * the full key (never trusts a client-computed score), pays each question under
+ * the first-answer rule (full XP if the learner's FIRST graded answer to it was
+ * right, half if they only got it right after the key was revealed — 0078,
+ * src/lib/xp/firstAnswers.ts), then records the attempt
  * through record_quiz_attempt(): only the BEST attempt per quiz counts, so
  * retries can't farm XP. The trigger on quiz_progress recomputes profiles.xp in
  * the same transaction and the new total is returned so the UI can show it.
@@ -39,11 +43,22 @@ export async function POST(
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const answers = body?.answers && typeof body.answers === "object" ? body.answers : {};
 
+  const graded = quiz.questions.map(q => {
+    const a = answers[q.id];
+    const valid = typeof a === "number" && Number.isInteger(a) && a >= 0 && a < q.options.length;
+    return { q, a, valid, correct: valid && a === q.answer };
+  });
+  // Normally every answer was already recorded at /grade; anything missing is
+  // recorded now, as its first answer.
+  const first = await recordAndLoadFirstAnswers(admin, user.id, "quiz", slug,
+    graded.filter(g => g.valid).map(g => ({ questionId: g.q.id, answer: g.a, correct: g.correct })));
+  if (!first) return NextResponse.json({ error: "Couldn't save your quiz result. Please try again." }, { status: 503 });
+
   let correct = 0;
   let xpEarned = 0;
-  for (const q of quiz.questions) {
-    const a = answers[q.id];
-    if (typeof a === "number" && Number.isInteger(a) && a === q.answer) { correct++; xpEarned += q.xp; }
+  for (const g of graded) {
+    if (g.correct) correct++;
+    xpEarned += firstAnswerXp(g.q.xp, g.correct, first.get(g.q.id));
   }
   const total = quiz.questions.length;
   const scorePct = total ? Math.round((correct / total) * 100) : 0;

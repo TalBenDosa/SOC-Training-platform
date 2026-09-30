@@ -7,6 +7,7 @@ import { scoreScenarioReport } from "@/lib/scenarios/reportScoring";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildReportBreakdown } from "../../_lib/reportBreakdown";
 import { buildAttemptRow, clampTimeTaken, xpDeltaFor } from "../../_lib/attemptRecord";
+import { recordAndLoadFirstAnswers, sumFirstAnswerXp } from "@/lib/xp/firstAnswers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -155,11 +156,34 @@ export async function POST(
   // curated IOC count (min 3). Without a bound, every distinct token pulled from
   // the logs paid +10 XP, so one request could reach the 2000 XP cap.
   const citedForXp = Math.min(usefulCitedCount, Math.max(3, scenarioIocValues.length * 2));
-  const xpEarned =
-    perQuestion.filter(q => q.correct).reduce((s, q) => s + q.xp, 0) +
-    // Reward CITING REAL indicators (precision), not merely tagging any (recall).
-    citedForXp * 10 +
-    Math.round(reportScore * 1.5);
+
+  // FIRST ANSWER + RETAKE RULE (0078). Grading reveals each answered question's
+  // key, and a genuine attempt releases the debrief (narrative + key indicators),
+  // so a resubmission is an informed one. XP therefore follows the first-answer
+  // rule per question (src/lib/xp/firstAnswers.ts), and the report/indicator part
+  // pays half once an earlier genuine attempt exists. Score/pass still reflect
+  // this run — only the XP is adjusted.
+  const admin = getSupabaseAdminClient();
+  const answeredNow = bundle.questions
+    .map((q, i) => ({ q, r: perQuestion[i] }))
+    .filter(({ q }) => isAnswered(q, answers[q.id]))
+    .map(({ q, r }) => ({ questionId: q.id, answer: answers[q.id], correct: r.correct }));
+  const firsts = admin ? await recordAndLoadFirstAnswers(admin, gradeUser.id, "scenario", slug, answeredNow) : null;
+  let priorAttempts = 0;
+  if (admin) {
+    const { count } = await admin.from("scenario_history")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", gradeUser.id).eq("slug", slug);
+    priorAttempts = count ?? 0;
+  }
+  const quizXp = sumFirstAnswerXp(
+    perQuestion.map(q => ({ questionId: q.id, xp: q.xp, correct: q.correct })),
+    firsts ?? new Map(),
+  );
+  // Reward CITING REAL indicators (precision), not merely tagging any (recall).
+  const reportXpFull = citedForXp * 10 + Math.round(reportScore * 1.5);
+  const reportXp = priorAttempts > 0 ? Math.floor(reportXpFull / 2) : reportXpFull;
+  const xpEarned = quizXp + reportXp;
   // FB-007: no speed bonus. Rewarding a short investigation time pushed learners to
   // optimize for finishing fast (quantity) over investigating well (quality), which is
   // the opposite of the analyst habit we want to build. Score and XP come only from
@@ -280,7 +304,6 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
   let prevBestXp: number | null = null;
   let totalXp: number | null = null;
   let persisted = false;
-  const admin = getSupabaseAdminClient();
   // Only a genuine attempt is recorded: a history row counts as a completion
   // for learning plans, streaks and org analytics, so an empty POST must not
   // create one. (Same gate that releases the debrief.)
@@ -321,6 +344,9 @@ Write exactly 3 sentences of actionable, encouraging feedback. Do not comment on
   return NextResponse.json(maskEventIds({
     score, xpEarned, timeBonusXp, perQuestion, aiFeedback, passed,
     quizScore,
+    // Retake accounting (0078): true when this run's XP was reduced because the
+    // answers/debrief had already been revealed to this learner.
+    retake: priorAttempts > 0,
     // Best-attempt XP accounting (#30). `xpEarned` stays this run's XP.
     prevBestXp,
     xpDelta: xp ? xp.xpDelta : null,

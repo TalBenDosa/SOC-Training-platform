@@ -3,20 +3,20 @@ import { findTask, gradeTask } from "@/lib/rooms/grading";
 import { getEffectiveRoom } from "@/lib/rooms/resolve";
 import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { retryXp } from "@/lib/rooms/xp";
 
 export const runtime = "nodejs";
 
 /**
  * Grades one Room task submission server-side (see src/lib/rooms/grading.ts
  * for why). No auth GATE: Rooms are usable by guests (progress kept in
- * localStorage) as well as signed-in users, and grading itself has no
- * user-specific side effect — the caller still persists the result via the
- * existing storage facade, exactly as before this endpoint existed.
+ * localStorage) as well as signed-in users.
  *
- * It DOES, however, record the attempt for a signed-in student (task_attempts,
- * migration 0031) so the instructor drill-down can show WHERE a student erred —
- * what they submitted, whether it was right, which try it was. Best-effort and
- * non-blocking: a guest, or a failed insert, never affects the grade returned.
+ * For a signed-in student every graded submission is RECORDED (task_attempts)
+ * with the XP the server awarded for it — the pre-defined task/question xp with
+ * the attempt rules applied from the server's own attempt count (0078). That
+ * row is the source of the task's XP: POST …/complete credits the best
+ * xp_awarded into room_progress. The instructor drill-down reads the same rows.
  */
 export async function POST(
   req: Request,
@@ -43,47 +43,71 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
+  const b = (body && typeof body === "object" && !Array.isArray(body) ? body : {}) as Record<string, unknown>;
+  const admin = getSupabaseAdminClient();
+  const record = !!(user && admin);   // signed-in → this attempt is recorded and is the source of the task's XP
+  const qIndex = task.type === "log_analysis" && typeof b.questionIndex === "number" ? Math.floor(b.questionIndex) : null;
+
+  // Attempt number from the SERVER's own history, never the client's claim
+  // (the client could otherwise always say "first try" for full credit). For
+  // log_analysis each sub-question counts separately. A higher client claim is
+  // still honoured for the reveal UX — it can only lower XP, never raise it.
+  let attemptNo = Math.max(1, Math.min(1000, Math.floor(Number(b.attemptNumber)) || 1));
+  if (record) {
+    let prior = admin!.from("task_attempts").select("id", { count: "exact", head: true })
+      .eq("user_id", user!.id).eq("room_id", room.id).eq("task_id", task.id);
+    if (qIndex !== null) prior = prior.eq("question_index", qIndex);
+    const { count, error: countErr } = await prior;
+    if (countErr) return NextResponse.json({ error: "Couldn't check your previous attempts — please try again." }, { status: 503 });
+    attemptNo = Math.max(attemptNo, (count ?? 0) + 1);
+  }
+
   // Pass the resolved room so written_report grading can scan its shown content
   // (reading + events) for legitimately-citable indicators, not just the task's
   // hand-authored referenceIocs — otherwise a correct citation of room-visible
   // evidence is wrongly branded "fabricated".
-  const result = gradeTask(task, body, room);
+  const result = gradeTask(task, { ...b, attemptNumber: attemptNo >= 2 ? 2 : 1 }, room);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
+  // Pre-defined task XP with the retry rule applied (see src/lib/rooms/xp.ts).
+  const xpAwarded = retryXp(task.type, result.xpEarned, attemptNo);
 
-  // Record the attempt for a signed-in student — best-effort, never blocks the
-  // grade. Written via the service role with user_id + org_id from the session.
-  try {
-    const admin = getSupabaseAdminClient();
-    if (user && admin) {
-      const b = (body ?? {}) as Record<string, unknown>;
-      const attemptNo = Number(b.attemptNumber);
-      const latency = Number(b.latencyMs ?? b.decisionLatencyMs);
-      // Store the submission minus bookkeeping fields — just what they answered.
-      const { attemptNumber: _a, latencyMs: _l, decisionLatencyMs: _d, ...rawSubmitted } = b;
-      void _a; void _l; void _d;
-      // Bounded: the body is client-controlled, and a written report is the
-      // largest legitimate answer (~8k chars). Anything bigger is not stored.
-      const size = JSON.stringify(rawSubmitted).length;
-      const submitted = size <= 20_000 ? rawSubmitted : { _omitted: "submission too large to store", size };
-      await admin.from("task_attempts").insert({
-        user_id: user.id,
-        org_id: user.orgId ?? null,
-        room_id: room.id,
-        task_id: task.id,
-        task_type: task.type,
-        correct: result.correct,
-        submitted,
-        attempt_no: Number.isFinite(attemptNo) && attemptNo > 0 ? Math.min(Math.floor(attemptNo), 1000) : 1,
-        latency_ms: Number.isFinite(latency) && latency >= 0 ? Math.min(Math.round(latency), 86_400_000) : null,
-      });
+  // Record the attempt for a signed-in student. This row is where the task's XP
+  // comes from (POST …/complete credits the best xp_awarded), so a failed write
+  // fails the request instead of silently losing the student's points.
+  if (record) {
+    const latency = Number(b.latencyMs ?? b.decisionLatencyMs);
+    // Store the submission minus bookkeeping fields — just what they answered.
+    const { attemptNumber: _a, latencyMs: _l, decisionLatencyMs: _d, ...rawSubmitted } = b;
+    void _a; void _l; void _d;
+    // Bounded: the body is client-controlled, and a written report is the
+    // largest legitimate answer (~8k chars). Anything bigger is not stored.
+    const size = JSON.stringify(rawSubmitted).length;
+    const submitted = size <= 20_000 ? rawSubmitted : { _omitted: "submission too large to store", size };
+    const { error: insErr } = await admin!.from("task_attempts").insert({
+      user_id: user!.id,
+      org_id: user!.orgId ?? null,
+      room_id: room.id,
+      task_id: task.id,
+      task_type: task.type,
+      correct: result.correct,
+      submitted,
+      attempt_no: attemptNo,
+      question_index: qIndex,
+      xp_awarded: xpAwarded,
+      latency_ms: Number.isFinite(latency) && latency >= 0 ? Math.min(Math.round(latency), 86_400_000) : null,
+    });
+    if (insErr) {
+      console.error("[room submit] could not record attempt:", insErr.message);
+      return NextResponse.json({ error: "Couldn't save your answer — please try again." }, { status: 503 });
     }
-  } catch { /* telemetry is a convenience, never a hard dependency */ }
+  }
 
   return NextResponse.json({
     correct: result.correct,
-    xpEarned: result.xpEarned,
+    xpEarned: xpAwarded,
+    attemptNo,
     reveal: result.reveal,
   });
 }

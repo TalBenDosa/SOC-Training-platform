@@ -5,11 +5,12 @@
  * which is invisible until a student reports lost XP that can't be reconstructed.
  *
  * The distinction under test is the important one:
- *   · room_progress is an UPSERT → safe to replay automatically on reconnect.
+ *   · user_progress is an UPSERT → safe to replay automatically on reconnect.
  *   · dashboard_sessions is an append-only INSERT → replaying a write that
  *     actually committed duplicates the row. It must NOT auto-replay.
- *   · scenario_history is never written by the browser any more — the grade
- *     route is its only writer (#30, client XP self-granting).
+ *   · scenario_history and room_progress are never written by the browser any
+ *     more — server routes are their only writers (#30 / 0078, client XP
+ *     self-granting).
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -53,10 +54,10 @@ describe("remoteBackend failed-write handling", () => {
     const sb = makeSupabase();
     const { backend } = createRemoteBackend(sb.client, "user-1", "org-1");
 
-    backend.set(LEARNER_KEYS.roomProgress, JSON.stringify({ r1: { completedTaskIds: [], xpEarned: 10 } }));
+    backend.set(LEARNER_KEYS.clearedCompanies, JSON.stringify(["nexacorp"]));
     await flushMicrotasks();
 
-    expect(sb.countFor("room_progress")).toBe(1);
+    expect(sb.countFor("user_progress")).toBe(1);
     expect(getSyncState()).toEqual({ retrying: 0, needsRetry: 0 });
   });
 
@@ -65,19 +66,19 @@ describe("remoteBackend failed-write handling", () => {
     const { backend } = createRemoteBackend(sb.client, "user-1", "org-1");
 
     sb.setFailing(true);
-    backend.set(LEARNER_KEYS.roomProgress, JSON.stringify({ r1: { completedTaskIds: [], xpEarned: 10 } }));
+    backend.set(LEARNER_KEYS.clearedCompanies, JSON.stringify(["nexacorp"]));
     await flushMicrotasks();
 
     // Surfaced, not swallowed.
     expect(getSyncState().retrying).toBe(1);
-    expect(sb.countFor("room_progress")).toBe(1);
+    expect(sb.countFor("user_progress")).toBe(1);
 
     // Reconnect → automatic replay, and the queue drains.
     sb.setFailing(false);
     window.dispatchEvent(new Event("online"));
     await flushMicrotasks();
 
-    expect(sb.countFor("room_progress")).toBe(2);
+    expect(sb.countFor("user_progress")).toBe(2);
     expect(getSyncState()).toEqual({ retrying: 0, needsRetry: 0 });
   });
 

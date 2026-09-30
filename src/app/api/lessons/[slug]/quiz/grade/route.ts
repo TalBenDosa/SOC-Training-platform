@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { resolveGeneratedLesson, parseLessonSlug } from "@/lib/lessons/lessonContent";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordAndLoadFirstAnswers } from "@/lib/xp/firstAnswers";
 
 export const runtime = "nodejs";
+
+const LESSON_PASS_PCT = 70;
 
 /**
  * POST /api/lessons/{pathSlug}--{lessonSlug}/quiz/grade
@@ -31,6 +34,11 @@ export const runtime = "nodejs";
  * POST /api/lessons/[slug]/complete requires before it credits the lesson's XP,
  * so a client can't claim a lesson it never passed. `saved` tells the reader
  * whether the pass was recorded (null for guests).
+ *
+ * FIRST ANSWER (0078): each question's first graded answer is recorded for a
+ * signed-in learner. /complete pays the lesson's full XP only if those first
+ * answers already passed the check; passing only after the key was revealed
+ * earns half.
  */
 export async function POST(
   req: Request,
@@ -71,13 +79,21 @@ export async function POST(
   const correct = results.filter(r => r.correct).length;
   const score = total > 0 ? Math.round((correct / total) * 100) : 0;
 
-  const passed = score >= 70;
+  const passed = score >= LESSON_PASS_PCT;
+
+  const user = await getAuthedUser();
+  const admin = user ? getSupabaseAdminClient() : null;
+  const parsed = parseLessonSlug(raw);
+  if (user && admin && parsed) {
+    const answered = results.filter(r => r.answer !== null)
+      .map(r => ({ questionId: String(r.index), answer: answers[String(r.index)], correct: r.correct }));
+    if (answered.length > 0) {
+      await recordAndLoadFirstAnswers(admin, user.id, "lesson", `${parsed.pathSlug}--${parsed.lessonSlug}`, answered);
+    }
+  }
 
   let saved: boolean | null = null;
   if (passed) {
-    const user = await getAuthedUser();
-    const admin = user ? getSupabaseAdminClient() : null;
-    const parsed = parseLessonSlug(raw);
     if (user && admin && parsed) {
       const { error } = await admin.rpc("record_lesson_quiz_pass", {
         p_user: user.id,

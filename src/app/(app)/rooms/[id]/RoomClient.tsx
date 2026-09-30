@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import type { SanitizedRoom as Room, SanitizedRoomTask as RoomTask } from "@/lib/rooms/sanitize";
 import type { TaskTelemetryEntry } from "@/lib/useTaskTelemetry";
-import { addTotalXp, getRoomProgress, saveRoomProgress, PROGRESS_HYDRATED_EVENT } from "@/lib/storage/progress";
+import { addTotalXp, setTotalXp, getRoomProgress, saveRoomProgress, PROGRESS_HYDRATED_EVENT } from "@/lib/storage/progress";
+import { ROOM_PASS_THRESHOLD } from "@/lib/rooms/xp";
 import { mergeRoomEntry, mergeTaskXpMax, roomScoreXp } from "@/lib/rooms/progressMerge";
 import { recommendNextRoom } from "@/lib/rooms/recommend";
 import { ReportIssue } from "@/components/feedback/ReportIssue";
@@ -21,8 +22,9 @@ import { ReportIssue } from "@/components/feedback/ReportIssue";
 // A room must score at least this fraction of its gradeable XP to count as
 // passed. Below this, the student must retry the room from the start — a
 // completed-but-failed room does not appear as "done" on /rooms or unlock
-// anything that depends on its prerequisites.
-export const ROOM_PASS_THRESHOLD = 0.65;
+// anything that depends on its prerequisites. Defined once in src/lib/rooms/xp.ts
+// (the server's completion record applies the same rule).
+export { ROOM_PASS_THRESHOLD };
 
 // Rooms whose completion screen offers a direct "practise this live in the
 // Dashboard" CTA — the investigation/report capsule rooms, which teach exactly
@@ -105,6 +107,9 @@ export function RoomClient({ room }: RoomClientProps) {
   const [totalXpEarned, setTotalXpEarned]       = useState(0);
   const [perTaskXp, setPerTaskXp]               = useState<Record<string, number>>({});
   const [telemetry, setTelemetry]               = useState<TaskTelemetryEntry[]>([]);
+  // A task completion the server could not record (after one retry) — shown so a
+  // student never loses points silently.
+  const [saveError, setSaveError]               = useState(false);
   const [showCompletion, setShowCompletion]      = useState(false);
   const [showFailure, setShowFailure]            = useState(false);
   const [mounted, setMounted]                   = useState(false);
@@ -335,6 +340,46 @@ export function RoomClient({ room }: RoomClientProps) {
     setPerTaskXp(saved.perTaskXp ?? newXpMap);
     setTotalXpEarned(saved.xpEarned);
     setTelemetry((saved.telemetry as TaskTelemetryEntry[] | undefined) ?? newTelemetry);
+    void reportCompletion(task.id, taskTelemetry);
+  }
+
+  /**
+   * Server-authoritative credit (0078). The server records the finished task,
+   * computes its XP from its own grading records and returns the real numbers;
+   * the optimistic values shown a moment earlier are replaced with them. One
+   * automatic retry, then a visible warning.
+   */
+  async function reportCompletion(taskId: string, taskTelemetry?: TaskTelemetryEntry, retry = true): Promise<void> {
+    try {
+      const res = await fetch(`/api/rooms/${encodeURIComponent(room.id)}/tasks/${encodeURIComponent(taskId)}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(taskTelemetry ? { telemetry: taskTelemetry } : {}),
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const d = await res.json() as { guest?: boolean; taskXp?: number; roomXp?: number | null; completedAt?: string | null; totalXp?: number | null };
+      if (d.guest) return;
+      setSaveError(false);
+      const all = loadProgress();
+      const cur = all[room.id];
+      if (cur && typeof d.taskXp === "number") {
+        const serverMap = { ...(cur.perTaskXp ?? {}), [taskId]: d.taskXp };
+        const next: RoomProgressEntry = {
+          ...cur,
+          perTaskXp: serverMap,
+          xpEarned: typeof d.roomXp === "number" ? d.roomXp : cur.xpEarned,
+          ...(d.completedAt ? { completedAt: d.completedAt } : {}),
+        };
+        all[room.id] = next;
+        saveProgress(all);
+        setPerTaskXp(serverMap);
+        setTotalXpEarned(next.xpEarned);
+      }
+      if (typeof d.totalXp === "number") setTotalXp(d.totalXp);
+    } catch {
+      if (retry) { setTimeout(() => { void reportCompletion(taskId, taskTelemetry, false); }, 2000); return; }
+      setSaveError(true);
+    }
   }
 
   const completedCount = completedTaskIds.size;
@@ -700,6 +745,12 @@ export function RoomClient({ room }: RoomClientProps) {
               of the task, where a student who just disagreed with the marking
               actually is — and carrying enough context (room, task, type) that
               a report is actionable without a reply. */}
+          {saveError && (
+            <div role="alert" className="mt-6 rounded-md border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
+              Your last answer was graded, but the points could not be saved to your account. Check your connection and finish the task again — nothing you earned is lost on the server.
+            </div>
+          )}
+
           <div className="mt-8 flex justify-end border-t border-border/40 pt-3">
             <ReportIssue
               targetKind="room_task"
