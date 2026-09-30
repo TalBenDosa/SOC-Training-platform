@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline } from "@/lib/team/buildTimeline";
+import { teamLoad } from "@/lib/team/load";
 import { teamTransition } from "@/lib/team/transition";
 
 /**
@@ -37,7 +38,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   // Friendly early answer; team_transition re-checks this under the lock.
-  const { data: members } = await admin.from("team_session_members").select("role, status").eq("session_id", id);
+  const { data: members, error: membersErr } = await admin.from("team_session_members").select("role, status").eq("session_id", id);
+  // The roster sizes the whole shift (load.ts) — never start from an unread one.
+  if (membersErr) return NextResponse.json({ error: "Couldn't read the team — please try again." }, { status: 503 });
   const notReady = (members ?? []).filter(m => m.role !== "instructor" && m.role !== "observer" && !["ready", "active", "left"].includes(m.status)).length;
   if (notReady > 0) return NextResponse.json({ error: `${notReady} player(s) not ready yet.` }, { status: 409 });
 
@@ -50,8 +53,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   let seeded = 0;
   const { count } = await admin.from("session_injects").select("id", { count: "exact", head: true }).eq("session_id", id);
   if ((count ?? 0) === 0) {
+    // Size the shift to the team in the room (load.ts): log pace from the Tier-1
+    // count, attack count from the team size. The pace is stored on the session so
+    // the DB refill (replenish_feed, 0081) keeps it instead of bursting.
+    const load = teamLoad(sess.difficulty, members ?? []);
+    const { error: paceErr } = await admin.from("team_sessions")
+      .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs }).eq("id", id).eq("status", "lobby");
+    if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
     // scenario_id = the storyline staff picked in the builder (null → random pick).
-    const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id);
+    const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load);
     if (timeline.length) {
       const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));
       const { data: n, error: seedErr } = await admin.rpc("team_seed_timeline", { p_session: id, p_rows: rows });

@@ -151,6 +151,29 @@ group("P4-24 team cron jobs idle without a live session");
 const cmds = (await q(`select jobname, command from cron.job where jobname in ('team-promote-injects','team-replenish-feed','team-lifecycle-tick')`)).rows;
 check("all three frequent jobs are guarded by a live-session check", cmds.length === 3 && cmds.every(c => c.command.includes("where exists (select 1 from public.team_sessions")), JSON.stringify(cmds.map(c => c.jobname)));
 
+group("0081 feed refill keeps the session's pace");
+{
+  const sid = randomUUID();
+  await q(`insert into public.team_sessions (id, org_id, created_by, company_id, status, started_at, feed_gap_ms, feed_jitter_ms)
+           values ($1,$2,$3,'nexacorp','running', now() - interval '10 minutes', 30000, 0)`, [sid, orgA, stu]);
+  // 8 fired noise logs to recycle, 2 still pending far in the future.
+  for (let i = 0; i < 8; i++) {
+    await q(`insert into public.session_injects (session_id, due_offset_ms, trigger, channel, body, expected_action, status)
+             values ($1, $2, '{"kind":"at_time"}', 'feed', $3, '{"expected_verdict":"benign","origin":"noise"}', 'fired')`,
+      [sid, i * 30000, JSON.stringify({ id: `n${i}`, description: "noise" })]);
+  }
+  const lastPending = 20 * 60 * 1000;
+  await q(`insert into public.session_injects (session_id, due_offset_ms, trigger, channel, body, status) values
+           ($1, $2, '{"kind":"at_time"}', 'feed', '{"id":"p1"}', 'pending'), ($1, $3, '{"kind":"at_time"}', 'feed', '{"id":"p2"}', 'pending')`,
+    [sid, lastPending - 60000, lastPending]);
+  const added = (await one(`select public.replenish_feed() as n`)).n;
+  const refill = (await q(`select due_offset_ms from public.session_injects where session_id=$1 and status='pending' and body->>'id' not in ('p1','p2') order by due_offset_ms`, [sid])).rows.map(r => Number(r.due_offset_ms));
+  check("the refill added recycled noise", added >= 1 && refill.length === added, `added ${added}`);
+  check("refill starts after the last pending log (no overlap)", refill.length > 0 && refill[0] >= lastPending + 30000, `first ${refill[0]}`);
+  const gaps = refill.slice(1).map((v, i) => v - refill[i]);
+  check("refill spaced at the session's pace (30 s), not 3–7 s", gaps.every(g => g >= 30000), JSON.stringify(gaps));
+}
+
 group("P4-01 export sort columns exist in the schema");
 const src = fs.readFileSync(new URL("../src/app/api/superadmin/orgs/[id]/export/route.ts", import.meta.url), "utf8");
 const pairs = [...src.matchAll(/by(?:Org|Members)\("(\w+)",\s*(?:"[^"]*",\s*)?\[([^\]]*)\]/g)].map(m => [m[1], [...m[2].matchAll(/"(\w+)"/g)].map(x => x[1])]);

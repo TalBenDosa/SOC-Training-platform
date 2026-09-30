@@ -30,6 +30,7 @@ import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
 import { buildAlertQueue, nextAlertFor } from "@/lib/team/alertQueue";
+import { teamLoad, type Difficulty } from "@/lib/team/load";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
@@ -704,6 +705,11 @@ export default function TeamRoomPage() {
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
   }, [feed, id, me?.id]);
 
+  // The shift's load for the team currently in the lobby — the same numbers /start
+  // will seed from (src/lib/team/load.ts), so the instructor sees them before starting.
+  const lobbyLoad = session && ["easy", "medium", "hard"].includes(session.difficulty)
+    ? teamLoad(session.difficulty as Difficulty, roster) : null;
+
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
   if (error && !session) return (
     <div className="p-6"><div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>
@@ -805,7 +811,7 @@ export default function TeamRoomPage() {
             {/* Mission briefing — objectives + how you're scored, up front (no spoilers) */}
             <Card className="border-cyber-500/30">
               <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Shift briefing</h2>
-              <p className="mt-1 text-xs text-slate-400">A live SOC shift on a shared feed — expect a mix of noise and real activity. ~20–30 min of live telemetry, then work the case to closure. Work as one team, tier to tier.</p>
+              <p className="mt-1 text-xs text-slate-400">A live SOC shift on a shared feed — expect a mix of noise and real activity. ~{lobbyLoad?.shiftMin ?? 30} min of live telemetry, then work the case to closure. Work as one team, tier to tier.</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 {[["Keep the queue clean", "triage every alert — disposition it, don't let it pile up"],
                   ["Escalate with evidence", "hand off with a clear report + indicators, not a hunch"],
@@ -839,6 +845,22 @@ export default function TeamRoomPage() {
                 })}
               </div>
             </Card>
+
+            {/* Shift load, sized to this team (load.ts). Pace for everyone; the attack
+                count only for staff — telling analysts how many attacks to find is a hint. */}
+            {lobbyLoad && (
+              <Card>
+                <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Radio className="h-4 w-4 text-cyber-300" /> Shift pace</h2>
+                <p className="mt-1 text-xs text-slate-400">
+                  About <b className="text-slate-200">{lobbyLoad.logsPerMin} logs per minute</b> for {lobbyLoad.triageAnalysts === 1 ? "one Tier-1 analyst" : `${lobbyLoad.triageAnalysts} Tier-1 analysts`} over ~{lobbyLoad.shiftMin} minutes — the feed is sized so the Tier-1 team can read every log. Adding a Tier-1 analyst raises the pace; the whole team&apos;s size sets how much is going on.
+                </p>
+                {me?.is_staff && (
+                  <p className="mt-2 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] text-slate-400">
+                    <span className="font-semibold text-slate-300">Staff only:</span> {lobbyLoad.players} player{lobbyLoad.players === 1 ? "" : "s"} → {lobbyLoad.stories} concurrent attack stor{lobbyLoad.stories === 1 ? "y" : "ies"} + {lobbyLoad.poolAttacks} standalone attack{lobbyLoad.poolAttacks === 1 ? "" : "s"} on {session?.difficulty}. Final numbers are fixed when you start.
+                  </p>
+                )}
+              </Card>
+            )}
 
             {iAmPlayer && (
               <Card>

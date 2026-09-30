@@ -23,6 +23,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { pickStoryForCompany, instantiateStory, storiesForCompany, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
@@ -240,7 +241,12 @@ export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium
   return storiesForCompany(companyId, difficulty).find(s => s.id === storyId) ?? null;
 }
 
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null): TimelineEntry[] {
+/**
+ * `load` sizes the shift to the team in the room (src/lib/team/load.ts): log pace
+ * from the Tier-1 count, attack count from the team size. Omitted → the fixed,
+ * difficulty-only load of before (existing seeds replay exactly).
+ */
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty)): TimelineEntry[] {
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
   const ownPool = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
   const companyPool = (ownPool ?? BENIGN_EVENTS) ?? [];
@@ -251,11 +257,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // ── Attack stories: one on easy, two concurrent incidents otherwise ──────────
   interface Story { id: string; incident: string; events: TelemetryEvent[] }
   const chosen = resolveTeamStory(companyId, difficulty, storyId);
-  const buildStory = (avoid?: string, forced?: AttackStory | null): Story | null => {
+  const buildStory = (avoid: (string | undefined)[] = [], forced?: AttackStory | null): Story | null => {
     for (let attempt = 0; attempt < 6; attempt++) {
       try {
         const story = forced ?? pickStoryForCompany(companyId, difficulty);
-        if (avoid && story.id === avoid) continue;   // server-side there is no anti-repeat memory
+        if (avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
         const events = instantiateStory(story, companyPool, edr, companyId).events ?? [];
         if (events.length === 0) return null;
         const incident = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
@@ -264,19 +270,23 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     }
     return null;
   };
-  const story1 = buildStory(undefined, chosen);   // the staff-chosen storyline leads, when set
-  // Second concurrent incident: parallel work for several Tier-1/Tier-2 analysts and a
-  // prioritisation call for the Manager. Skipped on easy to keep a beginner single-threaded.
-  const story2 = difficulty === "easy" ? null : buildStory(story1?.id);
+  const story1 = buildStory([], chosen);   // the staff-chosen storyline leads, when set
+  // Further concurrent incidents (load.stories): parallel work for several analysts and
+  // a prioritisation call for the Manager. One story keeps a small team single-threaded.
+  const story2 = load.stories >= 2 ? buildStory([story1?.id]) : null;
+  const story3 = load.stories >= 3 ? buildStory([story1?.id, story2?.id]) : null;
   const storyPlaced = (s: Story | null): Placed[] => (s?.events ?? []).map(ev => ({ ev, origin: "story" as const, verdict: classifyStoryEvent(ev), incident: s!.incident }));
+  const distinct = (s: Story | null, n: number, others: (Story | null)[]): Story | null =>
+    s && others.some(o => o?.incident === s.incident) ? { ...s, incident: `${s.incident}#${n}` } : s;
   const attack1 = storyPlaced(story1);
-  const attack2 = storyPlaced(story2 && story2.incident === story1?.incident ? { ...story2, incident: `${story2.incident}#2` } : story2);
+  const attack2 = storyPlaced(distinct(story2, 2, [story1]));
+  const attack3 = storyPlaced(distinct(story3, 3, [story1, story2]));
 
   // Identities an incident has touched — their ordinary logins must not sit in the
   // noise labelled benign (playtest: a "benign, informational" VPN+MFA success for an
   // account the team had just contained).
   const compromised = new Set<string>();
-  for (const p of [...attack1, ...attack2]) if (isMalicious(p.verdict) && p.ev.user_email) compromised.add(p.ev.user_email);
+  for (const p of [...attack1, ...attack2, ...attack3]) if (isMalicious(p.verdict) && p.ev.user_email) compromised.add(p.ev.user_email);
 
   // ── Pool: noise + standalone attacks ─────────────────────────────────────────
   const seen = new Set<string>();
@@ -292,7 +302,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     if (EXCLUDED_POOL_INCIDENTS.has(key)) continue;
     groups.set(key, [...(groups.get(key) ?? []), e]);
   }
-  const poolAttackN = difficulty === "hard" ? 4 : difficulty === "easy" ? 0 : 3;
+  const poolAttackN = load.poolAttacks;
   const chosenGroups = sampleN([...groups.keys()].sort(), poolAttackN, rnd);
   const poolAttacks: Placed[][] = chosenGroups.map(key => (groups.get(key) ?? [])
     .map(ev => ({ ev, origin: "pool_attack" as const, verdict: classifyPoolEvent(ev), incident: key })));
@@ -305,12 +315,12 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     if (e.user_email && compromised.has(e.user_email) && (e.source === "vpn" || /^(auth_|vpn_|mfa_)/.test(e.event_type))) return false;
     return true;
   });
-  // Enough continuous noise for a ~34–36 min medium shift at the cadence below (easy
-  // and hard scaled in proportion), so the DB refill rarely has to recycle logs.
-  const benignN = difficulty === "hard" ? 162 : difficulty === "easy" ? 86 : 135;
+  // Enough continuous noise to span the shift at this team's pace (load.ts), so the
+  // DB refill rarely has to recycle logs.
+  const benignN = load.noiseCount;
   const noise: Placed[] = sampleN(noiseCandidates, benignN, rnd).map(ev => ({ ev, origin: "noise" as const, verdict: classifyPoolEvent(ev) }));
 
-  const storyCount = attack1.length + attack2.length;
+  const storyCount = attack1.length + attack2.length + attack3.length;
   const poolCount = poolAttacks.reduce((n, g) => n + g.length, 0);
   const total = noise.length + storyCount + poolCount;
   if (total === 0) return [];
@@ -333,6 +343,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   };
   place(attack1, 0.42, 0.82);
   place(attack2, 0.12, 0.52);
+  place(attack3, 0.58, 0.94);
   // Standalone pool incidents land at seeded points across the shift (a multi-event
   // one spans a few positions).
   for (const g of poolAttacks) {
@@ -359,12 +370,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   }
   for (const { at, rec } of itsmInserts.sort((a, b) => b.at - a.at)) ordered.splice(at, 0, { ev: rec, origin: "itsm", verdict: "benign" });
 
-  // Cadence: an event every ~12–15.5s on medium (+ jitter), denser on hard.
-  const baseGap = difficulty === "hard" ? 9000 : difficulty === "easy" ? 14000 : 12000;
+  // Cadence from the team's load (load.ts): base gap + uniform jitter.
   let t = 2000;
   const timed: { p: Placed; at: number }[] = ordered.map(p => {
     const entry = { p, at: t };
-    t += baseGap + Math.floor(rnd() * 3500);
+    t += load.baseGapMs + Math.floor(rnd() * load.jitterMs);
     return entry;
   });
   const span = timed.length ? timed[timed.length - 1].at : 0;
