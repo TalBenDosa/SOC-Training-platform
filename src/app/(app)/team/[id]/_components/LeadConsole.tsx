@@ -91,7 +91,7 @@ export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
                   <input value={note} onChange={ev => setNotes(n => ({ ...n, [e.seq]: ev.target.value }))} placeholder="Decision rationale — business impact / why (required to deny; say what to target instead)" className="mt-2 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                   <div className="mt-2 flex gap-1.5">
                     <Button variant="primary" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("containment.approved", { event_id: eid, request_seq: e.seq, target: asStr(p.target) || undefined, reason: note.trim() || undefined }); setBusy(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Approve</Button>
-                    <Button variant="outline" size="sm" disabled={b || note.trim().length < 3} onClick={async () => { setBusy(e.seq + ""); await act("containment.denied", { event_id: eid, request_seq: e.seq, target: asStr(p.target) || undefined, reason: note.trim() }); setBusy(null); }}>Deny</Button>
+                    <Button variant="outline" size="sm" disabled={b || !note.trim()} onClick={async () => { setBusy(e.seq + ""); await act("containment.denied", { event_id: eid, request_seq: e.seq, target: asStr(p.target) || undefined, reason: note.trim() }); setBusy(null); }}>Deny</Button>
                   </div>
                   <p className="mt-1 text-[10px] text-slate-500">Wrong target? Deny with the reason — Tier-2 can send a new request for the right asset.</p>
                 </div>

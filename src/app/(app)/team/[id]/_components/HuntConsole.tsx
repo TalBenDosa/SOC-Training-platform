@@ -26,7 +26,7 @@ export function HuntConsole({ scope, scopes, incidents = [], incidentOf, elevati
   const [openElev, setOpenElev] = useState<number | null>(null);
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null); // A3: live threat-intel enrichment
   async function log() {
-    if (f.hypothesis.trim().length < 8) return;
+    if (!f.hypothesis.trim()) return;
     const { event_id, incident, ...rest } = f;
     setBusy(true); const ok = await act("hunt.logged", { ...rest, event_id: event_id || undefined, incident: incident.trim() || undefined }); setBusy(false);
     if (ok) setF(s => ({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed", event_id: s.event_id, incident: s.incident }));
@@ -103,7 +103,7 @@ export function HuntConsole({ scope, scopes, incidents = [], incidentOf, elevati
             </select>
           </div>
           <p className="text-[10px] text-slate-500">Scored on substance: a hypothesis that names real entities, a finding that cites the evidence, a valid in-case technique, and a clear conclusion — a disproved (refuted) hypothesis with evidence counts fully. Findings land in the Shared Case for the whole team.</p>
-          <Button variant="primary" size="sm" disabled={busy || f.hypothesis.trim().length < 8} onClick={log}>Log hunt finding</Button>
+          <Button variant="primary" size="sm" disabled={busy || !f.hypothesis.trim()} onClick={log}>Log hunt finding</Button>
         </div>
       </Card>
       {/* G-10: Tier-3 owns the FINAL scope — confirm or amend what Tier-2 proposed */}

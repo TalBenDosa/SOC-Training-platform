@@ -4,16 +4,16 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Check } from "lucide-react";
 import type { Ev } from "@/lib/team/types";
-import { asStr, wordCount } from "@/lib/team/format";
+import { asStr } from "@/lib/team/format";
 
 // ── G-15: Decision Log (Lead/Mgr) — decision.logged is already gated ──────────
 export function DecisionLog({ events, nameOf, act }: { events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   const [f, setF] = useState({ decision: "", rationale: "" });
   const [busy, setBusy] = useState(false);
   const decisions = events.filter(e => e.type === "decision.logged");
-  // Quality gate: a decision without a substantive rationale (≥8 words) is what an
-  // IR reviewer flags first — require the "why", matching T1's escalation discipline.
-  const canLog = f.decision.trim().length >= 5 && wordCount(f.rationale) >= 8;
+  // A decision needs its "why" — but no length minimum (0079); the rationale's
+  // depth is reflected in the end-of-exercise scoring, not a send gate.
+  const canLog = !!f.decision.trim() && !!f.rationale.trim();
   async function log() {
     if (!canLog) return;
     setBusy(true); const ok = await act("decision.logged", { decision: f.decision.trim(), rationale: f.rationale.trim() }); setBusy(false);
@@ -34,8 +34,8 @@ export function DecisionLog({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
       )}
       <div className="mt-2 space-y-1.5">
         <input value={f.decision} onChange={e => setF(s => ({ ...s, decision: e.target.value }))} placeholder="Decision (e.g. 'isolate FIN-WS-07, keep DC online')" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <textarea value={f.rationale} onChange={e => setF(s => ({ ...s, rationale: e.target.value }))} placeholder="Rationale — why this call, and the business impact considered (≥ 8 words)" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        {!canLog && <p className="text-[10px] text-slate-500">Needs: a decision + a rationale of at least 8 words.</p>}
+        <textarea value={f.rationale} onChange={e => setF(s => ({ ...s, rationale: e.target.value }))} placeholder="Rationale — why this call, and the business impact considered " rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        {!canLog && <p className="text-[10px] text-slate-500">Needs: a decision and its rationale.</p>}
         <Button variant="outline" size="sm" disabled={busy || !canLog} onClick={log}>Log decision</Button>
       </div>
     </Card>

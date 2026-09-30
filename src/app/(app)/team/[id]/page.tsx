@@ -48,6 +48,7 @@ import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
 import { SecondaryPanels } from "./_components/SecondaryPanels";
+import { WarRoom } from "./_components/WarRoom";
 import { TeamIntel } from "./_components/TeamIntel";
 
 const IMPACTS = ["host", "user", "segment", "org"];
@@ -688,7 +689,7 @@ export default function TeamRoomPage() {
   return (
     <div>
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.company_id} · ${session.difficulty}` : ""} />
-      <div className="container mx-auto max-w-[1100px] px-6 py-6 space-y-5">
+      <div className={`container mx-auto ${phase === "running" ? "max-w-[1600px]" : "max-w-[1100px]"} px-6 py-6 space-y-5`}>
         <Link href="/team" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Team training</Link>
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {note && phase !== "running" && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{note}</div>}
@@ -878,13 +879,17 @@ export default function TeamRoomPage() {
             {/* Shared case — the team's single shared truth; collapsible summary bar (G-02) */}
             <SharedCase events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} />
 
-            <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
+            {/* Running layout: wide page, and Tier-2/3 — whose work is reading escalated
+                logs and writing reports in the role column — get an even split instead
+                of a narrow side rail. The left column is sticky so the feed and the team
+                chat stay in view while the role column scrolls (no empty half-page). */}
+            <div className={`grid gap-4 ${me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(400px,36%)]"}`}>
               {/* Left column: raw feed for analysts; a summaries-only Situation Board
                   for the coordinator SEAT (Lead/Mgr) — §3.7 keeps coordinators OUT of
                   raw (G-08). Decided by the seat, not org rights (U9): a Manager who
                   also has instructor rights still commands from summaries. The
                   instructor seat (role "instructor") keeps the raw feed for oversight. */}
-              <div className="min-w-0 space-y-2">
+              <div className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
                 {(me.role === "lead" || me.role === "mgr") ? (
                   <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
                 ) : (
@@ -922,9 +927,11 @@ export default function TeamRoomPage() {
                     />
                   </>
                 )}
+                {/* The team chat — always visible next to the feed, not folded away. */}
+                <WarRoom events={events} me={me} nameOf={nameOf} act={act} />
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
-              <div className="space-y-4">
+              <div className="min-w-0 space-y-4">
                 {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <HuntConsole scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
@@ -941,8 +948,8 @@ export default function TeamRoomPage() {
                 <TeamIntel events={events} nameOf={nameOf} />
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}
                 <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
-                {/* Shared context every role can consult, but folded so the role panel stays dominant */}
-                <SecondaryPanels events={events} activity={activity} me={me} nameOf={nameOf} act={act} />
+                {/* The team's action log, folded so the role panel stays dominant (chat moved out, left column) */}
+                <SecondaryPanels activity={activity} nameOf={nameOf} />
               </div>
             </div>
           </>

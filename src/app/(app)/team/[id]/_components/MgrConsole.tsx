@@ -21,7 +21,7 @@ export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; ev
     name: m.name, role: m.role, open: load.get(m.user_id) ?? 0,
     actions: events.filter(e => e.actor_id === m.user_id && e.type !== "event.opened" && e.type !== "member.ready" && e.type !== "message.sent").length,
   }));
-  const canPost = ho.open_cases.trim().length >= 5 && ho.next.trim().length >= 3;
+  const canPost = !!ho.open_cases.trim() && !!ho.next.trim();
   async function post() {
     if (!canPost) return;
     setBusy(true);

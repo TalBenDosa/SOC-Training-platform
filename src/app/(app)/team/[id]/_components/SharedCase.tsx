@@ -97,12 +97,12 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
   const canAssign = ["lead", "mgr"].includes(me.role ?? "");
   const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer");
 
-  async function addNote() { if (note.trim().length < 3) return; setBusy(true); const ok = await act("note.added", { text: note }); setBusy(false); if (ok) setNote(""); }
+  async function addNote() { if (!note.trim()) return; setBusy(true); const ok = await act("note.added", { text: note }); setBusy(false); if (ok) setNote(""); }
 
   const huntRow = (h: Ev) => { const p = h.payload as { hypothesis?: string; finding?: string; technique?: string; conclusion?: string }; const c = asStr(p.conclusion); return (
     <div key={h.seq} className="rounded border border-neon-purple/25 bg-neon-purple/[0.05] px-2 py-1 text-[11px]">
       <p className="text-slate-200"><Crosshair className="mr-1 inline h-3 w-3 text-neon-purple" />{asStr(p.hypothesis)} <span className={`ml-1 rounded border px-1 py-px text-[9px] font-bold uppercase ${c === "confirmed" ? "border-severity-high/40 text-severity-high" : c === "refuted" ? "border-neon-green/40 text-neon-green" : "border-border text-slate-400"}`}>{c || "logged"}</span>{asStr(p.technique) && <span className="ml-1 font-mono text-[10px] text-cyber-300">{asStr(p.technique)}</span>}</p>
-      {asStr(p.finding) && <p className="mt-0.5 text-slate-400">{asStr(p.finding).slice(0, 400)}</p>}
+      {asStr(p.finding) && <p className="mt-0.5 text-slate-400">{asStr(p.finding)}</p>}
       <p className="font-mono text-[10px] text-slate-500">{nameOf(h.actor_id)}</p>
     </div>
   ); };
@@ -217,12 +217,12 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Case notes ({notes.length})</p>
         {notes.length > 0 && (
           <div className="mb-2 max-h-40 space-y-1 overflow-y-auto">
-            {notes.slice().reverse().map(e => <p key={e.seq} className="whitespace-pre-wrap break-words text-xs text-slate-300"><span className="font-medium text-slate-200">{nameOf(e.actor_id)}:</span> {String((e.payload as { text?: string }).text ?? "").slice(0, 2000)}</p>)}
+            {notes.slice().reverse().map(e => <p key={e.seq} className="whitespace-pre-wrap break-words text-xs text-slate-300"><span className="font-medium text-slate-200">{nameOf(e.actor_id)}:</span> {String((e.payload as { text?: string }).text ?? "")}</p>)}
           </div>
         )}
         <div className="flex gap-2">
           <input value={note} onChange={e => setNote(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addNote(); }} placeholder="Add a case note…" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-          <Button variant="outline" size="sm" disabled={busy || note.trim().length < 3} onClick={addNote}>Add</Button>
+          <Button variant="outline" size="sm" disabled={busy || !note.trim()} onClick={addNote}>Add</Button>
         </div>
       </div>
       </>)}

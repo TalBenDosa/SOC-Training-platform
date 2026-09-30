@@ -600,9 +600,9 @@ export function DetailPanelBody({
               <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Basic Information</p>
               <div className="space-y-2">
                 {fullDescription && (
-                  <div className="flex gap-3 pb-2 mb-1 border-b border-border/40">
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 pb-2 mb-1 border-b border-border/40">
                     <span className="w-36 shrink-0 text-[11px] text-slate-400">Description</span>
-                    <span className="text-[11px] leading-relaxed text-slate-200 break-words">{fullDescription}</span>
+                    <span className="min-w-[12rem] flex-1 text-[11px] leading-relaxed text-slate-200 break-words">{fullDescription}</span>
                   </div>
                 )}
                 {/* SHA256 — opens internal panel */}
@@ -632,9 +632,12 @@ export function DetailPanelBody({
                   const iocType = label === "Username" ? "user" : label === "Hostname" ? "host" : label === "IP Address" ? "ip" : null;
                   const canIoc = !!onAddIoc && !!iocType && !!value && value !== "—";
                   return (
-                    <div key={label} className="flex gap-3 items-center">
+                    // Wraps instead of squeezing: in a narrow panel (the team T2 inbox) the
+                    // value drops below its label at full width rather than breaking into
+                    // two-character lines.
+                    <div key={label} className="flex flex-wrap gap-x-3 gap-y-0.5 items-center">
                       <span className="w-36 shrink-0 text-[11px] text-slate-400">{label}</span>
-                      <span className={cn("font-mono text-[11px] text-slate-200 break-all", colorClass)}>{value}</span>
+                      <span className={cn("min-w-[12rem] flex-1 font-mono text-[11px] text-slate-200 [overflow-wrap:anywhere]", colorClass)}>{value}</span>
                       <span className="ml-auto shrink-0 flex gap-1.5">
                         {canIoc && (
                           <button
@@ -682,11 +685,11 @@ export function DetailPanelBody({
                   const hasBtn     = showHash || showIp || showDomain;
 
                   return (
-                    <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
-                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
-                      <div className="flex flex-col gap-1.5 min-w-0">
+                    <div key={k} className={cn("flex flex-wrap gap-x-3 gap-y-0.5", hasBtn ? "items-start py-0.5" : "items-baseline")}>
+                      <span className="w-64 max-w-full shrink-0 font-mono text-[10px] text-slate-400 [overflow-wrap:anywhere]">{k}</span>
+                      <div className="flex min-w-[12rem] flex-1 flex-col gap-1.5">
                         <span className={cn(
-                          "font-mono text-[10px] break-all",
+                          "font-mono text-[10px] [overflow-wrap:anywhere]",
                           showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
                         )}>{v}</span>
 

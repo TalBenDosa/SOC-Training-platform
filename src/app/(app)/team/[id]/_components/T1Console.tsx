@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, Siren, X } from "lucide-react";
 import type { Ev, Ioc } from "@/lib/team/types";
-import { asStr, detectIocType, isValidIoc, wordCount, type ActR } from "@/lib/team/format";
+import { asStr, detectIocType, isValidIoc, type ActR } from "@/lib/team/format";
 import { slaMinFor } from "./shared";
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
@@ -12,7 +12,6 @@ import { activeClaims } from "@/lib/team/projections";
 // ── T1 console: pick a log → disposition + structured escalation report ───────
 const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr"];
 const SEVERITIES = ["low", "medium", "high", "critical"];
-const MIN_RATIONALE_WORDS = 12; // T1-6 hard gate: "meaningful rationale"
 
 export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, actR, sel, setSel, reportOpen, setReportOpen }: {
   feed: Ev[]; dispositions: Map<string, string>; events: Ev[]; meId: string;
@@ -161,11 +160,11 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
     setIocErr("");
     setIocDraft(d => d.some(x => x.value.toLowerCase() === v.toLowerCase()) ? d : [...d, { type: detectIocType(v), value: v, source }]);
   }
-  const rationaleWords = wordCount(form.observations);
   // T1-6 quality gate — every condition must hold before Escalate is allowed.
   const gate = {
-    summary: form.summary.trim().length >= 5,   // server minimum (0073)
-    rationale: rationaleWords >= MIN_RATIONALE_WORDS,
+    // No length minimums (0079): the fields must be filled, not a word count.
+    summary: !!form.summary.trim(),
+    rationale: !!form.observations.trim(),
     ioc: iocDraft.length >= 1,
     severity: !!form.severity,
     // A4: escalate only an attack-ish call — you can't escalate a log you marked benign/FP.
@@ -345,7 +344,7 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
           <div className="mt-3 space-y-2">
             {isLowConf && <p className="rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1 text-[11px] text-neon-amber">Low-confidence lead — sending to Tier-2 for a second look.</p>}
             <input value={form.summary} onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} placeholder="Summary — one line: what happened + on what" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-            <textarea value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} placeholder={`Observations — the process/sequence/evidence (≥ ${MIN_RATIONALE_WORDS} words)`} rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <textarea value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} placeholder="Observations — the process/sequence/evidence" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
             {/* T1-5: IOCs — pre-seeded from the flagged log; click "+IOC" on raw fields, or type here */}
             <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Indicators (IOCs) — click ＋IOC on the log&apos;s fields, or add below</p>
@@ -376,7 +375,7 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
                 <span className="font-semibold text-neon-green">✓ all set — ready to escalate</span>
               ) : (
                 <>Before escalating:{" "}
-                  {([[gate.disposition, "disposition"], [gate.summary, "summary"], [gate.rationale, `observations (${rationaleWords}/${MIN_RATIONALE_WORDS} words)`], [gate.ioc, "≥1 IOC"], [gate.severity, "severity"]] as [boolean, string][]).map(([ok, label]) => (
+                  {([[gate.disposition, "disposition"], [gate.summary, "summary"], [gate.rationale, "observations"], [gate.ioc, "≥1 IOC"], [gate.severity, "severity"]] as [boolean, string][]).map(([ok, label]) => (
                     <span key={label} className={ok ? "text-neon-green" : ""}>{ok ? "✓" : "○"} {label}&nbsp;&nbsp;</span>
                   ))}
                 </>

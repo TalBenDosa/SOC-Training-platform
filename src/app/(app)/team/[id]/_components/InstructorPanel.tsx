@@ -40,7 +40,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
     }
   }
   async function post() {
-    if (inj.text.trim().length < 3) return;
+    if (!inj.text.trim()) return;
     setBusy(true); const ok = await act("staff.inject", { kind: inj.kind, text: inj.text.trim(), expected_response: inj.expected.trim() || undefined }); setBusy(false);
     if (ok) setInj({ kind: inj.kind, text: "", expected: "" });
   }
@@ -70,7 +70,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
         </select>
         <textarea value={inj.text} onChange={e => setInj(s => ({ ...s, text: e.target.value }))} placeholder="Inject text (e.g. 'User in Finance says a vendor called asking for an MFA code')" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         {inj.kind !== "announcement" && <input value={inj.expected} onChange={e => setInj(s => ({ ...s, expected: e.target.value }))} placeholder="Expected response (staff-only answer key — shown in the review)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />}
-        <Button variant="primary" size="sm" disabled={busy || inj.text.trim().length < 3} onClick={post}>Send inject</Button>
+        <Button variant="primary" size="sm" disabled={busy || !inj.text.trim()} onClick={post}>Send inject</Button>
       </div>
 
       {/* F7: reassign a role — recover a dropped Tier-3 / Manager so the relay continues */}

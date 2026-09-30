@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DetailPanelBody } from "@/app/(app)/dashboard/EventFeed";
 import { ThreatIntelDrawer, type ThreatQuery } from "@/components/threat-intel/ThreatIntelDrawer";
-import { CheckCircle2, ShieldCheck, ArrowUpRight, Check, ShieldAlert, Siren, ChevronDown, Search, FileText } from "lucide-react";
+import { CheckCircle2, ShieldCheck, ArrowUpRight, Check, ShieldAlert, Siren, ChevronDown, Search, FileText, Maximize2, X } from "lucide-react";
 import type { Ev, Ioc, ScopeState } from "@/lib/team/types";
 import { asStr, type ActR } from "@/lib/team/format";
 import type { ContainmentRequest, EscalationState, ScopeSnapshot } from "@/lib/team/projections";
@@ -33,6 +33,9 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [openLog, setOpenLog] = useState<number | null>(null); // which escalation's full log is expanded
+  // The escalated log opened full-screen — the inbox column is too narrow to read a
+  // real log comfortably, so Tier-2 can lift it into a wide reading view.
+  const [fullLog, setFullLog] = useState<{ title: string; from: string; notes: string; snap: NonNullable<ReturnType<typeof enrichSnapshot>> } | null>(null);
   const [bouncingId, setBouncingId] = useState<string | null>(null); // eid being bounced (shows reason input)
   const [bounceReason, setBounceReason] = useState(BOUNCE_REASONS[0]);
   const [bounceMsg, setBounceMsg] = useState("");
@@ -43,6 +46,12 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
   const [containingId, setContainingId] = useState<string | null>(null); // B10: eid whose containment-request form is open
   const [contForm, setContForm] = useState({ target: "", type: "isolate_host", incident: "", criticality: "standard", blast: "", owner: "" });
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null); // A3: live threat-intel enrichment
+  useEffect(() => {
+    if (!fullLog) return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape" && !threatQuery) setFullLog(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullLog, threatQuery]);
   // P0-3: explicit take-over — `ownedPrompt` = the server said case_owned (or the lock
   // is visible); `confirmTake` = the analyst asked to take it over (second click sends).
   const [ownedPrompt, setOwnedPrompt] = useState<string | null>(null);
@@ -60,8 +69,8 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
     else if (r.code === "case_owned") setOwnedPrompt(eid);
   }
   async function submitReport(eid: string) {
-    const words = rep.findings.trim().split(/\s+/).filter(Boolean).length;
-    if (rep.summary.trim().length < 5 || words < 12 || !rep.recommendation.trim()) return;   // 5 = server minimum (0073)
+    // No length minimums (0079) — write as much or as little as the case needs.
+    if (!rep.summary.trim() || !rep.findings.trim() || !rep.recommendation.trim()) return;
     setBusy("rep" + eid);
     const ok = await act("report.submitted", { event_id: eid, summary: rep.summary.trim(), findings: rep.findings.trim(), verdict: rep.verdict, recommendation: rep.recommendation.trim(), incident: rep.incident.trim() || undefined });
     setBusy(null);
@@ -167,9 +176,15 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                   {isBounced && st?.bounceReason && <p className="mt-1 text-[10px] text-neon-amber">↩ bounced to Tier-1: {st.bounceReason}</p>}
                   {/* Open the FULL original log T1 flagged — investigate the real event, not just the words */}
                   {snap && (
-                    <button onClick={() => setOpenLog(isOpen ? null : e.seq)} className="mt-1 flex items-center gap-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">
-                      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "View the full log (raw event + JSON)"}
-                    </button>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <button onClick={() => setFullLog({ title: asStr(p.summary) || asStr(p.what) || "Escalated log", from: nameOf(e.actor_id), notes: asStr(p.observations) || asStr(p.why), snap })}
+                        className="flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-0.5 text-[11px] font-semibold text-cyber-300 hover:bg-cyber-500/20">
+                        <Maximize2 className="h-3 w-3" /> Read the log full-screen
+                      </button>
+                      <button onClick={() => setOpenLog(isOpen ? null : e.seq)} className="flex items-center gap-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">
+                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "Show it here"}
+                      </button>
+                    </div>
                   )}
                   {snap && isOpen && (
                     <div className="mt-2 rounded-lg border border-border/60 bg-bg-elevated/40">
@@ -263,7 +278,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                       {rpt ? <p className="text-[10px] text-neon-green">✓ your filed report (verdict + findings + recommendation) will travel with this elevation.</p>
                            : <p className="text-[10px] text-neon-amber">⚠ no report filed yet — Tier-3 gets more to work with if you write the report first.</p>}
                       <div className="flex gap-1.5">
-                        <Button variant="primary" size="sm" disabled={b || huntAsk.trim().length < 8} onClick={async () => { setBusy(e.seq + ""); await act("elevation.requested", { event_id: eid, summary: asStr(p.summary) || asStr(p.what), snapshot: p.snapshot, hostname: asStr(p.hostname), entity: asStr(p.entity), severity: asStr(p.severity), iocs, hunt_ask: huntAsk.trim(), t2_verdict: rpt?.verdict, t2_findings: rpt?.findings, t2_recommendation: rpt?.recommendation }); setBusy(null); setElevatingId(null); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Send to Tier-3</Button>
+                        <Button variant="primary" size="sm" disabled={b || !huntAsk.trim()} onClick={async () => { setBusy(e.seq + ""); await act("elevation.requested", { event_id: eid, summary: asStr(p.summary) || asStr(p.what), snapshot: p.snapshot, hostname: asStr(p.hostname), entity: asStr(p.entity), severity: asStr(p.severity), iocs, hunt_ask: huntAsk.trim(), t2_verdict: rpt?.verdict, t2_findings: rpt?.findings, t2_recommendation: rpt?.recommendation }); setBusy(null); setElevatingId(null); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Send to Tier-3</Button>
                         <Button variant="outline" size="sm" onClick={() => setElevatingId(null)}>✕</Button>
                       </div>
                     </div>
@@ -355,7 +370,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                   <input value={rep.summary} onChange={ev => setRep(s => ({ ...s, summary: ev.target.value }))} placeholder="e.g. Malicious macro on WS-FIN-2847 dropped an encoded PowerShell C2 beacon" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 </div>
                 <div>
-                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Findings — what you investigated, the evidence, the scope (≥ 12 words)</label>
+                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Findings — what you investigated, the evidence, the scope</label>
                   <textarea value={rep.findings} onChange={ev => setRep(s => ({ ...s, findings: ev.target.value }))} placeholder="What you confirmed in the log/EDR, the indicators, the affected hosts/users, whether it spread…" rows={3} className="mt-1 w-full resize-y rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 </div>
                 <div className="flex gap-2">
@@ -373,14 +388,29 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                   <input value={rep.recommendation} onChange={ev => setRep(s => ({ ...s, recommendation: ev.target.value }))} placeholder="e.g. Isolate the host, block the domain, reset the user, hunt the hash fleet-wide" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 </div>
                 <div className="flex items-center gap-2 pt-0.5">
-                  <Button variant="primary" size="sm" disabled={busy === "rep" + selEid || rep.summary.trim().length < 5 || rep.findings.trim().split(/\s+/).filter(Boolean).length < 12 || !rep.recommendation.trim()} onClick={() => submitReport(selEid)}><FileText className="mr-1 h-3.5 w-3.5" /> File report</Button>
-                  <span className="text-[10px] text-slate-500">{rep.findings.trim().split(/\s+/).filter(Boolean).length}/12 words in findings</span>
+                  <Button variant="primary" size="sm" disabled={busy === "rep" + selEid || !rep.summary.trim() || !rep.findings.trim() || !rep.recommendation.trim()} onClick={() => submitReport(selEid)}><FileText className="mr-1 h-3.5 w-3.5" /> File report</Button>
+                  <span className="text-[10px] text-slate-500">{rep.findings.trim().split(/\s+/).filter(Boolean).length} words</span>
                 </div>
               </div>
             ) : null}
           </div>
         )}
       </Card>
+      )}
+      {fullLog && (
+        <div className="fixed inset-0 z-[35] flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm" onClick={() => setFullLog(null)}>
+          <div role="dialog" aria-modal="true" aria-label="Escalated log" className="my-4 w-full max-w-5xl rounded-xl border border-border bg-bg shadow-2xl" onClick={ev => ev.stopPropagation()}>
+            <div className="flex items-start gap-3 border-b border-border px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Escalated by {fullLog.from}</p>
+                <p className="break-words text-sm font-bold text-white">{fullLog.title}</p>
+                {fullLog.notes && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-slate-400">{fullLog.notes}</p>}
+              </div>
+              <button onClick={() => setFullLog(null)} aria-label="Close" className="rounded p-1 text-slate-400 hover:bg-bg-elevated hover:text-white"><X className="h-5 w-5" /></button>
+            </div>
+            <DetailPanelBody event={fullLog.snap} onThreatQuery={setThreatQuery} onPivot={onPivot ? (f, v) => { onPivot(f, v); setFullLog(null); } : undefined} />
+          </div>
+        </div>
       )}
       {/* A3: live threat-intel enrichment when a hash/IP/domain is checked in a log */}
       {threatQuery && <ThreatIntelDrawer key="t2-threat" query={threatQuery} onClose={() => setThreatQuery(null)} />}
