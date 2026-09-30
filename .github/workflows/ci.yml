@@ -117,6 +117,14 @@ jobs:
           # Build must succeed WITHOUT real secrets (routes fall back to stubs).
           NODE_ENV: production
 
+      # Answer-key exposure gate. Everything in .next/static is public, signed in
+      # or not. The live feed once imported the scenario builders and shipped every
+      # question explanation in a lazily-loaded chunk. This scans the built chunks
+      # for text that exists only in a scenario's answer key (explanations,
+      # killchain, narrative) and fails if any of it reached the browser.
+      - name: No scenario answer key in client chunks
+        run: npm run check:client-answers
+
       # Security gate. Fails on ANY production-dependency vulnerability at any
       # severity, except those explicitly allowlisted in the script WITH a
       # written reason the code cannot execute here.

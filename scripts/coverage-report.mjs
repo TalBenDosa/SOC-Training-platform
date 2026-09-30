@@ -22,6 +22,7 @@ function base(t) { return t.split(".")[0]; } // sub-technique -> parent
 // ── PRACTISED: mitre_technique fields in the sim data ────────────────────────
 const simFiles = [
   join(SIM, "scenarios.ts"),
+  join(SIM, "scenarioEvents.ts"),   // events of the live-feed scenarios (split from scenarios.ts)
   join(SIM, "companyProfiles.ts"),
   ...readdirSync(join(SIM, "scenario-packs")).filter(f => f.endsWith(".ts")).map(f => join(SIM, "scenario-packs", f)),
 ];

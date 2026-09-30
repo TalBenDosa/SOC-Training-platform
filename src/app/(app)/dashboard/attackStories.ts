@@ -2,10 +2,15 @@
  * Attack Story registry — the single source of truth for per-session attack narratives.
  *
  * Each story is a coherent, ordered kill-chain (10 events) built from the
- * scenario bundles in src/lib/sim/scenarios.ts. The dashboard picks ONE story
- * per session (per company), injects its events IN ORDER in small phases, and
- * uses the story metadata (title + MITRE techniques) as ground truth for the
- * incident-report grader.
+ * scenario telemetry in src/lib/sim/scenarioEvents.ts and the packs'
+ * *.events.ts modules. The dashboard picks ONE story per session (per company),
+ * injects its events IN ORDER in small phases, and uses the story metadata
+ * (title + MITRE techniques) as ground truth for the incident-report grader.
+ *
+ * This module is loaded IN THE BROWSER (simData.ts), so it must import only the
+ * events-only halves, never the scenario builders (scenarios.ts or a pack's own
+ * .ts): those carry the answer key, and whatever is imported here ships in a
+ * public /_next/static chunk. clientAnswerKeyGuard.test.ts enforces this.
  *
  * Diversity guarantees:
  *  - Company fit: a story is only offered to companies whose SIEM architecture
@@ -18,28 +23,28 @@
  */
 
 import {
-  buildPhishingToExfil, buildBecScenario, buildRansomwareScenario, buildOAuthScenario,
-  buildInsiderThreatScenario, buildImpossibleTravelScenario, buildCloudCryptoMiningScenario,
-  buildDCSyncScenario, buildSupplyChainScenario, buildMfaFatigueScenario,
-  buildAsRepRoastingScenario, buildNtlmRelayScenario, buildK8sPodEscapeScenario,
-  buildOAuthConsentPhishingScenario, buildKerberoastingScenario, buildDNSTunnelingScenario,
-  buildLOLBinsScenario, buildPhishingMalwareScenario, buildUsbMalwareScenario,
-  buildBrowserExtensionMalwareScenario, buildTechSupportScamScenario,
-  buildCrackedSoftwareScenario, buildMaliciousMacroScenario,
-} from "@/lib/sim/scenarios";
+  phishingToExfilEvents, becScenarioEvents, ransomwareScenarioEvents, oauthScenarioEvents,
+  insiderThreatScenarioEvents, impossibleTravelScenarioEvents, cloudCryptoMiningScenarioEvents,
+  dcSyncScenarioEvents, supplyChainScenarioEvents, mfaFatigueScenarioEvents,
+  asRepRoastingScenarioEvents, ntlmRelayScenarioEvents, k8sPodEscapeScenarioEvents,
+  oauthConsentPhishingScenarioEvents, kerberoastingScenarioEvents, dnsTunnelingScenarioEvents,
+  lolBinsScenarioEvents, phishingMalwareScenarioEvents, usbMalwareScenarioEvents,
+  browserExtensionMalwareScenarioEvents, techSupportScamScenarioEvents,
+  crackedSoftwareScenarioEvents, maliciousMacroScenarioEvents,
+} from "@/lib/sim/scenarioEvents";
 // Expert scenario-packs — hand-authored, vendor-accurate kill-chains that until
 // now only lived in the static /scenarios exercise and never surfaced in the
 // LIVE dashboard feed. Wiring them here roughly doubles the attack variety a
 // student can meet live. Each is company-restricted (below) to the estates whose
 // telemetry actually carries it — ESXi/vCenter at on-prem datacenters, Linux
 // auditd where there are Linux servers, AiTM/AD attacks at the M365/AD shops.
-import { buildEsxiRansomwareScenario }        from "@/lib/sim/scenario-packs/esxiRansomware";
-import { buildRogueAdminAccountScenario }     from "@/lib/sim/scenario-packs/rogueAdminAccount";
-import { buildImpossibleTravelBasicScenario } from "@/lib/sim/scenario-packs/impossibleTravelBasic";
-import { buildWebShellRceScenario }           from "@/lib/sim/scenario-packs/webShellRce";
-import { buildLinuxSshCryptominerScenario }   from "@/lib/sim/scenario-packs/linuxSshCryptominer";
-import { buildAitmTokenTheftScenario }        from "@/lib/sim/scenario-packs/aitmTokenTheft";
-import { buildBruteForceSingleAccountScenario } from "@/lib/sim/scenario-packs/bruteForceSingleAccount";
+import { esxiRansomwareScenarioEvents }        from "@/lib/sim/scenario-packs/esxiRansomware.events";
+import { rogueAdminAccountScenarioEvents }     from "@/lib/sim/scenario-packs/rogueAdminAccount.events";
+import { impossibleTravelBasicScenarioEvents } from "@/lib/sim/scenario-packs/impossibleTravelBasic.events";
+import { webShellRceScenarioEvents }           from "@/lib/sim/scenario-packs/webShellRce.events";
+import { linuxSshCryptominerScenarioEvents }   from "@/lib/sim/scenario-packs/linuxSshCryptominer.events";
+import { aitmTokenTheftScenarioEvents }        from "@/lib/sim/scenario-packs/aitmTokenTheft.events";
+import { bruteForceSingleAccountScenarioEvents } from "@/lib/sim/scenario-packs/bruteForceSingleAccount.events";
 // Foundation-tier additions. Before these, the easy tier held 7 stories, and
 // after company-fit filtering the two Okta-only estates (rocketstack,
 // quantumbank) saw just 4 — smaller than RECENT_N below, so the anti-repeat
@@ -47,11 +52,11 @@ import { buildBruteForceSingleAccountScenario } from "@/lib/sim/scenario-packs/b
 // Three of the five are deliberately source-light (edr + firewall only) so they
 // fit every estate; the Okta and Google Workspace packs exist specifically to
 // give the two non-Microsoft companies an identity and an email scenario.
-import { buildOktaPasswordBurstScenario }        from "@/lib/sim/scenario-packs/oktaPasswordBurst";
-import { buildFakeBrowserUpdateScenario }        from "@/lib/sim/scenario-packs/fakeBrowserUpdate";
-import { buildTrojanizedInstallerKeyloggerScenario } from "@/lib/sim/scenario-packs/trojanizedInstallerKeylogger";
-import { buildGwsPhishingAttachmentScenario }    from "@/lib/sim/scenario-packs/gwsPhishingAttachment";
-import { buildBundledCryptominerScenario }       from "@/lib/sim/scenario-packs/bundledCryptominer";
+import { oktaPasswordBurstScenarioEvents }        from "@/lib/sim/scenario-packs/oktaPasswordBurst.events";
+import { fakeBrowserUpdateScenarioEvents }        from "@/lib/sim/scenario-packs/fakeBrowserUpdate.events";
+import { trojanizedInstallerKeyloggerScenarioEvents } from "@/lib/sim/scenario-packs/trojanizedInstallerKeylogger.events";
+import { gwsPhishingAttachmentScenarioEvents }    from "@/lib/sim/scenario-packs/gwsPhishingAttachment.events";
+import { bundledCryptominerScenarioEvents }       from "@/lib/sim/scenario-packs/bundledCryptominer.events";
 // Second foundation batch (six more source-light edr+firewall packs). Even after
 // the first batch, the easy pool per company sat right at RECENT_N=8, so a
 // student who played daily could still meet a repeat within a working week.
@@ -59,12 +64,12 @@ import { buildBundledCryptominerScenario }       from "@/lib/sim/scenario-packs/
 // and add genuinely different initial-access tradecraft (SEO-poisoned installer,
 // ISO/MotW smuggling, drive-by miner, ClickFix fake-CAPTCHA, clipboard clipper,
 // scheduled-task persistence) so consecutive easy sessions feel distinct.
-import { buildSeoPoisonedInstallerScenario }     from "@/lib/sim/scenario-packs/seoPoisonedInstaller";
-import { buildIsoContainerSmugglingScenario }    from "@/lib/sim/scenario-packs/isoContainerSmuggling";
-import { buildDriveByBrowserMinerScenario }      from "@/lib/sim/scenario-packs/driveByBrowserMiner";
-import { buildClickFixFakeCaptchaScenario }      from "@/lib/sim/scenario-packs/clickFixFakeCaptcha";
-import { buildClipboardClipperScenario }         from "@/lib/sim/scenario-packs/clipboardClipper";
-import { buildScheduledTaskPersistenceScenario } from "@/lib/sim/scenario-packs/scheduledTaskPersistence";
+import { seoPoisonedInstallerScenarioEvents }     from "@/lib/sim/scenario-packs/seoPoisonedInstaller.events";
+import { isoContainerSmugglingScenarioEvents }    from "@/lib/sim/scenario-packs/isoContainerSmuggling.events";
+import { driveByBrowserMinerScenarioEvents }      from "@/lib/sim/scenario-packs/driveByBrowserMiner.events";
+import { clickFixFakeCaptchaScenarioEvents }      from "@/lib/sim/scenario-packs/clickFixFakeCaptcha.events";
+import { clipboardClipperScenarioEvents }         from "@/lib/sim/scenario-packs/clipboardClipper.events";
+import { scheduledTaskPersistenceScenarioEvents } from "@/lib/sim/scenario-packs/scheduledTaskPersistence.events";
 // P0 attack-coverage additions (docs/live-feed-attack-coverage-review.md). These
 // close the biggest gaps DBIR/CISA flag versus what the feed taught: infostealer
 // cookie theft + session replay (the #1 real credential source), edge-appliance
@@ -72,10 +77,10 @@ import { buildScheduledTaskPersistenceScenario } from "@/lib/sim/scenario-packs/
 // extortion (modern double-extortion reality), and help-desk MFA-reset account
 // takeover (Scattered Spider). They also lift the thin core/advanced pools clear
 // of the RECENT_N=8 anti-repeat window for the M365/Okta estates.
-import { buildInfostealerSessionTheftScenario }  from "@/lib/sim/scenario-packs/infostealerSessionTheft";
-import { buildEdgeVpnCveExploitScenario }        from "@/lib/sim/scenario-packs/edgeVpnCveExploit";
-import { buildExfilFirstExtortionScenario }      from "@/lib/sim/scenario-packs/exfilFirstExtortion";
-import { buildHelpdeskMfaResetScenario }         from "@/lib/sim/scenario-packs/helpdeskMfaReset";
+import { infostealerSessionTheftScenarioEvents }  from "@/lib/sim/scenario-packs/infostealerSessionTheft.events";
+import { edgeVpnCveExploitScenarioEvents }        from "@/lib/sim/scenario-packs/edgeVpnCveExploit.events";
+import { exfilFirstExtortionScenarioEvents }      from "@/lib/sim/scenario-packs/exfilFirstExtortion.events";
+import { helpdeskMfaResetScenarioEvents }         from "@/lib/sim/scenario-packs/helpdeskMfaReset.events";
 import { COMPANY_ATTACKS, ROCKETSTACK_CRED_STUFFING_CHAIN } from "@/lib/sim/companyProfiles";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { AI_CORE_STORIES } from "./ai-stories/core";
@@ -83,7 +88,7 @@ import { AI_EXTRA_STORIES } from "./ai-stories/extra";
 import { AI_WAVE2_STORIES } from "./ai-stories/wave2";
 import { AI_FOUNDATION_STORIES } from "./ai-stories/foundation";
 import { AI_ADVANCED_A_STORIES } from "./ai-stories/advanced-a";
-import { buildAiLlmJackingScenario } from "@/lib/sim/scenario-packs/aiLlmJacking";
+import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
 /**
@@ -114,60 +119,54 @@ export interface AttackStory {
 
 // ── Scenario bundles (instantiated once at module load) ───────────────────────
 
-const _phishing         = buildPhishingToExfil();
-const _bec              = buildBecScenario();
-const _ransomware       = buildRansomwareScenario();
-const _oauth            = buildOAuthScenario();
-const _insider          = buildInsiderThreatScenario();
-const _impossibleTravel = buildImpossibleTravelScenario();
-const _cryptomining     = buildCloudCryptoMiningScenario();
-const _dcsync           = buildDCSyncScenario();
-const _supplyChain      = buildSupplyChainScenario();
-const _mfaFatigue       = buildMfaFatigueScenario();
-const _asrepRoasting    = buildAsRepRoastingScenario();
-const _ntlmRelay        = buildNtlmRelayScenario();
-const _k8sPodEscape     = buildK8sPodEscapeScenario();
-const _oauthConsent     = buildOAuthConsentPhishingScenario();
-const _kerberoasting    = buildKerberoastingScenario();
-const _dnsTunneling     = buildDNSTunnelingScenario();
-const _lolbins          = buildLOLBinsScenario();
-const _phishingMalware  = buildPhishingMalwareScenario();
-const _usbMalware       = buildUsbMalwareScenario();
-const _browserExtension = buildBrowserExtensionMalwareScenario();
-const _techSupportScam  = buildTechSupportScamScenario();
-const _crackedSoftware  = buildCrackedSoftwareScenario();
-const _maliciousMacro   = buildMaliciousMacroScenario();
+const _phishing         = phishingToExfilEvents();
+const _bec              = becScenarioEvents();
+const _ransomware       = ransomwareScenarioEvents();
+const _oauth            = oauthScenarioEvents();
+const _insider          = insiderThreatScenarioEvents();
+const _impossibleTravel = impossibleTravelScenarioEvents();
+const _cryptomining     = cloudCryptoMiningScenarioEvents();
+const _dcsync           = dcSyncScenarioEvents();
+const _supplyChain      = supplyChainScenarioEvents();
+const _mfaFatigue       = mfaFatigueScenarioEvents();
+const _asrepRoasting    = asRepRoastingScenarioEvents();
+const _ntlmRelay        = ntlmRelayScenarioEvents();
+const _k8sPodEscape     = k8sPodEscapeScenarioEvents();
+const _oauthConsent     = oauthConsentPhishingScenarioEvents();
+const _kerberoasting    = kerberoastingScenarioEvents();
+const _dnsTunneling     = dnsTunnelingScenarioEvents();
+const _lolbins          = lolBinsScenarioEvents();
+const _phishingMalware  = phishingMalwareScenarioEvents();
+const _usbMalware       = usbMalwareScenarioEvents();
+const _browserExtension = browserExtensionMalwareScenarioEvents();
+const _techSupportScam  = techSupportScamScenarioEvents();
+const _crackedSoftware  = crackedSoftwareScenarioEvents();
+const _maliciousMacro   = maliciousMacroScenarioEvents();
 
 // Expert scenario-packs (see import note above)
-const _esxiRansomware   = buildEsxiRansomwareScenario();
-const _rogueAdmin       = buildRogueAdminAccountScenario();
-const _impossibleTravelBasic = buildImpossibleTravelBasicScenario();
-const _webShellRce      = buildWebShellRceScenario();
-const _linuxCryptominer = buildLinuxSshCryptominerScenario();
-const _aitmTokenTheft   = buildAitmTokenTheftScenario();
-const _bruteForceSingle = buildBruteForceSingleAccountScenario();
-const _oktaPasswordBurst    = buildOktaPasswordBurstScenario();
-const _fakeBrowserUpdate    = buildFakeBrowserUpdateScenario();
-const _trojanizedKeylogger  = buildTrojanizedInstallerKeyloggerScenario();
-const _gwsPhishAttachment   = buildGwsPhishingAttachmentScenario();
-const _bundledCryptominer   = buildBundledCryptominerScenario();
-const _seoPoisonedInstaller    = buildSeoPoisonedInstallerScenario();
-const _isoContainerSmuggling   = buildIsoContainerSmugglingScenario();
-const _driveByBrowserMiner     = buildDriveByBrowserMinerScenario();
-const _clickFixFakeCaptcha     = buildClickFixFakeCaptchaScenario();
-const _clipboardClipper        = buildClipboardClipperScenario();
-const _scheduledTaskPersistence = buildScheduledTaskPersistenceScenario();
+const _esxiRansomware   = esxiRansomwareScenarioEvents();
+const _rogueAdmin       = rogueAdminAccountScenarioEvents();
+const _impossibleTravelBasic = impossibleTravelBasicScenarioEvents();
+const _webShellRce      = webShellRceScenarioEvents();
+const _linuxCryptominer = linuxSshCryptominerScenarioEvents();
+const _aitmTokenTheft   = aitmTokenTheftScenarioEvents();
+const _bruteForceSingle = bruteForceSingleAccountScenarioEvents();
+const _oktaPasswordBurst    = oktaPasswordBurstScenarioEvents();
+const _fakeBrowserUpdate    = fakeBrowserUpdateScenarioEvents();
+const _trojanizedKeylogger  = trojanizedInstallerKeyloggerScenarioEvents();
+const _gwsPhishAttachment   = gwsPhishingAttachmentScenarioEvents();
+const _bundledCryptominer   = bundledCryptominerScenarioEvents();
+const _seoPoisonedInstaller    = seoPoisonedInstallerScenarioEvents();
+const _isoContainerSmuggling   = isoContainerSmugglingScenarioEvents();
+const _driveByBrowserMiner     = driveByBrowserMinerScenarioEvents();
+const _clickFixFakeCaptcha     = clickFixFakeCaptchaScenarioEvents();
+const _clipboardClipper        = clipboardClipperScenarioEvents();
+const _scheduledTaskPersistence = scheduledTaskPersistenceScenarioEvents();
 // P0 additions (see import note above)
-const _infostealerSessionTheft = buildInfostealerSessionTheftScenario();
-const _edgeVpnCveExploit        = buildEdgeVpnCveExploitScenario();
-const _exfilFirstExtortion      = buildExfilFirstExtortionScenario();
-const _helpdeskMfaReset         = buildHelpdeskMfaResetScenario();
-
-/** Scenario info still needed by the Start-Training modal on the dashboard page */
-export const SCENARIO_INFO = {
-  phishing: { title: _phishing.title, narrative: _phishing.narrative, threat_actor: _phishing.threat_actor, events: _phishing.events },
-  bec:      { title: _bec.title,      narrative: _bec.narrative,      threat_actor: _bec.threat_actor,      events: _bec.events      },
-};
+const _infostealerSessionTheft = infostealerSessionTheftScenarioEvents();
+const _edgeVpnCveExploit        = edgeVpnCveExploitScenarioEvents();
+const _exfilFirstExtortion      = exfilFirstExtortionScenarioEvents();
+const _helpdeskMfaReset         = helpdeskMfaResetScenarioEvents();
 
 const deriveMitre = (events: TelemetryEvent[]): string[] =>
   Array.from(new Set(events.map(e => e.mitre_technique).filter(Boolean))) as string[];
@@ -855,7 +854,7 @@ const AI_STORIES: AttackStory[] = [
   ...AI_EXTRA_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   ...AI_WAVE2_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   ...AI_ADVANCED_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
-  story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: buildAiLlmJackingScenario().events }, "advanced", ["quantumbank"]),
+  story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: aiLlmJackingScenarioEvents().events }, "advanced", ["quantumbank"]),
 ];
 
 export const ATTACK_STORIES: AttackStory[] = [

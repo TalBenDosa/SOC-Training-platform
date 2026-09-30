@@ -46,7 +46,12 @@ const FULLY_EMITTER_AUTHORED = [
 
 describe("emitter-authored scenario packs", () => {
   it.each(FULLY_EMITTER_AUTHORED)("%s contains no hand-authored raw blocks", (file) => {
-    const src = fs.readFileSync(path.resolve("src/lib/sim/scenario-packs", file), "utf-8");
+    // Live-feed packs keep their events in a sibling <pack>.events.ts (the builder
+    // holds only the answer key), so read both halves.
+    const halves = [file, file.replace(/\.ts$/, ".events.ts")]
+      .map(f => path.resolve("src/lib/sim/scenario-packs", f))
+      .filter(p => fs.existsSync(p));
+    const src = halves.map(p => fs.readFileSync(p, "utf-8")).join("\n");
     // Any `raw: {` literal in the source is a hand-typed vendor block — forbidden here.
     const handRaw = (src.match(/\braw:\s*\{/g) ?? []).length;
     expect(handRaw, `${file} has ${handRaw} hand-authored raw block(s); use the emitters`).toBe(0);
