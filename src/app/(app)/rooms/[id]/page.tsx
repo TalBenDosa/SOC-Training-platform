@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { ROOMS, type Room } from "@/data/rooms";
 import { sanitizeRoom, type SanitizedRoom } from "@/lib/rooms/sanitize";
 import { getEffectiveRoom } from "@/lib/rooms/resolve";
-import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { scrambleAwayFromAnswer } from "@/lib/rooms/shuffle";
 import { RoomClient } from "./RoomClient";
 
@@ -51,7 +51,7 @@ export default async function RoomPage({ params }: PageProps) {
   let room = ROOMS.find(r => r.id === id) ?? null;
   if (!room && id.startsWith("org-")) {
     const user = await getAuthedUser();
-    room = await getEffectiveRoom(id, user?.orgId ?? null);
+    room = await getEffectiveRoom(id, user?.orgId ?? null, canPreviewDrafts(user));
   }
   if (!room) notFound();
 

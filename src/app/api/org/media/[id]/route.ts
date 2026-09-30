@@ -60,9 +60,11 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const owned = await ownRow(id, orgId, admin);
   if ("error" in owned) return owned.error;
 
-  await admin.storage.from(BUCKET).remove([owned.row.storage_key]).catch(() => {});
+  // Row first, object second: if the row delete fails, students must not be left
+  // with a material whose file is already gone.
   const { error } = await admin.from("org_resources").delete().eq("id", id).eq("org_id", orgId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await admin.storage.from(BUCKET).remove([owned.row.storage_key]).catch(() => {});
   await logAudit({ actorId: gate.user.id, action: "org.media.deleted", targetTable: "org_resources", targetId: id, metadata: { org_id: orgId } });
   return NextResponse.json({ ok: true });
 }

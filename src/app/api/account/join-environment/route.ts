@@ -72,6 +72,13 @@ export async function POST(req: Request) {
     .from("org_members").select("role, status")
     .eq("org_id", org.id).eq("user_id", user.id).maybeSingle();
 
+  // An org admin deactivated this membership (org/members PATCH → "removed").
+  // The class code is shown to the whole class, so it must not undo that
+  // decision — only the institution can reactivate a removed member.
+  if (existing?.status === "removed") {
+    return NextResponse.json({ error: "Your access to this institution was removed by its administrators. Please contact your instructor." }, { status: 403 });
+  }
+
   if (existing?.status === "active" && ["org_admin", "instructor"].includes(existing.role)) {
     // Staff of this org — context switch only, never a demotion.
     const { error } = await admin.from("profiles").update({ org_id: org.id }).eq("id", user.id);

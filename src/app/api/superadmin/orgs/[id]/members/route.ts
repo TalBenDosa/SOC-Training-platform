@@ -61,13 +61,16 @@ export async function DELETE(req: Request, { params }: Ctx) {
   const userId = String(body.user_id ?? "").trim();
   if (!userId) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
 
-  const { error } = await admin.from("org_members").delete().eq("org_id", orgId).eq("user_id", userId);
+  const { data: deleted, error } = await admin.from("org_members").delete().eq("org_id", orgId).eq("user_id", userId).select("user_id");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Only re-home the profile if a membership was actually removed — otherwise a
+  // mistyped user_id would silently flip a stranger's active organisation.
+  if (!deleted || deleted.length === 0) return NextResponse.json({ error: "That user is not a member of this organisation." }, { status: 404 });
 
   // Re-home the profile to the internal org so its NOT NULL org_id isn't left
   // pointing at an org they're no longer in. Their JWT (no active membership)
   // will carry no org, so access fails closed until they're re-assigned.
-  await admin.from("profiles").update({ org_id: INTERNAL_ORG }).eq("id", userId);
+  await admin.from("profiles").update({ org_id: INTERNAL_ORG }).eq("id", userId).eq("org_id", orgId);
 
   return NextResponse.json({ ok: true });
 }

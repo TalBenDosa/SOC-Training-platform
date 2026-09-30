@@ -1,6 +1,7 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import type { NextRequest } from "next/server";
+import { checkRateLimit } from "@/lib/security/rateLimit";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { passwordResetEmail } from "@/lib/email/templates";
@@ -35,31 +36,21 @@ export const runtime = "nodejs";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// ── Best-effort in-memory rate limit ────────────────────────────────────────
-type Bucket = { count: number; resetAt: number };
-const byEmail = new Map<string, Bucket>();
-const byIp = new Map<string, Bucket>();
+// ── Rate limit ──────────────────────────────────────────────────────────────
+// Shared store (Upstash when configured — the same one the middleware uses), so
+// the budget is per client, not per serverless instance.
 const EMAIL_LIMIT = { max: 3, windowMs: 15 * 60_000 };   // 3 / 15 min per email
 const IP_LIMIT = { max: 12, windowMs: 60 * 60_000 };     // 12 / hour per IP
 
-function hit(map: Map<string, Bucket>, key: string, lim: { max: number; windowMs: number }): boolean {
-  const now = Date.now();
-  const b = map.get(key);
-  if (!b || now > b.resetAt) { map.set(key, { count: 1, resetAt: now + lim.windowMs }); return true; }
-  if (b.count >= lim.max) return false;
-  b.count++;
-  return true;
-}
-// Opportunistic cleanup so the maps can't grow unbounded on a long-lived instance.
-function sweep(map: Map<string, Bucket>) {
-  if (map.size < 5000) return;
-  const now = Date.now();
-  for (const [k, b] of map) if (now > b.resetAt) map.delete(k);
-}
-
+// Same trusted-source rule as src/middleware.ts: x-real-ip is set by the
+// platform; the LEFT-most x-forwarded-for entry is whatever the client sent, so
+// only the right-most hop is used when x-real-ip is absent.
 function clientIp(req: NextRequest): string {
+  const real = req.headers.get("x-real-ip");
+  if (real) return real.trim();
   const xff = req.headers.get("x-forwarded-for");
-  return (xff ? xff.split(",")[0] : "").trim() || req.headers.get("x-real-ip") || "unknown";
+  if (xff) { const hops = xff.split(","); return hops[hops.length - 1].trim(); }
+  return "unknown";
 }
 
 export async function POST(req: NextRequest) {
@@ -76,8 +67,9 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = clientIp(req);
-  sweep(byEmail); sweep(byIp);
-  if (!hit(byIp, ip, IP_LIMIT) || !hit(byEmail, email, EMAIL_LIMIT)) {
+  const ipOk = (await checkRateLimit(`reset-ip:${ip}`, IP_LIMIT.max, IP_LIMIT.windowMs)).ok;
+  const emailOk = ipOk && (await checkRateLimit(`reset-email:${email}`, EMAIL_LIMIT.max, EMAIL_LIMIT.windowMs)).ok;
+  if (!ipOk || !emailOk) {
     return NextResponse.json(
       { ok: false, error: "Too many reset requests. Please wait a few minutes and try again." },
       { status: 429 },
@@ -88,7 +80,10 @@ export async function POST(req: NextRequest) {
   const origin = req.nextUrl.origin; // the domain the user is actually on
 
   // Do the real work but NEVER leak whether the account exists — always 200.
-  if (admin) {
+  // It runs AFTER the response is sent (after()): awaiting generateLink + the
+  // email send made an existing account measurably slower to answer than an
+  // unknown one, which revealed whether an email is registered.
+  if (admin) after(async () => {
     try {
       const { data, error } = await admin.auth.admin.generateLink({
         type: "recovery",
@@ -110,9 +105,8 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[request-reset] threw:", e instanceof Error ? e.message : String(e));
     }
-  } else {
-    console.info("[request-reset] admin client not configured — reset email skipped");
-  }
+  });
+  else console.info("[request-reset] admin client not configured — reset email skipped");
 
   return NextResponse.json({ ok: true });
 }

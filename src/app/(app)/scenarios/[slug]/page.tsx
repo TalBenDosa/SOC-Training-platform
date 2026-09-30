@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
-import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { buildIocTruth } from "@/lib/edr/iocIntel";
 import { optionToken, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
 import { ScenarioClient } from "./ScenarioClient";
@@ -9,7 +9,7 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
   const { slug } = await params;
   // orgId scopes org-authored scenarios; static built-ins ignore it.
   const user = await getAuthedUser();
-  const bundle = await resolveScenarioBundle(slug, user?.orgId ?? null);
+  const bundle = await resolveScenarioBundle(slug, user?.orgId ?? null, canPreviewDrafts(user));
   if (!bundle) notFound();
 
   // Anything handed to a client component is serialised into the page payload

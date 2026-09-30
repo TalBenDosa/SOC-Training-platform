@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 
+export const maxDuration = 120;
+
 // ─── Extended type for generated quizzes ─────────────────────────────────────
 
 export interface GeneratedQuiz extends Quiz {
@@ -182,7 +184,7 @@ export async function POST(req: Request) {
     return Response.json(buildLocalQuiz(title, topic, difficulty, clampedCount));
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 90_000, maxRetries: 1 });
 
   const prompt = `You are an expert SOC training instructor creating a multiple-choice quiz for security analysts.
 

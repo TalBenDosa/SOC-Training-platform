@@ -22,6 +22,7 @@ import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { analyseIndicators } from "@/lib/dashboard/indicatorAnalysis";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export interface IncidentReportRequest {
   company: string;
@@ -234,6 +235,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
+  // Bound every client field: summary/company/title/MITRE/indicators all go into
+  // a PAID model prompt, and wrong types (a non-array, a number) must not throw.
+  const strList = (v: unknown, max: number, len: number) =>
+    Array.isArray(v) ? v.filter(x => typeof x === "string").slice(0, max).map(x => (x as string).slice(0, len)) : [];
+  body = {
+    ...body,
+    company: String(body?.company ?? "").slice(0, 120),
+    summary: String(body?.summary ?? "").slice(0, 8000),
+    attackTitle: body?.attackTitle == null ? undefined : String(body.attackTitle).slice(0, 300),
+    attackMitreTechniques: strList(body?.attackMitreTechniques, 30, 40),
+    realIndicators: strList(body?.realIndicators, 100, 300),
+    evidenceText: String(body?.evidenceText ?? "").slice(0, 500_000),
+  };
+
   if (!body.summary?.trim()) {
     return NextResponse.json({
       score: 0,
@@ -271,7 +286,9 @@ export async function POST(req: Request) {
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey });
+    // Bounded: a hung provider must fall through to the deterministic grade
+    // below well inside maxDuration (SDK default is 10 min + 2 retries).
+    const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 1 });
     const { cited, fabricated } = analyseIndicators(body.summary, body.realIndicators ?? [], body.evidenceText ?? "");
 
     const msg = await client.messages.create({

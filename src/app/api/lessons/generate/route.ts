@@ -1,6 +1,8 @@
 import OpenAI from "openai";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 
+export const maxDuration = 300;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface GeneratedLesson {
@@ -246,7 +248,7 @@ export async function POST(req: Request) {
     return Response.json(buildLocalLesson(lessonTopic, difficulty, kind, sectionCount));
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 240_000, maxRetries: 1 });
 
   try {
     const response = await client.chat.completions.create({

@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { constantTimeEquals } from "@/lib/security/constantTimeEquals";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { sendEmailBatch } from "@/lib/email/sendEmail";
 import { lapsedNudgeEmail } from "@/lib/email/templates";
+
+export const maxDuration = 120;
 
 /**
  * Emails learners who started but have gone quiet, then stamps
@@ -65,24 +67,38 @@ async function run(dry: boolean) {
   }
 
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://soc-training-platform-jade.vercel.app";
-  const sentIds: string[] = [];
-  let skipped = 0;
 
-  for (const r of rows) {
+  // CLAIM before sending: stamp last_nudged_at only on rows still eligible
+  // (never nudged, or past the cooldown) and send only to the rows this run
+  // actually claimed. A concurrent or repeated run (Vercel may deliver a cron
+  // twice) then claims nothing, and a run killed mid-way doesn't re-send.
+  const now = new Date().toISOString();
+  const cutoff = new Date(Date.now() - COOLDOWN_DAYS * 86_400_000).toISOString();
+  const { data: claimedRows, error: claimErr } = rows.length
+    ? await admin.from("profiles").update({ last_nudged_at: now })
+        .in("id", rows.map(r => r.user_id))
+        .or(`last_nudged_at.is.null,last_nudged_at.lt.${cutoff}`)
+        .select("id")
+    : { data: [], error: null };
+  if (claimErr) return NextResponse.json({ error: "Could not claim recipients." }, { status: 500 });
+  const claimed = new Set((claimedRows ?? []).map(r => String(r.id)));
+  const toSend = rows.filter(r => claimed.has(r.user_id));
+
+  // Paced batch send (respects the provider's rate limit; a sequential loop of
+  // single sends hit 429s and could outlive the function).
+  const batch = await sendEmailBatch(toSend.map(r => {
     const daysAway = Math.max(1, Math.floor((Date.now() - Date.parse(r.last_active)) / 86_400_000));
-    const { subject, html, text } = lapsedNudgeEmail({
-      name: r.display_name || "there",
-      daysAway,
-      resumeLink: `${base}/rooms`,
-    });
-    const res = await sendEmail({ to: r.email, subject, html, text });
-    if (res.ok) sentIds.push(r.user_id);
-    else skipped++;
-  }
+    const { subject, html, text } = lapsedNudgeEmail({ name: r.display_name || "there", daysAway, resumeLink: `${base}/rooms` });
+    return { to: r.email, subject, html, text };
+  }));
+  const sentIds = toSend.filter((_, i) => batch.sent[i]).map(r => r.user_id);
+  const failedIds = toSend.filter((_, i) => !batch.sent[i]).map(r => r.user_id);
+  const skipped = failedIds.length + (rows.length - toSend.length);
 
-  // Stamp only the ones that actually went out.
-  if (sentIds.length > 0) {
-    await admin.from("profiles").update({ last_nudged_at: new Date().toISOString() }).in("id", sentIds);
+  // Release the claim for sends that didn't go out, so the next run retries them.
+  // (Includes the no-provider-key case, where nothing is sent at all.)
+  if (failedIds.length > 0) {
+    await admin.from("profiles").update({ last_nudged_at: null }).in("id", failedIds).eq("last_nudged_at", now);
   }
 
   return NextResponse.json({ candidates: rows.length, sent: sentIds.length, skipped });

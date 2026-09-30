@@ -3,7 +3,7 @@ import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
 import { getPlanCatalog, needsOrgCatalog } from "@/lib/plans/catalog";
-import { cleanLine, cleanText, isUuid, parseDueDate, parsePriority, sanitizePlanItems } from "@/lib/plans/sanitize";
+import { cleanLine, cleanText, droppedPlanItemCount, isUuid, parseDueDate, parsePriority, sanitizePlanItems } from "@/lib/plans/sanitize";
 import {
   ASSIGNMENT_COLUMNS, PlanDataError, loadLearnerPlans, loadProgress, resolveItems, toPlanDataError, type AssignmentDbRow,
 } from "@/lib/plans/server";
@@ -133,10 +133,18 @@ export async function PUT(req: Request, { params }: Ctx) {
     body = b as Record<string, unknown>;
   } catch { return fail(400, "Invalid JSON."); }
 
+  if (!Array.isArray(body.items)) return fail(400, "items must be a list.");
   const catalog = await getPlanCatalog(admin, orgId);
   const items = sanitizePlanItems(body.items, catalog.isKnown);
   const due = parseDueDate(body.due_at);
   if (!due.ok) return fail(400, "Invalid due date.");
+
+  // Only an explicitly EMPTY list clears the plan. Items that were sent but
+  // didn't survive sanitising (unknown ids, or the catalog failing to load) must
+  // not silently delete the learner's existing plan.
+  if (droppedPlanItemCount(body.items, items) > 0 || (items.length === 0 && body.items.length > 0)) {
+    return fail(400, "None of the selected items are available right now — the plan was not changed.");
+  }
 
   if (items.length === 0) {
     // Clearing is allowed whatever the learner's status.

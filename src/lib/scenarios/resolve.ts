@@ -19,7 +19,7 @@ import { recombineScenario } from "@/lib/scenarios/authored";
  * The recombined bundle carries the answer key; callers that hand it to the
  * client (the play page) must strip it — the grade route consumes it in full.
  */
-export async function resolveScenarioBundle(slug: string, orgId: string | null): Promise<ScenarioBundle | null> {
+export async function resolveScenarioBundle(slug: string, orgId: string | null, includeDrafts = false): Promise<ScenarioBundle | null> {
   const staticBundle = buildScenarioBySlug(slug);
   if (staticBundle) return staticBundle;
 
@@ -38,6 +38,8 @@ export async function resolveScenarioBundle(slug: string, orgId: string | null):
 
   // Re-assert the tenant boundary (service role bypassed RLS).
   if (row.org_id !== null && row.org_id !== orgId) return null;
+  // Drafts / unpublished scenarios: staff preview only (unpublishing revokes access).
+  if (row.status !== "published" && !includeDrafts) return null;
 
   const content = (row.content ?? {}) as Record<string, unknown>;
   if (content.kind !== "authored") return null; // legacy generated scenarios don't grade here

@@ -14,6 +14,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 function safeNext(raw: string | null): string {
   if (!raw || !raw.startsWith("/")) return "/rooms";
   if (raw.startsWith("//") || raw.startsWith("/\\")) return "/rooms";
+  if (/[\s\u0000-\u001f\u007f]/.test(raw)) return "/rooms"; // TAB/CR/LF are stripped by URL parsing
   return raw;
 }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { decodeAnswer, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
-import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { scoreScenarioReport } from "@/lib/scenarios/reportScoring";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -9,6 +9,7 @@ import { buildReportBreakdown } from "../../_lib/reportBreakdown";
 import { buildAttemptRow, clampTimeTaken, xpDeltaFor } from "../../_lib/attemptRecord";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(
   req: Request,
@@ -28,7 +29,7 @@ export async function POST(
   const slug = decodeURIComponent(rawSlug);
   // Resolves static built-ins AND org-authored DB scenarios (the latter get
   // their answer key merged in from the service-role-only key table).
-  const bundle = await resolveScenarioBundle(slug, gradeUser.orgId);
+  const bundle = await resolveScenarioBundle(slug, gradeUser.orgId, canPreviewDrafts(gradeUser));
   if (!bundle) {
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
   }
@@ -52,9 +53,14 @@ export async function POST(
   // (clamped to an integer 0..86400 s) so /progress can show time spent.
   const {
     answers: rawAnswers = {},
-    verdict = null, verdictReason = "", analystNotes = "",
-    indicators = [],
+    verdict: rawVerdict = null, verdictReason = "", analystNotes = "",
+    indicators: rawIndicators = [],
   } = body;
+  // Only the two real calls reach scoring and the model prompt — a free-form
+  // string here used to land in the LLM prompt verbatim. Indicators are bounded
+  // (and a non-array tolerated) for the same reason.
+  const verdict = rawVerdict === "tp" || rawVerdict === "fp" ? rawVerdict : null;
+  const indicators = Array.isArray(rawIndicators) ? rawIndicators.slice(0, 200) : [];
   const timeTaken = clampTimeTaken(body.timeTaken);
   // The page ships keyed option tokens (optionToken) — map them back to the
   // authored values before grading. Raw values from older clients pass through.
@@ -145,10 +151,14 @@ export async function POST(
   // whether they can actually communicate an incident, which is the job.
   const score = Math.round(quizScore * 0.6 + reportScore * 0.4);
   const passed = score >= 70;
+  // Indicator XP is bounded by the scenario's own evidence: at most twice its
+  // curated IOC count (min 3). Without a bound, every distinct token pulled from
+  // the logs paid +10 XP, so one request could reach the 2000 XP cap.
+  const citedForXp = Math.min(usefulCitedCount, Math.max(3, scenarioIocValues.length * 2));
   const xpEarned =
     perQuestion.filter(q => q.correct).reduce((s, q) => s + q.xp, 0) +
     // Reward CITING REAL indicators (precision), not merely tagging any (recall).
-    usefulCitedCount * 10 +
+    citedForXp * 10 +
     Math.round(reportScore * 1.5);
   // FB-007: no speed bonus. Rewarding a short investigation time pushed learners to
   // optimize for finishing fast (quantity) over investigating well (quality), which is
@@ -211,7 +221,9 @@ export async function POST(
   if (apiKey && gradeUser && gradeBudget.allowed) {
     try {
       const { default: Anthropic } = await import("@anthropic-ai/sdk");
-      const client = new Anthropic({ apiKey });
+      // Bounded so a stalled provider can't push the request past the function
+      // limit before the attempt below is saved (the student would lose it).
+      const client = new Anthropic({ apiKey, timeout: 20_000, maxRetries: 1 });
 
       const wrongSummary = perQuestion
         .filter(q => !q.correct)

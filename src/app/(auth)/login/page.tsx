@@ -26,7 +26,10 @@ function LoginForm() {
   // "//" (protocol-relative) or "/\" — browsers normalise backslashes to
   // forward slashes, so "/\evil.com" would otherwise resolve to an external
   // host. The negative lookahead rejects both.
-  const nextPath = rawNext && /^\/(?![/\\])/.test(rawNext) ? rawNext : "/welcome";
+  // Control characters / whitespace are rejected too: URL parsing strips TAB, CR
+  // and LF, so "/<TAB>/evil.com" would pass the check above and still resolve to
+  // evil.com once the router builds the URL.
+  const nextPath = rawNext && /^\/(?![/\\])/.test(rawNext) && !/[\s\u0000-\u001f\u007f]/.test(rawNext) ? rawNext : "/welcome";
   // ?code= — an access code carried over from signup's "this email already has
   // an account" path. Applied AFTER authentication: the code joins its
   // environment to the signed-in account (multi-environment), then we land on

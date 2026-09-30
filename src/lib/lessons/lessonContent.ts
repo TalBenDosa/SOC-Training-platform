@@ -208,7 +208,7 @@ export async function resolveGeneratedLesson(raw: string): Promise<ResolveLesson
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey, timeout: 45_000, maxRetries: 1 });
 
     const userPrompt = buildUserPrompt(
       found.lesson.title,

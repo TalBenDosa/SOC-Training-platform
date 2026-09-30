@@ -13,10 +13,16 @@
  *   1. `collectLeafValues` matches only leaf VALUES, never object keys (so field
  *      names like "vendor"/"hostname" can't be "cited").
  *   2. `looksLikeIndicator` requires a freely-typed value to have indicator shape
- *      before it may match the telemetry blob (so common stopwords can't match a
+ *      before it may match the telemetry (so common stopwords can't match a
  *      description's prose). Curated `bundle.iocs` matches are exempt — they're
  *      vetted content.
- * `reportScoring.test.ts` locks both guards down.
+ *   3. CREDIT needs a whole value or a whole token of one (split on separators
+ *      such as / \ : = , and whitespace), never an arbitrary substring. With
+ *      substrings, "185", "85." and "5.2" cut out of one IP were each a distinct
+ *      "real" indicator worth XP, so one request could farm the XP cap. The
+ *      fabrication check stays lenient (any substring of a single value) so an
+ *      analyst quoting part of a URL or command line is not penalised.
+ * `reportScoring.test.ts` locks these guards down.
  */
 
 export interface ReportScoreInput {
@@ -83,8 +89,13 @@ export function collectLeafValues(node: unknown, out: string[] = []): string[] {
   return out;
 }
 
+/** Separators an indicator never contains; splitting a value on them yields its tokens. */
+const TOKEN_SPLIT = /[\s"'`,;|()<>[\]{}=\\/:]+/;
+
 export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult {
-  const { verdict, verdictReason, analystNotes, indicators, iocs, events, attackKind } = input;
+  const { verdict, verdictReason, analystNotes, iocs, events, attackKind } = input;
+  // Client-supplied: a non-array must not throw (it used to 500 the grade route).
+  const indicators = Array.isArray(input.indicators) ? input.indicators : [];
 
   const reportText = [analystNotes, verdictReason].join(" ").trim();
   const words = reportText.split(/\s+/).filter(Boolean).length;
@@ -98,9 +109,20 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   // ── Evidence / IOCs ────────────────────────────────────────────────────────
   const scenarioIocValues = (iocs ?? []).map(i => i.value.toLowerCase());
   const realValues = new Set(scenarioIocValues);
-  const eventsBlob = collectLeafValues(events ?? []).join("").toLowerCase();
+  const leaves = collectLeafValues(events ?? []).map(v => v.toLowerCase());
+  // Whole values + their tokens: what may EARN credit.
+  const leafTokens = new Set<string>();
+  for (const leaf of leaves) {
+    leafTokens.add(leaf.trim());
+    for (const t of leaf.split(TOKEN_SPLIT)) if (t) leafTokens.add(t);
+  }
+  // Newline-joined so a match can't straddle two different values.
+  const eventsBlob = leaves.join("\n");
   const looksLikeIndicator = (v: string) => v.length >= 6 || /[\d@._-]/.test(v);
-  const isRealValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && eventsBlob.includes(v));
+  /** Earns credit: a curated IOC, or a whole value / whole token seen in the telemetry. */
+  const isRealValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && leafTokens.has(v));
+  /** Grounded in the telemetry at all (fabrication check only — deliberately lenient). */
+  const isGroundedValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && eventsBlob.includes(v));
 
   const citedValues = new Set(
     indicators.map(i => String(i.value).toLowerCase().trim()).filter(Boolean),
@@ -124,7 +146,7 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   for (const m of reportText.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g))  claimed.add(m[0].toLowerCase()); // IPv4
   for (const m of reportText.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase()); // email
   for (const m of reportText.matchAll(/\b[0-9a-f]{32,64}\b/gi))         claimed.add(m[0].toLowerCase()); // hash
-  const fabricated = [...claimed].filter(v => v.length >= 4 && !isRealValue(v));
+  const fabricated = [...claimed].filter(v => v.length >= 4 && !isGroundedValue(v));
 
   // Precision error: a known-benign address tagged (or written) as a hostile
   // indicator. Checked across BOTH the tagged IOC list and the prose.

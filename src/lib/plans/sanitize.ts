@@ -75,6 +75,23 @@ const isKind = (k: unknown): k is PlanItemKind => typeof k === "string" && (PLAN
  *    non-empty (≤ 300 chars) — so a v1 `{kind,id}` row round-trips unchanged;
  *  - capped at `max` items.
  */
+/**
+ * How many well-formed, distinct items in `raw` did NOT survive sanitising
+ * (unknown/unavailable ids). Routes refuse the write when this is > 0 so a plan
+ * never silently loses items — e.g. org-authored items dropped because the
+ * org-content catalog failed to load.
+ */
+export function droppedPlanItemCount(raw: unknown, kept: readonly PlanItem[], max: number = PLAN_LIMITS.items): number {
+  if (!Array.isArray(raw)) return 0;
+  const sent = new Set<string>();
+  for (const r of raw) {
+    if (!r || typeof r !== "object") continue;
+    const o = r as Record<string, unknown>;
+    if (isKind(o.kind) && typeof o.id === "string" && o.id.length > 0 && o.id.length <= 200) sent.add(`${o.kind}${o.id}`);
+  }
+  return Math.max(0, Math.min(sent.size, max) - kept.length);
+}
+
 export function sanitizePlanItems(
   raw: unknown,
   isKnown: (kind: PlanItemKind, id: string) => boolean,

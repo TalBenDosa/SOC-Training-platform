@@ -89,9 +89,12 @@ export async function GET(_req: Request, { params }: Ctx) {
   // The student MUST belong to the caller's org — verified before any read.
   const { data: member } = await admin
     .from("org_members")
-    .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level)")
+    .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level, is_platform_admin)")
     .eq("org_id", orgId).eq("user_id", id).maybeSingle();
-  if (!member) return NextResponse.json({ error: "No such student in your organisation." }, { status: 404 });
+  // The platform super-admin is a member of every org but hidden everywhere else
+  // (roster, analytics, plans) — keep it hidden here too.
+  const isPlatform = (member?.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin;
+  if (!member || isPlatform) return NextResponse.json({ error: "No such student in your organisation." }, { status: 404 });
 
   const [roomsRes, scenariosRes, sessionsRes, attemptsRes] = await Promise.all([
     admin.from("room_progress")

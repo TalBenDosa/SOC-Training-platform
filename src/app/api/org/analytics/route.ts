@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOMS } from "@/data/rooms";
+import { fetchAll } from "@/lib/plans/server";
 
 // Room ids are stored in the DB; titles live in the content corpus. Resolved
 // HERE rather than in the client so /manage doesn't have to bundle the entire
@@ -63,35 +64,48 @@ export async function GET() {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const [membersRes, roomsRes, scenariosRes, sessionsRes, attemptsRes, emailsRes] = await Promise.all([
-    admin.from("org_members")
-      .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level, is_platform_admin)")
-      .eq("org_id", orgId),
-    admin.from("room_progress")
-      .select("user_id, room_id, completed_at, updated_at")
-      .eq("org_id", orgId),
-    admin.from("scenario_history")
-      .select("user_id, score, completed_at")
-      .eq("org_id", orgId),
-    admin.from("dashboard_sessions")
-      .select("user_id, detect_rate, played_at")
-      .eq("org_id", orgId),
-    // graded task submissions (0031) → overall task accuracy per student
-    admin.from("task_attempts").select("user_id, correct").eq("org_id", orgId),
-    // member emails (0032) — service-role-only definer function
-    admin.rpc("org_member_emails", { p_org: orgId }),
-  ]);
+  // Every read is PAGED: PostgREST returns at most 1000 rows per request, and
+  // task_attempts alone passes that within days for one class — unpaged, the
+  // per-student figures were computed from an arbitrary subset. A failed read
+  // is an error, never "empty data".
+  type Row = Record<string, unknown>;
+  const paged = (label: string, build: () => { order: (c: string, o: { ascending: boolean }) => unknown }, order: string[]) =>
+    fetchAll<Row>((from, to) => {
+      let q = build() as unknown as { order: (c: string, o: { ascending: boolean }) => typeof q; range: (a: number, b: number) => PromiseLike<{ data: Row[] | null; error: { message: string; code?: string } | null }> };
+      for (const col of order) q = q.order(col, { ascending: true });
+      return q.range(from, to);
+    }, `analytics:${label}`);
 
+  let membersData: Row[], roomsData: Row[], scenariosData: Row[], sessionsData: Row[], attemptsData: Row[], emailsData: Row[];
+  try {
+    [membersData, roomsData, scenariosData, sessionsData, attemptsData, emailsData] = await Promise.all([
+      paged("members", () => admin.from("org_members")
+        .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level, is_platform_admin)")
+        .eq("org_id", orgId), ["user_id"]),
+      paged("rooms", () => admin.from("room_progress").select("user_id, room_id, completed_at, updated_at").eq("org_id", orgId), ["user_id", "room_id"]),
+      paged("scenarios", () => admin.from("scenario_history").select("id, user_id, score, completed_at").eq("org_id", orgId), ["id"]),
+      paged("sessions", () => admin.from("dashboard_sessions").select("id, user_id, detect_rate, played_at").eq("org_id", orgId), ["id"]),
+      // graded task submissions (0031) → overall task accuracy per student
+      paged("attempts", () => admin.from("task_attempts").select("id, user_id, correct").eq("org_id", orgId), ["id"]),
+      // member emails (0032) — service-role-only definer function
+      paged("emails", () => admin.rpc("org_member_emails", { p_org: orgId }), ["user_id"]),
+    ]);
+  } catch (e) {
+    console.error("[org analytics] load failed:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Could not load analytics right now. Please try again." }, { status: 500 });
+  }
+
+  type MemberRow = { user_id: string; role: string; status: string; joined_at: string | null; affiliation_expires_at: string | null; profiles: unknown };
   type RoomRow = { user_id: string; room_id: string; completed_at: string | null; updated_at: string | null };
   type ScenarioRow = { user_id: string; score: number | null; completed_at: string | null };
   type SessionRow = { user_id: string; detect_rate: number | null; played_at: string | null };
   type AttemptRow = { user_id: string; correct: boolean };
 
-  const roomRows     = (roomsRes.data ?? []) as RoomRow[];
-  const scenarioRows = (scenariosRes.data ?? []) as ScenarioRow[];
-  const sessionRows  = (sessionsRes.data ?? []) as SessionRow[];
-  const attemptRows  = (attemptsRes.data ?? []) as AttemptRow[];
-  const emailBy = new Map<string, string>(((emailsRes.data ?? []) as Array<{ user_id: string; email: string }>).map(e => [e.user_id, e.email]));
+  const roomRows     = roomsData as unknown as RoomRow[];
+  const scenarioRows = scenariosData as unknown as ScenarioRow[];
+  const sessionRows  = sessionsData as unknown as SessionRow[];
+  const attemptRows  = attemptsData as unknown as AttemptRow[];
+  const emailBy = new Map<string, string>((emailsData as unknown as Array<{ user_id: string; email: string }>).map(e => [e.user_id, e.email]));
 
   const byUser = <T extends { user_id: string }>(rows: T[]) => {
     const m = new Map<string, T[]>();
@@ -118,7 +132,7 @@ export async function GET() {
   const avg = (nums: number[]): number | null =>
     nums.length === 0 ? null : Math.round(nums.reduce((s, n) => s + n, 0) / nums.length);
 
-  const students: StudentRow[] = (membersRes.data ?? [])
+  const students: StudentRow[] = (membersData as unknown as MemberRow[])
     // Platform super-admins doing oversight never count as students of the cohort.
     .filter(m => !(m.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin)
     .map(m => {

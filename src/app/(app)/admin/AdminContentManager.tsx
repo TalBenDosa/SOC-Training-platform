@@ -7,8 +7,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { SCENARIOS } from "@/lib/sim/scenarios";
-import { ALL_QUIZZES as QUIZZES } from "@/lib/quizzes/data";
+// Client-safe scenario list; built-in quizzes (with answers) load from an
+// admin-only route instead of being bundled into public JS.
+import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
+import { useAdminBuiltinQuizzes, useAdminScenarioInfo } from "@/lib/admin/useAdminContent";
 import { LESSON_PATHS } from "@/lib/lessons/paths";
 import type { GeneratedLesson } from "@/app/api/lessons/generate/route";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
@@ -189,6 +191,7 @@ function ScenariosTab({
   published: PublishedScenario[];
   onDeletePublished: (id: string) => void;
 }) {
+  const scenarioInfo = useAdminScenarioInfo();
   const totalVisible = SCENARIOS.filter(s => !hidden.includes(s.slug)).length;
   const totalHidden  = hidden.length;
 
@@ -213,8 +216,8 @@ function ScenariosTab({
                 <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-semibold uppercase", DIFFICULTY_BADGE[s.difficulty] ?? DIFFICULTY_BADGE.beginner)}>
                   {s.difficulty}
                 </span>
-                <span className="text-[10px] text-slate-400">{s.attack_kind.replace(/_/g, " ")}</span>
-                <span className="text-[10px] text-slate-400 truncate">{s.threat_actor}</span>
+                <span className="text-[10px] text-slate-400">{(scenarioInfo[s.slug]?.attack_kind ?? "").replace(/_/g, " ")}</span>
+                <span className="text-[10px] text-slate-400 truncate">{scenarioInfo[s.slug]?.threat_actor ?? ""}</span>
               </>
             }
             onHide={() => onHide(s.slug)}
@@ -527,6 +530,7 @@ function QuizzesTab({
   generated: GeneratedQuiz[];
   onDeleteGenerated: (id: string) => void;
 }) {
+  const QUIZZES = useAdminBuiltinQuizzes();
   const [showGenerator, setShowGenerator] = useState(true);
   const [form, setForm] = useState<{
     title: string; topic: string;
@@ -781,6 +785,7 @@ function QuizzesTab({
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function AdminContentManagerContent() {
+  const QUIZZES = useAdminBuiltinQuizzes();
   const [tab, setTab] = useState<ContentTab>("scenarios");
 
   // Hidden items (localStorage-persisted)

@@ -81,7 +81,11 @@ export async function POST(req: Request) {
     const title = String(body?.title ?? "").trim();
     if (!title) return NextResponse.json({ error: "A title is required." }, { status: 400 });
     // The key MUST live under this org's prefix — never trust a client path.
-    if (!storageKey || !storageKey.startsWith(`${orgId}/`)) {
+    // Exact shape /sign issues: `<orgId>/<kind>/<uuid>.<ext>`. A bare prefix check
+    // let "<orgId>/../<otherOrg>/…" through, which URL normalisation resolves to
+    // another college's object when the key is signed.
+    const keyShape = new RegExp(`^${orgId}/(pdf|pptx|video)/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(pdf|pptx|mp4|webm)$`);
+    if (!storageKey || !keyShape.test(storageKey)) {
       return NextResponse.json({ error: "Invalid upload reference." }, { status: 400 });
     }
     const { data: signed, error: signErr } = await admin.storage.from(BUCKET).createSignedUrl(storageKey, 60);

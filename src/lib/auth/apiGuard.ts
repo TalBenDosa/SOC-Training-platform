@@ -80,6 +80,16 @@ export const getAuthedUser = cache(async (): Promise<AuthedUser | null> => {
 type Gate = { user: AuthedUser } | { error: NextResponse };
 
 /**
+ * May this user open UNPUBLISHED org content (authoring preview)? Org staff of
+ * their own org and platform admins. The org boundary itself is enforced by the
+ * resolvers; this only decides whether drafts are visible inside it.
+ */
+export function canPreviewDrafts(user: AuthedUser | null): boolean {
+  if (!user) return false;
+  return user.isPlatformAdmin || user.orgRole === "org_admin" || user.orgRole === "instructor";
+}
+
+/**
  * Hard gate: caller must be a signed-in admin. Use for staff-only /
  * content-authoring routes.
  *

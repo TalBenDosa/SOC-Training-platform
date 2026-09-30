@@ -24,8 +24,8 @@ export async function GET() {
       title: s.title,
       summary: s.summary,
       difficulty: s.difficulty,
-      attack_kind: s.attack_kind,
-      threat_actor: s.threat_actor,
+      // attack_kind / threat_actor deliberately omitted: attack_kind decides the
+      // TP/FP verdict (scenarios/[slug] strips it for the same reason).
     })),
   });
 }

@@ -72,17 +72,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
       return NextResponse.json({ error: "That item belongs to another environment." }, { status: 409 });
     }
 
-    const { data, error } = await admin
+    // Content and answer key are two writes (the key row has an FK to the content
+    // row, so content must exist first). Write the content as a DRAFT, then the
+    // key, and only then apply the requested status: if the key write fails the
+    // item stays a draft (invisible to students) instead of going live with a
+    // missing or stale answer key.
+    const { error } = await admin
       .from("content_scenarios")
-      .upsert({ id: split.id, org_id: orgId, status, content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" })
-      .select("id, status, content, created_at, updated_at")
-      .single();
+      .upsert({ id: split.id, org_id: orgId, status: "draft", content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const { error: keyErr } = await admin
       .from("content_scenario_keys")
       .upsert({ id: split.id, org_id: orgId, answer_key: split.answerKey }, { onConflict: "id" });
-    if (keyErr) return NextResponse.json({ error: keyErr.message }, { status: 500 });
+    if (keyErr) return NextResponse.json({ error: "The answer key could not be saved — the item was kept as a draft. Please save again." }, { status: 500 });
+
+    const { data, error: statusErr } = await admin
+      .from("content_scenarios")
+      .update({ status })
+      .eq("id", split.id).eq("org_id", orgId)
+      .select("id, status, content, created_at, updated_at")
+      .single();
+    if (statusErr) return NextResponse.json({ error: "Saved as a draft, but the status could not be applied — please try again." }, { status: 500 });
 
     return NextResponse.json({ item: data });
   }
@@ -97,17 +108,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
       return NextResponse.json({ error: "That item belongs to another environment." }, { status: 409 });
     }
 
-    const { data, error } = await admin
+    // Content and answer key are two writes (the key row has an FK to the content
+    // row, so content must exist first). Write the content as a DRAFT, then the
+    // key, and only then apply the requested status: if the key write fails the
+    // item stays a draft (invisible to students) instead of going live with a
+    // missing or stale answer key.
+    const { error } = await admin
       .from("content_rooms")
-      .upsert({ id: split.id, org_id: orgId, status, content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" })
-      .select("id, status, content, created_at, updated_at")
-      .single();
+      .upsert({ id: split.id, org_id: orgId, status: "draft", content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const { error: keyErr } = await admin
       .from("content_room_keys")
       .upsert({ id: split.id, org_id: orgId, answer_key: split.answerKey }, { onConflict: "id" });
-    if (keyErr) return NextResponse.json({ error: keyErr.message }, { status: 500 });
+    if (keyErr) return NextResponse.json({ error: "The answer key could not be saved — the item was kept as a draft. Please save again." }, { status: 500 });
+
+    const { data, error: statusErr } = await admin
+      .from("content_rooms")
+      .update({ status })
+      .eq("id", split.id).eq("org_id", orgId)
+      .select("id, status, content, created_at, updated_at")
+      .single();
+    if (statusErr) return NextResponse.json({ error: "Saved as a draft, but the status could not be applied — please try again." }, { status: 500 });
 
     return NextResponse.json({ item: data });
   }

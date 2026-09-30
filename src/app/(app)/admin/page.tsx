@@ -11,18 +11,16 @@ import {
 import type { ValidationReport, ValidationIssue, IssueSeverity } from "@/lib/sim/logValidator";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { cn } from "@/lib/utils";
-import { SCENARIOS, buildScenarioBySlug } from "@/lib/sim/scenarios";
-import { ALL_QUIZZES as QUIZZES } from "@/lib/quizzes/data";
+// Answer-bearing content is NOT imported here (it would ship in a public JS
+// chunk): built-in quizzes and scenario details come from admin-only routes.
+import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
+import { useAdminBuiltinQuizzes, useAdminScenarioInfo, useAdminScenarioBundle } from "@/lib/admin/useAdminContent";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 
 // --------- Pre-compute log counts (pure, module-level) ------------------------------------------------------------------------------------------
-const SCENARIO_LOG_COUNTS: Record<string, number> = {};
-for (const s of SCENARIOS) {
-  try { SCENARIO_LOG_COUNTS[s.slug] = buildScenarioBySlug(s.slug)?.events.length ?? 0; }
-  catch { SCENARIO_LOG_COUNTS[s.slug] = 0; }
-}
+// (log counts now come from GET /api/admin/scenarios — see useAdminScenarioInfo)
 
 // --------- Shared helpers ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -179,6 +177,8 @@ function FilterBar({ search, onSearch, filters, onFilter }: {
 // -------------------------------------------------------------------------------
 
 function OverviewTab() {
+  const QUIZZES = useAdminBuiltinQuizzes();
+  const scenarioInfo = useAdminScenarioInfo();
   const stats = [
     { label: "Total Users",      value: "6",    sub: "2 admins",         icon: UsersIcon,    color: "text-violet-400" },
     { label: "Active Scenarios", value: String(SCENARIOS.length), sub: "5 published", icon: Shield,     color: "text-emerald-400" },
@@ -211,7 +211,7 @@ function OverviewTab() {
                 <p className="text-[11px] text-slate-400 truncate">{s.summary.slice(0,80)}--¦</p>
               </div>
               <DiffBadge d={s.difficulty} />
-              <span className="font-mono text-[11px] text-slate-400">{SCENARIO_LOG_COUNTS[s.slug]} logs</span>
+              <span className="font-mono text-[11px] text-slate-400">{scenarioInfo[s.slug]?.logCount ?? "…"} logs</span>
             </div>
           ))}
         </div>
@@ -358,6 +358,7 @@ function ScenariosTab() {
   const [hidden,  setHidden]  = useState<string[]>([]);
   const [statusMap, setStatusMap] = useState<Record<string,ItemStatus>>({});
   const [generated, setGenerated] = useState<ScenarioRow[]>([]);
+  const scenarioInfo = useAdminScenarioInfo();
   const [drawer, setDrawer]   = useState<ScenarioRow|null>(null);
 
   // Generator
@@ -393,13 +394,17 @@ function ScenariosTab() {
     })();
   }, []);
 
-  const builtIn: ScenarioRow[] = SCENARIOS.map(s => ({
-    slug: s.slug, title: s.title, summary: s.summary,
-    category: ATTACK_KIND_LABEL[s.attack_kind] ?? s.attack_kind,
-    difficulty: s.difficulty, logCount: SCENARIO_LOG_COUNTS[s.slug] ?? 0,
-    status: (statusMap[s.slug] ?? "published") as ItemStatus,
-    isGenerated: false, threat_actor: s.threat_actor, attack_kind: s.attack_kind,
-  }));
+  const builtIn: ScenarioRow[] = SCENARIOS.map(s => {
+    const info = scenarioInfo[s.slug];
+    const kind = info?.attack_kind ?? "";
+    return {
+      slug: s.slug, title: s.title, summary: s.summary,
+      category: ATTACK_KIND_LABEL[kind] ?? kind,
+      difficulty: s.difficulty, logCount: info?.logCount ?? 0,
+      status: (statusMap[s.slug] ?? "published") as ItemStatus,
+      isGenerated: false, threat_actor: info?.threat_actor ?? "", attack_kind: kind,
+    };
+  });
 
   const all = [...generated, ...builtIn.filter(s=>!hidden.includes(s.slug))];
 
@@ -778,10 +783,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
   const [saved, setSaved]     = useState(false);
 
   // Load live events --" built-in: from builder; generated: from stored events
-  const bundle = useMemo(() => {
-    if (scenario.isGenerated) return null;
-    try { return buildScenarioBySlug(scenario.slug); } catch { return null; }
-  }, [scenario.slug, scenario.isGenerated]);
+  const bundle = useAdminScenarioBundle(scenario.isGenerated ? null : scenario.slug);
 
   // Events to display --" prefer bundle for built-in, stored events for generated
   const displayEvents: TelemetryEvent[] = useMemo(() => {
@@ -823,7 +825,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
           <p className="text-[10px] text-slate-400 mt-0.5">Log Events</p>
         </div>
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
-          <p className="font-mono text-xl font-bold text-white">{bundle?.questions.length ?? "--"}</p>
+          <p className="font-mono text-xl font-bold text-white">{bundle?.questionCount ?? "--"}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">Questions</p>
         </div>
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
@@ -918,6 +920,7 @@ function QuizzesTab() {
   const [hidden,  setHidden]  = useState<string[]>([]);
   const [statusMap, setStatusMap] = useState<Record<string,ItemStatus>>({});
   const [genQuizzes, setGenQuizzes] = useState<GeneratedQuiz[]>([]);
+  const QUIZZES = useAdminBuiltinQuizzes();
   const [drawer, setDrawer]   = useState<AnyQuiz|null>(null);
   const [showGen, setShowGen] = useState(false);
   const [form, setForm] = useState<{title:string;topic:string;difficulty:"Beginner"|"Intermediate"|"Advanced";count:number;focus:string}>({title:"",topic:"Incident Response",difficulty:"Intermediate",count:8,focus:""});

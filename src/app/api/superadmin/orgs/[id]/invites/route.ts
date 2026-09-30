@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email/sendEmail";
+import { sendEmailBatch } from "@/lib/email/sendEmail";
 import { studentInviteEmail } from "@/lib/email/templates";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -45,8 +45,10 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!["org_admin", "instructor", "student"].includes(role)) {
     return NextResponse.json({ error: "Invalid role." }, { status: 400 });
   }
-  const days = Number(body.expires_days ?? 14);
-  const expiresAt = new Date(Date.now() + (Number.isFinite(days) ? days : 14) * 24 * 3600 * 1000).toISOString();
+  const rawDays = Number(body.expires_days ?? 14);
+  // Bounded: a negative value minted already-expired links; a huge one threw.
+  const days = Number.isFinite(rawDays) ? Math.min(90, Math.max(1, Math.round(rawDays))) : 14;
+  const expiresAt = new Date(Date.now() + days * 24 * 3600 * 1000).toISOString();
 
   // Normalise the recipient list (dedupe, basic email shape). Empty → one
   // generic, shareable link with no fixed recipient.
@@ -54,6 +56,12 @@ export async function POST(req: Request, { params }: Ctx) {
   // Cap the recipient list to bound the bulk insert + outbound-email fan-out.
   const MAX_INVITES = 200;
   const emails = [...new Set(rawEmails.filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)))].slice(0, MAX_INVITES);
+
+  // Since 0029 a student invitation must name its recipient (students join an
+  // org with its class code) — an anonymous student link could never be redeemed.
+  if (emails.length === 0 && role === "student") {
+    return NextResponse.json({ error: "Student invitations need at least one email address — share the class code for open enrolment." }, { status: 400 });
+  }
 
   const rows = (emails.length > 0 ? emails.map(email => ({ email })) : [{ email: null }]).map(r => ({
     org_id: orgId, role, email: r.email, token: crypto.randomUUID(), expires_at: expiresAt,
@@ -68,14 +76,15 @@ export async function POST(req: Request, { params }: Ctx) {
   // have no recipient). No-op when email isn't configured; never blocks.
   const { data: org } = await admin.from("organizations").select("name").eq("id", orgId).maybeSingle();
   const orgName = org?.name ?? "your course";
-  let emailed = 0;
-  await Promise.allSettled(
-    invites.filter(i => i.email).map(async i => {
-      const mail = studentInviteEmail({ orgName, joinLink: i.link });
-      const r = await sendEmail({ to: i.email, subject: mail.subject, html: mail.html, text: mail.text });
-      if (r.ok) emailed++;
-    }),
-  );
+  // Paced batch send: firing up to 200 single sends in parallel tripped the
+  // provider's rate limit, so most invites silently never arrived.
+  const named = invites.filter(i => i.email);
+  const batch = await sendEmailBatch(named.map(i => {
+    const mail = studentInviteEmail({ orgName, joinLink: i.link });
+    return { to: i.email as string, subject: mail.subject, html: mail.html, text: mail.text };
+  }));
+  const emailed = batch.sent.filter(Boolean).length;
+  const email_failed = batch.skipped ? 0 : named.length - emailed;
 
-  return NextResponse.json({ invites, emailed }, { status: 201 });
+  return NextResponse.json({ invites, emailed, email_failed, email_configured: !batch.skipped }, { status: 201 });
 }

@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { LibraryCard } from "@/components/ui/LibraryCard";
-import { SCENARIOS } from "@/lib/sim/scenarios";
+// Client-safe list only. "@/lib/sim/scenarios" bundles every scenario pack —
+// questions, answers, IOCs — so importing it here published the answer keys.
+import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
 import { getRoomProgress, getScenarioHistory, PROGRESS_HYDRATED_EVENT, XP_CHANGED_EVENT } from "@/lib/storage/progress";
 import { fetchPublishedScenarios } from "@/lib/content/publicContent";
 import { SCENARIO_PREP } from "@/lib/scenarios/prep";
@@ -214,7 +216,9 @@ export default function ScenariosPage() {
         {/* Built-in scenarios */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {shownBuiltIn.map((s, i) => {
-            const Icon = ICON[s.attack_kind] ?? ShieldQuestion;
+            // One neutral icon: the per-attack-kind icon hinted at the verdict
+            // (false-positive scenarios never had a matching icon).
+            const Icon = ShieldQuestion;
             return (
               <LibraryCard
                 key={s.slug}

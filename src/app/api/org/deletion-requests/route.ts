@@ -87,11 +87,14 @@ export async function POST(req: Request) {
   }
 
   if (decision === "reject") {
-    const { error } = await admin
+    const { data: rejected, error } = await admin
       .from("account_deletion_requests")
       .update({ status: "rejected", decided_by: adminId, decided_at: new Date().toISOString(), decision_note: note })
-      .eq("id", id).eq("org_id", orgId);
+      .eq("id", id).eq("org_id", orgId).eq("status", "pending")
+      .select("id");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Guarded on status: a concurrent decision by another admin already won.
+    if (!rejected || rejected.length === 0) return NextResponse.json({ error: "That request has already been decided." }, { status: 409 });
 
     await logAudit({
       actorId: adminId, action: "account.deletion_rejected",
@@ -106,11 +109,15 @@ export async function POST(req: Request) {
   // user (user_id → profiles → auth.users), so an update afterwards would have
   // nothing to write to. Recording the decision first also means a failure
   // between the two steps leaves evidence that the decision was taken.
-  const { error: markErr } = await admin
+  // Guarded on status so two admins deciding at once can't both act (an approve
+  // overwriting a reject, or a second approve failing mid-way).
+  const { data: marked, error: markErr } = await admin
     .from("account_deletion_requests")
     .update({ status: "completed", decided_by: adminId, decided_at: new Date().toISOString(), decision_note: note })
-    .eq("id", id).eq("org_id", orgId);
+    .eq("id", id).eq("org_id", orgId).eq("status", "pending")
+    .select("id");
   if (markErr) return NextResponse.json({ error: markErr.message }, { status: 500 });
+  if (!marked || marked.length === 0) return NextResponse.json({ error: "That request has already been decided." }, { status: 409 });
 
   await logAudit({
     actorId: adminId, action: "account.deletion_approved",

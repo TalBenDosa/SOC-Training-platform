@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const rawInvites = Array.isArray(body.invites) ? body.invites : [];
   const invites = rawInvites
     .map(i => ({ user_id: String((i as Record<string, unknown>)?.user_id ?? ""), role: String((i as Record<string, unknown>)?.role ?? "t1") }))
-    .filter(i => i.user_id && ROLES.has(i.role) && i.role !== "instructor")
+    .filter(i => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(i.user_id) && ROLES.has(i.role) && i.role !== "instructor")
     .slice(0, 12);
 
   // Only invitees who are ACTIVE members of THIS org are allowed on the roster.

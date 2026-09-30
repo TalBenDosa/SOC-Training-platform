@@ -14,10 +14,12 @@ export const dynamic = "force-dynamic";
 import OpenAI from "openai";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 
+export const maxDuration = 120;
+
 const MODEL = "gpt-4o-mini";
 
 function getClient() {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, timeout: 90_000, maxRetries: 1 });
 }
 
 function sleep(ms: number) {

@@ -5,7 +5,7 @@ import { logAudit } from "@/lib/audit/logAudit";
 import { getPlanCatalog, needsOrgCatalog } from "@/lib/plans/catalog";
 import { planMatrix } from "@/lib/plans/completion";
 import {
-  cleanLine, cleanText, isUuid, parseAudience, parseDueDate, parsePriority, sanitizePlanItems, sanitizeTargets,
+  cleanLine, cleanText, droppedPlanItemCount, isUuid, parseAudience, parseDueDate, parsePriority, sanitizePlanItems, sanitizeTargets,
 } from "@/lib/plans/sanitize";
 import {
   ASSIGNMENT_COLUMNS, PlanDataError, activeMemberIds, fetchAll, loadLearnerPlans, loadOrgMembers, loadProgress,
@@ -311,6 +311,7 @@ export async function POST(req: Request) {
 
   const catalog = await getPlanCatalog(c.admin, c.orgId);
   const items = sanitizePlanItems(body.items, catalog.isKnown);
+  if (droppedPlanItemCount(body.items, items) > 0) return fail(400, "Some selected modules are unavailable right now — refresh and try again.");
   if (items.length === 0) return fail(400, "Pick at least one module.");
 
   const audience = parseAudience(body.audience);
@@ -403,6 +404,7 @@ export async function PATCH(req: Request) {
   if ("items" in body) {
     catalog = await getPlanCatalog(c.admin, c.orgId);
     const items = sanitizePlanItems(body.items, catalog.isKnown);
+    if (droppedPlanItemCount(body.items, items) > 0) return fail(400, "Some selected modules are unavailable right now — refresh and try again.");
     if (items.length === 0) return fail(400, "Pick at least one module.");
     patch.items = items;
   }

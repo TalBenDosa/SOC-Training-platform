@@ -19,7 +19,7 @@ import { recombineRoom } from "@/lib/rooms/authored";
  * over it before it crosses to the client, and the submit route grades against
  * it in full.
  */
-export async function getEffectiveRoom(roomId: string, orgId: string | null): Promise<Room | null> {
+export async function getEffectiveRoom(roomId: string, orgId: string | null, includeDrafts = false): Promise<Room | null> {
   const staticRoom = ROOMS.find(r => r.id === roomId);
   if (staticRoom) return staticRoom;
 
@@ -35,6 +35,9 @@ export async function getEffectiveRoom(roomId: string, orgId: string | null): Pr
     .maybeSingle();
   if (!row) return null;
   if (row.org_id !== null && row.org_id !== orgId) return null;
+  // Drafts / unpublished rooms: staff preview only (mirrors the quiz resolver,
+  // which requires 'published') — unpublishing must actually revoke access.
+  if (row.status !== "published" && !includeDrafts) return null;
 
   const content = (row.content ?? {}) as Record<string, unknown>;
   if (content.kind !== "authored") return null;

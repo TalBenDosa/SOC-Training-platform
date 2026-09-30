@@ -131,10 +131,12 @@ export async function POST(req: Request) {
 
   // The platform super-admin owns every tenant and is present in EVERY
   // environment by design ("super-admin registered in all environments"). Enrol
-  // every super-admin (profiles.role='admin') as an org_admin of the new org so
-  // it appears in their environments immediately — no need to enter-org after
+  // every super-admin (profiles.is_platform_admin) as an org_admin of the new org
+  // so it appears in their environments immediately — no need to enter-org after
   // each creation. Non-fatal: the console lists all orgs regardless.
-  const { data: supers } = await admin.from("profiles").select("id").eq("role", "admin");
+  // NB: NOT profiles.role='admin' — that is the content-staff flag (requireAdmin),
+  // and enrolling those users would make them visible org admins of every college.
+  const { data: supers } = await admin.from("profiles").select("id").eq("is_platform_admin", true);
   if (supers && supers.length) {
     await admin.from("org_members").upsert(
       supers.map(s => ({ org_id: org.id, user_id: s.id, role: "org_admin", status: "active" })),
@@ -146,15 +148,20 @@ export async function POST(req: Request) {
 
   // Optionally invite a first org-admin (email) — capture the link so we can
   // email it to them.
-  const adminEmail = String(body.admin_email ?? "").trim();
+  const rawAdminEmail = String(body.admin_email ?? "").trim();
+  // An invalid address would mint an invitation nobody can redeem; skip it.
+  const adminEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(rawAdminEmail) ? rawAdminEmail.toLowerCase() : "";
   let adminLink: string | null = null;
+  let inviteError: string | null = rawAdminEmail && !adminEmail ? "admin_email is not a valid address — no invitation was created." : null;
   if (adminEmail) {
     const token = crypto.randomUUID();
     const inviteExpiry = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
-    await admin.from("invitations").insert({
+    const { error: invErr } = await admin.from("invitations").insert({
       org_id: org.id, email: adminEmail, role: "org_admin", token, expires_at: inviteExpiry,
     });
-    adminLink = `${origin}/join?token=${token}`;
+    // Only hand out / email a link whose invitation row actually exists.
+    if (invErr) inviteError = "The organisation was created, but the admin invitation could not be saved — send it again from the organisation page.";
+    else adminLink = `${origin}/join?token=${token}`;
   }
 
   // 0029: no standing class link — students join with the org's affiliation
@@ -165,11 +172,11 @@ export async function POST(req: Request) {
     try { classCode = (await generateCode(admin, org.id, gate.user.id)).code; } catch { /* non-fatal */ }
   }
   let emailed = false;
-  if (adminEmail) {
+  if (adminEmail && adminLink) {   // never email a join link with no invitation behind it
     const mail = orgWelcomeEmail({ orgName: name, adminLink, classCode });
     const r = await sendEmail({ to: adminEmail, subject: mail.subject, html: mail.html, text: mail.text });
     emailed = r.ok;
   }
 
-  return NextResponse.json({ org, adminLink, classCode, emailed }, { status: 201 });
+  return NextResponse.json({ org, adminLink, classCode, emailed, ...(inviteError ? { invite_error: inviteError } : {}) }, { status: 201 });
 }

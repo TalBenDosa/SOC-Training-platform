@@ -126,4 +126,28 @@ describe("scoreScenarioReport — rubric & verdict mapping", () => {
     const r = score({ verdict: null });
     expect(r.reportRubric.verdict).toBe(0);
   });
+
+  // ── Substring farming (QA audit AUTH-003) ──────────────────────────────────
+  it("fragments cut out of one real value earn NO credit (no substring farming)", () => {
+    // "10.20.14.31" is real, but "10.2", "0.14", "4.31" are just pieces of it.
+    const r = score({ indicators: [{ value: "10.2" }, { value: "0.14" }, { value: "4.31" }, { value: "20.14" }] });
+    expect(r.usefulCitedCount).toBe(0);
+  });
+
+  it("a whole token inside a longer value still counts (domain in a URL, file in a path)", () => {
+    const events = [{ raw: { url: "https://cdn.update-check.net/a/b.js", path: "C:\\Users\\bob\\run.exe" } }];
+    const r = score({ events, indicators: [{ value: "cdn.update-check.net" }, { value: "run.exe" }] });
+    expect(r.usefulCitedCount).toBe(2);
+  });
+
+  it("quoting part of a URL is not treated as fabricated", () => {
+    const events = [{ raw: { url: "https://cdn.update-check.net/a/b.js" } }];
+    const r = score({ events, indicators: [{ value: "cdn.update-check.net/a" }] });
+    expect(r.fabricated).toEqual([]);
+  });
+
+  it("a non-array indicators payload does not throw", () => {
+    const r = score({ indicators: {} as unknown as { value: string }[] });
+    expect(r.usefulCitedCount).toBe(0);
+  });
 });

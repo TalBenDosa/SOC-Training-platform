@@ -45,12 +45,20 @@ const EXPENSIVE = [
 // "expensive" budget meant one lesson (load + N graded questions + complete) could
 // hit 429 — and a whole class behind one office IP shares that budget — so the pass
 // was never recorded and the lesson's XP never credited.
-function isCheapLessonCall(pathname: string): boolean {
-  return pathname.startsWith("/api/lessons/") && (pathname.endsWith("/quiz/grade") || pathname.endsWith("/complete"));
+function isCheapLessonCall(pathname: string, method: string): boolean {
+  if (!pathname.startsWith("/api/lessons/")) return false;
+  if (pathname.endsWith("/quiz/grade") || pathname.endsWith("/complete")) return true;
+  // GET /api/lessons/<path--lesson> is every lesson page load. Path lessons are
+  // hand-authored; the route only calls a model on a cache miss and checks the
+  // AI budget first (lessonContent.ts), so it must not share the 10/min bucket.
+  return method === "GET" && /^\/api\/lessons\/[^/]+$/.test(pathname);
 }
 
-function isExpensive(pathname: string): boolean {
-  if (isCheapLessonCall(pathname)) return false;
+export function isExpensive(pathname: string, method = "GET"): boolean {
+  if (isCheapLessonCall(pathname, method)) return false;
+  // Opening a college file (GET /api/org/media/<id>/url) is a signed-URL read,
+  // not an upload — only the upload paths are heavy.
+  if (pathname.startsWith("/api/org/media") && method === "GET") return false;
   if (EXPENSIVE.some(p => pathname.startsWith(p))) return true;
   // Per-scenario grading is also an LLM call.
   if (pathname.startsWith("/api/scenarios/") && pathname.endsWith("/grade")) return true;
@@ -113,7 +121,7 @@ function withApiAuthTimeout<T>(p: Promise<T>, ms = 4000): Promise<T | typeof API
   return Promise.race([p, new Promise<typeof API_AUTH_TIMEOUT>(r => setTimeout(() => r(API_AUTH_TIMEOUT), ms))]);
 }
 
-async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null; timedOut?: boolean }> {
+async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null; userId?: string; timedOut?: boolean }> {
   if (!isSupabaseConfigured) return { authed: true, orgId: null };
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
     cookies: {
@@ -128,27 +136,27 @@ async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: s
   // budgeted per-org. Absent pre-migration → no org limit, unchanged behaviour.
   const sessionResult = await withApiAuthTimeout(supabase.auth.getSession());
   const token = sessionResult === API_AUTH_TIMEOUT ? undefined : sessionResult.data.session?.access_token;
-  return { authed: true, orgId: decodeOrgClaim(token).orgId };
+  return { authed: true, orgId: decodeOrgClaim(token).orgId, userId: userResult.data.user.id };
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ── 1. API rate limiting (unchanged behavior, only for /api/*) ──────────────
+  // ── 1. API rate limiting + default-deny auth (only for /api/*) ──────────────
   if (pathname.startsWith("/api/")) {
     const ip = clientIp(req);
-    const expensive = isExpensive(pathname);
+    const expensive = isExpensive(pathname, req.method);
     // Expensive: 10 req / min. General API: 100 req / min.
     const limit = expensive ? 10 : 100;
     const windowMs = 60_000;
-    const key = `${expensive ? "x" : "g"}:${ip}`;
+    const tooMany = (retryAfter: number, error = "Too many requests — slow down and try again shortly.") =>
+      NextResponse.json({ error }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
 
-    const { ok, retryAfter } = await checkRateLimit(key, limit, windowMs);
-    if (!ok) {
-      return NextResponse.json(
-        { error: "Too many requests — slow down and try again shortly." },
-        { status: 429, headers: { "Retry-After": String(retryAfter) } },
-      );
+    if (isPublicApi(pathname)) {
+      // No session on these paths → the client IP is the only key.
+      const { ok, retryAfter } = await checkRateLimit(`${expensive ? "x" : "g"}:${ip}`, limit, windowMs);
+      if (!ok) return tooMany(retryAfter);
+      return NextResponse.next();
     }
 
     // ── 1b. Default-deny for the API surface ─────────────────────────────────
@@ -156,31 +164,40 @@ export async function middleware(req: NextRequest) {
     // but that is opt-in: a route added later with no guard is public by
     // default, and that is exactly how `GET /api/scenarios/[slug]` came to serve
     // its full answer key to anonymous callers. This flips the default — a new
-    // route is closed unless its prefix is listed below.
-    if (!isPublicApi(pathname)) {
-      const { authed, orgId, timedOut } = await getApiAuth(req);
-      // Auth provider slow → fast retriable 503, never a hung 504.
-      if (timedOut) {
-        return NextResponse.json(
-          { error: "Authentication is temporarily unavailable — please retry." },
-          { status: 503, headers: { "Retry-After": "2" } },
-        );
-      }
-      if (!authed) {
-        return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-      }
-      // Per-ORG budget guard on expensive (paid-LLM) routes: a whole college's
-      // students share one pool, so one tenant can't drain another's spend even
-      // though each student is under the per-IP limit. 60/min per org.
-      if (expensive && orgId) {
-        const orgCheck = await checkRateLimit(`xorg:${orgId}`, 60, windowMs);
-        if (!orgCheck.ok) {
-          return NextResponse.json(
-            { error: "Your organisation is sending requests too quickly — please wait a moment." },
-            { status: 429, headers: { "Retry-After": String(orgCheck.retryAfter) } },
-          );
-        }
-      }
+    // route is closed unless its prefix is listed above.
+    //
+    // A coarse per-IP ceiling runs BEFORE the auth call so a flood can't turn
+    // every request into a Supabase auth round-trip. It is deliberately high: a
+    // whole class often shares one college NAT address.
+    const flood = await checkRateLimit(`ip:${ip}`, 600, windowMs);
+    if (!flood.ok) return tooMany(flood.retryAfter);
+
+    const { authed, orgId, userId, timedOut } = await getApiAuth(req);
+    // Auth provider slow → fast retriable 503, never a hung 504.
+    if (timedOut) {
+      return NextResponse.json(
+        { error: "Authentication is temporarily unavailable — please retry." },
+        { status: 503, headers: { "Retry-After": "2" } },
+      );
+    }
+    if (!authed) {
+      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    }
+
+    // Per-USER budget (per-IP only in local/guest mode with no accounts): keying
+    // signed-in traffic on the IP made ~30 students behind one NAT share a
+    // single 10/min "expensive" budget, so lesson loads and scenario submits 429'd.
+    const who = userId ? `u:${userId}` : ip;
+    const own = await checkRateLimit(`${expensive ? "x" : "g"}:${who}`, limit, windowMs);
+    if (!own.ok) return tooMany(own.retryAfter);
+
+    // Per-ORG budget guard on expensive (paid-LLM) routes: a whole college's
+    // students share one pool, so one tenant can't drain another's spend. The
+    // monthly AI budget (checkAiBudget) is the hard cost cap; this only smooths
+    // bursts, sized so a full class submitting at once is not refused.
+    if (expensive && orgId) {
+      const orgCheck = await checkRateLimit(`xorg:${orgId}`, 200, windowMs);
+      if (!orgCheck.ok) return tooMany(orgCheck.retryAfter, "Your organisation is sending requests too quickly — please wait a moment.");
     }
 
     // API routes don't need session-cookie refresh (they read the cookie as-is).

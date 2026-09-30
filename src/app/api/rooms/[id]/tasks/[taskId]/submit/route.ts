@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { findTask, gradeTask } from "@/lib/rooms/grading";
 import { getEffectiveRoom } from "@/lib/rooms/resolve";
-import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -30,7 +30,7 @@ export async function POST(
 
   // Resolves static built-ins AND org-authored DB rooms (the latter get their
   // answer key merged in from the service-role-only key table).
-  const room = await getEffectiveRoom(decodeURIComponent(roomId), user?.orgId ?? null);
+  const room = await getEffectiveRoom(decodeURIComponent(roomId), user?.orgId ?? null, canPreviewDrafts(user));
   if (!room) return NextResponse.json({ error: "Room not found." }, { status: 404 });
 
   const task = findTask(room, decodeURIComponent(taskId));
@@ -61,8 +61,12 @@ export async function POST(
       const attemptNo = Number(b.attemptNumber);
       const latency = Number(b.latencyMs ?? b.decisionLatencyMs);
       // Store the submission minus bookkeeping fields — just what they answered.
-      const { attemptNumber: _a, latencyMs: _l, decisionLatencyMs: _d, ...submitted } = b;
+      const { attemptNumber: _a, latencyMs: _l, decisionLatencyMs: _d, ...rawSubmitted } = b;
       void _a; void _l; void _d;
+      // Bounded: the body is client-controlled, and a written report is the
+      // largest legitimate answer (~8k chars). Anything bigger is not stored.
+      const size = JSON.stringify(rawSubmitted).length;
+      const submitted = size <= 20_000 ? rawSubmitted : { _omitted: "submission too large to store", size };
       await admin.from("task_attempts").insert({
         user_id: user.id,
         org_id: user.orgId ?? null,
@@ -71,8 +75,8 @@ export async function POST(
         task_type: task.type,
         correct: result.correct,
         submitted,
-        attempt_no: Number.isFinite(attemptNo) && attemptNo > 0 ? attemptNo : 1,
-        latency_ms: Number.isFinite(latency) && latency >= 0 ? Math.round(latency) : null,
+        attempt_no: Number.isFinite(attemptNo) && attemptNo > 0 ? Math.min(Math.floor(attemptNo), 1000) : 1,
+        latency_ms: Number.isFinite(latency) && latency >= 0 ? Math.min(Math.round(latency), 86_400_000) : null,
       });
     }
   } catch { /* telemetry is a convenience, never a hard dependency */ }
