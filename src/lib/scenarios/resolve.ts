@@ -44,12 +44,15 @@ export async function resolveScenarioBundle(slug: string, orgId: string | null, 
   const content = (row.content ?? {}) as Record<string, unknown>;
   if (content.kind !== "authored") return null; // legacy generated scenarios don't grade here
 
-  const { data: keyRow } = await admin
+  const { data: keyRow, error: keyErr } = await admin
     .from("content_scenario_keys")
     .select("answer_key")
     .eq("id", slug)
     .maybeSingle();
+  // Fail closed (P4-04) — see src/lib/rooms/resolve.ts.
+  if (keyErr) throw new Error(`answer key unavailable for ${slug}: ${keyErr.message}`);
+  if (!keyRow) return null;
 
-  const answerKey = (keyRow?.answer_key ?? {}) as Record<string, unknown>;
+  const answerKey = (keyRow.answer_key ?? {}) as Record<string, unknown>;
   return recombineScenario(content, answerKey);
 }

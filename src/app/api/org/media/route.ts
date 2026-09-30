@@ -147,8 +147,18 @@ export async function POST(req: Request) {
       .select("id, kind, title, mime, size_bytes, status, allow_download, created_at")
       .single();
     if (insErr) {
+      // A retried finalize (e.g. after a client timeout) for a file that is
+      // already registered: storage_key is unique (0080), so return the existing
+      // row — and never delete the object, which that row still uses.
+      if (insErr.code === "23505") {
+        const { data: existingRow } = await admin.from("org_resources")
+          .select("id, kind, title, mime, size_bytes, status, allow_download, created_at")
+          .eq("org_id", orgId).eq("storage_key", storageKey).maybeSingle();
+        if (existingRow) return NextResponse.json({ resource: existingRow });
+        return NextResponse.json({ error: "This file is already registered." }, { status: 409 });
+      }
       await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
-      return NextResponse.json({ error: insErr.message }, { status: 500 });
+      return NextResponse.json({ error: "Couldn't save the file — please try again." }, { status: 500 });
     }
     await logAudit({
       actorId: gate.user.id, action: "org.media.uploaded",

@@ -10,7 +10,8 @@
  *                   REVEAL the answer when graded (so a second try is informed):
  *                   half, rounded down. Flags reveal nothing and keep full XP;
  *                   question / analyst_choice apply their own two-try rule in
- *                   grading.ts from the server-derived attempt number.
+ *                   grading.ts from the server-derived attempt number, and pay
+ *                   nothing from the third try (the second wrong try revealed it).
  *  - ROOM_PASS_THRESHOLD: share of gradeable XP needed to complete a room.
  */
 import type { Room, RoomTask } from "@/data/rooms";
@@ -40,7 +41,11 @@ export function gradeableTaskMax(room: Room): Record<string, number> {
 /** Task types whose graded response reveals the answer — a later try is informed. */
 const REVEALING = new Set<RoomTask["type"]>(["log_analysis", "matching", "ordering", "query_fill", "written_report"]);
 
+/** Two-try types: a second wrong try reveals the answer (grading.ts), so try 3+ is informed. */
+const TWO_TRY = new Set<RoomTask["type"]>(["question", "analyst_choice"]);
+
 export function retryXp(taskType: RoomTask["type"], xp: number, attemptNo: number): number {
+  if (TWO_TRY.has(taskType)) return attemptNo >= 3 ? 0 : xp;   // tries 1–2: grading.ts already applies full / half
   if (attemptNo <= 1 || !REVEALING.has(taskType)) return xp;
   return Math.floor(xp / 2);
 }

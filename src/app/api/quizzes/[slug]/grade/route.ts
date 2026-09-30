@@ -74,8 +74,10 @@ export async function POST(
       .filter(({ r }) => r.answer !== null)
       .map(({ q, r }) => ({ questionId: q.id, answer: answers[q.id], correct: r.correct }));
     if (admin && answered.length > 0) {
-      // A failed record must not hide the grade; /finish records anything missing.
-      await recordAndLoadFirstAnswers(admin, user.id, "quiz", slug, answered);
+      // The first answer must be on record BEFORE the key is revealed — otherwise
+      // /finish would later record the corrected answer as the "first" one.
+      const recorded = await recordAndLoadFirstAnswers(admin, user.id, "quiz", slug, answered);
+      if (!recorded) return NextResponse.json({ error: "Couldn't save your answer — please try again." }, { status: 503 });
     }
   }
 

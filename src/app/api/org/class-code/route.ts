@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
-import { getActiveCode, generateCode, nextGenerateAt, CODE_TTL_HOURS, AFFILIATION_DAYS } from "@/lib/org/classCode";
+import { getActiveCode, generateCode, nextGenerateAt, CodeCooldownError, CODE_TTL_HOURS, AFFILIATION_DAYS, GENERATE_COOLDOWN_HOURS } from "@/lib/org/classCode";
 
 /**
  * The org admin's affiliation code (קוד שיוך) — see 0028_org_codes.sql.
@@ -54,13 +54,18 @@ export async function POST() {
   }
 
   try {
-    const active = await generateCode(c.admin, c.orgId, c.user.id);
+    // The cooldown is re-checked inside the same locked database step, so a
+    // double click can't slip two codes past the check above.
+    const active = await generateCode(c.admin, c.orgId, c.user.id, { cooldownHours: c.user.isPlatformAdmin ? 0 : GENERATE_COOLDOWN_HOURS });
     await logAudit({
       actorId: c.user.id, action: "org.class_code.generated",
       targetTable: "org_codes", metadata: { org_id: c.orgId },
     });
     return NextResponse.json({ active });
   } catch (e) {
+    if (e instanceof CodeCooldownError) {
+      return NextResponse.json({ error: e.message, next_generate_at: await nextGenerateAt(c.admin, c.orgId) }, { status: 429 });
+    }
     return NextResponse.json({ error: e instanceof Error ? e.message : "Generation failed." }, { status: 500 });
   }
 }

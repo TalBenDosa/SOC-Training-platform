@@ -195,12 +195,26 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const { data: profile } = await admin
-    .from("profiles").select("org_id").eq("id", user.id).maybeSingle();
-  const orgId = profile?.org_id ?? INTERNAL_ORG;
+  // "Enrolled" is decided by MEMBERSHIP — any active membership outside the
+  // internal root — never by profiles.org_id alone: that is only the active
+  // context, and it is reset to the root when ANOTHER college removes the
+  // student, which used to let a student still enrolled elsewhere erase their
+  // account without that college's decision. A failed read fails closed:
+  // deletion is irreversible, so "couldn't check" must never mean "solo".
+  const [{ data: memberships, error: memErr }, { data: profile, error: profErr }] = await Promise.all([
+    admin.from("org_members").select("org_id").eq("user_id", user.id).eq("status", "active").neq("org_id", INTERNAL_ORG),
+    admin.from("profiles").select("org_id").eq("id", user.id).maybeSingle(),
+  ]);
+  if (memErr || profErr) {
+    return NextResponse.json({ error: "Couldn't check your enrolment — nothing was deleted. Please try again." }, { status: 503 });
+  }
+  const enrolledOrgs = (memberships ?? []).map(m => String(m.org_id));
+  // The request goes to the college the student is working in, when enrolled there.
+  const orgId = enrolledOrgs.length === 0 ? INTERNAL_ORG
+    : enrolledOrgs.includes(String(profile?.org_id)) ? String(profile?.org_id) : enrolledOrgs[0];
 
   // ── Enrolled student → file a request, do not delete ──────────────────────
-  if (orgId !== INTERNAL_ORG) {
+  if (enrolledOrgs.length > 0) {
     const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 1000) : null;
 
     const { data: existing } = await admin

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { fetchAll } from "@/lib/plans/server";
 
 /**
  * Platform-wide student list for the super-admin — every member across every
@@ -10,6 +11,10 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
  * Super-admin only (requireSuperAdmin) and deliberately cross-tenant (service
  * role) — the one place that view is allowed. Aggregated in JS, same shape as
  * /api/org/analytics but across all orgs and carrying org_id/org_name.
+ *
+ * Every read is PAGED (PostgREST returns at most 1000 rows per request — it
+ * used to cut task_attempts etc. silently, giving wrong metrics and missing
+ * students) and any failed read fails the request instead of showing zeros.
  */
 
 export interface GlobalStudentRow {
@@ -45,30 +50,35 @@ export async function GET() {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const [membersRes, roomsRes, scenariosRes, sessionsRes, attemptsRes, orgsRes] = await Promise.all([
-    admin.from("org_members").select("org_id, user_id, role, status, joined_at, profiles(handle, display_name, xp, level)"),
-    admin.from("room_progress").select("user_id, completed_at, updated_at"),
-    admin.from("scenario_history").select("user_id, score, completed_at"),
-    admin.from("dashboard_sessions").select("user_id, played_at"),
-    admin.from("task_attempts").select("user_id, correct"),
-    admin.from("organizations").select("id, name"),
-  ]);
-
-  const orgName = new Map<string, string>((orgsRes.data ?? []).map(o => [o.id, o.name]));
-
-  // Member emails (0032 org_member_emails is per-org) — call it for each org and
-  // merge into one user_id→email map. The dataset is platform-small.
-  const emailBy = new Map<string, string>();
-  await Promise.all([...orgName.keys()].map(async orgId => {
-    const { data } = await admin.rpc("org_member_emails", { p_org: orgId });
-    for (const e of (data ?? []) as Array<{ user_id: string; email: string }>) emailBy.set(e.user_id, e.email);
-  }));
-
+  type MemberRow = { org_id: string; user_id: string; role: string; status: string; joined_at: string | null; profiles: unknown };
   type R = { user_id: string; completed_at?: string | null; updated_at?: string | null };
-  const roomRows = (roomsRes.data ?? []) as R[];
-  const scRows = (scenariosRes.data ?? []) as Array<{ user_id: string; score: number | null; completed_at: string | null }>;
-  const dsRows = (sessionsRes.data ?? []) as Array<{ user_id: string; played_at: string | null }>;
-  const atRows = (attemptsRes.data ?? []) as Array<{ user_id: string; correct: boolean }>;
+  type ScRow = { user_id: string; score: number | null; completed_at: string | null };
+  type DsRow = { user_id: string; played_at: string | null };
+  type AtRow = { user_id: string; correct: boolean };
+  let memberRows: MemberRow[], roomRows: R[], scRows: ScRow[], dsRows: DsRow[], atRows: AtRow[];
+  let orgRows: { id: string; name: string }[];
+  const emailBy = new Map<string, string>();
+  try {
+    [memberRows, roomRows, scRows, dsRows, atRows, orgRows] = await Promise.all([
+      fetchAll<MemberRow>((f, t) => admin.from("org_members").select("org_id, user_id, role, status, joined_at, profiles(handle, display_name, xp, level)").order("org_id").order("user_id").range(f, t), "superadmin:members"),
+      fetchAll<R>((f, t) => admin.from("room_progress").select("user_id, completed_at, updated_at").order("user_id").order("room_id").range(f, t), "superadmin:rooms"),
+      fetchAll<ScRow>((f, t) => admin.from("scenario_history").select("user_id, score, completed_at").order("id").range(f, t), "superadmin:scenarios"),
+      fetchAll<DsRow>((f, t) => admin.from("dashboard_sessions").select("user_id, played_at").order("id").range(f, t), "superadmin:sessions"),
+      // Only the wrong answers are needed (the "mistakes" metric).
+      fetchAll<AtRow>((f, t) => admin.from("task_attempts").select("user_id, correct").eq("correct", false).order("id").range(f, t), "superadmin:attempts"),
+      fetchAll<{ id: string; name: string }>((f, t) => admin.from("organizations").select("id, name").order("id").range(f, t), "superadmin:orgs"),
+    ]);
+    // Member emails (0032 org_member_emails is per-org) — one paged call per org,
+    // merged into one user_id→email map.
+    const perOrg = await Promise.all(orgRows.map(o => fetchAll<{ user_id: string; email: string }>(
+      (f, t) => admin.rpc("org_member_emails", { p_org: o.id }).range(f, t), "superadmin:emails")));
+    for (const list of perOrg) for (const e of list) emailBy.set(e.user_id, e.email);
+  } catch (e) {
+    console.error("[superadmin students]", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Couldn't load the student list — please try again." }, { status: 500 });
+  }
+
+  const orgName = new Map<string, string>(orgRows.map(o => [o.id, o.name]));
 
   const group = <T extends { user_id: string }>(rows: T[]) => {
     const m = new Map<string, T[]>();
@@ -77,7 +87,7 @@ export async function GET() {
   };
   const roomsBy = group(roomRows), scBy = group(scRows), dsBy = group(dsRows), atBy = group(atRows);
 
-  const students: GlobalStudentRow[] = (membersRes.data ?? []).map(m => {
+  const students: GlobalStudentRow[] = memberRows.map(m => {
     const p = m.profiles as unknown as { handle?: string; display_name?: string; xp?: number; level?: number } | null;
     const rp = roomsBy.get(m.user_id) ?? [];
     const sc = scBy.get(m.user_id) ?? [];

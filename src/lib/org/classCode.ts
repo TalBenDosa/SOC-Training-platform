@@ -46,31 +46,38 @@ export async function getActiveCode(admin: SupabaseClient, orgId: string): Promi
   return data ?? null;
 }
 
+/** Thrown when an org admin is still inside the one-generation-per-24h window. */
+export class CodeCooldownError extends Error {
+  constructor() { super("A code was already generated in the last 24 hours."); }
+}
+
 /**
- * Generate a fresh code for an org: expire whatever is live, insert the new
- * one. Uniqueness collisions are retried — with a 31^8 space they are
- * theoretical, but a retry loop costs three lines and an unhandled 23505
- * would fail a teacher mid-lesson.
+ * Generate a fresh code for an org. The cooldown check, revoke-previous (the
+ * spec is one live code per org — a student typing yesterday's code gets
+ * "invalid", not a quiet second door) and the insert run as ONE locked step in
+ * the database (issue_org_code, 0080): as three separate calls, a double click
+ * produced two live codes. Uniqueness collisions are retried — with a 31^8
+ * space they are theoretical, but an unhandled 23505 would fail a teacher
+ * mid-lesson.
+ *
+ * `cooldownHours` > 0 enforces the org admin's one-per-24h rule atomically; the
+ * super-admin passes 0.
  */
 export async function generateCode(
   admin: SupabaseClient,
   orgId: string,
   createdBy: string,
+  opts: { cooldownHours?: number } = {},
 ): Promise<ActiveCode> {
-  const nowIso = new Date().toISOString();
-  // Revoke-previous: the spec is one live code per org, and a student typing
-  // yesterday's code should get "invalid", not a quiet second door.
-  await admin.from("org_codes").update({ expires_at: nowIso })
-    .eq("org_id", orgId).gt("expires_at", nowIso);
-
   const expiresAt = new Date(Date.now() + CODE_TTL_HOURS * 3600_000).toISOString();
   for (let attempt = 0; attempt < 3; attempt++) {
-    const { data, error } = await admin
-      .from("org_codes")
-      .insert({ org_id: orgId, code: newCodeString(), created_by: createdBy, expires_at: expiresAt })
-      .select("code, created_at, expires_at")
-      .single();
-    if (!error && data) return data;
+    const { data, error } = await admin.rpc("issue_org_code", {
+      p_org: orgId, p_created_by: createdBy, p_code: newCodeString(),
+      p_expires_at: expiresAt, p_cooldown_hours: opts.cooldownHours ?? 0,
+    });
+    const row = (Array.isArray(data) ? data[0] : data) as ActiveCode | undefined;
+    if (!error && row) return row;
+    if (error?.message?.includes("code_cooldown")) throw new CodeCooldownError();
     if (error && error.code !== "23505") throw new Error(error.message);
   }
   throw new Error("Could not generate a unique code.");

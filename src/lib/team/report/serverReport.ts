@@ -64,15 +64,17 @@ export function clicksAsEvents(clicks: { user_id: string; event_id: string | nul
   }));
 }
 
-async function pageAll<T>(fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, pageSize = 1000, maxRows = 60000): Promise<T[]> {
+// Throws — never returns a partial list: the report built from it is cached for
+// good (team_session_reports), so a truncated log would be a permanent wrong score.
+export async function pageAll<T>(fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, pageSize = 1000, maxRows = 60000): Promise<T[]> {
   const out: T[] = [];
-  for (let from = 0; from < maxRows; from += pageSize) {
+  for (let from = 0; ; from += pageSize) {
     const { data, error } = await fetchPage(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
     out.push(...(data ?? []));
-    if (!data || data.length < pageSize) break;
+    if (!data || data.length < pageSize) return out;
+    if (out.length >= maxRows) throw new Error(`more than ${maxRows} rows — report not built`);
   }
-  return out;
 }
 
 /** Build the full report for an ended session (service-role client). */
@@ -85,12 +87,16 @@ export async function buildServerReport(admin: SupabaseClient, sessionId: string
     .select("user_id, event_id, dwell_ms, occurred_at").eq("session_id", sessionId).order("id").range(from, to));
 
   // Roster incl. members who LEFT — their actions still count in the debrief.
-  const { data: mem } = await admin.from("team_session_members").select("user_id, role, status").eq("session_id", sessionId);
-  const ids = (mem ?? []).map(m => m.user_id);
-  const { data: profs } = await admin.from("profiles").select("id, handle, display_name")
-    .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
+  // Errors THROW (P4-07): an empty roster makes computeReport score nobody, and
+  // that report would be cached and served forever.
+  const { data: mem, error: memErr } = await admin.from("team_session_members").select("user_id, role, status").eq("session_id", sessionId);
+  if (memErr) throw new Error(`roster: ${memErr.message}`);
+  if (!mem || mem.length === 0) throw new Error("roster is empty — report not built");
+  const ids = mem.map(m => m.user_id);
+  const { data: profs, error: profErr } = await admin.from("profiles").select("id, handle, display_name").in("id", ids);
+  if (profErr) throw new Error(`profiles: ${profErr.message}`);
   const pmap = new Map((profs ?? []).map(p => [p.id as string, p as { handle?: string; display_name?: string }]));
-  const roster: RosterMember[] = (mem ?? []).map(m => {
+  const roster: RosterMember[] = mem.map(m => {
     const p = pmap.get(m.user_id);
     return { user_id: m.user_id, role: m.role, status: m.status, name: p?.display_name || p?.handle || m.user_id.slice(0, 8), handle: p?.handle ?? null };
   });

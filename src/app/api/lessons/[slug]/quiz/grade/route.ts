@@ -88,7 +88,9 @@ export async function POST(
     const answered = results.filter(r => r.answer !== null)
       .map(r => ({ questionId: String(r.index), answer: answers[String(r.index)], correct: r.correct }));
     if (answered.length > 0) {
-      await recordAndLoadFirstAnswers(admin, user.id, "lesson", `${parsed.pathSlug}--${parsed.lessonSlug}`, answered);
+      // Recorded before the key is revealed (see quizzes/[slug]/grade).
+      const recorded = await recordAndLoadFirstAnswers(admin, user.id, "lesson", `${parsed.pathSlug}--${parsed.lessonSlug}`, answered);
+      if (!recorded) return NextResponse.json({ error: "Couldn't save your answers — please try again." }, { status: 503 });
     }
   }
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeAnswers, publicAnswers, clicksAsEvents } from "./serverReport";
+import { mergeAnswers, publicAnswers, clicksAsEvents, pageAll } from "./serverReport";
 import { computeReport } from "./computeReport";
 import type { Ev, RosterMember } from "@/lib/team/types";
 
@@ -72,5 +72,20 @@ describe("serverReport — scoring keys travel with the merge", () => {
     expect(out[0].payload).toMatchObject({ expected_verdict: "tp", incident_id: "inc-A", supports_inject: "msel_twist" });
     expect(out[0].payload).not.toHaveProperty("original_id");
     expect(out[1].payload).toMatchObject({ kind: "twist", original_id: "msel_twist" });
+  });
+});
+
+describe("pageAll (P4-07: never a partial list)", () => {
+  it("returns every page until a short page", async () => {
+    const pages = [[1, 2], [3]];
+    let call = 0;
+    const out = await pageAll<number>(async () => ({ data: pages[call++] ?? [], error: null }), 2);
+    expect(out).toEqual([1, 2, 3]);
+  });
+  it("throws on a read error instead of returning what it has", async () => {
+    await expect(pageAll<number>(async () => ({ data: null, error: { message: "boom" } }), 2)).rejects.toThrow("boom");
+  });
+  it("throws when the row cap is reached instead of silently truncating", async () => {
+    await expect(pageAll<number>(async () => ({ data: [1, 2], error: null }), 2, 4)).rejects.toThrow("more than 4 rows");
   });
 });

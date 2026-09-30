@@ -59,7 +59,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       byOrg("scenario_history", ["id"]),
       byOrg("quiz_progress", ["user_id", "quiz_slug"]),
       byOrg("task_attempts", ["id"]),
-      byMembers("lesson_progress", "*", ["user_id", "lesson_id"]),
+      byMembers("lesson_progress", "*", ["user_id", "lesson_key"]),
     ]);
 
     const payload = {

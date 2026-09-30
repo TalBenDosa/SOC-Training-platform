@@ -68,9 +68,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "That access code isn't valid or has expired. Ask for today's code." }, { status: 400 });
   }
 
-  const { data: existing } = await admin
+  const { data: existing, error: existingErr } = await admin
     .from("org_members").select("role, status")
     .eq("org_id", org.id).eq("user_id", user.id).maybeSingle();
+  // Fail closed: an unreadable membership must not be treated as "never removed"
+  // (the attach below would reactivate a student the college removed).
+  if (existingErr) return NextResponse.json({ error: "Couldn't check your membership — please try again." }, { status: 503 });
 
   // An org admin deactivated this membership (org/members PATCH → "removed").
   // The class code is shown to the whole class, so it must not undo that
@@ -85,9 +88,11 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else {
     // Join (or reactivate) as a student, seat-capped and atomic. The function
-    // also sets profiles.org_id, so the switch cannot detach from the join.
+    // also sets profiles.org_id and the 100-day affiliation expiry in the same
+    // transaction (0080), so neither can detach from the join.
     const { error } = await admin.rpc("attach_member_if_seat_available", {
       p_org: org.id, p_user: user.id, p_role: "student",
+      p_affiliation_expires: new Date(Date.now() + AFFILIATION_DAYS * 86_400_000).toISOString(),
     });
     if (error) {
       if ((error.message ?? "").includes("seat_limit_reached")) {
@@ -95,9 +100,6 @@ export async function POST(req: Request) {
       }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    await admin.from("org_members")
-      .update({ affiliation_expires_at: new Date(Date.now() + AFFILIATION_DAYS * 86_400_000).toISOString() })
-      .eq("org_id", org.id).eq("user_id", user.id);
   }
 
   await logAudit({

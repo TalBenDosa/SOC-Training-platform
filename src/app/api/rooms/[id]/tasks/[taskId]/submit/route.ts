@@ -52,14 +52,20 @@ export async function POST(
   // (the client could otherwise always say "first try" for full credit). For
   // log_analysis each sub-question counts separately. A higher client claim is
   // still honoured for the reveal UX — it can only lower XP, never raise it.
+  //
+  // The number is CLAIMED atomically in the database (claim_task_attempt, 0080):
+  // a count followed by a separate insert let parallel requests — one per option
+  // of a question — all read "0 previous" and all grade as the first try.
   let attemptNo = Math.max(1, Math.min(1000, Math.floor(Number(b.attemptNumber)) || 1));
   if (record) {
-    let prior = admin!.from("task_attempts").select("id", { count: "exact", head: true })
-      .eq("user_id", user!.id).eq("room_id", room.id).eq("task_id", task.id);
-    if (qIndex !== null) prior = prior.eq("question_index", qIndex);
-    const { count, error: countErr } = await prior;
-    if (countErr) return NextResponse.json({ error: "Couldn't check your previous attempts — please try again." }, { status: 503 });
-    attemptNo = Math.max(attemptNo, (count ?? 0) + 1);
+    const { data: claimed, error: claimErr } = await admin!.rpc("claim_task_attempt", {
+      p_user: user!.id, p_room: room.id, p_task: task.id, p_qidx: qIndex,
+    });
+    if (claimErr || typeof claimed !== "number") {
+      if (claimErr) console.error("[room submit] claim_task_attempt failed:", claimErr.message);
+      return NextResponse.json({ error: "Couldn't check your previous attempts — please try again." }, { status: 503 });
+    }
+    attemptNo = Math.max(attemptNo, claimed);
   }
 
   // Pass the resolved room so written_report grading can scan its shown content

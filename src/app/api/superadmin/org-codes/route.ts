@@ -27,15 +27,15 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const nowIso = new Date().toISOString();
-  const { data: codes } = await admin
-    .from("org_codes")
-    .select("org_id, code, created_at, expires_at")
-    .order("created_at", { ascending: false });
-
-  // Newest row per org; live only if still inside its 24h window.
+  // Newest code per org (live only if still inside its 24h window). One bounded
+  // query per org instead of reading every code ever issued (one per org per day).
   const latestByOrg = new Map<string, { code: string; created_at: string; expires_at: string }>();
-  for (const c of codes ?? []) {
-    if (!latestByOrg.has(c.org_id)) latestByOrg.set(c.org_id, c);
+  const latest = await Promise.all((orgs ?? []).map(o => admin.from("org_codes")
+    .select("org_id, code, created_at, expires_at")
+    .eq("org_id", o.id).order("created_at", { ascending: false }).limit(1).maybeSingle()));
+  for (const r of latest) {
+    if (r.error) return NextResponse.json({ error: "Couldn't read the class codes — please try again." }, { status: 500 });
+    if (r.data) latestByOrg.set(r.data.org_id, r.data);
   }
 
   return NextResponse.json({

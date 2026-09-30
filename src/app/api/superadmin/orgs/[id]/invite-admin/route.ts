@@ -4,7 +4,7 @@ import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { orgWelcomeEmail } from "@/lib/email/templates";
-import { generateCode } from "@/lib/org/classCode";
+import { generateCode, getActiveCode } from "@/lib/org/classCode";
 import { logAudit } from "@/lib/audit/logAudit";
 
 /**
@@ -60,9 +60,11 @@ export async function POST(req: Request, { params }: Ctx) {
   // Mint a starter class code so the admin can distribute it to students right
   // away — included in the welcome email. Best-effort: if generation fails,
   // the invite still goes out, the admin just makes a code from Manage Class.
+  // Reuse the live code when there is one: generating would silently revoke the
+  // code the class is already using (and restart the admin's 24h cooldown).
   let classCode: string | null = null;
   try {
-    classCode = (await generateCode(admin, orgId, gate.user.id)).code;
+    classCode = (await getActiveCode(admin, orgId))?.code ?? (await generateCode(admin, orgId, gate.user.id)).code;
   } catch { /* non-fatal — the invite is the point, the code is a convenience */ }
 
   const mail = orgWelcomeEmail({ orgName: org.name, adminLink, classCode });

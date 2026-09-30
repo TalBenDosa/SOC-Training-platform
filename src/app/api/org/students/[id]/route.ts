@@ -96,7 +96,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const isPlatform = (member?.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin;
   if (!member || isPlatform) return NextResponse.json({ error: "No such student in your organisation." }, { status: 404 });
 
-  const [roomsRes, scenariosRes, sessionsRes, attemptsRes] = await Promise.all([
+  const [roomsRes, scenariosRes, sessionsRes, attemptsRes, gradedCount, wrongCount] = await Promise.all([
     admin.from("room_progress")
       .select("room_id, completed_task_ids, per_task_xp, xp_earned, telemetry, completed_at, updated_at")
       .eq("org_id", orgId).eq("user_id", id),
@@ -110,6 +110,10 @@ export async function GET(_req: Request, { params }: Ctx) {
     admin.from("task_attempts")
       .select("room_id, task_id, task_type, correct, submitted, attempt_no, latency_ms, created_at")
       .eq("org_id", orgId).eq("user_id", id).order("created_at", { ascending: false }).limit(300),
+    // True totals (P4-23): the list above is the latest 300, so counting it
+    // under-reported a long history and disagreed with the analytics page.
+    admin.from("task_attempts").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("user_id", id),
+    admin.from("task_attempts").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("user_id", id).eq("correct", false),
   ]);
 
   type RoomRow = { room_id: string; completed_task_ids: string[] | null; per_task_xp: Record<string, number> | null; xp_earned: number | null; telemetry: TelemetryEntry[] | null; completed_at: string | null; updated_at: string | null };
@@ -163,8 +167,8 @@ export async function GET(_req: Request, { params }: Ctx) {
       avg_detect_rate: avg(sessionRows.map(s => s.detect_rate ?? 0)),
       median_decision_latency_ms: median(allLatencies),
       tasks_answered: allLatencies.length,
-      graded_submissions: attemptRows.length,
-      wrong_submissions: wrongRows.length,
+      graded_submissions: gradedCount.count ?? attemptRows.length,
+      wrong_submissions: wrongCount.count ?? wrongRows.length,
     },
     rooms,
     scenarios: scenarioRows.map(s => ({ slug: s.slug, title: s.title ?? s.slug, score: s.score, time_taken: s.time_taken, completed_at: s.completed_at })),

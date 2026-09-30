@@ -171,9 +171,13 @@ export async function POST(
   const firsts = admin ? await recordAndLoadFirstAnswers(admin, gradeUser.id, "scenario", slug, answeredNow) : null;
   let priorAttempts = 0;
   if (admin) {
-    const { count } = await admin.from("scenario_history")
+    const { count, error: priorErr } = await admin.from("scenario_history")
       .select("id", { count: "exact", head: true })
       .eq("user_id", gradeUser.id).eq("slug", slug);
+    // Fail closed (like quizzes/finish): unknown history must not pay first-try XP.
+    if (priorErr || !firsts) {
+      return NextResponse.json({ error: "Couldn't check your previous attempts — please submit again." }, { status: 503 });
+    }
     priorAttempts = count ?? 0;
   }
   const quizXp = sumFirstAnswerXp(

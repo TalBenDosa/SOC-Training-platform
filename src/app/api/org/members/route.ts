@@ -112,17 +112,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "This person already belongs to another institution. Ask them to join with your class code instead." }, { status: 409 });
   }
 
-  const { error } = await admin.rpc("attach_member_if_seat_available", { p_org: orgId, p_user: userId, p_role: role });
+  // A student gets the same 100-day affiliation window as joining with the class
+  // code, written by the RPC in the same transaction as the membership (0080).
+  const { error } = await admin.rpc("attach_member_if_seat_available", {
+    p_org: orgId, p_user: userId, p_role: role,
+    p_affiliation_expires: role === "student" ? new Date(Date.now() + 100 * 86_400_000).toISOString() : null,
+  });
   if (error) {
     if (error.message.includes("seat_limit_reached")) return NextResponse.json({ error: "Your organisation has reached its seat limit." }, { status: 409 });
     return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  if (role === "student") {
-    // Same 100-day affiliation window a student gets when joining with the class
-    // code (join-environment); the RPC itself leaves it null (= never expires).
-    await admin.from("org_members")
-      .update({ affiliation_expires_at: new Date(Date.now() + 100 * 86_400_000).toISOString() })
-      .eq("org_id", orgId).eq("user_id", userId).is("affiliation_expires_at", null);
   }
   return NextResponse.json({ ok: true });
 }
@@ -146,13 +144,20 @@ export async function PATCH(req: Request) {
   if (guard) return guard;
 
   if (active) {
-    // Reactivating consumes a seat — enforce the cap.
-    const { data: org } = await admin.from("organizations").select("seat_limit").eq("id", orgId).maybeSingle();
-    const { count } = await admin.from("org_members").select("user_id", { count: "exact", head: true }).eq("org_id", orgId).eq("status", "active");
-    const limit = org?.seat_limit ?? 0;
-    if (limit > 0 && (count ?? 0) >= limit) {
-      return NextResponse.json({ error: "Your organisation has reached its seat limit — free a seat first." }, { status: 409 });
+    // Reactivating consumes a seat — checked and applied under the org-row lock
+    // (reactivate_member, 0080), so two concurrent reactivations can't both take
+    // the last seat.
+    const { data: outcome, error: rErr } = await admin.rpc("reactivate_member", { p_org: orgId, p_user: target });
+    if (rErr) {
+      if ((rErr.message ?? "").includes("seat_limit_reached")) {
+        return NextResponse.json({ error: "Your organisation has reached its seat limit — free a seat first." }, { status: 409 });
+      }
+      return NextResponse.json({ error: "Couldn't reactivate the member — please try again." }, { status: 500 });
     }
+    if (outcome === "not_member") {
+      return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, status: "active" });
   }
 
   // Both .eq()s already scope this to the caller's own org, so a `target` from

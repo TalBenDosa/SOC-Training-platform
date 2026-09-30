@@ -42,11 +42,16 @@ export async function getEffectiveRoom(roomId: string, orgId: string | null, inc
   const content = (row.content ?? {}) as Record<string, unknown>;
   if (content.kind !== "authored") return null;
 
-  const { data: keyRow } = await admin
+  const { data: keyRow, error: keyErr } = await admin
     .from("content_room_keys")
     .select("answer_key")
     .eq("id", roomId)
     .maybeSingle();
+  // Fail closed (P4-04): grading against an empty key marks right answers wrong
+  // and RECORDS that (attempt counts, first answers). A read failure throws (the
+  // request errors and can be retried); a room with no key is unavailable.
+  if (keyErr) throw new Error(`answer key unavailable for ${roomId}: ${keyErr.message}`);
+  if (!keyRow) return null;
 
-  return recombineRoom(content, (keyRow?.answer_key ?? {}) as Record<string, unknown>);
+  return recombineRoom(content, (keyRow.answer_key ?? {}) as Record<string, unknown>);
 }

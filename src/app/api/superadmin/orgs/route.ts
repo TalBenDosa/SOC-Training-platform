@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { orgWelcomeEmail } from "@/lib/email/templates";
 import { generateCode } from "@/lib/org/classCode";
+import { fetchAll } from "@/lib/plans/server";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
 
 /**
@@ -37,10 +38,21 @@ export async function GET() {
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // One pass over active memberships → seats per org.
-  const { data: members } = await admin.from("org_members").select("org_id").eq("status", "active");
+  // One PAGED pass over active memberships → seats per org (a single unpaged
+  // read stopped at 1000 rows and under-reported). The platform admin's own
+  // memberships don't use seats — same rule as org_seats_used() (0080).
   const seatByOrg = new Map<string, number>();
-  for (const m of members ?? []) seatByOrg.set(m.org_id, (seatByOrg.get(m.org_id) ?? 0) + 1);
+  try {
+    const members = await fetchAll<{ org_id: string; user_id: string; profiles: unknown }>(
+      (f, t) => admin.from("org_members").select("org_id, user_id, profiles(is_platform_admin)").eq("status", "active").order("org_id").order("user_id").range(f, t),
+      "superadmin:seats");
+    for (const m of members) {
+      if ((m.profiles as { is_platform_admin?: boolean } | null)?.is_platform_admin) continue;
+      seatByOrg.set(m.org_id, (seatByOrg.get(m.org_id) ?? 0) + 1);
+    }
+  } catch {
+    return NextResponse.json({ error: "Couldn't count seats — please try again." }, { status: 500 });
+  }
 
   const summaries: OrgSummary[] = (orgs ?? []).map(o => ({
     ...o,

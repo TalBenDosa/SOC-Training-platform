@@ -299,13 +299,23 @@ export function createRemoteBackend(
     },
   };
 
+  // Most recent sessions / scenario attempts loaded per device (oldest first after reversing).
+  const HISTORY_LIMIT = 1000;
+
   async function hydrate(): Promise<HydrateResult> {
     const [profileRes, userProgressRes, roomRes, sessionsRes, scenariosRes, quizRes, lessonRes] = await Promise.all([
       supabase.from("profiles").select("xp").eq("id", userId).maybeSingle(),
       supabase.from("user_progress").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("room_progress").select("*").eq("user_id", userId),
-      supabase.from("dashboard_sessions").select("*").eq("user_id", userId).order("played_at", { ascending: true }),
-      supabase.from("scenario_history").select("*").eq("user_id", userId).order("completed_at", { ascending: true }),
+      // Newest first with a bound, then reversed below (P4-20): ascending with no
+      // limit let PostgREST's 1000-row cap drop the NEWEST rows for a heavy user
+      // (wrong streaks/stats), and "*" pulled columns nothing reads.
+      supabase.from("dashboard_sessions")
+        .select("played_at, xp_earned, detect_rate, fn_count, avg_catch_ms, attacks_caught_count, attacks_presented_count, events_opened_count, duration_ms")
+        .eq("user_id", userId).order("played_at", { ascending: false }).limit(HISTORY_LIMIT),
+      supabase.from("scenario_history")
+        .select("slug, title, score, xp_earned, time_taken, completed_at, report")
+        .eq("user_id", userId).order("completed_at", { ascending: false }).limit(HISTORY_LIMIT),
       // Streak signal only (XP for these is server-written). A missing table
       // (database without 0070/0074 yet) just yields no dates.
       supabase.from("quiz_progress").select("first_completed_at, last_completed_at").eq("user_id", userId),
@@ -339,7 +349,7 @@ export function createRemoteBackend(
     }
     cache.set(LEARNER_KEYS.roomProgress, JSON.stringify(roomMap));
 
-    const sessions: DashboardSessionRecord[] = (sessionsRes.data ?? []).map(row => ({
+    const sessions: DashboardSessionRecord[] = [...(sessionsRes.data ?? [])].reverse().map(row => ({
       type: "dashboard" as const,
       date: row.played_at,
       xpEarned: row.xp_earned,
@@ -353,7 +363,7 @@ export function createRemoteBackend(
     }));
     cache.set(LEARNER_KEYS.dashboardSessions, JSON.stringify(sessions));
 
-    const scenarios: ScenarioRecord[] = (scenariosRes.data ?? []).map(row => ({
+    const scenarios: ScenarioRecord[] = [...(scenariosRes.data ?? [])].reverse().map(row => ({
       slug: row.slug,
       title: row.title,
       score: row.score,

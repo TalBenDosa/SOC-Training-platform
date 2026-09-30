@@ -25,15 +25,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ type: s
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const { data: row } = await admin
+  const { data: row, error: rowErr } = await admin
     .from(ORG_CONTENT_TABLE[type]).select("id, status, content").eq("id", id).eq("org_id", orgId).maybeSingle();
+  if (rowErr) return NextResponse.json({ error: "Couldn't load this item — please try again." }, { status: 503 });
   if (!row) return NextResponse.json({ error: "Not found in this environment." }, { status: 404 });
 
   let answer_key: unknown = null;
   if (type === "scenarios" || type === "rooms") {
     const keyTable = type === "scenarios" ? "content_scenario_keys" : "content_room_keys";
-    const { data: key } = await admin
+    const { data: key, error: keyErr } = await admin
       .from(keyTable).select("answer_key").eq("id", id).eq("org_id", orgId).maybeSingle();
+    // Never hand the editor a null key because of a failed read — re-saving from
+    // it would overwrite the real answer key (P4-04).
+    if (keyErr) return NextResponse.json({ error: "Couldn't load the answer key — please try again." }, { status: 503 });
     answer_key = key?.answer_key ?? null;
   }
   return NextResponse.json({ item: row, answer_key });
@@ -56,6 +60,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ type: 
 
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  // Publishing a scenario/room requires its answer key (P4-04): the create route
+  // keeps an item as a draft when the key write fails, and this flip must not
+  // publish such an item anyway — students would be graded against nothing.
+  if (status === "published" && (type === "scenarios" || type === "rooms")) {
+    const keyTable = type === "scenarios" ? "content_scenario_keys" : "content_room_keys";
+    const { data: key, error: keyErr } = await admin
+      .from(keyTable).select("id").eq("id", id).eq("org_id", orgId).maybeSingle();
+    if (keyErr) return NextResponse.json({ error: "Couldn't check the answer key — please try again." }, { status: 503 });
+    if (!key) return NextResponse.json({ error: "This item has no saved answer key yet — open it, save it again, then publish." }, { status: 409 });
+  }
 
   const { data, error } = await admin
     .from(ORG_CONTENT_TABLE[type])

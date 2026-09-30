@@ -143,6 +143,17 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "The internal org cannot be deleted." }, { status: 400 });
   }
 
+  // The college's media files (P4-13): collected BEFORE the purge (the rows
+  // cascade away with the org) and removed AFTER it succeeds — a failed purge
+  // must not leave rows pointing at deleted files. Unfinalized uploads have no
+  // row, so the org's storage folder is listed too.
+  let mediaKeys: string[];
+  try {
+    mediaKeys = await collectOrgMediaKeys(admin, id);
+  } catch {
+    return NextResponse.json({ error: "Couldn't list the college's media files — nothing was deleted. Try again." }, { status: 503 });
+  }
+
   // Atomic purge: deletes the college's learner data, re-homes its accounts to
   // the internal org (so logins survive), then removes the org. Export first.
   const { error } = await admin.rpc("purge_org", { p_org: id });
@@ -152,5 +163,37 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+
+  let mediaNotRemoved = 0;
+  for (let i = 0; i < mediaKeys.length; i += 100) {
+    const batch = mediaKeys.slice(i, i + 100);
+    const { error: rmErr } = await admin.storage.from(MEDIA_BUCKET).remove(batch);
+    if (rmErr) mediaNotRemoved += batch.length;
+  }
+  if (mediaNotRemoved) console.error(`[org purge] ${mediaNotRemoved} media file(s) of ${id} could not be removed`);
+  return NextResponse.json({ ok: true, media_removed: mediaKeys.length - mediaNotRemoved, media_not_removed: mediaNotRemoved });
+}
+
+const MEDIA_BUCKET = "org-media";
+
+/** Every storage key under the org: its registered resources + everything in its folder. */
+async function collectOrgMediaKeys(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>, orgId: string): Promise<string[]> {
+  const keys = new Set<string>();
+  const { data: rows, error } = await admin.from("org_resources").select("storage_key").eq("org_id", orgId);
+  if (error) throw new Error(error.message);
+  for (const r of rows ?? []) keys.add(String(r.storage_key));
+
+  const bucket = admin.storage.from(MEDIA_BUCKET);
+  const { data: folders, error: listErr } = await bucket.list(orgId, { limit: 1000 });
+  if (listErr) throw new Error(listErr.message);
+  for (const f of folders ?? []) {
+    // Keys are `${orgId}/${kind}/${uuid}.${ext}` — one level of kind folders.
+    for (let offset = 0; ; offset += 1000) {
+      const { data: files, error: fErr } = await bucket.list(`${orgId}/${f.name}`, { limit: 1000, offset });
+      if (fErr) throw new Error(fErr.message);
+      for (const file of files ?? []) keys.add(`${orgId}/${f.name}/${file.name}`);
+      if (!files || files.length < 1000) break;
+    }
+  }
+  return [...keys];
 }
