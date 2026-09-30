@@ -5,7 +5,12 @@
     "Microsoft Windows": "audit_log_cleared, Security channel -> Windows Security",
     "Sysmon + DNS Server": "provider_name is Microsoft-Windows-Sysmon, event.code 22; there is no DNS Server log in the block -> Microsoft Sysmon",
     "AWS CloudTrail + GuardDuty": "all fields are aws.cloudtrail.*; no GuardDuty finding fields present -> AWS CloudTrail",
-    "AbuseIPDB / SIEM Correlation": "fields are data.srcip/data.dstip = Wazuh decoder schema, not a threat-intel product -> Wazuh"
+    "AbuseIPDB / SIEM Correlation": "fields are data.srcip/data.dstip = Wazuh decoder schema, not a threat-intel product -> Wazuh",
+    "Microsoft Entra ID Identity Protection": "1 event; raw is a UAL UserLoggedIn record (data.office365.*, Workload AzureActiveDirectory) with RiskLevel in ExtendedProperties, not an Identity Protection riskDetection record -> Microsoft Entra ID",
+    "Microsoft Windows Security Auditing": "that is the Security-log provider name (Microsoft-Windows-Security-Auditing); raw is 4624 EventData / winlog.* 4698 -> Windows Security",
+    "Microsoft Defender for Cloud": "raw is azure.alert.* (Defender for Cloud SecurityAlert: alertType, compromisedEntity, extendedProperties); kept as its own product name — it is an exact alias of the azure-monitor schema, as Azure OpenAI is",
+    "FortiGate SSL-VPN": "raw is FortiOS data.* (type=event, subtype=vpn) -> fortigate schema; kept as its own product name because the fgVpn emitter and its tests deliberately split SSL-VPN (source vpn) from the firewall/UTM vendor",
+    "Azure SQL Database Auditing": "raw is azure.sql.* + db.*/query.* and db.vendor repeats this exact string -> azure-sql-audit schema; kept as-is so vendor and db.vendor agree"
   },
   "map": {
     "Microsoft Active Directory": "Windows Security",
@@ -150,6 +155,19 @@
     "Workday": "Workday",
     "Anthropic Claude Enterprise": "Anthropic Claude Enterprise",
     "Claude Enterprise": "Anthropic Claude Enterprise",
-    "Anthropic Compliance API": "Anthropic Claude Enterprise"
+    "Anthropic Compliance API": "Anthropic Claude Enterprise",
+    "Microsoft Windows Security Auditing": "Windows Security",
+    "Microsoft Entra ID Identity Protection": "Microsoft Entra ID",
+    "Microsoft Graph Security": "Microsoft Graph Security API",
+    "Microsoft Defender for Cloud": "Microsoft Defender for Cloud",
+    "FortiGate SSL-VPN": "FortiGate SSL-VPN",
+    "GitHub": "GitHub Audit Log",
+    "Google Workspace": "Google Workspace Audit",
+    "Azure Application Gateway WAF": "Azure Application Gateway WAF",
+    "Azure SQL Database Auditing": "Azure SQL Database Auditing",
+    "Azure AI Content Safety": "Azure AI Content Safety",
+    "Imperva WAF": "Imperva WAF",
+    "Recorded Future": "Recorded Future",
+    "Zabbix": "Zabbix"
   }
 }
