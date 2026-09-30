@@ -2,10 +2,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { ArrowUpRight, ShieldAlert, Siren, X } from "lucide-react";
+import { ArrowUpRight, ShieldAlert, X } from "lucide-react";
 import type { Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, isValidIoc, type ActR } from "@/lib/team/format";
-import { slaMinFor } from "./shared";
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
 
@@ -27,25 +26,13 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   const [iocText, setIocText] = useState("");
   const [busy, setBusy] = useState(false);
   const selDisp = sel ? dispositions.get(sel) : undefined;
-  // B6: a real T1 alert QUEUE — a prioritized, aging worklist of the high-signal
-  // alerts still needing a disposition (drains as you triage; noise never enters).
-  // A sorted projection over the same feed, NOT a second SIEM.
-  // C5: ages / SLA / claim TTL on the SERVER clock, re-rendered every 15s so SLA
-  // badges age even when no new event arrives.
+  // The alert queue is no longer a card here: it is the "Needs triage" view of the
+  // SIEM table itself (page.tsx + src/lib/team/alertQueue.ts), with SLA age badges on
+  // the SIEM rows — one alert list, not two. C5: ages / claim TTL on the SERVER clock.
   const nowMs = useServerNow(15_000);
-  const [pulledNote, setPulledNote] = useState<string | null>(null);
-  // Selecting an alert here (queue, Take next, dropdown) opens its report — count it
+  // Selecting an alert (feed, Take next, dropdown) opens its report — count it
   // as an open so a verdict given from this console isn't scored as "unread".
   useEffect(() => { if (sel) void act("event.opened", { event_id: sel, dwell_ms: 0 }); }, [sel, act]);
-  useEffect(() => { if (!pulledNote) return; const t = setTimeout(() => setPulledNote(null), 4000); return () => clearTimeout(t); }, [pulledNote]);
-  // The queue is high/critical by default; medium can be pulled in (early signs of a
-  // story often arrive as medium — T1 playtest).
-  const [withMedium, setWithMedium] = useState(false);
-  const queue = feed
-    .map(e => { const p = e.payload as { id?: string; severity?: string; source?: string; description?: string; summary?: string; what?: string; hostname?: string }; return { e, eid: String(p.id ?? e.seq), p }; })
-    .filter(({ eid, p }) => !dispositions.has(eid) && (p.severity === "high" || p.severity === "critical" || (withMedium && p.severity === "medium")))
-    .map(x => { const mins = x.e.occurred_at ? Math.max(0, Math.floor((nowMs - Date.parse(x.e.occurred_at)) / 60000)) : 0; const rank = x.p.severity === "critical" ? 4 : x.p.severity === "high" ? 3 : 2; return { ...x, mins, rank, score: rank * (1 + mins / 5) }; })
-    .sort((a, b) => b.score - a.score);
   const isLowConf = selDisp === "suspicious"; // T1-2: Suspicious → low-confidence lead
 
   // T1-3: soft-lock claims — the room's ONE claims projection (A3): latest claim per
@@ -107,31 +94,6 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
       : <div className="mt-2 flex items-center gap-2 text-[11px] text-neon-green"><span>✓ you claimed this alert</span><Button variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={release}>Release</Button></div>;
     return inModal ? null : <div className="mt-2"><Button variant="outline" size="sm" disabled={busy} onClick={() => claim()}>Take this alert</Button></div>;
   };
-
-  // Work-division: escalated (handed-off) alerts, so an orphan check doesn't flag a
-  // case that's already moving up the chain.
-  const escalatedSet = useMemo(() => new Set(events.filter(e => e.type === "escalation.requested").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
-  // Orphan = past SLA, still unclaimed, and not yet escalated — nobody is working it.
-  const isOrphan = (eid: string, sev: string | undefined, mins: number) => mins >= slaMinFor(sev ?? "high") && !claimerOf(eid) && !escalatedSet.has(eid);
-  // Display order: orphans first (a breached, unclaimed high can't sit mid-list), then
-  // the existing severity×age score order.
-  const queueDisplay = useMemo(() => {
-    const withFlag = queue.map(q => ({ ...q, orphan: isOrphan(q.eid, q.p.severity, q.mins) }));
-    return withFlag.sort((a, b) => (a.orphan === b.orphan ? 0 : a.orphan ? -1 : 1));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue, claims, escalatedSet, dispositions]);
-  // Assisted pull: grab the most urgent alert nobody has claimed and open its report
-  // (report-open auto-claims it), so two T1s don't lunge at the same row and the top
-  // of the queue never goes orphaned because everyone assumed someone else took it.
-  function takeNext() {
-    const next = queueDisplay.find(q => { const c = claimerOf(q.eid); return !c || c.by === meId; });
-    if (next) {
-      setSel(next.eid); setReportOpen(true);
-      setPulledNote(`Pulled #${next.e.seq} for you — it's claimed while you work it.`);
-    } else {
-      setPulledNote("Nothing unclaimed right now — every open alert is being worked.");
-    }
-  }
 
   // T1-7: my escalations with live status (sent → acknowledged → bounced/resolved).
   // Status is per ROUND: only what happened to this log after THIS request (and before
@@ -230,38 +192,9 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   const selSource = asStr(selP?.source);
   return (
     <>
-    {/* B6: the alert queue — highest-severity, oldest-aging first; drains as you disposition */}
-    <Card className="border-neon-amber/30">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-neon-amber" /> Alert queue ({queue.length})</h3>
-        <div className="flex items-center gap-2">
-          {queue.length > 0 && <Button variant="outline" size="sm" disabled={busy} onClick={takeNext}>Take next</Button>}
-          <label className="flex items-center gap-1 font-mono text-[10px] text-slate-400" title="Early signs of an attack often arrive as medium — pull them into the queue">
-            <input type="checkbox" checked={withMedium} onChange={e => setWithMedium(e.target.checked)} className="h-3 w-3" /> {withMedium ? "medium+" : "high/critical"} · un-triaged
-          </label>
-        </div>
-      </div>
-      {pulledNote && <p role="status" className="mt-1.5 text-[11px] text-neon-green">{pulledNote}</p>}
-      {queue.length === 0 ? (
-        <p className="mt-2 text-xs text-slate-400">Queue clear — no {withMedium ? "medium+" : "high/critical"} alert is waiting for a disposition. Watch the feed.</p>
-      ) : (
-        <div className="mt-2 space-y-1">
-          {queueDisplay.slice(0, 8).map(({ e, eid, p, mins, rank, orphan }) => { const breached = mins >= slaMinFor(p.severity ?? "high"); return (
-            <button key={e.seq} onClick={() => { setSel(eid); setReportOpen(true); }} className={`flex w-full items-center gap-2 rounded border px-2 py-1 text-left text-[11px] transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50 ${sel === eid ? "border-cyber-500/50 bg-cyber-500/[0.06]" : orphan ? "border-severity-high/50 bg-severity-high/[0.06]" : "border-border/60 bg-bg"}`}>
-              <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold uppercase ${rank === 4 ? "border-severity-high/50 bg-severity-high/10 text-severity-high" : "border-neon-amber/50 bg-neon-amber/10 text-neon-amber"}`}>{p.severity}</span>
-              <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.description) || asStr(p.summary) || asStr(p.what) || asStr(p.hostname) || "alert"}</span>
-              {orphan && <span className="shrink-0 rounded border border-severity-high/60 bg-severity-high/15 px-1 py-0.5 font-mono text-[9px] font-bold text-severity-high" title="past SLA and unclaimed — nobody is working it">⚠ unclaimed</span>}
-              {asStr(p.source) && <span className="shrink-0 font-mono text-[9px] text-slate-500">{asStr(p.source)}</span>}
-              <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ {mins}m{breached ? " · SLA" : ""}</span>
-            </button>
-          ); })}
-          {queue.length > 8 && <p className="text-[10px] text-slate-500">+{queue.length - 8} more — work the top of the queue first.</p>}
-        </div>
-      )}
-    </Card>
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Tier-1 triage</h3>
-      <p className="mt-1 text-[11px] text-slate-400">Open a log in the feed and hit <span className="font-semibold text-amber-300">🚩 Escalate this log</span> — or pick one below.</p>
+      <p className="mt-1 text-[11px] text-slate-400">Work the SIEM&apos;s <span className="font-semibold text-cyber-300">Needs triage</span> view (or the full feed), open a log and hit <span className="font-semibold text-amber-300">🚩 Escalate this log</span> — or pick one below.</p>
 
       {/* T1-7: my escalations + status tracking (sent/ack/bounced/resolved) */}
       {myEsc.length > 0 && (

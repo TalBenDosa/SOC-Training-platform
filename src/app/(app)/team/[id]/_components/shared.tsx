@@ -23,7 +23,8 @@ export function enrichSnapshot(snap: Record<string, unknown> | undefined): LiveE
   try { return enrichEvent(norm, 0); }
   catch { return { ...norm, ruleLevel: 1, ruleId: "RULE-0000", displayDescription: asStr(snap.description) || asStr(snap.event_type) || "event" } as unknown as LiveEvent; }
 }
-export const slaMinFor = (sev: string) => (sev === "critical" ? 1 : sev === "high" ? 3 : sev === "medium" ? 10 : 30);
+// Triage SLA by severity — defined once with the alert queue.
+export { slaMinFor } from "@/lib/team/alertQueue";
 export function Metric({ label, value, tone }: { label: string; value: string; tone?: "good" | "warn" }) {
   return <div className="rounded-lg border border-border bg-bg px-3 py-2"><p className="text-[10px] uppercase tracking-wider text-slate-400">{label}</p><p className={`mt-0.5 font-mono text-lg font-bold ${tone === "good" ? "text-neon-green" : tone === "warn" ? "text-neon-amber" : "text-white"}`}>{value}</p></div>;
 }

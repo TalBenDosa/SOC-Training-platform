@@ -930,7 +930,7 @@ const EventRow = memo(function EventRow({
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   onAddIoc?: (value: string, type: string) => void;
   onEscalate?: (event: LiveEvent) => void;
-  rowStatus?: (id?: string) => { disposed?: string; claim?: "me" | "other"; escalated?: boolean } | null;
+  rowStatus?: (id?: string) => RowStatus | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   // Timestamp of the current open, so dwell can be measured expand→collapse.
@@ -1056,6 +1056,15 @@ const EventRow = memo(function EventRow({
                     {st.claim === "me" && <span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-px text-[9px] font-semibold text-cyber-300">🔒 you</span>}
                     {st.disposed && <span className="rounded border border-slate-600/60 bg-slate-800/70 px-1 py-px text-[9px] font-semibold text-slate-300">✓ {st.disposed.replace("_", " ")}</span>}
                     {st.escalated && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">↗ escalated</span>}
+                    {st.triage && (
+                      <span title={st.triage.orphan ? "Past its triage SLA and nobody has claimed it" : st.triage.breached ? "Past its triage SLA" : "Waiting for a Tier-1 disposition"}
+                        className={cn("rounded border px-1 py-px font-mono text-[9px] font-semibold",
+                          st.triage.orphan ? "border-severity-high/60 bg-severity-high/15 text-severity-high"
+                          : st.triage.breached ? "border-severity-high/40 bg-severity-high/10 text-severity-high"
+                          : "border-border text-slate-400")}>
+                        ⏱ needs triage · {st.triage.mins}m{st.triage.orphan ? " · unclaimed" : st.triage.breached ? " · SLA" : ""}
+                      </span>
+                    )}
                   </div>
                 );
               })()}
@@ -1104,6 +1113,15 @@ const TIME_OPTIONS: { label: string; value: TimeFilter; ms: number | null }[] = 
   { label: "All",    value: "all", ms: null },
 ];
 
+/** Team feed only: the player's own triage state for a row + the SLA age of an
+ *  alert that still needs triage (the Tier-1 queue lives in the SIEM rows). */
+export interface RowStatus {
+  disposed?: string;
+  claim?: "me" | "other";
+  escalated?: boolean;
+  triage?: { mins: number; breached: boolean; orphan: boolean };
+}
+
 export interface EventFeedProps {
   events: LiveEvent[];
   newIds?: Set<string>;
@@ -1135,14 +1153,16 @@ export interface EventFeedProps {
   /** Team feed only: returns the player's own triage state for a row (claimed /
    * dispositioned / escalated) so the shared feed shows what's already handled.
    * Reflects the player's actions, not ground truth — no answer leakage. */
-  rowStatus?: (id?: string) => { disposed?: string; claim?: "me" | "other"; escalated?: boolean } | null;
+  rowStatus?: (id?: string) => RowStatus | null;
+  /** Shown instead of the default when `events` is empty (e.g. an empty team triage view). */
+  emptyMessage?: string;
 }
 
 export function EventFeed({
   events, newIds = new Set(),
   severityFilter, sourceFilter, search,
   userFilter = "all", hostFilter = "all", ipFilter = "all", mitreFilter = "all",
-  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus,
+  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus, emptyMessage,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
@@ -1232,7 +1252,7 @@ export function EventFeed({
               <tr>
                 <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
                   {events.length === 0
-                    ? "Press Start Training to begin your shift."
+                    ? (emptyMessage ?? "Press Start Training to begin your shift.")
                     : "No events match the current filter."}
                 </td>
               </tr>

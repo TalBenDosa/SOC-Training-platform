@@ -29,6 +29,7 @@ import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode,
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
+import { buildAlertQueue, nextAlertFor } from "@/lib/team/alertQueue";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
@@ -108,6 +109,11 @@ export default function TeamRoomPage() {
   // T1 log-anchored escalation: the selected event id + whether the report modal is open.
   // Lifted here so the 🚩 button on a LOG (feed DetailPanel) can drive T1Console's report.
   const [t1Sel, setT1Sel] = useState<string>("");
+  // Tier-1 queue = a VIEW of the SIEM table ("Needs triage"), not a separate card.
+  const [feedView, setFeedView] = useState<"all" | "triage">("all");
+  const [queueWithMedium, setQueueWithMedium] = useState(false);
+  const [pulledNote, setPulledNote] = useState<string | null>(null);
+  useEffect(() => { if (!pulledNote) return; const t = setTimeout(() => setPulledNote(null), 4000); return () => clearTimeout(t); }, [pulledNote]);
   const [t1ReportOpen, setT1ReportOpen] = useState(false);
   const seqSeen = useRef<Set<number>>(new Set());
   const maxSeqRef = useRef(0);
@@ -620,6 +626,11 @@ export default function TeamRoomPage() {
   // A3/C5: the ONE claims projection (shared with T1 + the Situation Board), aged on
   // the server clock so a skewed laptop can't expire a teammate's claim early.
   const claimByEid = useMemo(() => activeClaims(events, nowTick), [events, nowTick]);
+  // The Tier-1 alert queue — computed over the WHOLE feed (the SIEM table only renders
+  // the latest 120 logs, so an old un-triaged alert used to show only in the queue).
+  const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions, escalated: escalatedIds, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium }),
+    [feed, dispositions, escalatedIds, claimByEid, nowTick, queueWithMedium]);
+  const queueByEid = useMemo(() => new Map(alertQueue.map(q => [q.eid, q])), [alertQueue]);
   const rowStatus = useCallback((rid?: string) => {
     if (!rid) return null;
     const key = rid.startsWith("ev_") ? rid.slice(3) : rid; // LiveEvent.id → sel-id scheme
@@ -627,16 +638,18 @@ export default function TeamRoomPage() {
     const c = claimByEid.get(key);
     const claim: "me" | "other" | undefined = c ? (c.by === me?.id ? "me" : "other") : undefined;
     const escalated = escalatedIds.has(key);
-    if (!disposed && !claim && !escalated) return null;
-    return { disposed, claim, escalated };
-  }, [dispositions, claimByEid, escalatedIds, me?.id]);
+    const q = queueByEid.get(key);
+    const triage = q ? { mins: q.mins, breached: q.breached, orphan: q.orphan } : undefined;
+    if (!disposed && !claim && !escalated && !triage) return null;
+    return { disposed, claim, escalated, triage };
+  }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id]);
   const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
   // Live SOC dashboard (rule levels, source badges, raw formatting, threat-intel).
   // Normalise the required fields + guard each event so one malformed payload can
   // never crash the whole feed (real telemetry always has these; be defensive).
-  const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map((e, i) => {
+  const toLive = useCallback((e: Ev): LiveEvent => {
     const p = e.payload as Record<string, unknown>;
     const norm0 = {
       ...p,
@@ -650,9 +663,20 @@ export default function TeamRoomPage() {
     // delta), like the single-player feed. Authored template dates used to set the
     // attack logs apart from the noise by date alone.
     const norm = e.occurred_at ? withRebasedTime(norm0, e.occurred_at) : norm0;
-    try { return enrichEvent(norm, i); }
+    // Keyed on the log's seq (not its position in a sliding window) so a log keeps
+    // the same rule id in every view and as newer logs arrive.
+    try { return enrichEvent(norm, e.seq); }
     catch { return { ...norm, ruleLevel: 1, ruleId: "RULE-0000", displayDescription: asStr(p.description) || asStr(p.event_type) || "event" } as unknown as LiveEvent; }
-  }), [feed]);
+  }, []);
+  const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map(toLive), [feed, toLive]);
+  // "Needs triage" view: the queue's logs, most urgent first, rendered as ordinary SIEM rows.
+  const triageFeed = useMemo<LiveEvent[]>(() => alertQueue.map(q => toLive(q.e)), [alertQueue, toLive]);
+  const takeNextAlert = useCallback(() => {
+    const next = me ? nextAlertFor(alertQueue, claimByEid, me.id) : null;
+    if (!next) { setPulledNote("Nothing unclaimed right now — every open alert is being worked."); return; }
+    setT1Sel(next.eid); setT1ReportOpen(true);
+    setPulledNote(`Pulled #${next.e.seq} for you — it's claimed while you work it.`);
+  }, [alertQueue, claimByEid, me]);
   // Distinct sources present in the feed → populate the G-04 source filter.
   const feedSources = useMemo(() => [...new Set(liveFeed.map(e => e.source).filter(Boolean))].sort(), [liveFeed]);
 
@@ -894,6 +918,27 @@ export default function TeamRoomPage() {
                   <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
                 ) : (
                   <>
+                    {/* Tier-1: the alert queue is a view of this SIEM, not a separate panel */}
+                    {me.role === "t1" && (
+                      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-elevated/40 px-2 py-1.5">
+                        <div role="tablist" aria-label="SIEM view" className="flex gap-1">
+                          <button role="tab" aria-selected={feedView === "all"} onClick={() => setFeedView("all")}
+                            className={`rounded px-2.5 py-1 text-[11px] font-semibold transition ${feedView === "all" ? "border border-cyber-500/40 bg-cyber-500/15 text-cyber-300" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
+                            All events
+                          </button>
+                          <button role="tab" aria-selected={feedView === "triage"} onClick={() => setFeedView("triage")}
+                            className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-semibold transition ${feedView === "triage" ? "border border-cyber-500/40 bg-cyber-500/15 text-cyber-300" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
+                            Needs triage
+                            <span className={`rounded-full px-1.5 font-mono text-[10px] ${alertQueue.some(q => q.orphan) ? "bg-severity-high/20 text-severity-high" : "bg-slate-700/60 text-slate-200"}`}>{alertQueue.length}</span>
+                          </button>
+                        </div>
+                        <label className="flex items-center gap-1 text-[10px] text-slate-400" title="Early signs of an attack often arrive as medium — include them in Needs triage">
+                          <input type="checkbox" checked={queueWithMedium} onChange={e => setQueueWithMedium(e.target.checked)} className="h-3 w-3" /> include medium
+                        </label>
+                        {pulledNote && <span role="status" className="text-[11px] text-neon-green">{pulledNote}</span>}
+                        <Button variant="outline" size="sm" className="ml-auto" disabled={alertQueue.length === 0} onClick={takeNextAlert}>Take next alert</Button>
+                      </div>
+                    )}
                     {/* G-04: surfaced feed filters + active click-to-pivot chips */}
                     <FeedFilterBar
                       severity={fSeverity} setSeverity={setFSeverity}
@@ -902,7 +947,8 @@ export default function TeamRoomPage() {
                       pivots={[["user", fUser, setFUser], ["host", fHost, setFHost], ["ip", fIp, setFIp]]}
                     />
                     <EventFeed
-                      events={liveFeed}
+                      events={me.role === "t1" && feedView === "triage" ? triageFeed : liveFeed}
+                      emptyMessage={me.role === "t1" && feedView === "triage" ? `Nothing needs triage — every ${queueWithMedium ? "medium+" : "high/critical"} alert has a disposition. Keep watching All events.` : "Waiting for the first logs…"}
                       severityFilter={fSeverity} sourceFilter={fSource} search={fSearch}
                       userFilter={fUser} hostFilter={fHost} ipFilter={fIp}
                       // I5: only the CLOSE carries the dwell the AAR uses — the open event was pure overhead.
