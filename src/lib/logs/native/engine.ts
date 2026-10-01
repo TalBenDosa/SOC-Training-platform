@@ -67,8 +67,14 @@ export function runUseCase(uc: UseCase, logs: NativeLog[]): UseCaseHit[] {
   if (!uc.threshold) return idx.length ? idx.map(i => ({ useCaseId: uc.id, records: [i] })) : [];
   const { groupBy, count, windowSec, distinct } = uc.threshold;
   const groups = new Map<string, number[]>();
+  // A groupBy entry may list alternatives "a||b": the first non-empty wins (the same
+  // value printed under different keys by different message kinds, e.g. ASA 113005 vs 113039).
+  const pick = (rec: Record<string, unknown>, g: string) => {
+    for (const alt of g.split("||")) { const v = getAll(rec, alt.trim())[0]; if (v !== undefined && v !== null && v !== "") return String(v); }
+    return "";
+  };
   for (const i of idx) {
-    const key = groupBy.map(g => String(getAll(logs[i].record, g)[0] ?? "")).join("|");
+    const key = groupBy.map(g => pick(logs[i].record, g)).join("|");
     groups.set(key, [...(groups.get(key) ?? []), i]);
   }
   const hits: UseCaseHit[] = [];

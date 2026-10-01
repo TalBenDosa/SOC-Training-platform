@@ -151,7 +151,10 @@ export interface UseCase {
   logic: string;
   /** Per-record filter. */
   match: Condition;
-  /** Optional aggregation: fire when ≥ count matching records share groupBy within windowSec. */
+  /**
+   * Optional aggregation: fire when ≥ count matching records share groupBy within windowSec.
+   * A groupBy entry may coalesce alternative paths with "||" ("user IP||IP").
+   */
   threshold?: { groupBy: string[]; count: number; windowSec: number; distinct?: string };
   /** Known benign look-alikes analysts should rule out. */
   falsePositives?: string[];

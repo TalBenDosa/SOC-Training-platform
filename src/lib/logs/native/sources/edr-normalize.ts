@@ -64,7 +64,7 @@ function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind
   if (ev.is_detection || et === "edr_alert" || et === "av_detection" || et === "av_quarantine" || /Detection|Alert/i.test(simple) || s1type === "threats")
     return { kind: "detection" };
   if (et === "net_connection" || /NetworkConnect/i.test(simple) || s1type === "ip connect") return { kind: "network" };
-  if (et === "dns_query" || /DnsRequest/i.test(simple) || ev.dns?.query) return { kind: et === "net_connection" ? "network" : "dns" };
+  if (et === "dns_query" || /DnsRequest/i.test(simple) || ev.dns?.query) return { kind: "dns" };
   if (et.startsWith("file_") || /FileWritten|FileCreat/i.test(simple)) {
     if (!(ev.file?.path || r["file.path"] || r["crowdstrike.FilePath"] || r["FolderPath"] || r["crowdstrike.TargetFileName"]))
       return { kind: "unsupported", reason: "file event without a file path" };
