@@ -75,6 +75,19 @@ export class InMemoryRateLimitStore implements RateLimitStore {
  */
 export class UpstashRateLimitStore implements RateLimitStore {
   constructor(private url: string, private token: string) {}
+  // E-08: when Redis is unreachable / over quota, degrade to per-instance limits —
+  // allowing EVERYTHING also switched off the email-cost ceilings (reset / invite
+  // daily budgets) exactly when abuse was most likely, and nothing said so.
+  private fallback = new InMemoryRateLimitStore();
+  private lastWarn = 0;
+  private degrade(key: string, limit: number, windowMs: number, why: string): Promise<RateLimitResult> {
+    const now = Date.now();
+    if (now - this.lastWarn > 60_000) {
+      this.lastWarn = now;
+      console.error(`[rate-limit] Upstash unavailable (${why}) — using per-instance limits until it recovers.`);
+    }
+    return this.fallback.hit(key, limit, windowMs);
+  }
 
   async hit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
     const sec = Math.max(1, Math.ceil(windowMs / 1000));
@@ -95,28 +108,23 @@ export class UpstashRateLimitStore implements RateLimitStore {
         signal: AbortSignal.timeout(1500),
       });
 
-      if (!res.ok) return failOpen();
+      if (!res.ok) return this.degrade(key, limit, windowMs, `HTTP ${res.status}`);
 
       // Pipeline returns [{result:count},{result:0|1},{result:ttlMs}].
       const parsed = (await res.json()) as Array<{ result?: unknown; error?: string }>;
       const count = Number(parsed?.[0]?.result ?? 0);
       const ttlMs = Number(parsed?.[2]?.result ?? windowMs);
-      if (!Number.isFinite(count) || count <= 0) return failOpen();
+      if (!Number.isFinite(count) || count <= 0) return this.degrade(key, limit, windowMs, "bad reply");
 
       if (count > limit) {
         const retryAfter = ttlMs > 0 ? Math.ceil(ttlMs / 1000) : sec;
         return { ok: false, retryAfter };
       }
       return { ok: true, retryAfter: 0 };
-    } catch {
-      return failOpen();
+    } catch (e) {
+      return this.degrade(key, limit, windowMs, e instanceof Error ? e.name : "error");
     }
   }
-}
-
-/** Rate limiting is a cost/abuse control, not an auth gate → allow on store failure. */
-function failOpen(): RateLimitResult {
-  return { ok: true, retryAfter: 0 };
 }
 
 let singleton: RateLimitStore | null = null;
