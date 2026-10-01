@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { constantTimeEquals } from "@/lib/security/constantTimeEquals";
+import { purgeOrphanUploads } from "@/lib/storage/purgeOrphanUploads";
 
 /**
  * Flips organizations whose license window has passed to status='expired'.
@@ -18,12 +19,20 @@ async function run() {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
   const { data, error } = await admin.rpc("expire_due_orgs");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ expired: data ?? 0 });
+  if (error) {
+    console.error("[cron/expire-orgs] expire_due_orgs failed:", error.message);
+    return NextResponse.json({ error: "Couldn't expire organisations." }, { status: 500 });
+  }
+  // SEC-17: the same daily run clears abandoned (never-finalized) uploads.
+  const uploads = await purgeOrphanUploads(admin).catch(e => { console.error("[cron/expire-orgs] purge failed:", (e as Error).message); return null; });
+  return NextResponse.json({ expired: data ?? 0, orphanUploads: uploads });
 }
 
 async function authorized(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
+  // WEB-03: a GET is reachable by a cross-site top-level link carrying the admin's
+  // Lax cookie — so GET needs the cron secret, never the session fallback.
+  if (!secret && req.method === "GET") return false;
   if (secret) {
     const auth = req.headers.get("authorization") ?? "";
     // Constant-time compare — a plain === on the secret is a timing side-channel.

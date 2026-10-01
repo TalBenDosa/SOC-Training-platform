@@ -21,5 +21,9 @@ export default defineConfig({
     // Only src/** — the PGlite suites under scripts/ are separate CI steps and
     // are not vitest tests.
     include: ["src/**/*.{test,spec}.ts"],
+    // Registry-wide content checks (every scenario / pack / the client import
+    // graph) take 3–6 s each and tipped over the 5 s default under a full parallel
+    // run; a real hang still fails, just later.
+    testTimeout: 20_000,
   },
 });

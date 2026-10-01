@@ -106,6 +106,9 @@ async function run(dry: boolean) {
 
 async function authorized(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
+  // WEB-03: GET (sends real emails) must never ride an admin's cookie on a
+  // cross-site link — it needs the cron secret; the session fallback is POST-only.
+  if (!secret && req.method === "GET") return false;
   if (secret) {
     // Constant-time compare — a plain === on the secret is a timing side-channel.
     return constantTimeEquals(req.headers.get("authorization") ?? "", `Bearer ${secret}`);
