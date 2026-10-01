@@ -140,7 +140,8 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
         initial={{ opacity: 0, y: 16, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", damping: 22, stiffness: 240 }}
-        className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-2xl"
+        // P5-17: scroll instead of clipping so Download stays reachable on short/landscape phones
+        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-amber" />

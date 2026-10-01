@@ -138,7 +138,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
             >
               <RefreshCw className="h-3 w-3" /> New Scenario
             </button>
-            <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white transition-colors">
+            <button onClick={onClose} aria-label="Close email header investigation" className="rounded p-1 text-slate-400 hover:text-white transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>

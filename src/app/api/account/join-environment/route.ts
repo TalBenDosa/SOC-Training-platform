@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   if (existing?.status === "active" && ["org_admin", "instructor"].includes(existing.role)) {
     // Staff of this org — context switch only, never a demotion.
     const { error } = await admin.from("profiles").update({ org_id: org.id }).eq("id", user.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) { console.error("[join environment]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
   } else {
     // Join (or reactivate) as a student, seat-capped and atomic. The function
     // also sets profiles.org_id and the 100-day affiliation expiry in the same
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
       if ((error.message ?? "").includes("seat_limit_reached")) {
         return NextResponse.json({ error: `${org.name} has no seats left. Ask your instructor to free one up.` }, { status: 409 });
       }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      { console.error("[join environment]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
     }
   }
 

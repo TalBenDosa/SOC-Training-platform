@@ -39,7 +39,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ type: s
     .select("id, status, content, created_at, updated_at")
     .eq("org_id", orgId)
     .order("updated_at", { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[org content]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
 
   return NextResponse.json({ items: data ?? [] });
 }
@@ -80,7 +80,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     const { error } = await admin
       .from("content_scenarios")
       .upsert({ id: split.id, org_id: orgId, status: "draft", content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) { console.error("[org content]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
 
     const { error: keyErr } = await admin
       .from("content_scenario_keys")
@@ -116,7 +116,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     const { error } = await admin
       .from("content_rooms")
       .upsert({ id: split.id, org_id: orgId, status: "draft", content: split.safeContent, created_by: gate.user.id }, { onConflict: "id" });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) { console.error("[org content]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
 
     const { error: keyErr } = await admin
       .from("content_room_keys")
@@ -147,7 +147,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
       .upsert({ id: cn.id, org_id: orgId, status, content: cn.content, created_by: gate.user.id }, { onConflict: "id" })
       .select("id, status, content, created_at, updated_at")
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) { console.error("[org content]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
     return NextResponse.json({ item: data });
   }
 
@@ -170,7 +170,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
     )
     .select("id, status, content, created_at, updated_at")
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[org content]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
 
   return NextResponse.json({ item: data });
 }

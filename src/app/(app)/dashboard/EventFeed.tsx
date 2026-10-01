@@ -779,7 +779,7 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
       <motion.div
         initial={{ x: 440 }} animate={{ x: 0 }} exit={{ x: 440 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="fixed right-0 top-0 h-screen w-[420px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl overflow-y-auto"
+        className="fixed right-0 top-0 h-screen w-full sm:w-[420px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl overflow-y-auto"
       >
         <div className="px-5 py-4 border-b border-border/60 flex items-start justify-between gap-3">
           <div>
@@ -789,7 +789,7 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
             </div>
             <h3 className="text-sm font-semibold text-white">{technique.name}</h3>
           </div>
-          <button onClick={onClose} className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white">
+          <button onClick={onClose} aria-label="Close MITRE details" className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>

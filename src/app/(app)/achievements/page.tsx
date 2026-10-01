@@ -17,7 +17,8 @@ import { certMetaForRank, drawCertificate } from "@/lib/certificate/renderCertif
 import { RankCertificateModal } from "@/components/certificate/RankCertificateModal";
 import { useFullName } from "@/lib/auth/useFullName";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
-import { getTotalXp } from "@/lib/storage/progress";
+import { useRank } from "@/lib/progression/useRank";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { format } from "date-fns";
 import { Lock, Award, Download, Sparkles } from "lucide-react";
 
@@ -51,17 +52,13 @@ export default function AchievementsPage() {
   usePageTitle("Achievements");
   const name = useFullName();
   const { orgName } = useOrgContext();
-  const [totalXp, setTotalXp] = useState(0);
   const [selected, setSelected] = useState<Rank | null>(null);
 
-  // Read on mount, then keep it live: XP is written from several places and a
-  // remote backend can hydrate just after mount, so poll the one integer like
-  // EarnMoment does rather than risk showing a stale "locked" card.
-  useEffect(() => {
-    setTotalXp(getTotalXp());
-    const id = setInterval(() => setTotalXp(getTotalXp()), 1500);
-    return () => clearInterval(id);
-  }, []);
+  // Live XP from the event-driven hook (P5-25: it used to poll every 1.5s, hidden
+  // tabs included), and nothing is claimed until the account's progress has
+  // loaded (P5-14: a new device showed "0 XP · every card locked" first).
+  const { xp: totalXp } = useRank();
+  const { ready } = useProgressSnapshot();
 
   const currentRank = rankForXp(totalXp);
   const earnedCount = CERT_RANKS.filter(r => totalXp >= r.minXp).length;
@@ -82,10 +79,12 @@ export default function AchievementsPage() {
             </span>
             <div>
               <p className="text-lg font-bold text-white">
-                {earnedCount} of {CERT_RANKS.length} certificates earned
+                {ready ? `${earnedCount} of ${CERT_RANKS.length} certificates earned` : "Loading your certificates…"}
               </p>
               <p className="text-xs text-slate-400">
-                Current rank: <span className="text-cyber-300 font-semibold">{currentRank.label}</span> · {commas(totalXp)} XP
+                {ready
+                  ? <>Current rank: <span className="text-cyber-300 font-semibold">{currentRank.label}</span> · {commas(totalXp)} XP</>
+                  : "Fetching your progress"}
               </p>
             </div>
           </div>
@@ -97,8 +96,8 @@ export default function AchievementsPage() {
           )}
         </div>
 
-        {/* Certificate grid */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        {/* Certificate grid — dimmed until the real XP is in, so no card flashes "locked". */}
+        <div className={`grid grid-cols-1 gap-5 sm:grid-cols-2 transition-opacity ${ready ? "" : "pointer-events-none opacity-40"}`} aria-busy={!ready}>
           {CERT_RANKS.map(rank => {
             const earned = totalXp >= rank.minXp;
             const meta = certMetaForRank(rank);

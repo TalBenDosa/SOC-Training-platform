@@ -110,6 +110,9 @@ export function RoomClient({ room }: RoomClientProps) {
   // A task completion the server could not record (after one retry) — shown so a
   // student never loses points silently.
   const [saveError, setSaveError]               = useState(false);
+  // Request ordering for the server's completion responses (P5-20).
+  const completionSeqRef = useRef(0);
+  const latestAppliedSeqRef = useRef(0);
   const [showCompletion, setShowCompletion]      = useState(false);
   const [showFailure, setShowFailure]            = useState(false);
   const [mounted, setMounted]                   = useState(false);
@@ -350,6 +353,7 @@ export function RoomClient({ room }: RoomClientProps) {
    * automatic retry, then a visible warning.
    */
   async function reportCompletion(taskId: string, taskTelemetry?: TaskTelemetryEntry, retry = true): Promise<void> {
+    const seq = ++completionSeqRef.current;
     try {
       const res = await fetch(`/api/rooms/${encodeURIComponent(room.id)}/tasks/${encodeURIComponent(taskId)}/complete`, {
         method: "POST",
@@ -362,12 +366,18 @@ export function RoomClient({ room }: RoomClientProps) {
       setSaveError(false);
       const all = loadProgress();
       const cur = all[room.id];
+      // P5-20: two completions in quick succession can answer out of order. The
+      // server stays authoritative (it may credit LESS than the optimistic value),
+      // but only the response to the most recent request sets the room / account
+      // totals — a late, older one can't roll them back.
+      const isLatest = seq >= latestAppliedSeqRef.current;
+      if (isLatest) latestAppliedSeqRef.current = seq;
       if (cur && typeof d.taskXp === "number") {
         const serverMap = { ...(cur.perTaskXp ?? {}), [taskId]: d.taskXp };
         const next: RoomProgressEntry = {
           ...cur,
           perTaskXp: serverMap,
-          xpEarned: typeof d.roomXp === "number" ? d.roomXp : cur.xpEarned,
+          xpEarned: isLatest && typeof d.roomXp === "number" ? d.roomXp : cur.xpEarned,
           ...(d.completedAt ? { completedAt: d.completedAt } : {}),
         };
         all[room.id] = next;
@@ -375,7 +385,7 @@ export function RoomClient({ room }: RoomClientProps) {
         setPerTaskXp(serverMap);
         setTotalXpEarned(next.xpEarned);
       }
-      if (typeof d.totalXp === "number") setTotalXp(d.totalXp);
+      if (isLatest && typeof d.totalXp === "number") setTotalXp(d.totalXp);
     } catch {
       if (retry) { setTimeout(() => { void reportCompletion(taskId, taskTelemetry, false); }, 2000); return; }
       setSaveError(true);
@@ -654,7 +664,7 @@ export function RoomClient({ room }: RoomClientProps) {
       {/* ── Main content ─────────────────────────────────────────────────── */}
       <main className="flex-1 overflow-y-auto">
         {/* Mobile back link + progress */}
-        <div className="lg:hidden flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="lg:hidden flex items-center justify-between border-b border-border py-3 pl-16 pr-4 md:px-4">
           <button
             onClick={() => router.push("/rooms")}
             className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"

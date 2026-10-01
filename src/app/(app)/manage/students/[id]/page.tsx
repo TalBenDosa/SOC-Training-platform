@@ -61,7 +61,7 @@ export default function StudentDetailPage() {
     fetch(`/api/org/students/${id}`)
       .then(async r => (r.ok ? r.json() : Promise.reject((await r.json().catch(() => ({})))?.error ?? "Failed to load.")))
       .then(d => { if (!cancelled) { setData(d); setLoading(false); } })
-      .catch(e => { if (!cancelled) { setError(String(e)); setLoading(false); } });
+      .catch(e => { if (!cancelled) { setError(typeof e === "string" ? e : "Couldn't reach the server — check your connection and reload."); setLoading(false); } });
     return () => { cancelled = true; };
   }, [id]);
 

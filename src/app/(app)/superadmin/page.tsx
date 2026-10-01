@@ -300,9 +300,13 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const label = "mb-1.5 block text-xs font-semibold text-slate-400";
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <Card className="w-full max-w-md" >
-        <div onClick={e => e.stopPropagation()}>
+    // P5-19: close only when the press starts on the backdrop itself — a click
+    // on the Card's padding (or a text-select drag ending outside) used to bubble
+    // here and discard the form. P5-17: cap height so it scrolls on short screens.
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto" >
+        <div>
           {createdLink ? (
             <div>
               <div className="mb-3 flex items-center gap-2">

@@ -173,7 +173,9 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
               </div>
               <button
                 onClick={() => onRemove(i)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 text-slate-400 hover:text-slate-300"
+                aria-label={`Remove IOC ${ioc.value}`}
+                // P5-18: always visible on touch screens; hover/focus-reveal from sm up
+                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 transition-opacity mt-0.5 text-slate-400 hover:text-slate-300"
               >
                 <X className="h-3 w-3" />
               </button>

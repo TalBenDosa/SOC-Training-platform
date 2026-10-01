@@ -69,6 +69,10 @@ export default function TeamRoomPage() {
 
   const [online, setOnline] = useState<Set<string>>(new Set());
   const [readyMap, setReadyMap] = useState<Record<string, boolean>>({});
+  // P5-10: presence re-tracks on every (re)subscribe. It must send MY CURRENT
+  // ready state — the subscribe callback is created once, so reading the roster
+  // there sent the state from page load and flipped the lobby back on reconnect.
+  const myReadyRef = useRef(false);
   const [phase, setPhase] = useState<"lobby" | "running" | "ended">("lobby");
   const [countdown, setCountdown] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -172,7 +176,9 @@ export default function TeamRoomPage() {
     let cancelled = false;
     (async () => {
       const sentAt = Date.now();
-      const res = await fetch(`/api/team/sessions/${id}`);
+      // P5-07: a network drop used to throw here and leave "Loading…" forever.
+      const res = await fetch(`/api/team/sessions/${id}`).catch(() => null);
+      if (!res) { if (!cancelled) { setError("Couldn't reach the server — check your connection and reload."); setLoading(false); } return; }
       calibrateFromDateHeader(res.headers.get("date"), sentAt, Date.now());   // C5: server clock offset
       if (!res.ok) { if (!cancelled) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); setLoading(false); } return; }
       const data = await res.json();
@@ -307,7 +313,7 @@ export default function TeamRoomPage() {
             lastRealtimeAtRef.current = Date.now();
             // C1: every (re)join may have missed broadcasts — fill the gap immediately.
             void pullRef.current?.();
-            await channel.track({ ready: !!(me && roster.find(r => r.user_id === me.id)?.status === "ready") });
+            await channel.track({ ready: myReadyRef.current });
           }
         });
       // C4: if we unmounted while awaiting/subscribing, tear the just-created channel down now.
@@ -362,14 +368,18 @@ export default function TeamRoomPage() {
 
   async function setReady(ready: boolean) {
     setBusy(true); setError(null);
-    const ok = await act(ready ? "member.ready" : "member.unready", {});
+    const ok = await act(ready ? "member.ready" : "member.unready", {}).catch(() => false);
     setBusy(false);
     if (ok) { setReadyMap(m => ({ ...m, [me!.id]: ready })); await channelRef.current?.track({ ready }); }
   }
+  // P5-07: a rejected fetch (network drop) used to skip setBusy(false) and leave
+  // Start / End / Pause disabled for the rest of a live exercise.
+  const NET_ERR = "Couldn't reach the server — check your connection and try again.";
   async function start() {
     setBusy(true); setError(null);
-    const res = await fetch(`/api/team/sessions/${id}/start`, { method: "POST" });
+    const res = await fetch(`/api/team/sessions/${id}/start`, { method: "POST" }).catch(() => null);
     setBusy(false);
+    if (!res) { setError(NET_ERR); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { setError(data?.error ?? "Could not start."); return; }
     setNote("Exercise starting…"); startCountdown();
@@ -377,15 +387,17 @@ export default function TeamRoomPage() {
   async function end() {
     if (!confirm("End the session for the whole team and open the Shift review?")) return;
     setBusy(true); setError(null);
-    const res = await fetch(`/api/team/sessions/${id}/end`, { method: "POST" });
+    const res = await fetch(`/api/team/sessions/${id}/end`, { method: "POST" }).catch(() => null);
     setBusy(false);
+    if (!res) { setError(NET_ERR); return; }
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not end."); return; }
     setPhase("ended");
   }
   async function pauseSession(p: boolean) {
     setBusy(true); setError(null);
-    const res = await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: p, reason: "manual" }) });
+    const res = await fetch(`/api/team/sessions/${id}/pause`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paused: p, reason: "manual" }) }).catch(() => null);
     setBusy(false);
+    if (!res) { setError(NET_ERR); return; }
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not update the session."); return; }
     setPaused(p); setPausedReason(p ? "manual" : null); setPausedDetail(null); // optimistic; broadcast confirms for all
   }
@@ -669,9 +681,49 @@ export default function TeamRoomPage() {
     try { return enrichEvent(norm, e.seq); }
     catch { return { ...norm, ruleLevel: 1, ruleId: "RULE-0000", displayDescription: asStr(p.description) || asStr(p.event_type) || "event" } as unknown as LiveEvent; }
   }, []);
-  const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map(toLive), [feed, toLive]);
+  // P5-23: a log's enriched row never changes once it has arrived, so it is built
+  // ONCE per seq and reused. Rebuilding all 120 rows on every session event gave
+  // them new identities, which defeated the memoised (animated) feed rows.
+  const liveCacheRef = useRef(new Map<number, LiveEvent>());
+  const toLiveCached = useCallback((e: Ev): LiveEvent => {
+    const hit = liveCacheRef.current.get(e.seq);
+    if (hit) return hit;
+    const built = toLive(e);
+    liveCacheRef.current.set(e.seq, built);
+    return built;
+  }, [toLive]);
+  const liveFeed = useMemo<LiveEvent[]>(() => feed.slice(-120).map(toLiveCached), [feed, toLiveCached]);
   // "Needs triage" view: the queue's logs, most urgent first, rendered as ordinary SIEM rows.
-  const triageFeed = useMemo<LiveEvent[]>(() => alertQueue.map(q => toLive(q.e)), [alertQueue, toLive]);
+  const triageFeed = useMemo<LiveEvent[]>(() => alertQueue.map(q => toLiveCached(q.e)), [alertQueue, toLiveCached]);
+
+  // Stable row handlers (P5-23): inline lambdas were new on every render.
+  const feedRef = useRef(feed);
+  feedRef.current = feed;
+  const onFeedRowOpened = useCallback((eid?: string, dwellMs?: number) => {
+    // I5: only the CLOSE carries the dwell the AAR uses; open (dwell 0) AND close — a
+    // verdict given with the row still open counts as read.
+    void act("event.opened", { event_id: eid, dwell_ms: Math.max(0, dwellMs ?? 0) });
+  }, [act]);
+  const onFeedPivot = useCallback((field: "user" | "host" | "ip", value: string) => {
+    if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value);
+  }, []);
+  const onFeedAddIoc = useCallback((value: string) => {
+    setIocDraft(d => d.some(x => x.value.toLowerCase() === value.toLowerCase()) ? d : [...d, { type: detectIocType(value), value, source: "picked" }]);
+  }, []);
+  const onFeedEscalate = useCallback((ev: LiveEvent) => {
+    // Map the LiveEvent back to T1Console's sel id (same scheme as the dropdown).
+    const raw = feedRef.current.find(f => {
+      const p = f.payload as { id?: string };
+      const lid = typeof p.id === "string" ? p.id : `ev_${f.seq}`;
+      return lid === ev.id;
+    });
+    if (!raw) return;
+    const rp = raw.payload as { id?: string };
+    setT1Sel(String(rp.id ?? raw.seq));
+    // Indicators are NOT auto-seeded — the analyst adds them (＋IOC on the log's
+    // fields, or free text) so choosing the evidence is part of the exercise.
+    setT1ReportOpen(true);
+  }, []);
   const takeNextAlert = useCallback(() => {
     const next = me ? nextAlertFor(alertQueue, claimByEid, me.id) : null;
     if (!next) { setPulledNote("Nothing unclaimed right now — every open alert is being worked."); return; }
@@ -704,6 +756,8 @@ export default function TeamRoomPage() {
       else setEdrNote(null);
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
   }, [feed, id, me?.id]);
+
+  myReadyRef.current = !!(me && readyMap[me.id]);
 
   // The shift's load for the team currently in the lobby — the same numbers /start
   // will seed from (src/lib/team/load.ts), so the instructor sees them before starting.
@@ -974,24 +1028,11 @@ export default function TeamRoomPage() {
                       severityFilter={fSeverity} sourceFilter={fSource} search={fSearch}
                       userFilter={fUser} hostFilter={fHost} ipFilter={fIp}
                       // I5: only the CLOSE carries the dwell the AAR uses — the open event was pure overhead.
-                      onRowOpened={(eid, dwellMs) => { void act("event.opened", { event_id: eid, dwell_ms: Math.max(0, dwellMs ?? 0) }); }} /* open (dwell 0) AND close — a verdict given with the row still open counts as read */
-                      onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }}
-                      onAddIoc={me.role === "t1" ? (value) => setIocDraft(d => d.some(x => x.value.toLowerCase() === value.toLowerCase()) ? d : [...d, { type: detectIocType(value), value, source: "picked" }]) : undefined}
+                      onRowOpened={onFeedRowOpened}
+                      onPivot={onFeedPivot}
+                      onAddIoc={me.role === "t1" ? onFeedAddIoc : undefined}
                       rowStatus={rowStatus}
-                      onEscalate={me.role === "t1" ? (ev) => {
-                        // Map the LiveEvent back to T1Console's sel id (same scheme as the dropdown).
-                        const raw = feed.find(f => {
-                          const p = f.payload as { id?: string };
-                          const lid = typeof p.id === "string" ? p.id : `ev_${f.seq}`;
-                          return lid === ev.id;
-                        });
-                        if (!raw) return;
-                        const rp = raw.payload as { id?: string };
-                        setT1Sel(String(rp.id ?? raw.seq));
-                        // Indicators are NOT auto-seeded — the analyst adds them (＋IOC on the log's
-                        // fields, or free text) so choosing the evidence is part of the exercise.
-                        setT1ReportOpen(true);
-                      } : undefined}
+                      onEscalate={me.role === "t1" ? onFeedEscalate : undefined}
                     />
                   </>
                 )}
@@ -1002,8 +1043,8 @@ export default function TeamRoomPage() {
               <div className="min-w-0 space-y-4">
                 {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <HuntConsole scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={(field, value) => { if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value); }} />}
+                {me.role === "t3" && <HuntConsole scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}

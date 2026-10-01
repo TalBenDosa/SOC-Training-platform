@@ -99,6 +99,7 @@ export function ReportProblem() {
                 </label>
                 <textarea
                   id="rp-msg" rows={4} value={message} onChange={e => setMessage(e.target.value)} autoFocus
+                  maxLength={2000} /* P5-16: the server keeps 2000 characters — say so here instead of cutting silently */
                   className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-neon-amber/50 focus:outline-none focus:ring-2 focus:ring-neon-amber/25"
                   placeholder="The Dashboard didn't load — I clicked Start and the page went blank."
                 />

@@ -7,6 +7,8 @@ import { rankForXp, type Rank } from "@/lib/progression/ranks";
 import { getTotalXp } from "@/lib/storage/progress";
 import { useRank } from "@/lib/progression/useRank";
 import { useFullName } from "@/lib/auth/useFullName";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { RankCertificateModal } from "@/components/certificate/RankCertificateModal";
 
 /**
@@ -27,8 +29,10 @@ import { RankCertificateModal } from "@/components/certificate/RankCertificateMo
  */
 type Celebration = { title: string; sub: string };
 
-/** localStorage key holding the minXp of the highest rank already celebrated on
- *  this device, so a promotion pops exactly once — never again on reload/login. */
+/** localStorage key PREFIX holding the minXp of the highest rank already
+ *  celebrated, so a promotion pops exactly once — never again on reload/login.
+ *  Namespaced per account (P5-11): one key per device used to be shared by every
+ *  student on a college lab PC, hiding their rank-ups behind someone else's. */
 const ACK_KEY = "soc_ack_rank_minxp";
 
 /** "Analyst · Tier 1", "Senior Analyst · Tier 3", "SOC Trainee", "Student". */
@@ -48,23 +52,27 @@ export function EarnMoment() {
   // Reactive, DB-or-localStorage backed; `ready` is false until the REAL xp has
   // loaded — which is what stops the old bug where the 0→real jump on every page
   // load looked like a promotion and re-popped the certificate.
-  const { xp, rank, ready } = useRank();
+  const { xp, rank, ready: rankReady } = useRank();
+  // …and the account's progress has actually loaded (P5-11): useRank's first read
+  // can come from the device's guest store before a signed-in user's XP arrives,
+  // which fired false "Rank Up!" certificates.
+  const { ready: progressReady } = useProgressSnapshot();
+  const { user } = useAuth();
+  const ready = rankReady && progressReady;
+  const ackKey = `${ACK_KEY}:${user?.id ?? "guest"}`;
 
   useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!ready) return;
     let acked: number | null = null;
-    try { const v = localStorage.getItem(ACK_KEY); if (v !== null) { const n = parseInt(v, 10); acked = Number.isNaN(n) ? null : n; } } catch { /* ignore */ }
+    try { const v = localStorage.getItem(ackKey); if (v !== null) { const n = parseInt(v, 10); acked = Number.isNaN(n) ? null : n; } } catch { /* ignore */ }
 
-    // First time on this device: baseline AFTER a short settle so we capture the
-    // REAL loaded rank, not the transient 0 that getTotalXp() returns before the
-    // signed-in XP syncs. No certificate — this is not a promotion.
+    // First time for this account on this device: baseline the REAL loaded rank
+    // (progress is hydrated by now). No certificate — this is not a promotion.
     if (acked === null) {
-      const t = setTimeout(() => {
-        try { localStorage.setItem(ACK_KEY, String(rankForXp(getTotalXp()).minXp)); } catch { /* ignore */ }
-      }, 4000);
-      return () => clearTimeout(t);
+      try { localStorage.setItem(ackKey, String(rankForXp(getTotalXp()).minXp)); } catch { /* ignore */ }
+      return;
     }
 
     // acked is MONOTONIC — only ever raised, never lowered. So the transient
@@ -74,10 +82,10 @@ export function EarnMoment() {
     if (rank.minXp > acked) {
       show({ title: "Rank Up!", sub: rankLabel(rank) });
       if (rank.id !== "student") setCertRank({ rank, xp });
-      try { localStorage.setItem(ACK_KEY, String(rank.minXp)); } catch { /* ignore */ }
+      try { localStorage.setItem(ackKey, String(rank.minXp)); } catch { /* ignore */ }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, rank.id, rank.minXp, xp]);
+  }, [ready, ackKey, rank.id, rank.minXp, xp]);
 
   useEffect(() => () => { if (hideTimer.current) clearTimeout(hideTimer.current); }, []);
 

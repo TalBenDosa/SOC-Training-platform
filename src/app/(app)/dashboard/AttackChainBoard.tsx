@@ -153,7 +153,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">LO-3 — Attack Chain Reconstruction</p>
             <h2 id="attack-chain-title" className="text-sm font-bold text-white">Build the Kill Chain</h2>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white transition">
+          <button onClick={onClose} aria-label="Close kill chain board" className="rounded p-1 text-slate-400 hover:text-white transition">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -225,6 +225,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                             {!submitted && (
                               <button
                                 onClick={() => handleRemove(phase)}
+                                aria-label="Remove event from this phase"
                                 className="shrink-0 text-slate-400 hover:text-white"
                               >
                                 <X className="h-2.5 w-2.5" />

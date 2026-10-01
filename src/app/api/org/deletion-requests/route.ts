@@ -36,7 +36,7 @@ export async function GET() {
     .eq("org_id", orgId)
     .eq("status", "pending")
     .order("requested_at", { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[deletion requests]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
 
   const requests = (data ?? []).map(r => {
     const p = r.profiles as unknown as { handle?: string; display_name?: string } | null;
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     .select("id, user_id, status")
     .eq("id", id).eq("org_id", orgId)
     .maybeSingle();
-  if (findErr) return NextResponse.json({ error: findErr.message }, { status: 500 });
+  if (findErr) { console.error("[deletion requests]", findErr.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
   if (!reqRow) return NextResponse.json({ error: "No such request in your organisation." }, { status: 404 });
   if (reqRow.status !== "pending") {
     return NextResponse.json({ error: "That request has already been decided." }, { status: 409 });
@@ -92,7 +92,7 @@ export async function POST(req: Request) {
       .update({ status: "rejected", decided_by: adminId, decided_at: new Date().toISOString(), decision_note: note })
       .eq("id", id).eq("org_id", orgId).eq("status", "pending")
       .select("id");
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) { console.error("[deletion requests]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
     // Guarded on status: a concurrent decision by another admin already won.
     if (!rejected || rejected.length === 0) return NextResponse.json({ error: "That request has already been decided." }, { status: 409 });
 
@@ -116,7 +116,7 @@ export async function POST(req: Request) {
     .update({ status: "completed", decided_by: adminId, decided_at: new Date().toISOString(), decision_note: note })
     .eq("id", id).eq("org_id", orgId).eq("status", "pending")
     .select("id");
-  if (markErr) return NextResponse.json({ error: markErr.message }, { status: 500 });
+  if (markErr) { console.error("[deletion requests]", markErr.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
   if (!marked || marked.length === 0) return NextResponse.json({ error: "That request has already been decided." }, { status: 409 });
 
   await logAudit({

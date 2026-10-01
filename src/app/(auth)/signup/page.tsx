@@ -1,4 +1,5 @@
 "use client";
+import { PASSWORD_MAX_BYTES } from "@/app/(app)/account/accountValidation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
@@ -139,6 +140,11 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
 
+    // P5-16: same bound the server/bcrypt enforce (72 BYTES — a Hebrew letter is 2).
+    if (new TextEncoder().encode(password).length > PASSWORD_MAX_BYTES) {
+      setError("That password is too long — keep it under 72 bytes (about 36 Hebrew or 72 English characters).");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -185,6 +191,29 @@ export default function SignupPage() {
     }
 
     setSubmitting(true);
+    // P5-04: re-check the code / invitation and the seats RIGHT before creating
+    // the account. The enrolment trigger re-validates everything, but when it
+    // refuses, Supabase reports only "Database error saving new user" — so the
+    // actionable reasons have to be found here first. A failed check (network)
+    // falls through to signUp, which stays authoritative.
+    {
+      const url = inviteToken
+        ? `/api/invitations/${encodeURIComponent(inviteToken)}`
+        : `/api/access-codes/${encodeURIComponent(orgCode.trim().toUpperCase())}`;
+      const pre = await fetch(url).then(r => (r.ok || r.status === 404 ? r.json() : null)).catch(() => null) as { valid?: boolean; seatsAvailable?: boolean } | null;
+      if (pre && pre.valid === false) {
+        setSubmitting(false);
+        setError(inviteToken
+          ? "This invitation has expired or has already been used. Ask your course administrator for a fresh link."
+          : "That class code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
+        return;
+      }
+      if (pre && pre.seatsAvailable === false) {
+        setSubmitting(false);
+        setError(`${inviteOrg ?? codeOrg ?? "This course"} has no seats left. Ask your course administrator to free one up, then try again.`);
+        return;
+      }
+    }
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -226,6 +255,10 @@ export default function SignupPage() {
         setError("Registration requires a class code or an invitation link. Ask your instructor for today's code.");
       } else if (raw.includes("seat_limit_reached")) {
         setError(`${inviteOrg ?? "This course"} has no seats left. Ask your course administrator to free one up, then try again.`);
+      } else if (/database error saving new user/i.test(raw)) {
+        // The trigger refused (its reason is not passed through by Supabase): the
+        // code/invite expired or the course filled up between the check and now.
+        setError("We couldn't create your account — the class code or invitation may have just expired, or the course is full. Ask your instructor for today's code and try again.");
       } else {
         setError(raw);
       }

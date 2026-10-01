@@ -16,15 +16,31 @@ export async function GET(_req: Request, { params }: Ctx) {
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   const { data, error } = await admin.rpc("resolve_invitation", { p_token: token });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[invitations] resolve failed:", error.message);
+    return NextResponse.json({ error: "Couldn't check this invitation — please try again." }, { status: 500 });
+  }
 
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return NextResponse.json({ valid: false }, { status: 404 });
+
+  // Whether the college still has a free seat (P5-04) — the signup page checks
+  // it before submitting; the trigger's own "seat_limit_reached" never reaches
+  // the browser in a readable form.
+  let seatsAvailable = true;
+  if (row.valid === true && row.org_id) {
+    const { data: org } = await admin.from("organizations").select("seat_limit").eq("id", row.org_id).maybeSingle();
+    if (org?.seat_limit && org.seat_limit > 0) {
+      const { data: used } = await admin.rpc("org_seats_used", { p_org: row.org_id });
+      if (typeof used === "number") seatsAvailable = used < org.seat_limit;
+    }
+  }
 
   return NextResponse.json({
     valid: row.valid === true,
     orgName: row.org_name ?? null,
     role: row.role ?? "student",
     email: row.email ?? null,
+    seatsAvailable,
   });
 }

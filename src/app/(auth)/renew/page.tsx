@@ -13,11 +13,14 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
-import { KeyRound } from "lucide-react";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { KeyRound, LogOut } from "lucide-react";
 
 export default function RenewPage() {
   usePageTitle("Renew enrolment");
   const router = useRouter();
+  const { signOut } = useAuth();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,15 +31,24 @@ export default function RenewPage() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/account/renew-affiliation", {
+      const post = (url: string) => fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: code.trim() }),
       });
-      const data = await res.json().catch(() => ({}));
+      let res = await post("/api/account/renew-affiliation");
+      let data = await res.json().catch(() => ({}));
+      // P5-09: a code from ANOTHER institution is a way out, not a dead end —
+      // join that environment with it (it becomes the active one).
+      if (!res.ok && data?.code === "wrong_org") {
+        res = await post("/api/account/join-environment");
+        data = await res.json().catch(() => ({}));
+      }
       if (!res.ok) throw new Error(data.error ?? "Could not renew.");
-      router.push("/dashboard");
-      router.refresh(); // the layout gate re-evaluates against the new expiry
+      // The active environment lives in the session token — refresh it, then a
+      // full load so the layout gate re-evaluates against the new expiry/context.
+      await getSupabaseBrowserClient()?.auth.refreshSession();
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not renew.");
       setBusy(false);
@@ -72,6 +84,16 @@ export default function RenewPage() {
           </Button>
         </form>
         {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        <p className="mt-5 text-xs text-slate-500">
+          In another course too? Enter that course&apos;s code above to continue there.
+        </p>
+        <button
+          type="button"
+          onClick={async () => { await signOut(); router.push("/login"); }}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+        >
+          <LogOut className="h-3.5 w-3.5" /> Sign out
+        </button>
       </Card>
     </main>
   );

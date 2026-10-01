@@ -52,10 +52,8 @@ export default function TeamIndexPage() {
   const router = useRouter();
   const { isPlatformAdmin, orgRole, orgName, loading: claimLoading } = useOrgContext();
   const isStaff = isPlatformAdmin || orgRole === "org_admin" || orgRole === "instructor";
-  // Creating a session is org_admin / platform-admin only on the server
-  // (POST /api/team/sessions → requireOrgAdmin). Instructors get an explanation
-  // instead of a builder whose roster and Create button would both 403.
-  // Org admins and instructors can open a lobby (server: requireOrgStaff).
+  // Org admins, instructors and platform admins can open a lobby
+  // (POST /api/team/sessions → requireOrgStaff), so every staff role gets the builder.
   const canCreate = isStaff;
 
   const [sessions, setSessions] = useState<SessionRow[]>([]);
@@ -77,8 +75,9 @@ export default function TeamIndexPage() {
 
   async function load() {
     setError(null);
-    const res = await fetch("/api/team/sessions");
+    const res = await fetch("/api/team/sessions").catch(() => null);   // P5-07: a network drop left "Loading…" forever
     setLoading(false);
+    if (!res) { setError("Couldn't reach the server — check your connection and reload."); return; }
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
     setSessions((await res.json()).sessions ?? []);
   }
@@ -169,8 +168,9 @@ export default function TeamIndexPage() {
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ company_id: company, difficulty, invites, ...(storyline ? { scenario_id: storyline } : {}) }),
-    });
+    }).catch(() => null);
     setCreating(false);
+    if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { setError(data?.error ?? "Could not create the session."); return; }
     router.push(`/team/${data.id}`);

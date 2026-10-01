@@ -81,3 +81,29 @@ describe("shared notifications store", () => {
     expect(getSnapshot().items).toEqual([]);
   });
 });
+
+describe("mark-read vs an in-flight fetch (P5-21)", () => {
+  it("a fetch that started before 'mark read' does not bring the unread badge back", async () => {
+    mockFetch({ enabled: true, notifications: [item("a")], unread: 1 });
+    attach("u1");
+    await refresh();
+    expect(getSnapshot().unread).toBe(1);
+
+    // A slow inbox request starts (e.g. the bell opened) and still carries "unread"…
+    let release!: () => void;
+    const gate = new Promise<void>(r => { release = r; });
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url === "/api/notifications") await gate;
+      return { ok: true, json: async () => (url === "/api/notifications" ? { enabled: true, notifications: [item("a")], unread: 1 } : { ok: true }) };
+    }));
+    const slow = refresh();
+    // …the user marks it read meanwhile…
+    await markRead(["a"]);
+    expect(getSnapshot().unread).toBe(0);
+    // …then the stale response lands: it must be ignored.
+    release();
+    await slow;
+    expect(getSnapshot().unread).toBe(0);
+    expect(getSnapshot().items[0].read_at).not.toBeNull();
+  });
+});

@@ -11,10 +11,13 @@
  *    mismatch);
  *  - listens for the in-tab `soc:xp-changed` event that progress.ts now emits,
  *    so finishing a room promotes you immediately rather than on next reload;
- *  - listens for the cross-tab `storage` event, so two open tabs agree.
+ *  - listens for the cross-tab `storage` event, so two open tabs agree;
+ *  - re-reads when a signed-in account's progress finishes loading (hydration
+ *    swaps the backend without an xp-changed event — the first read may have
+ *    come from the device's guest store).
  */
 import { useEffect, useState } from "react";
-import { getTotalXp, XP_CHANGED_EVENT } from "@/lib/storage/progress";
+import { getTotalXp, XP_CHANGED_EVENT, PROGRESS_HYDRATED_EVENT } from "@/lib/storage/progress";
 import { LEARNER_KEYS } from "@/lib/storage/keys";
 import { rankForXp, nextRank, rankProgress, type Rank } from "./ranks";
 
@@ -46,9 +49,11 @@ export function useRank(): RankState {
 
     window.addEventListener(XP_CHANGED_EVENT, onXp);
     window.addEventListener("storage", onStorage);
+    window.addEventListener(PROGRESS_HYDRATED_EVENT, read);
     return () => {
       window.removeEventListener(XP_CHANGED_EVENT, onXp);
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener(PROGRESS_HYDRATED_EVENT, read);
     };
   }, []);
 

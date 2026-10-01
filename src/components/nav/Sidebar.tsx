@@ -40,15 +40,19 @@ const DEV_TOOLS_ITEM = { href: "/admin", label: "Content Tools", icon: Wrench };
  */
 function ContentFeedbackLink({ onNavigate }: { onNavigate?: () => void }) {
   const [count, setCount] = useState<number | null>(null);
+  // P5-22: only a platform admin asks — every student used to fire this on each
+  // page load and get a 403 (a red console error) for nothing.
+  const { isPlatformAdmin } = useOrgContext();
 
   useEffect(() => {
+    if (!isPlatformAdmin) return;
     let alive = true;
     fetch("/api/feedback?status=new")
       .then(r => (r.ok ? r.json() : null))
       .then(d => { if (alive && d) setCount((d.items ?? []).length); })
       .catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [isPlatformAdmin]);
 
   if (count === null) return null; // not an admin, or not loaded yet
 

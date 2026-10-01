@@ -79,7 +79,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
           <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Threat Intelligence</span>
           <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-400">File Hash</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition rounded p-0.5">
+        <button onClick={onClose} aria-label="Close threat intelligence" className="text-slate-400 hover:text-white transition rounded p-0.5">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -214,7 +214,7 @@ function IpPanel({ data, onClose }: { data: IpIntelData; onClose: () => void }) 
           <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Threat Intelligence</span>
           <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-400">IP Address</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition rounded p-0.5">
+        <button onClick={onClose} aria-label="Close threat intelligence" className="text-slate-400 hover:text-white transition rounded p-0.5">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -326,7 +326,7 @@ function DomainPanel({ data, onClose }: { data: DomainIntelData; onClose: () => 
           <span className="text-xs font-bold uppercase tracking-widest text-slate-300">Threat Intelligence</span>
           <span className="rounded border border-border/60 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-400">Domain</span>
         </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-white transition rounded p-0.5">
+        <button onClick={onClose} aria-label="Close threat intelligence" className="text-slate-400 hover:text-white transition rounded p-0.5">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -444,7 +444,7 @@ export function ThreatIntelDrawer({ query, onClose, truth }: {
       <motion.div
         initial={{ x: 460 }} animate={{ x: 0 }} exit={{ x: 460 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="fixed right-0 top-0 h-screen w-[440px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl"
+        className="fixed right-0 top-0 h-screen w-full sm:w-[440px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl"
       >
         {hashData   && <HashPanel   data={hashData}   onClose={onClose} />}
         {ipData     && <IpPanel     data={ipData}     onClose={onClose} />}

@@ -48,7 +48,12 @@ export default function ResourcesPage() {
   // Track the live blob URL so it can be revoked on close/unmount (no leaks).
   const blobRef = useRef<string | null>(null);
 
-  useEffect(() => { fetchOrgResources().then(setItems).catch(() => setItems([])); }, []);
+  useEffect(() => {
+    fetchOrgResources().then(setItems).catch(() => {
+      setItems([]);
+      setError("Couldn't load your college materials — reload the page to try again.");
+    });
+  }, []);
 
   function revokeBlob() {
     if (blobRef.current) { URL.revokeObjectURL(blobRef.current); blobRef.current = null; }
@@ -120,7 +125,7 @@ export default function ResourcesPage() {
 
         {items === null ? (
           <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && error ? null : items.length === 0 ? (
           <Card className="flex flex-col items-center gap-2 py-12 text-center">
             <Library className="h-8 w-8 text-slate-500" />
             <p className="text-sm font-semibold text-white">No materials yet</p>

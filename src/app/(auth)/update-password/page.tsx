@@ -1,4 +1,5 @@
 "use client";
+import { PASSWORD_MAX_BYTES } from "@/app/(app)/account/accountValidation";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -70,6 +71,11 @@ export default function UpdatePasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    // P5-16: same bound the server/bcrypt enforce (72 BYTES — a Hebrew letter is 2).
+    if (new TextEncoder().encode(password).length > PASSWORD_MAX_BYTES) {
+      setError("That password is too long — keep it under 72 bytes (about 36 Hebrew or 72 English characters).");
+      return;
+    }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     if (password !== confirm) { setError("Passwords don't match."); return; }
 

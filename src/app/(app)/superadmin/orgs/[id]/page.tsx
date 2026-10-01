@@ -44,6 +44,8 @@ export default function OrgDetailPage() {
   const [students, setStudents] = useState<GlobalStudentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // P5-13: the org fetch failed (deleted org / 500) — stop the spinner.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   // license form
   const [seatLimit, setSeatLimit] = useState("");
@@ -107,8 +109,9 @@ export default function OrgDetailPage() {
   async function load() {
     setError(null);
     const res = await fetch(`/api/superadmin/orgs/${id}`);
-    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); setLoadFailed(true); return; }
     const data = await res.json();
+    setLoadFailed(false);
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
     setSeatLimit(String(data.org.seat_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
     const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
@@ -182,7 +185,11 @@ export default function OrgDetailPage() {
     setEmail(""); setNotice(`Added ${email}.`); await load();
   }
 
-  async function removeMember(userId: string) {
+  async function removeMember(m: OrgMember) {
+    // P5-19: one-click removal had no confirmation (matches /manage).
+    const who = m.display_name || (m.handle ? `@${m.handle}` : m.user_id.slice(0, 8));
+    if (!confirm(`Remove ${who} from this organization?`)) return;
+    const userId = m.user_id;
     const res = await fetch(`/api/superadmin/orgs/${id}/members`, {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }),
     });
@@ -241,7 +248,12 @@ export default function OrgDetailPage() {
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {notice && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{notice}</div>}
 
-        {!org ? (
+        {!org && loadFailed ? (
+          <div className="text-sm text-slate-400">
+            This organization couldn&apos;t be loaded — it may have been deleted.{" "}
+            <Link href="/superadmin" className="text-cyber-300 hover:underline">Back to all organizations</Link>
+          </div>
+        ) : !org ? (
           <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
         ) : (
           <>
@@ -513,7 +525,7 @@ export default function OrgDetailPage() {
                         <p className="truncate text-sm font-medium text-white">{m.display_name || m.handle || m.user_id.slice(0, 8)}</p>
                         <p className="truncate font-mono text-[11px] text-slate-400">{m.handle ? `@${m.handle}` : ""} · {m.role}{m.status !== "active" ? ` · ${m.status}` : ""}</p>
                       </div>
-                      <button onClick={() => removeMember(m.user_id)} aria-label={`Remove ${m.handle ?? "member"}`}
+                      <button onClick={() => removeMember(m)} aria-label={`Remove ${m.handle ?? "member"}`}
                         className="shrink-0 rounded p-1.5 text-slate-400 transition hover:bg-severity-high/10 hover:text-severity-high">
                         <X className="h-4 w-4" />
                       </button>

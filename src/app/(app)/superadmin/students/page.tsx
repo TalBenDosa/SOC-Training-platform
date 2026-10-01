@@ -35,7 +35,7 @@ export default function SuperadminStudentsPage() {
     fetch("/api/superadmin/students")
       .then(async r => (r.ok ? r.json() : Promise.reject((await r.json().catch(() => ({})))?.error ?? "Failed to load.")))
       .then(d => { setStudents(d.students ?? []); setOrgs(d.orgs ?? []); })
-      .catch(e => setError(String(e)));
+      .catch(e => setError(typeof e === "string" ? e : "Couldn't reach the server — check your connection and reload."));
   }, []);
 
   const rows = useMemo(() => {

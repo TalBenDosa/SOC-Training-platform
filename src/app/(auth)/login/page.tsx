@@ -73,8 +73,9 @@ function LoginForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: joinCode }),
-      });
+      }).catch(() => null);   // P5-07: a network drop left "Signing in…" stuck
       setSubmitting(false);
+      if (!res) { setError("Signed in, but couldn't reach the server to join with this code — check your connection and try again."); return; }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Signed in, but couldn't join with this code.");

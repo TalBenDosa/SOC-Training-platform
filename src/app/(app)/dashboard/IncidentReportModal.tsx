@@ -217,7 +217,7 @@ export function IncidentReportModal({
                 <h2 className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
               </div>
             </div>
-            <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white transition">
+            <button onClick={onClose} aria-label="Close incident report" className="rounded p-1 text-slate-400 hover:text-white transition">
               <X className="h-4 w-4" />
             </button>
           </div>

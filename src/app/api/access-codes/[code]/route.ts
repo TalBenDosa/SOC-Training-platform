@@ -9,7 +9,11 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
  * it?" before any account exists. Public by necessity (listed in the
  * middleware's PUBLIC_API_PREFIXES): the caller is by definition not signed in.
  *
- * Returns ONLY { valid, orgName } — no org id, no code metadata, no expiry.
+ * Returns ONLY { valid, orgName, seatsAvailable } — no org id, no code
+ * metadata, no expiry, no seat counts (just whether a seat is free: the signup
+ * page re-checks right before submitting, because the enrolment trigger's own
+ * errors reach the browser only as Supabase's generic "Database error saving
+ * new user" — QA P5-04).
  * Enumeration is not a practical risk (8 chars from a 31-letter alphabet is
  * ~8.5e11 combinations against a 24-hour-lived code, behind the middleware
  * rate limit), and the org NAME is what the next screen shows the student
@@ -40,12 +44,20 @@ export async function GET(_req: Request, { params }: Ctx) {
 
   const { data: org } = await admin
     .from("organizations")
-    .select("name, status")
+    .select("name, status, seat_limit")
     .eq("id", row.org_id)
     .maybeSingle();
   if (!org || !["active", "trial"].includes(org.status)) {
     return NextResponse.json({ valid: false });
   }
 
-  return NextResponse.json({ valid: true, orgName: org.name });
+  return NextResponse.json({ valid: true, orgName: org.name, seatsAvailable: await seatsAvailable(admin, row.org_id, org.seat_limit) });
+}
+
+/** Same rule as the enrolment trigger (org_seats_used, 0080). Unknown → true: the trigger still decides. */
+async function seatsAvailable(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>, orgId: string, limit: number | null): Promise<boolean> {
+  if (!limit || limit <= 0) return true;
+  const { data, error } = await admin.rpc("org_seats_used", { p_org: orgId });
+  if (error || typeof data !== "number") return true;
+  return data < limit;
 }

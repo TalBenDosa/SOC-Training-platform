@@ -16,6 +16,7 @@ import { SavedSearches, type FilterSnapshot } from "./SavedSearches";
 import { SiemStats } from "./SiemStats";
 import { CompanySelector } from "./CompanySelector";
 import { IncidentReportModal } from "./IncidentReportModal";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
 import { startDashboardTour } from "./OnboardingTour";
@@ -610,6 +611,10 @@ export default function DashboardPage() {
   }, [live.sessionXp]);
 
   // ── Readiness (F6): has this learner cleared any room yet? ─────────────────
+  // Re-read when the account's progress finishes loading (P5-14): a single read
+  // at mount saw the pre-hydration (empty) store, so an experienced student was
+  // greeted with "New here? Start with the fundamentals".
+  const progressSnap = useProgressSnapshot();
   useEffect(() => {
     try {
       const rp = getRoomProgress() as Record<string, { completedAt?: string }>;
@@ -619,7 +624,7 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       setReadinessDismissed(localStorage.getItem("soc:dashboard-readiness-dismissed") === "1");
     }
-  }, []);
+  }, [progressSnap.version, progressSnap.ready]);
   const dismissReadiness = () => {
     setReadinessDismissed(true);
     try { localStorage.setItem("soc:dashboard-readiness-dismissed", "1"); } catch { /* ignore */ }
@@ -902,6 +907,73 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [sessionStartedAt]);
 
+  // P5-24: the report's grading evidence — including serializing the WHOLE feed —
+  // is computed only while the report is open and only when the feed changes. It
+  // used to run inline in render, i.e. on every 1-second session-clock tick.
+  const reportEvidence = useMemo(() => {
+    if (!showReportModal) return null;
+    // Ground truth = every GENUINE attack the student actually saw this
+    // session — the injected story PLUS any other real attack event that
+    // surfaced in the feed. Grading only off the picked story used to punish
+    // correct analysis: a student who spotted a different (but equally real)
+    // attack chain in the noise, and quoted its true IOCs, had those IOCs
+    // scored as "fabricated" because they weren't in the one picked story.
+    // FP decoys (it_verify_result / fp_explanation / expected_verdict:"fp")
+    // are excluded so they never become gradeable "attacks".
+    // A gradeable "attack" is any high/critical event that isn't a decoy — NOT
+    // just EDR detections. Requiring mitre_technique used to silently exclude
+    // AV/EDR *block* events (which carry none) and any non-EDR signal (a failed
+    // password spray, a firewall block) that a Tier-1 analyst is expected to
+    // report — so their real IOCs were scored as "fabricated". Severity + the
+    // decoy exclusions are the correct gate; technique is optional.
+    const feedAttackEvents = live.events.filter(e =>
+      (e.severity === "high" || e.severity === "critical") &&
+      !e.it_verify_result && !e.fp_explanation && e.expected_verdict !== "fp"
+    );
+    const groundTruthEvents = [...injectedStories.flatMap(s => s.events), ...feedAttackEvents];
+    const storyMitre = Array.from(new Set([
+      ...injectedStories.flatMap(s => s.mitre),
+      ...feedAttackEvents.map(e => e.mitre_technique).filter((m): m is string => !!m),
+    ]));
+    const storyTitle = injectedStories.map(s => s.title).join(" + ") || null;
+    // Indicators the grader uses to verify the student cited real evidence
+    // and to catch genuinely fabricated data (a hostname that never appears).
+    const realIndicators = extractIndicators(groundTruthEvents);
+    // Full serialized evidence (raw blocks included) so the grader's
+    // fabrication check treats ANY IP/email/hash the student cites that is
+    // visible in a log — including MD5/SHA1, private host IPs, and vendor-keyed
+    // raw fields the discrete extractIndicators list doesn't enumerate — as
+    // real, never "fabricated". Mirrors the scenario grader's eventsBlob.
+    // R-02: serialize the ENTIRE feed the student actually saw on screen, not
+    // just the ground-truth attack subset. The grader's fabrication check treats
+    // any value present in evidenceText as real — so a hash/IP/user quoted from
+    // ANY visible event (a blocked-malware detection, a failed-auth line, a
+    // firewall block — every source, not only EDR) counts as genuine evidence
+    // and is never wrongly flagged "fabricated". Only truly invented values,
+    // absent from the whole feed, are caught.
+    const evidenceText = JSON.stringify(live.events);
+    // Decoys the student saw this session — benign events carrying a written
+    // fp_explanation that, until now, was authored but never surfaced anywhere
+    // in the UI. Shown only AFTER a passing report (see the modal) as a
+    // "why these were false positives" debrief. Deduped by explanation text
+    // (the same decoy type recurs in the feed) and capped so the modal stays
+    // readable.
+    const decoysSeen = (() => {
+      const seen = new Set<string>();
+      const out: { label: string; source: string; fp_explanation: string }[] = [];
+      for (const e of live.events) {
+        if (!e.fp_explanation || seen.has(e.fp_explanation)) continue;
+        seen.add(e.fp_explanation);
+        const label = (e.description?.split(/[.—]/)[0]?.trim().slice(0, 90))
+          || e.event_type || e.source;
+        out.push({ label, source: e.source, fp_explanation: e.fp_explanation });
+      }
+      return out.slice(0, 6);
+    })();
+    return { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showReportModal, live.events, injectedStories]);
+
   const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
   // Countdown to the oldest catch expiring — the deadline to reach the next catch.
   const windowClock = windowRemainingMs != null
@@ -1049,7 +1121,7 @@ export default function DashboardPage() {
             a learner who has cleared 0 rooms: the live feed is real production
             telemetry with no scaffolding, so we point them at the graded path
             first without locking them out. */}
-        {!roomReady && !readinessDismissed && (
+        {progressSnap.ready && !roomReady && !readinessDismissed && (
           <div className="flex items-start gap-3 rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-4 py-3">
             <GraduationCap className="mt-0.5 h-5 w-5 shrink-0 text-cyber-300" />
             <div className="flex-1 text-sm">
@@ -1554,65 +1626,8 @@ export default function DashboardPage() {
 
 
       {/* ── Incident Report Modal ───────────────────────────────────── */}
-      {showReportModal && (() => {
-        // Ground truth = every GENUINE attack the student actually saw this
-        // session — the injected story PLUS any other real attack event that
-        // surfaced in the feed. Grading only off the picked story used to punish
-        // correct analysis: a student who spotted a different (but equally real)
-        // attack chain in the noise, and quoted its true IOCs, had those IOCs
-        // scored as "fabricated" because they weren't in the one picked story.
-        // FP decoys (it_verify_result / fp_explanation / expected_verdict:"fp")
-        // are excluded so they never become gradeable "attacks".
-        // A gradeable "attack" is any high/critical event that isn't a decoy — NOT
-        // just EDR detections. Requiring mitre_technique used to silently exclude
-        // AV/EDR *block* events (which carry none) and any non-EDR signal (a failed
-        // password spray, a firewall block) that a Tier-1 analyst is expected to
-        // report — so their real IOCs were scored as "fabricated". Severity + the
-        // decoy exclusions are the correct gate; technique is optional.
-        const feedAttackEvents = live.events.filter(e =>
-          (e.severity === "high" || e.severity === "critical") &&
-          !e.it_verify_result && !e.fp_explanation && e.expected_verdict !== "fp"
-        );
-        const groundTruthEvents = [...injectedStories.flatMap(s => s.events), ...feedAttackEvents];
-        const storyMitre = Array.from(new Set([
-          ...injectedStories.flatMap(s => s.mitre),
-          ...feedAttackEvents.map(e => e.mitre_technique).filter((m): m is string => !!m),
-        ]));
-        const storyTitle = injectedStories.map(s => s.title).join(" + ") || null;
-        // Indicators the grader uses to verify the student cited real evidence
-        // and to catch genuinely fabricated data (a hostname that never appears).
-        const realIndicators = extractIndicators(groundTruthEvents);
-        // Full serialized evidence (raw blocks included) so the grader's
-        // fabrication check treats ANY IP/email/hash the student cites that is
-        // visible in a log — including MD5/SHA1, private host IPs, and vendor-keyed
-        // raw fields the discrete extractIndicators list doesn't enumerate — as
-        // real, never "fabricated". Mirrors the scenario grader's eventsBlob.
-        // R-02: serialize the ENTIRE feed the student actually saw on screen, not
-        // just the ground-truth attack subset. The grader's fabrication check treats
-        // any value present in evidenceText as real — so a hash/IP/user quoted from
-        // ANY visible event (a blocked-malware detection, a failed-auth line, a
-        // firewall block — every source, not only EDR) counts as genuine evidence
-        // and is never wrongly flagged "fabricated". Only truly invented values,
-        // absent from the whole feed, are caught.
-        const evidenceText = JSON.stringify(live.events);
-        // Decoys the student saw this session — benign events carrying a written
-        // fp_explanation that, until now, was authored but never surfaced anywhere
-        // in the UI. Shown only AFTER a passing report (see the modal) as a
-        // "why these were false positives" debrief. Deduped by explanation text
-        // (the same decoy type recurs in the feed) and capped so the modal stays
-        // readable.
-        const decoysSeen = (() => {
-          const seen = new Set<string>();
-          const out: { label: string; source: string; fp_explanation: string }[] = [];
-          for (const e of live.events) {
-            if (!e.fp_explanation || seen.has(e.fp_explanation)) continue;
-            seen.add(e.fp_explanation);
-            const label = (e.description?.split(/[.—]/)[0]?.trim().slice(0, 90))
-              || e.event_type || e.source;
-            out.push({ label, source: e.source, fp_explanation: e.fp_explanation });
-          }
-          return out.slice(0, 6);
-        })();
+      {showReportModal && reportEvidence && (() => {
+        const { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen } = reportEvidence;
         return (
           <IncidentReportModal
             companyName={selectedCompany.name}

@@ -79,7 +79,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ type: 
     .eq("org_id", orgId)
     .select("id, status")
     .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[org content item]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
   if (!data) return NextResponse.json({ error: "Not found in this environment." }, { status: 404 });
 
   return NextResponse.json({ item: data });
@@ -99,7 +99,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ type
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   const { error } = await admin.from(ORG_CONTENT_TABLE[type]).delete().eq("id", id).eq("org_id", orgId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) { console.error("[org content item]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
 
   return NextResponse.json({ ok: true });
 }

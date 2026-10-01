@@ -418,7 +418,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
             <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${diffCls}`}>
               {capitalize(lesson.difficulty)}
             </span>
-            <button onClick={onClose} className="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white transition-colors">
+            <button onClick={onClose} aria-label="Close lesson" className="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white transition-colors">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>

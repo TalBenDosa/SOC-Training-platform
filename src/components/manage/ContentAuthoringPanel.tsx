@@ -8,6 +8,7 @@
  * so this component never sends an org id and never sees an answer key it could
  * leak (drafts are read back through the same service-role route).
  */
+import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -36,20 +37,23 @@ function useOrgContent(type: ContentTab) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
+  // P5-08: a failed load is NOT an empty list ("No lessons authored yet").
+  const [loadFailed, setLoadFailed] = useState(false);
 
   async function load() {
-    const res = await fetch(`/api/org/content/${type}`);
-    if (res.ok) setItems((await res.json()).items ?? []);
-    else setItems([]);
+    const res = await safeFetch(`/api/org/content/${type}`);
+    if (res?.ok) { setItems((await res.json()).items ?? []); setLoadFailed(false); }
+    else { setItems([]); setLoadFailed(true); }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- type-keyed fetch; load reads current props
   useEffect(() => { load(); }, [type]);
 
   async function save(body: Record<string, unknown>): Promise<boolean> {
     setError(null); setNotice(null);
-    const res = await fetch(`/api/org/content/${type}`, {
+    const res = await safeFetch(`/api/org/content/${type}`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
+    if (!res) { setError(NETWORK_ERROR); return false; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { setError(data?.error ?? "Save failed."); return false; }
     setNotice(body.status === "published" ? "Published to your students." : "Saved as a draft.");
@@ -59,10 +63,11 @@ function useOrgContent(type: ContentTab) {
 
   async function setStatus(id: string, status: "draft" | "published") {
     setRowBusy(id); setError(null);
-    const res = await fetch(`/api/org/content/${type}/${encodeURIComponent(id)}`, {
+    const res = await safeFetch(`/api/org/content/${type}/${encodeURIComponent(id)}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
     });
     setRowBusy(null);
+    if (!res) { setError(NETWORK_ERROR); return; }
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Update failed."); return; }
     await load();
   }
@@ -70,20 +75,22 @@ function useOrgContent(type: ContentTab) {
   async function remove(id: string, title: string) {
     if (!confirm(`Delete "${title}"? This removes it for good.`)) return;
     setRowBusy(id); setError(null);
-    const res = await fetch(`/api/org/content/${type}/${encodeURIComponent(id)}`, { method: "DELETE" });
+    const res = await safeFetch(`/api/org/content/${type}/${encodeURIComponent(id)}`, { method: "DELETE" });
     setRowBusy(null);
+    if (!res) { setError(NETWORK_ERROR); return; }
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Delete failed."); return; }
     await load();
   }
 
-  return { items, error, notice, rowBusy, setError, setNotice, load, save, setStatus, remove };
+  return { items, error, notice, rowBusy, loadFailed, setError, setNotice, load, save, setStatus, remove };
 }
 
 // ─── shared row list ─────────────────────────────────────────────────────────
 function ItemList({
-  items, rowBusy, onEdit, onToggle, onDelete, emptyLabel,
+  items, rowBusy, onEdit, onToggle, onDelete, emptyLabel, loadFailed = false,
 }: {
   items: Row[] | null;
+  loadFailed?: boolean;
   rowBusy: string | null;
   onEdit: (r: Row) => void;
   onToggle: (r: Row) => void;
@@ -93,6 +100,7 @@ function ItemList({
   if (items === null) {
     return <div className="flex items-center gap-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>;
   }
+  if (loadFailed) return <p className="text-xs text-severity-high">Couldn&apos;t load your items — reload the page to try again.</p>;
   if (items.length === 0) return <p className="text-xs text-slate-500">{emptyLabel}</p>;
   return (
     <div className="space-y-2">
@@ -164,7 +172,7 @@ function rowToLessonDraft(r: Row): LessonDraft {
 }
 
 function LessonsTab() {
-  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("lessons");
+  const { items, error, notice, rowBusy, loadFailed, setError, save, setStatus, remove } = useOrgContent("lessons");
   const [draft, setDraft] = useState<LessonDraft | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -196,18 +204,18 @@ function LessonsTab() {
           <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
         </div>
         <Banner error={error} notice={null} />
-        <div><label className={labelCls}>Title</label><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Reading a Windows 4624 logon event" /></div>
+        <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Reading a Windows 4624 logon event" /></label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div><label className={labelCls}>Topic</label><input className={inputCls} value={draft.topic} onChange={e => up("topic", e.target.value)} placeholder="Windows" /></div>
-          <div><label className={labelCls}>Difficulty</label>
+          <label className="block"><span className={labelCls}>Topic</span><input className={inputCls} value={draft.topic} onChange={e => up("topic", e.target.value)} placeholder="Windows" /></label>
+          <label className="block"><span className={labelCls}>Difficulty</span>
             <select className={inputCls} value={draft.difficulty} onChange={e => up("difficulty", e.target.value)}>
               <option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option><option value="expert">Expert</option>
             </select>
-          </div>
-          <div><label className={labelCls}>XP</label><input type="number" className={inputCls} value={draft.xp} onChange={e => up("xp", Number(e.target.value))} /></div>
-          <div><label className={labelCls}>Minutes</label><input type="number" className={inputCls} value={draft.estimatedMinutes} onChange={e => up("estimatedMinutes", Number(e.target.value))} /></div>
+          </label>
+          <label className="block"><span className={labelCls}>XP</span><input type="number" className={inputCls} value={draft.xp} onChange={e => up("xp", Number(e.target.value))} /></label>
+          <label className="block"><span className={labelCls}>Minutes</span><input type="number" className={inputCls} value={draft.estimatedMinutes} onChange={e => up("estimatedMinutes", Number(e.target.value))} /></label>
         </div>
-        <div><label className={labelCls}>Intro</label><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.intro} onChange={e => up("intro", e.target.value)} placeholder="One or two sentences framing what this lesson covers." /></div>
+        <label className="block"><span className={labelCls}>Intro</span><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.intro} onChange={e => up("intro", e.target.value)} placeholder="One or two sentences framing what this lesson covers." /></label>
 
         <div>
           <label className={labelCls}>Sections</label>
@@ -231,8 +239,8 @@ function LessonsTab() {
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div><label className={labelCls}>Key takeaways (one per line)</label><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.keyTakeaways} onChange={e => up("keyTakeaways", e.target.value)} /></div>
-          <div><label className={labelCls}>References (one per line)</label><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.references} onChange={e => up("references", e.target.value)} /></div>
+          <label className="block"><span className={labelCls}>Key takeaways (one per line)</span><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.keyTakeaways} onChange={e => up("keyTakeaways", e.target.value)} /></label>
+          <label className="block"><span className={labelCls}>References (one per line)</span><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.references} onChange={e => up("references", e.target.value)} /></label>
         </div>
 
         <div className="flex items-center gap-2 pt-1">
@@ -249,7 +257,7 @@ function LessonsTab() {
       <div className="mt-3 mb-3">
         <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyLesson()); }}><Plus className="h-4 w-4" /> New lesson</Button>
       </div>
-      <ItemList items={items} rowBusy={rowBusy}
+      <ItemList loadFailed={loadFailed} items={items} rowBusy={rowBusy}
         onEdit={r => { setError(null); setDraft(rowToLessonDraft(r)); }}
         onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
         onDelete={r => remove(r.id, String(r.content?.title ?? r.id))}
@@ -284,7 +292,7 @@ function rowToQuizDraft(r: Row): QDraft {
 }
 
 function QuizzesTab() {
-  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("quizzes");
+  const { items, error, notice, rowBusy, loadFailed, setError, save, setStatus, remove } = useOrgContent("quizzes");
   const [draft, setDraft] = useState<QDraft | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -312,17 +320,17 @@ function QuizzesTab() {
           <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
         </div>
         <Banner error={error} notice={null} />
-        <div><label className={labelCls}>Title</label><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Phishing triage fundamentals" /></div>
-        <div><label className={labelCls}>Description</label><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line shown on the quiz card." /></div>
+        <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Phishing triage fundamentals" /></label>
+        <label className="block"><span className={labelCls}>Description</span><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line shown on the quiz card." /></label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div><label className={labelCls}>Difficulty</label>
+          <label className="block"><span className={labelCls}>Difficulty</span>
             <select className={inputCls} value={draft.difficulty} onChange={e => up("difficulty", e.target.value)}>
               <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
             </select>
-          </div>
-          <div><label className={labelCls}>Category</label><input className={inputCls} value={draft.category} onChange={e => up("category", e.target.value)} placeholder="Email security" /></div>
-          <div><label className={labelCls}>Icon</label><input className={inputCls} value={draft.icon} onChange={e => up("icon", e.target.value)} placeholder="📝" /></div>
-          <div><label className={labelCls}>Minutes</label><input type="number" className={inputCls} value={draft.estimatedMinutes} onChange={e => up("estimatedMinutes", Number(e.target.value))} /></div>
+          </label>
+          <label className="block"><span className={labelCls}>Category</span><input className={inputCls} value={draft.category} onChange={e => up("category", e.target.value)} placeholder="Email security" /></label>
+          <label className="block"><span className={labelCls}>Icon</span><input className={inputCls} value={draft.icon} onChange={e => up("icon", e.target.value)} placeholder="📝" /></label>
+          <label className="block"><span className={labelCls}>Minutes</span><input type="number" className={inputCls} value={draft.estimatedMinutes} onChange={e => up("estimatedMinutes", Number(e.target.value))} /></label>
         </div>
 
         <div>
@@ -374,7 +382,7 @@ function QuizzesTab() {
       <div className="mt-3 mb-3">
         <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyQuiz()); }}><Plus className="h-4 w-4" /> New quiz</Button>
       </div>
-      <ItemList items={items} rowBusy={rowBusy}
+      <ItemList loadFailed={loadFailed} items={items} rowBusy={rowBusy}
         onEdit={r => { setError(null); setDraft(rowToQuizDraft(r)); }}
         onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
         onDelete={r => remove(r.id, String(r.content?.title ?? r.id))}
@@ -434,7 +442,7 @@ const emptyScenario = (): SDraft => ({
 });
 
 function ScenariosTab() {
-  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("scenarios");
+  const { items, error, notice, rowBusy, loadFailed, setError, save, setStatus, remove } = useOrgContent("scenarios");
   const [draft, setDraft] = useState<SDraft | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -525,26 +533,26 @@ function ScenariosTab() {
           <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
         </div>
         <Banner error={error} notice={null} />
-        <div><label className={labelCls}>Title</label><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. After-hours data staging on the file server" /></div>
+        <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. After-hours data staging on the file server" /></label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <div><label className={labelCls}>Difficulty</label>
+          <label className="block"><span className={labelCls}>Difficulty</span>
             <select className={inputCls} value={draft.difficulty} onChange={e => up("difficulty", e.target.value)}>
               <option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option><option value="expert">Expert</option>
             </select>
-          </div>
-          <div><label className={labelCls}>Verdict truth</label>
+          </label>
+          <label className="block"><span className={labelCls}>Verdict truth</span>
             <select className={inputCls} value={draft.isBenign ? "benign" : "attack"} onChange={e => up("isBenign", e.target.value === "benign")}>
               <option value="attack">Real attack</option><option value="benign">Benign (false positive)</option>
             </select>
-          </div>
+          </label>
           {!draft.isBenign && (
-            <div><label className={labelCls}>Attack kind</label><input className={inputCls} value={draft.attackKindLabel} onChange={e => up("attackKindLabel", e.target.value)} placeholder="ransomware" /></div>
+            <label className="block"><span className={labelCls}>Attack kind</span><input className={inputCls} value={draft.attackKindLabel} onChange={e => up("attackKindLabel", e.target.value)} placeholder="ransomware" /></label>
           )}
         </div>
-        <div><label className={labelCls}>Threat actor (answer key)</label><input className={inputCls} value={draft.threatActor} onChange={e => up("threatActor", e.target.value)} placeholder="e.g. FIN7 affiliate — leave blank if benign" /></div>
-        <div><label className={labelCls}>Briefing (what the analyst first sees)</label><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.briefing} onChange={e => up("briefing", e.target.value)} placeholder="The alert / ticket text. No spoilers." /></div>
-        <div><label className={labelCls}>Debrief narrative (answer key)</label><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.narrative} onChange={e => up("narrative", e.target.value)} placeholder="What actually happened, revealed only after a full attempt." /></div>
-        <div><label className={labelCls}>Learning objectives (one per line)</label><textarea className={cn(inputCls, "min-h-[48px]")} value={draft.learningObjectives} onChange={e => up("learningObjectives", e.target.value)} /></div>
+        <label className="block"><span className={labelCls}>Threat actor (answer key)</span><input className={inputCls} value={draft.threatActor} onChange={e => up("threatActor", e.target.value)} placeholder="e.g. FIN7 affiliate — leave blank if benign" /></label>
+        <label className="block"><span className={labelCls}>Briefing (what the analyst first sees)</span><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.briefing} onChange={e => up("briefing", e.target.value)} placeholder="The alert / ticket text. No spoilers." /></label>
+        <label className="block"><span className={labelCls}>Debrief narrative (answer key)</span><textarea className={cn(inputCls, "min-h-[64px]")} value={draft.narrative} onChange={e => up("narrative", e.target.value)} placeholder="What actually happened, revealed only after a full attempt." /></label>
+        <label className="block"><span className={labelCls}>Learning objectives (one per line)</span><textarea className={cn(inputCls, "min-h-[48px]")} value={draft.learningObjectives} onChange={e => up("learningObjectives", e.target.value)} /></label>
 
         {/* Events */}
         <div>
@@ -636,7 +644,7 @@ function ScenariosTab() {
       <div className="mt-3 mb-3">
         <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyScenario()); }}><Plus className="h-4 w-4" /> New scenario</Button>
       </div>
-      <ItemList items={items} rowBusy={rowBusy}
+      <ItemList loadFailed={loadFailed} items={items} rowBusy={rowBusy}
         onEdit={r => loadForEdit(r.id)}
         onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
         onDelete={r => remove(r.id, String(r.content?.title ?? r.id))}
@@ -671,7 +679,7 @@ const emptyRoom = (): RDraft => ({
 });
 
 function RoomsTab() {
-  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("rooms");
+  const { items, error, notice, rowBusy, loadFailed, setError, save, setStatus, remove } = useOrgContent("rooms");
   const [draft, setDraft] = useState<RDraft | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -726,17 +734,17 @@ function RoomsTab() {
           <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
         </div>
         <Banner error={error} notice={null} />
-        <div><label className={labelCls}>Title</label><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Reading Windows logon events" /></div>
-        <div><label className={labelCls}>Description</label><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line shown on the room card." /></div>
+        <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Reading Windows logon events" /></label>
+        <label className="block"><span className={labelCls}>Description</span><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line shown on the room card." /></label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div><label className={labelCls}>Difficulty</label>
+          <label className="block"><span className={labelCls}>Difficulty</span>
             <select className={inputCls} value={draft.difficulty} onChange={e => up("difficulty", e.target.value)}>
               <option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option>
             </select>
-          </div>
-          <div><label className={labelCls}>Category</label><input className={inputCls} value={draft.category} onChange={e => up("category", e.target.value)} /></div>
-          <div><label className={labelCls}>Icon</label><input className={inputCls} value={draft.icon} onChange={e => up("icon", e.target.value)} placeholder="🎓" /></div>
-          <div><label className={labelCls}>Minutes</label><input type="number" className={inputCls} value={draft.estimatedMinutes} onChange={e => up("estimatedMinutes", Number(e.target.value))} /></div>
+          </label>
+          <label className="block"><span className={labelCls}>Category</span><input className={inputCls} value={draft.category} onChange={e => up("category", e.target.value)} /></label>
+          <label className="block"><span className={labelCls}>Icon</span><input className={inputCls} value={draft.icon} onChange={e => up("icon", e.target.value)} placeholder="🎓" /></label>
+          <label className="block"><span className={labelCls}>Minutes</span><input type="number" className={inputCls} value={draft.estimatedMinutes} onChange={e => up("estimatedMinutes", Number(e.target.value))} /></label>
         </div>
 
         <div>
@@ -801,7 +809,7 @@ function RoomsTab() {
       <div className="mt-3 mb-3">
         <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyRoom()); }}><Plus className="h-4 w-4" /> New room</Button>
       </div>
-      <ItemList items={items} rowBusy={rowBusy}
+      <ItemList loadFailed={loadFailed} items={items} rowBusy={rowBusy}
         onEdit={r => loadForEdit(r.id)}
         onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
         onDelete={r => remove(r.id, String(r.content?.title ?? r.id))}
@@ -834,7 +842,7 @@ function toCEvents(raw: unknown): CEvent[] {
 }
 
 function CompaniesTab() {
-  const { items, error, notice, rowBusy, setError, save, setStatus, remove } = useOrgContent("companies");
+  const { items, error, notice, rowBusy, loadFailed, setError, save, setStatus, remove } = useOrgContent("companies");
   const [draft, setDraft] = useState<CoDraft | null>(null);
   const [busy, setBusy] = useState(false);
   function up<K extends keyof CoDraft>(k: K, v: CoDraft[K]) { setDraft(d => d ? { ...d, [k]: v } : d); }
@@ -884,14 +892,14 @@ function CompaniesTab() {
         </div>
         <Banner error={error} notice={null} />
         <p className="text-[11px] text-slate-500">A custom company your students monitor in the SOC Dashboard live feed: its profile, its benign background noise, and one hidden attack story.</p>
-        <div><label className={labelCls}>Company name</label><input className={inputCls} value={draft.name} onChange={e => up("name", e.target.value)} placeholder="e.g. Acme College Health" /></div>
+        <label className="block"><span className={labelCls}>Company name</span><input className={inputCls} value={draft.name} onChange={e => up("name", e.target.value)} placeholder="e.g. Acme College Health" /></label>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div><label className={labelCls}>Industry</label><input className={inputCls} value={draft.industry} onChange={e => up("industry", e.target.value)} placeholder="Healthcare" /></div>
-          <div><label className={labelCls}>HQ</label><input className={inputCls} value={draft.hq} onChange={e => up("hq", e.target.value)} placeholder="Tel Aviv, IL" /></div>
-          <div><label className={labelCls}>Employees</label><input type="number" className={inputCls} value={draft.size} onChange={e => up("size", Number(e.target.value))} /></div>
-          <div><label className={labelCls}>Tagline</label><input className={inputCls} value={draft.tagline} onChange={e => up("tagline", e.target.value)} placeholder="short blurb" /></div>
+          <label className="block"><span className={labelCls}>Industry</span><input className={inputCls} value={draft.industry} onChange={e => up("industry", e.target.value)} placeholder="Healthcare" /></label>
+          <label className="block"><span className={labelCls}>HQ</span><input className={inputCls} value={draft.hq} onChange={e => up("hq", e.target.value)} placeholder="Tel Aviv, IL" /></label>
+          <label className="block"><span className={labelCls}>Employees</span><input type="number" className={inputCls} value={draft.size} onChange={e => up("size", Number(e.target.value))} /></label>
+          <label className="block"><span className={labelCls}>Tagline</span><input className={inputCls} value={draft.tagline} onChange={e => up("tagline", e.target.value)} placeholder="short blurb" /></label>
         </div>
-        <div><label className={labelCls}>Description</label><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line about this environment." /></div>
+        <label className="block"><span className={labelCls}>Description</span><input className={inputCls} value={draft.description} onChange={e => up("description", e.target.value)} placeholder="One line about this environment." /></label>
         <div>
           <label className={labelCls}>Active log sources (drives the feed's source filter)</label>
           <div className="flex flex-wrap gap-1.5">
@@ -927,7 +935,7 @@ function CompaniesTab() {
       <div className="mt-3 mb-3">
         <Button variant="outline" size="sm" onClick={() => { setError(null); setDraft(emptyCompany()); }}><Plus className="h-4 w-4" /> New environment</Button>
       </div>
-      <ItemList items={items} rowBusy={rowBusy}
+      <ItemList loadFailed={loadFailed} items={items} rowBusy={rowBusy}
         onEdit={r => loadForEdit(r.id)}
         onToggle={r => setStatus(r.id, r.status === "published" ? "draft" : "published")}
         onDelete={r => remove(r.id, String((r.content?.profile as Record<string, unknown>)?.name ?? r.content?.name ?? r.id))}

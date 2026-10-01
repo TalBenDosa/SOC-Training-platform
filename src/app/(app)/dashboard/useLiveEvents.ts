@@ -814,6 +814,10 @@ export function useLiveEvents({
   // Start empty — populated in useEffect so SSR and client render the same HTML (avoids hydration mismatch)
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [isStreaming, setIsStreaming]       = useState(autoStart);
+  // Read by timers/intervals (P5-02/03): they outlive renders, so they check the
+  // live value instead of a captured one.
+  const isStreamingRef = useRef(autoStart);
+  isStreamingRef.current = isStreaming;
   const [sessionXp, setSessionXp]           = useState(0);
   const [newIds, setNewIds]                 = useState<Set<string>>(new Set());
   const [activeIncident, setActiveIncident] = useState<ActiveIncident | null>(null);
@@ -888,7 +892,7 @@ export function useLiveEvents({
     missWatchdogRef.current = setTimeout(() => {
       missWatchdogRef.current = null;
       if (caughtRef.current) return;                          // caught in time → no debrief
-      if (isInvestigatingRef.current?.()) {                   // still working it → wait, never interrupt
+      if (isInvestigatingRef.current?.() || !isStreamingRef.current) {  // working it, or feed paused → wait, never interrupt
         scheduleDebriefCheck(60_000, debrief);
         return;
       }
@@ -904,6 +908,22 @@ export function useLiveEvents({
   const missTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caughtRef         = useRef(false);
   const attackTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Latest injectNextPhase — armPhase calls it without a dependency cycle. */
+  const injectNextPhaseRef = useRef<(() => void) | null>(null);
+  /**
+   * The ONLY way to schedule the next story phase (P5-02). It always clears the
+   * pending timer first, so there is never more than one phase chain — reset()
+   * and startStory() used to arm a timer that the streaming effect then
+   * overwrote without clearing, leaving an orphaned second chain that injected
+   * at double pace and kept going while the feed was paused.
+   */
+  const armPhase = useCallback((delay: number) => {
+    if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
+    attackTimerRef.current = setTimeout(() => {
+      attackTimerRef.current = null;
+      injectNextPhaseRef.current?.();
+    }, delay);
+  }, []);
   /** IDs of "once-only" events (IT-verify / FP training) already emitted this session */
   const seenOnceRef        = useRef<Set<string>>(new Set());
   /** Shuffle deck — repeatable events in random order, no duplicates until full cycle */
@@ -1044,6 +1064,7 @@ export function useLiveEvents({
                 // Paused while the analyst is working the case (report open / EDR
                 // in play) — that time must not count against them. No fail, ever.
                 if (isInvestigatingRef.current?.()) return;
+                if (!isStreamingRef.current) return;   // feed paused → the clock pauses too (P5-03)
                 setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
               }, 1000);
               setActiveIncident(incident);
@@ -1148,6 +1169,9 @@ export function useLiveEvents({
     if (!s) return;
     const cursor = storyCursorRef.current;
     if (cursor >= s.events.length) return;
+    // Never inject behind a paused feed (report open, debrief, manual pause) —
+    // check again shortly; resume continues the story where it stopped.
+    if (!isStreamingRef.current) { armPhase(5_000); return; }
 
     const isFirstPhase = cursor === 0;
     const n = Math.min(s.events.length - cursor, 2 + (Math.random() < 0.5 ? 1 : 0)); // 2-3 events
@@ -1187,6 +1211,7 @@ export function useLiveEvents({
         // report is open (they're pulling data into it) or the EDR console is in
         // play. That time must not count against them.
         if (isInvestigatingRef.current?.()) return;
+        if (!isStreamingRef.current) return;   // feed paused → the clock pauses too (P5-03)
         setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
       }, 1000);
       setActiveIncident(incident);
@@ -1215,10 +1240,11 @@ export function useLiveEvents({
       storyRef.current = null;
       onStoryCompleteRef.current?.();
     } else {
-      attackTimerRef.current = setTimeout(injectNextPhase, PHASE_GAP());
+      armPhase(PHASE_GAP());
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxVisible]);
+  injectNextPhaseRef.current = injectNextPhase;
 
   useEffect(() => {
     if (!isStreaming) return;
@@ -1232,16 +1258,18 @@ export function useLiveEvents({
         attackTimerRef.current = setTimeout(scheduleEngineAttack, engineDelay());
       };
       attackTimerRef.current = setTimeout(scheduleEngineAttack, engineDelay());
-    } else {
-      // STORY MODE: arm the first phase of the session story
-      attackTimerRef.current = setTimeout(injectNextPhase, FIRST_PHASE_DELAY());
+    } else if (!attackTimerRef.current) {
+      // STORY MODE: arm the first phase — unless reset()/startStory() already
+      // queued one with its own delay (kept, not doubled: P5-02).
+      armPhase(FIRST_PHASE_DELAY());
     }
 
     return () => {
-      if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
+      // Pausing stops the phase chain only. The response clock and the missed-
+      // attack debrief survive a pause (they wait while paused) — destroying
+      // them here froze the clock and could stall the shift for good (P5-03).
+      if (attackTimerRef.current) { clearTimeout(attackTimerRef.current); attackTimerRef.current = null; }
       if (missTimerRef.current)   clearTimeout(missTimerRef.current);
-      if (missWatchdogRef.current) clearTimeout(missWatchdogRef.current);
-      if (slaIntervalRef.current) clearInterval(slaIntervalRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStreaming, maxVisible, engineMode, injectNextPhase]);
@@ -1250,9 +1278,17 @@ export function useLiveEvents({
   const startStory = useCallback((next: AttackStory, delayMs?: number) => {
     storyRef.current = next;
     storyCursorRef.current = 0;
-    if (attackTimerRef.current) clearTimeout(attackTimerRef.current);
-    attackTimerRef.current = setTimeout(injectNextPhase, delayMs ?? ATTACK_COOLDOWN());
-  }, [injectNextPhase]);
+    armPhase(delayMs ?? ATTACK_COOLDOWN());
+  }, [armPhase]);
+
+  // Everything is torn down on unmount (the streaming effect above only stops
+  // the phase chain on pause).
+  useEffect(() => () => {
+    if (attackTimerRef.current)  clearTimeout(attackTimerRef.current);
+    if (missTimerRef.current)    clearTimeout(missTimerRef.current);
+    if (missWatchdogRef.current) clearTimeout(missWatchdogRef.current);
+    if (slaIntervalRef.current)  clearInterval(slaIntervalRef.current);
+  }, []);
 
   const pause = useCallback(() => setIsStreaming(false), []);
   const resume = useCallback(() => setIsStreaming(true), []);
@@ -1315,7 +1351,7 @@ export function useLiveEvents({
       storyCursorRef.current = 0;
     }
     if (storyRef.current) {
-      attackTimerRef.current = setTimeout(injectNextPhase, 120_000 + Math.floor(Math.random() * 60_000));
+      armPhase(120_000 + Math.floor(Math.random() * 60_000));
     }
     globalIdx.current = 15;
     activeIncidentRef.current = null;

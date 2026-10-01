@@ -4,6 +4,7 @@
  * org by the /api/org/* routes (org id comes from their JWT, never the client),
  * so a college admin sees and touches only their own students.
  */
+import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
@@ -76,6 +77,8 @@ export default function ManagePage() {
 
   // right-to-deletion requests filed by this college's students
   const [deletions, setDeletions] = useState<DeletionRequest[]>([]);
+  // P5-08: a failed read must not look like "no requests" — each has a legal deadline.
+  const [deletionsFailed, setDeletionsFailed] = useState(false);
   const [dBusy, setDBusy] = useState<string | null>(null);
 
   // class affiliation code (0028) — the live code + when a new one is allowed
@@ -88,15 +91,16 @@ export default function ManagePage() {
 
   async function load() {
     setError(null);
-    const res = await fetch("/api/org/members");
+    const res = await safeFetch("/api/org/members");
     setLoading(false);
+    if (!res) { setError(NETWORK_ERROR); return; }
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
     const data = await res.json();
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
     // Per-student progress + class signals. Separate call so the roster still
     // renders if analytics is slow or unavailable.
-    const anRes = await fetch("/api/org/analytics");
-    if (anRes.ok) {
+    const anRes = await safeFetch("/api/org/analytics");
+    if (anRes?.ok) {
       const { students: rows, class: cls } = await anRes.json();
       setStudents(rows ?? []);
       setClassStats(cls ?? null);
@@ -104,13 +108,16 @@ export default function ManagePage() {
     // Right-to-deletion queue. Separate call for the same reason as analytics:
     // the roster must still render if this is slow or the table isn't migrated
     // yet on a given deployment.
-    const dlRes = await fetch("/api/org/deletion-requests");
-    if (dlRes.ok) {
+    const dlRes = await safeFetch("/api/org/deletion-requests");
+    if (dlRes?.ok) {
       const { requests } = await dlRes.json();
       setDeletions(requests ?? []);
+      setDeletionsFailed(false);
+    } else {
+      setDeletionsFailed(true);
     }
-    const ccRes = await fetch("/api/org/class-code");
-    if (ccRes.ok) {
+    const ccRes = await safeFetch("/api/org/class-code");
+    if (ccRes?.ok) {
       const cc = await ccRes.json();
       setClassCode(cc.active ?? null);
       setCodeNextAt(cc.next_generate_at ?? null);
@@ -119,14 +126,15 @@ export default function ManagePage() {
 
   async function generateClassCode() {
     setCodeBusy(true);
-    const res = await fetch("/api/org/class-code", { method: "POST" });
+    const res = await safeFetch("/api/org/class-code", { method: "POST" });
     setCodeBusy(false);
+    if (!res) { setError(NETWORK_ERROR); return; }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { setError(data?.error ?? "Could not generate a code."); return; }
     setClassCode(data.active ?? null);
     // The cooldown starts from this generation.
-    const ccRes = await fetch("/api/org/class-code");
-    if (ccRes.ok) { const cc = await ccRes.json(); setCodeNextAt(cc.next_generate_at ?? null); }
+    const ccRes = await safeFetch("/api/org/class-code");
+    if (ccRes?.ok) { const cc = await ccRes.json(); setCodeNextAt(cc.next_generate_at ?? null); }
     setNotice("New class code generated — valid for 24 hours.");
   }
   useEffect(() => { load(); }, []);
@@ -320,8 +328,15 @@ export default function ManagePage() {
                       expires {new Date(classCode.expires_at).toLocaleString()}
                     </span>
                     <Button
-                      variant="outline" size="sm"
-                      onClick={() => { navigator.clipboard.writeText(classCode.code); setNotice("Class code copied."); }}
+                      variant="outline" size="sm" aria-label="Copy class code"
+                      // P5-18: only claim "copied" once the clipboard write actually resolves
+                      onClick={() => {
+                        // wrapped so a missing clipboard API (insecure context) also lands in the failure branch
+                        Promise.resolve().then(() => navigator.clipboard.writeText(classCode.code)).then(
+                          () => setNotice("Class code copied."),
+                          () => setError("Couldn't copy — select the code and copy it manually."),
+                        );
+                      }}
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -352,6 +367,11 @@ export default function ManagePage() {
                 these carry a 30-day statutory deadline, so they must not sit
                 below the fold under analytics nobody scrolls past. Renders only
                 when there is something to decide. */}
+            {deletionsFailed && (
+              <div role="alert" className="rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
+                Couldn&apos;t load your students&apos; account-deletion requests. Each one has a 30-day deadline — reload the page to check them.
+              </div>
+            )}
             {deletions.length > 0 && (
               <Card className="border-neon-amber/40">
                 <h2 className="flex items-center gap-2 text-sm font-bold text-white">
@@ -372,7 +392,12 @@ export default function ManagePage() {
                         </p>
                         <p className="text-xs text-slate-400">
                           Requested {sinceLabel(r.requested_at)}
-                          {r.days_open >= 21 && (
+                          {/* P5-19: past day 30 show "overdue", not a negative countdown */}
+                          {r.days_open > 30 ? (
+                            <span className="ml-2 font-semibold text-severity-high">
+                              · overdue by {r.days_open - 30} day{r.days_open - 30 === 1 ? "" : "s"}
+                            </span>
+                          ) : r.days_open >= 21 && (
                             <span className="ml-2 font-semibold text-neon-amber">
                               · {30 - r.days_open} days left to answer
                             </span>

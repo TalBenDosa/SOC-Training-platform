@@ -69,8 +69,9 @@ export async function fetchOrgResources(): Promise<OrgResource[]> {
     .select("id, kind, title, mime, size_bytes, allow_download, created_at")
     .eq("status", "published")
     .order("created_at", { ascending: false });
-  if (error || !data) return [];
-  return data as OrgResource[];
+  // Throws on failure (P5-08) so the page can say "couldn't load" instead of "no materials".
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OrgResource[];
 }
 
 /** Client-safe metadata for the current org's published authored ROOMS

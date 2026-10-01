@@ -64,18 +64,27 @@ function stopPolling() {
   stopPoll = null;
 }
 
+/**
+ * Bumped by every local mutation (mark read). A fetch that STARTED before a
+ * mutation carries the old server state, so its result is dropped instead of
+ * restoring the unread badge the user just cleared (P5-21).
+ */
+let mutationVersion = 0;
+let inflightVersion = -1;
+
 /** Fetch the current user's inbox. Concurrent calls share one request. */
 export function refresh(): Promise<void> {
   const userId = state.userId;
   if (!userId) return Promise.resolve();
-  if (inflight) return inflight;
+  if (inflight && inflightVersion === mutationVersion) return inflight;
+  const startedAt = mutationVersion;
   const run = (async () => {
     try {
       const res = await fetch("/api/notifications", { cache: "no-store" });
-      if (state.userId !== userId) return;
+      if (state.userId !== userId || mutationVersion !== startedAt) return;
       if (!res.ok) { set({ ...state, error: true, loaded: true }); return; }
       const d: NotificationsResponse = await res.json();
-      if (state.userId !== userId) return;
+      if (state.userId !== userId || mutationVersion !== startedAt) return;
       const enabled = Boolean(d.enabled);
       set({
         ...state,
@@ -93,6 +102,7 @@ export function refresh(): Promise<void> {
     }
   })();
   inflight = run;
+  inflightVersion = startedAt;
   // Only clear our own request (a user switch may already have replaced it).
   void run.finally(() => { if (inflight === run) inflight = null; });
   return run;
@@ -139,6 +149,7 @@ export function markRead(ids: readonly string[]): Promise<void> {
     return { ...x, read_at: now };
   });
   if (dropped === 0) return Promise.resolve();
+  mutationVersion += 1;
   set({ ...state, items, unread: Math.max(0, state.unread - dropped), at: 0 });
   return postRead({ ids: [...want].slice(0, 100) });
 }
@@ -146,6 +157,7 @@ export function markRead(ids: readonly string[]): Promise<void> {
 /** Mark the whole inbox read, then refetch. */
 export async function markAllRead(): Promise<void> {
   if (state.unread === 0) return;
+  mutationVersion += 1;
   const now = new Date().toISOString();
   set({ ...state, items: state.items.map(x => (x.read_at ? x : { ...x, read_at: now })), unread: 0, at: 0 });
   await postRead({ all: true });
@@ -156,6 +168,8 @@ export async function markAllRead(): Promise<void> {
 export function __resetNotificationsStore() {
   stopPolling();
   inflight = null;
+  inflightVersion = -1;
+  mutationVersion = 0;
   consumers = 0;
   listeners.clear();
   state = EMPTY_NOTIFICATIONS;

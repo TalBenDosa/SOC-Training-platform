@@ -34,7 +34,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "That code isn't valid. Ask your instructor for today's code." }, { status: 400 });
     }
     if (msg.includes("org_code_wrong_org")) {
-      return NextResponse.json({ error: "That code belongs to a different institution." }, { status: 400 });
+      // The renew page offers to JOIN that institution with the same code instead.
+      return NextResponse.json({ error: "That code belongs to a different institution.", code: "wrong_org" }, { status: 400 });
     }
     if (msg.includes("not_an_org_student")) {
       return NextResponse.json({ error: "Only enrolled students renew an affiliation." }, { status: 400 });
@@ -46,9 +47,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Something went wrong renewing your affiliation. Please try again." }, { status: 500 });
   }
 
+  // P5-09: renew_affiliation renews the membership of the CODE's college (0080).
+  // If that isn't the college the student is currently "in", make it the active
+  // one — otherwise the gate keeps checking the lapsed one and the student is
+  // sent straight back to /renew. The client refreshes its session to pick it up.
+  const { data: codeRow } = await admin.from("org_codes").select("org_id")
+    .eq("code", code.toUpperCase()).gt("expires_at", new Date().toISOString()).limit(1).maybeSingle();   // stored upper-case; exact match, no LIKE wildcards
+  let switched = false;
+  if (codeRow?.org_id && codeRow.org_id !== user.orgId) {
+    const { error: swErr } = await admin.from("profiles").update({ org_id: codeRow.org_id }).eq("id", user.id);
+    switched = !swErr;
+  }
+
   await logAudit({
     actorId: user.id, action: "account.affiliation_renewed",
-    targetTable: "org_members", metadata: { org_id: user.orgId },
+    targetTable: "org_members", metadata: { org_id: codeRow?.org_id ?? user.orgId, switched },
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, switched });
 }

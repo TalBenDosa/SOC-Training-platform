@@ -27,14 +27,18 @@ export function EnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void })
   const [open, setOpen] = useState(false);
   const [tree, setTree] = useState<Tree | null>(null);
   const [switching, setSwitching] = useState<string | null>(null);
+  // P5-13: surface fetch / switch failures instead of an endless "Loading…"
+  // or a silent reset.
+  const [loadError, setLoadError] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isPlatformAdmin || !open || tree !== null) return;
+    if (!isPlatformAdmin || !open || tree !== null || loadError) return;
     fetch("/api/superadmin/my-environments")
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => setTree(d))
-      .catch(() => setTree(null));
-  }, [isPlatformAdmin, open, tree]);
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(d => { if (!d) throw new Error("empty"); setTree(d); })
+      .catch(() => setLoadError(true));
+  }, [isPlatformAdmin, open, tree, loadError]);
 
   if (claimLoading || !isPlatformAdmin) return null;
 
@@ -44,18 +48,28 @@ export function EnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void })
   async function switchTo(id: string, isRoot: boolean) {
     if (id === orgId) { setOpen(false); return; }
     setSwitching(id);
-    const res = await fetch("/api/superadmin/enter-org", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
-    });
-    if (!res.ok) { setSwitching(null); return; }
-    // Org claims live in the JWT — refresh so the access-token hook restamps the
-    // new active org, then hard-reload so every consumer picks it up at once.
-    // Entering the root lands on the control tower (/superadmin); entering a
-    // client lands on that college's console (/manage).
-    const supabase = getSupabaseBrowserClient();
-    await supabase?.auth.refreshSession();
-    onNavigate?.();
-    window.location.href = isRoot ? "/superadmin" : "/manage";
+    setSwitchError(null);
+    try {
+      const res = await fetch("/api/superadmin/enter-org", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
+      });
+      if (!res.ok) {
+        setSwitchError((await res.json().catch(() => ({})))?.error ?? "Could not switch environment.");
+        setSwitching(null);
+        return;
+      }
+      // Org claims live in the JWT — refresh so the access-token hook restamps the
+      // new active org, then hard-reload so every consumer picks it up at once.
+      // Entering the root lands on the control tower (/superadmin); entering a
+      // client lands on that college's console (/manage).
+      const supabase = getSupabaseBrowserClient();
+      await supabase?.auth.refreshSession();
+      onNavigate?.();
+      window.location.href = isRoot ? "/superadmin" : "/manage";
+    } catch {
+      setSwitchError("Network error — could not switch environment.");
+      setSwitching(null);
+    }
   }
 
   return (
@@ -78,7 +92,15 @@ export function EnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void })
 
       {open && (
         <div className="mt-1 overflow-hidden rounded-md border border-border bg-bg">
-          {tree === null ? (
+          {switchError && (
+            <div role="alert" className="border-b border-border px-2.5 py-2 text-[11px] text-severity-high">{switchError}</div>
+          )}
+          {tree === null && loadError ? (
+            <div role="alert" className="flex items-center justify-between gap-2 px-2.5 py-2 text-[11px] text-severity-high">
+              <span>Couldn&apos;t load environments.</span>
+              <button onClick={() => setLoadError(false)} className="shrink-0 text-cyber-300 hover:underline">Retry</button>
+            </div>
+          ) : tree === null ? (
             <div className="flex items-center gap-2 px-2.5 py-2 text-[11px] text-slate-400">
               <Loader2 className="h-3 w-3 animate-spin" /> Loading…
             </div>

@@ -19,6 +19,31 @@ import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 
+import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
+
+/**
+ * Writes to the admin content API and REPORTS failure (QA P5-06). The handlers
+ * below update the screen first; they used to fire the request with
+ * `.catch(() => {})` and never look at the response, so a failed publish /
+ * delete / status change (expired session, server error) still looked done.
+ * Callers revert their optimistic change when this returns false.
+ */
+async function adminWrite(url: string, init: RequestInit): Promise<boolean> {
+  const res = await safeFetch(url, init);
+  if (res?.ok) return true;
+  const reason = !res ? NETWORK_ERROR : ((await res.json().catch(() => ({}))) as { error?: string })?.error ?? `The server rejected the change (${res.status}).`;
+  window.alert(`Not saved — ${reason}\n\nThe screen was put back as it was. Please try again.`);
+  return false;
+}
+
+/** Initial list load: a failure is said out loud instead of silently showing built-ins only. */
+async function adminRead(url: string, what: string): Promise<Response | null> {
+  const res = await safeFetch(url);
+  if (res?.ok) return res;
+  window.alert(`Couldn't load the ${what} from the server — only the built-in items are shown. Reload to try again.`);
+  return null;
+}
+
 // --------- Pre-compute log counts (pure, module-level) ------------------------------------------------------------------------------------------
 // (log counts now come from GET /api/admin/scenarios — see useAdminScenarioInfo)
 
@@ -380,8 +405,8 @@ function ScenariosTab() {
       setStatusMap(JSON.parse(localStorage.getItem("admin_scenario_status")??"{}"));
     } catch {}
     (async () => {
-      const res = await fetch("/api/admin/content/scenarios");
-      if (!res.ok) return;
+      const res = await adminRead("/api/admin/content/scenarios", "generated scenarios");
+      if (!res) return;
       const { items } = await res.json() as { items: { id: string; status: ItemStatus; content: { title: string; narrative?: string; attack_kind: string; difficulty: string; threat_actor: string; events?: TelemetryEvent[] } }[] };
       setGenerated(items.map(({ id, status, content: s }) => ({
         slug: id, title: s.title, summary: s.narrative ?? "",
@@ -421,10 +446,11 @@ function ScenariosTab() {
     // PATCHed via the admin content API. Built-ins have no DB row, so they keep
     // the original localStorage override (unchanged, out of scope for 0019).
     if (generated.some(s => s.slug === slug)) {
+      const before = generated;
       setGenerated(prev => prev.map(s => s.slug === slug ? { ...s, status } : s));
-      fetch(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, {
+      void adminWrite(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
-      }).catch(() => {});
+      }).then(ok => { if (!ok) setGenerated(before); });
       return;
     }
     const next = { ...statusMap, [slug]: status };
@@ -438,8 +464,10 @@ function ScenariosTab() {
   }
 
   function deleteGenerated(slug: string) {
+    const before = generated;
     const next = generated.filter(s => s.slug !== slug); setGenerated(next);
-    fetch(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, { method: "DELETE" }).catch(() => {});
+    void adminWrite(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, { method: "DELETE" })
+      .then(ok => { if (!ok) setGenerated(before); });
   }
 
   async function generateScenario() {
@@ -462,13 +490,15 @@ function ScenariosTab() {
     finally { setLoading(false); }
   }
 
-  function publishScenario() {
+  async function publishScenario() {
     if (!genPreview) return;
     const entry = { ...genPreview, id: genPreview.slug, events: genEvents, published_at: new Date().toISOString() };
-    fetch("/api/admin/content/scenarios", {
+    // Only show "published" once the server actually stored it.
+    const ok = await adminWrite("/api/admin/content/scenarios", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: entry.id, status: "published", content: entry }),
-    }).catch(() => {});
+    });
+    if (!ok) return;
     setGenerated(prev => [{ ...genPreview, events: genEvents }, ...prev]);
     setGenPublished(true);
     setTimeout(() => { setShowGen(false); setGenPreview(null); setGenEvents([]); setGenPublished(false); }, 1500);
@@ -941,8 +971,8 @@ function QuizzesTab() {
       setStatusMap(localStatus);
     } catch {}
     (async () => {
-      const res = await fetch("/api/admin/content/quizzes");
-      if (!res.ok) return;
+      const res = await adminRead("/api/admin/content/quizzes", "generated quizzes");
+      if (!res) return;
       const { items } = await res.json() as { items: { id: string; status: ItemStatus; content: GeneratedQuiz }[] };
       setGenQuizzes(items.map(({ content }) => content));
       setStatusMap(prev => ({ ...prev, ...Object.fromEntries(items.map(i => [i.id, i.status])) }));
@@ -962,11 +992,12 @@ function QuizzesTab() {
   });
 
   function setStatus(id: string, s: ItemStatus) {
+    const beforeStatus = statusMap[id];
     setStatusMap(prev => ({ ...prev, [id]: s }));
     if (genQuizzes.some(q => q.id === id)) {
-      fetch(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, {
+      void adminWrite(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: s }),
-      }).catch(() => {});
+      }).then(ok => { if (!ok) setStatusMap(prev => ({ ...prev, [id]: beforeStatus })); });
       return;
     }
     const next = { ...statusMap, [id]: s };
@@ -979,8 +1010,10 @@ function QuizzesTab() {
   }
 
   function deleteGenerated(id: string) {
+    const before = genQuizzes;
     const next=genQuizzes.filter(q=>q.id!==id); setGenQuizzes(next);
-    fetch(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+    void adminWrite(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, { method: "DELETE" })
+      .then(ok => { if (!ok) setGenQuizzes(before); });
   }
 
   function randomizeTopic() {
@@ -1000,12 +1033,14 @@ function QuizzesTab() {
     finally{setLoading(false);}
   }
 
-  function publish(q: GeneratedQuiz) {
-    setGenQuizzes(prev => [q, ...prev]);
-    fetch("/api/admin/content/quizzes", {
+  async function publish(q: GeneratedQuiz) {
+    // Only list it as published once the server actually stored it.
+    const ok = await adminWrite("/api/admin/content/quizzes", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: q.id, status: "published", content: q }),
-    }).catch(() => {});
+    });
+    if (!ok) return;
+    setGenQuizzes(prev => [q, ...prev]);
     setPubIds(p=>new Set([...p,q.id]));
     setPreview(null); setShowGen(false);
   }
@@ -1209,9 +1244,10 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
       setGenQuizzes(next);
       const updated = next.find(gq => gq.id === genId);
       if (updated) {
-        fetch(`/api/admin/content/quizzes/${encodeURIComponent(genId)}`, {
+        // The edits stay on screen if the save fails, so they can be saved again.
+        void adminWrite(`/api/admin/content/quizzes/${encodeURIComponent(genId)}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: updated }),
-        }).catch(() => {});
+        }).then(ok => { if (!ok) setSaved(false); });
       }
     } else {
       const edits = JSON.parse(localStorage.getItem("admin_quiz_edits")??"{}");
@@ -1414,8 +1450,8 @@ function LessonsTab() {
         const deleted: string[] = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
         deletedSet = new Set(deleted);
       } catch {}
-      const res = await fetch("/api/admin/content/lessons");
-      const saved: SyllabusLesson[] = res.ok
+      const res = await adminRead("/api/admin/content/lessons", "saved lessons");
+      const saved: SyllabusLesson[] = res
         ? ((await res.json() as { items: { content: SyllabusLesson }[] }).items.map(i => i.content))
         : [];
       const savedIds = new Set(saved.map(l => l.id));
@@ -1436,12 +1472,13 @@ function LessonsTab() {
    * exactly, not a new limitation introduced here.
    */
   function persist(next: SyllabusLesson[], changed?: SyllabusLesson) {
+    const before = lessons;
     setLessons(next);
     if (!changed || builtinIds.has(changed.id)) return;
-    fetch("/api/admin/content/lessons", {
+    void adminWrite("/api/admin/content/lessons", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: changed.id, status: "published", content: changed }),
-    }).catch(() => {});
+    }).then(ok => { if (!ok) setLessons(before); });
   }
 
   function deleteLesson(id: string) {
@@ -1452,7 +1489,9 @@ function LessonsTab() {
         localStorage.setItem("deleted_lesson_ids", JSON.stringify([...deleted, id]));
       }
     } else {
-      fetch(`/api/admin/content/lessons/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+      const before = lessons;
+      void adminWrite(`/api/admin/content/lessons/${encodeURIComponent(id)}`, { method: "DELETE" })
+        .then(ok => { if (!ok) setLessons(before); });
     }
     persist(lessons.filter(l => l.id !== id));
   }
