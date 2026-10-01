@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Building2, Plus, Users, CalendarClock, Loader2, AlertTriangle, Link2, Copy, Check, CheckCircle2, DollarSign, KeyRound, FileText, ArrowRight, Home, Settings, Inbox } from "lucide-react";
 import type { OrgSummary, OrgStatus } from "@/lib/org/types";
+import { OpsHealthCard } from "@/components/superadmin/OpsHealthCard";
 
 const STATUS_STYLE: Record<OrgStatus, string> = {
   active: "border-neon-green/30 bg-neon-green/10 text-neon-green",
@@ -106,6 +107,9 @@ export default function SuperAdminPage() {
             <AlertTriangle className="h-4 w-4" /> {error}
           </div>
         )}
+
+        {/* E-06: platform health (background jobs / realtime) — internal alerting. */}
+        <OpsHealthCard />
 
         {/* ── ROOT: the Main environment (control tower). Global actions + spend
             fold in here; each college's own code/actions live on its card. ── */}

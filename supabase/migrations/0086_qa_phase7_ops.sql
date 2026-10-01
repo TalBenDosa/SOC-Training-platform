@@ -99,3 +99,32 @@ $$;
 
 grant execute on function public.custom_access_token_hook to supabase_auth_admin;
 revoke execute on function public.custom_access_token_hook from authenticated, anon, public;
+
+-- E-06 (internal monitoring, no external service):
+--  · team_ops_events grew forever and a stuck error (e.g. a broadcast failing on
+--    every event) wrote one row per event. Identical (kind, session, detail)
+--    rows within a minute are now dropped, and rows older than 14 days are
+--    purged daily. /superadmin reads team_ops_health + the recent rows.
+create index if not exists team_ops_events_dedupe_idx on public.team_ops_events (kind, session_id, at desc);
+
+create or replace function public.team_ops_events_dedupe() returns trigger
+  language plpgsql security definer set search_path = public as $$
+begin
+  if exists (select 1 from public.team_ops_events e
+              where e.kind = NEW.kind
+                and e.session_id is not distinct from NEW.session_id
+                and e.detail is not distinct from NEW.detail
+                and e.at > NEW.at - interval '1 minute') then
+    return null;
+  end if;
+  return NEW;
+end $$;
+revoke all on function public.team_ops_events_dedupe() from public, anon, authenticated;
+
+drop trigger if exists team_ops_events_dedupe on public.team_ops_events;
+create trigger team_ops_events_dedupe before insert on public.team_ops_events
+  for each row execute function public.team_ops_events_dedupe();
+
+do $$ begin perform cron.unschedule('team-ops-purge'); exception when others then null; end $$;
+select cron.schedule('team-ops-purge', '23 3 * * *',
+  $cron$ delete from public.team_ops_events where at < now() - interval '14 days'; $cron$);
