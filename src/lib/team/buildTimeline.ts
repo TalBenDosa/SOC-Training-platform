@@ -228,11 +228,49 @@ const TICKET_RE = /\b(CHG-?\d[\d-]*|INC-?\d+|RITM\d+|ONB-\d+|NXC-\d+|NX-\d+|REQ-
  * — so the team gets that ticket as an ordinary ServiceNow record in the feed, and
  * has to correlate it with the change itself.
  */
+/**
+ * The approval reference an FP decoy's explanation cites ("ticket HR-2026-117",
+ * "Reference GL-AUDIT-2026-03", "(QB-HR-2026-S14)") — an ID with a digit, right
+ * after a ticket/reference word or in parentheses, never a hostname.
+ */
+export function approvalRefOf(text: string | undefined): string | null {
+  if (!text) return null;
+  const re = /(?:ticket|ref(?:erence)?|approval ref|access request|request|covers)\s*:?\s*([A-Za-z]{2,}[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)|\(([A-Za-z]{2,}[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)\)/gi;
+  for (const m of text.matchAll(re)) {
+    const id = m[1] ?? m[2] ?? "";
+    if (id === id.toUpperCase() && /\d/.test(id) && !/^(WS|LT|LAP|WKS|SRV|DC|NB)-/.test(id)) return id;
+  }
+  return null;
+}
+
+/** The approval a decoy rests on, as one plain line: the explanation's first clause. */
+function approvalSummaryOf(ev: TelemetryEvent): string {
+  const first = (ev.fp_explanation ?? "").split(/(?<=\.)\s|\s—\s/)[0].trim().replace(/\.$/, "");
+  return first.length > 8 ? first.slice(0, 160) : (ev.description ?? "").replace(/\s+—.*$/, "");
+}
+
 function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | null {
-  if (ev.it_verify_result !== "confirmed" || !ev.it_verify_message) return null;
-  const m = ev.it_verify_message.match(TICKET_RE);
-  if (!m) return null;
-  const number = m[1];
+  // Scenario review 2026-10-01, fix 5: an FP decoy whose explanation rests on an
+  // APPROVAL ("approved … ticket RS-4401") was unanswerable — the approval never
+  // appeared in the feed, so the analyst who escalated a USB copy / mail forward
+  // (the right call without evidence) was marked wrong. The approval now lands as
+  // an ordinary ServiceNow request a few logs before the activity it covers.
+  if (ev.it_verify_result !== "confirmed" || !ev.it_verify_message) {
+    if (classifyPoolEvent(ev) !== "fp") return null;
+    const ref = approvalRefOf(ev.fp_explanation);
+    if (!ref) return null;
+    const summary = approvalSummaryOf(ev);
+    return serviceNowRecord({
+      companyId, id: `itsm_${ev.id}`, ts: ev.ts, table: "sc_req_item", number: ref,
+      state: "Approved", shortDescription: summary, severity: "informational",
+      extra: { "servicenow.approval": "Approved", ...(ev.user_email ? { "servicenow.requested_for": ev.user_email } : {}) },
+      description: `ServiceNow request ${ref} (approved): ${summary}`,
+    } as Parameters<typeof serviceNowRecord>[0]);
+  }
+  // A ticket format the IT message uses (CHG / INC / RITM …), else any approval
+  // reference it or the explanation cites (e.g. an access request AR-QB-0302).
+  const number = ev.it_verify_message.match(TICKET_RE)?.[1] ?? approvalRefOf(ev.it_verify_message) ?? approvalRefOf(ev.fp_explanation);
+  if (!number) return null;
   const table = /^INC/.test(number) ? "incident" : /^RITM|^REQ|^ONB/.test(number) ? "sc_req_item" : "change_request";
   const summary = (ev.description ?? "").replace(/\s+—.*$/, "");
   const rec = serviceNowRecord({

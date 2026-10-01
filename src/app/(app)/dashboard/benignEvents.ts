@@ -2443,7 +2443,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     hostname: "WS-FIN-2847", user_email: "r.williams@nexacorp.com", user_title: "Compliance Officer", src_ip: "10.10.20.14",
     description: "r.williams copied 1,842 files (9.3 GB) from Finance share to USB E: on WS-FIN-2847",
     expected_verdict: "fp",
-    fp_explanation: "Quarter-end offline backup approved by finance manager — r.williams is authorised to take quarterly snapshots. DLP alert is expected; verify against JIRA ticket FIN-2847.",
+    fp_explanation: "Quarter-end offline backup approved by the finance manager — r.williams is authorised to take the quarterly snapshot to the encrypted FINQ1BKP drive. The DLP alert is expected; it is covered by approved request RITM0048213.",
     file: { path: "E:\\Q1-2026-Finance-Archive.zip", size: 9983303270 },
     raw: { "purview.policy": "BulkCopyToRemovableMedia", "purview.rule": "RemovableMedia-Finance",
            "purview.action": "alert", "purview.sensitivity": "Confidential",
