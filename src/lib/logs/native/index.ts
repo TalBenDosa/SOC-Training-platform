@@ -142,3 +142,17 @@ export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack)
   if (cat === "idp") next.source = (id === "okta" ? "okta" : base.source === "okta" ? "o365" : base.source) as TelemetryEvent["source"];
   return next;
 }
+
+/**
+ * A standalone scenario has no company stack: each event renders in the native format
+ * of the vendor it was authored for (a CrowdStrike-authored step stays CrowdStrike).
+ */
+export function nativeViewAuthored(ev: TelemetryEvent): { log: NativeLog; product: string } | null {
+  const id = sourceFor(ev, {});
+  const mod = id ? NATIVE_SOURCES[id] : undefined;
+  if (!mod) return null;
+  try {
+    const log = mod.fromTelemetry(ev, makeCtx("nexacorp"));
+    return log ? { log, product: mod.schema.product } : null;
+  } catch { return null; }
+}

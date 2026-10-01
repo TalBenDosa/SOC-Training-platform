@@ -1,5 +1,6 @@
 "use client";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
+import { NativeLogProvider, useNativeLog, nativeRows, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { useState, useEffect, useCallback, useMemo, useRef, memo, type MutableRefObject, type TextareaHTMLAttributes } from "react";
 import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
@@ -113,6 +114,8 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   onThreatQuery: (q: ThreatQuery) => void;
 }) {
   const [showJson, setShowJson] = useState(false);
+  // Native-format view (docs/log-schemas): the record as the authored vendor emits it.
+  const nativeView = useNativeLog(ev);
 
   // "Rule Description" used to render `Detection: ${ev.mitre_technique}` — so
   // an event detail panel displayed "Detection: T1078" to a student who was, in
@@ -177,7 +180,8 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
   // A raw block often repeats an ECS field the typed event already carries
   // (source.ip, destination.port…): show it once, not twice with a clashing key.
   const seen = new Set(ecsCore.map(([k, v]) => `${k}=${v}`));
-  const detailedFields: [string, string][] = [
+  // No schema mixing: with a native view, only the product's own fields.
+  const detailedFields: [string, string][] = nativeView ? nativeRows(nativeView.log.record) : [
     ...ecsCore,
     ...[...rawFields, ...rawBool].filter(([k, v]) => !seen.has(`${k}=${v}`)),
   ];
@@ -191,7 +195,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
             <span className="text-sm font-semibold text-white">Log Analysis</span>
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400 select-none">
-            Raw JSON
+            Raw log
             <button
               role="switch"
               aria-checked={showJson}
@@ -211,9 +215,9 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
 
         {showJson ? (
           <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[10px] leading-relaxed text-slate-300">
-            {/* `ev` here is the viewer's display projection — its `severity` is
-                the effective one the row shows, so the JSON agrees with the table. */}
-            {JSON.stringify(ev, null, 2)}
+            {/* Native record (wire line for text-native sources). Without a native module
+                this is the viewer's display projection, as before. */}
+            {nativeView ? (nativeView.log.rawLine ?? JSON.stringify(nativeView.log.record, null, 2)) : JSON.stringify(ev, null, 2)}
           </pre>
         ) : (
           <>
@@ -1492,6 +1496,15 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
   iocTruth?: IocTruth | null;
 }) {
   const [phase, setPhase]               = useState<Phase>("idle");
+  // Native-format logs (docs/log-schemas), each in its authored vendor's format.
+  // The 32 source modules load lazily.
+  const [nativeMod, setNativeMod] = useState<typeof import("@/lib/logs/native") | null>(null);
+  useEffect(() => {
+    let alive = true;
+    import("@/lib/logs/native").then(m => { if (alive) setNativeMod(m); }).catch(() => { /* legacy view stays */ });
+    return () => { alive = false; };
+  }, []);
+  const nativeRender = useMemo<NativeRenderer | null>(() => (nativeMod ? ev => nativeMod.nativeViewAuthored(ev) : null), [nativeMod]);
   // Hydration gate (finding #28): the Start button is inert until the client has
   // mounted, so the first click is never swallowed by a not-yet-hydrated button.
   const [mounted, setMounted]           = useState(false);
@@ -1688,6 +1701,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
   };
 
   return (
+    <NativeLogProvider value={nativeRender}>
     <div>
       {/* The subtitle was `Threat actor: ${bundle.threat_actor}`, displayed for
           the whole investigation. Attribution is a conclusion the analyst is
@@ -1971,5 +1985,6 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
         />
       )}
     </div>
+    </NativeLogProvider>
   );
 }
