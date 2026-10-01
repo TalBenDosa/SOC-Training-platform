@@ -20,6 +20,7 @@
  * renders or its RSC payload is serialised, so unlike a client-side redirect
  * there is no window in which protected markup reaches the browser.
  */
+import { isAuthOutage } from "@/lib/auth/authOutage";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
@@ -152,6 +153,8 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
     return toLogin(req, "auth_unavailable");
   }
   const user = userResult.data.user;
+  // E-05: Supabase Auth itself failed — explain it on /login instead of a silent bounce.
+  if (!user && isAuthOutage(userResult.error)) return toLogin(req, "auth_unavailable");
 
   // ── Not signed in → login, remembering where they were headed ──────────────
   if (!user) {

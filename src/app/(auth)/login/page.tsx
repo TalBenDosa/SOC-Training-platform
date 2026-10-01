@@ -21,6 +21,8 @@ function LoginForm() {
   // Set by the signup flow so a new account gets an explicit confirmation
   // here rather than landing on a bare form wondering whether it worked.
   const justRegistered = searchParams.get("registered") === "1";
+  // E-05: the middleware sends ?reason=auth_unavailable when the sign-in service is down.
+  const authUnavailable = searchParams.get("reason") === "auth_unavailable";
   const rawNext = searchParams.get("next");
   // Same-origin relative paths only. Must start with a single "/" and NOT with
   // "//" (protocol-relative) or "/\" — browsers normalise backslashes to
@@ -140,6 +142,15 @@ function LoginForm() {
           <p className="text-xs text-slate-300">
             Sign in and the code <span className="font-mono font-bold text-cyber-300">{joinCode}</span>{" "}
             will add its environment to your account.
+          </p>
+        </div>
+      )}
+      {authUnavailable && (
+        <div role="status" className="mb-4 flex items-start gap-2 rounded border border-neon-amber/40 bg-neon-amber/10 px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" />
+          <p className="text-xs text-slate-300">
+            The sign-in service is having a brief problem — you weren&apos;t signed out on purpose. Wait a moment, then
+            reload the page you were on or sign in again.
           </p>
         </div>
       )}

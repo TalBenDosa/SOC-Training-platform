@@ -6,6 +6,7 @@ import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "@/lib/supaba
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 import { buildPageCsp, makeNonce } from "@/lib/security/csp";
 import { isCrossSiteWrite } from "@/lib/security/csrf";
+import { isAuthOutage } from "@/lib/auth/authOutage";
 
 /**
  * Edge middleware — two responsibilities, composed:
@@ -143,6 +144,8 @@ async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: s
   });
   const userResult = await withApiAuthTimeout(supabase.auth.getUser());
   if (userResult === API_AUTH_TIMEOUT) return { authed: false, orgId: null, timedOut: true };
+  // E-05: the auth service failing is a 503 (retry), not "signed out" (401).
+  if (!userResult.data.user && isAuthOutage(userResult.error)) return { authed: false, orgId: null, timedOut: true };
   if (!userResult.data.user) return { authed: false, orgId: null };
   // Read the tenant from the (validated) session so expensive routes can be
   // budgeted per-org. Absent pre-migration → no org limit, unchanged behaviour.
