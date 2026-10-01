@@ -52,7 +52,7 @@ const ingested = (ts: string, ms: number): string => new Date(Date.parse(ts) + m
 const ntPath = (p: string): string => `\\Device\\HarddiskVolume3\\${p.slice(3)}`;
 
 /** Falcon sensor envelope carried by every event of one tenant (customer id, sensor build, config). */
-const CS_CID = "3f7e2a1b9c8d4e5f6a7b8c9d0e1f2a3b";
+const CS_CID = "a214f4f4fa1ab768a188dd17a1c89e85";
 const csEnvelope = (id: string): Record<string, string> => ({
   "crowdstrike.event_platform": "Win",
   "crowdstrike.cid": CS_CID,

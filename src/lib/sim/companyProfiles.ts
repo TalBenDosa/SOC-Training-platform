@@ -80,7 +80,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1204.002", mitre_tactic: "Execution",
     expected_verdict: "tp", is_detection: true,
     description: "Unwanted software detected on LAP-003",
-    file: { path: "/Users/s.amir/Downloads/VideoConverter_setup.dmg", sha256: "d7f3a4b2c1e0f5a8b9c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4" },
+    file: { path: "/Users/s.amir/Downloads/VideoConverter_setup.dmg", sha256: "757408ac2b3f9804bc5f4549f96b689277f2a57177ee79b72a038d60c6c83a3f" },
     raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "PUP.BundleApp", "action_result": "quarantined", "quarantine.status": "quarantined", "crowdstrike.SeverityName": "LOW" }
   },
   {
@@ -641,7 +641,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
       "aws.cloudtrail.request_parameters.repository_name": "platform-core",
       "aws.cloudtrail.request_parameters.image_tag": "v2.14.1",
       "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role",
-      "image.digest": "sha256:3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a", "action_result": "allowed" }
+      "image.digest": "sha256:e999cb3e590a8be82dd32bd3e38d6d0ae69c4757", "action_result": "allowed" }
   },
   {
     id: "rs_ci_003", ts: "2026-05-10T12:05:00.000Z",
@@ -896,7 +896,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "WINWORD.EXE on WS-MED-022 spawned cmd.exe, which wrote whoami output to a temp file",
     mitre_technique: "T1566.001",
     process: { name: "cmd.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 6610, user: "dr.vandijk", cmdline: "cmd.exe /c whoami /all > C:\\Users\\DOCVDIJK\\AppData\\Local\\Temp\\~tmp88A.txt", integrity: "high" },
-    file: { path: "C:\\Users\\dr.vandijk\\AppData\\Local\\Temp\\MedConf2026_Schedule.docm", sha256: "3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a" },
+    file: { path: "C:\\Users\\dr.vandijk\\AppData\\Local\\Temp\\MedConf2026_Schedule.docm", sha256: "d3c6766e5479a506de5991edf1cc62d35f999dda86baa1b57f7c541e746990f3" },
     raw: { "s1.eventType": "Indicators", "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "file.signed": "false" }
   },
   {
@@ -1873,7 +1873,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1204.002", mitre_tactic: "Execution",
     expected_verdict: "tp", is_detection: true,
     description: "PUA.Adware detected on WH-TERM-012",
-    file: { path: "C:\\Temp\\DriverUpdate.exe", sha256: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3" },
+    file: { path: "C:\\Temp\\DriverUpdate.exe", sha256: "0945bc1a00d8ce23f0fafda13e576cca3810b75d4a544746704653b1fcce8ec4" },
     raw: { "sophos.detection_name": "PUA.Adware", "action_result": "quarantined", "quarantine.status": "quarantined" }
   },
   {

@@ -47,7 +47,7 @@ const edrInjectEvent: TelemetryEvent = {
     "crowdstrike.GrantedAccess": "0x1FFFFF",
     "crowdstrike.IOCType": "hash_sha256",
     "crowdstrike.IOCValue":
-      "7f3e1c9b8a2d4f6e0c5b3a1d9f7e5c2b4a6d8f0e3c1b5a7d9f2e4c6b8a0d3e5f",
+      "dac329790fca469eb74d69310f84a01a02a9658f88d962fde3e943dde7569b6f",
     "crowdstrike.NetworkContainmentState": "Not Contained",
     "crowdstrike.MachineDomain": "MEDCORE",
   },
@@ -146,10 +146,10 @@ const avVsEdrMasterclass = {
         "  OS notifies AV mini-filter driver (on-access hook)\n\n" +
         "STEP 2 — HASH COMPUTATION\n" +
         "  AV computes: SHA256(contract_2024.docm)\n" +
-        "  Result:      a3f7c2e1b9d4f6a8c0e2d5b7f9a1c3e5d7b9f2a4c6e8b0d2f4a6c8e0b2d4f6a8\n\n" +
+        "  Result:      633eb894f47db05be718d87b9804cc48a217a7a70b7c4c53c145eca5eda71bdf\n\n" +
         "STEP 3 — HASH DATABASE LOOKUP\n" +
         "  Query local signature DB:\n" +
-        "  SHA256 = a3f7c2e1b9d4f6a8c0e2d5b7f9a1c3e5d7b9f2a4c6e8b0d2f4a6c8e0b2d4f6a8\n" +
+        "  SHA256 = 633eb894f47db05be718d87b9804cc48a217a7a70b7c4c53c145eca5eda71bdf\n" +
         "  Result: NO MATCH (new/unknown file)\n\n" +
         "STEP 4 — BYTE PATTERN SCAN\n" +
         "  Scan file bytes for known patterns:\n" +
@@ -444,7 +444,7 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.GrantedAccess": "0x1FFFFF",  // PROCESS_ALL_ACCESS\n\n' +
         "  // IOC\n" +
         '  "crowdstrike.IOCType": "hash_sha256",\n' +
-        '  "crowdstrike.IOCValue": "7f3e1c9b8a2d4f6e0c5b3a1d9f7e5c2b...",\n\n' +
+        '  "crowdstrike.IOCValue": "722ca33845720a1f26e4e12852450b4f...",\n\n' +
         "  // Host context\n" +
         '  "crowdstrike.NetworkContainmentState": "Not Contained",\n' +
         '  "crowdstrike.MachineDomain": "MEDCORE"\n' +

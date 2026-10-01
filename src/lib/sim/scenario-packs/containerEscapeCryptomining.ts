@@ -69,7 +69,7 @@ export function buildContainerEscapeCryptominingScenario(
   const badSa = "system:serviceaccount:data-pipeline:etl-runner";
   const cniSa = "system:serviceaccount:kube-system:cilium";
   const badImage = "registry.internal/etl-metrics:latest";
-  const containerId = "3f9a2c7e1b4d8e05a1c6f0b93d2e7a41";
+  const containerId = "d259ebe02ddb1c2d57207fd5c7b962bd";
 
   // The operator's control host and the mining infrastructure.
   const opIp = "45.83.192.44";

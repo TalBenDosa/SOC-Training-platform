@@ -564,7 +564,7 @@ const shadowCopyEvent: TelemetryEvent = {
     "vssadmin.exe deleted the oldest shadow copy on volume D: of FS-BACKUP-02 as part of the nightly retention job, launched from the Veeam agent service.",
   raw: {
     "crowdstrike.event_simpleName": "ProcessRollup2",
-    "crowdstrike.aid": "8f2c6e1d4a3b4f9e9c7d2b5a1e6f8c30",
+    "crowdstrike.aid": "cd1a749d4825cf5d8b479232b4b8154d",
     "crowdstrike.ComputerName": "FS-BACKUP-02",
     "crowdstrike.ContextProcessName": "vssadmin.exe",
     "crowdstrike.FileName": "vssadmin.exe",

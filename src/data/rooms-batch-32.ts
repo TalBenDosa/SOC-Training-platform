@@ -43,7 +43,7 @@ const seoInstallerEvent: TelemetryEvent = {
     path: "/pkg/helper_upd.exe",
     extension: "exe",
     size: 2_884_096,
-    sha256: "a4f7c1e29b3d4f686a01c8f2ed37b1043c9e7a412b6d4f189a057e4c1b8d3f62",
+    sha256: "b9a1a928342a6d2d55c3aa07b271609d613c66f5132326f19ed24dfcb36684ad",
   },
   network: {
     url: "https://cdn-pkg-mirror19.net/pkg/helper_upd.exe",
@@ -66,7 +66,7 @@ const seoInstallerEvent: TelemetryEvent = {
     "pan.url": "cdn-pkg-mirror19.net/pkg/helper_upd.exe",
     "pan.filename": "helper_upd.exe",
     "pan.filetype": "pe",
-    "pan.file_hash": "a4f7c1e29b3d4f686a01c8f2ed37b1043c9e7a412b6d4f189a057e4c1b8d3f62",
+    "pan.file_hash": "b9a1a928342a6d2d55c3aa07b271609d613c66f5132326f19ed24dfcb36684ad",
     "pan.direction": "download",
     "pan.session_id": "812204",
     "source.ip": "10.14.52.18",

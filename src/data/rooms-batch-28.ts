@@ -101,8 +101,8 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
   },
   raw: {
     "crowdstrike.event_simpleName": "ProcessRollup2",
-    "crowdstrike.DetectId": "ldt:7b2f4c1a9e6d3f082b5c7a1e4d9f6b03:55102",
-    "crowdstrike.IncidentId": "inc:7b2f4c1a9e6d3f082b5c7a1e4d9f6b03:20260203",
+    "crowdstrike.DetectId": "ldt:8006beb3bcd2593362266fe370c2b36f:55102",
+    "crowdstrike.IncidentId": "inc:8006beb3bcd2593362266fe370c2b36f:20260203",
     "crowdstrike.SeverityName": "High",
     "crowdstrike.Tactic": "Defense Evasion",
     "crowdstrike.Technique": "Signed Binary Proxy Execution",

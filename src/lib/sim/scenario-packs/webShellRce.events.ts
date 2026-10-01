@@ -29,7 +29,7 @@ export function webShellRceScenarioEvents() {
   // Authorized quarterly external ASV scan — Qualys cloud scanner range.
   const scannerIp = "64.39.106.131";
 
-  const shellHash = "3f9c1a7d52b84e06c9d13f7a48b25e0c7d61a9f34b820e5dc17a63f9081b4e2d";
+  const shellHash = "e4ca7770ea1290c68874e81e6dc6a2376304c9ebb3eb002fca67a9f4dbdb7ca1";
   const spoofHash = "d41c7b930a2e58f6b71d904c3e85a2f716c09db45f823a1e97d604cb2a1f7e35";
 
   const webAclArn =

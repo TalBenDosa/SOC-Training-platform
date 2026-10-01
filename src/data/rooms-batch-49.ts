@@ -435,7 +435,7 @@ export const roomsBatch49 = [
             "winlog.event_data.User": "THORNFIELDLOG\\r.esposito",
             "winlog.event_data.LogonId": "0x3a2f11",
             "winlog.event_data.IntegrityLevel": "Medium",
-            "winlog.event_data.Hashes": "SHA256=B3B49B5B0F1E4C2D6A97F81C5E2A6D3F9B8C1E4A7D2F5B8C1E4A7D2F5B8C1E4A",
+            "winlog.event_data.Hashes": "SHA256=A0A703F776AF7BD7B2E9C4363FA69888688B29AB36155713366EAE09CD65BA34",
             "winlog.event_data.Signed": "true",
             "winlog.event_data.Signature": "Microsoft Windows",
             "winlog.event_data.SignatureStatus": "Valid",

@@ -57,7 +57,7 @@ export function buildMacosTccPkgScenario(
     name: "MB-PM-07",
     fqdn: "MB-PM-07.northwind-collab.com",
     ip: "10.44.12.53",
-    id: "a1f4e9c2703b48d5a9c6f21e84b70d3f",
+    id: "65ea2d20bf4b4bb0472f9396f2c00b64",
     os: "macOS",
     osVersion: "15.3.1",
   };

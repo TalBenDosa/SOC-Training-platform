@@ -57,7 +57,7 @@ export function buildMacosStealerDmgScenario(
     name: "MB-CR-14",
     fqdn: "MB-CR-14.meridianstudios.com",
     ip: "10.50.4.61",
-    id: "d7c1a4f0e2b94a3c8f5e61a02c9b7d34",
+    id: "b73f980f0a6a8da38af2199967925ea9",
     os: "macOS",
     osVersion: "14.6.1",
   };

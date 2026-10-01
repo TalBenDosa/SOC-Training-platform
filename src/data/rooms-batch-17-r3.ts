@@ -36,7 +36,7 @@ const tlsBeaconEvent: TelemetryEvent = {
     "ssl.cipher": "TLS_RSA_WITH_AES_128_CBC_SHA",
     "ssl.server_name": "cdn-assets-static.net",
     "ssl.ja3": "e7d705a3286e19ea42f587b344ee6865",
-    "ssl.ja3s": "a0e9f5d64349fb13191bc781f81f42e1",
+    "ssl.ja3s": "7e7558f4374aed341ef2d452af381db7",
     "ssl.issuer": "CN=cdn-assets-static.net",
     "ssl.subject": "CN=cdn-assets-static.net",
     "ssl.validation_status": "self signed certificate",

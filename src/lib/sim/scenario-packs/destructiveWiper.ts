@@ -68,7 +68,7 @@ export function buildDestructiveWiperScenario(
   const wiperHash = makeSha256("destructive_wiper_2026_cl64_payload_binary");
   const driverHash = makeSha256("destructive_wiper_2026_epmntdrv_signed_partition_driver");
 
-  const sensorId = "a1f7c3e290b64d58b2c419e037f8a6c1";
+  const sensorId = "16c868848556ddbef116670ca7936a19";
   const aid = "6b2d9c4715a04e83b9f1c60a28e7d54f";
 
   const cx = "vantageindustrial" as const;

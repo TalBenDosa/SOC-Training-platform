@@ -68,7 +68,7 @@ export function buildGcpSaKeyTheftScenario(
   const targetSa = `data-pipeline-sa@${projectId}.iam.gserviceaccount.com`;
   const targetSaResource = `projects/${projectId}/serviceAccounts/${targetSa}`;
   // The user-managed JSON key the attacker mints — the persistence artifact.
-  const mintedKeyId = "7c1f9a4be2d086537f4c1b9e0a5d3268c4e97f10";
+  const mintedKeyId = "1fe043094388caa0983e7a0ed440a06588ede581";
   const mintedKeyResource = `${targetSaResource}/keys/${mintedKeyId}`;
 
   // The compromised foothold identity — a developer whose gcloud credentials

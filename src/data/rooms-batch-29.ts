@@ -63,7 +63,7 @@ const inv7ValidateEvent: TelemetryEvent = {
     cmdline: "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAA...",
     user: "CASTLETON\\j.alvarez",
     integrity: "medium",
-    hash: { sha256: "9f4c2b7e1a6d8f3c5b0a9e7d4f1c8b6a3e5d7f9c1b4a6e8d0f2c4b6a8e0d1f3c", md5: "b17ef6d19c7a5fc5335c81f4bde96d20" },
+    hash: { sha256: "675cf566d26003d6b082e1d37411487c25f8e1cf29a04254743980dad081c2c3", md5: "b17ef6d19c7a5fc5335c81f4bde96d20" },
   },
   description:
     "Microsoft Defender for Endpoint recorded a PowerShell process launched by WINWORD.EXE on WKS-FIN07 under j.alvarez's logon session, with a base64-encoded command-line argument. A correlation rule opened ticket INC-51204 on this record.",
@@ -73,7 +73,7 @@ const inv7ValidateEvent: TelemetryEvent = {
     "ActionType": "ProcessCreated",
     "FileName": "powershell.exe",
     "FolderPath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-    "SHA256": "9f4c2b7e1a6d8f3c5b0a9e7d4f1c8b6a3e5d7f9c1b4a6e8d0f2c4b6a8e0d1f3c",
+    "SHA256": "675cf566d26003d6b082e1d37411487c25f8e1cf29a04254743980dad081c2c3",
     "MD5": "b17ef6d19c7a5fc5335c81f4bde96d20",
     "ProcessCommandLine": "powershell.exe -nop -w hidden -enc SQBFAFgAKABOAGUAdwAtAE8AYgBqAGUAYwB0ACAA...",
     "AccountDomain": "CASTLETON",

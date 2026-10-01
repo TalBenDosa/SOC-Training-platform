@@ -129,7 +129,7 @@ export function buildCicdSupplyChainScenario(
       companyId: cx, id: "cicd_03_workflow_override", ts: T(5 * MIN), action: "protected_branch.policy_override", actor: attacker.actor, actorIp: attackerIp,
       userAgent: "git/2.44.0", org, repo, category: "configuration", user: attacker.email, incidentId: INCIDENT,
       mitre: "T1195.002", tactic: "Initial Access", severity: "critical",
-      extra: { "github.ref": "refs/heads/main", "github.protected_branch.name": "main", "github.before": "3f1a9c2e7b4d05a1e6f8c0b9d2a7e4c1f6b3d8a0", "github.after": "9c4d71e0a2f3b8c6d5e40917a2b3c4d5e6f70819", "github.head_commit.message": "ci: cache node_modules", "github.head_commit.modified": ".github/workflows/ci.yml", "github.programmatic_access_type": "Fine-grained personal access token" },
+      extra: { "github.ref": "refs/heads/main", "github.protected_branch.name": "main", "github.before": "b7950aa3f95fb50bb308d71821fbc3f7c3e88302", "github.after": "9c4d71e0a2f3b8c6d5e40917a2b3c4d5e6f70819", "github.head_commit.message": "ci: cache node_modules", "github.head_commit.modified": ".github/workflows/ci.yml", "github.programmatic_access_type": "Fine-grained personal access token" },
       description: "protected_branch.policy_override on rocketstack/payments-api: a push to refs/heads/main modified .github/workflows/ci.yml, bypassing the required review — commit message 'ci: cache node_modules', actor m.duarte from 45.156.128.19.",
     }),
 

@@ -9,6 +9,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { isSyntheticHex } from "../../../scripts/lib/syntheticHash.mjs";
 
 const WORDS = ["", "123", "1234", "12345", "123456", "password", "test", "abc", "hello", "foo", "bar", "admin", "malware", "virus", "a", "1"];
 const PLACEHOLDERS = new Set(WORDS.flatMap(w => ["sha256", "sha1", "md5"].map(alg => crypto.createHash(alg).update(w).digest("hex"))));
@@ -31,6 +32,19 @@ describe("telemetry hashes", () => {
       const text = fs.readFileSync(f, "utf8");
       for (const m of text.matchAll(/\b[a-f0-9]{32}\b|\b[a-f0-9]{40}\b|\b[a-f0-9]{64}\b/gi)) {
         if (PLACEHOLDERS.has(m[0].toLowerCase())) hits.push(`${path.relative(process.cwd(), f)}: ${m[0]}`);
+      }
+    }
+    expect(hits).toEqual([]);
+  });
+
+  it("no hand-typed placeholder digest (sequential runs, a1b2c3d4…, repeated blocks) — fix with scripts/fix-synthetic-hashes.mjs", () => {
+    const known = new Set<string>();
+    for (const f of ["src/lib/sim/malwareHashes.ts", "src/lib/sim/hashDatabase.ts"]) for (const m of fs.readFileSync(path.join(process.cwd(), f), "utf8").matchAll(/\b[a-f0-9]{32,64}\b/gi)) known.add(m[0].toLowerCase());
+    const hits: string[] = [];
+    for (const f of [...ROOTS, path.join(process.cwd(), "src/data"), path.join(process.cwd(), "src/lib/edr")].flatMap(r => files(r))) {
+      const text = fs.readFileSync(f, "utf8");
+      for (const m of text.matchAll(/\b[a-fA-F0-9]{64}\b|\b[a-fA-F0-9]{40}\b|\b[a-fA-F0-9]{32}\b/g)) {
+        if (!known.has(m[0].toLowerCase()) && isSyntheticHex(m[0])) hits.push(`${path.relative(process.cwd(), f)}: ${m[0]}`);
       }
     }
     expect(hits).toEqual([]);

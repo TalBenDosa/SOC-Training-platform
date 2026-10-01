@@ -65,7 +65,7 @@ export function buildInsiderDlpUsbCloudScenario(
     title: "Senior Financial Analyst",
     dept: "Client Accounts",
   };
-  const deviceId = "b4e8c2a17f9d4e63a5c1082fb7e34d91";
+  const deviceId = "2d360a3dd9a1e8b39a4a772e451bc663";
   const insiderSid = "S-1-5-21-3421479547-3897544621-1789562108-5277";
 
   // The client/finance file share he pulls from.
