@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { lsGet, lsSet, lsRemove, ssGet, ssSet, ssRemove } from "@/lib/storage/safeStorage";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
@@ -394,7 +395,7 @@ export default function DashboardPage() {
     // re-check on focus, for when they alt-tab back to the Dashboard.
     const sync = () => {
       try {
-        const done = localStorage.getItem("soc_edr_investigated") === "1";
+        const done = lsGet("soc_edr_investigated") === "1";
         setEdrInvestigated(done);
         // Finished in EDR → resume the clock; they now write the report (which
         // pauses it again). Keeps a walked-away EDR tab from freezing it.
@@ -588,7 +589,7 @@ export default function DashboardPage() {
       armedNextRef.current = false;
       setInvestigatingInEdr(false); // new incident → the EDR pause resets
       if (edrPauseCapRef.current) { clearTimeout(edrPauseCapRef.current); edrPauseCapRef.current = null; }
-      try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
+      try { lsRemove("soc_edr_investigated"); } catch { /* ignore */ }
       setEdrInvestigated(false);
     }
   }, [live.activeIncident]);
@@ -622,12 +623,12 @@ export default function DashboardPage() {
       setRoomReady(anyDone);
     } catch { setRoomReady(true); /* fail open — never nag on corrupt data */ }
     if (typeof window !== "undefined") {
-      setReadinessDismissed(localStorage.getItem("soc:dashboard-readiness-dismissed") === "1");
+      setReadinessDismissed(lsGet("soc:dashboard-readiness-dismissed") === "1");
     }
   }, [progressSnap.version, progressSnap.ready]);
   const dismissReadiness = () => {
     setReadinessDismissed(true);
-    try { localStorage.setItem("soc:dashboard-readiness-dismissed", "1"); } catch { /* ignore */ }
+    try { lsSet("soc:dashboard-readiness-dismissed", "1"); } catch { /* ignore */ }
   };
 
   // ── On mount: restore saved company + pick the opening modal ──────────────
@@ -636,8 +637,8 @@ export default function DashboardPage() {
   // telemetry to the EDR, before the shift begins.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved       = localStorage.getItem(COMPANY_KEY);
-    const seenWelcome  = localStorage.getItem(WELCOME_KEY);
+    const saved       = lsGet(COMPANY_KEY);
+    const seenWelcome  = lsGet(WELCOME_KEY);
 
     if (saved && saved !== "nexacorp") setSelectedCompanyId(saved);
 
@@ -646,8 +647,8 @@ export default function DashboardPage() {
     // keeps a lingering localStorage flag from leaving /edr reachable.
     setTrainingActive(false);
     try {
-      localStorage.removeItem("edr_live_investigation");
-      localStorage.removeItem("soc_edr_investigated");
+      lsRemove("edr_live_investigation");
+      lsRemove("soc_edr_investigated");
     } catch { /* ignore */ }
 
     if (!seenWelcome) {
@@ -660,21 +661,21 @@ export default function DashboardPage() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleCloseWelcome = () => {
-    localStorage.setItem(WELCOME_KEY, "1");
+    lsSet(WELCOME_KEY, "1");
     setShowWelcome(false);
-    if (!localStorage.getItem(COMPANY_KEY)) setShowCompanySelector(true);
+    if (!lsGet(COMPANY_KEY)) setShowCompanySelector(true);
   };
 
   /** Briefing → guided tour. Dismiss the modal FIRST so the two never overlap. */
   const handleTakeTour = () => {
-    localStorage.setItem(WELCOME_KEY, "1");
+    lsSet(WELCOME_KEY, "1");
     setShowWelcome(false);
     startDashboardTour();
   };
 
   const handleSelectCompany = (id: string) => {
     setSelectedCompanyId(id);
-    localStorage.setItem(COMPANY_KEY, id);
+    lsSet(COMPANY_KEY, id);
     setShowCompanySelector(false);
     setSourceFilter("all");
     setReportPassed(false);
@@ -779,7 +780,7 @@ export default function DashboardPage() {
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
     setWindowRemainingMs(null);
-    try { sessionStorage.removeItem("soc_dash_session"); } catch { /* ignore */ }
+    try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
     handleClearCompany();       // secure → Company-Secured modal → unlock next
   };
 
@@ -825,15 +826,15 @@ export default function DashboardPage() {
     setCaughtInWindow(0);
     setWindowRemainingMs(null);
     try {
-      localStorage.removeItem("soc_edr_investigated");
-      localStorage.removeItem("edr_live_investigation");
+      lsRemove("soc_edr_investigated");
+      lsRemove("edr_live_investigation");
     } catch { /* ignore */ }
     setEdrInvestigated(false);
     live.reset(resolveEvents(s, orgMap, company), story);
     // L-09: remember the active shift so a page refresh resumes it instead of
     // dropping the feed back to an idle 0-event dashboard. Session-scoped: it
     // lives only for this tab and is cleared when the shift is secured.
-    try { sessionStorage.setItem("soc_dash_session", JSON.stringify({ c: company, d: difficulty })); } catch { /* ignore */ }
+    try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty })); } catch { /* ignore */ }
   };
 
   // L-09: on a page refresh mid-shift, resume the session instead of dropping the
@@ -845,7 +846,7 @@ export default function DashboardPage() {
     resumedRef.current = true;
     let saved: { c?: string; d?: Difficulty } | null = null;
     try {
-      const raw = sessionStorage.getItem("soc_dash_session");
+      const raw = ssGet("soc_dash_session");
       if (raw) saved = JSON.parse(raw);
     } catch { saved = null; }
     if (saved?.c && (saved.d === "easy" || saved.d === "medium" || saved.d === "hard")) {
@@ -1014,7 +1015,7 @@ export default function DashboardPage() {
         <CompanySelector
           currentId={selectedCompanyId}
           onSelect={handleSelectCompany}
-          onClose={localStorage.getItem(COMPANY_KEY) ? () => setShowCompanySelector(false) : undefined}
+          onClose={lsGet(COMPANY_KEY) ? () => setShowCompanySelector(false) : undefined}
           unlockedIds={[...unlockedCompanies, ...orgCompanyProfiles.map(c => c.id)]}
           clearedIds={clearedCompanies}
           extraCompanies={orgCompanyProfiles}
@@ -1063,7 +1064,7 @@ export default function DashboardPage() {
                 rel="noopener"
                 onClick={() => {
                   if (edrAlertCount > 0 && liveEdrInvestigation && typeof window !== "undefined") {
-                    localStorage.setItem("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
+                    lsSet("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
                     // Pause the response clock (and defer any "missed" verdict)
                     // while they investigate in EDR. Safety cap resumes it after
                     // 20 min so an abandoned EDR tab can't freeze it forever.
@@ -1646,7 +1647,7 @@ export default function DashboardPage() {
             onPassed={async (score: number) => {
               setReportPassed(true);
               // Report filed — clear the EDR "don't forget" reminder.
-              try { localStorage.removeItem("soc_edr_investigated"); } catch { /* ignore */ }
+              try { lsRemove("soc_edr_investigated"); } catch { /* ignore */ }
               setEdrInvestigated(false);
 
               // Dedup: count each incident exactly once. The modal's submit stays

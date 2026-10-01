@@ -11,6 +11,7 @@
  *  - Signs out: swaps back to localStorageBackend and reloads once.
  */
 import { useEffect, useRef } from "react";
+import { ssGet, ssSet, ssRemove } from "@/lib/storage/safeStorage";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { setStorageBackend, localStorageBackend } from "./backend";
@@ -27,8 +28,10 @@ import { decodeOrgClaim } from "@/lib/auth/orgClaim";
  */
 function reloadOncePerIdentity(identity: string) {
   const marker = `soc_backend_reloaded_${identity}`;
-  if (sessionStorage.getItem(marker) === "1") return;
-  sessionStorage.setItem(marker, "1");
+  if (ssGet(marker) === "1") return;
+  // E-22: with sessionStorage blocked the marker can't be kept, and reloading
+  // anyway would loop forever — stay on the page instead.
+  if (!ssSet(marker, "1")) return;
   window.location.reload();
 }
 
@@ -52,7 +55,7 @@ export function ProgressProvider({ children }: { children: React.ReactNode }) {
     }
 
     // New identity — clear the guest marker so a future sign-out can reload again.
-    sessionStorage.removeItem("soc_backend_reloaded_guest");
+    ssRemove("soc_backend_reloaded_guest");
 
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;

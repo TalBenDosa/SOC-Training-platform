@@ -39,6 +39,7 @@ import {
 // telemetry actually carries it — ESXi/vCenter at on-prem datacenters, Linux
 // auditd where there are Linux servers, AiTM/AD attacks at the M365/AD shops.
 import { esxiRansomwareScenarioEvents }        from "@/lib/sim/scenario-packs/esxiRansomware.events";
+import { lsReadJson, lsSet, isStringArray } from "@/lib/storage/safeStorage";
 import { rogueAdminAccountScenarioEvents }     from "@/lib/sim/scenario-packs/rogueAdminAccount.events";
 import { impossibleTravelBasicScenarioEvents } from "@/lib/sim/scenario-packs/impossibleTravelBasic.events";
 import { webShellRceScenarioEvents }           from "@/lib/sim/scenario-packs/webShellRce.events";
@@ -961,15 +962,13 @@ const RECENT_KEY = "soc_recent_story_ids";
 const RECENT_N   = 8;
 
 function readRecent(): string[] {
-  if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") as string[]; }
-  catch { return []; }
+  // E-22: storage can throw (private mode / blocked) and the value can be any shape.
+  return lsReadJson(RECENT_KEY, [] as string[], isStringArray);
 }
 
 function pushRecent(id: string) {
-  if (typeof window === "undefined") return;
   const next = [id, ...readRecent().filter(x => x !== id)].slice(0, RECENT_N);
-  localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  lsSet(RECENT_KEY, JSON.stringify(next));
 }
 
 /**

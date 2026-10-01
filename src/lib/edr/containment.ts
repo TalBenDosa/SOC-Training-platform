@@ -1,3 +1,4 @@
+import { lsReadJson, lsSet, isStringArray } from "@/lib/storage/safeStorage";
 /**
  * Shared containment state between the EDR console and the live SOC Dashboard —
  * the "one platform" feel. When a student network-contains a host in /edr, the
@@ -10,12 +11,12 @@ export const EDR_CONTAINMENT_EVENT = "edr:containment-changed";
 
 function read(): string[] {
   if (typeof window === "undefined") return [];
-  try { return JSON.parse(localStorage.getItem(KEY) || "[]"); } catch { return []; }
+  return lsReadJson(KEY, [] as string[], isStringArray);   // E-22: shape-checked
 }
 
 function write(hosts: string[]) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(KEY, JSON.stringify([...new Set(hosts)]));
+  lsSet(KEY, JSON.stringify([...new Set(hosts)]));
   window.dispatchEvent(new CustomEvent(EDR_CONTAINMENT_EVENT));
 }
 

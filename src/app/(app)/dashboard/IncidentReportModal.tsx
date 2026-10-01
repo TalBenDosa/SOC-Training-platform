@@ -1,5 +1,6 @@
 "use client";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
+import { lsGet, lsSet, lsRemove } from "@/lib/storage/safeStorage";
 import { useState, useEffect } from "react";
 import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -100,8 +101,13 @@ export function IncidentReportModal({
   const loadDraft = (): { guided: boolean; gWhat: string; gIocs: string; gAction: string; gImpact: string; summary: string } | null => {
     if (typeof window === "undefined") return null;
     try {
-      const raw = localStorage.getItem(draftKey);
-      return raw ? JSON.parse(raw) : null;
+      const raw = lsGet(draftKey);
+      const d: unknown = raw ? JSON.parse(raw) : null;
+      // E-22: a hand-edited / older draft must not put non-strings into the form.
+      if (!d || typeof d !== "object") return null;
+      const o = d as Record<string, unknown>;
+      const s = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : "");
+      return { guided: o.guided !== false, gWhat: s("gWhat"), gIocs: s("gIocs"), gAction: s("gAction"), gImpact: s("gImpact"), summary: s("summary") };
     } catch { return null; }
   };
   const draft = loadDraft();
@@ -116,7 +122,7 @@ export function IncidentReportModal({
   // into the summary on submit — beginners get structure, the API is unchanged.
   const [guided, setGuided] = useState(() => {
     if (draft) return draft.guided;
-    if (typeof window !== "undefined" && localStorage.getItem("soc_report_mode_v1") === "free") return false;
+    if (typeof window !== "undefined" && lsGet("soc_report_mode_v1") === "free") return false;
     return true;
   });
   const [gWhat,   setGWhat]   = useState(draft?.gWhat ?? "");
@@ -126,13 +132,13 @@ export function IncidentReportModal({
 
   const setMode = (g: boolean) => {
     setGuided(g);
-    if (typeof window !== "undefined") localStorage.setItem("soc_report_mode_v1", g ? "guided" : "free");
+    if (typeof window !== "undefined") lsSet("soc_report_mode_v1", g ? "guided" : "free");
   };
 
   // Persist the draft on every change so closing the modal never loses text.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(draftKey, JSON.stringify({ guided, gWhat, gIocs, gAction, gImpact, summary }));
+    lsSet(draftKey, JSON.stringify({ guided, gWhat, gIocs, gAction, gImpact, summary }));
   }, [draftKey, guided, gWhat, gIocs, gAction, gImpact, summary]);
 
   useEffect(() => {
@@ -182,7 +188,7 @@ export function IncidentReportModal({
       const data: IncidentReportResponse = await res.json();
       setResult(data);
       setPassed(data.passed);
-      if (data.passed) { onPassed(data.score); localStorage.removeItem(draftKey); }
+      if (data.passed) { onPassed(data.score); lsRemove(draftKey); }
       setPhase("result");
     } catch (e) {
       // NEVER fail-open. A network/grader failure must not award a pass — that
