@@ -6,6 +6,16 @@
 
 const BRAND = "#0891b2"; // cyber-600, readable on white
 
+/**
+ * Escape text for an HTML email body. EVERY interpolated value goes through it
+ * (SEC-14): display names, org names and room titles are user- or admin-written,
+ * and a name like `<a href="https://x">Verify</a>` rendered as a link in our mail.
+ * The shared helpers below escape their own arguments.
+ */
+function esc(s: string): string {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function shell(title: string, bodyHtml: string): string {
   return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
   <div style="max-width:560px;margin:0 auto;padding:24px;">
@@ -13,7 +23,7 @@ function shell(title: string, bodyHtml: string): string {
       <span style="font-family:'Courier New',monospace;font-weight:bold;letter-spacing:2px;color:#fff;font-size:16px;">HACK<span style="color:#22d3ee;"> THE </span>SOC</span>
     </div>
     <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;padding:28px;">
-      <h1 style="margin:0 0 14px;font-size:20px;color:#0f172a;">${title}</h1>
+      <h1 style="margin:0 0 14px;font-size:20px;color:#0f172a;">${esc(title)}</h1>
       ${bodyHtml}
       <p style="margin:28px 0 0;font-size:12px;color:#94a3b8;">SOC Analyst Training Platform</p>
     </div>
@@ -21,16 +31,16 @@ function shell(title: string, bodyHtml: string): string {
 }
 
 function button(href: string, label: string): string {
-  return `<a href="${href}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 20px;border-radius:8px;">${label}</a>`;
+  return `<a href="${esc(href)}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 20px;border-radius:8px;">${esc(label)}</a>`;
 }
 
 function linkBox(href: string): string {
-  return `<div style="margin:10px 0;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-family:'Courier New',monospace;font-size:12px;word-break:break-all;color:#334155;">${href}</div>`;
+  return `<div style="margin:10px 0;padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-family:'Courier New',monospace;font-size:12px;word-break:break-all;color:#334155;">${esc(href)}</div>`;
 }
 
 /** A prominent monospace code chip — for the class affiliation code. */
 function codeChip(code: string): string {
-  return `<div style="margin:10px 0;padding:14px 18px;background:#f0f9ff;border:1px solid ${BRAND};border-radius:10px;text-align:center;font-family:'Courier New',monospace;font-size:24px;font-weight:bold;letter-spacing:6px;color:#0369a1;">${code}</div>`;
+  return `<div style="margin:10px 0;padding:14px 18px;background:#f0f9ff;border:1px solid ${BRAND};border-radius:10px;text-align:center;font-family:'Courier New',monospace;font-size:24px;font-weight:bold;letter-spacing:6px;color:#0369a1;">${esc(code)}</div>`;
 }
 
 /** Sent to a college's admin when their environment is provisioned. */
@@ -110,7 +120,7 @@ export function accountAccessEmail(args: { orgName: string; link: string }): {
   const { orgName, link } = args;
   const html = shell(
     `Sign in to ${orgName} on HACK THE SOC`,
-    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">Your admin account for <strong>${orgName}</strong> is ready and waiting. Click below to set your password and sign in — from there you can manage your class and generate today&#39;s class code for students.</p>
+    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">Your admin account for <strong>${esc(orgName)}</strong> is ready and waiting. Click below to set your password and sign in — from there you can manage your class and generate today&#39;s class code for students.</p>
      <p style="margin:0 0 4px;">${button(link, "Set a password and sign in")}</p>
      ${linkBox(link)}
      <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">This link is valid for a limited time and can be used once. If it has expired, ask for a new one or use "Forgot password" on the sign-in page.</p>`,
@@ -156,7 +166,7 @@ export function lapsedNudgeEmail(args: {
   const { name, daysAway, resumeLink, nextRoomTitle, nextRoomMinutes } = args;
 
   const nextBlock = nextRoomTitle
-    ? `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">Your next room is <strong>${nextRoomTitle}</strong>${
+    ? `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">Your next room is <strong>${esc(nextRoomTitle)}</strong>${
         nextRoomMinutes ? ` — about ${nextRoomMinutes} minutes` : ""
       }.</p>`
     : `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">Pick up wherever you left off — your progress is exactly where you left it.</p>`;
@@ -175,11 +185,6 @@ export function lapsedNudgeEmail(args: {
   }Pick up where you left off:\n${resumeLink}\n\nNot training right now? You can ignore this — your progress stays saved.`;
 
   return { subject: `Your SOC training is waiting — ${daysAway} days idle`, html, text };
-}
-
-/** Escape text for an HTML email body (plan titles are manager-authored). */
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 /** One line of plain text: control characters out, whitespace collapsed, clipped. */
@@ -216,9 +221,9 @@ export function planNotificationEmail(args: { kind: PlanEmailKind; planTitle: st
       : "Your training administrator updated your personal priorities";
   const named = args.kind !== "personal_plan" && plan;
   const html = shell(
-    esc(subject),
+    subject,
     `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">${esc(lead)}${named ? `: <strong>${esc(plan)}</strong>` : ""}.</p>
-     <p style="margin:0 0 4px;">${button(esc(args.link), "Open my learning plan")}</p>
+     <p style="margin:0 0 4px;">${button(args.link, "Open my learning plan")}</p>
      <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">You're receiving this because your training administrator${org ? ` at ${esc(org)}` : ""} assigned you work on HACK THE SOC. You'll also find it under the bell in the app.</p>`,
   );
   const text = `${lead}${named ? `: ${plan}` : ""}.\n\nOpen your learning plan: ${args.link}\n\nYou're receiving this because your training administrator${org ? ` at ${org}` : ""} assigned you work on HACK THE SOC.`;
