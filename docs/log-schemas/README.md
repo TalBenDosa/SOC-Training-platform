@@ -18,7 +18,7 @@ Each card: official sources (URLs), native format + delivery path, core field re
 meaning, allowed values), realistic JSON samples for the SOC-relevant event types, investigation
 notes (what an analyst pivots on), and common mistakes / fields that do NOT exist.
 
-## Index (33 cards, 239 JSON samples — all parse; researched 2026-10-01)
+## Index (33 cards, 243 JSON samples — all parse; researched 2026-10-01)
 
 | Category | Cards |
 |---|---|
@@ -36,9 +36,11 @@ avoided before an emitter relies on them.
 
 ## Findings that change the platform's current logs
 
-1. **CrowdStrike** — raw FDR process/network events carry no `ComputerName` / `UserName` (those come
-   from the host table and logon events). Alerts use the Alerts API v2 (the Detects API was retired
-   2025-09-30).
+1. **CrowdStrike** — raw FDR events are compact (a real current ProcessRollup2 has ~40 fields); host
+   and user context comes from the aidmaster / userinfo records and UserLogon events, joined on `aid` /
+   `UserSid` / `AuthenticationId`. Sensors from late 2025 also put `ComputerName` (and `LocalAddressIP4`)
+   on many raw events. No `UserName` on process events. Alerts use the Alerts API v2 (the Detects API
+   was retired 2025-09-30).
 2. **Defender for Endpoint** — native export = Event Hub streaming record wrapping the Advanced Hunting
    row (`category: "AdvancedHunting-<Table>"`, `properties: {…}`); `mde.AlertTitle` does not exist
    (use the AlertInfo table).
