@@ -57,6 +57,11 @@ export async function POST(
   // a count followed by a separate insert let parallel requests — one per option
   // of a question — all read "0 previous" and all grade as the first try.
   let attemptNo = Math.max(1, Math.min(1000, Math.floor(Number(b.attemptNumber)) || 1));
+  // E-04: validate the answer's SHAPE before an attempt is claimed — a malformed
+  // body (400) used to consume the student's first try anyway (XP penalty on the
+  // real answer that followed). gradeTask is pure, so a dry run costs nothing.
+  const shape = gradeTask(task, { ...b, attemptNumber: 1 }, room);
+  if (!shape.ok) return NextResponse.json({ error: shape.error }, { status: shape.status });
   if (record) {
     const { data: claimed, error: claimErr } = await admin!.rpc("claim_task_attempt", {
       p_user: user!.id, p_room: room.id, p_task: task.id, p_qidx: qIndex,
@@ -106,6 +111,11 @@ export async function POST(
     });
     if (insErr) {
       console.error("[room submit] could not record attempt:", insErr.message);
+      // E-04: give the claimed attempt back (only if nothing claimed after it), so the
+      // retry the student is asked to make is graded as the same attempt.
+      const { error: relErr } = await admin!.from("task_attempt_counters").update({ n: attemptNo - 1 })
+        .eq("user_id", user!.id).eq("room_id", room.id).eq("task_id", task.id).eq("qidx", qIndex ?? -1).eq("n", attemptNo);
+      if (relErr) console.error("[room submit] could not release the attempt:", relErr.message);
       return NextResponse.json({ error: "Couldn't save your answer — please try again." }, { status: 503 });
     }
   }

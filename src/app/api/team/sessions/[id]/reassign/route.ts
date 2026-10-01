@@ -48,8 +48,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (member.role === "instructor") return NextResponse.json({ error: "The session owner's role can't be changed." }, { status: 409 });
 
   if (SINGLE_SEAT.has(role)) {
-    const { data: holders } = await admin.from("team_session_members")
+    const { data: holders, error: holdersErr } = await admin.from("team_session_members")
       .select("user_id, status").eq("session_id", id).eq("role", role);
+    if (holdersErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: a failed read never seats a second Manager
     if ((holders ?? []).some(h => h.user_id !== targetUserId && h.status !== "left")) {
       return NextResponse.json({ error: `${role === "mgr" ? "SOC Manager" : "Tier-3"} is a single-seat role and is already filled.` }, { status: 409 });
     }

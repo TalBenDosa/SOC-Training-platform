@@ -53,7 +53,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .select("user_id").eq("org_id", sess.org_id).eq("user_id", targetUserId).eq("status", "active").maybeSingle();
   if (!orgMem) return NextResponse.json({ error: "That user isn't an active member of your organisation." }, { status: 400 });
 
-  const { data: roster } = await admin.from("team_session_members").select("user_id, role, status").eq("session_id", id);
+  const { data: roster, error: rosterErr } = await admin.from("team_session_members").select("user_id, role, status").eq("session_id", id);
+  if (rosterErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: roster cap / single seats need the real roster
   const existing = (roster ?? []).find(m => m.user_id === targetUserId);
   if (existing?.role === "instructor") return NextResponse.json({ error: "The session owner's role can't be changed." }, { status: 409 });
   const active = (roster ?? []).filter(m => m.status !== "left").length;

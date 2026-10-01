@@ -37,10 +37,11 @@ export async function POST(req: Request) {
   // cap, no clock). So a non-super-admin who already administers ANY org is
   // refused here — this is what enforces "an org admin is registered once".
   if (!user.isPlatformAdmin) {
-    const { data: adminElsewhere } = await admin
+    const { data: adminElsewhere, error: adminErr } = await admin
       .from("org_members").select("org_id")
       .eq("user_id", user.id).eq("role", "org_admin").eq("status", "active")
       .limit(1);
+    if (adminErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: fail closed
     if (adminElsewhere && adminElsewhere.length > 0) {
       return NextResponse.json({
         error: "Org admins belong to a single organisation and can't join another. Ask the platform owner if you need access elsewhere.",

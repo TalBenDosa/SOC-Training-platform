@@ -34,10 +34,13 @@ type Admin = NonNullable<ReturnType<typeof getSupabaseAdminClient>>;
  * refusal response, or null when the target may be acted on.
  */
 async function protectedTargetError(admin: Admin, orgId: string, target: string): Promise<NextResponse | null> {
-  const [{ data: prof }, { data: mem }] = await Promise.all([
+  const [{ data: prof, error: profErr }, { data: mem, error: memErr }] = await Promise.all([
     admin.from("profiles").select("is_platform_admin").eq("id", target).maybeSingle(),
     admin.from("org_members").select("role").eq("org_id", orgId).eq("user_id", target).maybeSingle(),
   ]);
+  // E-03: a failed read must never mean "not protected" — on a DB blip an org
+  // admin could otherwise deactivate / remove a fellow admin or the platform admin.
+  if (profErr || memErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });
   if (prof?.is_platform_admin || mem?.role === "org_admin") {
     return NextResponse.json({ error: "Organisation admins can only be changed by the platform team." }, { status: 403 });
   }
@@ -113,8 +116,9 @@ export async function POST(req: Request) {
   // pull in someone who belongs to ANOTHER institution — that would move them
   // out of their own college without their consent. They can join with this
   // org's class code instead (their choice).
-  const { data: elsewhere } = await admin.from("org_members").select("org_id")
+  const { data: elsewhere, error: elsewhereErr } = await admin.from("org_members").select("org_id")
     .eq("user_id", userId).eq("status", "active").neq("org_id", orgId).neq("org_id", ROOT_ORG_ID).limit(1);
+  if (elsewhereErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: fail closed
   if (elsewhere && elsewhere.length > 0) {
     return NextResponse.json({ error: "This person already belongs to another institution. Ask them to join with your class code instead." }, { status: 409 });
   }
