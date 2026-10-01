@@ -1036,7 +1036,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       // ── Attachment ──
       "data.office365.AttachmentData.FileName":     "AccountVerification_2026.docx",
       "data.office365.AttachmentData.FileType":     "DOCX",
-      "data.office365.AttachmentData.SHA256":       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "data.office365.AttachmentData.SHA256":       "7a968b8937f69f6b2deb4f8abc7dbe8aafff16d3b738ede0720815fd26e3bacc",
       "data.office365.AttachmentData.FileVerdict":  "Malicious",
 
       // ── Deep link ──
@@ -1061,7 +1061,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     },
   },
 
-  // Phishing email DELIVERED — slipped past filters (payload macro in Excel)
+  // Phishing email DELIVERED, then pulled by ZAP minutes later (payload macro in Excel)
   {
     id: "b_mdo_phish_delivered", ts: T(71), source: "o365", vendor: "Microsoft Defender for Office 365",
     event_type: "email_received", severity: "high",
@@ -1069,10 +1069,10 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     src_ip: "89.44.13.218",
     mitre_technique: "T1566.001",
     expected_verdict: "tp",
-    description: "Phishing email with macro-enabled attachment delivered to inbox — not caught by automated filters",
+    description: "Phishing email with a macro-enabled attachment reached j.chen's inbox — Defender pulled it 4 minutes later (ZAP); check whether it was opened",
     raw: {
       // ── Defender for O365 Threat Intelligence fields ──
-      "data.office365.Operation":                   "TIMailData-Inline",
+      "data.office365.Operation":                   "TIMailData",
       "data.office365.Workload":                    "Exchange",
       "data.office365.RecordType":                  "28",
       "data.office365.Version":                     "1",
@@ -1081,11 +1081,11 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.CreationTime":                T(71),
       "data.office365.UserId":                      "j.chen@nexacorp.com",
       "data.office365.UserKey":                     "j.chen@nexacorp.com",
-      "data.office365.UserType":                    "Admin",
+      "data.office365.UserType":                    "4",
 
       // ── Email identifiers ──
       "data.office365.NetworkMessageId":            "9d2f7a1c-44b3-4e8d-b901-ab5678901234",
-      "data.office365.InternetMessageId":           "<CO2PR12MB2341.namprd12.prod.outlook.com>",
+      "data.office365.InternetMessageId":           "<20260512081347.4F2A9C71@mail.payroll-nexacorp.com>",
       "data.office365.ObjectId":                    "9d2f7a1c-44b3-4e8d-b901-ab5678901234",
       "data.office365.MessageTime":                 T(71),
 
@@ -1098,30 +1098,31 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.Subject":                     "Q2 2026 Bonus Distribution — Confirm Your Details",
       "data.office365.Directionality":              "Inbound",
 
-      // ── Threat verdict — low confidence, that is why it got through ──
-      "data.office365.Verdict":                     "Phish",
-      "data.office365.PhishConfidenceLevel":        "Normal",
+      // ── Threat verdict — reached after delivery: the attachment's detonation finished
+      //    minutes later and Zero-hour auto purge (ZAP) pulled the message from the inbox ──
+      "data.office365.Verdict":                     "Malware",
       "data.office365.DetectionType":               "ZAP",
-      "data.office365.DetectionMethod":             "Mixed analysis engine",
-      "data.office365.ThreatsAndDetectionTech":     "Phish: URL malicious reputation",
+      "data.office365.DetectionMethod":             "File detonation",
+      "data.office365.ThreatsAndDetectionTech":     "Malware: File detonation",
 
-      // ── Delivery disposition — delivered first, flagged after delivery (ZAP) ──
+      // ── Delivery disposition — delivered to the inbox first, quarantined by ZAP after ──
+      //    The window in between is the question: did j.chen open it?
       "data.office365.DeliveryAction":              "Delivered",
-      "data.office365.PolicyAction":                "MoveToJmf",
-      "data.office365.Policy":                      "Anti-phishing",
+      "data.office365.PolicyAction":                "Quarantine",
+      "data.office365.Policy":                      "Anti-malware",
       "data.office365.OriginalDeliveryLocation":    "Inbox",
-      "data.office365.LatestDeliveryLocation":      "Inbox",
+      "data.office365.LatestDeliveryLocation":      "Quarantine",
 
       // ── Authentication — attacker set up DKIM/SPF on their domain (passes checks) ──
       "data.office365.AuthDetails.Name":            "CompAuth",
       "data.office365.AuthDetails.Value":           "pass (200)",
       "data.office365.SystemOverrides":             "N/A",
-      "data.office365.AdditionalActionsAndResults": "OriginalDelivery:Inbox",
+      "data.office365.AdditionalActionsAndResults": "OriginalDelivery: [Inbox]; ZAP: [Success — moved to Quarantine after 4 min]",
 
       // ── Attachment — macro-enabled Excel ──
       "data.office365.AttachmentData.FileName":     "Q2_Bonus_Distribution_2026.xlsm",
       "data.office365.AttachmentData.FileType":     "XLSM",
-      "data.office365.AttachmentData.SHA256":       "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",
+      "data.office365.AttachmentData.SHA256":       "a625b26f0463762bdb8f2cc3cb27df8bba21add39d21cb89005ea84f8f54593a",
       "data.office365.AttachmentData.FileVerdict":  "Malicious",
 
       // ── Deep link ──
