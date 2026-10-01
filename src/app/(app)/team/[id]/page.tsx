@@ -54,6 +54,7 @@ import { SituationBoard } from "./_components/SituationBoard";
 import { SecondaryPanels } from "./_components/SecondaryPanels";
 import { WarRoom } from "./_components/WarRoom";
 import { TeamIntel } from "./_components/TeamIntel";
+import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 
 const IMPACTS = ["host", "user", "segment", "org"];
 
@@ -784,6 +785,21 @@ export default function TeamRoomPage() {
   const lobbyLoad = session && ["easy", "medium", "hard"].includes(session.difficulty)
     ? teamLoad(session.difficulty as Difficulty, roster) : null;
 
+  // Native-format logs (docs/log-schemas), rendered for the session's company stack.
+  // The 32 source modules load lazily once the shift is running.
+  const [nativeMod, setNativeMod] = useState<typeof import("@/lib/logs/native") | null>(null);
+  useEffect(() => {
+    if (phase !== "running" || nativeMod) return;
+    let alive = true;
+    import("@/lib/logs/native").then(m => { if (alive) setNativeMod(m); }).catch(() => { /* legacy rendering stays */ });
+    return () => { alive = false; };
+  }, [phase, nativeMod]);
+  const companyForNative = session?.company_id ?? "nexacorp";
+  const nativeRender = useMemo<NativeRenderer | null>(
+    () => (nativeMod ? ev => nativeMod.nativeView(ev, companyForNative) : null),
+    [nativeMod, companyForNative],
+  );
+
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
   if (error && !session) return (
     <div className="p-6"><div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>
@@ -792,6 +808,7 @@ export default function TeamRoomPage() {
 
   return (
     <IocTruthContext.Provider value={iocTruth}>
+    <NativeLogProvider value={nativeRender}>
     <div>
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.company_id} · ${session.difficulty}` : ""} />
       <div className={`container mx-auto ${phase === "running" ? "max-w-[1600px]" : "max-w-[1100px]"} px-6 py-6 space-y-5`}>
@@ -1120,6 +1137,7 @@ export default function TeamRoomPage() {
         )}
       </div>
     </div>
+    </NativeLogProvider>
     </IocTruthContext.Provider>
   );
 }

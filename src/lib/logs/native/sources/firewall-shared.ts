@@ -407,10 +407,11 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
   if (["auth_success", "auth_failure"].includes(ev.event_type)) cls = "admin";
 
   // ── category ──
-  let category: string | undefined, categoryPanRaw: string | undefined;
+  let category: string | undefined;
   const catSrc = rawGet(raw, "data.catdesc") ?? (panCat && !PAN_THREAT_CATS.has(panCat) && panCat !== "any" ? panCat : undefined) ?? rawGet(raw, "url.category", "app_category", "cisco.ftd.url_category");
   const cc = canonCategory(catSrc);
-  category = cc.key; categoryPanRaw = cc.panRaw;
+  category = cc.key;
+  const categoryPanRaw: string | undefined = cc.panRaw;
   if (!category && !categoryPanRaw && rawGet(raw, "data.cat")) {
     const c = Number(rawGet(raw, "data.cat"));
     category = Object.entries(CATEGORIES).find(([, m]) => m.fgtCat === c)?.[0];

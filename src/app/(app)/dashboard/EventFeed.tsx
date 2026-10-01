@@ -9,6 +9,8 @@ import type { LiveEvent } from "./useLiveEvents";
 import { LOG_SOURCE_GUIDE } from "./logSourceGuide";
 import { eventMatchesSearch } from "./eventSearch";
 import { toRawLog } from "./rawLogFormat";
+import { isPublicIp } from "@/lib/edr/iocIntel";
+import { useNativeLog, nativeRows, type NativeView } from "@/lib/logs/native/NativeLogContext";
 import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
 
@@ -311,9 +313,15 @@ function highlightRawLog(text: string, lang: "xml" | "syslog" | "json"): React.R
   return nodes;
 }
 
-function RawLogView({ event }: { event: LiveEvent }) {
+function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView | null }) {
   const [copied, setCopied] = useState(false);
-  const rawLog = toRawLog(event);
+  // Native format (docs/log-schemas): the record exactly as the product emits it —
+  // the wire line for text-native sources, the JSON object for JSON-native ones.
+  const rawLog = native
+    ? native.log.rawLine
+      ? { format: `${native.product} — native ${native.log.format.toUpperCase()}`, text: native.log.rawLine, lang: (native.log.format === "xml" ? "xml" : "syslog") as "xml" | "syslog" }
+      : { format: `${native.product} — native JSON`, text: JSON.stringify(native.log.record, null, 2), lang: "json" as const }
+    : toRawLog(event);
 
   function handleCopy() {
     navigator.clipboard?.writeText(rawLog.text);
@@ -393,6 +401,8 @@ export function DetailPanelBody({
 }: DetailPanelProps) {
   const [showRawJson, setShowRawJson] = useState(false);
   const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done">("idle");
+  // Native-format view of this log (null → legacy SIEM-style fields below).
+  const nativeView = useNativeLog(event);
 
   // Resolve the IT-verify outcome for an admin ACTION (a group/role/account
   // change). An explicitly-authored result wins. Otherwise: an event that is
@@ -489,7 +499,10 @@ export function DetailPanelBody({
     .filter(([k, v]) => !ecsCoreKeys.has(k) && typeof v === "boolean")
     .map(([k, v]) => [k, v ? "true" : "false"]);
 
-  const detailedFields: [string, string][] = [...ecsCore, ...rawFields, ...rawBool];
+  // No schema mixing: with a native view the table shows ONLY the product's own
+  // fields (no ECS helper rows), exactly as its record carries them.
+  const detailedFields: [string, string][] = nativeView ? nativeRows(nativeView.log.record) : [...ecsCore, ...rawFields, ...rawBool];
+  const NATIVE_DOMAIN_KEY = /(domain|hostname|host|query_?name|qname|url|fqdn|server_?name|appdomain)$/i;
 
   return (
     <div className="bg-[#080d14]">
@@ -592,7 +605,7 @@ export function DetailPanelBody({
         )}
 
         {showRawJson ? (
-          <RawLogView event={event} />
+          <RawLogView event={event} native={nativeView} />
         ) : (
           <>
             {/* Basic Info */}
@@ -675,13 +688,18 @@ export function DetailPanelBody({
 
             {/* Detailed Log Data */}
             <div id="ef-detail-log-data" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Detailed Log Data</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                Detailed Log Data{nativeView ? <span className="ml-2 normal-case tracking-normal text-slate-500">— {nativeView.product}, native fields</span> : null}
+              </p>
               <div className="space-y-1.5">
                 {(() => {
                   return detailedFields.map(([k, v]) => {
-                  const showHash   = isSha256Field(k, v);
-                  const showIp     = isIpCheckField(k, v);
-                  const showDomain = isDomainCheckField(k, v);
+                  const leaf       = k.split(".").pop() ?? k;
+                  const showHash   = isSha256Field(nativeView ? leaf.replace(/\[\d+\]$/, "") : k, v) || (!!nativeView && /^[a-f0-9]{64}$/i.test(v) && /sha|hash|digest/i.test(k));
+                  const showIp     = nativeView ? isPublicIp(v) : isIpCheckField(k, v);
+                  const showDomain = nativeView
+                    ? NATIVE_DOMAIN_KEY.test(leaf.replace(/\[\d+\]$/, "")) && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(v.replace(/^https?:\/\//, "").split("/")[0]) && !isPublicIp(v)
+                    : isDomainCheckField(k, v);
                   const hasBtn     = showHash || showIp || showDomain;
 
                   return (

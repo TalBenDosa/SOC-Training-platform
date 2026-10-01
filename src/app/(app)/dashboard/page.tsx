@@ -29,6 +29,7 @@ import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
+import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
@@ -538,6 +539,20 @@ export default function DashboardPage() {
   // Empty until sim loads; the real pool is handed to the feed via live.reset()
   // at Start Training, so the feed (idle until then) never needs this early.
   const eventPool       = useMemo(() => (sim ? resolveEvents(sim, orgCompanyMap, selectedCompanyId) : []), [sim, selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Native-format logs (docs/log-schemas): the 32 source modules load lazily once
+  // the simulation has, and render each event as the company's own products emit it.
+  const [nativeMod, setNativeMod] = useState<typeof import("@/lib/logs/native") | null>(null);
+  useEffect(() => {
+    if (!sim || nativeMod) return;
+    let alive = true;
+    import("@/lib/logs/native").then(m => { if (alive) setNativeMod(m); }).catch(() => { /* legacy rendering stays */ });
+    return () => { alive = false; };
+  }, [sim, nativeMod]);
+  const nativeRender = useMemo<NativeRenderer | null>(
+    () => (nativeMod ? ev => nativeMod.nativeView(ev, selectedCompanyId) : null),
+    [nativeMod, selectedCompanyId],
+  );
   const selectedCompany = useMemo(() => resolveProfile(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Endpoint view of THE attack currently in the feed — built from the live
@@ -1615,6 +1630,7 @@ export default function DashboardPage() {
               per-row grading — the analyst reads the logs, forms their own
               conclusion, and states it once in the Incident Report, where it's
               actually graded. */}
+          <NativeLogProvider value={nativeRender}>
           <EventFeed
             events={live.events}
             newIds={live.newIds}
@@ -1628,6 +1644,7 @@ export default function DashboardPage() {
             onXp={live.addXp}
             onRowOpened={live.recordEventOpened}
           />
+          </NativeLogProvider>
         </Card>
           </div>
         </div>

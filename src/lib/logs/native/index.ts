@@ -76,3 +76,10 @@ export function useCasesFor(sourceId?: SourceId): UseCase[] {
 
 export type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 export type { Stack } from "./stack";
+
+/** nativize + the product display name, for the feed UI (NativeLogContext). */
+export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack): { log: NativeLog; product: string } | null {
+  const log = nativize(ev, companyId, stack);
+  if (!log) return null;
+  return { log, product: NATIVE_SOURCES[log.sourceId]?.schema.product ?? log.sourceId };
+}

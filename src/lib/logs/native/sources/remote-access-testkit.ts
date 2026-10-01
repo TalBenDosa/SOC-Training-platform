@@ -72,7 +72,7 @@ export function present(log: NativeLog, needle: string): boolean {
 }
 
 /** Runs every use case; returns per-use-case hit counts on attack logs and noise logs. */
-export function useCaseReport(src: NativeSource, attack: NativeLog[], noise: NativeLog[]) {
+export function ucReport(src: NativeSource, attack: NativeLog[], noise: NativeLog[]) {
   const rows: { uc: UseCase; attackHits: number; noiseRecords: number; noiseRate: number }[] = [];
   for (const uc of src.useCases) {
     const a = runUseCase(uc, attack);
@@ -86,7 +86,7 @@ export function useCaseReport(src: NativeSource, attack: NativeLog[], noise: Nat
 }
 
 export function assertUseCases(src: NativeSource, attack: NativeLog[], noise: NativeLog[]) {
-  const rows = useCaseReport(src, attack, noise);
+  const rows = ucReport(src, attack, noise);
   for (const r of rows) {
     expect(r.attackHits, `${r.uc.id} never fires on card/story logs`).toBeGreaterThan(0);
     if (r.uc.severity === "high" || r.uc.severity === "critical") expect(r.noiseRate, `${r.uc.id} noisy`).toBeLessThan(0.02);
