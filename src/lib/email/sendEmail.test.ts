@@ -85,3 +85,35 @@ describe("redactEmails (SEC-18)", () => {
     expect(redactEmails("no address here")).toBe("no address here");
   });
 });
+
+describe("sendEmail — timeout and one retry (QA phase 7, E-18)", () => {
+  it("a 5xx is retried once with the same idempotency key; a 4xx is not", async () => {
+    const { sendEmail } = await import("./sendEmail");
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    let n = 0;
+    const fetchMock = vi.fn(async (_u: string, _i: RequestInit) => (n++ === 0 ? new Response("down", { status: 503, headers: { "retry-after": "0.01" } }) : new Response("{}", { status: 200 })));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await sendEmail(msg(1))).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const keyOf = (i: number) => (fetchMock.mock.calls[i][1].headers as Record<string, string>)["Idempotency-Key"];
+    expect(keyOf(0)).toBeTruthy();
+    expect(keyOf(1)).toBe(keyOf(0));
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+
+    const bad = vi.fn(async () => new Response("invalid to", { status: 422 }));
+    vi.stubGlobal("fetch", bad);
+    expect(await sendEmail(msg(2))).toEqual({ ok: false, error: "HTTP 422" });
+    expect(bad).toHaveBeenCalledTimes(1);
+  });
+
+  it("a timeout is reported in words, never thrown", async () => {
+    const { sendEmail } = await import("./sendEmail");
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async () => { throw Object.assign(new Error("aborted"), { name: "TimeoutError" }); }));
+    const r = await sendEmail(msg(3));
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/timed out/);
+  });
+});

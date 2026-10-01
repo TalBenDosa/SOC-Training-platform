@@ -12,6 +12,7 @@
 export const dynamic = "force-dynamic";
 
 import OpenAI from "openai";
+import { aiFailureMessage, isRateLimitError } from "@/lib/ai/errors";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 
 export const maxDuration = 120;
@@ -19,7 +20,9 @@ export const maxDuration = 120;
 const MODEL = "gpt-4o-mini";
 
 function getClient() {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, timeout: 90_000, maxRetries: 1 });
+  // E-18: 50 s + 6 s + 50 s stays inside maxDuration (120 s); it was 90 s × 2
+  // attempts × up to 4 outer tries.
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, timeout: 50_000, maxRetries: 0 });
 }
 
 function sleep(ms: number) {
@@ -28,16 +31,14 @@ function sleep(ms: number) {
 
 async function withRetry<T>(
   fn: () => Promise<T>,
-  maxRetries = 3,
+  maxRetries = 1,
   baseDelay = 6000,
 ): Promise<T> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try { return await fn(); } catch (err) {
       lastErr = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      const isRateLimit = msg.includes("429") || msg.includes("quota") || msg.includes("rate");
-      if (!isRateLimit || attempt === maxRetries) throw err;
+      if (!isRateLimitError(err) || attempt === maxRetries) throw err;
       const delay = baseDelay * Math.pow(1.8, attempt);
       await sleep(delay);
     }
@@ -194,6 +195,6 @@ List 2–4 items in each array. Be specific and actionable.`;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[validate] OpenAI error:", msg);
-    return Response.json({ error: msg }, { status: 500 });
+    return Response.json({ error: aiFailureMessage(err, "Validation") }, { status: 502 });
   }
 }

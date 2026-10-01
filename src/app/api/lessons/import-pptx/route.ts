@@ -123,7 +123,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "No slides provided" }, { status: 400 });
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // E-18: the SDK default (10 min × 3) outlived maxDuration 60 s, so the
+  // fallback lesson below was never reached — the request was just killed.
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 25_000, maxRetries: 1 });
 
   try {
     const response = await client.chat.completions.create({

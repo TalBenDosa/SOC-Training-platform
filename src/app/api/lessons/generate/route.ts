@@ -248,7 +248,7 @@ export async function POST(req: Request) {
     return Response.json(buildLocalLesson(lessonTopic, difficulty, kind, sectionCount));
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 240_000, maxRetries: 1 });
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 140_000, maxRetries: 1 }); // E-18: 2 × 140 s < maxDuration 300 s
 
   try {
     const response = await client.chat.completions.create({

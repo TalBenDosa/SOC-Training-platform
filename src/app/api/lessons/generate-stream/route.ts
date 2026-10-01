@@ -15,15 +15,20 @@ export const dynamic    = "force-dynamic";
 export const maxDuration = 300;
 
 import OpenAI from "openai";
+import { AiBudgetError, aiFailureMessage, isRateLimitError } from "@/lib/ai/errors";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 import type { GeneratedLesson } from "../generate/route";
 
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
 const MODEL = "gpt-4o-mini";
+const GENERATION_BUDGET_MS = 190_000;
 
 function getClient() {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+  // E-18: the SDK default is a 10-minute timeout × 3 attempts — one hung call
+  // outlived the 300 s function and the stream just died. Bounded per call; the
+  // whole run is bounded by GENERATION_BUDGET_MS below.
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, timeout: 45_000, maxRetries: 0 });
 }
 
 // ─── Rate-limit helpers ───────────────────────────────────────────────────────
@@ -35,7 +40,7 @@ function sleep(ms: number) {
 /** Call fn, retry up to maxRetries times on 429 with exponential backoff */
 async function withRetry<T>(
   fn: () => Promise<T>,
-  maxRetries = 4,
+  maxRetries = 1,
   baseDelay = 8000,
 ): Promise<T> {
   let lastErr: unknown;
@@ -44,10 +49,8 @@ async function withRetry<T>(
       return await fn();
     } catch (err) {
       lastErr = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      const isRateLimit = msg.includes("429") || msg.includes("quota") || msg.includes("rate");
-      if (!isRateLimit || attempt === maxRetries) throw err;
-      const delay = baseDelay * Math.pow(1.8, attempt); // 8s, 14s, 26s, 46s
+      if (!isRateLimitError(err) || attempt === maxRetries) throw err;
+      const delay = baseDelay * Math.pow(1.8, attempt); // 8s
       console.warn(`[generate-stream] Rate limit hit, waiting ${Math.round(delay / 1000)}s before retry ${attempt + 1}/${maxRetries}…`);
       await sleep(delay);
     }
@@ -445,6 +448,9 @@ export async function POST(req: Request) {
   }
 
   const client = getClient();
+  // Worst case per section ≈ 4 s pace + 45 s + 8 s + 45 s, so no new section
+  // starts after this point — keeps the run inside maxDuration (300 s).
+  const deadline = Date.now() + GENERATION_BUDGET_MS;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -469,6 +475,7 @@ export async function POST(req: Request) {
           // Pace requests to stay within Gemini free-tier rate limit (15 RPM)
           // 4s gap → max ~15 calls/min including the outline call
           if (i > 0) await sleep(4000);
+          if (Date.now() > deadline) throw new AiBudgetError();
 
           send({
             type: "phase",
@@ -508,16 +515,8 @@ export async function POST(req: Request) {
         send({ type: "done", lesson });
       } catch (err) {
         const raw = err instanceof Error ? err.message : String(err);
-        let message = raw;
-        if (raw.includes("API key") || raw.includes("401") || raw.includes("authentication") || raw.includes("Incorrect")) {
-          message = "AI lesson generation is temporarily unavailable. Please try again later.";
-        } else if (raw.includes("quota") || raw.includes("429") || raw.includes("rate") || raw.includes("insufficient_quota")) {
-          message = "OpenAI quota exceeded — check your billing at platform.openai.com";
-        } else if (raw.includes("model") || raw.includes("404")) {
-          message = "OpenAI model not found";
-        }
         console.error("[generate-stream] OpenAI error:", raw);
-        send({ type: "error", message });
+        send({ type: "error", message: aiFailureMessage(err, "Lesson generation") });
       } finally {
         controller.close();
       }

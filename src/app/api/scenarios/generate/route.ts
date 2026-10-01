@@ -387,11 +387,14 @@ export async function POST(req: Request) {
     try {
       return Response.json(buildLocalScenario(attackType));
     } catch (err) {
-      return Response.json({ error: `Generation failed: ${err instanceof Error ? err.message : "Unknown"}` }, { status: 500 });
+      console.error("[scenarios/generate] local build failed:", err instanceof Error ? err.message : String(err));
+      return Response.json({ error: "Couldn't build a scenario for that attack type — please try another." }, { status: 500 });
     }
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // E-18: SDK default 10 min × 3 on a 120 s function. One 100 s attempt; any
+  // failure falls back to the pre-built scenario, like the no-key path.
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 100_000, maxRetries: 0 });
   const attackDesc = ATTACK_DESCRIPTIONS[attackType] ?? ATTACK_DESCRIPTIONS.random;
   const hashContext = getHashContextForAttackType(attackType);
 
@@ -490,24 +493,18 @@ STRICT RULES:
         const text = message.content[0]?.type === "text" ? message.content[0].text : "";
 
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          controller.enqueue(encoder.encode(JSON.stringify({ error: "Model did not return valid JSON" })));
-          controller.close();
-          return;
-        }
-
+        if (!jsonMatch) throw new Error("model did not return JSON");
         const scenario = JSON.parse(jsonMatch[0]);
-        if (!scenario.events || !Array.isArray(scenario.events)) {
-          controller.enqueue(encoder.encode(JSON.stringify({ error: "Invalid scenario structure" })));
-          controller.close();
-          return;
-        }
+        if (!scenario.events || !Array.isArray(scenario.events)) throw new Error("invalid scenario structure");
 
         controller.enqueue(encoder.encode(JSON.stringify(scenario)));
         controller.close();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        controller.enqueue(encoder.encode(JSON.stringify({ error: message })));
+        console.error("[scenarios/generate] AI failed, using a pre-built scenario:", err instanceof Error ? err.message : String(err));
+        let fallback: string;
+        try { fallback = JSON.stringify(buildLocalScenario(attackType)); }
+        catch { fallback = JSON.stringify({ error: "Scenario generation failed — please try again." }); }
+        controller.enqueue(encoder.encode(fallback));
         controller.close();
       }
     },

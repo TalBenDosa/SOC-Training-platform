@@ -184,7 +184,7 @@ export async function POST(req: Request) {
     return Response.json(buildLocalQuiz(title, topic, difficulty, clampedCount));
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 90_000, maxRetries: 1 });
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 55_000, maxRetries: 1 }); // E-18: 2 × 55 s < maxDuration 120 s
 
   const prompt = `You are an expert SOC training instructor creating a multiple-choice quiz for security analysts.
 
@@ -262,7 +262,9 @@ Rules:
 
     return Response.json(quiz);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json({ error: message }, { status: 500 });
+    // E-18: a provider failure degrades to the local template quiz (the same
+    // thing a deployment without a key gets) instead of a raw 500.
+    console.error("[quizzes/generate] AI failed:", err instanceof Error ? err.message : String(err));
+    return Response.json(buildLocalQuiz(title, topic, difficulty, clampedCount));
   }
 }

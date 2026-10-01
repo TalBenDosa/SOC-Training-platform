@@ -208,7 +208,8 @@ export async function resolveGeneratedLesson(raw: string): Promise<ResolveLesson
 
   try {
     const { default: Anthropic } = await import("@anthropic-ai/sdk");
-    const client = new Anthropic({ apiKey, timeout: 45_000, maxRetries: 1 });
+    // E-18: callers have no maxDuration (platform default 60 s on Hobby); 2 × 25 s fits.
+    const client = new Anthropic({ apiKey, timeout: 25_000, maxRetries: 1 });
 
     const userPrompt = buildUserPrompt(
       found.lesson.title,

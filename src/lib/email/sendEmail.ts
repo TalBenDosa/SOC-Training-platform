@@ -114,20 +114,40 @@ export async function sendEmail(input: EmailInput): Promise<{ ok: boolean; skipp
     return { ok: false, skipped: true };
   }
 
-  try {
-    const res = await fetch(RESEND_ENDPOINT, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to, subject: input.subject, html: input.html, text: input.text }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error(`[email] send failed (${res.status}): ${redactEmails(body).slice(0, 500)}`);
-      return { ok: false, error: `HTTP ${res.status}` };
+  // QA phase 7, E-18: a hung provider call used to hold the request until the
+  // function's own limit. Each attempt now has a 10 s budget, and a 429 / 5xx /
+  // network failure gets ONE retry. The idempotency key makes that retry safe
+  // even if the first attempt was delivered but its answer was lost.
+  const idempotencyKey = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  const body = JSON.stringify({ from, to, subject: input.subject, html: input.html, text: input.text });
+  let last: { ok: boolean; error?: string } = { ok: false, error: "not sent" };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let retryable = false;
+    let waitMs = 1000;
+    try {
+      const res = await fetch(RESEND_ENDPOINT, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+        body,
+        signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+      });
+      if (res.ok) return { ok: true };
+      const text = await res.text().catch(() => "");
+      console.error(`[email] send failed (${res.status}, attempt ${attempt + 1}): ${redactEmails(text).slice(0, 500)}`);
+      last = { ok: false, error: `HTTP ${res.status}` };
+      retryable = res.status === 429 || res.status >= 500;
+      const ra = Number(res.headers.get("retry-after"));
+      if (Number.isFinite(ra) && ra > 0) waitMs = Math.min(3000, ra * 1000);
+    } catch (e) {
+      const msg = e instanceof Error ? (e.name === "TimeoutError" ? `timed out after ${SEND_TIMEOUT_MS} ms` : e.message) : String(e);
+      console.error(`[email] send threw (attempt ${attempt + 1}):`, msg);
+      last = { ok: false, error: msg };
+      retryable = true;
     }
-    return { ok: true };
-  } catch (e) {
-    console.error("[email] send threw:", e instanceof Error ? e.message : String(e));
-    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    if (!retryable || attempt === 1) break;
+    await new Promise(r => setTimeout(r, waitMs));
   }
+  return last;
 }
+
+const SEND_TIMEOUT_MS = 10_000;
