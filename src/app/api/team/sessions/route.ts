@@ -4,6 +4,7 @@ import { getAuthedUser, requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { resolveTeamStory } from "@/lib/team/buildTimeline";
+import { sanitizeStack, storyFitsStack } from "@/lib/logs/native";
 
 /**
  * Team-SOC sessions (Phase 0.3). Create = org_admin/instructor only, and always
@@ -41,6 +42,14 @@ export async function POST(req: Request) {
   if (scenario_id && !resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id)) {
     return NextResponse.json({ error: "That storyline isn't available for this company and difficulty." }, { status: 400 });
   }
+  // Security products the session runs on (spec §3) — only categories that differ from the company.
+  const stack = sanitizeStack(body.stack);
+  if (scenario_id && Object.keys(stack).length) {
+    const st = resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id);
+    if (st && !storyFitsStack(st.events, company_id, stack)) {
+      return NextResponse.json({ error: "The chosen products can't show every step of that storyline — pick another storyline or keep the company's products." }, { status: 400 });
+    }
+  }
 
   const rawInvites = Array.isArray(body.invites) ? body.invites : [];
   const invites = rawInvites
@@ -58,7 +67,7 @@ export async function POST(req: Request) {
 
   const { data: sess, error } = await admin
     .from("team_sessions")
-    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2 })   // new sessions are v2 from birth (0071)
+    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: Object.keys(stack).length ? { stack } : {} })   // new sessions are v2 from birth (0071)
     .select("id").single();
   if (error || !sess) {
     if (error) console.error("[team create] session insert:", error.message);   // no raw DB text to the client (S12)

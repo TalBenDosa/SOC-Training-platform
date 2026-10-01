@@ -795,9 +795,11 @@ export default function TeamRoomPage() {
     return () => { alive = false; };
   }, [phase, nativeMod]);
   const companyForNative = session?.company_id ?? "nexacorp";
+  const stackForNative = (session as { stack?: Record<string, string> } | null)?.stack;
+  const stackKey = JSON.stringify(stackForNative ?? {});
   const nativeRender = useMemo<NativeRenderer | null>(
-    () => (nativeMod ? ev => nativeMod.nativeView(ev, companyForNative) : null),
-    [nativeMod, companyForNative],
+    () => (nativeMod ? ev => nativeMod.nativeView(ev, companyForNative, JSON.parse(stackKey)) : null),
+    [nativeMod, companyForNative, stackKey],
   );
 
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;

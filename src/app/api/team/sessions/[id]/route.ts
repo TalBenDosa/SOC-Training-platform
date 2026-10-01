@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sanitizeStack } from "@/lib/logs/native/stack";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -66,7 +67,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   return NextResponse.json({
-    session: { ...sessionOut, pause_reason, pause_detail },
+    session: { ...sessionOut, pause_reason, pause_detail, stack: sanitizeStack((sess as { config?: { stack?: unknown } }).config?.stack) },
     roster,
     me: { id: user.id, is_staff: iAmStaff, role: roster.find(r => r.user_id === user.id)?.role ?? null },
   });

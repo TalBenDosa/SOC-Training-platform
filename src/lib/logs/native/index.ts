@@ -80,17 +80,26 @@ export { STACK_CHOICES, PRODUCT_LABEL, sanitizeStack, COMPANY_STACKS } from "./s
 
 /** nativize + the product display name, for the feed UI (NativeLogContext). */
 export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack): { log: NativeLog; product: string } | null {
-  // A stacked event renders from its authored original, re-stamped with the displayed id/time.
-  const authored = (ev as TelemetryEvent & { _authored?: TelemetryEvent })._authored;
-  const log = nativize(authored ? { ...authored, id: ev.id, ts: ev.ts } : ev, companyId, stack);
+  // A stacked event renders through its authored source/vendor (the converter path the corpus gate tests).
+  const log = nativize(authoredOf(ev), companyId, stack);
   if (!log) return null;
   return { log, product: NATIVE_SOURCES[log.sourceId]?.schema.product ?? log.sourceId };
 }
 
 // ── Stack application (vendor choice) ────────────────────────────────────────
 
-/** An event shown under a chosen stack keeps its authored original for native rendering. */
-type StackedEvent = TelemetryEvent & { _authored?: TelemetryEvent };
+/**
+ * An event shown under a chosen stack keeps only its authored source + vendor (never a
+ * copy of the authored event: in a team session that would ship answer fields to players).
+ */
+type StackedEvent = TelemetryEvent & { _authored_source?: string; _authored_vendor?: string };
+/** The event as it was authored (source / vendor restored), everything else as shown. */
+export function authoredOf(ev: TelemetryEvent): TelemetryEvent {
+  const e = ev as StackedEvent;
+  if (e._authored_source === undefined && e._authored_vendor === undefined) return ev;
+  const { _authored_source, _authored_vendor, ...rest } = e;
+  return { ...rest, source: (_authored_source ?? ev.source) as TelemetryEvent["source"], vendor: _authored_vendor ?? ev.vendor };
+}
 
 /**
  * Can this event exist in a shop running `stack`? Categories without a native module
@@ -98,7 +107,7 @@ type StackedEvent = TelemetryEvent & { _authored?: TelemetryEvent };
  * no DNS stream, Google has no inbox rules, ZPA logs no password failures …).
  */
 export function fitsStack(ev: TelemetryEvent, companyId: string, stack?: Stack): boolean {
-  const base = (ev as StackedEvent)._authored ?? ev;
+  const base = authoredOf(ev);
   const id = sourceFor(base, stackFor(companyId, stack));
   if (!id || !NATIVE_SOURCES[id]) return true;
   return nativize(base, companyId, stack) !== null;
@@ -112,11 +121,11 @@ export function storyFitsStack(events: TelemetryEvent[], companyId: string, stac
 /**
  * The event as the chosen stack would show it: vendor = the chosen product, product
  * names in the description switched, the collab / IdP source badge matching the
- * product. The authored original rides along in `_authored` so native rendering uses
+ * product. The authored source/vendor ride along so native rendering uses
  * exactly the converter path the corpus gate tests.
  */
 export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack): TelemetryEvent {
-  const base = (ev as StackedEvent)._authored ?? ev;
+  const base = authoredOf(ev);
   const cat = categoryOf(base);
   if (!cat || cat === "cloud" || cat === "k8s" || cat === "onprem_ad" || cat === "host_telemetry" || cat === "linux" || cat === "itsm" || cat === "pam") return ev;
   const id = sourceFor(base, stackFor(companyId, stack));
@@ -124,7 +133,8 @@ export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack)
   const product = PRODUCT_LABEL[id];
   const next: StackedEvent = {
     ...ev,
-    _authored: base,
+    _authored_source: base.source,
+    _authored_vendor: base.vendor,
     vendor: product ?? ev.vendor,
     description: rewriteProductText(ev.description, cat, id),
   };

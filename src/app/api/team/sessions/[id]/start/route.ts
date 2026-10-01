@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline } from "@/lib/team/buildTimeline";
 import { teamLoad } from "@/lib/team/load";
 import { teamTransition } from "@/lib/team/transition";
+import { sanitizeStack } from "@/lib/logs/native/stack";
 
 /**
  * Start a team session — staff only, own org, LOBBY only (a paused session is
@@ -28,7 +29,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const { data: sess } = await admin.from("team_sessions").select("id, org_id, status, company_id, difficulty, seed, scenario_id").eq("id", id).maybeSingle();
+  const { data: sess } = await admin.from("team_sessions").select("id, org_id, status, company_id, difficulty, seed, scenario_id, config").eq("id", id).maybeSingle();
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
   if (!user.isPlatformAdmin && sess.org_id !== user.orgId) {
     return NextResponse.json({ error: "Not your session." }, { status: 403 });
@@ -61,7 +62,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs }).eq("id", id).eq("status", "lobby");
     if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
     // scenario_id = the storyline staff picked in the builder (null → random pick).
-    const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load);
+    const stack = sanitizeStack((sess.config as { stack?: unknown } | null)?.stack);
+    const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack);
     if (timeline.length) {
       const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));
       const { data: n, error: seedErr } = await admin.rpc("team_seed_timeline", { p_session: id, p_rows: rows });

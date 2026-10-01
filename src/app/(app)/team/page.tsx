@@ -12,6 +12,8 @@
  * pin the storyline (team_sessions.scenario_id, already in the schema).
  */
 import { useEffect, useMemo, useState } from "react";
+import { StackPicker, stackDelta } from "@/components/training/StackPicker";
+import type { Stack } from "@/lib/logs/native/stack";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
@@ -65,6 +67,9 @@ export default function TeamIndexPage() {
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [storylines, setStorylines] = useState<Storyline[] | null>(null);
   const [storyline, setStoryline] = useState("");   // "" = random pick at start
+  // Security products the session runs on (spec §3); empty = the company's own.
+  const [stack, setStack] = useState<Stack>({});
+  const stackParam = JSON.stringify(stackDelta(company, stack));
   const [roster, setRoster] = useState<Candidate[] | null>(null);   // null = not loaded yet
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [org, setOrg] = useState<OrgInfo | null>(null);
@@ -101,7 +106,7 @@ export default function TeamIndexPage() {
     if (!canCreate) return;
     let cancelled = false;
     setStorylines(null);
-    fetch(`/api/team/storylines?company=${encodeURIComponent(company)}&difficulty=${difficulty}`)
+    fetch(`/api/team/storylines?company=${encodeURIComponent(company)}&difficulty=${difficulty}&stack=${encodeURIComponent(stackParam)}`)
       .then(r => (r.ok ? r.json() : { storylines: [] }))
       .then(d => {
         if (cancelled) return;
@@ -111,7 +116,7 @@ export default function TeamIndexPage() {
       })
       .catch(() => { if (!cancelled) setStorylines([]); });
     return () => { cancelled = true; };
-  }, [canCreate, company, difficulty]);
+  }, [canCreate, company, difficulty, stackParam]);
 
   // A full e-mail in the search box → exact server-side match within the org
   // (the list itself never carries addresses). Debounced; POST keeps it out of URLs.
@@ -167,7 +172,7 @@ export default function TeamIndexPage() {
     setCreating(true); setError(null);
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company_id: company, difficulty, invites, ...(storyline ? { scenario_id: storyline } : {}) }),
+      body: JSON.stringify({ company_id: company, difficulty, invites, stack: stackDelta(company, stack), ...(storyline ? { scenario_id: storyline } : {}) }),
     }).catch(() => null);
     setCreating(false);
     if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
@@ -217,6 +222,9 @@ export default function TeamIndexPage() {
                   {(storylines ?? []).map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
                 </select>
               </label>
+            </div>
+            <div className="mt-3">
+              <StackPicker companyId={company} value={stack} onChange={setStack} idPrefix="team-stack" />
             </div>
             <p className="mt-1.5 text-[11px] text-slate-500">
               The storyline is the primary incident the team investigates{difficulty === "easy" ? "" : " (medium and hard add a second, random concurrent incident)"}. Only staff see its name — players have to work it out.

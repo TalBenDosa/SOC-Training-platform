@@ -27,6 +27,8 @@ import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
+import { applyStack, fitsStack, storyFitsStack } from "@/lib/logs/native";
+import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
 // (an MSEL curveball: management pressure, a help-desk ticket, an announcement).
@@ -305,24 +307,31 @@ export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium
  * from the Tier-1 count, attack count from the team size. Omitted → the fixed,
  * difficulty-only load of before (existing seeds replay exactly).
  */
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty)): TimelineEntry[] {
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}): TimelineEntry[] {
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
-  const ownPool = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
-  const companyPool = (ownPool ?? BENIGN_EVENTS) ?? [];
+  // Vendor choice (spec §3): with a stack, only records the chosen products really
+  // produce make the feed, and only stories they can show whole are picked. No stack
+  // → exactly the behaviour (and the seeds) of before.
+  const stacked = Object.keys(stack).length > 0;
+  const ownPool0 = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
+  const ownPool = ownPool0 && stacked ? ownPool0.filter(e => fitsStack(e, companyId, stack)) : ownPool0;
+  const companyPool = ((ownPool ?? (stacked ? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack)) : BENIGN_EVENTS)) ?? []);
   const profile = COMPANY_PROFILES.find(c => c.id === companyId);
-  const edr = profile?.architecture.edr;
+  const edr = (stack.edr && PRODUCT_LABEL[stack.edr]) || profile?.architecture.edr;
   const assets = COMPANY_ASSETS[companyId];
 
   // ── Attack stories: one on easy, two concurrent incidents otherwise ──────────
   interface Story { id: string; incident: string; events: TelemetryEvent[] }
   const chosen = resolveTeamStory(companyId, difficulty, storyId);
   const buildStory = (avoid: (string | undefined)[] = [], forced?: AttackStory | null): Story | null => {
-    for (let attempt = 0; attempt < 6; attempt++) {
+    for (let attempt = 0; attempt < (stacked ? 20 : 6); attempt++) {
       try {
         const story = forced ?? pickStoryForCompany(companyId, difficulty);
         if (avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
-        const events = instantiateStory(story, companyPool, edr, companyId).events ?? [];
-        if (events.length === 0) return null;
+        const events0 = instantiateStory(story, companyPool, edr, companyId).events ?? [];
+        if (events0.length === 0) return null;
+        if (stacked && !forced && !storyFitsStack(events0, companyId, stack)) continue;
+        const events = stacked ? events0.map(e => applyStack(e, companyId, stack)) : events0;
         const incident = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
         return { id: story.id, incident, events };
       } catch { return null; }
@@ -349,7 +358,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
 
   // ── Pool: noise + standalone attacks ─────────────────────────────────────────
   const seen = new Set<string>();
-  const pool = [...companyPool, ...(ownPool ? BENIGN_EVENTS : [])]
+  const pool = [...companyPool, ...(ownPool ? (stacked ? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack)) : BENIGN_EVENTS) : [])]
     .filter(e => { const k = String(e.id ?? ""); if (!k) return true; if (seen.has(k)) return false; seen.add(k); return true; });
   const ownIds = new Set(companyPool.map(e => String(e.id ?? "")));
 
@@ -459,7 +468,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     // Own RNG stream: inject-support placement depends on the seed alone, not on how
     // many draws the (randomly chosen) stories consumed above.
     const mrnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}:msel-support`));
-    const fw = fwFlavour(profile?.architecture.firewall ?? "");
+    const fw = fwFlavour((stack.firewall && PRODUCT_LABEL[stack.firewall]) || profile?.architecture.firewall || "");
     const useSysmon = (profile?.architecture.sources ?? []).includes("sysmon");
     const subnet = assets?.subnet ?? "10.10.20";
     const baseTs = new Date(TEAM_TIME_BASE_MS).toISOString();
@@ -597,7 +606,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // id index space, so ids stay a pure function of (seed, position).
   const merged = [...timed, ...support].sort((a, b) => a.at - b.at);
   const feed: TimelineEntry[] = merged.map(({ p, at: due }, i) => {
-    const ev = p.ev;
+    // Every log — story, pool, noise, ITSM, inject support — labelled for the chosen products.
+    const ev = stacked ? applyStack(p.ev, companyId, stack) : p.ev;
     const scrub = ev.description && ev.source !== "ueba";
     return {
       due_offset_ms: due,

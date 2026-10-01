@@ -30,6 +30,8 @@ import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+import { StackPicker, savedStack, saveStack, stackDelta } from "@/components/training/StackPicker";
+import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
   RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
@@ -219,15 +221,19 @@ const DIFFICULTIES: { id: Difficulty; label: string; blurb: string; accent: stri
 ];
 
 function StartTrainingModal({
+  companyId,
   onStart,
   onClose,
 }: {
-  onStart: (difficulty: Difficulty) => void;
+  companyId: string;
+  onStart: (difficulty: Difficulty, stack: Stack) => void;
   onClose: () => void;
 }) {
   // Default new analysts to Easy — foundation-tier single-host attacks are the
   // right first practical. Students can step up to Medium/Hard themselves.
   const [selected, setSelected] = useState<Difficulty>("easy");
+  // Security products this session runs on (spec §3) — remembered per company.
+  const [stack, setStack] = useState<Stack>(() => savedStack(companyId));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
@@ -262,9 +268,13 @@ function StartTrainingModal({
           ))}
         </div>
 
+        <div className="mt-4">
+          <StackPicker companyId={companyId} value={stack} onChange={setStack} idPrefix="dash-stack" />
+        </div>
+
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={() => { onStart(selected); onClose(); }}>
+          <Button variant="primary" size="sm" onClick={() => { const d = stackDelta(companyId, stack); saveStack(companyId, d); onStart(selected, d); onClose(); }}>
             <Zap className="h-4 w-4" /> Start Session
           </Button>
         </div>
@@ -522,7 +532,7 @@ export default function DashboardPage() {
     const active = o.profile.architecture?.sources ?? [];
     return [{ value: "all", label: "All Sources" }, ...SOURCES.filter(s => s.value !== "all" && active.includes(s.value))];
   };
-  const resolveStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string, difficulty?: Difficulty): AttackStory => {
+  const resolveStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string, difficulty?: Difficulty, edrOverride?: string): AttackStory => {
     const o = orgMap.get(id);
     // L-03: pass the company's declared EDR so the attack arrives on the product it
     // actually runs (SentinelOne for MedCore, Sophos for GlobalLogis, …) instead of
@@ -533,16 +543,34 @@ export default function DashboardPage() {
       try { return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr, id); }
       catch (e) { console.error(`[dashboard] org story for ${id} failed to build — using a built-in one:`, e); }
     }
-    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id), getCompanyProfile(id).architecture?.edr, id);
+    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id), edrOverride ?? getCompanyProfile(id).architecture?.edr, id);
   };
 
   // Empty until sim loads; the real pool is handed to the feed via live.reset()
   // at Start Training, so the feed (idle until then) never needs this early.
-  const eventPool       = useMemo(() => (sim ? resolveEvents(sim, orgCompanyMap, selectedCompanyId) : []), [sim, selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Native-format logs (docs/log-schemas): the 32 source modules load lazily once
-  // the simulation has, and render each event as the company's own products emit it.
+  // the simulation has, and render each event as the session's chosen products emit it.
   const [nativeMod, setNativeMod] = useState<typeof import("@/lib/logs/native") | null>(null);
+  const [sessionStack, setSessionStack] = useState<Stack>({});
+  const stackRef = useRef<Stack>({});
+  const ensureNative = async () => {
+    if (nativeMod) return nativeMod;
+    const m = await import("@/lib/logs/native");
+    setNativeMod(m);
+    return m;
+  };
+  /** The company pool as the chosen products would log it (records they can't produce are dropped). */
+  const stackedPool = (events: TelemetryEvent[], company: string, stack: Stack, nm: typeof nativeMod) =>
+    nm ? events.filter(e => nm.fitsStack(e, company, stack)).map(e => nm.applyStack(e, company, stack)) : events;
+  /** A story every event of which the chosen products can really show (15 tries), relabelled for them. */
+  const stackedStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, company: string, difficulty: Difficulty | undefined, stack: Stack, nm: typeof nativeMod): AttackStory => {
+    const edr = stack.edr ? PRODUCT_LABEL[stack.edr] : undefined;
+    let st = resolveStory(s, orgMap, company, difficulty, edr);
+    if (!nm) return st;
+    for (let i = 0; i < 15 && !nm.storyFitsStack(st.events, company, stack); i++) st = resolveStory(s, orgMap, company, difficulty, edr);
+    return { ...st, events: st.events.map(e => nm.applyStack(e, company, stack)) };
+  };
+  const eventPool       = useMemo(() => (sim ? stackedPool(resolveEvents(sim, orgCompanyMap, selectedCompanyId), selectedCompanyId, sessionStack, nativeMod) : []), [sim, selectedCompanyId, orgCompanyMap, sessionStack, nativeMod]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!sim || nativeMod) return;
     let alive = true;
@@ -550,8 +578,8 @@ export default function DashboardPage() {
     return () => { alive = false; };
   }, [sim, nativeMod]);
   const nativeRender = useMemo<NativeRenderer | null>(
-    () => (nativeMod ? ev => nativeMod.nativeView(ev, selectedCompanyId) : null),
-    [nativeMod, selectedCompanyId],
+    () => (nativeMod ? ev => nativeMod.nativeView(ev, selectedCompanyId, sessionStack) : null),
+    [nativeMod, selectedCompanyId, sessionStack],
   );
   const selectedCompany = useMemo(() => resolveProfile(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -809,7 +837,7 @@ export default function DashboardPage() {
   };
 
   // ── Start training ─────────────────────────────────────────────────────────────
-  const handleStartTraining = async (difficulty: Difficulty, companyOverride?: string) => {
+  const handleStartTraining = async (difficulty: Difficulty, companyOverride?: string, stackOverride?: Stack) => {
     // `companyOverride` is set only by the on-refresh resume (see the mount effect
     // below); normal starts use the currently-selected company.
     const company = companyOverride ?? selectedCompanyId;
@@ -833,7 +861,11 @@ export default function DashboardPage() {
     // authored environment, not the generic built-in pool (fast-click race).
     const orgs = orgLoadRef.current ? await orgLoadRef.current.catch(() => orgCompanies) : orgCompanies;
     const orgMap = new Map(orgs.map(c => [c.profile.id, c]));
-    const story = resolveStory(s, orgMap, company, difficulty);
+    const stack = stackOverride ?? savedStack(company);
+    stackRef.current = stack;
+    setSessionStack(stack);
+    const nm = await ensureNative().catch(() => null);
+    const story = stackedStory(s, orgMap, company, difficulty, stack, nm);
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
@@ -854,11 +886,11 @@ export default function DashboardPage() {
       lsRemove("edr_live_investigation");
     } catch { /* ignore */ }
     setEdrInvestigated(false);
-    live.reset(resolveEvents(s, orgMap, company), story);
+    live.reset(stackedPool(resolveEvents(s, orgMap, company), company, stack, nm), story);
     // L-09: remember the active shift so a page refresh resumes it instead of
     // dropping the feed back to an idle 0-event dashboard. Session-scoped: it
     // lives only for this tab and is cleared when the shift is secured.
-    try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty })); } catch { /* ignore */ }
+    try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty, st: stack })); } catch { /* ignore */ }
   };
 
   // L-09: on a page refresh mid-shift, resume the session instead of dropping the
@@ -868,13 +900,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (resumedRef.current) return;
     resumedRef.current = true;
-    let saved: { c?: string; d?: Difficulty } | null = null;
+    let saved: { c?: string; d?: Difficulty; st?: Stack } | null = null;
     try {
       const raw = ssGet("soc_dash_session");
       if (raw) saved = JSON.parse(raw);
     } catch { saved = null; }
     if (saved?.c && (saved.d === "easy" || saved.d === "medium" || saved.d === "hard")) {
-      void handleStartTraining(saved.d, saved.c);
+      void handleStartTraining(saved.d, saved.c, saved.st);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -891,7 +923,7 @@ export default function DashboardPage() {
     if (!armedNextRef.current) {
       armedNextRef.current = true;
       const s = await ensureSim();
-      const nextStory = resolveStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined);
+      const nextStory = stackedStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined, stackRef.current, await ensureNative().catch(() => null));
       setSessionStory(nextStory);
       setInjectedStories(prev => [...prev, nextStory]);
       live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min breather
@@ -1048,7 +1080,8 @@ export default function DashboardPage() {
 
       {showTrainingModal && (
         <StartTrainingModal
-          onStart={handleStartTraining}
+          companyId={selectedCompanyId}
+          onStart={(d, st) => handleStartTraining(d, undefined, st)}
           onClose={() => setShowTrainingModal(false)}
         />
       )}
@@ -1722,7 +1755,7 @@ export default function DashboardPage() {
               if (!armedNextRef.current) {
                 armedNextRef.current = true;
                 const s = await ensureSim();
-                const nextStory = resolveStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined);
+                const nextStory = stackedStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined, stackRef.current, await ensureNative().catch(() => null));
                 setSessionStory(nextStory);
                 setInjectedStories(prev => [...prev, nextStory]);
                 live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min
