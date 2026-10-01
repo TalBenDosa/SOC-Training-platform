@@ -663,3 +663,74 @@ describe("computeReport — review fixes (2026-09-27)", () => {
     expect(cell(mgr.rubric, "Load balancing").score).toBeNull(); // A never carried 3 live claims for ≥60s
   });
 });
+
+describe("computeReport — v3: SLA per reported event, misses, team triage", () => {
+  // SLA: critical 1 min · high 3 min · medium 10 min · low/other 30 min.
+  function shift() {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "atk1", expected_verdict: "tp", incident_id: "inc-A", severity: "high", description: "beacon to C2" });
+    add("feed.event", null, 20, { id: "atk2", expected_verdict: "tp", incident_id: "inc-A", severity: "critical", description: "credential dump" });
+    add("feed.event", null, 30, { id: "atk3", expected_verdict: "tp", incident_id: "inc-B", severity: "high", description: "mailbox rule" });
+    add("feed.event", null, 40, { id: "atk4", expected_verdict: "tp", incident_id: "inc-C", severity: "medium", description: "USB copy" });
+    add("feed.event", null, 50, { id: "n1", severity: "high", description: "admin login" });
+    add("feed.event", null, 60, { id: "n2", severity: "low", description: "dns lookup" });
+    // a: escalates atk1 within SLA (100s ≤ 180s), escalates benign n1 late (400s > 180s),
+    //    calls atk3 benign (false negative), opens atk4 and walks past it.
+    add("escalation.requested", "a", 110, { event_id: "atk1", summary: "c2" }, "t1");
+    add("escalation.acknowledged", "b", 150, { event_id: "atk1" }, "t2");
+    add("escalation.requested", "a", 450, { event_id: "n1", summary: "odd" }, "t1");
+    add("disposition.set", "a", 200, { event_id: "atk3", verdict: "benign" }, "t1");
+    add("event.opened", "a", 300, { event_id: "atk4", dwell_ms: 20000 });
+    // b triages critical atk2 late (100s > 60s) as true positive.
+    add("disposition.set", "b", 120, { event_id: "atk2", verdict: "true_positive" }, "t1");
+    return computeReport(events, [member("a", "t1"), member("b", "t1")]);
+  }
+
+  it("lists each reported event with its response time, SLA and outcome", () => {
+    const { perUser } = shift();
+    const a = perUser.find(u => u.user_id === "a")!;
+    const atk1 = a.reported.find(r => r.label === "beacon to C2")!;
+    expect(atk1).toMatchObject({ kind: "escalation", severity: "high", responseS: 100, slaS: 180, withinSla: true, truth: "attack", outcome: "acknowledged" });
+    const n1 = a.reported.find(r => r.label === "admin login")!;
+    expect(n1).toMatchObject({ kind: "escalation", responseS: 400, withinSla: false, truth: "benign", outcome: "open" });
+    // high/critical triage counts too (atk3 was high, called benign → still a triage action on time)
+    expect(a.reported.find(r => r.label === "mailbox rule")).toMatchObject({ kind: "triage", responseS: 170, withinSla: true, verdict: "benign" });
+    expect(a).toMatchObject({ slaTotal: 3, slaMet: 2, slaPct: 67 });
+    const b = perUser.find(u => u.user_id === "b")!;
+    expect(b.reported[0]).toMatchObject({ kind: "triage", severity: "critical", responseS: 100, slaS: 60, withinSla: false });
+  });
+
+  it("names what the analyst missed: false negatives, walked-past attacks, false alarms", () => {
+    const { perUser } = shift();
+    const a = perUser.find(u => u.user_id === "a")!;
+    expect(a.falseNegatives.map(m => m.label)).toEqual(["mailbox rule"]);
+    expect(a.walkedPast.map(m => m.label)).toEqual(["USB copy"]);
+    expect(a.falseAlarms.map(m => m.label)).toEqual(["admin login"]);
+    const b = perUser.find(u => u.user_id === "b")!;
+    expect(b.falseNegatives).toEqual([]);
+    expect(b.walkedPast).toEqual([]);
+  });
+
+  it("an attack someone else caught is not counted as walked past", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "atk", expected_verdict: "tp", incident_id: "inc", severity: "high" });
+    add("event.opened", "a", 20, { event_id: "atk", dwell_ms: 9000 });
+    add("escalation.requested", "b", 30, { event_id: "atk" }, "t1");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
+    expect(perUser.find(u => u.user_id === "a")!.walkedPast).toEqual([]);
+  });
+
+  it("team metrics: attack SLA, high/critical coverage, MTTT, missed logs, false negatives/alarms, workload", () => {
+    const { team } = shift();
+    // attack logs: atk1 in SLA (110-10=100 ≤ 180) · atk2 late (120-20=100 > 60) · atk3 in SLA (200-30=170 ≤ 180) · atk4 never triaged
+    expect(team).toMatchObject({ attackSlaTotal: 4, attackSlaMet: 2, attackSlaPct: 50 });
+    // high/critical: atk1, atk2, atk3, n1 → all triaged
+    expect(team).toMatchObject({ highCritTotal: 4, highCritTriaged: 4, highCritCoverage: 100 });
+    expect(team.mtttS).toBe(135);   // median of 100, 100, 170, 400
+    expect(team.missedAttackCount).toBe(1);
+    expect(team.missedAttackLogs[0]).toMatchObject({ label: "USB copy", severity: "medium", detail: "its incident was not caught" });
+    expect(team.falseNegatives.map(m => m.label)).toEqual(["mailbox rule"]);
+    expect(team.falseAlarms.map(m => m.label)).toEqual(["admin login"]);
+    expect(team).toMatchObject({ triageActions: 4, triagers: 2, busiestShare: 75, busiestName: "User a" });
+  });
+});

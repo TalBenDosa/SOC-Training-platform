@@ -17,7 +17,7 @@ import { asStr } from "@/lib/team/format";
 // control at 3–7 direct reports — beyond 7 a single coordinator loses oversight.
 export const OVERLOAD_CASES = 3;
 /** Bumped whenever the report's shape/semantics change (cached reports older than this are stale). */
-export const REPORT_VERSION = 2;
+export const REPORT_VERSION = 3;   // 3: per-event SLA, misses, team triage metrics
 
 // ── Scoring weights (documented here so the debrief can explain every number) ──────
 /** `suspicious` = a LOW-CONFIDENCE LEAD. On a real attack log it earns partial credit —
@@ -46,9 +46,28 @@ export const OVERLOAD_MIN_MS = 60_000;
 export const MIN_MEASURED_CELLS = 2;
 
 const ATTACK_VERDICTS = new Set(["tp", "escalate"]);
+/** Triage SLA per severity — the same table the live alert queue uses (minutes). */
+const SLA_MIN: Record<string, number> = { critical: 1, high: 3, medium: 10 };
+const slaSecFor = (sev: string) => (SLA_MIN[sev] ?? 30) * 60;
+const REPORTED_CAP = 20;
+const MISS_CAP = 8;
 const VALID_VERDICTS = new Set(["true_positive", "false_positive", "benign", "suspicious"]);
 
 export interface RubricCell { label: string; score: number | null; note?: string }
+/** One log an analyst acted on — escalated, or triaged when high/critical — against its SLA. */
+export interface ReportedItem {
+  label: string; severity: string; kind: "escalation" | "triage";
+  arrivedS: number | null; actedS: number | null; responseS: number | null;
+  /** Triage SLA for the log's severity (seconds) — the same table as the live alert queue. */
+  slaS: number; withinSla: boolean | null;
+  /** Ground truth: a real attack log, a control step of a real incident, or benign. */
+  truth: "attack" | "related" | "benign";
+  /** Escalations only: what Tier-2 did with it. */
+  outcome?: "resolved" | "acknowledged" | "bounced" | "open";
+  verdict?: string;
+}
+/** A log worth talking about in the debrief (a miss / a false alarm). */
+export interface MissItem { label: string; severity: string; arrivedS: number | null; detail?: string }
 export interface UserReport {
   user_id: string; name: string; role: string;
   opened: number; avgDwellS: number | null; dispCount: number; dispCorrect: number; dispAcc: number | null;
@@ -59,6 +78,16 @@ export interface UserReport {
   rubric: RubricCell[]; rubricPct: number | null;
   /** How many rubric cells were actually measured; < MIN_MEASURED_CELLS ⇒ insufficientEvidence. */
   measuredCells: number; insufficientEvidence: boolean;
+  // ── v3: per-event SLA + misses ──
+  /** Escalations + high/critical triage, oldest first (capped at REPORTED_CAP). */
+  reported: ReportedItem[];
+  slaMet: number; slaTotal: number; slaPct: number | null;
+  /** Attack logs this analyst called benign / false positive (latest verdict). */
+  falseNegatives: MissItem[];
+  /** Attack logs this analyst opened, took no action on — and nobody else handled either. */
+  walkedPast: MissItem[];
+  /** Benign logs (not part of any incident) this analyst escalated or called a true positive. */
+  falseAlarms: MissItem[];
 }
 export interface IncidentReport {
   id: string; label: string; attackEvents: number;
@@ -566,6 +595,25 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   const mgmtInjects = events.filter(e => e.type === "staff.inject" && String((e.payload as { kind?: string }).kind) === "mgmt_pressure");
   const tms = (es: Ev[]) => es.map(e => (e.occurred_at ? Date.parse(e.occurred_at) : NaN)).filter(n => Number.isFinite(n));
 
+  // ── v3: first triage action per log (any analyst) + per-log SLA ───────────────
+  // "Triaged" = the first disposition OR escalation anyone made on the log.
+  const firstTriage = new Map<string, number>();
+  for (const e of events) {
+    if (e.type !== "disposition.set" && e.type !== "escalation.requested") continue;
+    if (e.type === "disposition.set" && !isValidDisp(e)) continue;
+    const eid = eidOf(e); const t = tsOf(e); if (!truth.has(eid) || t == null) continue;
+    if (!firstTriage.has(eid) || t < firstTriage.get(eid)!) firstTriage.set(eid, t);
+  }
+  const sevOf = (eid: string) => (feedSev.get(eid) || "informational").toLowerCase();
+  const labelOf = (eid: string) => (truth.get(eid)?.label ?? "event").slice(0, 140);
+  const truthClass = (eid: string): "attack" | "related" | "benign" => attackIds.has(eid) ? "attack" : incidentOfEid(eid) ? "related" : "benign";
+  const missItem = (eid: string, detail?: string): MissItem => ({ label: labelOf(eid), severity: sevOf(eid), arrivedS: relS(feedTs.get(eid) ?? null), ...(detail ? { detail } : {}) });
+  const escalatedBy = new Map<string, Set<string>>();   // eid → who escalated it
+  for (const e of escReq) { const eid = eidOf(e); if (!escalatedBy.has(eid)) escalatedBy.set(eid, new Set()); escalatedBy.get(eid)!.add(e.actor_id ?? ""); }
+  const caughtByAnyone = (eid: string) => escalatedBy.has(eid) || markedAttack.has(eid);
+  const escOutcome = (eid: string): ReportedItem["outcome"] =>
+    escResolvedIds.has(eid) ? "resolved" : escBouncedIds.has(eid) ? "bounced" : escAckedIds.has(eid) ? "acknowledged" : "open";
+
   const perUser: UserReport[] = players.map(m => {
     const mine = events.filter(e => e.actor_id === m.user_id);
     // event.opened carries { event_id, dwell_ms }; count DISTINCT ids opened, max dwell per id.
@@ -712,6 +760,42 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     for (const it of injTs) { const idx = sitrepPool.findIndex(st => st >= it && st - it <= MGMT_WINDOW); if (idx !== -1) { mgmtAnswered++; sitrepPool.splice(idx, 1); } }
     const mgmtRespondedRate = pct(mgmtAnswered, mgmtInjects.length);
 
+    // ── v3: SLA per reported event ──
+    const firstEsc = new Map<string, number>();
+    for (const e of esc) { const eid = eidOf(e); const t = tsOf(e); if (!truth.has(eid) || t == null) continue; if (!firstEsc.has(eid) || t < firstEsc.get(eid)!) firstEsc.set(eid, t); }
+    const firstDispHigh = new Map<string, { t: number; v: string }>();
+    for (const d of disp) {
+      const eid = eidOf(d); const t = tsOf(d); const sev = sevOf(eid);
+      if (t == null || firstEsc.has(eid) || (sev !== "high" && sev !== "critical")) continue;
+      if (!firstDispHigh.has(eid) || t < firstDispHigh.get(eid)!.t) firstDispHigh.set(eid, { t, v: verdictOf(d) });
+    }
+    const asItem = (eid: string, t: number, kind: ReportedItem["kind"], verdict?: string): ReportedItem => {
+      const arr = feedTs.get(eid) ?? null; const sev = sevOf(eid); const slaS = slaSecFor(sev);
+      const responseS = arr != null ? Math.max(0, Math.round((t - arr) / 1000)) : null;
+      return {
+        label: labelOf(eid), severity: sev, kind, arrivedS: relS(arr), actedS: relS(t), responseS, slaS,
+        withinSla: responseS == null ? null : responseS <= slaS, truth: truthClass(eid),
+        ...(kind === "escalation" ? { outcome: escOutcome(eid) } : {}), ...(verdict ? { verdict } : {}),
+      };
+    };
+    const reportedAll = [
+      ...[...firstEsc].map(([eid, t]) => asItem(eid, t, "escalation")),
+      ...[...firstDispHigh].map(([eid, x]) => asItem(eid, x.t, "triage", x.v)),
+    ].sort((a, b) => (a.actedS ?? 0) - (b.actedS ?? 0));
+    const slaJudged = reportedAll.filter(r => r.withinSla != null);
+    const slaMet = slaJudged.filter(r => r.withinSla).length;
+
+    // ── v3: misses ──
+    const falseNegatives = [...latestVerdict].filter(([eid, v]) => attackIds.has(eid) && (v === "benign" || v === "false_positive"))
+      .map(([eid, v]) => missItem(eid, `called it ${v.replace("_", " ")}`));
+    const walkedPast = [...dwellByEid.keys()].filter(eid => attackIds.has(eid) && !latestVerdict.has(eid) && !firstEsc.has(eid) && !caughtByAnyone(eid))
+      .map(eid => missItem(eid, "opened, no action — and nobody else caught it"));
+    const alarmEids = new Set<string>([
+      ...[...firstEsc.keys()].filter(eid => truthClass(eid) === "benign"),
+      ...[...latestVerdict].filter(([eid, v]) => v === "true_positive" && truthClass(eid) === "benign").map(([eid]) => eid),
+    ]);
+    const falseAlarms = [...alarmEids].map(eid => missItem(eid, firstEsc.has(eid) ? "escalated a benign log" : "called a benign log a true positive"));
+
     const rubric = roleRubric({
       role: m.role, dispAcc, escAckRate, escPrecision, incidentRecall, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
       huntCount: hunts.length, huntTech, huntQuality, noteCount, elevAnsweredPct,
@@ -730,8 +814,14 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
       escCount: esc.length, escQuality, acks, contReq: myContReq.length, contDecided, roleActions, firstActionS, contribution,
       rubric, rubricPct: rubricPercent(rubric),
       measuredCells, insufficientEvidence: rubric.length > 0 && measuredCells < MIN_MEASURED_CELLS,
+      reported: reportedAll.slice(0, REPORTED_CAP),
+      slaMet, slaTotal: slaJudged.length, slaPct: pct(slaMet, slaJudged.length),
+      falseNegatives: falseNegatives.slice(0, MISS_CAP),
+      walkedPast: walkedPast.slice(0, MISS_CAP),
+      falseAlarms: falseAlarms.slice(0, MISS_CAP),
     };
   });
+
 
   // ── Team detection. MTTD = the FIRST correct escalation of any malicious log.
   const firstDetect = Math.min(...[...escalatedAttack.values()].filter(Number.isFinite), Infinity);
@@ -840,6 +930,36 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     if (mm.size >= 2 && classes.has("attack") && classes.has("benign")) contestedList.push({ eid, label: truth.get(eid)?.label ?? "event", calls: [...mm.entries()].map(([actor, cls]) => ({ actor, cls })) });
   }
 
+  // ── v3: team triage metrics ────────────────────────────────────────────────────
+  const attackList = [...attackIds];
+  const attackSlaJudged = attackList.filter(eid => feedTs.get(eid) != null);
+  const attackInSla = attackSlaJudged.filter(eid => { const ft = firstTriage.get(eid); const at = feedTs.get(eid)!; return ft != null && (ft - at) / 1000 <= slaSecFor(sevOf(eid)); }).length;
+  const highCrit = [...truth.keys()].filter(eid => { const s = sevOf(eid); return s === "high" || s === "critical"; });
+  const highTriaged = highCrit.filter(eid => firstTriage.has(eid));
+  const mtttS = median(highTriaged.map(eid => { const at = feedTs.get(eid); return at != null ? (firstTriage.get(eid)! - at) / 1000 : null; }).filter((x): x is number => x != null && x >= 0));
+  // Attack logs nobody touched — the team's blind spots. An incident may still have been
+  // caught through another of its logs; the note says so.
+  const incidentDetected = new Map(incidentList.map(i => [i.id, i.detected] as const));
+  const missedAttackLogs = attackList.filter(eid => !firstTriage.has(eid))
+    .sort((a, b) => (feedTs.get(a) ?? 0) - (feedTs.get(b) ?? 0))
+    .map(eid => { const inc = truth.get(eid)?.incident; const caught = inc ? incidentDetected.get(inc) : false; return missItem(eid, caught ? "its incident was caught through another log" : "its incident was not caught"); });
+  // Team false negatives: attack logs whose standing call (latest verdict by anyone) is
+  // benign / false positive and that nobody escalated.
+  const teamFalseNegatives = [...teamLatestVerdict].filter(([eid, v]) => attackIds.has(eid) && (v === "benign" || v === "false_positive") && !escalatedBy.has(eid))
+    .map(([eid, v]) => missItem(eid, `standing call: ${v.replace("_", " ")}`));
+  const falseAlarmEscalations = [...escalatedBy.keys()].filter(eid => truth.has(eid) && truthClass(eid) === "benign").map(eid => missItem(eid, "escalated, but benign"));
+  // Workload split: share of all triage actions (dispositions + escalations) done by the busiest analyst.
+  const triageActionsBy = new Map<string, number>();
+  for (const e of events) {
+    if ((e.type === "disposition.set" && isValidDisp(e)) || e.type === "escalation.requested") {
+      const u = e.actor_id ?? ""; if (!roleByUser.has(u)) continue;
+      triageActionsBy.set(u, (triageActionsBy.get(u) ?? 0) + 1);
+    }
+  }
+  const triageTotal = [...triageActionsBy.values()].reduce((a, b) => a + b, 0);
+  const busiest = [...triageActionsBy].sort((a, b) => b[1] - a[1])[0];
+  const triagers = triageActionsBy.size;
+
   const caseStatusEvt = [...events].reverse().find(e => e.type === "case.status_set");
   // MTTC: Δ(the containment request it executed → containment.executed), median seconds.
   const execEvents = events.filter(e => e.type === "containment.executed");
@@ -861,6 +981,16 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     contested: contestedList.length, contestedList: contestedList.slice(0, 6),
     caseStatus: (caseStatusEvt?.payload as { status?: string })?.status ?? "—",
     evidencePinned: events.filter(e => e.type === "evidence.pinned").length,
+    // ── v3 ──
+    attackSlaPct: pct(attackInSla, attackSlaJudged.length), attackSlaMet: attackInSla, attackSlaTotal: attackSlaJudged.length,
+    highCritTotal: highCrit.length, highCritTriaged: highTriaged.length, highCritCoverage: pct(highTriaged.length, highCrit.length),
+    mtttS: mtttS != null ? Math.round(mtttS) : null,
+    missedAttackCount: missedAttackLogs.length, missedAttackLogs: missedAttackLogs.slice(0, 10),
+    falseNegativeCount: teamFalseNegatives.length, falseNegatives: teamFalseNegatives.slice(0, MISS_CAP),
+    falseAlarmCount: falseAlarmEscalations.length, falseAlarms: falseAlarmEscalations.slice(0, MISS_CAP),
+    triageActions: triageTotal, triagers,
+    busiestShare: busiest && triageTotal ? pct(busiest[1], triageTotal) : null,
+    busiestName: busiest ? (players.find(pl => pl.user_id === busiest[0])?.name ?? null) : null,
   };
   return { team, perUser };
 }
