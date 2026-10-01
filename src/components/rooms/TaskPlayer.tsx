@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, BookOpen, Shield, FileText } from "lucide-react";
@@ -61,9 +62,15 @@ async function submitTask(roomId: string, taskId: string, body: unknown): Promis
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Grading request failed (${res.status})`);
+  // E-01: keep what went wrong — the server's own message / an actionable line per
+  // status — instead of a bare "Grading request failed (503)" nobody ever saw.
+  if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
   return res.json();
 }
+
+/** E-01: a failed grading request is SHOWN (every sub-player used to drop it silently). */
+const TaskErrorContext = createContext<(e: unknown) => void>(() => {});
+function useReportTaskError() { return useContext(TaskErrorContext); }
 
 // ─── IOC Types ──────────────────────────────────────────────────────────────────
 const IOC_DEFS = [
@@ -396,6 +403,7 @@ const READING_XP_DEFAULT = 5;
  * RoomClient so it never touches the pass gate.
  */
 function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   const shuffleSeed = `${pageSeed()}:${task.id}`; // FB-002: checkpoint option order, fresh per load
   const endRef = useRef<HTMLDivElement | null>(null);
   const [reachedEnd, setReachedEnd] = useState(false);
@@ -477,6 +485,8 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
                         setCpCorrect(true);
                         onRecord({ type: "reading", checkpoint: { selected: i, answer, explanation: explanation ?? "", correct: true } });
                       }
+                    } catch (e) {
+                      reportError(e);
                     } finally {
                       setCpBusy(false);
                     }
@@ -532,6 +542,7 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
 
 // ─── Question Task ──────────────────────────────────────────────────────────────
 function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QuestionTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   // FB-002: page-load seed + task id — the correct answer isn't in a predictable
   // slot, options never jump on re-render, and a reload reshuffles.
   const shuffleSeed = `${pageSeed()}:${task.id}`;
@@ -590,6 +601,8 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
         setReveal(true); setConfirmed(true);          // second miss → reveal + 0 XP
         onRecord({ type: "question", selected, answer, explanation: expl, correct: false });
       }
+    } catch (e) {
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -637,6 +650,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 
 // ─── Log Analysis Task ──────────────────────────────────────────────────────────
 function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: LogAnalysisTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   const shuffleSeed = `${pageSeed()}:${task.id}`; // FB-002: option order, fresh per load (per question below)
   const [iocs, setIocs]           = useState<IocEntry[]>([]);
   const [answers, setAnswers]     = useState<(number | null)[]>(Array(task.questions.length).fill(null));
@@ -697,6 +711,8 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
       setRevealed(prev  => prev.map((v, idx) => idx === i ? true : v));
       setConfirmed(prev => prev.map((v, idx) => idx === i ? true : v));
       setTotalXp(prev => prev + result.xpEarned);
+    } catch (e) {
+      reportError(e);
     } finally {
       setBusy(prev => prev.map((v, idx) => idx === i ? false : v));
     }
@@ -794,6 +810,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
 
 // ─── Flag Task ──────────────────────────────────────────────────────────────────
 function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRecord }: { roomId: string; task: FlagTask; onComplete: (xp: number) => void; isCompleted: boolean; prevLogEvent?: TelemetryEvent; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   const [input, setInput]       = useState("");
   const [status, setStatus]     = useState<"idle" | "correct" | "wrong" | "checking">("idle");
   const [showHint, setShowHint] = useState(false);
@@ -820,14 +837,20 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
   }
 
   async function submit() {
+    if (status === "checking") return;          // Enter twice used to send two gradings (E-23)
     setStatus("checking");
-    const result = await submitTask(roomId, task.id, { value: input });
-    if (result.correct) {
-      setAwardedXp(result.xpEarned);
-      setStatus("correct");
-      onRecord({ type: "flag", value: input.trim(), correct: true });
-    } else {
-      setStatus("wrong");
+    try {
+      const result = await submitTask(roomId, task.id, { value: input });
+      if (result.correct) {
+        setAwardedXp(result.xpEarned);
+        setStatus("correct");
+        onRecord({ type: "flag", value: input.trim(), correct: true });
+      } else {
+        setStatus("wrong");
+      }
+    } catch (e) {
+      setStatus("idle");                          // never stuck on "checking" (E-01)
+      reportError(e);
     }
   }
 
@@ -944,6 +967,7 @@ export const ANALYST_VERDICTS = [
 ] as const;
 
 function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: AnalystChoiceTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   // FB-002: verdict cards in a per-load order too, so "the answer is usually the
   // first card" can't become a habit. Submitted by verdict KEY — no index mapping.
   const VERDICTS = React.useMemo(() => shuffleWithSeed(ANALYST_VERDICTS, `${pageSeed()}:${task.id}:verdicts`), [task.id]);
@@ -987,6 +1011,8 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
         setRevealed(true);
         onRecord({ type: "analyst_choice", selected, correctVerdict: cv, explanation: expl, fpTrap: trap, correct: false });
       }
+    } catch (e) {
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -1089,6 +1115,7 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
 
 // ─── Matching Task ────────────────────────────────────────────────────────────────
 function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: MatchingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   // { leftId -> right TEXT }. The right side has no id: the server delivers it
   // as bare shuffled strings precisely so no id can tie a right item back to
@@ -1135,6 +1162,8 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
       setResult(r);
       setRevealed(true);
       onRecord({ type: "matching", connections, perPair: r.perPair, solution: r.solution, explanation: r.explanation, correct: res.correct });
+    } catch (e) {
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -1275,6 +1304,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 
 // ─── Ordering Task ────────────────────────────────────────────────────────────────
 function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: OrderingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   const [placed, setPlaced] = useState<(string | null)[]>(Array(task.items.length).fill(null));
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -1316,6 +1346,8 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
       setResult(r);
       setRevealed(true);
       onRecord({ type: "ordering", placed, perSlot: r.perSlot, correctOrder: r.correctOrder, explanation: r.explanation, correct: res.correct });
+    } catch (e) {
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -1499,6 +1531,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 const BLANK_TOKEN = /\{\{([a-zA-Z0-9_]+)\}\}/g;
 
 function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QueryFillTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   const [values, setValues]     = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy]         = useState(false);
@@ -1530,6 +1563,8 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
       setAllCorrect(result.correct);
       setRevealed(true);
       onRecord({ type: "query_fill", values, blanks: byId, explanation: expl, correct: result.correct });
+    } catch (e) {
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -1628,6 +1663,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
 }
 
 function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: WrittenReportTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+  const reportError = useReportTaskError();
   const [text, setText]         = useState("");
   const [busy, setBusy]         = useState(false);
   const [revealed, setRevealed] = useState(false);
@@ -1654,6 +1690,8 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
       setPassed(res.correct);
       setRevealed(true);
       onRecord({ type: "written_report", text, ...r, correct: res.correct });
+    } catch (e) {
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -1752,6 +1790,8 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
   // so the read-only Review mode can show them later without re-submitting.
   const onRecord = useCallback((record: ReviewRecord) => saveTaskReview(roomId, task.id, record), [roomId, task.id]);
   const common = { roomId, onComplete: handleComplete, isCompleted, onRecord };
+  const [taskError, setTaskError] = useState<string | null>(null);
+  const reportError = useCallback((e: unknown) => setTaskError(userMessageFor(e)), []);
 
   const player = (() => {
     switch (task.type) {
@@ -1769,8 +1809,15 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
   })();
 
   return (
-    <div onClickCapture={recordInteraction} onChangeCapture={recordInteraction}>
-      {player}
-    </div>
+    <TaskErrorContext.Provider value={reportError}>
+      <div onClickCapture={() => { setTaskError(null); recordInteraction(); }} onChangeCapture={recordInteraction}>
+        {taskError && (
+          <p role="alert" className="mb-3 rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-3 py-2 text-sm text-neon-amber">
+            {taskError} Your answer wasn&apos;t lost — try again.
+          </p>
+        )}
+        {player}
+      </div>
+    </TaskErrorContext.Provider>
   );
 }
