@@ -14,6 +14,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { paramOf } from "@/lib/http/params";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { resolveGeneratedLesson, stripLessonQuiz } from "@/lib/lessons/lessonContent";
 
@@ -41,7 +42,7 @@ export async function GET(
   await getAuthedUser();
 
   const { slug } = await params;
-  const raw = decodeURIComponent(slug);
+  const raw = paramOf(slug);
 
   const resolved = await resolveGeneratedLesson(raw);
   if ("error" in resolved) {

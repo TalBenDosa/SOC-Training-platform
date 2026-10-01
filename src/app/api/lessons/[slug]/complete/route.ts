@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { paramOf } from "@/lib/http/params";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { findLesson } from "@/lib/lessons/paths";
@@ -38,7 +39,7 @@ export async function POST(
   if (!admin) return NextResponse.json({ error: "Progress storage isn't configured.", guest: true }, { status: 503 });
 
   const { slug } = await params;
-  const parsed = parseLessonSlug(decodeURIComponent(slug));
+  const parsed = parseLessonSlug(paramOf(slug));
   const found = parsed ? findLesson(parsed.pathSlug, parsed.lessonSlug) : null;
   if (!parsed || !found) return NextResponse.json({ error: "Lesson not found." }, { status: 404 });
   const lessonKey = `${parsed.pathSlug}--${parsed.lessonSlug}`;

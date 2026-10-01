@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { paramOf } from "@/lib/http/params";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveGradableQuiz } from "@/lib/quizzes/resolve";
@@ -35,7 +36,7 @@ export async function POST(
   if (!admin) return NextResponse.json({ error: "Progress storage isn't configured.", guest: true }, { status: 503 });
 
   const { slug: rawSlug } = await params;
-  const slug = decodeURIComponent(rawSlug);
+  const slug = paramOf(rawSlug);
   const quiz = await resolveGradableQuiz(slug, user.orgId ?? null);
   if (!quiz) return NextResponse.json({ error: "Quiz not found." }, { status: 404 });
 

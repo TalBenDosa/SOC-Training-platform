@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { paramOf } from "@/lib/http/params";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { resolveGradableQuiz } from "@/lib/quizzes/resolve";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -36,7 +37,7 @@ export async function POST(
 ) {
   const user = await getAuthedUser();
   const { slug: rawSlug } = await params;
-  const slug = decodeURIComponent(rawSlug);
+  const slug = paramOf(rawSlug);
 
   const quiz = await resolveGradableQuiz(slug, user?.orgId ?? null);
   if (!quiz) {

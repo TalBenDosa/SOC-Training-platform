@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { ContentUnavailableError } from "@/lib/content/unavailable";
+import { paramOf } from "@/lib/http/params";
 import { findTask, gradeTask } from "@/lib/rooms/grading";
 import { getEffectiveRoom } from "@/lib/rooms/resolve";
 import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
@@ -30,10 +32,12 @@ export async function POST(
 
   // Resolves static built-ins AND org-authored DB rooms (the latter get their
   // answer key merged in from the service-role-only key table).
-  const room = await getEffectiveRoom(decodeURIComponent(roomId), user?.orgId ?? null, canPreviewDrafts(user));
+  let room: Awaited<ReturnType<typeof getEffectiveRoom>>;
+  try { room = await getEffectiveRoom(paramOf(roomId), user?.orgId ?? null, canPreviewDrafts(user)); }
+  catch (e) { if (e instanceof ContentUnavailableError) return NextResponse.json({ error: "This content couldn't be loaded just now — please try again." }, { status: 503 }); throw e; }
   if (!room) return NextResponse.json({ error: "Room not found." }, { status: 404 });
 
-  const task = findTask(room, decodeURIComponent(taskId));
+  const task = findTask(room, paramOf(taskId));
   if (!task) return NextResponse.json({ error: "Task not found." }, { status: 404 });
 
   let body: unknown;

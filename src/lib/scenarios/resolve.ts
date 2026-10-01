@@ -1,4 +1,5 @@
 import "server-only";
+import { ContentUnavailableError } from "@/lib/content/unavailable";
 import type { ScenarioBundle } from "@/lib/sim/types";
 import { buildScenarioBySlug } from "@/lib/sim/scenarios";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -50,7 +51,7 @@ export async function resolveScenarioBundle(slug: string, orgId: string | null, 
     .eq("id", slug)
     .maybeSingle();
   // Fail closed (P4-04) — see src/lib/rooms/resolve.ts.
-  if (keyErr) throw new Error(`answer key unavailable for ${slug}: ${keyErr.message}`);
+  if (keyErr) { console.error(`[scenarios/resolve] key ${slug}: ${keyErr.message}`); throw new ContentUnavailableError(slug); }
   if (!keyRow) return null;
 
   const answerKey = (keyRow.answer_key ?? {}) as Record<string, unknown>;

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { ContentUnavailableError } from "@/lib/content/unavailable";
+import { paramOf } from "@/lib/http/params";
 import { decodeAnswer, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
 import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
@@ -27,10 +29,12 @@ export async function POST(
   }
 
   const { slug: rawSlug } = await params;
-  const slug = decodeURIComponent(rawSlug);
+  const slug = paramOf(rawSlug);
   // Resolves static built-ins AND org-authored DB scenarios (the latter get
   // their answer key merged in from the service-role-only key table).
-  const bundle = await resolveScenarioBundle(slug, gradeUser.orgId, canPreviewDrafts(gradeUser));
+  let bundle: Awaited<ReturnType<typeof resolveScenarioBundle>>;
+  try { bundle = await resolveScenarioBundle(slug, gradeUser.orgId, canPreviewDrafts(gradeUser)); }
+  catch (e) { if (e instanceof ContentUnavailableError) return NextResponse.json({ error: "This content couldn't be loaded just now — please try again." }, { status: 503 }); throw e; }
   if (!bundle) {
     return NextResponse.json({ error: "Scenario not found" }, { status: 404 });
   }

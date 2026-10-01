@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { paramOf } from "@/lib/http/params";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -29,24 +30,28 @@ export async function GET(_req: Request, { params }: Ctx) {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const cleaned = decodeURIComponent(code).trim().toUpperCase();
+  const cleaned = paramOf(code).trim().toUpperCase();
   if (!/^[A-Z0-9]{6,12}$/.test(cleaned)) {
     return NextResponse.json({ valid: false });
   }
 
-  const { data: row } = await admin
+  const { data: row, error: rowErr } = await admin
     .from("org_codes")
     .select("org_id, expires_at")
     .eq("code", cleaned)
     .gt("expires_at", new Date().toISOString())
     .maybeSingle();
+  // E-11: a failed READ is "couldn't check" (503), never "invalid" — the signup
+  // page shows a retry for 5xx (E-02) instead of the dead-code dead end.
+  if (rowErr) { console.error("[access-codes] org_codes read failed:", rowErr.message); return NextResponse.json({ error: "Couldn't check the code right now — please try again." }, { status: 503 }); }
   if (!row) return NextResponse.json({ valid: false });
 
-  const { data: org } = await admin
+  const { data: org, error: orgErr } = await admin
     .from("organizations")
     .select("name, status, seat_limit")
     .eq("id", row.org_id)
     .maybeSingle();
+  if (orgErr) { console.error("[access-codes] organizations read failed:", orgErr.message); return NextResponse.json({ error: "Couldn't check the code right now — please try again." }, { status: 503 }); }
   if (!org || !["active", "trial"].includes(org.status)) {
     return NextResponse.json({ valid: false });
   }

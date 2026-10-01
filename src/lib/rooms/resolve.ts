@@ -1,4 +1,5 @@
 import "server-only";
+import { ContentUnavailableError } from "@/lib/content/unavailable";
 import type { Room } from "@/data/rooms";
 import { ROOMS } from "@/data/rooms";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -28,11 +29,12 @@ export async function getEffectiveRoom(roomId: string, orgId: string | null, inc
   const admin = getSupabaseAdminClient();
   if (!admin) return null;
 
-  const { data: row } = await admin
+  const { data: row, error: rowErr } = await admin
     .from("content_rooms")
     .select("id, org_id, status, content")
     .eq("id", roomId)
     .maybeSingle();
+  if (rowErr) { console.error(`[rooms/resolve] ${roomId}: ${rowErr.message}`); throw new ContentUnavailableError(roomId); }
   if (!row) return null;
   if (row.org_id !== null && row.org_id !== orgId) return null;
   // Drafts / unpublished rooms: staff preview only (mirrors the quiz resolver,
@@ -50,7 +52,7 @@ export async function getEffectiveRoom(roomId: string, orgId: string | null, inc
   // Fail closed (P4-04): grading against an empty key marks right answers wrong
   // and RECORDS that (attempt counts, first answers). A read failure throws (the
   // request errors and can be retried); a room with no key is unavailable.
-  if (keyErr) throw new Error(`answer key unavailable for ${roomId}: ${keyErr.message}`);
+  if (keyErr) { console.error(`[rooms/resolve] key ${roomId}: ${keyErr.message}`); throw new ContentUnavailableError(roomId); }
   if (!keyRow) return null;
 
   return recombineRoom(content, (keyRow.answer_key ?? {}) as Record<string, unknown>);

@@ -17,16 +17,37 @@
  */
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
+/**
+ * QA phase 7, E-11: these reads returned [] on ANY error, so a transient PostgREST
+ * error made the college's own rooms / scenarios / lessons / quizzes / live-feed
+ * environment silently disappear — students "couldn't find" assigned content and
+ * instructors thought publishing had failed. A failed read is retried once; if it
+ * still fails the page is told (OrgContentNotice shows a retry line). Callers keep
+ * getting [] so nothing downstream changes shape.
+ */
+export const ORG_CONTENT_ERROR_EVENT = "org-content:load-failed";
+async function readOnce<R>(run: () => PromiseLike<{ data: R | null; error: unknown }>): Promise<R | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { data, error } = await run();
+      if (!error) return data;
+    } catch { /* network — retry once */ }
+    if (attempt === 0) await new Promise(r => setTimeout(r, 600));
+  }
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(ORG_CONTENT_ERROR_EVENT));
+  return null;
+}
+
 async function fetchPublished<T>(table: "content_scenarios" | "content_lessons"): Promise<T[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return []; // guest/local mode — no durable store to read from
-  const { data, error } = await supabase
+  const data = await readOnce(() => supabase
     .from(table)
     .select("content")
     .eq("status", "published")
-    .order("created_at", { ascending: false });
-  if (error || !data) return [];
-  return data.map(row => row.content as T);
+    .order("created_at", { ascending: false }));
+  if (!data) return [];
+  return (data as { content: unknown }[]).map(row => row.content as T);
 }
 
 export const fetchPublishedScenarios = <T,>() => fetchPublished<T>("content_scenarios");
@@ -39,8 +60,8 @@ export const fetchPublishedScenarios = <T,>() => fetchPublished<T>("content_scen
 export async function fetchPublishedQuizzes<T>(): Promise<T[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc("published_quizzes");
-  if (error || !Array.isArray(data)) return [];
+  const data = await readOnce(() => supabase.rpc("published_quizzes"));
+  if (!Array.isArray(data)) return [];
   return (data as { content: unknown }[]).map(row => row.content as T);
 }
 export const fetchPublishedLessons   = <T,>() => fetchPublished<T>("content_lessons");
@@ -108,13 +129,13 @@ export interface OrgCompanyContent {
 export async function fetchOrgCompanies(): Promise<OrgCompanyContent[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
-  const { data, error } = await supabase
+  const data = await readOnce(() => supabase
     .from("content_companies")
     .select("content")
     .eq("status", "published")
-    .order("created_at", { ascending: false });
-  if (error || !data) return [];
-  return data
+    .order("created_at", { ascending: false }));
+  if (!data) return [];
+  return (data as { content: unknown }[])
     .map(row => (row.content ?? {}) as OrgCompanyContent)
     .filter(c => c?.profile?.id && Array.isArray(c.benignEvents) && c.story?.events);
 }
@@ -122,13 +143,13 @@ export async function fetchOrgCompanies(): Promise<OrgCompanyContent[]> {
 export async function fetchOrgRoomMetas(): Promise<OrgRoomMeta[]> {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return [];
-  const { data, error } = await supabase
+  const data = await readOnce(() => supabase
     .from("content_rooms")
     .select("content")
     .eq("status", "published")
-    .order("created_at", { ascending: false });
-  if (error || !data) return [];
-  return data.map(row => {
+    .order("created_at", { ascending: false }));
+  if (!data) return [];
+  return (data as { content: unknown }[]).map(row => {
     const c = (row.content ?? {}) as Record<string, unknown>;
     const tasks = Array.isArray(c.tasks) ? c.tasks as Record<string, unknown>[] : [];
     return {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { paramOf } from "@/lib/http/params";
 import { resolveGeneratedLesson, parseLessonSlug } from "@/lib/lessons/lessonContent";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -45,7 +46,7 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> },
 ) {
   const { slug } = await params;
-  const raw = decodeURIComponent(slug);
+  const raw = paramOf(slug);
 
   const resolved = await resolveGeneratedLesson(raw);
   if ("error" in resolved) {

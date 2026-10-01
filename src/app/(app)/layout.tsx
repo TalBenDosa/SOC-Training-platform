@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/nav/Sidebar";
 import { MotionProvider } from "@/components/MotionProvider";
 import { EarnMoment } from "@/components/EarnMoment";
 import { SyncStatus } from "@/components/system/SyncStatus";
+import { OrgContentNotice } from "@/components/system/OrgContentNotice";
 import { ReportProblem } from "@/components/feedback/ReportProblem";
 import { PlanAnnouncementModal } from "@/components/plans/PlanAnnouncementModal";
 import { affiliationExpired } from "@/lib/org/affiliationGate";
@@ -24,6 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <EarnMoment />
       {/* Silent unless a write actually failed — see syncState.ts */}
       <SyncStatus />
+      <OrgContentNotice />
       {/* Global technical-bug reporter — floats on every app page */}
       <ReportProblem />
       {/* New / updated learning plan → one popup (learners are never emailed

@@ -113,7 +113,7 @@ export default function ScenariosPage() {
     // Admin-published scenarios now live in the durable content_scenarios
     // table (migration 0019), not per-browser localStorage — this is what
     // makes them actually visible to real students for the first time.
-    fetchPublishedScenarios<PublishedScenario>().then(setPublished);
+    fetchPublishedScenarios<PublishedScenario>().then(setPublished).catch(() => { /* announced by OrgContentNotice */ });
     return () => {
       window.removeEventListener(PROGRESS_HYDRATED_EVENT, readProgress);
       window.removeEventListener(XP_CHANGED_EVENT, readProgress);

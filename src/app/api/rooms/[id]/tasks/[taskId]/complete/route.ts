@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { ContentUnavailableError } from "@/lib/content/unavailable";
+import { paramOf } from "@/lib/http/params";
 import { findTask } from "@/lib/rooms/grading";
 import { getEffectiveRoom } from "@/lib/rooms/resolve";
 import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
@@ -35,9 +37,11 @@ export async function POST(
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const room = await getEffectiveRoom(decodeURIComponent(rawRoomId), user.orgId ?? null, canPreviewDrafts(user));
+  let room: Awaited<ReturnType<typeof getEffectiveRoom>>;
+  try { room = await getEffectiveRoom(paramOf(rawRoomId), user.orgId ?? null, canPreviewDrafts(user)); }
+  catch (e) { if (e instanceof ContentUnavailableError) return NextResponse.json({ error: "This content couldn't be loaded just now — please try again." }, { status: 503 }); throw e; }
   if (!room) return NextResponse.json({ error: "Room not found." }, { status: 404 });
-  const task = findTask(room, decodeURIComponent(rawTaskId));
+  const task = findTask(room, paramOf(rawTaskId));
   if (!task) return NextResponse.json({ error: "Task not found." }, { status: 404 });
 
   let body: Record<string, unknown> = {};
