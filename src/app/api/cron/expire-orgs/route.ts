@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { constantTimeEquals } from "@/lib/security/constantTimeEquals";
 import { purgeOrphanUploads } from "@/lib/storage/purgeOrphanUploads";
+import { awardTeamXp, sessionsMissingXp } from "@/lib/team/awardTeamXp";
 
 /**
  * Flips organizations whose license window has passed to status='expired'.
@@ -25,9 +26,16 @@ async function run() {
   }
   // SEC-17: the same daily run clears abandoned (never-finalized) uploads.
   const uploads = await purgeOrphanUploads(admin).catch(e => { console.error("[cron/expire-orgs] purge failed:", (e as Error).message); return null; });
+  // 0087: team sessions that ended without an XP award (reaped, or the award at
+  // end-time failed) are awarded here.
+  let teamXp = 0;
+  for (const sid of await sessionsMissingXp(admin, 20)) {
+    try { await awardTeamXp(admin, sid); teamXp++; }
+    catch (e) { console.error(`[cron/expire-orgs] team XP for ${sid} failed:`, (e as Error).message); }
+  }
   // E-20 (QA phase 7): one summary line per run, so the logs show it ran.
-  console.info(`[cron/expire-orgs] done: expired=${data ?? 0} orphanUploads=${JSON.stringify(uploads)}`);
-  return NextResponse.json({ expired: data ?? 0, orphanUploads: uploads });
+  console.info(`[cron/expire-orgs] done: expired=${data ?? 0} orphanUploads=${JSON.stringify(uploads)} teamXpAwarded=${teamXp}`);
+  return NextResponse.json({ expired: data ?? 0, orphanUploads: uploads, teamXpAwarded: teamXp });
 }
 
 async function authorized(req: Request): Promise<boolean> {

@@ -43,7 +43,7 @@ describe("buildTeamTimeline — answer key off the wire (audit S4)", () => {
       if (e.channel === "inject") {
         expect(e.body).not.toHaveProperty("expected_response");
         expect(e.body).not.toHaveProperty("linked_objective");
-        expect(["update", "ticket", "announcement"]).toContain(e.body.kind);
+        expect(["update", "mgmt_request", "ticket", "announcement"]).toContain(e.body.kind);
       }
     }
   });

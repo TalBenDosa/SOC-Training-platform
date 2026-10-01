@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { teamTransition } from "@/lib/team/transition";
 import { logAudit } from "@/lib/audit/logAudit";
 import { activeSeat } from "@/lib/team/membership";
+import { awardTeamXp } from "@/lib/team/awardTeamXp";
 
 /**
  * End a team exercise. Staff of the session's org (platform admin / org_admin /
@@ -41,5 +42,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   await logAudit({ actorId: user.id, action: "team.session.end", targetTable: "team_sessions", targetId: id,
     metadata: { as: isStaff ? "staff" : "mgr", noop: !!t.result.noop } });
+
+  // Team training XP for every player (0087). Best effort — the report route and
+  // the daily sweep award it later if this fails; ending never depends on it.
+  try { await awardTeamXp(admin, id); }
+  catch (e) { console.error("[team end] XP award failed (will retry from the report / sweep):", e instanceof Error ? e.message : String(e)); }
   return NextResponse.json({ ok: true, already: !!t.result.noop });
 }

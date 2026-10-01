@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { setTotalXp } from "@/lib/storage/progress";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, Siren, Clock, Timer, EyeOff, MonitorX } from "lucide-react";
@@ -342,6 +343,8 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   const [report, setReport] = useState<Report | null>(null);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [seesAll, setSeesAll] = useState(false);
+  // 0087: team training XP awarded per player (server-computed from this report).
+  const [xp, setXp] = useState<Record<string, number>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [showAll, setShowAll] = useState(false);
@@ -358,6 +361,8 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         setReport({ team: data.team, perUser: data.perUser } as Report);
         setAnswers(data.answers ?? {});
         setSeesAll(!!data.seesAll);
+        setXp(data.xp && typeof data.xp === "object" ? data.xp : {});
+        if (typeof data.myTotalXp === "number") setTotalXp(data.myTotalXp);
       } catch { if (!cancelled) setLoadError("Couldn't load the report — check your connection."); }
     })();
     return () => { cancelled = true; };
@@ -605,7 +610,12 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           <Card key={u.user_id}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold text-white">{u.name}</p>
-              <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{ROLE_LABEL[u.role] ?? u.role}</span>
+              <span className="flex items-center gap-1.5">
+                {typeof xp[u.user_id] === "number" && (
+                  <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-green" title="XP added to the account for this shift">+{xp[u.user_id]} XP</span>
+                )}
+                <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{ROLE_LABEL[u.role] ?? u.role}</span>
+              </span>
             </div>
             {/* G-11: role rubric is the real score; contribution kept as a secondary signal */}
             {u.insufficientEvidence ? (

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { buildServerReport, type ServerReport } from "@/lib/team/report/serverReport";
-import { REPORT_VERSION } from "@/lib/team/report/computeReport";
+import type { ServerReport } from "@/lib/team/report/serverReport";
+import { loadOrBuildReport, awardTeamXp, awardedTeamXp } from "@/lib/team/awardTeamXp";
 
 /**
  * GET /api/team/sessions/[id]/report — the server-authoritative after-action report.
@@ -32,30 +32,36 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "The after-action report is available once the session ends." }, { status: 409 });
   }
 
-  let report: ServerReport | null = null;
-  const { data: cached } = await admin.from("team_session_reports").select("report").eq("session_id", id).maybeSingle();
   // A report cached by an older scoring version is recomputed (the log is frozen
   // once ended, so a rebuild is deterministic — only the rules changed).
-  if (cached?.report && (cached.report as { team?: { version?: number } }).team?.version === REPORT_VERSION) {
-    report = cached.report as ServerReport;
-  }
-  if (!report) {
-    try {
-      report = await buildServerReport(admin, id);
-    } catch (e) {
-      console.error("[team report] build failed:", e instanceof Error ? e.message : String(e));
-      return NextResponse.json({ error: "Couldn't build the report. Please try again." }, { status: 500 });
-    }
-    const { error: upErr } = await admin.from("team_session_reports")
-      .upsert({ session_id: id, report, computed_at: new Date().toISOString() });
-    if (upErr) console.error("[team report] cache write failed:", upErr.message);  // serve it anyway
+  let report: ServerReport;
+  try {
+    report = (await loadOrBuildReport(admin, id)).report;
+  } catch (e) {
+    console.error("[team report] build failed:", e instanceof Error ? e.message : String(e));
+    return NextResponse.json({ error: "Couldn't build the report. Please try again." }, { status: 500 });
   }
 
+  // Team training XP (0087): awarded at session end; this is the safety net for a
+  // session ended by the reaper or whose award failed. Never blocks the report.
+  let xp = await awardedTeamXp(admin, id);
+  if (!xp) {
+    try { xp = await awardTeamXp(admin, id, report); }
+    catch (e) { console.error("[team report] XP award failed:", e instanceof Error ? e.message : String(e)); }
+  }
+
+  // The viewer's account total after the award, so the app's XP counter updates
+  // without a reload (same pattern as the room completion route).
+  const { data: me } = await admin.from("profiles").select("xp").eq("id", user.id).maybeSingle();
+
   const seesAll = iAmStaff || mem?.role === "mgr";
+  const xpShown = xp ? (seesAll ? xp : (user.id in xp ? { [user.id]: xp[user.id] } : {})) : {};
   return NextResponse.json({
     team: report.team,
     perUser: seesAll ? report.perUser : report.perUser.filter(u => u.user_id === user.id),
     answers: report.answers,
+    xp: xpShown,
+    myTotalXp: typeof me?.xp === "number" ? me.xp : null,
     seesAll,
   });
 }

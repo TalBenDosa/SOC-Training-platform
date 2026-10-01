@@ -409,6 +409,8 @@ export default function TeamRoomPage() {
   // ready-check (otherwise an observer wedges Start forever) nor the coverage set.
   const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer" && r.status !== "left");   // a removed no-show never wedges Start
   const allReady = players.length > 0 && players.every(p => readyMap[p.user_id]);
+  // Only the SOC Manager / Lead can send a SITREP — without one, management requests can't be answered.
+  const hasManager = roster.some(r => (r.role === "mgr" || r.role === "lead") && r.status !== "left");
   const iAmPlayer = !!(me && me.role && me.role !== "instructor" && me.role !== "observer");
   const iAmReady = !!(me && readyMap[me.id]);
   const canRunSession = !!(me && (me.is_staff || me.role === "mgr")); // who may end/manage
@@ -956,7 +958,13 @@ export default function TeamRoomPage() {
             {me?.is_staff && (
               <Card className="border-cyber-500/30">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div><p className="text-sm font-bold text-white">Start the exercise</p><p className="text-xs text-slate-400">{allReady ? "All players are ready." : "Locked until every player marks ready."}</p></div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Start the exercise</p>
+                    <p className="text-xs text-slate-400">{allReady ? "All players are ready." : "Locked until every player marks ready."}</p>
+                    {!hasManager && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-neon-amber"><AlertTriangle className="h-3.5 w-3.5" /> No SOC Manager or Lead on this team — CISO / Legal / exec requests will go unanswered. Add one below.</p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                   <Button variant="primary" size="sm" disabled={busy || !allReady} onClick={start}>{busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />} Confirm &amp; start</Button>
                   <Button variant="outline" size="sm" disabled={busy} onClick={end}>Close session</Button>
@@ -1096,7 +1104,7 @@ export default function TeamRoomPage() {
                 {/* Team intel — its own visible card (was buried in a folded tab) */}
                 <TeamIntel events={events} nameOf={nameOf} />
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}
-                <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
+                <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager} />
                 {/* The team's action log, folded so the role panel stays dominant (chat moved out, left column) */}
                 <SecondaryPanels activity={activity} nameOf={nameOf} />
               </div>

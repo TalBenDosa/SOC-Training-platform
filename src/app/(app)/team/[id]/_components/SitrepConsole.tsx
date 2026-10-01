@@ -20,6 +20,7 @@ export function SitrepConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (
     if (ok) setF({ situation: "", actions: "", status: "", next: "" });
   }
   return (
+    <div id="team-sitrep" className="scroll-mt-24">
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ArrowUpRight className="h-4 w-4 text-cyber-300" /> SITREP ({sitreps.length})</h3>
       {sitreps.length > 0 && (
@@ -41,5 +42,6 @@ export function SitrepConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (
         <Button variant="outline" size="sm" disabled={busy || !canSend} onClick={send}>Send SITREP</Button>
       </div>
     </Card>
+    </div>
   );
 }

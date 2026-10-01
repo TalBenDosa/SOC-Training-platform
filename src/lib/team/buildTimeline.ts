@@ -629,8 +629,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
 
 /** Feed fields that reveal the ground truth or the attack story — never sent to players. */
 export const TEAM_ANSWER_FIELDS = ["expected_verdict", "fp_explanation", "incident_id", "edr_scope", "is_baseline", "it_verify_result", "it_verify_message", "supports_inject", "feed_origin"] as const;
-/** Inject kinds that must look identical live (the real kind is the answer). */
-const PUBLIC_INJECT_KIND: Record<string, string> = { twist: "update", false_lead: "update", mgmt_pressure: "update" };
+/** Inject kinds that must look identical live (the real kind is the answer). A
+ *  management request is not a spoiler — who answers it (the SOC Manager, with a
+ *  SITREP) is part of the job — so it gets its own public kind; only the twist and
+ *  the false lead stay indistinguishable. */
+const PUBLIC_INJECT_KIND: Record<string, string> = { twist: "update", false_lead: "update", mgmt_pressure: "mgmt_request" };
 
 /**
  * Every public feed body is re-timed onto ONE synthetic base (+ its due offset),
