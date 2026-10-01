@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { emailOrigin } from "@/lib/http/siteOrigin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
@@ -55,7 +56,7 @@ export async function POST(req: Request, { params }: Ctx) {
     renewed = true;
   }
 
-  const link = `${new URL(req.url).origin}/join?token=${inv.token}`;
+  const link = `${emailOrigin(req)}/join?token=${inv.token}`;
   let mail;
   if (inv.role === "org_admin") {
     const classCode = (await getActiveCode(admin, orgId).catch(() => null))?.code ?? null;

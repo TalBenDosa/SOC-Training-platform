@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { emailOrigin } from "@/lib/http/siteOrigin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
@@ -44,7 +45,7 @@ export async function POST(req: Request, { params }: Ctx) {
   const email = u?.user?.email;
   if (!email) return NextResponse.json({ error: "This account has no email address on file." }, { status: 400 });
 
-  const origin = new URL(req.url).origin;
+  const origin = emailOrigin(req);
   const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email, options: { redirectTo: `${origin}/update-password` } });
   const tokenHash = data?.properties?.hashed_token;
   if (error || !tokenHash) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { emailOrigin } from "@/lib/http/siteOrigin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
@@ -156,7 +157,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const origin = new URL(req.url).origin;
+  const origin = emailOrigin(req);
 
   // Optionally invite a first org-admin (email) — capture the link so we can
   // email it to them.

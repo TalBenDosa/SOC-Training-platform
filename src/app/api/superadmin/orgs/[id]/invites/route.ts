@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { emailOrigin } from "@/lib/http/siteOrigin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmailBatch } from "@/lib/email/sendEmail";
@@ -7,7 +8,7 @@ import { studentInviteEmail } from "@/lib/email/templates";
 type Ctx = { params: Promise<{ id: string }> };
 
 function joinLink(req: Request, token: string): string {
-  const origin = new URL(req.url).origin;
+  const origin = emailOrigin(req);
   return `${origin}/join?token=${token}`;
 }
 

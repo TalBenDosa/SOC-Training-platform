@@ -1,4 +1,11 @@
 import { NextResponse } from "next/server";
+import { emailOrigin } from "@/lib/http/siteOrigin";
+
+/** Invitation emails one college may send per rolling 24 hours (SEC-16). */
+const ORG_INVITE_DAILY_BUDGET = (() => {
+  const n = Number(process.env.ORG_INVITE_DAILY_BUDGET);
+  return Number.isInteger(n) && n > 0 ? n : 300;
+})();
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmailBatch } from "@/lib/email/sendEmail";
@@ -7,7 +14,7 @@ import { studentInviteEmail } from "@/lib/email/templates";
 /** Org-admin invite links, always for the caller's own org (from the JWT). */
 
 function joinLink(req: Request, token: string): string {
-  return `${new URL(req.url).origin}/join?token=${token}`;
+  return `${emailOrigin(req)}/join?token=${token}`;
 }
 
 async function ctx() {
@@ -57,6 +64,18 @@ export async function POST(req: Request) {
       { error: "Invites are named-only. Students join with your class code — generate it in the Class code panel." },
       { status: 400 },
     );
+  }
+  // SEC-16: a per-college DAILY ceiling on invitation emails (200 per request, no
+  // daily bound before — any admin, or a hijacked admin session, could send
+  // thousands from noreply@hackthesoc.app). Counted from the invitations table
+  // itself, so it holds across serverless instances.
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  const { count: sentToday, error: cntErr } = await c.admin.from("invitations")
+    .select("id", { count: "exact", head: true }).eq("org_id", c.orgId).gte("created_at", since);
+  if (cntErr) return NextResponse.json({ error: "Couldn't check today's invitations — please try again." }, { status: 500 });
+  if ((sentToday ?? 0) + emails.length > ORG_INVITE_DAILY_BUDGET) {
+    const left = Math.max(0, ORG_INVITE_DAILY_BUDGET - (sentToday ?? 0));
+    return NextResponse.json({ error: `Daily invitation limit reached for your college (${ORG_INVITE_DAILY_BUDGET} per 24 hours) — ${left} left. Students can also join with your class code.` }, { status: 429 });
   }
   const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
 

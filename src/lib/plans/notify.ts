@@ -494,9 +494,5 @@ export async function settleEmailJob(
   return { ...emptyEmailReport(consideredHint), pending: true };
 }
 
-/** The origin email links should use: the configured site URL, else the request's own. */
-export function emailOrigin(req: Request): string {
-  const env = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
-  if (env && /^https?:\/\/[^/\s]+$/.test(env)) return env;
-  return new URL(req.url).origin;
-}
+/** The origin email links should use (moved to src/lib/http/siteOrigin.ts). */
+export { emailOrigin } from "@/lib/http/siteOrigin";

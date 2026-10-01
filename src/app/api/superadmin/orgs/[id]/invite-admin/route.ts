@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { emailOrigin } from "@/lib/http/siteOrigin";
 import crypto from "node:crypto";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -54,7 +55,7 @@ export async function POST(req: Request, { params }: Ctx) {
   });
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
 
-  const origin = new URL(req.url).origin;
+  const origin = emailOrigin(req);
   const adminLink = `${origin}/join?token=${token}`;
 
   // Mint a starter class code so the admin can distribute it to students right

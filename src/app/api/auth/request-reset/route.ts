@@ -1,5 +1,6 @@
 import "server-only";
 import { NextResponse, after } from "next/server";
+import { emailOrigin } from "@/lib/http/siteOrigin";
 import type { NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -41,6 +42,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // the budget is per client, not per serverless instance.
 const EMAIL_LIMIT = { max: 3, windowMs: 15 * 60_000 };   // 3 / 15 min per email
 const IP_LIMIT = { max: 12, windowMs: 60 * 60_000 };     // 12 / hour per IP
+/** Reset emails one address can receive per day (SEC-06). */
+const RESET_PER_ADDRESS_PER_DAY = 6;
+/** Reset emails the whole platform sends per day — protects the provider quota (SEC-06). */
+const RESET_EMAIL_DAILY_BUDGET = (() => {
+  const n = Number(process.env.RESET_EMAIL_DAILY_BUDGET);
+  return Number.isInteger(n) && n > 0 ? n : 300;
+})();
 
 // Same trusted-source rule as src/middleware.ts: x-real-ip is set by the
 // platform; the LEFT-most x-forwarded-for entry is whatever the client sent, so
@@ -77,7 +85,7 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = getSupabaseAdminClient();
-  const origin = req.nextUrl.origin; // the domain the user is actually on
+  const origin = emailOrigin(req); // canonical site URL — never the request's Host (P-03)
 
   // Do the real work but NEVER leak whether the account exists — always 200.
   // It runs AFTER the response is sent (after()): awaiting generateLink + the
@@ -93,6 +101,18 @@ export async function POST(req: NextRequest) {
       const tokenHash = data?.properties?.hashed_token;
       if (!error && tokenHash) {
         const resetLink = `${origin}/update-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
+        // SEC-06: the per-IP / per-address limits still let a distributed attacker
+        // mail one victim ~300 resets a day and drain the provider's daily quota (then
+        // every invite / reset fails for everyone). Two more ceilings, counted only for
+        // emails actually sent, so unknown addresses can't burn them and the response
+        // stays the same uniform 200.
+        const day = new Date().toISOString().slice(0, 10);
+        const perAddress = await checkRateLimit(`reset-day:${email}:${day}`, RESET_PER_ADDRESS_PER_DAY, 86_400_000);
+        const platform = perAddress.ok ? await checkRateLimit(`reset-global:${day}`, RESET_EMAIL_DAILY_BUDGET, 86_400_000) : null;
+        if (!perAddress.ok || !platform?.ok) {
+          console.warn(`[request-reset] daily reset-email ceiling reached (${!perAddress.ok ? "per address" : "global"}) — not sent`);
+          return;
+        }
         const msg = passwordResetEmail({ resetLink });
         const sent = await sendEmail({ to: email, subject: msg.subject, html: msg.html, text: msg.text });
         if (!sent.ok && !sent.skipped) {
