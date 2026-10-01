@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { ProgressProvider } from "@/lib/storage/ProgressProvider";
@@ -25,7 +26,11 @@ export const metadata: Metadata = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reading the request headers renders every page per request, which is what
+  // lets Next.js stamp the middleware's CSP nonce on its scripts (SEC-03) — a
+  // statically prerendered page would carry no nonce and be blocked.
+  await headers();
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} dark`}>
       <body className="antialiased">

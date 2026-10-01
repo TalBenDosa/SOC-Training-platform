@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { refreshSupabaseSession } from "@/lib/supabase/middleware";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "@/lib/supabase/config";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
+import { buildPageCsp, makeNonce } from "@/lib/security/csp";
+import { isCrossSiteWrite } from "@/lib/security/csrf";
 
 /**
  * Edge middleware — two responsibilities, composed:
@@ -160,6 +161,9 @@ export async function middleware(req: NextRequest) {
 
   // ── 1. API rate limiting + default-deny auth (only for /api/*) ──────────────
   if (pathname.startsWith("/api/")) {
+    if (isCrossSiteWrite(req)) {
+      return NextResponse.json({ error: "Cross-site request refused." }, { status: 403 });
+    }
     const ip = clientIp(req);
     const expensive = isExpensive(pathname, req.method);
     // Expensive: 10 req / min. General API: 100 req / min.
@@ -225,8 +229,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── 2. Supabase session refresh (page routes) ────────────────────────────────
-  return refreshSupabaseSession(req, NextResponse.next());
+  // ── 2. Page routes: per-request CSP nonce + Supabase session refresh ─────────
+  // Next.js reads the nonce from the REQUEST's CSP header and stamps it on its
+  // scripts; the same policy goes on the response (SEC-03).
+  const nonce = makeNonce();
+  const csp = buildPageCsp({ nonce, dev: process.env.NODE_ENV !== "production", supabaseUrl });
+  const headers = new Headers(req.headers);
+  headers.set("x-nonce", nonce);
+  headers.set("content-security-policy", csp);
+  const pageReq = new NextRequest(req, { headers });
+  const res = await refreshSupabaseSession(pageReq, NextResponse.next({ request: { headers } }));
+  res.headers.set("Content-Security-Policy", csp);
+  return res;
 }
 
 // Run on API routes (rate limiting) and page routes (session refresh) — skip
