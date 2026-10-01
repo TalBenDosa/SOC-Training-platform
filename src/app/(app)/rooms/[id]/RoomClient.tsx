@@ -110,6 +110,11 @@ export function RoomClient({ room }: RoomClientProps) {
   // A task completion the server could not record (after one retry) — shown so a
   // student never loses points silently.
   const [saveError, setSaveError]               = useState(false);
+  // E-12 (QA phase 7): completions the server hasn't recorded yet. A finished
+  // task renders read-only, so "finish it again" was impossible — these are
+  // re-sent by the banner's Retry button and when the tab comes back online.
+  const pendingSavesRef = useRef<Map<string, TaskTelemetryEntry | undefined>>(new Map());
+  const [retryingSaves, setRetryingSaves]       = useState(false);
   // Request ordering for the server's completion responses (P5-20).
   const completionSeqRef = useRef(0);
   const latestAppliedSeqRef = useRef(0);
@@ -362,8 +367,9 @@ export function RoomClient({ room }: RoomClientProps) {
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
       const d = await res.json() as { guest?: boolean; taskXp?: number; roomXp?: number | null; completedAt?: string | null; totalXp?: number | null };
+      pendingSavesRef.current.delete(taskId);
+      if (pendingSavesRef.current.size === 0) setSaveError(false);
       if (d.guest) return;
-      setSaveError(false);
       const all = loadProgress();
       const cur = all[room.id];
       // P5-20: two completions in quick succession can answer out of order. The
@@ -388,9 +394,36 @@ export function RoomClient({ room }: RoomClientProps) {
       if (isLatest && typeof d.totalXp === "number") setTotalXp(d.totalXp);
     } catch {
       if (retry) { setTimeout(() => { void reportCompletion(taskId, taskTelemetry, false); }, 2000); return; }
+      pendingSavesRef.current.set(taskId, taskTelemetry);
       setSaveError(true);
     }
   }
+
+  // Re-send every completion the server hasn't recorded (E-12). The complete
+  // route is idempotent per task, so a duplicate send can't double-credit.
+  const retryPendingSaves = useCallback(async () => {
+    const pending = [...pendingSavesRef.current.entries()];
+    if (pending.length === 0) return;
+    setRetryingSaves(true);
+    try {
+      for (const [taskId, tel] of pending) await reportCompletion(taskId, tel, false);
+    } finally {
+      setRetryingSaves(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room.id]);
+
+  useEffect(() => {
+    const onBack = () => {
+      if (document.visibilityState === "visible") void retryPendingSaves();
+    };
+    window.addEventListener("online", onBack);
+    document.addEventListener("visibilitychange", onBack);
+    return () => {
+      window.removeEventListener("online", onBack);
+      document.removeEventListener("visibilitychange", onBack);
+    };
+  }, [retryPendingSaves]);
 
   const completedCount = completedTaskIds.size;
   const totalTasks     = room.tasks.length;
@@ -756,8 +789,13 @@ export function RoomClient({ room }: RoomClientProps) {
               actually is — and carrying enough context (room, task, type) that
               a report is actionable without a reply. */}
           {saveError && (
-            <div role="alert" className="mt-6 rounded-md border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
-              Your last answer was graded, but the points could not be saved to your account. Check your connection and finish the task again — nothing you earned is lost on the server.
+            <div role="alert" className="mt-6 flex flex-wrap items-center gap-3 rounded-md border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
+              <span className="min-w-0 flex-1">
+                Your answers were graded, but some points from this room haven&apos;t been saved to your account yet. We&apos;ll retry automatically when your connection is back — or retry now.
+              </span>
+              <Button size="sm" variant="outline" onClick={() => { void retryPendingSaves(); }} disabled={retryingSaves}>
+                {retryingSaves ? "Saving…" : "Retry saving"}
+              </Button>
             </div>
           )}
 

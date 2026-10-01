@@ -4,14 +4,31 @@
     {
       "name": "SOC Training Platform",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "SOC guest mode",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "set NEXT_PUBLIC_SUPABASE_URL=&& set NEXT_PUBLIC_SUPABASE_ANON_KEY=&& set SUPABASE_SERVICE_ROLE_KEY=&& npm run dev"],
+      "runtimeArgs": [
+        "/c",
+        "set NEXT_PUBLIC_SUPABASE_URL=&& set NEXT_PUBLIC_SUPABASE_ANON_KEY=&& set SUPABASE_SERVICE_ROLE_KEY=&& npm run dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "qa-fixes-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "next",
+        "start",
+        "-p",
+        "3700"
+      ],
+      "port": 3700
     }
   ]
 }
