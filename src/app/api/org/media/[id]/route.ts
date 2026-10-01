@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
@@ -10,7 +11,7 @@ const BUCKET = "org-media";
 async function ownRow(id: string, orgId: string, admin: ReturnType<typeof getSupabaseAdminClient>) {
   const { data, error } = await admin!
     .from("org_resources").select("id, org_id, storage_key").eq("id", id).maybeSingle();
-  if (error) return { error: NextResponse.json({ error: error.message }, { status: 500 }) };
+  if (error) return { error: dbFail(error, "api/org/media/[id]", 500) };
   if (!data || data.org_id !== orgId) return { error: NextResponse.json({ error: "Not found." }, { status: 404 }) };
   return { row: data };
 }
@@ -39,7 +40,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if ("error" in owned) return owned.error;
 
   const { error } = await admin.from("org_resources").update(update).eq("id", id).eq("org_id", orgId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/media/[id]", 500);
   const action = "status" in update
     ? `org.media.${update.status}`
     : `org.media.download_${update.allow_download ? "on" : "off"}`;
@@ -63,7 +64,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   // Row first, object second: if the row delete fails, students must not be left
   // with a material whose file is already gone.
   const { error } = await admin.from("org_resources").delete().eq("id", id).eq("org_id", orgId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/media/[id]", 500);
   await admin.storage.from(BUCKET).remove([owned.row.storage_key]).catch(() => {});
   await logAudit({ actorId: gate.user.id, action: "org.media.deleted", targetTable: "org_resources", targetId: id, metadata: { org_id: orgId } });
   return NextResponse.json({ ok: true });

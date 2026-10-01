@@ -1,5 +1,6 @@
 "use client";
 import { PASSWORD_MAX_BYTES } from "@/app/(app)/account/accountValidation";
+import { authErrorMessage } from "@/lib/http/apiError";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -85,7 +86,7 @@ export default function UpdatePasswordPage() {
     setSubmitting(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
     setSubmitting(false);
-    if (updateError) { setError(updateError.message); return; }
+    if (updateError) { setError(authErrorMessage(updateError)); return; }   // E-07
     setDone(true);
     setTimeout(() => { router.push("/rooms"); router.refresh(); }, 1500);
   }

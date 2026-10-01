@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { randomUUID } from "crypto";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
   const storageKey = `${orgId}/${mapped.kind}/${randomUUID()}.${mapped.ext}`;
   const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(storageKey);
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? "Could not start the upload." }, { status: 500 });
+    return dbFail(error, "api/org/media/sign", 500);
   }
   // token + path are what the browser passes to uploadToSignedUrl().
   return NextResponse.json({ path: data.path, token: data.token, kind: mapped.kind });

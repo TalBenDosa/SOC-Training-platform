@@ -17,6 +17,7 @@
  * API can never disagree. Email stays read-only.
  */
 import { useEffect, useRef, useState } from "react";
+import { displayError } from "@/lib/http/apiError";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
@@ -246,7 +247,7 @@ export default function AccountPage() {
         const data = await res.json();
         if (!cancelled) setInfo(data);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Could not load your account.");
+        if (!cancelled) setError(displayError(e, "Could not load your account."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -279,7 +280,7 @@ export default function AccountPage() {
       await signOut();
       router.push("/");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not complete the request.");
+      setError(displayError(e, "Could not complete the request."));
     } finally {
       setBusy(false);
     }

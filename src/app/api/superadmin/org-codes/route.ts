@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
@@ -24,7 +25,7 @@ export async function GET() {
     .select("id, name, slug, status")
     .neq("id", INTERNAL_ORG)
     .order("name");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/superadmin/org-codes", 500);
 
   const nowIso = new Date().toISOString();
   // Newest code per org (live only if still inside its 24h window). One bounded
@@ -77,6 +78,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ active });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Generation failed." }, { status: 500 });
+    return dbFail(e, "api/superadmin/org-codes", 500);   // E-07
   }
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -25,7 +26,7 @@ export async function GET(req: Request, { params }: Ctx) {
     .select("id, email, role, token, expires_at, accepted_at, created_at")
     .eq("org_id", id)
     .order("created_at", { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/superadmin/orgs/[id]/invites", 500);
 
   const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
   return NextResponse.json({ invites });
@@ -69,7 +70,7 @@ export async function POST(req: Request, { params }: Ctx) {
   }));
 
   const { data, error } = await admin.from("invitations").insert(rows).select("id, email, role, token, expires_at");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/superadmin/orgs/[id]/invites", 500);
 
   const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
 

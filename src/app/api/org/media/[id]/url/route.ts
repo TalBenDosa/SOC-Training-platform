@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -22,7 +23,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const { data: row, error } = await admin
     .from("org_resources").select("org_id, status, storage_key, mime, allow_download").eq("id", id).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/media/[id]/url", 500);
   if (!row || row.org_id !== user.orgId) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
   // Drafts are staff-only; students see published materials only.
@@ -37,7 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // download control for view-only materials.
   const { data: signed, error: signErr } = await admin.storage
     .from(BUCKET).createSignedUrl(row.storage_key, TTL_SECONDS, row.allow_download ? { download: true } : undefined);
-  if (signErr || !signed) return NextResponse.json({ error: signErr?.message ?? "Could not sign URL." }, { status: 500 });
+  if (signErr || !signed) return dbFail(signErr, "api/org/media/[id]/url", 500);
 
   return NextResponse.json({ url: signed.signedUrl, mime: row.mime, allow_download: row.allow_download ?? false, expires_in: TTL_SECONDS });
 }

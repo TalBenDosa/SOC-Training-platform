@@ -12,6 +12,7 @@
  * inbox at /admin/feedback, tagged context.category = "technical".
  */
 import { useState } from "react";
+import { displayError } from "@/lib/http/apiError";
 import { Bug, X, Check, Loader2 } from "lucide-react";
 
 export function ReportProblem() {
@@ -51,7 +52,7 @@ export function ReportProblem() {
       setSent(true);
       setTimeout(() => { setOpen(false); setSent(false); setMessage(""); }, 1600);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send.");
+      setError(displayError(err, "Could not send."));
     } finally {
       setBusy(false);
     }

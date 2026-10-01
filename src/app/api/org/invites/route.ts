@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
 
 /** Invitation emails one college may send per rolling 24 hours (SEC-16). */
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
     .eq("org_id", c.orgId)
     .is("accepted_at", null)
     .order("created_at", { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/invites", 500);
   return NextResponse.json({ invites: (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) })) });
 }
 
@@ -83,7 +84,7 @@ export async function POST(req: Request) {
     org_id: c.orgId, role, email, token: crypto.randomUUID(), expires_at: expiresAt,
   }));
   const { data, error } = await c.admin.from("invitations").insert(rows).select("id, email, role, token, expires_at");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/invites", 500);
   const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
 
   // Best-effort email to each named recipient (generic links have no recipient).

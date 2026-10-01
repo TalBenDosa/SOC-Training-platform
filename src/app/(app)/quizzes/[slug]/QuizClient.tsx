@@ -1,4 +1,5 @@
 "use client";
+import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Clock } from "lucide-react";
@@ -146,7 +147,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers: { [question.id]: qState.selected } }),
       });
-      if (!res.ok) throw new Error(`grade failed: ${res.status}`);
+      if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
       const data: { results: (QuizResult & { id: string })[] } = await res.json();
       const graded = data.results.find(r => r.id === question.id);
       if (!graded) throw new Error("no result for question");
@@ -155,8 +156,8 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
         ...prev,
         [question.id]: { ...prev[question.id], revealed: true },
       }));
-    } catch {
-      setGradeError("Couldn't check your answer — check your connection and try again.");
+    } catch (e) {
+      setGradeError(`Couldn't check your answer — ${userMessageFor(e)}`);   // E-09
     } finally {
       setGrading(false);
     }

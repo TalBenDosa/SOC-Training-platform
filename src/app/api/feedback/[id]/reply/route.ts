@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
@@ -42,7 +43,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .select("id, user_id, message, target_kind, target_id")
     .eq("id", id)
     .maybeSingle();
-  if (rowErr) return NextResponse.json({ error: rowErr.message }, { status: 500 });
+  if (rowErr) return dbFail(rowErr, "api/feedback/[id]/reply", 500);
   if (!row) return NextResponse.json({ error: "Report not found." }, { status: 404 });
   if (!row.user_id) return NextResponse.json({ error: "This report has no account attached (anonymous or deleted user) — there is no address to reply to." }, { status: 422 });
 
@@ -78,7 +79,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .from("content_feedback")
     .update({ admin_response: message, responded_at: new Date().toISOString(), responded_by: user.id, status: "resolved" })
     .eq("id", id);
-  if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 });
+  if (updErr) return dbFail(updErr, "api/feedback/[id]/reply", 500);
 
   await logAudit({
     actorId: user.id, action: "feedback.replied",

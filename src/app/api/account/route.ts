@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { verifyCurrentPassword } from "@/lib/auth/verifyPassword";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -248,7 +249,7 @@ export async function DELETE(req: Request) {
       .insert({ user_id: user.id, org_id: orgId, reason })
       .select("id, requested_at")
       .single();
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return dbFail(error, "api/account", 500);
 
     await logAudit({
       actorId: user.id,
@@ -278,7 +279,8 @@ export async function DELETE(req: Request) {
 
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {
-    return NextResponse.json({ error: `Could not delete the account: ${error.message}` }, { status: 500 });
+    console.error("[api/account] deleteUser failed:", error.message);
+    return NextResponse.json({ error: "Couldn't delete the account right now — nothing was removed. Please try again." }, { status: 500 });   // E-07
   }
 
   return NextResponse.json({ status: "deleted" });

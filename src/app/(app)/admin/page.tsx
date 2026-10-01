@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useState, useEffect, useMemo, useRef } from "react";
+import { displayError } from "@/lib/http/apiError";
 import { Topbar } from "@/components/nav/Topbar";
 import {
   Search, Download, Sparkles, Plus, Eye, Edit2, Trash2,
@@ -486,7 +487,7 @@ function ScenariosTab() {
         threat_actor: data.threat_actor, attack_kind: data.attack_kind, narrative: data.narrative,
         events: evts,
       });
-    } catch(e) { setGenError(e instanceof Error?e.message:"Error"); }
+    } catch(e) { setGenError(displayError(e, "Error")); }
     finally { setLoading(false); }
   }
 
@@ -1029,7 +1030,7 @@ function QuizzesTab() {
       const data=await res.json();
       if(!res.ok||data.error) throw new Error(data.error??"Failed");
       setPreview(data);
-    } catch(e){setGenError(e instanceof Error?e.message:"Error");}
+    } catch(e){setGenError(displayError(e, "Error"));}
     finally{setLoading(false);}
   }
 
@@ -1602,7 +1603,7 @@ function LessonsTab() {
       setGenOutlineTitle("");
       setPreview(finalLesson);
     } catch (e) {
-      setGenError(e instanceof Error ? e.message : "Error generating lesson");
+      setGenError(displayError(e, "Error generating lesson"));
     } finally {
       setGenLoading(false);
     }
@@ -1736,7 +1737,7 @@ function LessonsTab() {
         queue[i] = {
           ...queue[i],
           status: "error",
-          error: e instanceof Error ? e.message : "Failed",
+          error: displayError(e, "Failed"),
         };
         setBulkQueue([...queue]);
       }
@@ -1786,7 +1787,7 @@ function LessonsTab() {
       queue[idx] = { ...queue[idx], status: "done", validation };
       setBulkQueue([...queue]);
     } catch (e) {
-      queue[idx] = { ...queue[idx], status: "error", error: e instanceof Error ? e.message : "Failed" };
+      queue[idx] = { ...queue[idx], status: "error", error: displayError(e, "Failed") };
       setBulkQueue([...queue]);
     } finally {
       bulkRunningRef.current = false;
@@ -2769,11 +2770,11 @@ function LogValidatorTab() {
     setError(null);
     try {
       const res = await fetch("/api/admin/validate-logs");
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      if (!res.ok) throw new Error(`The request failed (HTTP ${res.status}) — please try again.`);
       const data: ValidationReport = await res.json();
       setReport(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(displayError(e, "Something went wrong — please try again."));
     } finally {
       setLoading(false);
     }

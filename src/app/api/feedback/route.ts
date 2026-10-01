@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
     org_id: user.orgId,
     target_kind, target_id, context, message,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/feedback", 500);
 
   return NextResponse.json({ ok: true });
 }
@@ -67,7 +68,7 @@ export async function GET(req: Request) {
   if (status && status !== "all") q = q.eq("status", status);
 
   const { data, error } = await q;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/feedback", 500);
 
   return NextResponse.json({ items: data ?? [] });
 }
@@ -92,7 +93,7 @@ export async function PATCH(req: Request) {
   }
 
   const { error } = await admin.from("content_feedback").update({ status }).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/feedback", 500);
 
   return NextResponse.json({ ok: true });
 }

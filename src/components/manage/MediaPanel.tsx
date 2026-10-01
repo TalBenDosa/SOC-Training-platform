@@ -69,7 +69,7 @@ export function MediaPanel() {
       if (!signRes.ok) { setError(sign?.error ?? "Could not start the upload."); return; }
       // 2. direct upload to storage (no function body limit)
       const up = await supabase.storage.from("org-media").uploadToSignedUrl(sign.path, sign.token, file);
-      if (up.error) { setError(up.error.message || "Upload failed while sending the file."); return; }
+      if (up.error) { setError(/exceed|too large|size/i.test(up.error.message ?? "") ? "The file is larger than allowed for this kind of material." : "Upload failed while sending the file — please try again."); return; }   // E-07: never raw storage text
       // 3. finalize — server re-validates + creates the row
       const finRes = await fetch("/api/org/media", {
         method: "POST", headers: { "Content-Type": "application/json" },

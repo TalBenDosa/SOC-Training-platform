@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrgMember, OrgStatus, OrgUsage } from "@/lib/org/types";
@@ -14,7 +15,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const { id } = await params;
 
   const { data: org, error } = await admin.from("organizations").select("*").eq("id", id).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/superadmin/orgs/[id]", 500);
   if (!org) return NextResponse.json({ error: "Organization not found." }, { status: 404 });
 
   const { data: memberRows } = await admin
@@ -123,7 +124,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
 
   const { data: org, error } = await admin.from("organizations").update(patch).eq("id", id).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/superadmin/orgs/[id]", 500);
   return NextResponse.json({ org });
 }
 
@@ -161,7 +162,7 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     if (error.message.includes("cannot_purge_internal")) {
       return NextResponse.json({ error: "The internal org cannot be deleted." }, { status: 400 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbFail(error, "api/superadmin/orgs/[id]", 500);
   }
 
   let mediaNotRemoved = 0;

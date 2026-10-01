@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -40,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ typ
     .from(table)
     .select("id, status, content, created_at, updated_at")
     .order("created_at", { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/admin/content/[type]", 500);
 
   return NextResponse.json({ items: data ?? [] });
 }
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ typ
     .upsert({ id: body.id, status, content: body.content, created_by: gate.user.id }, { onConflict: "id" })
     .select("id, status, content, created_at, updated_at")
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/admin/content/[type]", 500);
 
   return NextResponse.json({ item: data });
 }

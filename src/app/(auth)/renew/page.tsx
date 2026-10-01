@@ -9,6 +9,7 @@
  * students away from every app page, so this page must not be one of them.
  */
 import { useState } from "react";
+import { displayError } from "@/lib/http/apiError";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -50,7 +51,7 @@ export default function RenewPage() {
       await getSupabaseBrowserClient()?.auth.refreshSession();
       window.location.href = "/dashboard";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not renew.");
+      setError(displayError(err, "Could not renew."));
       setBusy(false);
     }
   }

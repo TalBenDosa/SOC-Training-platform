@@ -1,4 +1,5 @@
 "use client";
+import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { useState, useEffect, useCallback, useMemo, useRef, memo, type MutableRefObject, type TextareaHTMLAttributes } from "react";
 import Link from "next/link";
 import { AnimatePresence } from "framer-motion";
@@ -1642,7 +1643,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           indicators: manualIocs,
         }),
       });
-      if (!res.ok) throw new Error("Grading failed");
+      if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
       const result: GradeResult = await res.json();
       setGradeResult(result);
       setTimeTaken(taken);
@@ -1678,8 +1679,8 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
           },
         }, result);
       } catch { /* ignore storage errors */ }
-    } catch {
-      setGradingError("Could not submit. Check your connection and retry.");
+    } catch (e) {
+      setGradingError(`Could not submit — ${userMessageFor(e)} Your answers are still here.`);   // E-09
       setPhase("investigating");
     } finally {
       setIsGrading(false);

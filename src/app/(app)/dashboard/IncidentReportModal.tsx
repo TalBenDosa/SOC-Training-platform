@@ -1,4 +1,5 @@
 "use client";
+import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { useState, useEffect } from "react";
 import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -177,19 +178,19 @@ export function IncidentReportModal({
         }),
       });
 
-      if (!res.ok) throw new Error(`Grader returned ${res.status}`);
+      if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
       const data: IncidentReportResponse = await res.json();
       setResult(data);
       setPassed(data.passed);
       if (data.passed) { onPassed(data.score); localStorage.removeItem(draftKey); }
       setPhase("result");
-    } catch {
+    } catch (e) {
       // NEVER fail-open. A network/grader failure must not award a pass — that
       // would let a junk report of sufficient length "secure the company". The
       // server always returns a deterministic heuristic grade even when the LLM
       // is down, so reaching here means the request itself failed. Send the
       // analyst back to the form with a retry prompt; their draft is preserved.
-      setError("Couldn't reach the grader. Your report is saved below — please try submitting again.");
+      setError(`Couldn't grade the report — ${userMessageFor(e)} Your report is saved below.`);   // E-09
       setPhase("form");
     }
   };

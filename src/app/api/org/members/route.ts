@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { revokeUserSessions } from "@/lib/auth/revokeSessions";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -107,7 +108,7 @@ export async function POST(req: Request) {
   const role = "student";
 
   const { data: userId, error: lookupErr } = await admin.rpc("find_user_id_by_email", { p_email: email });
-  if (lookupErr) return NextResponse.json({ error: lookupErr.message }, { status: 500 });
+  if (lookupErr) return dbFail(lookupErr, "api/org/members", 500);
   if (!userId) return NextResponse.json({ error: `No account exists for ${email}. Send them your class invite link instead.` }, { status: 404 });
 
   const guard = await protectedTargetError(admin, orgId, userId);
@@ -131,7 +132,7 @@ export async function POST(req: Request) {
   });
   if (error) {
     if (error.message.includes("seat_limit_reached")) return NextResponse.json({ error: "Your organisation has reached its seat limit." }, { status: 409 });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbFail(error, "api/org/members", 500);
   }
   return NextResponse.json({ ok: true });
 }
@@ -180,7 +181,7 @@ export async function PATCH(req: Request) {
     .update({ status: active ? "active" : "removed" })
     .eq("org_id", orgId).eq("user_id", target)
     .select("user_id");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/members", 500);
   if (!updated || updated.length === 0) {
     return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
   }
@@ -213,7 +214,7 @@ export async function DELETE(req: Request) {
   const { data: deleted, error } = await admin.from("org_members")
     .delete().eq("org_id", orgId).eq("user_id", target)
     .select("user_id");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/members", 500);
   if (!deleted || deleted.length === 0) {
     return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
   }

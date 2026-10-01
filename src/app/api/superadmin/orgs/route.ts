@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -37,7 +38,7 @@ export async function GET() {
     .from("organizations")
     .select("*")
     .order("created_at", { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/superadmin/orgs", 500);
 
   // One PAGED pass over active memberships → seats per org (a single unpaged
   // read stopped at 1000 rows and under-reported). The platform admin's own
@@ -139,7 +140,7 @@ export async function POST(req: Request) {
 
   if (error) {
     if (error.code === "23505") return NextResponse.json({ error: `The slug "${slug}" is already taken.` }, { status: 409 });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbFail(error, "api/superadmin/orgs", 500);
   }
 
   // The platform super-admin owns every tenant and is present in EVERY

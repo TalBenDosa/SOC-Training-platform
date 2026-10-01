@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { constantTimeEquals } from "@/lib/security/constantTimeEquals";
@@ -51,7 +52,7 @@ async function run(dry: boolean) {
     p_cooldown_days: COOLDOWN_DAYS,
     p_limit: MAX_PER_RUN,
   });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/cron/nudge-lapsed", 500);
 
   const rows = (data ?? []) as LapsedRow[];
   if (dry) {

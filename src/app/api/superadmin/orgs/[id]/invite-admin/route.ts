@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
 import crypto from "node:crypto";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
@@ -53,7 +54,7 @@ export async function POST(req: Request, { params }: Ctx) {
   const { error: insErr } = await admin.from("invitations").insert({
     org_id: orgId, email, role: "org_admin", token, expires_at: expiresAt,
   });
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+  if (insErr) return dbFail(insErr, "api/superadmin/orgs/[id]/invite-admin", 500);
 
   const origin = emailOrigin(req);
   const adminLink = `${origin}/join?token=${token}`;

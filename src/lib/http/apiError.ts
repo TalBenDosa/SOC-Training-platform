@@ -33,8 +33,46 @@ export class ApiError extends Error {
   constructor(message: string, public status: number | null) { super(message); this.name = "ApiError"; }
 }
 
-/** A thrown value → a message for the learner: ours as-is; a fetch rejection → the network line. */
+/**
+ * A thrown value → a message for the learner: ours as-is; a fetch rejection
+ * (TypeError — offline, DNS, dropped connection) → the network line; anything
+ * else (a bad response shape, a bug) → a plain "try again", never raw text.
+ */
 export function userMessageFor(e: unknown): string {
   if (e instanceof ApiError) return e.message;
-  return NETWORK_ERROR;
+  if (e instanceof TypeError) return NETWORK_ERROR;
+  return "Something went wrong — please try again.";
+}
+
+/**
+ * A caught error → text for the screen (QA phase 7, E-07). Our own thrown messages
+ * (usually the server's {error}) pass through; a fetch rejection becomes the
+ * network line and a non-JSON body (an HTML 500/504 page) a plain retry line —
+ * never "Failed to fetch" or "Unexpected token '<'…".
+ */
+export function displayError(e: unknown, fallback: string): string {
+  if (e instanceof ApiError) return e.message;
+  if (e instanceof TypeError) return NETWORK_ERROR;
+  if (e instanceof SyntaxError) return "The server sent an unexpected response — please try again.";
+  if (e instanceof Error && e.message) return e.message;
+  return fallback;
+}
+
+/**
+ * A Supabase Auth error → plain text (QA phase 7, E-07). GoTrue's own strings
+ * ("Failed to fetch", "Auth session missing!", "Request rate limit reached")
+ * were shown as-is on the sign-in, sign-up and new-password screens.
+ */
+export function authErrorMessage(err: { message?: string; status?: number; name?: string; code?: string } | null | undefined): string {
+  if (!err) return "Something went wrong — please try again.";
+  const m = (err.message ?? "").toLowerCase();
+  if (err.name === "AuthRetryableFetchError" || m.includes("failed to fetch") || m.includes("network")) return NETWORK_ERROR;
+  if (err.status === 429 || m.includes("rate limit")) return "Too many attempts — wait a minute and try again.";
+  if (m.includes("invalid login credentials")) return "Incorrect email or password.";
+  if (m.includes("email not confirmed")) return "Confirm your email address first — check your inbox for the link.";
+  if (m.includes("session missing") || m.includes("expired") || err.status === 401 || err.status === 403) return "This link or session has expired — request a new password-reset email.";
+  if (m.includes("should be different") || err.code === "same_password") return "The new password must be different from your current one.";
+  if (m.includes("password") && (m.includes("weak") || m.includes("at least") || m.includes("characters"))) return err.message!;   // a policy hint, written for people
+  if (m.includes("already registered") || m.includes("already exists")) return "This email already has an account. Sign in instead.";
+  return "Something went wrong — please try again.";
 }

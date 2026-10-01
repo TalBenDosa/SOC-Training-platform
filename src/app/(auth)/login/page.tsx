@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { authErrorMessage } from "@/lib/http/apiError";
 import Link from "next/link";
 import { Suspense } from "react";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
@@ -62,11 +63,7 @@ function LoginForm() {
     setSubmitting(false);
 
     if (signInError) {
-      setError(
-        signInError.message === "Invalid login credentials"
-          ? "Incorrect email or password."
-          : signInError.message,
-      );
+      setError(authErrorMessage(signInError));   // E-07: never GoTrue's raw text
       return;
     }
 

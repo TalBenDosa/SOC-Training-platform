@@ -11,6 +11,7 @@
  * the question as displayed) so a report is actionable without a reply.
  */
 import { useState } from "react";
+import { displayError } from "@/lib/http/apiError";
 import { Flag, X, Check, Loader2 } from "lucide-react";
 
 interface Props {
@@ -44,7 +45,7 @@ export function ReportIssue({ targetKind, targetId, context, className }: Props)
       setSent(true);
       setTimeout(() => { setOpen(false); setSent(false); setMessage(""); }, 1400);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send.");
+      setError(displayError(err, "Could not send."));
     } finally {
       setBusy(false);
     }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { revokeUserSessions } from "@/lib/auth/revokeSessions";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -36,7 +37,7 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   const { data: userId, error: lookupErr } = await admin.rpc("find_user_id_by_email", { p_email: email });
-  if (lookupErr) return NextResponse.json({ error: lookupErr.message }, { status: 500 });
+  if (lookupErr) return dbFail(lookupErr, "api/superadmin/orgs/[id]/members", 500);
   if (!userId) {
     return NextResponse.json(
       { error: `No account exists for ${email}. They must sign up first (self-enrollment arrives in Phase 2).` },
@@ -51,7 +52,7 @@ export async function POST(req: Request, { params }: Ctx) {
     if (error.message.includes("seat_limit_reached")) {
       return NextResponse.json({ error: "The organization has reached its seat limit." }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return dbFail(error, "api/superadmin/orgs/[id]/members", 500);
   }
   return NextResponse.json({ ok: true, result });
 }
@@ -70,7 +71,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   if (!userId) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
 
   const { data: deleted, error } = await admin.from("org_members").delete().eq("org_id", orgId).eq("user_id", userId).select("user_id");
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/superadmin/orgs/[id]/members", 500);
   // Only re-home the profile if a membership was actually removed — otherwise a
   // mistyped user_id would silently flip a stranger's active organisation.
   if (!deleted || deleted.length === 0) return NextResponse.json({ error: "That user is not a member of this organisation." }, { status: 404 });

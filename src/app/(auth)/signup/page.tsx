@@ -1,5 +1,6 @@
 "use client";
 import { PASSWORD_MAX_BYTES } from "@/app/(app)/account/accountValidation";
+import { authErrorMessage } from "@/lib/http/apiError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
@@ -265,7 +266,7 @@ export default function SignupPage() {
         // code/invite expired or the course filled up between the check and now.
         setError("We couldn't create your account — the class code or invitation may have just expired, or the course is full. Ask your instructor for today's code and try again.");
       } else {
-        setError(raw);
+        setError(authErrorMessage({ message: raw }));   // E-07
       }
       return;
     }

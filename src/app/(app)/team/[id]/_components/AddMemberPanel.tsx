@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { displayError } from "@/lib/http/apiError";
 import { Button } from "@/components/ui/Button";
 import { UserPlus } from "lucide-react";
 import type { RosterMember } from "@/lib/team/types";
@@ -35,7 +36,7 @@ export function AddMemberPanel({ sessionId, roster }: { sessionId: string; roste
       const who = (members ?? []).find(m => m.user_id === pick.user_id);
       setMsg({ ok: true, text: `${who?.display_name || who?.handle || "Member"} added as ${ROLE_LABEL[pick.role] ?? pick.role}. They'll see it under Team training.` });
       setPick({ user_id: "", role: "t1" });
-    } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Could not add the member." }); }
+    } catch (e) { setMsg({ ok: false, text: displayError(e, "Could not add the member.") }); }
     finally { setBusy(false); }
   }
   return (

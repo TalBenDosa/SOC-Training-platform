@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { displayError } from "@/lib/http/apiError";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ShieldCheck } from "lucide-react";
@@ -34,7 +35,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
       setRaMsg({ ok: true, text: `${who} → ${ROLE_LABEL[ra.role] ?? ra.role}. Ask them to refresh.` });
       setRa({ user_id: "", role: "" });
     } catch (e) {
-      setRaMsg({ ok: false, text: e instanceof Error ? e.message : "Reassign failed." });
+      setRaMsg({ ok: false, text: displayError(e, "Reassign failed.") });
     } finally {
       setRaBusy(false);
     }

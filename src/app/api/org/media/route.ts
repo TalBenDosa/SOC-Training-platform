@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { randomUUID } from "crypto";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -57,7 +58,7 @@ export async function GET() {
     .select("id, kind, title, mime, size_bytes, status, allow_download, created_at")
     .eq("org_id", orgId)                     // service role bypasses RLS — re-assert
     .order("created_at", { ascending: false });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return dbFail(error, "api/org/media", 500);
   return NextResponse.json({ resources: data ?? [] });
 }
 
@@ -211,7 +212,7 @@ export async function POST(req: Request) {
   if (insErr) {
     // best-effort cleanup of the orphaned object
     await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
-    return NextResponse.json({ error: insErr.message }, { status: 500 });
+    return dbFail(insErr, "api/org/media", 500);
   }
 
   await logAudit({

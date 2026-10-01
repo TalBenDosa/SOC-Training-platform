@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
@@ -52,13 +53,13 @@ export async function POST(req: Request) {
     { org_id: orgId, user_id: gate.user.id, role: "org_admin", status: "active", affiliation_expires_at: null },
     { onConflict: "org_id,user_id" },
   );
-  if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 });
+  if (memErr) return dbFail(memErr, "api/superadmin/enter-org", 500);
 
   // Active context: where the JWT claims (and therefore /manage, leaderboards,
   // progress writes) point after the next token refresh.
   const { error: profErr } = await admin
     .from("profiles").update({ org_id: orgId }).eq("id", gate.user.id);
-  if (profErr) return NextResponse.json({ error: profErr.message }, { status: 500 });
+  if (profErr) return dbFail(profErr, "api/superadmin/enter-org", 500);
 
   await logAudit({
     actorId: gate.user.id, action: "superadmin.entered_org",

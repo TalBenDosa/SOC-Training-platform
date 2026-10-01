@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dbFail } from "@/lib/http/dbFail";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
@@ -64,8 +65,8 @@ export async function POST() {
     return NextResponse.json({ active });
   } catch (e) {
     if (e instanceof CodeCooldownError) {
-      return NextResponse.json({ error: e.message, next_generate_at: await nextGenerateAt(c.admin, c.orgId) }, { status: 429 });
+      return NextResponse.json({ error: e.message, next_generate_at: await nextGenerateAt(c.admin, c.orgId) }, { status: 429 });   // intentional, user-facing
     }
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Generation failed." }, { status: 500 });
+    return dbFail(e, "api/org/class-code", 500);   // E-07: generateCode rethrows raw RPC text
   }
 }

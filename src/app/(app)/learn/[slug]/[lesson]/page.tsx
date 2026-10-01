@@ -1,4 +1,5 @@
 "use client";
+import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { useEffect, useState, useMemo } from "react";
 import { labelForLang, lessonMarkdownToHtml } from "@/lib/lessons/lessonMarkdown";
 import { useParams } from "next/navigation";
@@ -158,7 +159,7 @@ function Quiz({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers }),
       });
-      if (!res.ok) throw new Error(`grade failed: ${res.status}`);
+      if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
       const data: { results: LessonQuizResult[]; correct: number; score: number; passed: boolean } = await res.json();
       const map: Record<number, LessonQuizResult> = {};
       for (const r of data.results) map[r.index] = r;
@@ -166,8 +167,9 @@ function Quiz({
       setScore(data.correct);
       setSubmitted(true);
       if (data.passed) onPass();
-    } catch {
-      setError("Couldn't grade the quiz — check your connection and try again.");
+    } catch (e) {
+      // E-09: an expired session / licence / "slow down" says so — not "check your connection".
+      setError(`Couldn't grade the quiz — ${userMessageFor(e)}`);
     } finally {
       setSubmitting(false);
     }
