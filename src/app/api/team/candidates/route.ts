@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isRootOrg, ROOT_ENVIRONMENT_LABEL } from "@/lib/org/rootEnvironment";
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
   const { admin, orgId, userId } = c;
 
   let body: Record<string, unknown> = {};
-  try { body = await req.json(); } catch { /* validated below */ }
+  try { body = asObject(await req.json()); } catch { /* validated below */ }
   const email = typeof body.email === "string" ? body.email.trim().slice(0, 320) : "";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Enter a full e-mail address." }, { status: 400 });
 

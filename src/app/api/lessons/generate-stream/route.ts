@@ -15,6 +15,7 @@ export const dynamic    = "force-dynamic";
 export const maxDuration = 300;
 
 import OpenAI from "openai";
+import { asObject } from "@/lib/http/body";
 import { AiBudgetError, aiFailureMessage, isRateLimitError } from "@/lib/ai/errors";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 import type { GeneratedLesson } from "../generate/route";
@@ -424,7 +425,7 @@ export async function POST(req: Request) {
   const gate = await requireAdmin("lesson.generate_stream");
   if ("error" in gate) return gate.error;
 
-  const body = await req.json().catch(() => ({})) as {
+  const body = asObject(await req.json().catch(() => ({}))) as {
     topic?: string;
     difficulty?: string;
     kind?: "lesson" | "lab" | "quiz";

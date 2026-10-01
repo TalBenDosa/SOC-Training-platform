@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { revokeUserSessions } from "@/lib/auth/revokeSessions";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
   const { orgId, admin } = c;
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const email = String(body.email ?? "").trim();
   if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 });
   // SEC-02: sign-up doesn't verify the email address, so an existing account
@@ -147,7 +148,7 @@ export async function PATCH(req: Request) {
   const { orgId, admin, userId: adminId } = c;
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const target = String(body.user_id ?? "").trim();
   const active = body.active === true;
   if (!target) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
@@ -197,7 +198,7 @@ export async function DELETE(req: Request) {
   const { orgId, admin, userId: adminId } = c;
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const target = String(body.user_id ?? "").trim();
   if (!target) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
   if (target === adminId) return NextResponse.json({ error: "You can't remove yourself." }, { status: 400 });

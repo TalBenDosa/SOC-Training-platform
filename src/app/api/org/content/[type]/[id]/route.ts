@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isOrgContentType, ORG_CONTENT_TABLE } from "@/lib/content/orgContent";
@@ -54,7 +55,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ type: 
   if (!isOrgContentType(type)) return NextResponse.json({ error: "Unknown content type." }, { status: 404 });
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const status = body.status === "published" ? "published" : body.status === "draft" ? "draft" : null;
   if (!status) return NextResponse.json({ error: "status must be 'draft' or 'published'." }, { status: 400 });
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
 import crypto from "node:crypto";
@@ -38,7 +39,7 @@ export async function POST(req: Request, { params }: Ctx) {
   }
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const email = String(body.email ?? "").trim().toLowerCase();
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: "A valid email is required." }, { status: 400 });

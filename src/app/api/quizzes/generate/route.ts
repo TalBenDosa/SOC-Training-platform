@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { asObject } from "@/lib/http/body";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
@@ -167,7 +168,7 @@ export async function POST(req: Request) {
   const gate = await requireAdmin("quiz.generate");
   if ("error" in gate) return gate.error;
 
-  const body = await req.json().catch(() => ({}));
+  const body = asObject(await req.json().catch(() => ({})));
   const {
     title = "Generated Quiz",
     topic = "Incident Response",

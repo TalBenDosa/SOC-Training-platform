@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { paramOf } from "@/lib/http/params";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { resolveGradableQuiz } from "@/lib/quizzes/resolve";
@@ -46,7 +47,7 @@ export async function POST(
 
   let body: { answers?: Record<string, number> };
   try {
-    body = await req.json();
+    body = asObject(await req.json());
   } catch {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }

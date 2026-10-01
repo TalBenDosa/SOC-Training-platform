@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { randomUUID } from "crypto";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
   const admin = getSupabaseAdminClient();
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
-  const body = await req.json().catch(() => ({}));
+  const body = asObject(await req.json().catch(() => ({})));
   const rawExt = String(body?.ext ?? "").toLowerCase().replace(/^\./, "");
   const mapped = EXT_KIND[rawExt];
   if (!mapped) {

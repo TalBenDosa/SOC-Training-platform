@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { verifyCurrentPassword } from "@/lib/auth/verifyPassword";
@@ -85,7 +86,7 @@ export async function PATCH(req: Request) {
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown> = {};
-  try { body = await req.json(); } catch { /* validated below */ }
+  try { body = asObject(await req.json()); } catch { /* validated below */ }
   if (!body || typeof body !== "object" || Array.isArray(body)) body = {};
 
   const wantsName = "display_name" in body;
@@ -184,7 +185,7 @@ export async function DELETE(req: Request) {
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown> = {};
-  try { body = await req.json(); } catch { /* body is optional */ }
+  try { body = asObject(await req.json()); } catch { /* body is optional */ }
 
   // Typed confirmation. Deletion is irreversible and cascades across every
   // table, so a stray fetch or a mis-click must not be able to trigger it —

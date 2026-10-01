@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
   const message = String(body.message ?? "").trim().slice(0, 2000);
   if (!message) return NextResponse.json({ error: "Tell us what's wrong." }, { status: 400 });
@@ -83,7 +84,7 @@ export async function PATCH(req: Request) {
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
   const id = String(body.id ?? "");
   const status = String(body.status ?? "");

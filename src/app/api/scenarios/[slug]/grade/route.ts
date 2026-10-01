@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { ContentUnavailableError } from "@/lib/content/unavailable";
 import { paramOf } from "@/lib/http/params";
 import { decodeAnswer, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
@@ -49,7 +50,7 @@ export async function POST(
     indicators?: { type: string; value: string }[];
   };
   try {
-    body = await req.json();
+    body = asObject(await req.json());
   } catch {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
@@ -58,14 +59,19 @@ export async function POST(
   // (clamped to an integer 0..86400 s) so /progress can show time spent.
   const {
     answers: rawAnswers = {},
-    verdict: rawVerdict = null, verdictReason = "", analystNotes = "",
+    verdict: rawVerdict = null,
     indicators: rawIndicators = [],
   } = body;
+  // E-23 (QA phase 7): a number / object here hit .trim() later → bodyless 500.
+  const verdictReason = typeof body.verdictReason === "string" ? body.verdictReason : "";
+  const analystNotes = typeof body.analystNotes === "string" ? body.analystNotes : "";
   // Only the two real calls reach scoring and the model prompt — a free-form
   // string here used to land in the LLM prompt verbatim. Indicators are bounded
   // (and a non-array tolerated) for the same reason.
   const verdict = rawVerdict === "tp" || rawVerdict === "fp" ? rawVerdict : null;
-  const indicators = Array.isArray(rawIndicators) ? rawIndicators.slice(0, 200) : [];
+  const indicators = Array.isArray(rawIndicators)
+    ? rawIndicators.filter(i => i && typeof i === "object" && typeof i.type === "string" && typeof i.value === "string").slice(0, 200)
+    : [];
   const timeTaken = clampTimeTaken(body.timeTaken);
   // The page ships keyed option tokens (optionToken) — map them back to the
   // authored values before grading. Raw values from older clients pass through.

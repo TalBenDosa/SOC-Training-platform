@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { paramOf } from "@/lib/http/params";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -41,7 +42,7 @@ export async function POST(
   if (!quiz) return NextResponse.json({ error: "Quiz not found." }, { status: 404 });
 
   let body: { answers?: Record<string, unknown> };
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const answers = body?.answers && typeof body.answers === "object" ? body.answers : {};
 
   const graded = quiz.questions.map(q => {

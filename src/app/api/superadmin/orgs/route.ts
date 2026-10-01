@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
   if (!admin) return NextResponse.json({ error: "Server not configured for admin operations." }, { status: 503 });
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
   const name = String(body.name ?? "").trim();
   const slug = normalizeSlug(String(body.slug ?? body.name ?? ""));

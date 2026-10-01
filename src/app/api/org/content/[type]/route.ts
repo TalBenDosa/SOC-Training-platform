@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isOrgContentType, ORG_CONTENT_TABLE, normalizeOrgContent } from "@/lib/content/orgContent";
@@ -58,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ type: s
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const status = body.status === "published" ? "published" : "draft";
 
   // Scenarios use the two-projection split: the client-safe content goes in

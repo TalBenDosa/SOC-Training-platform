@@ -6,6 +6,7 @@ import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "@/lib/supaba
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
 import { buildPageCsp, makeNonce } from "@/lib/security/csp";
 import { isCrossSiteWrite } from "@/lib/security/csrf";
+import { hasBadUuidSegment } from "@/lib/http/params";
 import { isAuthOutage } from "@/lib/auth/authOutage";
 
 /**
@@ -167,6 +168,7 @@ export async function middleware(req: NextRequest) {
     if (isCrossSiteWrite(req)) {
       return NextResponse.json({ error: "Cross-site request refused." }, { status: 403 });
     }
+    if (hasBadUuidSegment(pathname)) return NextResponse.json({ error: "Not found." }, { status: 404 });   // E-23
     const ip = clientIp(req);
     const expensive = isExpensive(pathname, req.method);
     // Expensive: 10 req / min. General API: 100 req / min.

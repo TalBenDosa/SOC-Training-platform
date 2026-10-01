@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { getAuthedUser, requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
   const company_id = String(body.company_id ?? "");
   if (!COMPANY_IDS.has(company_id)) return NextResponse.json({ error: "Unknown company." }, { status: 400 });

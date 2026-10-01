@@ -12,6 +12,7 @@
 export const dynamic = "force-dynamic";
 
 import OpenAI from "openai";
+import { asObject } from "@/lib/http/body";
 import { aiFailureMessage, isRateLimitError } from "@/lib/ai/errors";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
 
   let body: { lesson?: LessonInput };
   try {
-    body = await req.json();
+    body = asObject(await req.json());
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }

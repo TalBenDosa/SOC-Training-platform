@@ -17,6 +17,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import { analyseIndicators } from "@/lib/dashboard/indicatorAnalysis";
@@ -228,7 +229,7 @@ Write feedback explaining the computed result above. If the trainee named the wr
 export async function POST(req: Request) {
   let body: IncidentReportRequest;
   try {
-    body = await req.json();
+    body = asObject(await req.json());
   } catch {
     // Malformed body → clean 400 JSON, not an unhandled 500. The client treats
     // any non-ok response as a failure and re-prompts; it never fail-opens.

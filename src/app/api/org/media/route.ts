@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { randomUUID } from "crypto";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
   // PPTX/PDF/video uploads fail. Here we re-validate the ACTUAL stored object by
   // its magic bytes + size (never a client claim), then create the row.
   if ((req.headers.get("content-type") ?? "").includes("application/json")) {
-    const body = await req.json().catch(() => ({}));
+    const body = asObject(await req.json().catch(() => ({})));
     const storageKey = String(body?.storageKey ?? "");
     const title = String(body?.title ?? "").trim();
     if (!title) return NextResponse.json({ error: "A title is required." }, { status: 400 });

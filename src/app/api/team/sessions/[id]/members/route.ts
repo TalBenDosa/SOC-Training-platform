@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
@@ -37,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { user } = gate;
 
   let body: Record<string, unknown> = {};
-  try { body = await req.json(); } catch { /* validated below */ }
+  try { body = asObject(await req.json()); } catch { /* validated below */ }
   const targetUserId = typeof body.user_id === "string" ? body.user_id : "";
   const role = typeof body.role === "string" ? body.role : "";
   if (!targetUserId || !ADDABLE_ROLES.has(role)) {

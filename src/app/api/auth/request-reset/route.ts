@@ -1,4 +1,5 @@
 import "server-only";
+import { asObject } from "@/lib/http/body";
 import { NextResponse, after } from "next/server";
 import { emailOrigin } from "@/lib/http/siteOrigin";
 import type { NextRequest } from "next/server";
@@ -64,7 +65,7 @@ function clientIp(req: NextRequest): string {
 export async function POST(req: NextRequest) {
   let email = "";
   try {
-    const body = await req.json();
+    const body = asObject<{ email?: unknown }>(await req.json());
     email = String(body?.email ?? "").trim().toLowerCase();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });

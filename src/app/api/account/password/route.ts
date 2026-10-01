@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   if (!isSupabaseConfigured) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
 
   let body: Record<string, unknown> = {};
-  try { body = await req.json(); } catch { /* validated below */ }
+  try { body = asObject(await req.json()); } catch { /* validated below */ }
   if (!body || typeof body !== "object" || Array.isArray(body)) body = {};
 
   const v = validatePasswordChange({

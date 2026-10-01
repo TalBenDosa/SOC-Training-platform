@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { asObject } from "@/lib/http/body";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 
 export const maxDuration = 300;
@@ -224,7 +225,7 @@ export async function POST(req: Request) {
   const gate = await requireAdmin("lesson.generate");
   if ("error" in gate) return gate.error;
 
-  const body = await req.json().catch(() => ({}));
+  const body = asObject(await req.json().catch(() => ({})));
   const {
     title,
     topic = "SOC Operations",

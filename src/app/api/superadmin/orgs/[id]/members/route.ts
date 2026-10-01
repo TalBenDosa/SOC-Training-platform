@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { revokeUserSessions } from "@/lib/auth/revokeSessions";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
@@ -20,7 +21,7 @@ export async function POST(req: Request, { params }: Ctx) {
   const { id: orgId } = await params;
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
   const email = String(body.email ?? "").trim();
   const role = String(body.role ?? "student");
@@ -66,7 +67,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   const { id: orgId } = await params;
 
   let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const userId = String(body.user_id ?? "").trim();
   if (!userId) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
 

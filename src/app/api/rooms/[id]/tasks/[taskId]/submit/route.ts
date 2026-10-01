@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
 import { ContentUnavailableError } from "@/lib/content/unavailable";
 import { paramOf } from "@/lib/http/params";
 import { findTask, gradeTask } from "@/lib/rooms/grading";
@@ -42,7 +43,7 @@ export async function POST(
 
   let body: unknown;
   try {
-    body = await req.json();
+    body = asObject(await req.json());
   } catch {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
