@@ -48,8 +48,15 @@ export function categoryOf(ev: TelemetryEvent): StackCategory | null {
     case "linux_audit": return "linux";
     case "ad": case "windows_security": return "onprem_ad";
     case "okta": case "mfa": return "idp";
-    case "o365": case "exchange": case "sharepoint":
-      return has(ev, "entra", "azure active directory", "azure ad") ? "idp" : "collab";
+    case "o365": case "exchange": case "sharepoint": {
+      if (has(ev, "entra", "azure active directory", "azure ad")) return "idp";
+      // Mail-flow / gateway verdicts authored under source "o365" (Defender for
+      // Office 365 vendor, or UAL-vendor MessageDelivered / SpamFiltered) are
+      // email-security records, not Unified Audit Log records.
+      const op = String((ev.raw ?? {})["data.office365.Operation"] ?? (ev.raw ?? {})["Operation"] ?? "");
+      if (has(ev, "defender for office", "proofpoint") || /^(MessageDelivered|SpamFiltered)$/.test(op)) return "email_security";
+      return "collab";
+    }
     case "gws": return "collab";
     case "email_gateway": return "email_security";
     case "cloudtrail": case "cloud_azure": case "cloud_gcp":
