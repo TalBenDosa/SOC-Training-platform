@@ -4,6 +4,7 @@
  * cohort usage, member management, and a guarded delete. Every mutation goes to
  * a requireSuperAdmin-gated API route.
  */
+import { AdminAccessCard } from "./AdminAccessCard";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -64,6 +65,8 @@ export default function OrgDetailPage() {
   // invite a new org admin by email
   const [adminEmail, setAdminEmail] = useState("");
   const [invitingAdmin, setInvitingAdmin] = useState(false);
+  // Bumped after an admin invitation is created so the Admin access card refetches.
+  const [accessKey, setAccessKey] = useState(0);
   const [adminInvite, setAdminInvite] = useState<{ email: string; link: string; emailed: boolean; status?: string; error?: string | null } | null>(null);
   const [adminCopied, setAdminCopied] = useState(false);
 
@@ -209,6 +212,7 @@ export default function OrgDetailPage() {
     // Surface the link (and whether the email actually went out) so it can be
     // sent by hand if Resend isn't configured yet.
     setAdminInvite({ email: adminEmail, link: data.adminLink, emailed: data.emailed, status: data.email_status, error: data.email_error });
+    setAccessKey(k => k + 1);
     setAdminEmail("");
     setNotice(data.emailed
       ? `Invitation emailed to ${adminEmail}.`
@@ -403,6 +407,9 @@ export default function OrgDetailPage() {
                 <span className="text-[11px] text-slate-500">Visible to this college — keep internal-only notes elsewhere.</span>
               </div>
             </Card>
+
+            {/* Has the college's admin actually got in? Resend / sign-in email. */}
+            <AdminAccessCard orgId={id} refreshKey={accessKey} />
 
             {/* Invite a NEW org admin by email — the person who will run this
                 college. They get a join link to their org's registration form,

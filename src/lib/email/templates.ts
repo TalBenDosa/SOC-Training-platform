@@ -98,6 +98,31 @@ This link is valid for a limited time and can be used once. If you didn't reques
   return { subject: "Reset your HACK THE SOC password", html, text };
 }
 
+/**
+ * Sent by the platform admin to a college admin/instructor who has an account
+ * but hasn't been signing in. Same stateless recovery link as the password
+ * reset (token_hash → /update-password, works on any device): they set a
+ * password and land in their dashboard.
+ */
+export function accountAccessEmail(args: { orgName: string; link: string }): {
+  subject: string; html: string; text: string;
+} {
+  const { orgName, link } = args;
+  const html = shell(
+    `Sign in to ${orgName} on HACK THE SOC`,
+    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">Your admin account for <strong>${orgName}</strong> is ready and waiting. Click below to set your password and sign in — from there you can manage your class and generate today&#39;s class code for students.</p>
+     <p style="margin:0 0 4px;">${button(link, "Set a password and sign in")}</p>
+     ${linkBox(link)}
+     <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">This link is valid for a limited time and can be used once. If it has expired, ask for a new one or use "Forgot password" on the sign-in page.</p>`,
+  );
+  const text = `Sign in to ${orgName} on HACK THE SOC.
+
+Set a password and sign in: ${link}
+
+This link is valid for a limited time and can be used once. If it has expired, use "Forgot password" on the sign-in page.`;
+  return { subject: `Sign in to ${orgName} on HACK THE SOC`, html, text };
+}
+
 /** Sent to an individual invitee (roster / CSV enrollment). */
 export function studentInviteEmail(args: { orgName: string; joinLink: string }): {
   subject: string; html: string; text: string;
