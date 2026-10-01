@@ -24,16 +24,11 @@ const ROOT = process.cwd();
 const SRC = path.join(ROOT, "src");
 
 /**
- * Client modules that still import the builders directly on main. Each is
- * rewritten by fix/qa-phase2-3 (the /scenarios list moves to scenariosMeta.ts,
- * the admin pages to admin-only API routes). Remove these entries when that
- * branch lands; nothing else may be added here.
+ * Client modules allowed to import a builder. EMPTY since fix/qa-phase2-3 landed
+ * (the /scenarios list reads scenariosMeta.ts, the admin pages admin-only API
+ * routes) — nothing may be added here.
  */
-const PENDING_QA_PHASE2_3 = new Set([
-  "src/app/(app)/scenarios/page.tsx",
-  "src/app/(app)/admin/page.tsx",
-  "src/app/(app)/admin/AdminContentManager.tsx",
-]);
+const PENDING_QA_PHASE2_3 = new Set<string>([]);
 
 const rel = (p: string) => path.relative(ROOT, p).replace(/\\/g, "/");
 
