@@ -67,6 +67,16 @@ export interface RemoteBackendHandle {
   hydrate: () => Promise<HydrateResult>;
 }
 
+/**
+ * A PostgREST / Postgres error that retrying cannot fix: raised by a trigger or
+ * function (P0001), a data / constraint / privilege class (22xxx, 23xxx, 42xxx),
+ * or a PostgREST request error (PGRSTxxx). Network failures carry no such code.
+ */
+export function isPermanentWriteError(err: unknown): boolean {
+  const code = typeof err === "object" && err !== null ? String((err as { code?: unknown }).code ?? "") : "";
+  return /^(P0001|22\d{3}|23\d{3}|42\d{3}|PGRST\d+)$/.test(code);
+}
+
 export function createRemoteBackend(
   supabase: SupabaseClient,
   userId: string,
@@ -140,6 +150,11 @@ export function createRemoteBackend(
     writeEpoch++;
     const hold = (err: unknown) => {
       log(action, err);
+      // E-13: a write the DATABASE refused (a guard / constraint / permission
+      // verdict) will be refused again — replaying it forever kept the "check your
+      // connection, your work is safe" banner up while the row was in fact lost.
+      // Only network-level / transient failures are held for retry.
+      if (isPermanentWriteError(err)) return;
       pending.set(id, { action, idempotent, run: thunk, dedupeKey });
       publish();
     };
