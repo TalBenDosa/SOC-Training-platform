@@ -40,6 +40,10 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // SEC-11: a carried code is joined only on an explicit click AFTER sign-in — a
+  // crafted /login?code= link used to attach the victim to a stranger's college
+  // (and switch their active environment) the moment they signed in.
+  const [confirmJoin, setConfirmJoin] = useState<{ orgName: string | null } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,10 +68,25 @@ function LoginForm() {
       return;
     }
 
-    // Carried access code → join its environment onto this account before
-    // navigating. On failure we STOP with the reason (seat cap, expired code)
-    // rather than silently landing the user somewhere they didn't join.
+    // Carried access code → ask first (SEC-11): show which college it joins and
+    // let the person decide; nothing is joined by merely signing in.
     if (joinCode) {
+      const look = await fetch(`/api/access-codes/${encodeURIComponent(joinCode)}`).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      setConfirmJoin({ orgName: look?.valid ? (look.orgName ?? null) : null });
+      return;
+    }
+
+    router.push(nextPath);
+    router.refresh();
+  }
+
+  async function joinCarriedCode() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !joinCode) return;
+    setError(null);
+    // On failure we STOP with the reason (seat cap, expired code) rather than
+    // silently landing the user somewhere they didn't join.
+    {
       setSubmitting(true);
       const res = await fetch("/api/account/join-environment", {
         method: "POST",
@@ -85,9 +104,6 @@ function LoginForm() {
       window.location.href = "/dashboard";
       return;
     }
-
-    router.push(nextPath);
-    router.refresh();
   }
 
   if (!isSupabaseConfigured) {
@@ -136,6 +152,20 @@ function LoginForm() {
         </div>
       )}
 
+      {confirmJoin ? (
+        <div className="space-y-4 text-center">
+          <p className="text-sm text-slate-300">
+            You&apos;re signed in. Add {confirmJoin.orgName ? <span className="font-semibold text-white">{confirmJoin.orgName}</span> : "the environment of code"}{" "}
+            (<span className="font-mono text-cyber-300">{joinCode}</span>) to your account?
+          </p>
+          <p className="text-xs text-slate-500">Only join a college you&apos;re actually studying with — its staff will see your progress.</p>
+          {error && <p role="alert" className="text-sm text-severity-high">{error}</p>}
+          <div className="flex justify-center gap-2">
+            <Button disabled={submitting} onClick={joinCarriedCode}>{submitting ? "Joining…" : `Join ${confirmJoin.orgName ?? "environment"}`}</Button>
+            <Button variant="ghost" disabled={submitting} onClick={() => { router.push(nextPath); router.refresh(); }}>Not now</Button>
+          </div>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
@@ -170,6 +200,7 @@ function LoginForm() {
           {submitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
+      )}
 
       <p className="mt-5 text-center text-xs text-slate-400">
         New here? <Link href="/signup" className="text-cyber-300 hover:underline">Create an account</Link>
