@@ -37,12 +37,13 @@ export default function SignupPage() {
   const [inviteEmail, setInviteEmail] = useState<string | null>(null);
   /** "checking" until the token resolves, so we never render a form that looks
    *  like a normal signup while an invitation is still being validated. */
-  const [inviteState, setInviteState] = useState<"none" | "checking" | "valid" | "invalid">("none");
+  // "unavailable" (E-02): the check itself failed (busy server / 429 / offline) — NOT a bad code.
+  const [inviteState, setInviteState] = useState<"none" | "checking" | "valid" | "invalid" | "unavailable">("none");
   /** The access code (0028) — the ONLY student door. Arrives via ?code= from
       the /join gate, which already validated it; re-resolved here so the form
       can show WHICH college it joins, and so a stale deep link blocks cleanly. */
   const [orgCode, setOrgCode] = useState("");
-  const [codeState, setCodeState] = useState<"none" | "checking" | "valid" | "invalid">("none");
+  const [codeState, setCodeState] = useState<"none" | "checking" | "valid" | "invalid" | "unavailable">("none");
   const [codeOrg, setCodeOrg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -79,19 +80,23 @@ export default function SignupPage() {
       const cleaned = codeParam.toUpperCase();
       setOrgCode(cleaned);
       setCodeState("checking");
+      // E-02: only an ANSWER of "not valid" (or 404) is invalid. A busy server
+      // (429 from a whole class registering behind one NAT, a 5xx) or a dropped
+      // connection used to tell students their code was dead — a dead end that
+      // sent instructors minting codes for nothing.
       fetch(`/api/access-codes/${encodeURIComponent(cleaned)}`)
-        .then(r => (r.ok ? r.json() : null))
+        .then(r => (r.ok ? r.json() : r.status === 404 ? { valid: false } : Promise.reject(new Error(String(r.status)))))
         .then(d => {
           if (d?.valid) { setCodeOrg(d.orgName ?? null); setCodeState("valid"); }
           else setCodeState("invalid");
         })
-        .catch(() => setCodeState("invalid"));
+        .catch(() => setCodeState("unavailable"));
     }
     if (!token) return;
     setInviteToken(token);
     setInviteState("checking");
     fetch(`/api/invitations/${encodeURIComponent(token)}`)
-      .then(r => (r.ok ? r.json() : null))
+      .then(r => (r.ok ? r.json() : r.status === 404 ? { valid: false } : Promise.reject(new Error(String(r.status)))))
       .then(d => {
         if (d?.valid) {
           setInviteOrg(d.orgName ?? null);
@@ -104,7 +109,7 @@ export default function SignupPage() {
           setInviteState("invalid");
         }
       })
-      .catch(() => setInviteState("invalid"));
+      .catch(() => setInviteState("unavailable"));
   // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once invite lookup; router is stable
   }, []);
 
@@ -366,6 +371,21 @@ export default function SignupPage() {
         <Link href="/join" className="mt-6 inline-block">
           <Button variant="outline">Enter a different code</Button>
         </Link>
+      </Card>
+    );
+  }
+
+  // E-02: the check failed, not the credential — say so and offer a retry.
+  if (inviteState === "unavailable" || codeState === "unavailable") {
+    return (
+      <Card className="w-full max-w-md text-center">
+        <AlertTriangle className="mx-auto h-8 w-8 text-neon-amber" />
+        <h1 className="mt-4 text-lg font-bold text-white">We couldn&apos;t check your {inviteState === "unavailable" ? "invitation" : "access code"} just now</h1>
+        <p className="mt-2 text-sm text-slate-400">
+          The server is busy or your connection dropped — your {inviteState === "unavailable" ? "invitation" : "code"} may well be fine.
+          Wait a moment and try again.
+        </p>
+        <Button className="mt-6" onClick={() => window.location.reload()}>Try again</Button>
       </Card>
     );
   }

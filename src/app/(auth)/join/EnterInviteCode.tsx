@@ -88,7 +88,13 @@ export function EnterInviteCode() {
         router.push(`/signup?code=${encodeURIComponent(code)}`);
         return;
       }
-      setError("That access code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
+      // E-02: a busy server (429 / 5xx) is not a bad code.
+      if (res.status === 429 || res.status >= 500) {
+        const ra = Number(res.headers.get("retry-after"));
+        setError(`The server is busy right now — your code may well be fine. Try again in ${Number.isFinite(ra) && ra > 0 ? `${Math.ceil(ra)} seconds` : "a moment"}.`);
+      } else {
+        setError("That access code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
+      }
     } catch {
       setError("Couldn't check the code just now. Try again in a moment.");
     }

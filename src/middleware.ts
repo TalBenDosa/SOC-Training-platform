@@ -173,8 +173,13 @@ export async function middleware(req: NextRequest) {
       NextResponse.json({ error }, { status: 429, headers: { "Retry-After": String(retryAfter) } });
 
     if (isPublicApi(pathname)) {
-      // No session on these paths → the client IP is the only key.
-      const { ok, retryAfter } = await checkRateLimit(`${expensive ? "x" : "g"}:${ip}`, limit, windowMs);
+      // No session on these paths → the client IP is the only key. The code /
+      // invitation lookups get a wider budget (E-02): a whole class registering at
+      // once behind one college NAT makes ~3 lookups each and tripped the 100/min
+      // limit — students were then told their valid code was dead. 300/min is still
+      // ~4e5 guesses a day against ~8.5e11 codes that live 24 h.
+      const lookup = pathname.startsWith("/api/access-codes/") || pathname.startsWith("/api/invitations/");
+      const { ok, retryAfter } = await checkRateLimit(`${expensive ? "x" : lookup ? "l" : "g"}:${ip}`, lookup && !expensive ? 300 : limit, windowMs);
       if (!ok) return tooMany(retryAfter);
       return NextResponse.next();
     }
