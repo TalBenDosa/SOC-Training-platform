@@ -2680,7 +2680,7 @@ export function impossibleTravelScenarioEvents() {
       event_type: "account_modify", severity: "high",
       user_email: user.email,
       src_ip: nigIp,
-      mitre_technique: "T1114.002",
+      mitre_technique: "T1114.003",
       description: "An inbox rule forwarding all of k.taylor's incoming mail to collector.k.taylor@protonmail.com was created from the Nigerian IP.",
       raw: {
         "data.office365.Operation":        "New-InboxRule",

@@ -1049,7 +1049,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     learning_objectives: [
       "Recognize impossible travel as a credential compromise indicator",
       "Identify MFA bypass via Conditional Access misconfiguration",
-      "Detect hidden inbox forwarding rules (T1114.002)",
+      "Detect hidden inbox forwarding rules (T1114.003)",
       "Correlate VPN + O365 + SharePoint events to reconstruct the attack chain",
     ],
     events,
