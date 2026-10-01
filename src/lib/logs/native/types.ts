@@ -104,6 +104,8 @@ export interface NativeCtx {
     oktaOrg: string;
     crowdstrikeCid: string;
   };
+  /** IANA time zone of the company's servers (for text logs stamped in local time). */
+  timeZone: string;
   /** Deterministic hex/uuid helpers seeded from a string (event id + purpose). Never Math.random. */
   hex: (seed: string, len: number) => string;
   uuid: (seed: string) => string;
@@ -119,6 +121,12 @@ export interface NativeSource {
    * product does not have — the spec's rule: such stories are not offered).
    */
   fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null;
+  /**
+   * Extra native records the same real-world event produces alongside the primary
+   * one (Defender: EmailUrlInfo / EmailAttachmentInfo rows of a message; auditd:
+   * the CWD / PATH / PROCTITLE records of a SYSCALL group). Optional.
+   */
+  companions?(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[];
   /** Detection use cases written against this source's native fields. */
   useCases: UseCase[];
 }
