@@ -276,3 +276,92 @@ GCP ו-Azure מלא · אבטחת דואר (Proofpoint / Mimecast) · מעטפת
 | פעולות בלי מקבילה אמיתית בין ספקים | Storyline לא מוצע בסטאק (◐) — אין לוגים מומצאים. |
 | רעש רקע שלא תואם לספק = רמז | גם הרעש עובר את אותה המרה; ולידטור עקביות על כל האימון. |
 | רגרסיה באימונים קיימים | אימון בלי `config` = ההתנהגות של היום (Snapshot). |
+
+---
+
+## 11. נספח: רכיבי האבטחה באימון ומהימנות הלוגים למקור
+
+### 11.1 העיקרון
+כל לוג חייב להיראות **בדיוק** כמו שהמוצר האמיתי מייצא אותו ל-SIEM: אותם שמות שדות, אותם ערכים אפשריים (enum), אותו מבנה. לכל ספק נבנה **כרטיס סכמה** מתוך התיעוד הרשמי שלו (שם המסמך + גרסה), שנשמר בריפו (`docs/log-schemas/<vendor>.md`). כל שדה שתבנית מייצרת חייב להופיע בכרטיס; ולידטור אוטומטי חוסם כל שדה שלא מופיע בו.
+
+**מוסכמת ה-SIEM:** הלוגים מוצגים כפי שהם נקלטים ב-SIEM מבוסס Elastic: מרחב שמות לכל ספק (למשל `crowdstrike.*`, `okta.*`, `azure.signinlogs.*`, `aws.cloudtrail.*`) לצד שדות ECS נייטרליים כמו `source.ip`. רוב התבניות כבר כתובות כך. לוגים בסגנון Wazuh (`data.*`) ייושרו לאותה מוסכמה, כדי שהפיד לא יערבב שתי מוסכמות.
+
+### 11.2 הקטלוג
+סטטוס: ✅ תבנית קיימת ובשימוש · ◐ קיים חלקית או דורש תיקון · 🆕 נבנה מאפס.
+
+**EDR**
+
+| ספק | מקור הלוג האמיתי | שדות ליבה | סטטוס |
+|---|---|---|---|
+| CrowdStrike Falcon | Falcon Data Replicator + Event Streams | `event_simpleName` (ProcessRollup2, NetworkConnectIP4, DnsRequest, DetectionSummaryEvent), `aid`, `ComputerName`, `UserName`, `CommandLine`, `ImageFileName`, `SHA256HashData`, `ParentBaseFileName`, `Tactic`, `Technique`, `SeverityName` | ✅ |
+| Microsoft Defender for Endpoint | Advanced Hunting (DeviceProcessEvents, DeviceNetworkEvents, DeviceFileEvents, AlertInfo, AlertEvidence) | `ActionType`, `DeviceName`, `FileName`, `FolderPath`, `SHA256`, `ProcessCommandLine`, `InitiatingProcessFileName`, `AccountName`, `RemoteIP`, `RemoteUrl` | ◐ השדה `mde.AlertTitle` אינו עמודה אמיתית; יוחלף ב-`Title` של AlertInfo |
+| SentinelOne Singularity | Deep Visibility / Singularity Data Lake + Threats API | `event.type`, `src.process.name`, `src.process.cmdline`, `src.process.parent.name`, `tgt.file.path`, `agent.uuid`; ב-Threats: `threatName`, `confidenceLevel`, `mitigationStatus`, `analystVerdict` | ✅ ייושר לשמות ה-SDL העדכניים |
+| Sophos Intercept X | Sophos Central SIEM Integration (Events / Alerts API) | `type` (למשל `Event::Endpoint::Threat::Detected`), `name`, `severity`, `endpoint_id`, `endpoint_type`, `location`, `threat`, `source_info.ip` | ◐ השדות הנוכחיים (כמו `sophos.detection_name`) לא תואמים את Sophos Central; תבנית חדשה |
+
+**חומת אש / NGFW**
+
+| ספק | מקור | שדות ליבה | סטטוס |
+|---|---|---|---|
+| Palo Alto PAN-OS | Traffic / Threat / URL logs | `src`, `dst`, `from_zone`, `to_zone`, `app`, `rule`, `action`, `bytes_sent`, `bytes_received`, `category`, `url`, `session_end_reason` | ✅ |
+| Fortinet FortiGate | FortiOS Log Message Reference | `logid`, `type`, `subtype`, `level`, `srcip`, `dstip`, `dstport`, `service`, `action`, `policyid`, `sentbyte`, `rcvdbyte`, `hostname`, `catdesc`, `msg` | ✅ |
+| Check Point | Log Exporter | `src`, `dst`, `service`, `proto`, `action`, `rule_name`, `layer_name`, `inzone`, `outzone`, `xlatesrc`, `product`, `origin` | ✅ תבנית קיימת, עוד לא בתרחישים |
+| Cisco Firepower (FTD) | Connection events (syslog 430002 / 430003) | `AccessControlRuleName`, `AccessControlRuleAction`, `ApplicationProtocol`, `InitiatorBytes`, `ResponderBytes`, `URLCategory`, `SrcIP`, `DstIP` | ◐ קיים רק במאגר הרעש; תבנית חדשה |
+
+**דואר ושיתוף**
+
+| ספק | מקור | שדות ליבה | סטטוס |
+|---|---|---|---|
+| Microsoft 365 | Office 365 Management Activity API (Exchange, SharePoint/OneDrive, AzureActiveDirectory) | `CreationTime`, `Operation`, `Workload`, `UserId`, `ClientIP`, `ResultStatus`, `ObjectId`, `Parameters` | ✅ |
+| Google Workspace | Admin SDK Reports API (login, drive, gmail, token, admin) | `id.applicationName`, `id.time`, `actor.email`, `ipAddress`, `events[].type`, `events[].name`, `events[].parameters[]` | ◐ קיים בשתי מוסכמות שונות בקוד (`gws.event.name` מול `gws.eventName`); יאוחד לפי ה-API |
+
+**אבטחת דואר**
+
+| ספק | מקור | שדות ליבה | סטטוס |
+|---|---|---|---|
+| Defender for Office 365 | EmailEvents / EmailUrlInfo / EmailAttachmentInfo | `NetworkMessageId`, `SenderFromAddress`, `RecipientEmailAddress`, `Subject`, `DeliveryAction`, `ThreatTypes`, `AuthenticationDetails` | ✅ |
+| Proofpoint | TAP SIEM API | `QID`, `sender`, `recipient`, `subject`, `senderIP`, `phishScore`, `spamScore`, `threatsInfoMap` | ◐ שלב 3 |
+
+**זהויות**
+
+| ספק | מקור | שדות ליבה | סטטוס |
+|---|---|---|---|
+| Microsoft Entra ID | Sign-in logs + Audit logs | `userPrincipalName`, `resultType`, `appDisplayName`, `ipAddress`, `location`, `conditionalAccessStatus`, `riskLevelDuringSignIn`, `authenticationRequirement` | ✅ |
+| Okta | System Log API | `eventType`, `displayMessage`, `actor`, `client.ipAddress`, `outcome.result`, `securityContext`, `debugContext`, `target`, `transaction.id` | ✅ |
+| Active Directory מקומי | Windows Security Event Log | Event IDs 4624 / 4625 / 4768 / 4769 / 4771 / 4720 / 4728 / 4662; `TargetUserName`, `IpAddress`, `LogonType`, `Status`, `TicketEncryptionType` | ✅ |
+| CyberArk PAM | Vault audit (syslog) | `Action`, `Safe`, `Account`, `Issuer`, `Station`, `Reason` | ◐ קיים בתרחישי QuantumBank |
+
+**ענן**
+
+| ספק | מקור | שדות ליבה | סטטוס |
+|---|---|---|---|
+| AWS | CloudTrail + GuardDuty | `eventSource`, `eventName`, `awsRegion`, `sourceIPAddress`, `userAgent`, `userIdentity.*`, `requestParameters`, `errorCode`; ב-GuardDuty: `type`, `severity`, `resource` | ✅ |
+| Azure | Activity Log + Defender for Cloud | `operationName`, `category`, `resultType`, `caller`, `callerIpAddress`, `resourceId` | ◐ |
+| Google Cloud | Cloud Audit Logs | `protoPayload.methodName`, `serviceName`, `authenticationInfo.principalEmail`, `requestMetadata.callerIp` | 🆕 שלב 3 |
+
+**VPN / גישה מרחוק**
+
+| ספק | מקור | שדות ליבה | סטטוס |
+|---|---|---|---|
+| GlobalProtect | PAN-OS GlobalProtect log | `stage`, `auth_method`, `portal`, `gateway`, `srcuser`, `public_ip`, `private_ip`, `client_os` | ✅ |
+| Cisco AnyConnect (ASA) | ASA syslog (113039, 722022, 722051, 113019) | `message_id`, `username`, `tunnel_group`, `session_type`, `reason` | ✅ |
+| FortiGate SSL-VPN | FortiOS event / vpn | `action` (tunnel-up, ssl-login-fail), `tunneltype`, `remip`, `user`, `reason` | ✅ |
+| Zscaler ZPA | User Activity log | `Username`, `ClientPublicIP`, `Application`, `AppGroup`, `ConnectionStatus` | 🆕 |
+| Cloudflare Access | Access requests log | `user_email`, `ip_address`, `app_domain`, `allowed`, `country`, `ray_id` | 🆕 |
+
+**Proxy / DNS**
+
+| ספק | מקור | שדות ליבה | סטטוס |
+|---|---|---|---|
+| Zscaler ZIA | NSS web log | `login`, `url`, `urlcategory`, `action`, `reason`, `appname`, `threatname`, `reqsize`, `respsize` | ✅ |
+| Palo Alto URL Filtering | PAN-OS URL log | `url`, `category`, `action`, `srcuser`, `http_method`, `referer` | ✅ |
+| Windows DNS | DNS Analytical log | `QNAME`, `QTYPE`, `RCODE`, `InterfaceIP`, `Source` | ✅ |
+| Infoblox NIOS | DNS query/response + RPZ | `query_name`, `query_type`, `rcode`, `client_ip`, `rpz_policy` | ✅ |
+
+**קבועים בכל סביבה:** Sysmon (Event IDs 1 / 3 / 7 / 10 / 11 / 13 / 22), ServiceNow (תיקי אישור), התראות SIEM, ו-Linux auditd כשיש שרתי Linux.
+
+### 11.3 איך מוודאים מהימנות למקור
+1. **כרטיס סכמה לכל ספק** מהתיעוד הרשמי, עם גרסה. זה מקור האמת היחיד לשמות שדות וערכים.
+2. **ולידטור בבנייה ובטסטים:** אין שדה שלא בכרטיס, אין שדה של ספק אחר, שדות הליבה של כל סוג אירוע קיימים, וערכי enum חוקיים (למשל `ActionType`, `eventType`, `logid`).
+3. **אותן ראיות לפני ואחרי המרה:** IP, Hash, משתמש, מחשב וזמן נשמרים.
+4. **ביקורת של סוכן ה-Log Fidelity** על כל ספק חדש. ספק לא נפתח לבחירה עד שהוא עובר אותה.
+5. **תיקון הקיים לפני ההרחבה:** Sophos, `mde.AlertTitle`, איחוד Google Workspace, ויישור לוגי `data.*` למוסכמה אחת.
