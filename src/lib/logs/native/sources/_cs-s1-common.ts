@@ -212,8 +212,9 @@ export function netFacts(f: EdrFacts, ev: TelemetryEvent): NetFacts {
   let remotePort = f.net.remotePort ?? (r["crowdstrike.remote_port"] !== undefined ? Number(r["crowdstrike.remote_port"]) : undefined);
   let localIp = f.net.localIp;
   let localPort = f.net.localPort;
-  let inbound = false;
-  if (localIp && !isPrivate(localIp) && isIPv4(localIp) && (!remoteIp || isPrivate(remoteIp))) {
+  // edrFacts now marks authored inbound accepts itself (remote = public source).
+  let inbound = f.net.direction === "inbound";
+  if (!inbound && localIp && !isPrivate(localIp) && isIPv4(localIp) && (!remoteIp || isPrivate(remoteIp))) {
     // Authored as src=<internet peer> dst=<this host>: an inbound accept.
     inbound = true;
     [remoteIp, localIp] = [localIp, remoteIp];

@@ -30,7 +30,7 @@ export interface EdrFacts {
   file: { path?: string; name?: string; sha256?: string; md5?: string; size?: number; extension?: string };
   net: { remoteIp?: string; remotePort?: number; localIp?: string; localPort?: number; protocol?: string; url?: string; domain?: string; direction: "outbound" | "inbound" };
   dns: { query?: string; type?: string; response?: string };
-  registry: { path?: string; value?: string };
+  registry: { path?: string; key?: string; value?: string };
   detection?: {
     name?: string; description?: string; severity?: string; technique?: string; techniqueId?: string;
     tactic?: string; tacticId?: string; confidence?: number;
@@ -43,6 +43,14 @@ const str = (v: unknown): string | undefined => (v === undefined || v === null |
 const numOrU = (v: unknown): number | undefined => { const n = Number(v); return v === undefined || v === null || v === "" || isNaN(n) ? undefined : n; };
 const first = (...vals: unknown[]) => { for (const v of vals) { const s = str(v); if (s) return s; } return undefined; };
 const baseName = (p?: string) => (p ? p.split(/[\\/]/).pop() : undefined);
+/** Folder + file name, without doubling when the folder value already ends with the file name. */
+const joinPath = (folder: unknown, file: unknown): string | undefined => {
+  const d = str(folder); const f = str(file);
+  if (!d) return undefined;
+  if (!f || d.toLowerCase().endsWith(`\\${f.toLowerCase()}`) || d.toLowerCase().endsWith(`/${f.toLowerCase()}`) || d.toLowerCase() === f.toLowerCase()) return d;
+  return `${d.replace(/[\\/]$/, "")}\\${f}`;
+};
+const isPrivateIp = (ip?: string) => !!ip && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|fd|fe80)/i.test(ip);
 const dirName = (p?: string) => (p && /[\\/]/.test(p) ? p.replace(/[\\/][^\\/]+$/, "") : undefined);
 
 function splitUser(raw?: string): { user?: string; domain?: string; email?: string } {
@@ -61,7 +69,9 @@ function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind
   if (UNSUPPORTED_SIMPLE.test(simple) || s1type.includes("device control") || /usb|removable/i.test(et))
     return { kind: "unsupported", reason: "device-control / USB telemetry has no documented native record in the cards" };
   if (et === "file_access" || /FileOpenInfo|DocumentScan/.test(simple)) return { kind: "unsupported", reason: "file-read telemetry is not a documented native record" };
-  if (ev.is_detection || et === "edr_alert" || et === "av_detection" || et === "av_quarantine" || /Detection|Alert/i.test(simple) || s1type === "threats")
+  const sophosDet = str(r["sophos.detection_name"]);
+  if (ev.is_detection || et === "edr_alert" || et === "av_detection" || et === "av_quarantine" || /Detection|Alert/i.test(simple) || s1type === "threats" ||
+      (sophosDet && sophosDet.toLowerCase() !== "none") || str(r["process.killed"]) === "true")
     return { kind: "detection" };
   if (et === "net_connection" || /NetworkConnect/i.test(simple) || s1type === "ip connect") return { kind: "network" };
   if (et === "dns_query" || /DnsRequest/i.test(simple) || ev.dns?.query) return { kind: "dns" };
@@ -79,10 +89,16 @@ function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind
 }
 
 function actionOf(r: Record<string, unknown>): "killed" | "quarantined" | "blocked" | "detected" {
-  const a = `${str(r["action_result"]) ?? ""} ${str(r["quarantine.status"]) ?? ""} ${str(r["crowdstrike.PatternDispositionDescription"]) ?? ""} ${str(r["crowdstrike.detection.pattern_disposition_description"]) ?? ""} ${str(r["s1.mitigation_status"]) ?? ""} ${str(r["s1.threat.mitigationStatus"]) ?? ""} ${str(r["process.killed"]) === "true" ? "killed" : ""}`.toLowerCase();
-  if (/kill|terminat/.test(a)) return "killed";
-  if (/quarantin/.test(a)) return "quarantined";
-  if (/block|prevent|denied|mitigated(?!.*not)/.test(a) && !/not_mitigated|no action|detect.?only/.test(a)) return "blocked";
+  const parts = [r["action_result"], r["quarantine.status"], r["crowdstrike.PatternDispositionDescription"],
+    r["crowdstrike.detection.pattern_disposition_description"], r["s1.mitigation_status"], r["s1.threat.mitigationStatus"],
+    r["sophos.action"], r["windefend.action"], r["remediation.status"] && /complet|success/i.test(String(r["remediation.status"])) ? r["remediation.action"] : undefined]
+    .map(v => (str(v) ?? "").toLowerCase());
+  // Negatives win: "not_quarantined", "allowed", "not_mitigated", "detect only".
+  const neg = (t: string) => /not[_ ]?(quarantin|mitigat|block|kill)|^allowed$|detect.?only|no action|none/.test(t);
+  const pos = parts.filter(t => t && !neg(t)).join(" ");
+  if (str(r["process.killed"]) === "true" || /\bkill|terminat/.test(pos)) return "killed";
+  if (/quarantin/.test(pos)) return "quarantined";
+  if (/block|prevent|denied|\bmitigated|remov|clean/.test(pos)) return "blocked";
   return "detected";
 }
 
@@ -90,10 +106,13 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
   const r = (ev.raw ?? {}) as Record<string, unknown>;
   const { kind, reason } = kindOf(ev, r);
   const platform = (first(r["crowdstrike.event_platform"], r["host.os.type"], r["host.os.name"]) ?? "").toLowerCase();
-  const os: EdrFacts["os"] = /lin|ubuntu|rhel|debian|centos/.test(platform) || ev.event_type === "linux_execve" ? "Lin" : /mac|darwin/.test(platform) ? "Mac" : "Win";
+  const anyPath = String(ev.process?.path ?? r["process.executable"] ?? r["crowdstrike.ImageFileName"] ?? ev.file?.path ?? "");
+  const os: EdrFacts["os"] = /lin|ubuntu|rhel|debian|centos|eks|bottlerocket/.test(platform) || ev.event_type === "linux_execve" ? "Lin"
+    : /mac|darwin/.test(platform) || /^\/(Applications|System|Library|Users)\//.test(anyPath) || /\.app\//.test(anyPath) ? "Mac"
+    : !platform && anyPath.startsWith("/") ? "Lin" : "Win";
 
   const u = splitUser(first(ev.process?.user, r["crowdstrike.UserName"], r["user.name"], r["AccountName"] && r["AccountDomain"] ? `${r["AccountDomain"]}\\${r["AccountName"]}` : r["AccountName"], r["InitiatingProcessAccountName"], r["s1.srcProcUser"], r["s1.process.user"]));
-  const procPath = first(ev.process?.path, r["process.executable"], r["crowdstrike.ImageFileName"], r["FolderPath"] && r["FileName"] && kind === "process" ? `${String(r["FolderPath"]).replace(/[\\/]$/, "")}\\${r["FileName"]}` : undefined, r["InitiatingProcessFolderPath"] && r["InitiatingProcessFileName"] && kind !== "process" ? `${r["InitiatingProcessFolderPath"]}\\${r["InitiatingProcessFileName"]}` : undefined);
+  const procPath = first(ev.process?.path, r["process.executable"], r["crowdstrike.ImageFileName"], kind === "process" ? joinPath(r["FolderPath"], r["FileName"]) : undefined, kind !== "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined);
   const procName = first(ev.process?.name, r["process.name"], r["crowdstrike.FileName"] && kind === "process" ? r["crowdstrike.FileName"] : undefined, r["crowdstrike.process_name"], kind === "process" ? r["FileName"] : r["InitiatingProcessFileName"], r["s1.srcProcName"], baseName(procPath));
   const proc: EdrProc = {
     name: procName, path: procPath,
@@ -107,17 +126,22 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
   const parentName = first(ev.process?.parent_name, r["process.parent.name"], r["crowdstrike.ParentBaseFileName"], r["crowdstrike.parent_basefilename"], r["crowdstrike.ParentProcessName"], kind === "process" ? r["InitiatingProcessFileName"] : undefined, r["s1.srcProcParentName"]);
   const parent: EdrProc = {
     name: parentName,
-    path: kind === "process" ? first(r["InitiatingProcessFolderPath"] && r["InitiatingProcessFileName"] ? `${r["InitiatingProcessFolderPath"]}\\${r["InitiatingProcessFileName"]}` : undefined) : undefined,
+    path: kind === "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined,
     pid: numOrU(ev.process?.parent_pid ?? r["process.parent.pid"] ?? (kind === "process" ? r["InitiatingProcessId"] : undefined)),
     cmdline: kind === "process" ? first(r["InitiatingProcessCommandLine"]) : undefined,
   };
-  const filePath = first(ev.file?.path, r["file.path"], r["crowdstrike.FilePath"] && r["crowdstrike.FileName"] && kind !== "process" ? `${String(r["crowdstrike.FilePath"]).replace(/[\\/]$/, "")}\\${r["crowdstrike.FileName"]}` : r["crowdstrike.TargetFileName"], kind === "file" && r["FolderPath"] ? (String(r["FolderPath"]).endsWith(String(r["FileName"] ?? "")) ? r["FolderPath"] : `${r["FolderPath"]}\\${r["FileName"] ?? ""}`) : undefined);
+  const filePath = first(ev.file?.path, r["file.path"], r["crowdstrike.FilePath"] && r["crowdstrike.FileName"] && kind !== "process" ? `${String(r["crowdstrike.FilePath"]).replace(/[\\/]$/, "")}\\${r["crowdstrike.FileName"]}` : r["crowdstrike.TargetFileName"], kind === "file" ? joinPath(r["FolderPath"], r["FileName"]) : undefined);
+  // Direction: an authored inbound connection has a PUBLIC source and the host as
+  // destination (RDP from the internet). Read it as remote = source, local = host.
+  const srcIp = first(ev.src_ip, r["source.ip"]);
+  const dstIp = first(ev.dst_ip, r["destination.ip"], r["RemoteIP"], r["crowdstrike.RemoteAddressIP4"], r["crowdstrike.remote_address"]);
+  const inbound = kind === "network" && !!srcIp && !isPrivateIp(srcIp) && (!dstIp || isPrivateIp(dstIp));
   return {
     kind, unsupportedReason: reason,
     timeMs: Date.parse(ev.ts),
     eventId: ev.id,
     host: first(ev.hostname, r["host.name"], r["crowdstrike.ComputerName"], r["DeviceName"], r["s1.agent.computerName"]),
-    hostIp: first(r["host.ip"], r["crowdstrike.local_address"], r["LocalIP"], ev.src_ip && kind !== "network" ? ev.src_ip : undefined),
+    hostIp: first(r["host.ip"], r["crowdstrike.local_address"], r["LocalIP"], isPrivateIp(ev.src_ip) ? ev.src_ip : undefined, inbound && isPrivateIp(dstIp) ? dstIp : undefined),
     os,
     user: u.user, userDomain: u.domain, userEmail: ev.user_email ?? ev.user?.email ?? u.email,
     proc, parent,
@@ -129,19 +153,20 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
       extension: first(ev.file?.extension, r["file.extension"]),
     },
     net: {
-      remoteIp: first(ev.dst_ip, r["destination.ip"], r["RemoteIP"], r["crowdstrike.RemoteAddressIP4"]),
-      remotePort: numOrU(ev.dst_port ?? r["destination.port"] ?? r["RemotePort"] ?? r["crowdstrike.RemotePort"]),
-      localIp: first(ev.src_ip, r["source.ip"], r["LocalIP"], r["crowdstrike.LocalAddressIP4"]),
-      localPort: numOrU(ev.src_port ?? r["source.port"]),
+      remoteIp: inbound ? srcIp : dstIp,
+      remotePort: inbound ? numOrU(ev.src_port ?? r["source.port"]) : numOrU(ev.dst_port ?? r["destination.port"] ?? r["RemotePort"] ?? r["crowdstrike.RemotePort"] ?? r["crowdstrike.remote_port"]),
+      localIp: inbound ? (isPrivateIp(dstIp) ? dstIp : undefined) : first(srcIp, r["LocalIP"], r["crowdstrike.LocalAddressIP4"]),
+      localPort: inbound ? numOrU(ev.dst_port ?? r["destination.port"]) : numOrU(ev.src_port ?? r["source.port"]),
       protocol: first(ev.protocol),
       url: first(ev.network?.url, r["RemoteUrl"], r["url.full"]),
-      domain: first(ev.network?.domain, ev.dns?.query, r["destination.domain"], r["network.destination"]),
-      direction: "outbound",
+      // network.destination sometimes holds the TARGET HOST of an inbound connection, not a domain.
+      domain: first(ev.network?.domain, ev.dns?.query, r["destination.domain"], inbound ? undefined : (str(r["network.destination"]) && !/^\d+\.\d+\.\d+\.\d+$/.test(String(r["network.destination"])) ? r["network.destination"] : undefined)),
+      direction: inbound ? "inbound" : "outbound",
     },
     dns: { query: first(ev.dns?.query, r["dns.question.name"]), type: first(ev.dns?.query_type), response: first(ev.dns?.response) },
-    registry: { path: first(ev.registry?.path, r["registry.path"]), value: first(ev.registry?.value, r["registry.value"]) },
+    registry: { path: first(ev.registry?.path, r["registry.path"]), key: first(ev.registry?.key, r["registry.key"]), value: first(ev.registry?.value, r["registry.value"]) },
     detection: kind === "detection" ? {
-      name: first(r["crowdstrike.DetectName"], r["crowdstrike.detection.scenario"], r["threat.name"], r["malware.name"], r["mde.AlertTitle"], r["s1.indicator.name"], r["s1.threat.threatName"], r["sophos.detection_name"], ev.rule?.name),
+      name: first(r["crowdstrike.DetectName"], r["crowdstrike.detection.scenario"], r["threat.name"], r["malware.name"], r["mde.AlertTitle"], r["s1.indicator.name"], r["s1.threat.threatName"], r["sophos.detection_name"], r["ThreatName"], r["windefend.threat.name"], ev.rule?.name),
       description: first(r["crowdstrike.detection.description"], ev.description),
       severity: first(ev.severity, r["crowdstrike.SeverityName"], r["crowdstrike.detection.severity"]),
       technique: first(r["crowdstrike.detection.technique"], r["crowdstrike.Technique"], r["threat.technique.name"]),
