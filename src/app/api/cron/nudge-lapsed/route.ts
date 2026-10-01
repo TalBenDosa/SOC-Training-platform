@@ -99,9 +99,16 @@ async function run(dry: boolean) {
   // Release the claim for sends that didn't go out, so the next run retries them.
   // (Includes the no-provider-key case, where nothing is sent at all.)
   if (failedIds.length > 0) {
-    await admin.from("profiles").update({ last_nudged_at: null }).in("id", failedIds).eq("last_nudged_at", now);
+    const { error: relErr } = await admin.from("profiles").update({ last_nudged_at: null }).in("id", failedIds).eq("last_nudged_at", now);
+    if (relErr) console.error(`[cron/nudge-lapsed] couldn't release ${failedIds.length} unsent claim(s) — they'll wait a cycle: ${relErr.message}`);
   }
 
+  // E-20 (QA phase 7): a summary line every run, and a 5xx when every send
+  // failed, so Vercel's cron view shows a failed run instead of a green 200.
+  console.info(`[cron/nudge-lapsed] done: candidates=${rows.length} claimed=${toSend.length} sent=${sentIds.length} failed=${failedIds.length}${batch.skipped ? " (email not configured)" : ""}${batch.errors.length ? ` errors=${batch.errors.slice(0, 3).join("; ")}` : ""}`);
+  if (toSend.length > 0 && sentIds.length === 0 && !batch.skipped) {
+    return NextResponse.json({ error: "Every send failed.", candidates: rows.length, sent: 0, skipped }, { status: 502 });
+  }
   return NextResponse.json({ candidates: rows.length, sent: sentIds.length, skipped });
 }
 
@@ -109,7 +116,10 @@ async function authorized(req: Request): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   // WEB-03: GET (sends real emails) must never ride an admin's cookie on a
   // cross-site link — it needs the cron secret; the session fallback is POST-only.
-  if (!secret && req.method === "GET") return false;
+  if (!secret && req.method === "GET") {
+    console.error("[cron/nudge-lapsed] CRON_SECRET is not set — the scheduled run was refused. Set it in the Vercel project settings.");
+    return false;
+  }
   if (secret) {
     // Constant-time compare — a plain === on the secret is a timing side-channel.
     return constantTimeEquals(req.headers.get("authorization") ?? "", `Bearer ${secret}`);

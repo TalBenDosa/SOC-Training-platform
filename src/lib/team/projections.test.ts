@@ -131,6 +131,10 @@ describe("server rejection codes → friendly text", () => {
     for (const t of texts) expect(t).not.toMatch(/Check your connection/);
     expect(friendlyActionError("invalid_payload: summary")).toMatch(/summary/);
   });
+  it("a deleted session says so (E-21)", () => {
+    expect(actionErrorCode("P0001: no_such_session")).toBe("no_such_session");
+    expect(friendlyActionError("no_such_session")).toMatch(/no longer exists/);
+  });
 });
 
 describe("eventLog — contiguous watermark (audit C1)", () => {

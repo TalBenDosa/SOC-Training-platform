@@ -44,7 +44,7 @@ export const ACTION_ERROR_CODES = [
   "claim_held", "case_owned", "already_escalated", "unknown_event", "not_escalated",
   "invalid_payload", "ticket_answered", "no_pending_request", "not_approved",
   "rate_limited", "action_not_allowed", "not_a_member", "session_full", "payload_too_large",
-  "seq_conflict", "auth_required",
+  "seq_conflict", "auth_required", "no_such_session",
 ] as const;
 export type ActionErrorCode = (typeof ACTION_ERROR_CODES)[number];
 /** The recognised rejection code inside a raw error message, or null. */
@@ -76,6 +76,8 @@ export function friendlyActionError(raw: string): string {
     case "payload_too_large": return "That's too much text or data for one action — shorten it and try again.";
     case "seq_conflict": return "Someone acted at the same moment — please try again.";
     case "auth_required": return "Your sign-in expired — reload the page to continue.";
+    // E-21 (QA phase 7): the session was deleted / never existed.
+    case "no_such_session": return "This session no longer exists — go back to the team page.";
     // ── ownership (P0-3) — recoverable with an explicit take-over ──
     case "claim_held": return "A teammate is already working this alert. Pick another one — or use “Take over” if they've stalled and you've agreed to take it.";
     case "case_owned": return "Another analyst already took this case. Leave it with them — or use “Take over (backup)” if they asked for help or went quiet.";

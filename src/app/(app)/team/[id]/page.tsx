@@ -415,7 +415,7 @@ export default function TeamRoomPage() {
   // v2 (migration 0071): coverage / instructor-left pauses are decided SERVER-side
   // from heartbeats; this browser only reports presence and renders the result.
   const v2 = (session?.schema_version ?? 1) >= 2;
-  useTeamHeartbeat(v2 && phase !== "ended" ? id : null);
+  const beatUnstable = useTeamHeartbeat(v2 && phase !== "ended" ? id : null);
 
   // C3: roster/role changes arrive as member.* events — refresh roster + my role
   // live (a reassigned seat used to need every client to reload). session.started
@@ -881,6 +881,13 @@ export default function TeamRoomPage() {
         {/* ── LOBBY ── */}
         {phase === "lobby" && (
           <>
+            {/* E-21 (QA phase 7): the lobby had no connection indicator — a dropped
+                socket looked like "nobody else is ready". */}
+            <div className="flex items-center gap-2 text-xs" aria-live="polite">
+              {socketLive && !beatUnstable
+                ? <span className="inline-flex items-center gap-1.5 text-neon-green"><Radio className="h-3.5 w-3.5" /> Connected to the lobby</span>
+                : <span className="inline-flex items-center gap-1.5 text-neon-amber"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Reconnecting — ready states may be out of date</span>}
+            </div>
             {/* Mission briefing — objectives + how you're scored, up front (no spoilers) */}
             <Card className="border-cyber-500/30">
               <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Shift briefing</h2>
@@ -972,6 +979,11 @@ export default function TeamRoomPage() {
                 : socketLive
                   ? <span className="inline-flex items-center gap-1.5 text-neon-amber" title="Realtime is up but the catch-up sync is failing — some logs may arrive late."><AlertTriangle className="h-4 w-4" /> Degraded — syncing</span>
                   : <span className="inline-flex items-center gap-1.5 text-neon-amber" title="Reconnecting to the live room — missed logs are fetched automatically."><Loader2 className="h-4 w-4 animate-spin" /> Reconnecting…</span>}
+              {beatUnstable && (
+                <span className="inline-flex items-center gap-1 rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-[11px] text-neon-amber" title="Your presence pings aren't reaching the server. If this lasts ~2 minutes the shift may pause for coverage.">
+                  <AlertTriangle className="h-3 w-3" /> Connection unstable
+                </span>
+              )}
               <span className="ml-auto font-mono text-xs text-slate-500">{online.size} online · {feed.length} logs · you: {ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
               <Button variant="outline" size="sm" onClick={() => setShowGuide(true)}>? Guide</Button>
               {canRunSession && (paused
