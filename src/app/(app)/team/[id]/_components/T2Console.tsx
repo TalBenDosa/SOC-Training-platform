@@ -28,7 +28,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
   reportedIds: Set<string>; reportByEid: Map<string, { verdict?: string; findings?: string; recommendation?: string; summary?: string }>; elevatedIds: Set<string>;
   containments: ContainmentRequest[];
   scope: ScopeState; scopes: Map<string, ScopeSnapshot>; incidents: string[]; incidentOf: Map<string, string>;
-  nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string) => void;
+  nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -220,7 +220,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                       <div className="mt-2 flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-2.5 py-1.5">
                         <span className="text-sm leading-none">🖥</span>
                         <span className="min-w-0 flex-1 text-[11px] text-cyber-200">Endpoint activity on this host — investigate it in EDR before you decide.</span>
-                        <Button variant="primary" size="sm" className="shrink-0" onClick={() => onEdr(asStr(p.summary) || asStr(p.what) || "Escalated incident")}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>
+                        <Button variant="primary" size="sm" className="shrink-0" onClick={() => onEdr(asStr(p.summary) || asStr(p.what) || "Escalated incident", sn?.hostname)}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>
                       </div>
                     );
                   })()}

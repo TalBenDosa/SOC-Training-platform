@@ -15,7 +15,7 @@ import { ScopeConsole } from "./ScopeConsole";
 export function HuntConsole({ scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot }: {
   scope: ScopeState; scopes?: Map<string, ScopeSnapshot>; incidents?: string[]; incidentOf?: Map<string, string>;
   elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
-  act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string) => void;
+  act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string, host?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
   // event_id = the elevation this hunt answers (T3 playtest: hunts weren't linked to the

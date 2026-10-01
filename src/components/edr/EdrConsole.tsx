@@ -21,6 +21,7 @@ import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess
 import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
 import { runRtrCommand } from "@/lib/edr/rtr";
 import { isContained, setContained } from "@/lib/edr/containment";
+import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
 
 const SEV_STYLE: Record<string, string> = {
   critical: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical",
@@ -36,10 +37,12 @@ const SEV_STYLE: Record<string, string> = {
  * (the scenario "Investigate in EDR" pivot). `embedded` drops the page chrome
  * (Topbar + page container) so it sits inside a panel/drawer.
  */
-export function EdrConsole({ investigations, initialCaseId, embedded = false }: {
+export function EdrConsole({ investigations, initialCaseId, embedded = false, teamIsolation = null }: {
   investigations: EdrInvestigation[];
   initialCaseId?: string;
   embedded?: boolean;
+  /** Team-SOC session: isolation is the TEAM's state, recorded in the session log and scored. */
+  teamIsolation?: TeamIsolation | null;
 }) {
   const [caseId, setCaseId] = useState<string | null>(
     initialCaseId ?? (investigations.length === 1 ? investigations[0].id : null),
@@ -55,6 +58,7 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false }: 
       key={inv.id}
       inv={inv}
       embedded={embedded}
+      teamIsolation={teamIsolation}
       onBack={investigations.length > 1 ? () => setCaseId(null) : undefined}
     />
   );
@@ -115,7 +119,7 @@ function IncidentsList({ investigations, onOpen, embedded }: {
   );
 }
 
-function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation; onBack?: () => void; embedded?: boolean }) {
+function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { inv: EdrInvestigation; onBack?: () => void; embedded?: boolean; teamIsolation?: TeamIsolation | null }) {
   const { roots, childrenOf } = useMemo(() => buildProcessTree(inv.processes), [inv]);
   const detByPid = useMemo(() => {
     const m = new Map<number, typeof inv.detections>();
@@ -128,8 +132,22 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
   // Isolation is shared with the SOC Dashboard: containing here marks the host
   // "Contained" there too. Seed from the store so a host isolated on either
   // surface stays isolated on both.
-  const [isolated, setIsolated] = useState(() => isContained(inv.host.name));
-  const isolate = (next: boolean) => { setIsolated(next); setContained(inv.host.name, next); };
+  // In a Team-SOC session the isolation is the TEAM's (0082): it is read from and
+  // written to the session log, so teammates see it and the after-action report
+  // judges whether isolating this host was right.
+  const [localIsolated, setLocalIsolated] = useState(() => !teamIsolation && isContained(inv.host.name));
+  const isolated = teamIsolation ? !!teamIsolation.state.get(inv.host.name.toLowerCase())?.isolated : localIsolated;
+  const [isoBusy, setIsoBusy] = useState(false);
+  const [isoErr, setIsoErr] = useState<string | null>(null);
+  const isolate = (next: boolean) => {
+    if (teamIsolation) {
+      if (isoBusy) return;
+      setIsoBusy(true); setIsoErr(null);
+      void teamIsolation.set(inv.host.name, next, inv.title).then(err => { setIsoBusy(false); setIsoErr(err); });
+      return;
+    }
+    setLocalIsolated(next); setContained(inv.host.name, next);
+  };
   const [hashResult, setHashResult] = useState<Record<number, { label: string; bad: boolean }>>({});
   const [decided, setDecided] = useState<null | { correct: boolean }>(null);
   const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
@@ -225,9 +243,13 @@ function CaseConsole({ inv, onBack, embedded = false }: { inv: EdrInvestigation;
               {inv.host.name}
             </span>
           </div>
-          <Button variant={isolated ? "outline" : "primary"} size="sm" onClick={() => isolate(!isolated)}>
-            <MonitorX className="mr-1.5 h-4 w-4" /> {isolated ? "Host isolated ✓ — release" : "Isolate host"}
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button variant={isolated ? "outline" : "primary"} size="sm" disabled={isoBusy} onClick={() => isolate(!isolated)}>
+              <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ — release" : "Isolate host"}
+            </Button>
+            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">Recorded for the team — reviewed in the after-action report.</span>}
+            {isoErr && <span role="alert" className="max-w-xs text-right text-[11px] text-neon-amber">{isoErr}</span>}
+          </div>
         </div>
 
         <Card className="border-cyber-500/20">

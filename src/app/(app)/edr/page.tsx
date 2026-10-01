@@ -14,6 +14,7 @@ import { EDR_INVESTIGATIONS, type EdrInvestigation } from "@/lib/edr/investigati
 import { isTrainingActive } from "@/lib/sim/trainingSession";
 import { EdrConsole } from "@/components/edr/EdrConsole";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
+import { useTeamIsolation } from "@/lib/team/useTeamIsolation";
 
 export default function EdrConsolePage() {
   usePageTitle("EDR Console");
@@ -24,13 +25,15 @@ export default function EdrConsolePage() {
   // navigation. The deep-link (?case=…) is read post-mount instead, which also
   // avoids any server/client hydration mismatch.
   const [allowed, setAllowed] = useState<boolean | null>(null); // null = still checking
-  const [liveInv, setLiveInv] = useState<EdrInvestigation | null>(null);
+  // A team room may stash several hosts (one case per escalated endpoint) → the Incidents list.
+  const [liveInvs, setLiveInvs] = useState<EdrInvestigation[] | null>(null);
   const [invId, setInvId] = useState<string | null>(null); // set from ?case; null → Incidents list
   // Opened from a live Team-SOC room (?team=<id>): keep the analyst "present" for
   // the server-side lifecycle while they investigate here — T2/T3 can spend
   // minutes in this tab, and the room's own tab is then hidden/throttled.
   const [teamSession, setTeamSession] = useState<string | null>(null);
   useTeamHeartbeat(teamSession);
+  const teamIsolation = useTeamIsolation(teamSession);
 
   useEffect(() => {
     // The EDR console is ONLY reachable from an active shift — the student must
@@ -58,7 +61,8 @@ export default function EdrConsolePage() {
         const u = params.get("u");
         const raw = (u && localStorage.getItem(`edr_live_investigation_${u}`)) || localStorage.getItem("edr_live_investigation") || "null";
         const stashed = JSON.parse(raw);
-        if (stashed?.id) { setLiveInv(stashed); setInvId(stashed.id); return; }
+        const list = (Array.isArray(stashed) ? stashed : [stashed]).filter((x: EdrInvestigation | null) => x?.id);
+        if (list.length) { setLiveInvs(list); setInvId(list.length === 1 ? list[0].id : null); return; }
       } catch { /* fall through to a static case */ }
     }
     if (requested && EDR_INVESTIGATIONS.some(i => i.id === requested)) setInvId(requested);
@@ -70,11 +74,11 @@ export default function EdrConsolePage() {
     // alongside it cluttered the case-switcher and broke the "one incident, its
     // own isolated case" model. The built-in EDR_INVESTIGATIONS stay as the
     // standalone-practice set, shown only when there is no live attack to walk.
-    () => (liveInv ? [liveInv] : EDR_INVESTIGATIONS),
-    [liveInv],
+    () => (liveInvs ?? EDR_INVESTIGATIONS),
+    [liveInvs],
   );
   if (!allowed) return null; // checking access / redirecting to the Dashboard
   // A live shift stashed one investigation → open it directly; otherwise (no
   // ?case) fall to the Incidents management page over the built-in practice set.
-  return <EdrConsole investigations={investigations} initialCaseId={invId ?? undefined} />;
+  return <EdrConsole investigations={investigations} initialCaseId={invId ?? undefined} teamIsolation={teamIsolation} />;
 }

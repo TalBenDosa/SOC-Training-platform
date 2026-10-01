@@ -19,6 +19,8 @@ export function ActivityLog({ activity, nameOf }: { activity: Ev[]; nameOf: (u: 
       case "containment.approved": return "approved containment";
       case "containment.denied": return `denied containment${s("reason") ? ` — ${s("reason")}` : ""}`;
       case "containment.executed": return `executed isolation on ${asStr((p as { target?: string }).target) || "the host"}`;
+      case "edr.host_isolated": return `isolated ${s("host", 60) || "a host"} in EDR`;
+      case "edr.host_released": return `released ${s("host", 60) || "a host"} from EDR isolation`;
       case "escalation.bounced": return "bounced an escalation back to Tier-1";
       case "escalation.resolved": return "resolved an escalation";
       case "scope.set": return `set the incident scope${inc}`;

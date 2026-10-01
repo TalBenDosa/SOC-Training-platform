@@ -2,10 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { ArrowUpRight, ShieldAlert, Siren, Clock, Timer, EyeOff } from "lucide-react";
+import { ArrowUpRight, ShieldAlert, Siren, Clock, Timer, EyeOff, MonitorX } from "lucide-react";
 import type { RosterMember, Me, Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
-import type { computeReport, ReportedItem, MissItem } from "@/lib/team/report/computeReport";
+import type { computeReport, ReportedItem, MissItem, IsolationItem, MissedHost } from "@/lib/team/report/computeReport";
 import { mergeAnswers, type AnswerMap } from "@/lib/team/report/serverReport";
 import { ROLE_LABEL, Metric } from "./shared";
 
@@ -25,7 +25,7 @@ function HotWash({ events, nameOf }: { events: Ev[]; nameOf: (u: string | null) 
   const RESPONSE_LABEL: Record<string, string> = {
     "escalation.requested": "escalated to Tier-2", "escalation.acknowledged": "acknowledged", "escalation.bounced": "bounced back",
     "elevation.requested": "elevated to Tier-3", "containment.requested": "requested containment", "containment.approved": "approved containment",
-    "containment.denied": "denied containment", "containment.executed": "executed isolation", "decision.logged": "logged a decision",
+    "containment.denied": "denied containment", "containment.executed": "executed isolation", "edr.host_isolated": "isolated a host in EDR", "decision.logged": "logged a decision",
     "sitrep.sent": "sent a SITREP", "scope.confirmed": "confirmed scope",
   };
   const rows = useMemo(() => {
@@ -259,6 +259,49 @@ function MissList({ title, items, tone, empty }: { title: string; items: MissIte
   );
 }
 
+/** EDR host isolations, each judged against the answer key (v4). */
+function IsolationList({ items, nameOf }: { items: IsolationItem[]; nameOf?: (u: string | null) => string }) {
+  if (items.length === 0) return null;
+  return (
+    <ul className="space-y-1">
+      {items.map((it, i) => (
+        <li key={i} className={`rounded border px-2 py-1 text-[11px] ${it.correct ? "border-neon-green/30 bg-neon-green/[0.05]" : "border-severity-high/40 bg-severity-high/[0.06]"}`}>
+          <div className="flex items-center gap-1.5">
+            <span className={`shrink-0 font-mono text-[10px] font-bold ${it.correct ? "text-neon-green" : "text-severity-high"}`}>{it.correct ? "✓ right call" : "✗ wrong call"}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-slate-200" title={it.host}>{it.host}</span>
+            {it.atS != null && <span className="shrink-0 font-mono text-[10px] text-slate-500">{dur(it.atS)}</span>}
+          </div>
+          <p className="mt-0.5 text-[10px] text-slate-400">
+            {it.verdict === "compromised"
+              ? <>compromised — real attack activity on this host{it.timeToIsolateS != null ? ` · isolated ${dur(it.timeToIsolateS)} after its first attack log` : ""}</>
+              : <>clean — no attack activity on this host; isolating it cut a user off for nothing</>}
+            {nameOf ? ` · by ${nameOf(it.by)}` : ""}
+            {it.releasedS != null ? ` · released at ${dur(it.releasedS)}` : ""}
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Compromised hosts nobody isolated. */
+function HostsLeftOnline({ items }: { items: MissedHost[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[10px] font-semibold text-neon-amber">Compromised hosts nobody isolated ({items.length})</p>
+      <ul className="mt-0.5 space-y-0.5">
+        {items.map((h, i) => (
+          <li key={i} className="flex items-center gap-1.5 text-[10px] text-slate-300">
+            <span className="min-w-0 flex-1 truncate font-mono" title={h.host}>{h.host}</span>
+            <span className="shrink-0 text-slate-500">{h.attackLogs} attack log{h.attackLogs === 1 ? "" : "s"}{h.firstAttackS != null ? ` · first at ${dur(h.firstAttackS)}` : ""}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 type Report = ReturnType<typeof computeReport>;
 
 // S10: a spreadsheet evaluates a cell starting with = + - @ (or a tab/CR) as a
@@ -336,9 +379,9 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   const visible = perUser;   // the server already limited this to my card unless I'm staff / the Manager
 
   function exportCsv() {
-    const header = ["Name", "Role", "Rubric score %", "Criteria measured", "Logs opened", "Avg dwell (s)", "Dispositions", "Disposition accuracy %", "Dispositions on unopened logs", "Escalations", "Escalation quality", "Acks", "Containment requests", "Containment decisions", "Role actions", "First action (s)", "Contribution", "Reported within SLA", "Reported (SLA judged)", "SLA %", "False negatives", "Walked past", "False alarms"];
+    const header = ["Name", "Role", "Rubric score %", "Criteria measured", "Logs opened", "Avg dwell (s)", "Dispositions", "Disposition accuracy %", "Dispositions on unopened logs", "Escalations", "Escalation quality", "Acks", "Containment requests", "Containment decisions", "Role actions", "First action (s)", "Contribution", "Reported within SLA", "Reported (SLA judged)", "SLA %", "False negatives", "Walked past", "False alarms", "Hosts isolated", "Isolations correct"];
     const rows = perUser.map(u => [u.name, u.role, u.insufficientEvidence ? "insufficient evidence" : (u.rubricPct ?? ""), u.measuredCells ?? "", u.opened, u.avgDwellS ?? "", u.dispCount, u.dispAcc ?? "", u.dispUnopened ?? "", u.escCount, u.escQuality ?? "", u.acks, u.contReq, u.contDecided, u.roleActions, u.firstActionS ?? "", u.contribution,
-      u.slaMet ?? "", u.slaTotal ?? "", u.slaPct ?? "", u.falseNegatives?.length ?? "", u.walkedPast?.length ?? "", u.falseAlarms?.length ?? ""]);
+      u.slaMet ?? "", u.slaTotal ?? "", u.slaPct ?? "", u.falseNegatives?.length ?? "", u.walkedPast?.length ?? "", u.falseAlarms?.length ?? "", u.isolations?.length ?? "", u.isoCorrect ?? ""]);
     const csv = [header, ...rows].map(r => r.map(csvCell).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a"); a.href = url; a.download = `team-exercise-report-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
@@ -481,6 +524,25 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         </Card>
       )}
 
+      {/* v4: EDR host isolation — was each isolation the right call? */}
+      {((team.isoTotal ?? 0) > 0 || (team.hostsLeftOnline?.length ?? 0) > 0) && (
+        <Card className={(team.isoTotal ?? 0) > 0 && (team.isoCorrect ?? 0) < (team.isoTotal ?? 0) ? "border-severity-high/30" : undefined}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-white"><MonitorX className="h-4 w-4 text-cyber-300" /> Host isolation in EDR</h3>
+            {(team.isoTotal ?? 0) > 0 && (
+              <span className={`font-mono text-[11px] font-bold ${(team.isoPct ?? 0) >= 100 ? "text-neon-green" : (team.isoPct ?? 0) >= 50 ? "text-neon-amber" : "text-severity-high"}`}>
+                {team.isoCorrect}/{team.isoTotal} right calls{team.mttiS != null ? ` · median time to isolate ${dur(team.mttiS)}` : ""}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">A host that carried real attack activity was right to isolate. A clean host means a user was cut off for nothing — in a real SOC that is a business outage.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>{(team.isoTotal ?? 0) > 0 ? <IsolationList items={team.isolations ?? []} nameOf={nameOf} /> : <p className="text-[10px] text-slate-500">No host was isolated during the shift.</p>}</div>
+            <HostsLeftOnline items={team.hostsLeftOnline ?? []} />
+          </div>
+        </Card>
+      )}
+
       {/* Guided hot-wash FIRST — the debrief conversation, reconstructed from the log (U2) */}
       <HotWash events={revealed} nameOf={nameOf} />
 
@@ -587,6 +649,15 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
               <Line label="Role actions" value={String(u.roleActions)} />
             </div>
             <ReportedTable items={u.reported ?? []} met={u.slaMet ?? 0} total={u.slaTotal ?? 0} pct={u.slaPct ?? null} />
+            {(u.isolations?.length ?? 0) > 0 && (
+              <div className="mt-3 border-t border-border/40 pt-2">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400"><MonitorX className="h-3 w-3" /> Hosts you isolated</p>
+                  <span className={`font-mono text-[10px] font-bold ${u.isoCorrect === u.isolations.length ? "text-neon-green" : "text-severity-high"}`}>{u.isoCorrect}/{u.isolations.length} right calls</span>
+                </div>
+                <IsolationList items={u.isolations} />
+              </div>
+            )}
             {((u.falseNegatives?.length ?? 0) + (u.walkedPast?.length ?? 0) + (u.falseAlarms?.length ?? 0)) > 0 ? (
               <div className="mt-3 space-y-2 border-t border-border/40 pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Missed &amp; misjudged</p>

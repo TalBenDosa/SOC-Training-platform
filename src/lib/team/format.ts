@@ -3,6 +3,8 @@ export function sevColor(s?: string) { return s === "critical" || s === "high" ?
 /** Some vendor events carry `description`/`raw` as an OBJECT, not a string — React
  *  can't render an object child, so coerce everything we render to a safe string. */
 export function asStr(v: unknown): string { return typeof v === "string" ? v : ""; }
+/** Host names compare case-insensitively and by short name (WS-FIN-2847 ≡ ws-fin-2847.corp.local). */
+export const hostKey = (h: string) => h.trim().toLowerCase().split(".")[0];
 /** Auto-detect an IOC's type for display + accuracy scoring (T1-5). */
 export function detectIocType(v: string): string {
   const s = v.trim();

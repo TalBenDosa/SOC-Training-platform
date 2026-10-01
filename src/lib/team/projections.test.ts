@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { activeClaims, openLoadByUser, CLAIM_TTL_MS, escalationStates, isOpenEscalation, containmentRequests, incidentByEvent, incidentLabels, scopeByIncident, latestScope } from "./projections";
+import { activeClaims, openLoadByUser, CLAIM_TTL_MS, escalationStates, isOpenEscalation, containmentRequests, incidentByEvent, incidentLabels, scopeByIncident, latestScope, isolationState } from "./projections";
 import { actionErrorCode, friendlyActionError } from "./format";
 import { advanceWatermark, revealsGap } from "./eventLog";
 import type { Ev } from "./types";
@@ -141,5 +141,18 @@ describe("eventLog — contiguous watermark (audit C1)", () => {
   it("detects a hole above the watermark", () => {
     expect(revealsGap(3, 4)).toBe(false);
     expect(revealsGap(3, 5)).toBe(true);
+  });
+});
+
+describe("isolationState (EDR host isolation, 0082)", () => {
+  it("the latest isolate / release per host decides; host names are case-insensitive", () => {
+    const ev = (seq: number, type: string, host: string, actor = "u1"): Ev => ({ seq, type, actor_id: actor, role: "t2", payload: { host }, occurred_at: `2026-10-01T09:00:${String(seq).padStart(2, "0")}Z` });
+    const s = isolationState([
+      ev(1, "edr.host_isolated", "WS-FIN-2847"), ev(2, "edr.host_isolated", "SRV-DB-01", "u2"),
+      ev(3, "edr.host_released", "ws-fin-2847"), ev(4, "message.sent", "x"),
+    ]);
+    expect(s.get("ws-fin-2847")?.isolated).toBe(false);
+    expect(s.get("srv-db-01")).toMatchObject({ isolated: true, by: "u2", host: "SRV-DB-01" });
+    expect(s.size).toBe(2);
   });
 });

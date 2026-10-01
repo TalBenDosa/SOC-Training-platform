@@ -22,7 +22,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EventFeed } from "@/app/(app)/dashboard/EventFeed";
 import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/useLiveEvents";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { buildInvestigationFromStory } from "@/lib/edr/fromLiveStory";
+import { buildTeamEdrCases } from "@/lib/edr/teamCases";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
@@ -656,7 +656,7 @@ export default function TeamRoomPage() {
     if (!disposed && !claim && !escalated && !triage) return null;
     return { disposed, claim, escalated, triage };
   }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id]);
-  const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
+  const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
   // Live SOC dashboard (rule levels, source badges, raw formatting, threat-intel).
@@ -738,24 +738,32 @@ export default function TeamRoomPage() {
   // /edr console pre-loaded on the process tree. Returns null for pure identity/
   // cloud attacks with no endpoint telemetry → we tell the analyst instead of
   // opening an empty console.
-  const openEdr = useCallback((description?: string) => {
+  const openEdr = useCallback((description?: string, host?: string) => {
     try {
       // Same re-timing as the feed rows, so EDR shows the times the team saw.
       const evs = feed.map(e => { const t = e.payload as unknown as TelemetryEvent; return e.occurred_at ? withRebasedTime(t, e.occurred_at) : t; });
-      const inv = buildInvestigationFromStory({ id: `team-${id}`, title: "Team incident — live", events: evs });
-      if (!inv) { setEdrNote("No endpoint (EDR/Sysmon) telemetry in this incident yet — nothing to open in the EDR console."); return; }
-      // Put the escalated event's description in the EDR header, so the analyst
-      // always sees WHAT they're investigating (not a generic "Team incident").
-      if (description) inv.title = description;
+      // ONE case per host: the clicked case's host, or (console-header button) every
+      // endpoint host the team escalated — never "whichever host is busiest in the feed".
+      const hosts = host ? [host] : [...new Set(escalations.map(e => asStr((e.payload as { snapshot?: { hostname?: unknown } }).snapshot?.hostname)).filter(Boolean))];
+      const cases = buildTeamEdrCases(evs, { sessionId: id, hosts, description });
+      if (!cases.length) {
+        setEdrNote(host
+          ? `No endpoint (EDR/Sysmon) telemetry for ${host} in this shift yet — nothing to open in the EDR console.`
+          : "No endpoint (EDR/Sysmon) telemetry in this incident yet — nothing to open in the EDR console.");
+        return;
+      }
       // B8: per-analyst key + ?u= so a second analyst opening EDR doesn't clobber the
       // first one's stashed investigation (was a shared, last-write-wins origin key).
       const uid = me?.id ?? "anon";
-      localStorage.setItem(`edr_live_investigation_${uid}`, JSON.stringify(inv));
-      const w = window.open(`/edr?case=live&team=${id}&u=${encodeURIComponent(uid)}`, "_blank", "noopener");
-      if (!w) { setEdrNote("Pop-up blocked — allow pop-ups for this site, then click “Investigate in EDR” again."); }
-      else setEdrNote(null);
+      localStorage.setItem(`edr_live_investigation_${uid}`, JSON.stringify(cases.length === 1 ? cases[0] : cases));
+      // NOT the "noopener" feature: with it window.open() returns null even when the tab
+      // DID open, which showed a false "Pop-up blocked". Cut the opener link by hand.
+      const w = window.open(`/edr?case=live&team=${id}&u=${encodeURIComponent(uid)}`, "_blank");
+      if (!w) { setEdrNote("Pop-up blocked — allow pop-ups for this site, then click “Investigate in EDR” again."); return; }
+      try { w.opener = null; } catch { /* cross-origin guard — nothing to cut */ }
+      setEdrNote(null);
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
-  }, [feed, id, me?.id]);
+  }, [feed, escalations, id, me?.id]);
 
   myReadyRef.current = !!(me && readyMap[me.id]);
 
@@ -778,7 +786,7 @@ export default function TeamRoomPage() {
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {note && phase !== "running" && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{note}</div>}
         {/* B8: EDR feedback shows in ANY phase (a pop-up-blocked click mid-shift must not be silent) */}
-        {edrNote && <div className="flex items-center gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-4 py-2 text-sm text-neon-amber"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
+        {edrNote && <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-amber/50 bg-bg-elevated px-4 py-3 text-sm text-neon-amber shadow-2xl"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
 
         {countdown !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">

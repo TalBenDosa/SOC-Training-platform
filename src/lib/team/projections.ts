@@ -177,3 +177,20 @@ export function latestScope(events: Ev[]): ScopeSnapshot | null {
   for (const s of scopeByIncident(events).values()) if (!best || s.seq > best.seq) best = s;
   return best;
 }
+
+/** EDR network containment of one host (0082): the latest isolate / release decides. */
+export interface HostIsolation { host: string; isolated: boolean; by: string | null; at: string | null; seq: number }
+export const EDR_ISOLATION_TYPES = ["edr.host_isolated", "edr.host_released"] as const;
+/** Which hosts are isolated right now — keyed by the lower-cased host name (host names are case-insensitive). */
+export function isolationState(events: Ev[]): Map<string, HostIsolation> {
+  const m = new Map<string, HostIsolation>();
+  for (const e of events) {
+    if (e.type !== "edr.host_isolated" && e.type !== "edr.host_released") continue;
+    const host = String((e.payload as { host?: unknown } | null)?.host ?? "").trim();
+    if (!host) continue;
+    const prev = m.get(host.toLowerCase());
+    if (prev && prev.seq > e.seq) continue;
+    m.set(host.toLowerCase(), { host, isolated: e.type === "edr.host_isolated", by: e.actor_id, at: e.occurred_at ?? null, seq: e.seq });
+  }
+  return m;
+}

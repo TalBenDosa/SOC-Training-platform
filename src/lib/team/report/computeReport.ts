@@ -1,6 +1,6 @@
 import type { RosterMember, Ev } from "@/lib/team/types";
 import { CLAIM_TTL_MS } from "@/lib/team/projections";
-import { asStr } from "@/lib/team/format";
+import { asStr, hostKey } from "@/lib/team/format";
 
 // ── After-action report — derived entirely from the event log (isomorphic: no React,
 // no server-only imports, so the server computes it once and the client can re-run it).
@@ -17,7 +17,7 @@ import { asStr } from "@/lib/team/format";
 // control at 3–7 direct reports — beyond 7 a single coordinator loses oversight.
 export const OVERLOAD_CASES = 3;
 /** Bumped whenever the report's shape/semantics change (cached reports older than this are stale). */
-export const REPORT_VERSION = 3;   // 3: per-event SLA, misses, team triage metrics
+export const REPORT_VERSION = 4;   // 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged
 
 // ── Scoring weights (documented here so the debrief can explain every number) ──────
 /** `suspicious` = a LOW-CONFIDENCE LEAD. On a real attack log it earns partial credit —
@@ -68,6 +68,20 @@ export interface ReportedItem {
 }
 /** A log worth talking about in the debrief (a miss / a false alarm). */
 export interface MissItem { label: string; severity: string; arrivedS: number | null; detail?: string }
+/** One EDR network isolation (0082), judged against the answer key. */
+export interface IsolationItem {
+  host: string; by: string | null; atS: number | null;
+  /** When the host was released again (by anyone), if it was. */
+  releasedS: number | null;
+  /** compromised = the host carried at least one real attack log; clean = it never did. */
+  verdict: "compromised" | "clean";
+  /** Isolating a compromised host is right; isolating a clean one disrupted the business for nothing. */
+  correct: boolean;
+  /** Compromised hosts: first attack log on the host → the isolation (seconds, ≥ 0). */
+  timeToIsolateS: number | null;
+}
+/** A compromised host nobody isolated. */
+export interface MissedHost { host: string; attackLogs: number; firstAttackS: number | null }
 export interface UserReport {
   user_id: string; name: string; role: string;
   opened: number; avgDwellS: number | null; dispCount: number; dispCorrect: number; dispAcc: number | null;
@@ -88,6 +102,10 @@ export interface UserReport {
   walkedPast: MissItem[];
   /** Benign logs (not part of any incident) this analyst escalated or called a true positive. */
   falseAlarms: MissItem[];
+  // ── v4: EDR host isolation ──
+  /** Hosts this analyst isolated in EDR (first isolation per host), each judged. */
+  isolations: IsolationItem[];
+  isoCorrect: number; isoPct: number | null;
 }
 export interface IncidentReport {
   id: string; label: string; attackEvents: number;
@@ -248,7 +266,7 @@ interface RubricCtx {
   huntCount: number; huntTech: number; huntQuality: number | null; noteCount: number; elevAnsweredPct: number | null;
   rulePublished: number; ruleMatched: number; ruleTechniques: number; ruleDocRate: number | null;
   intelAttrib: number | null; intelNext: number | null; iocPrecision: number | null;
-  contReason: number | null; contQuality: number | null; reportAcc: number | null;
+  contReason: number | null; contQuality: number | null; reportAcc: number | null; isoPct: number | null;
   scopeSetDims: number; scopeConfirmDims: number; scopeConfirmed: boolean;
   decisionCount: number; decisionRationaleRate: number | null;
   helpdeskPct: number | null; helpdeskDupOnly: boolean; sitrepCount: number; reportQuality: number | null;
@@ -277,6 +295,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Scoping completeness", score: c.scopeSetDims >= 3 ? 12 : c.scopeSetDims >= 2 ? 8 : c.scopeSetDims >= 1 ? 4 : null },
       { label: "Containment recommendation", score: c.contReason == null ? null : bandHigh(c.contReason, 90, 60, 30) },
       { label: "Containment quality", score: c.contQuality == null ? null : bandHigh(c.contQuality, 85, 60, 35), note: "a denied or later re-targeted request lowers it; executed after approval raises it" },
+      { label: "Host isolation", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), note: "each host you isolated in EDR, judged: a host with real attack activity was right to isolate; a clean host is a needless business outage" },
       { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "picked up a case while a teammate was overloaded" },
       { label: "Incident report", score: c.reportQuality == null ? null : bandHigh(c.reportQuality, 85, 60, 35) },
       { label: "Report accuracy", score: c.reportAcc == null ? null : bandHigh(c.reportAcc, 90, 65, 40), note: "your report's verdict vs the incident's ground truth" },
@@ -288,6 +307,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Technique attribution", score: c.huntCount ? bandHigh(Math.round((c.huntTech / c.huntCount) * 100), 90, 60, 30) : null, note: "hunts tagged with a valid MITRE technique id" },
       { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), note: "a hunt linked to the elevation (event_id) answers it" },
       { label: "Guidance to T2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null },
+      { label: "Host isolation", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), note: "each host you isolated in EDR, judged: a host with real attack activity was right to isolate; a clean host is a needless business outage" },
     ];
     case "lead": return [
       { label: "Team organised", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15) },
@@ -413,12 +433,45 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const t = s.t ?? Infinity; if (!markedAttack.has(s.eid) || t < markedAttack.get(s.eid)!) markedAttack.set(s.eid, t);
   }
   const executedEids = new Set(events.filter(e => e.type === "containment.executed").map(eidOf));
+
+  // ── v4: EDR host isolation (0082). A host is COMPROMISED when it carried at least one
+  // real attack log; isolating it is right, isolating a clean host is a needless outage.
+  const attackHosts = new Map<string, { host: string; logs: number; first: number | null; incidents: Set<string> }>();
+  for (const fe of feed) {
+    const t = truth.get(fid(fe)); const h = asStr((fe.payload as { hostname?: unknown }).hostname).trim();
+    if (!t?.isAttack || !h) continue;
+    const k = hostKey(h);
+    const cur = attackHosts.get(k) ?? { host: h, logs: 0, first: null, incidents: new Set<string>() };
+    cur.logs++;
+    if (t.ts != null && (cur.first == null || t.ts < cur.first)) cur.first = t.ts;
+    if (t.incident) cur.incidents.add(t.incident);
+    attackHosts.set(k, cur);
+  }
+  const isoHost = (e: Ev) => asStr((e.payload as { host?: unknown }).host).trim();
+  const isoEvents = events.filter(e => (e.type === "edr.host_isolated" || e.type === "edr.host_released") && isoHost(e))
+    .sort((a, b) => a.seq - b.seq);
+  const isoItems: IsolationItem[] = [];
+  isoEvents.forEach((e, i) => {
+    if (e.type !== "edr.host_isolated") return;
+    const host = isoHost(e); const k = hostKey(host);
+    const release = isoEvents.slice(i + 1).find(x => x.type === "edr.host_released" && hostKey(isoHost(x)) === k);
+    const atk = attackHosts.get(k); const at = tsOf(e);
+    isoItems.push({
+      host, by: e.actor_id, atS: relS(at), releasedS: release ? relS(tsOf(release)) : null,
+      verdict: atk ? "compromised" : "clean", correct: !!atk,
+      timeToIsolateS: atk && atk.first != null && at != null ? Math.max(0, Math.round((at - atk.first) / 1000)) : null,
+    });
+  });
+  /** First isolation per host (by anyone) — the team view; a re-isolation after a release isn't a new decision. */
+  const isoFirstByHost = new Map<string, IsolationItem>();
+  for (const it of isoItems) if (!isoFirstByHost.has(hostKey(it.host))) isoFirstByHost.set(hostKey(it.host), it);
+  const isolatedIncidents = new Set([...isoFirstByHost.keys()].flatMap(k => [...(attackHosts.get(k)?.incidents ?? [])]));
   const incidentList: IncidentReport[] = [...incidents.values()].map(inc => {
     const minOf = (m: Map<string, number>) => { let best: number | null = null; for (const id of inc.attackEids) { const v = m.get(id); if (v != null && (best == null || v < best)) best = v; } return best; };
     const escTs = minOf(escalatedAttack); const markTs = minOf(markedAttack);
     const escalated = escTs != null; const detected = escalated || markTs != null;
     const detTs = escalated ? escTs : markTs;
-    const contained = [...executedEids].some(eid => incidentOfEid(eid) === inc.id);
+    const contained = [...executedEids].some(eid => incidentOfEid(eid) === inc.id) || isolatedIncidents.has(inc.id);
     const detS = detTs != null && Number.isFinite(detTs) ? relS(detTs) : null;
     return {
       id: inc.id, label: inc.label.slice(0, 140), attackEvents: inc.attackEids.length, detected, escalated, contained,
@@ -796,11 +849,17 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     ]);
     const falseAlarms = [...alarmEids].map(eid => missItem(eid, firstEsc.has(eid) ? "escalated a benign log" : "called a benign log a true positive"));
 
+    // ── v4: hosts this analyst isolated (first isolation per host), judged.
+    const myIso: IsolationItem[] = [];
+    for (const it of isoItems) if (it.by === m.user_id && !myIso.some(x => hostKey(x.host) === hostKey(it.host))) myIso.push(it);
+    const isoCorrect = myIso.filter(x => x.correct).length;
+    const isoPct = pct(isoCorrect, myIso.length);
+
     const rubric = roleRubric({
       role: m.role, dispAcc, escAckRate, escPrecision, incidentRecall, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
       huntCount: hunts.length, huntTech, huntQuality, noteCount, elevAnsweredPct,
       rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
-      intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc,
+      intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc, isoPct,
       scopeSetDims, scopeConfirmDims, scopeConfirmed: scopeConfirms.length > 0,
       decisionCount: decisions.length, decisionRationaleRate,
       helpdeskPct, helpdeskDupOnly, sitrepCount, reportQuality,
@@ -819,6 +878,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
       falseNegatives: falseNegatives.slice(0, MISS_CAP),
       walkedPast: walkedPast.slice(0, MISS_CAP),
       falseAlarms: falseAlarms.slice(0, MISS_CAP),
+      isolations: myIso.slice(0, MISS_CAP), isoCorrect, isoPct,
     };
   });
 
@@ -965,6 +1025,8 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   const execEvents = events.filter(e => e.type === "containment.executed");
   const mttcS = median(execEvents.map(e => { const xt = tsOf(e); if (xt == null) return null; const rt = reqBefore(contTimes, eidOf(e), xt); return rt != null ? (xt - rt) / 1000 : null; })
     .filter((x): x is number => x != null && x >= 0));
+  // MTTI: first attack log on a compromised host → its isolation, median seconds.
+  const mttiS = median([...isoFirstByHost.values()].map(x => x.timeToIsolateS).filter((x): x is number => x != null));
   const team = {
     version: REPORT_VERSION,
     logs: feed.length, attacks: attackIds.size, detected, timeToDetectS,
@@ -991,6 +1053,16 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     triageActions: triageTotal, triagers,
     busiestShare: busiest && triageTotal ? pct(busiest[1], triageTotal) : null,
     busiestName: busiest ? (players.find(pl => pl.user_id === busiest[0])?.name ?? null) : null,
+    // ── v4: EDR host isolation ──
+    isolations: [...isoFirstByHost.values()].slice(0, 12),
+    isoTotal: isoFirstByHost.size,
+    isoCorrect: [...isoFirstByHost.values()].filter(x => x.correct).length,
+    isoPct: pct([...isoFirstByHost.values()].filter(x => x.correct).length, isoFirstByHost.size),
+    compromisedHosts: attackHosts.size,
+    mttiS: mttiS != null ? Math.round(mttiS) : null,
+    hostsLeftOnline: [...attackHosts].filter(([k]) => !isoFirstByHost.has(k))
+      .sort((a, b) => (a[1].first ?? 0) - (b[1].first ?? 0))
+      .map(([, h]): MissedHost => ({ host: h.host, attackLogs: h.logs, firstAttackS: relS(h.first) })).slice(0, 10),
   };
   return { team, perUser };
 }

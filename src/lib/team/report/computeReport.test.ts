@@ -734,3 +734,61 @@ describe("computeReport — v3: SLA per reported event, misses, team triage", ()
     expect(team).toMatchObject({ triageActions: 4, triagers: 2, busiestShare: 75, busiestName: "User a" });
   });
 });
+
+describe("computeReport — v4: EDR host isolation judged against the answer key", () => {
+  const roster = [member("t1", "t1"), member("t2", "t2"), member("t3", "t3")];
+  function shift() {
+    const l = log();
+    l.add("feed.event", null, 10, { id: "a1", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "WS-FIN-2847", description: "encoded PowerShell" });
+    l.add("feed.event", null, 40, { id: "a2", expected_verdict: "escalate", incident_id: "inc-1", severity: "critical", hostname: "ws-fin-2847.corp.local" });
+    l.add("feed.event", null, 50, { id: "a3", expected_verdict: "tp", incident_id: "inc-2", severity: "high", hostname: "SRV-DB-01" });
+    l.add("feed.event", null, 20, { id: "n1", expected_verdict: "benign", severity: "low", hostname: "WS-HR-1142" });
+    return l;
+  }
+
+  it("isolating a compromised host is a right call (short-name / case-insensitive match); a clean host is a wrong call", () => {
+    const { events, add } = shift();
+    add("edr.host_isolated", "t2", 130, { host: "WS-FIN-2847" }, "t2");     // compromised → right, 120s after its first attack log
+    add("edr.host_isolated", "t2", 200, { host: "ws-hr-1142" }, "t2");      // clean → wrong
+    add("edr.host_released", "t2", 260, { host: "WS-HR-1142" }, "t2");
+    const r = computeReport(events, roster);
+    const t2 = r.perUser.find(u => u.user_id === "t2")!;
+    expect(t2.isolations.map(i => [i.host, i.verdict, i.correct])).toEqual([["WS-FIN-2847", "compromised", true], ["ws-hr-1142", "clean", false]]);
+    expect(t2.isolations[0].timeToIsolateS).toBe(120);
+    expect(t2.isolations[1].releasedS).toBe(260);
+    expect(t2.isoPct).toBe(50);
+    expect(cell(t2.rubric, "Host isolation").score).toBe(4);      // 1 of 2 right → the lowest non-zero band
+  });
+
+  it("team view: first isolation per host, incident marked contained, compromised hosts left online, MTTI", () => {
+    const { events, add } = shift();
+    add("edr.host_isolated", "t3", 100, { host: "WS-FIN-2847" }, "t3");
+    add("edr.host_released", "t3", 150, { host: "WS-FIN-2847" }, "t3");
+    add("edr.host_isolated", "t2", 160, { host: "WS-FIN-2847" }, "t2");     // re-isolation is not a new team decision
+    const r = computeReport(events, roster);
+    expect(r.team.version).toBe(4);
+    expect(r.team.isoTotal).toBe(1);
+    expect(r.team.isoCorrect).toBe(1);
+    expect(r.team.isolations[0]).toMatchObject({ host: "WS-FIN-2847", by: "t3", correct: true, releasedS: 150, timeToIsolateS: 90 });
+    expect(r.team.mttiS).toBe(90);
+    expect(r.team.compromisedHosts).toBe(2);
+    expect(r.team.hostsLeftOnline).toEqual([{ host: "SRV-DB-01", attackLogs: 1, firstAttackS: 50 }]);
+    expect(r.team.incidents.find(i => i.id === "inc-1")!.contained).toBe(true);
+    expect(r.team.incidents.find(i => i.id === "inc-2")!.contained).toBe(false);
+    // Each analyst is judged on the hosts THEY isolated.
+    expect(r.perUser.find(u => u.user_id === "t2")!.isolations.map(i => i.host)).toEqual(["WS-FIN-2847"]);
+    expect(r.perUser.find(u => u.user_id === "t3")!.isoPct).toBe(100);
+    expect(cell(r.perUser.find(u => u.user_id === "t3")!.rubric, "Host isolation").score).toBe(12);
+  });
+
+  it("no isolation → the criterion is not measured and does not move the score", () => {
+    const { events } = shift();
+    const r = computeReport(events, roster);
+    const t2 = r.perUser.find(u => u.user_id === "t2")!;
+    expect(t2.isolations).toEqual([]);
+    expect(t2.isoPct).toBeNull();
+    expect(cell(t2.rubric, "Host isolation").score).toBeNull();
+    expect(r.team.isoTotal).toBe(0);
+    expect(r.team.hostsLeftOnline.map(h => h.host)).toEqual(["WS-FIN-2847", "SRV-DB-01"]);
+  });
+});

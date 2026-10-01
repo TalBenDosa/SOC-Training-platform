@@ -74,4 +74,33 @@ describe("TeamReport (shift review) — v3 sections", () => {
     expect(text).toContain("Attacks you opened but left");
     expect(text).toContain("Benign logs you escalated");
   });
+
+  it("v4: judges each EDR isolation — right call on a compromised host, wrong call on a clean one", async () => {
+    const events = shift();
+    events.splice(1, 0, { seq: 0, type: "feed.event", actor_id: null, role: null, payload: { id: "atk5", expected_verdict: "tp", incident_id: "inc-A", severity: "high", hostname: "WS-12", description: "Beacon process on WS-12" }, occurred_at: at(5) });
+    const end = events.pop()!;
+    events.push(
+      { seq: 0, type: "edr.host_isolated", actor_id: "b", role: "t2", payload: { host: "WS-12" }, occurred_at: at(185) },
+      { seq: 0, type: "edr.host_isolated", actor_id: "b", role: "t2", payload: { host: "WS-HR-07" }, occurred_at: at(300) },
+      end,
+    );
+    events.forEach((e, i) => { e.seq = i + 1; });
+    const report = computeReport(events, roster);
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ team: report.team, perUser: report.perUser, answers: {}, seesAll: true }) })));
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+    await act(async () => {
+      root!.render(React.createElement(TeamReport, { sessionId: "s1", events, roster, me: { id: "x", is_staff: true, role: "instructor" } }));
+    });
+    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    const text = container.textContent ?? "";
+    expect(text).toContain("Host isolation in EDR");
+    expect(text).toContain("1/2 right calls");
+    expect(text).toContain("✓ right call");
+    expect(text).toContain("isolated 3m 00s after its first attack log");
+    expect(text).toContain("✗ wrong call");
+    expect(text).toContain("clean — no attack activity on this host");
+    expect(text).toContain("Hosts you isolated");          // Omer's card
+  });
 });
