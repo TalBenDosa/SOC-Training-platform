@@ -80,7 +80,7 @@ export async function DELETE(req: Request, { params }: Ctx) {
   // pointing at an org they're no longer in. Their JWT (no active membership)
   // will carry no org, so access fails closed until they're re-assigned.
   await admin.from("profiles").update({ org_id: INTERNAL_ORG }).eq("id", userId).eq("org_id", orgId);
-  await revokeUserSessions(admin, userId);   // SEC-05: end their sessions now
+  const sessionsRevoked = await revokeUserSessions(admin, userId);   // SEC-05: end their sessions now
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, sessions_revoked: sessionsRevoked });
 }

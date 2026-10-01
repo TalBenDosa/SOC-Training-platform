@@ -280,6 +280,10 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
     setSubmitting(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to create."); return; }
     const data = await res.json();
+    // E-19: partial failures (invitation not saved, you weren't enrolled) were
+    // returned but never shown.
+    const warnings = [data.invite_error, data.enrol_warning].filter(Boolean).join("\n\n");
+    if (warnings) window.alert(warnings);
     // With an admin email the success screen surfaces the admin's invite link;
     // without one there is nothing to hand over (students join by code), so
     // close straight back to the refreshed list.

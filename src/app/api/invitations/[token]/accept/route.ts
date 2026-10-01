@@ -63,7 +63,14 @@ export async function POST(_req: Request, { params }: Ctx) {
   });
   if (attachErr) {
     // Give the invitation back — nothing was granted.
-    await admin.from("invitations").update({ accepted_at: null }).eq("id", inv.id);
+    // E-19 (QA phase 7): the give-back was unchecked — if it failed, the link
+    // read "already used" forever with nobody added. Retry once, then log loudly.
+    let { error: giveBackErr } = await admin.from("invitations").update({ accepted_at: null }).eq("id", inv.id);
+    if (giveBackErr) ({ error: giveBackErr } = await admin.from("invitations").update({ accepted_at: null }).eq("id", inv.id));
+    if (giveBackErr) {
+      console.error(`[invitations/accept] CRITICAL: invitation ${inv.id} is marked used but nobody was added: ${giveBackErr.message}`);
+      return NextResponse.json({ error: "Couldn't add you to the organisation, and this link may now show as used. Ask the administrator for a new invitation." }, { status: 500 });
+    }
     if (attachErr.message.includes("seat_limit_reached")) {
       return NextResponse.json({ error: "The organisation has no free seats. Ask its administrator to free one." }, { status: 409 });
     }

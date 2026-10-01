@@ -185,8 +185,9 @@ export async function PATCH(req: Request) {
   if (!updated || updated.length === 0) {
     return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
   }
-  if (!active) await revokeUserSessions(admin, target);   // SEC-05: end their sessions now
-  return NextResponse.json({ ok: true, status: active ? "active" : "removed" });
+  // E-19: say whether their open sessions were actually ended (SEC-05).
+  const sessionsRevoked = active ? undefined : await revokeUserSessions(admin, target);
+  return NextResponse.json({ ok: true, status: active ? "active" : "removed", sessions_revoked: sessionsRevoked });
 }
 
 // ── DELETE — remove a member from the admin's org ───────────────────────────
@@ -221,6 +222,6 @@ export async function DELETE(req: Request) {
   // Only move their active context if it pointed at THIS org — a member who is
   // currently working in another institution must stay there.
   await admin.from("profiles").update({ org_id: ROOT_ORG_ID }).eq("id", target).eq("org_id", orgId);
-  await revokeUserSessions(admin, target);   // SEC-05: end their sessions now
-  return NextResponse.json({ ok: true });
+  const sessionsRevoked = await revokeUserSessions(admin, target);   // SEC-05: end their sessions now
+  return NextResponse.json({ ok: true, sessions_revoked: sessionsRevoked });
 }

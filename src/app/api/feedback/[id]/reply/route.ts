@@ -40,7 +40,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { data: row, error: rowErr } = await admin
     .from("content_feedback")
-    .select("id, user_id, message, target_kind, target_id")
+    .select("id, user_id, message, target_kind, target_id, status, admin_response, responded_at, responded_by")
     .eq("id", id)
     .maybeSingle();
   if (rowErr) return dbFail(rowErr, "api/feedback/[id]/reply", 500);
@@ -70,16 +70,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     `--- Your original report ---\n${orig}\n\n` +
     `You're receiving this because you submitted a report on HACK THE SOC.`;
 
-  const sent = await sendEmail({ to: email, subject, html, text });
-  if (!sent.ok && !sent.skipped) {
-    return NextResponse.json({ error: `Could not send the email: ${sent.error ?? "unknown error"}.` }, { status: 502 });
-  }
-
+  // E-19 (QA phase 7): save FIRST, then send. It was send-then-save, so a failed
+  // save after a delivered email made the admin retry and the reporter got the
+  // same reply twice. If the send fails, the save is put back so "saved" keeps
+  // meaning "sent (or email isn't configured)" and a retry is safe.
   const { error: updErr } = await admin
     .from("content_feedback")
     .update({ admin_response: message, responded_at: new Date().toISOString(), responded_by: user.id, status: "resolved" })
     .eq("id", id);
   if (updErr) return dbFail(updErr, "api/feedback/[id]/reply", 500);
+
+  const sent = await sendEmail({ to: email, subject, html, text });
+  if (!sent.ok && !sent.skipped) {
+    const { error: undoErr } = await admin
+      .from("content_feedback")
+      .update({ admin_response: row.admin_response, responded_at: row.responded_at, responded_by: row.responded_by, status: row.status })
+      .eq("id", id);
+    if (undoErr) {
+      console.error(`[feedback/reply] email failed and the save could not be undone for ${id}: ${undoErr.message}`);
+      return NextResponse.json({ error: "The reply was saved, but the email could not be sent. Don't resend — contact the reporter another way." }, { status: 502 });
+    }
+    return NextResponse.json({ error: "Couldn't send the email, so the reply wasn't saved — please try again." }, { status: 502 });
+  }
 
   await logAudit({
     actorId: user.id, action: "feedback.replied",

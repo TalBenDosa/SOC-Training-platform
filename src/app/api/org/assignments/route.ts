@@ -127,6 +127,7 @@ async function targetSync(c: Ctx, assignmentId: string, wanted: Targets | null, 
     (t.group_id && !wantG.has(t.group_id))
     || (t.user_id && !wantU.has(t.user_id) && (wanted === null || activeIds.has(t.user_id)))).map(t => t.id);
 
+  let added: string[] = [];
   return {
     add: async () => {
       const rows = [
@@ -134,14 +135,27 @@ async function targetSync(c: Ctx, assignmentId: string, wanted: Targets | null, 
         ...[...wantU].filter(u => !haveU.has(u)).map(user_id => ({ assignment_id: assignmentId, org_id: c.orgId, user_id })),
       ];
       if (rows.length === 0) return true;
-      const { error } = await c.admin.from("assignment_targets").insert(rows);
+      const { data, error } = await c.admin.from("assignment_targets").insert(rows).select("id");
+      added = (data ?? []).map(r => r.id as string);
       return !error;
+    },
+    // E-19 (QA phase 7): add → update → prune isn't one transaction. If the
+    // plan update fails after recipients were added, take them back out so a
+    // failed save can't silently widen who the plan goes to.
+    undoAdd: async () => {
+      for (let i = 0; i < added.length; i += 100) {
+        const { error } = await c.admin.from("assignment_targets")
+          .delete().eq("org_id", c.orgId).in("id", added.slice(i, i + 100));
+        if (error) { console.error(`[assignments] could not undo added targets on ${assignmentId}: ${error.message}`); return false; }
+      }
+      return true;
     },
     prune: async () => {
       for (let i = 0; i < stale.length; i += 100) {
-        const { error } = await c.admin.from("assignment_targets")
-          .delete().eq("org_id", c.orgId).in("id", stale.slice(i, i + 100));
-        if (error) return false;
+        const ids = stale.slice(i, i + 100);
+        let { error } = await c.admin.from("assignment_targets").delete().eq("org_id", c.orgId).in("id", ids);
+        if (error) ({ error } = await c.admin.from("assignment_targets").delete().eq("org_id", c.orgId).in("id", ids));   // one retry
+        if (error) { console.error(`[assignments] prune failed on ${assignmentId}: ${error.message}`); return false; }
       }
       return true;
     },
@@ -452,9 +466,12 @@ export async function PATCH(req: Request) {
   if (sync && !(await sync.add())) return fail(500, "Could not save the plan's recipients.");
   if (Object.keys(patch).length) {
     const { error } = await c.admin.from("assignments").update(patch).eq("id", id).eq("org_id", c.orgId);
-    if (error) return writeFail(error, "update", "Could not update the plan.");
+    if (error) {
+      if (sync) await sync.undoAdd();
+      return writeFail(error, "update", "Could not update the plan.");
+    }
   }
-  if (sync && !(await sync.prune())) return fail(500, "The plan was saved, but old recipients could not be removed.");
+  if (sync && !(await sync.prune())) return fail(500, "The plan was saved, but some removed recipients still have it — please save again.");
 
   // New recipients → "plan_assigned"; existing recipients → "plan_updated", but
   // only when new items were added. Best effort — the save already succeeded.

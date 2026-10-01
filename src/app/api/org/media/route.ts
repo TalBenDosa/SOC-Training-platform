@@ -90,20 +90,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid upload reference." }, { status: 400 });
     }
     const { data: signed, error: signErr } = await admin.storage.from(BUCKET).createSignedUrl(storageKey, 60);
-    if (signErr || !signed) return NextResponse.json({ error: "Could not read the uploaded file." }, { status: 500 });
+    if (signErr || !signed) return NextResponse.json({ error: TRANSIENT }, { status: 503 });
 
     // Read only the first bytes (Range) so a 200MB video isn't pulled into the
     // function; fall back to the reader's first chunk if Range is ignored.
     let magic = new Uint8Array();
     let size = 0;
+    // E-19 (QA phase 7): a storage/network hiccup is not "your upload failed" —
+    // the object is kept and the client retries the finalize (abandoned objects
+    // are reaped by purgeOrphanUploads). Only a missing object is cleaned up.
+    let transient = false;
     try {
       const head = await fetch(signed.signedUrl, { headers: { Range: "bytes=0-15" } });
+      if (head.status >= 500) { transient = true; throw new Error("storage " + head.status); }
       if (!head.ok && head.status !== 206) throw new Error("read");
       const cr = head.headers.get("content-range");
       size = parseInt(cr?.split("/")[1] ?? head.headers.get("content-length") ?? "0", 10);
       const reader = head.body?.getReader();
       if (reader) { const { value } = await reader.read(); reader.cancel().catch(() => {}); if (value) magic = value.subarray(0, 16); }
-    } catch {
+    } catch (e) {
+      if (transient || e instanceof TypeError) return NextResponse.json({ error: TRANSIENT }, { status: 503 });
       await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
       return NextResponse.json({ error: "Upload did not complete. Please try again." }, { status: 400 });
     }
@@ -129,8 +135,8 @@ export async function POST(req: Request) {
         if (!resp.ok) throw new Error("read");
         full = new Uint8Array(await resp.arrayBuffer());
       } catch {
-        await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
-        return NextResponse.json({ error: "Could not read the uploaded file for scanning." }, { status: 400 });
+        // We just read its first bytes, so the object exists — this is transient.
+        return NextResponse.json({ error: TRANSIENT }, { status: 503 });
       }
       const scan = await inspectDocContent(kind.kind, full);
       if (!scan.ok) {
@@ -158,8 +164,9 @@ export async function POST(req: Request) {
         if (existingRow) return NextResponse.json({ resource: existingRow });
         return NextResponse.json({ error: "This file is already registered." }, { status: 409 });
       }
-      await admin.storage.from(BUCKET).remove([storageKey]).catch(() => {});
-      return NextResponse.json({ error: "Couldn't save the file — please try again." }, { status: 500 });
+      // Keep the object: a retried finalize can still register it.
+      console.error("[org/media] finalize insert failed:", insErr.message);
+      return NextResponse.json({ error: TRANSIENT }, { status: 503 });
     }
     await logAudit({
       actorId: gate.user.id, action: "org.media.uploaded",
@@ -199,7 +206,7 @@ export async function POST(req: Request) {
   const up = await admin.storage.from(BUCKET).upload(storageKey, bytes, {
     contentType: kind.mime, upsert: false,
   });
-  if (up.error) return NextResponse.json({ error: up.error.message }, { status: 500 });
+  if (up.error) { console.error("[org/media] upload failed:", up.error.message); return NextResponse.json({ error: TRANSIENT }, { status: 503 }); }
 
   const { data: row, error: insErr } = await admin
     .from("org_resources")
@@ -221,3 +228,5 @@ export async function POST(req: Request) {
   });
   return NextResponse.json({ resource: row });
 }
+
+const TRANSIENT = "Couldn't finish saving the file just now — please try again.";

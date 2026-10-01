@@ -130,10 +130,22 @@ export async function POST(req: Request) {
     // Reopen so the request doesn't silently vanish from the queue with the
     // account still live — that would look "handled" while the obligation is
     // still outstanding.
-    await admin.from("account_deletion_requests")
+    console.error(`[deletion requests] deleteUser failed for request ${id}: ${delErr.message}`);
+    const { error: reopenErr } = await admin.from("account_deletion_requests")
       .update({ status: "pending", decided_by: null, decided_at: null })
       .eq("id", id).eq("org_id", orgId);
-    return NextResponse.json({ error: `Could not delete the account: ${delErr.message}` }, { status: 500 });
+    // E-19 (QA phase 7): the reopen itself was unchecked — if it failed too, the
+    // request showed "completed" with the account still live and nobody knew.
+    await logAudit({
+      actorId: adminId, action: "account.deletion_failed",
+      targetTable: "profiles", targetId: reqRow.user_id,
+      metadata: { org_id: orgId, request_id: id, reopened: !reopenErr },
+    });
+    if (reopenErr) {
+      console.error(`[deletion requests] CRITICAL: request ${id} is marked completed but the account still exists: ${reopenErr.message}`);
+      return NextResponse.json({ error: "The account could not be deleted, and the request couldn't be put back in the queue. Please contact the platform owner — the student's data is still there." }, { status: 500 });
+    }
+    return NextResponse.json({ error: "Couldn't delete the account just now — the request is back in the queue. Please try again." }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true, status: "completed" });

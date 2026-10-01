@@ -72,10 +72,17 @@ export function MediaPanel() {
       const up = await supabase.storage.from("org-media").uploadToSignedUrl(sign.path, sign.token, file);
       if (up.error) { setError(/exceed|too large|size/i.test(up.error.message ?? "") ? "The file is larger than allowed for this kind of material." : "Upload failed while sending the file — please try again."); return; }   // E-07: never raw storage text
       // 3. finalize — server re-validates + creates the row
-      const finRes = await fetchOrError("/api/org/media", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storageKey: sign.path, title: title.trim() }),
-      });
+      // E-19: a 503 means the file is in storage but couldn't be registered yet —
+      // retry the finalize (idempotent per storage key), never the upload.
+      let finRes: Response;
+      for (let attempt = 0; ; attempt++) {
+        finRes = await fetchOrError("/api/org/media", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ storageKey: sign.path, title: title.trim() }),
+        });
+        if (finRes.status !== 503 || attempt === 2) break;
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+      }
       const fin = await finRes.json().catch(() => ({}));
       if (!finRes.ok) { setError(fin?.error ?? "Upload failed."); return; }
       setNotice("Uploaded as a draft. Publish it to show students.");

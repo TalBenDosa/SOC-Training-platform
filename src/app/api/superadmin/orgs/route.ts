@@ -91,8 +91,10 @@ export async function POST(req: Request) {
   const name = String(body.name ?? "").trim();
   const slug = normalizeSlug(String(body.slug ?? body.name ?? ""));
   const seatLimit = Number(body.seat_limit ?? 0);
-  const startsAt = body.starts_at ? new Date(String(body.starts_at)).toISOString() : new Date().toISOString();
-  const expiresAt = body.expires_at ? new Date(String(body.expires_at)).toISOString() : null;
+  // E-23: an unparseable date threw RangeError from toISOString() → bodyless 500.
+  const startsAt = body.starts_at ? isoOrNull(body.starts_at) : new Date().toISOString();
+  const expiresAt = body.expires_at ? isoOrNull(body.expires_at) : null;
+  if (!startsAt || (body.expires_at && !expiresAt)) return NextResponse.json({ error: "Invalid start or expiry date." }, { status: 400 });
   const status: OrgStatus = (["trial", "active"].includes(String(body.status)) ? body.status : "active") as OrgStatus;
   // Commercial record (0020) — optional, captured on the create form. Whitelisted
   // + length-capped rather than stored as free-form client JSON (the org can read
@@ -150,12 +152,22 @@ export async function POST(req: Request) {
   // each creation. Non-fatal: the console lists all orgs regardless.
   // NB: NOT profiles.role='admin' — that is the content-staff flag (requireAdmin),
   // and enrolling those users would make them visible org admins of every college.
-  const { data: supers } = await admin.from("profiles").select("id").eq("is_platform_admin", true);
-  if (supers && supers.length) {
-    await admin.from("org_members").upsert(
+  // E-19 (QA phase 7): the result was ignored — a failed enrol left the new org
+  // missing from the super-admin's environments with no hint why.
+  let enrolWarning: string | null = null;
+  const { data: supers, error: supersErr } = await admin.from("profiles").select("id").eq("is_platform_admin", true);
+  if (supersErr) {
+    console.error("[superadmin/orgs] could not list super-admins to enrol:", supersErr.message);
+    enrolWarning = "The organisation was created, but you weren't added to it — use Enter on the organisation page.";
+  } else if (supers && supers.length) {
+    const { error: enrolErr } = await admin.from("org_members").upsert(
       supers.map(s => ({ org_id: org.id, user_id: s.id, role: "org_admin", status: "active" })),
       { onConflict: "org_id,user_id" },
     );
+    if (enrolErr) {
+      console.error("[superadmin/orgs] super-admin enrol failed:", enrolErr.message);
+      enrolWarning = "The organisation was created, but you weren't added to it — use Enter on the organisation page.";
+    }
   }
 
   const origin = emailOrigin(req);
@@ -183,7 +195,8 @@ export async function POST(req: Request) {
   // the college is ready to enrol students immediately.
   let classCode: string | null = null;
   if (adminEmail) {
-    try { classCode = (await generateCode(admin, org.id, gate.user.id)).code; } catch { /* non-fatal */ }
+    try { classCode = (await generateCode(admin, org.id, gate.user.id)).code; }
+    catch (e) { console.error("[superadmin/orgs] starter class code failed:", e instanceof Error ? e.message : e); }
   }
   let emailed = false;
   if (adminEmail && adminLink) {   // never email a join link with no invitation behind it
@@ -192,5 +205,10 @@ export async function POST(req: Request) {
     emailed = r.ok;
   }
 
-  return NextResponse.json({ org, adminLink, classCode, emailed, ...(inviteError ? { invite_error: inviteError } : {}) }, { status: 201 });
+  return NextResponse.json({ org, adminLink, classCode, emailed, ...(inviteError ? { invite_error: inviteError } : {}), ...(enrolWarning ? { enrol_warning: enrolWarning } : {}) }, { status: 201 });
+}
+
+function isoOrNull(v: unknown): string | null {
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }

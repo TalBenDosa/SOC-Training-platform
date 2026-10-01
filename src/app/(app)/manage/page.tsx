@@ -174,7 +174,9 @@ export default function ManagePage() {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId, active }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to update status."); return; }
+    const notRevoked = (await res.json().catch(() => ({})))?.sessions_revoked === false;
     await load();
+    if (notRevoked) setError("Deactivated — but their open sessions couldn't be ended right now, so they may stay signed in for up to an hour.");
   }
 
   async function removeMember(userId: string) {
@@ -183,7 +185,9 @@ export default function ManagePage() {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to remove."); return; }
+    const notRevoked = (await res.json().catch(() => ({})))?.sessions_revoked === false;
     await load();
+    if (notRevoked) setError("Removed — but their open sessions couldn't be ended right now, so they may stay signed in for up to an hour.");
   }
 
   /**

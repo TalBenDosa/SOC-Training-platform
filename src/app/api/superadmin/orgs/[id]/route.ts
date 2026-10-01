@@ -68,8 +68,14 @@ export async function PATCH(req: Request, { params }: Ctx) {
     if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "Seat limit must be 0 or more." }, { status: 400 });
     patch.seat_limit = n;
   }
-  if (body.starts_at !== undefined) patch.starts_at = body.starts_at ? new Date(String(body.starts_at)).toISOString() : null;
-  if (body.expires_at !== undefined) patch.expires_at = body.expires_at ? new Date(String(body.expires_at)).toISOString() : null;
+  // E-23: an unparseable date threw RangeError → bodyless 500.
+  for (const k of ["starts_at", "expires_at"] as const) {
+    if (body[k] === undefined) continue;
+    if (!body[k]) { patch[k] = null; continue; }
+    const d = new Date(String(body[k]));
+    if (Number.isNaN(d.getTime())) return NextResponse.json({ error: "Invalid start or expiry date." }, { status: 400 });
+    patch[k] = d.toISOString();
+  }
   if (body.status !== undefined) {
     const s = String(body.status);
     if (!["trial", "active", "suspended", "expired"].includes(s)) {
