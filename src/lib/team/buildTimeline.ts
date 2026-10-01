@@ -38,6 +38,12 @@ export type TeamVerdict = "tp" | "escalate" | "benign" | "fp";
 /** Where a feed log came from — lets the report / instructor tell story steps from noise. */
 export type FeedOrigin = "story" | "pool_attack" | "noise" | "itsm" | "inject_support";
 
+function mostCommonOf(vals: (string | undefined)[]): string | undefined {
+  const m = new Map<string, number>();
+  for (const v of vals) if (v) m.set(v, (m.get(v) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
 function hashSeed(s: string): number {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
@@ -190,13 +196,28 @@ function firewallRaw(flavour: FwFlavour, c: FwConn): Record<string, unknown> {
   };
 }
 
-function edrConnRaw(edrVendor: string, host: string, proc: string, pid: number, localIp: string, dstIp: string, domain: string): Record<string, unknown> {
+interface ProcCtx { path: string; cmdline: string; parent: string; account?: string }
+function edrConnRaw(edrVendor: string, host: string, proc: string, pid: number, localIp: string, dstIp: string, domain: string, ctx?: ProcCtx): Record<string, unknown> {
   const v = edrVendor.toLowerCase();
-  const neutral = { "process.name": proc, "process.pid": String(pid), "destination.ip": dstIp, "destination.port": "443", "destination.domain": domain, "source.ip": localIp };
-  if (v.includes("crowdstrike") || v.includes("falcon")) return { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.ComputerName": host, "crowdstrike.RemoteAddressIP4": dstIp, "crowdstrike.RemotePort": "443", "crowdstrike.LocalAddressIP4": localIp, ...neutral };
-  if (v.includes("sentinelone")) return { "s1.eventType": "IP Connect", "s1.agent.computerName": host, ...neutral };
+  // The process context is the evidence on a LOLBin beacon: rundll32.exe itself is a
+  // signed Microsoft binary (its hash looks up clean) — the DLL on its command line,
+  // launched from a user-writable folder, is what's malicious.
+  const neutral = {
+    "process.name": proc, "process.pid": String(pid), "destination.ip": dstIp, "destination.port": "443", "destination.domain": domain, "source.ip": localIp,
+    ...(ctx ? { "process.executable": ctx.path, "process.command_line": ctx.cmdline, "process.parent.name": ctx.parent } : {}),
+  };
+  if (v.includes("crowdstrike") || v.includes("falcon")) return { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.ComputerName": host, "crowdstrike.RemoteAddressIP4": dstIp, "crowdstrike.RemotePort": "443", "crowdstrike.LocalAddressIP4": localIp, ...(ctx ? { "crowdstrike.CommandLine": ctx.cmdline, "crowdstrike.ParentBaseFileName": ctx.parent } : {}), ...neutral };
+  if (v.includes("sentinelone")) return { "s1.eventType": "IP Connect", "s1.agent.computerName": host, ...(ctx ? { "s1.src.process.cmdline": ctx.cmdline, "s1.src.process.parent.name": ctx.parent } : {}), ...neutral };
   if (v.includes("sophos")) return { "sophos.event_type": "Network", ...neutral };
-  return { "ActionType": "ConnectionSuccess", "DeviceName": host.toLowerCase(), "RemoteIP": dstIp, "RemotePort": "443", "RemoteUrl": domain, "LocalIP": localIp, "InitiatingProcessFileName": proc, "InitiatingProcessId": String(pid), ...neutral };
+  return {
+    "ActionType": "ConnectionSuccess", "DeviceName": host.toLowerCase(), "RemoteIP": dstIp, "RemotePort": "443", "RemoteUrl": domain, "LocalIP": localIp,
+    "InitiatingProcessFileName": proc, "InitiatingProcessId": String(pid),
+    ...(ctx ? {
+      "InitiatingProcessFolderPath": ctx.path.replace(/\\[^\\]+$/, ""), "InitiatingProcessCommandLine": ctx.cmdline,
+      "InitiatingProcessParentFileName": ctx.parent, ...(ctx.account ? { "InitiatingProcessAccountName": ctx.account } : {}),
+    } : {}),
+    ...neutral,
+  };
 }
 
 const TICKET_RE = /\b(CHG-?\d[\d-]*|INC-?\d+|RITM\d+|ONB-\d+|NXC-\d+|NX-\d+|REQ-?\d+)\b/;
@@ -422,18 +443,43 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const twistStory = found ? found[0] : (attack1.length ? attack1 : attack2);
     const hostCount = found ? hostsOf(found[0], found[1]) : new Map<string, number>();
     const isInfra = (h: string) => assets ? (h === assets.dc) : false;
-    const host = [...hostCount.entries()].filter(([h]) => !isInfra(h)).sort((a, b) => b[1] - a[1])[0]?.[0]
+    // "A host you already worked" is only true when the team SAW one before the twist.
+    // A cloud-only story (account takeover: VPN, Entra, mailbox, SharePoint) has no
+    // host at all — the twist then lands on the VICTIM's own device (named in the
+    // story's logs), and the inject says so, instead of an unrelated workstation.
+    const seenHost = !!found && found[1] && hostCount.size > 0;
+    const victim = mostCommonOf(twistStory.filter(x => isMalicious(x.verdict)).map(x => x.ev.user_email));
+    const DEVICE_KEYS = ["gp.client_hostname", "device.hostname", "DeviceName", "winlog.computer_name", "data.office365.DeviceProperties.DisplayName"];
+    const victimDevice = !seenHost && victim ? twistStory
+      .filter(x => x.ev.user_email === victim)
+      .flatMap(x => [x.ev.hostname, ...DEVICE_KEYS.map(k => x.ev.raw?.[k])])
+      .map(v => (typeof v === "string" ? v.trim() : ""))
+      .find(v => v && /^[A-Za-z][A-Za-z0-9-]{2,}$/.test(v) && !/unknown|unregistered/i.test(v)) : undefined;
+    const host = (seenHost || hostCount.size ? [...hostCount.entries()].filter(([h]) => !isInfra(h)).sort((a, b) => b[1] - a[1])[0]?.[0] : undefined)
+      ?? victimDevice
       ?? [...hostCount.keys()][0]
       ?? assets?.hosts.find(h => /^(WS|LT|LAP|WKS)/i.test(h)) ?? assets?.hosts[0] ?? "WS-UNKNOWN";
     const hostEv = twistStory.find(p => p.ev.hostname === host && p.ev.src_ip && /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(p.ev.src_ip));
     const ipDraw = mrnd(), pidDraw = mrnd();   // drawn unconditionally → the stream stays seed-only
     const hostIp = hostEv?.ev.src_ip ?? `${subnet}.${60 + Math.floor(ipDraw * 120)}`;
-    const hostUser = twistStory.find(p => p.ev.hostname === host && p.ev.user_email)?.ev.user_email;
+    const hostUser = twistStory.find(p => p.ev.hostname === host && p.ev.user_email)?.ev.user_email ?? (host === victimDevice ? victim : undefined);
     const procEv = [...twistStory].reverse().find(p => p.ev.hostname === host && p.ev.process?.name && isMalicious(p.verdict));
     const proc = procEv?.ev.process?.name ?? "rundll32.exe";
     const pid = procEv?.ev.process?.pid ?? 5000 + Math.floor(pidDraw * 3000);
     const c2 = pick(C2_POOL, mrnd);
     const incident = twistStory[0]?.incident;
+    // The beacon's process context (its own seed stream — the draws above stay as they were).
+    const dllName = `${["msupd", "wincfg", "cache", "svcmgr"][hashSeed(`${seed}:twist-dll`) % 4]}${(hashSeed(`${seed}:twist-dll#`) % 900) + 100}.dll`;
+    const userDir = hostUser ? hostUser.split("@")[0] : "Public";
+    const procCtx: ProcCtx = proc.toLowerCase() === "rundll32.exe"
+      ? { path: "C:\\Windows\\System32\\rundll32.exe", cmdline: `"C:\\Windows\\System32\\rundll32.exe" C:\\Users\\${userDir}\\AppData\\Local\\Temp\\${dllName},DllRegisterServer`, parent: "explorer.exe", account: hostUser?.split("@")[0] }
+      : { path: procEv?.ev.process?.path ?? `C:\\Users\\${userDir}\\AppData\\Local\\Temp\\${proc}`, cmdline: procEv?.ev.process?.cmdline ?? proc, parent: procEv?.ev.process?.parent_name ?? "explorer.exe", account: hostUser?.split("@")[0] };
+    // The inject's wording must match where the twist actually landed.
+    const twistInject = msel.find(e => (e.body as { id?: string }).id === "msel_twist");
+    if (twistInject && !seenHost) {
+      const who = victim ? victim.split("@")[0] : null;
+      (twistInject.body as { text: string }).text = `EDR update: ${host}${who ? ` — ${who}'s own device —` : ""} has started beaconing to a NEW C2 domain. The compromise may have reached the endpoint: re-scope the incident to include this host and confirm your containment still holds.`;
+    }
     const tw = (k: number) => twistAt + 20000 + k * 45000 + Math.floor(mrnd() * 8000);
     const twistEvents: TelemetryEvent[] = [
       useSysmon ? {
@@ -459,9 +505,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       {
         id: "msel_twist_edr", ts: baseTs, source: "edr", vendor: edr ?? "Microsoft Defender for Endpoint", event_type: "net_connection", severity: "medium",
         hostname: host, user_email: hostUser, src_ip: hostIp, dst_ip: c2.ip, dst_port: 443, protocol: "tcp",
-        process: { name: proc, pid },
+        process: { name: proc, pid, path: procCtx.path, cmdline: procCtx.cmdline, parent_name: procCtx.parent, ...(hostUser ? { user: hostUser.split("@")[0] } : {}) },
         description: `${proc} on ${host} connected to ${c2.ip}:443`,
-        raw: edrConnRaw(edr ?? "", host, proc, pid, hostIp, c2.ip, c2.domain),
+        raw: edrConnRaw(edr ?? "", host, proc, pid, hostIp, c2.ip, c2.domain, procCtx),
       },
     ];
     twistEvents.forEach((ev, k) => support.push({ p: { ev, origin: "inject_support", verdict: "tp", incident, supports: "msel_twist" }, at: tw(k) }));
