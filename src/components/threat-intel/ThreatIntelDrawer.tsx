@@ -12,7 +12,8 @@
  * returns the same answer on every lookup surface (URL and domain included).
  */
 
-import { useEffect } from "react";
+import { useEffect, useContext } from "react";
+import { IocTruthContext } from "./iocTruthContext";
 import { motion } from "framer-motion";
 import { Shield, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -429,7 +430,9 @@ export function ThreatIntelDrawer({ query, onClose, truth }: {
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const opts = { event: query.event, truth: query.truth ?? truth ?? null };
+  // A team room provides the server-built truth through context (its feed has no answer key).
+  const ctxTruth = useContext(IocTruthContext);
+  const opts = { event: query.event, truth: query.truth ?? truth ?? ctxTruth ?? null };
   const hashData   = query.type === "hash"   ? hashIntel(query.value, opts)   : null;
   const ipData     = query.type === "ip"     ? ipIntel(query.value, opts)     : null;
   const domainData = query.type === "domain" ? domainIntel(query.value, opts) : null;

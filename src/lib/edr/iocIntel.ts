@@ -261,6 +261,9 @@ export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent):
     const name = rawStr(raw, "malware.name", "threat.name", "ThreatName");
     const mtype = rawStr(raw, "malware.type");
     const av = rawStr(raw, "av.verdict");
+    // The vendor's own verdict on a file/attachment (Defender for Office 365
+    // AttachmentData.FileVerdict, generic file.verdict) — "Malicious" is a detonation result.
+    const fileVerdict = rawStr(raw, "data.office365.AttachmentData.FileVerdict", "AttachmentData.FileVerdict", "file.verdict").toLowerCase();
     const quarantine = rawStr(raw, "quarantine.status");
     const result = rawStr(raw, "action_result");
     const vendorDet = rawStr(raw, "crowdstrike.detection.description", "crowdstrike.detection.scenario",
@@ -275,7 +278,7 @@ export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent):
     if (isPUP) res = { v: "suspicious", r: "pup" };
     else if (!cleanRep && (family || name || vendorDet || quarantine === "quarantined" || quarantine === "deleted" ||
         result === "quarantined" || result === "process_killed" || /quarantine|kill process|prevention|block/i.test(dispo) ||
-        (av && av !== "clean") || unsignedFlagged)) {
+        (av && av !== "clean") || unsignedFlagged || fileVerdict === "malicious")) {
       res = { v: "malicious", r: "payload" };
     }
   }

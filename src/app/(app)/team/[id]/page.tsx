@@ -23,6 +23,8 @@ import { EventFeed } from "@/app/(app)/dashboard/EventFeed";
 import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamEdrCases } from "@/lib/edr/teamCases";
+import { useTeamIocTruth } from "@/lib/team/useTeamIocTruth";
+import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
@@ -579,6 +581,9 @@ export default function TeamRoomPage() {
   }, [v2, phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
+  // Threat-intel truth for the logs shown so far — built on the server, because this
+  // feed carries no answer key (without it an attacker's hash / C2 looked up clean).
+  const iocTruth = useTeamIocTruth(id, feed.length);
   // G-07 escalation state machine — per ROUND (a bounced/resolved log can be escalated
   // again) with the owner = first acknowledger or an explicit take-over (P0-3).
   // `escalations` = the current round of each escalated log (one inbox row per log).
@@ -745,7 +750,7 @@ export default function TeamRoomPage() {
       // ONE case per host: the clicked case's host, or (console-header button) every
       // endpoint host the team escalated — never "whichever host is busiest in the feed".
       const hosts = host ? [host] : [...new Set(escalations.map(e => asStr((e.payload as { snapshot?: { hostname?: unknown } }).snapshot?.hostname)).filter(Boolean))];
-      const cases = buildTeamEdrCases(evs, { sessionId: id, hosts, description });
+      const cases = buildTeamEdrCases(evs, { sessionId: id, hosts, description, iocTruth });
       if (!cases.length) {
         setEdrNote(host
           ? `No endpoint (EDR/Sysmon) telemetry for ${host} in this shift yet — nothing to open in the EDR console.`
@@ -763,7 +768,7 @@ export default function TeamRoomPage() {
       try { w.opener = null; } catch { /* cross-origin guard — nothing to cut */ }
       setEdrNote(null);
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
-  }, [feed, escalations, id, me?.id]);
+  }, [feed, escalations, id, me?.id, iocTruth]);
 
   myReadyRef.current = !!(me && readyMap[me.id]);
 
@@ -779,6 +784,7 @@ export default function TeamRoomPage() {
   );
 
   return (
+    <IocTruthContext.Provider value={iocTruth}>
     <div>
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.company_id} · ${session.difficulty}` : ""} />
       <div className={`container mx-auto ${phase === "running" ? "max-w-[1600px]" : "max-w-[1100px]"} px-6 py-6 space-y-5`}>
@@ -1080,6 +1086,7 @@ export default function TeamRoomPage() {
         )}
       </div>
     </div>
+    </IocTruthContext.Provider>
   );
 }
 
