@@ -10,6 +10,7 @@
  * "Report a problem" button, tagged context.category="technical") both land here.
  */
 import { useEffect, useState } from "react";
+import { fetchOrError } from "@/lib/http/safeFetch";
 import { Card } from "@/components/ui/Card";
 import { Flag, Loader2, AlertTriangle, Bug, Send, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ export function FeedbackInbox() {
 
   async function load(f = filter) {
     setLoading(true); setError(null);
-    const res = await fetch(`/api/feedback?status=${encodeURIComponent(f)}`);
+    const res = await fetchOrError(`/api/feedback?status=${encodeURIComponent(f)}`);
     setLoading(false);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
     setItems((await res.json()).items ?? []);
@@ -64,11 +65,18 @@ export function FeedbackInbox() {
   useEffect(() => { load(filter); }, [filter]);
 
   async function setStatus(id: string, status: Status) {
+    const before = items.find(r => r.id === id)?.status;
     setItems(prev => prev.map(r => (r.id === id ? { ...r, status } : r)));
-    await fetch("/api/feedback", {
+    const res = await fetchOrError("/api/feedback", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, status }),
-    }).catch(() => {});
+    });
+    if (!res.ok) {
+      // E-23: the server refused — put the old status back and say so.
+      if (before) setItems(prev => prev.map(r => (r.id === id ? { ...r, status: before } : r)));
+      setError((await res.json().catch(() => ({})))?.error ?? "Couldn't update the status — please try again.");
+      return;
+    }
     if (filter !== "all" && filter !== status) load(filter);
   }
 
@@ -79,7 +87,7 @@ export function FeedbackInbox() {
     setNotes(n => { const c = { ...n }; delete c[id]; return c; });
     let res: Response;
     try {
-      res = await fetch(`/api/feedback/${id}/reply`, {
+      res = await fetchOrError(`/api/feedback/${id}/reply`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
       });

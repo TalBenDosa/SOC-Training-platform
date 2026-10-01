@@ -6,6 +6,7 @@
  * by /api/org/groups; this component only presents.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchOrError } from "@/lib/http/safeFetch";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { UsersRound, Plus, Trash2, Loader2, X, ChevronRight, Search, Save, Pencil } from "lucide-react";
@@ -27,7 +28,7 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
   const [q, setQ] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/org/groups");
+    const res = await fetchOrError("/api/org/groups");
     if (!res.ok) { setGroups([]); setError((await res.json().catch(() => ({})))?.error ?? "Could not load groups."); return; }
     setGroups((await res.json()).groups ?? []);
   }, []);
@@ -39,7 +40,7 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
   async function create() {
     if (!newName.trim()) { setError("Give the group a name."); return; }
     setBusy(true); setError(null);
-    const res = await fetch("/api/org/groups", {
+    const res = await fetchOrError("/api/org/groups", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newName.trim(), description: newDesc.trim() }),
     });
@@ -61,7 +62,7 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
   async function saveGroup(g: GroupRow) {
     if (!editName.trim()) { setError("Give the group a name."); return; }
     setBusy(true); setError(null);
-    const res = await fetch("/api/org/groups", {
+    const res = await fetchOrError("/api/org/groups", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: g.id, name: editName.trim(), member_ids: editMembers }),
     });
@@ -74,7 +75,7 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
 
   async function remove(g: GroupRow) {
     if (!confirm(`Delete the group “${g.name}”? Plans that target it will no longer reach its members.`)) return;
-    const res = await fetch(`/api/org/groups?id=${encodeURIComponent(g.id)}`, { method: "DELETE" });
+    const res = await fetchOrError(`/api/org/groups?id=${encodeURIComponent(g.id)}`, { method: "DELETE" });
     if (!res.ok) { setError("Could not delete the group."); return; }
     if (openId === g.id) setOpenId(null);
     await load();

@@ -9,6 +9,7 @@
  * so the manager sees their whole workload in one place.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchOrError } from "@/lib/http/safeFetch";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -75,7 +76,7 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
 
   async function save() {
     setBusy(true); setError(null);
-    const res = await fetch(`/api/org/students/${studentId}/plan`, {
+    const res = await fetchOrError(`/api/org/students/${studentId}/plan`, {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items, instructions: instructions.trim(), due_at: due || null, notify_email: notifyEmail }),
     });

@@ -14,6 +14,7 @@
  * set per learner on the student page, not here.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { fetchOrError } from "@/lib/http/safeFetch";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
@@ -86,7 +87,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
   const [peopleQ, setPeopleQ] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/org/assignments");
+    const res = await fetchOrError("/api/org/assignments");
     if (!res.ok) { setPlans([]); setError((await res.json().catch(() => ({})))?.error ?? "Could not load learning plans."); return; }
     const d = await res.json();
     setPlans(d.plans ?? []);
@@ -103,7 +104,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
 
   async function loadTree() {
     setTreeError(false);
-    const res = await fetch("/api/org/catalog").catch(() => null);
+    const res = await fetchOrError("/api/org/catalog").catch(() => null);
     if (res?.ok) setTree((await res.json()).tree ?? []);
     else setTreeError(true);
   }
@@ -157,7 +158,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
       items: draft.items,
       notify_email: draft.notifyEmail,
     };
-    const res = await fetch("/api/org/assignments", {
+    const res = await fetchOrError("/api/org/assignments", {
       method: draft.id ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
     });
     setBusy(false);
@@ -170,7 +171,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
   }
 
   async function setArchived(p: StaffPlan, archived: boolean) {
-    const res = await fetch("/api/org/assignments", {
+    const res = await fetchOrError("/api/org/assignments", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: p.id, archived }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Could not update the plan."); return; }
@@ -180,7 +181,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
 
   async function remove(p: StaffPlan) {
     if (!confirm(`Delete “${p.title}” permanently? Learners will no longer see it. (Archive keeps it for your records.)`)) return;
-    const res = await fetch(`/api/org/assignments?id=${encodeURIComponent(p.id)}`, { method: "DELETE" });
+    const res = await fetchOrError(`/api/org/assignments?id=${encodeURIComponent(p.id)}`, { method: "DELETE" });
     if (!res.ok) { setError("Could not delete the plan."); return; }
     await load();
   }

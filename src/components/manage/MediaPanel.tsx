@@ -7,6 +7,7 @@
  * students on the /resources page.
  */
 import { useEffect, useRef, useState } from "react";
+import { fetchOrError } from "@/lib/http/safeFetch";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -41,9 +42,9 @@ export function MediaPanel() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
-    const res = await fetch("/api/org/media");
+    const res = await fetchOrError("/api/org/media");
     if (res.ok) setItems((await res.json()).resources ?? []);
-    else setItems([]);
+    else { setItems([]); setError((await res.json().catch(() => ({})))?.error ?? "Couldn't load the materials — please try again."); }
   }
   useEffect(() => { load(); }, []);
 
@@ -61,7 +62,7 @@ export function MediaPanel() {
     setBusy(true);
     try {
       // 1. sign
-      const signRes = await fetch("/api/org/media/sign", {
+      const signRes = await fetchOrError("/api/org/media/sign", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ext }),
       });
@@ -71,7 +72,7 @@ export function MediaPanel() {
       const up = await supabase.storage.from("org-media").uploadToSignedUrl(sign.path, sign.token, file);
       if (up.error) { setError(/exceed|too large|size/i.test(up.error.message ?? "") ? "The file is larger than allowed for this kind of material." : "Upload failed while sending the file — please try again."); return; }   // E-07: never raw storage text
       // 3. finalize — server re-validates + creates the row
-      const finRes = await fetch("/api/org/media", {
+      const finRes = await fetchOrError("/api/org/media", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ storageKey: sign.path, title: title.trim() }),
       });
@@ -89,7 +90,7 @@ export function MediaPanel() {
 
   async function setStatus(id: string, status: "published" | "draft") {
     setRowBusy(id); setError(null);
-    const res = await fetch(`/api/org/media/${id}`, {
+    const res = await fetchOrError(`/api/org/media/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
     });
     setRowBusy(null);
@@ -99,7 +100,7 @@ export function MediaPanel() {
 
   async function setDownload(id: string, allow: boolean) {
     setRowBusy(id); setError(null);
-    const res = await fetch(`/api/org/media/${id}`, {
+    const res = await fetchOrError(`/api/org/media/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ allow_download: allow }),
     });
     setRowBusy(null);
@@ -110,7 +111,7 @@ export function MediaPanel() {
   async function remove(id: string, title: string) {
     if (!confirm(`Delete "${title}"? This removes the file for good.`)) return;
     setRowBusy(id); setError(null);
-    const res = await fetch(`/api/org/media/${id}`, { method: "DELETE" });
+    const res = await fetchOrError(`/api/org/media/${id}`, { method: "DELETE" });
     setRowBusy(null);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Delete failed."); return; }
     await load();

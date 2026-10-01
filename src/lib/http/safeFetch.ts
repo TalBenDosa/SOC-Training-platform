@@ -13,3 +13,19 @@ export async function safeFetch(input: RequestInfo | URL, init?: RequestInit): P
     return null;
   }
 }
+
+/**
+ * fetch whose network failure becomes an ordinary 503 Response carrying
+ * {error: NETWORK_ERROR} (QA phase 7, E-10). Staff consoles did
+ * `setBusy(true); const res = await fetch(…); setBusy(false)` with no catch, so a
+ * dropped connection skipped every reset — Save / Enter / Approve stayed disabled
+ * and loaders sat on "Loading…" until a reload. With this, the code's existing
+ * `if (!res.ok) setError(body.error)` path handles it.
+ */
+export async function fetchOrError(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    return new Response(JSON.stringify({ error: NETWORK_ERROR }), { status: 503, headers: { "Content-Type": "application/json" } });
+  }
+}

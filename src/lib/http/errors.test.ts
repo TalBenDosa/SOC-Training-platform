@@ -48,3 +48,16 @@ describe("dbFail", () => {
     log.mockRestore();
   });
 });
+
+describe("fetchOrError (E-10)", () => {
+  it("a network failure becomes a 503 with the network message — the caller's !res.ok path handles it", async () => {
+    const { fetchOrError, NETWORK_ERROR: NET } = await import("./safeFetch");
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    const res = await fetchOrError("/api/org/groups");
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toBe(NET);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 200 })));
+    expect((await fetchOrError("/api/org/groups")).status).toBe(200);
+    vi.unstubAllGlobals();
+  });
+});

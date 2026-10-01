@@ -5,6 +5,7 @@
  * a requireSuperAdmin-gated API route.
  */
 import { AdminAccessCard } from "./AdminAccessCard";
+import { fetchOrError } from "@/lib/http/safeFetch";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -72,7 +73,7 @@ export default function OrgDetailPage() {
 
   async function enterEnvironment() {
     setError(null); setNotice(null); setEntering(true);
-    const res = await fetch("/api/superadmin/enter-org", {
+    const res = await fetchOrError("/api/superadmin/enter-org", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
     });
     if (!res.ok) {
@@ -111,7 +112,7 @@ export default function OrgDetailPage() {
 
   async function load() {
     setError(null);
-    const res = await fetch(`/api/superadmin/orgs/${id}`);
+    const res = await fetchOrError(`/api/superadmin/orgs/${id}`);
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); setLoadFailed(true); return; }
     const data = await res.json();
     setLoadFailed(false);
@@ -131,7 +132,7 @@ export default function OrgDetailPage() {
     setCSigned(toDateInput(ct.signed_at ?? null));
     setCNotes(ct.notes ?? "");
     // This org's live affiliation code (from the all-orgs endpoint).
-    const codesRes = await fetch("/api/superadmin/org-codes");
+    const codesRes = await fetchOrError("/api/superadmin/org-codes");
     if (codesRes.ok) {
       const { orgs } = await codesRes.json();
       const mine = (orgs ?? []).find((o: { id: string }) => o.id === id);
@@ -139,7 +140,7 @@ export default function OrgDetailPage() {
     }
     // Rich per-student list for this org — reuse the global students endpoint
     // and filter to this org (the dataset is platform-small).
-    const stRes = await fetch("/api/superadmin/students");
+    const stRes = await fetchOrError("/api/superadmin/students");
     if (stRes.ok) {
       const { students: all } = await stRes.json();
       setStudents(((all ?? []) as GlobalStudentRow[]).filter(s => s.org_id === id));
@@ -150,7 +151,7 @@ export default function OrgDetailPage() {
 
   async function generateOrgCode() {
     setError(null); setNotice(null); setCodeBusy(true);
-    const res = await fetch("/api/superadmin/org-codes", {
+    const res = await fetchOrError("/api/superadmin/org-codes", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
     });
     setCodeBusy(false);
@@ -169,7 +170,7 @@ export default function OrgDetailPage() {
 
   async function patch(body: Record<string, unknown>, msg: string) {
     setSaving(true); setError(null); setNotice(null);
-    const res = await fetch(`/api/superadmin/orgs/${id}`, {
+    const res = await fetchOrError(`/api/superadmin/orgs/${id}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     setSaving(false);
@@ -180,7 +181,7 @@ export default function OrgDetailPage() {
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
     setAdding(true); setError(null); setNotice(null);
-    const res = await fetch(`/api/superadmin/orgs/${id}/members`, {
+    const res = await fetchOrError(`/api/superadmin/orgs/${id}/members`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, role }),
     });
     setAdding(false);
@@ -193,7 +194,7 @@ export default function OrgDetailPage() {
     const who = m.display_name || (m.handle ? `@${m.handle}` : m.user_id.slice(0, 8));
     if (!confirm(`Remove ${who} from this organization?`)) return;
     const userId = m.user_id;
-    const res = await fetch(`/api/superadmin/orgs/${id}/members`, {
+    const res = await fetchOrError(`/api/superadmin/orgs/${id}/members`, {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to remove."); return; }
@@ -203,7 +204,7 @@ export default function OrgDetailPage() {
   async function inviteAdmin(e: React.FormEvent) {
     e.preventDefault();
     setInvitingAdmin(true); setError(null); setNotice(null); setAdminInvite(null);
-    const res = await fetch(`/api/superadmin/orgs/${id}/invite-admin`, {
+    const res = await fetchOrError(`/api/superadmin/orgs/${id}/invite-admin`, {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: adminEmail }),
     });
     setInvitingAdmin(false);
@@ -222,7 +223,7 @@ export default function OrgDetailPage() {
   }
 
   async function deleteOrg() {
-    const res = await fetch(`/api/superadmin/orgs/${id}`, { method: "DELETE" });
+    const res = await fetchOrError(`/api/superadmin/orgs/${id}`, { method: "DELETE" });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Delete failed."); return; }
     router.push("/superadmin");
   }

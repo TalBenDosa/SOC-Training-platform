@@ -8,7 +8,7 @@
  * so this component never sends an org id and never sees an answer key it could
  * leak (drafts are read back through the same service-role route).
  */
-import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
+import { safeFetch, NETWORK_ERROR, fetchOrError } from "@/lib/http/safeFetch";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -454,7 +454,7 @@ function ScenariosTab() {
 
   async function loadForEdit(id: string) {
     setError(null);
-    const res = await fetch(`/api/org/content/scenarios/${encodeURIComponent(id)}`);
+    const res = await fetchOrError(`/api/org/content/scenarios/${encodeURIComponent(id)}`);
     if (!res.ok) { setError("Could not load scenario."); return; }
     const { item, answer_key } = await res.json();
     const c = (item?.content ?? {}) as Record<string, unknown>;
@@ -691,7 +691,7 @@ function RoomsTab() {
 
   async function loadForEdit(id: string) {
     setError(null);
-    const res = await fetch(`/api/org/content/rooms/${encodeURIComponent(id)}`);
+    const res = await fetchOrError(`/api/org/content/rooms/${encodeURIComponent(id)}`);
     if (!res.ok) { setError("Could not load room."); return; }
     const { item, answer_key } = await res.json();
     const c = (item?.content ?? {}) as Record<string, unknown>;
@@ -850,7 +850,7 @@ function CompaniesTab() {
 
   async function loadForEdit(id: string) {
     setError(null);
-    const res = await fetch(`/api/org/content/companies/${encodeURIComponent(id)}`);
+    const res = await fetchOrError(`/api/org/content/companies/${encodeURIComponent(id)}`);
     if (!res.ok) { setError("Could not load environment."); return; }
     const { item } = await res.json();
     const c = (item?.content ?? {}) as Record<string, unknown>;

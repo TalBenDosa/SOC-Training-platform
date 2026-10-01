@@ -4,7 +4,7 @@
  * org by the /api/org/* routes (org id comes from their JWT, never the client),
  * so a college admin sees and touches only their own students.
  */
-import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
+import { safeFetch, NETWORK_ERROR, fetchOrError } from "@/lib/http/safeFetch";
 import { useEffect, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
@@ -73,6 +73,7 @@ export default function ManagePage() {
 
   // cohort analytics (per-student progress + class signals)
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);   // E-10: say it, don't show empty progress
   const [classStats, setClassStats] = useState<ClassStats | null>(null);
 
   // right-to-deletion requests filed by this college's students
@@ -104,6 +105,9 @@ export default function ManagePage() {
       const { students: rows, class: cls } = await anRes.json();
       setStudents(rows ?? []);
       setClassStats(cls ?? null);
+      setAnalyticsError(null);
+    } else {
+      setAnalyticsError("Couldn't load your students' progress just now — the roster is shown, progress columns may be empty. Refresh to try again.");
     }
     // Right-to-deletion queue. Separate call for the same reason as analytics:
     // the roster must still render if this is slow or the table isn't migrated
@@ -166,7 +170,7 @@ export default function ManagePage() {
 
   async function setActive(userId: string, active: boolean) {
     setError(null);
-    const res = await fetch("/api/org/members", {
+    const res = await fetchOrError("/api/org/members", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId, active }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to update status."); return; }
@@ -175,7 +179,7 @@ export default function ManagePage() {
 
   async function removeMember(userId: string) {
     if (!confirm("Permanently remove this student from your class? Their class data is detached. This can't be undone.")) return;
-    const res = await fetch("/api/org/members", {
+    const res = await fetchOrError("/api/org/members", {
       method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: userId }),
     });
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to remove."); return; }
@@ -197,7 +201,7 @@ export default function ManagePage() {
     )) return;
 
     setDBusy(r.id);
-    const res = await fetch("/api/org/deletion-requests", {
+    const res = await fetchOrError("/api/org/deletion-requests", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: r.id, decision }),
     });
@@ -501,6 +505,7 @@ export default function ManagePage() {
                   </Button>
                 )}
               </div>
+              {analyticsError && <p role="status" className="px-4 pb-2 text-xs text-neon-amber">{analyticsError}</p>}
               {roster.length === 0 ? (
                 <p className="px-4 pb-4 text-sm text-slate-400">No students yet. Share today&apos;s class code so they can register.</p>
               ) : (

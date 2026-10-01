@@ -6,6 +6,7 @@
  * this page renders nothing sensitive until those pass.
  */
 import { useEffect, useState } from "react";
+import { fetchOrError } from "@/lib/http/safeFetch";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
@@ -55,7 +56,7 @@ export default function SuperAdminPage() {
   // college's console. Same flow as the sidebar EnvironmentSwitcher.
   async function enterOrg(id: string) {
     setEntering(id);
-    const res = await fetch("/api/superadmin/enter-org", {
+    const res = await fetchOrError("/api/superadmin/enter-org", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ org_id: id }),
     });
     if (!res.ok) { setEntering(null); setError((await res.json().catch(() => ({})))?.error ?? "Could not enter environment."); return; }
@@ -65,13 +66,13 @@ export default function SuperAdminPage() {
   }
 
   async function loadCodes() {
-    const res = await fetch("/api/superadmin/org-codes");
+    const res = await fetchOrError("/api/superadmin/org-codes");
     if (res.ok) { const d = await res.json(); setCodes(d.orgs ?? []); }
   }
 
   async function generateFor(orgId: string) {
     setCodeBusyOrg(orgId);
-    const res = await fetch("/api/superadmin/org-codes", {
+    const res = await fetchOrError("/api/superadmin/org-codes", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ org_id: orgId }),
     });
@@ -82,14 +83,14 @@ export default function SuperAdminPage() {
 
   async function load() {
     setError(null);
-    const res = await fetch("/api/superadmin/orgs");
+    const res = await fetchOrError("/api/superadmin/orgs");
     if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); setOrgs([]); return; }
     const body = await res.json();
     setOrgs(body.orgs);
     setSpend(body.ai_spend ?? null);
   }
   async function loadReports() {
-    const res = await fetch("/api/feedback?status=new");
+    const res = await fetchOrError("/api/feedback?status=new");
     if (res.ok) { const d = await res.json().catch(() => ({})); setNewReports((d.items ?? []).length); }
   }
   useEffect(() => { load(); loadCodes(); loadReports(); }, []);
@@ -267,7 +268,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-    const res = await fetch("/api/superadmin/orgs", {
+    const res = await fetchOrError("/api/superadmin/orgs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
