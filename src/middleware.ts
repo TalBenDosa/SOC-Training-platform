@@ -121,7 +121,18 @@ function withApiAuthTimeout<T>(p: Promise<T>, ms = 4000): Promise<T | typeof API
   return Promise.race([p, new Promise<typeof API_AUTH_TIMEOUT>(r => setTimeout(() => r(API_AUTH_TIMEOUT), ms))]);
 }
 
-async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null; userId?: string; timedOut?: boolean }> {
+/**
+ * API paths a member of a college whose licence lapsed may still call (SEC-04):
+ * their own account (export / delete / password / join another environment /
+ * renew), and accepting an invitation elsewhere. Mirrors the page gate, which
+ * locks every page but /license.
+ */
+const LICENCE_EXEMPT_API = ["/api/account", "/api/invitations/", "/api/notifications"];
+function isLicenceExemptApi(pathname: string): boolean {
+  return LICENCE_EXEMPT_API.some(p => p.endsWith("/") ? pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`));
+}
+
+async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: string | null; userId?: string; timedOut?: boolean; licenceLocked?: boolean }> {
   if (!isSupabaseConfigured) return { authed: true, orgId: null };
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
     cookies: {
@@ -136,7 +147,12 @@ async function getApiAuth(req: NextRequest): Promise<{ authed: boolean; orgId: s
   // budgeted per-org. Absent pre-migration → no org limit, unchanged behaviour.
   const sessionResult = await withApiAuthTimeout(supabase.auth.getSession());
   const token = sessionResult === API_AUTH_TIMEOUT ? undefined : sessionResult.data.session?.access_token;
-  return { authed: true, orgId: decodeOrgClaim(token).orgId, userId: userResult.data.user.id };
+  const claim = decodeOrgClaim(token);
+  return {
+    authed: true, orgId: claim.orgId, userId: userResult.data.user.id,
+    // Only an explicit `false` locks (null = no claim), and never the platform admin.
+    licenceLocked: claim.orgActive === false && !claim.isPlatformAdmin,
+  };
 }
 
 export async function middleware(req: NextRequest) {
@@ -172,7 +188,7 @@ export async function middleware(req: NextRequest) {
     const flood = await checkRateLimit(`ip:${ip}`, 600, windowMs);
     if (!flood.ok) return tooMany(flood.retryAfter);
 
-    const { authed, orgId, userId, timedOut } = await getApiAuth(req);
+    const { authed, orgId, userId, timedOut, licenceLocked } = await getApiAuth(req);
     // Auth provider slow → fast retriable 503, never a hung 504.
     if (timedOut) {
       return NextResponse.json(
@@ -182,6 +198,11 @@ export async function middleware(req: NextRequest) {
     }
     if (!authed) {
       return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    }
+    // SEC-04: a suspended / expired college was locked out of PAGES only — its
+    // members (and admins) kept the whole API with their session cookie.
+    if (licenceLocked && !isLicenceExemptApi(pathname)) {
+      return NextResponse.json({ error: "Your college's licence isn't active. Contact your administrator." }, { status: 403 });
     }
 
     // Per-USER budget (per-IP only in local/guest mode with no accounts): keying

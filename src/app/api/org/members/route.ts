@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revokeUserSessions } from "@/lib/auth/revokeSessions";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
@@ -179,6 +180,7 @@ export async function PATCH(req: Request) {
   if (!updated || updated.length === 0) {
     return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
   }
+  if (!active) await revokeUserSessions(admin, target);   // SEC-05: end their sessions now
   return NextResponse.json({ ok: true, status: active ? "active" : "removed" });
 }
 
@@ -214,5 +216,6 @@ export async function DELETE(req: Request) {
   // Only move their active context if it pointed at THIS org — a member who is
   // currently working in another institution must stay there.
   await admin.from("profiles").update({ org_id: ROOT_ORG_ID }).eq("id", target).eq("org_id", orgId);
+  await revokeUserSessions(admin, target);   // SEC-05: end their sessions now
   return NextResponse.json({ ok: true });
 }

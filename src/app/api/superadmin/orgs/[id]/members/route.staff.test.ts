@@ -22,7 +22,7 @@ describe("attach-by-email never grants a staff role", () => {
   });
 
   it("college admin roster refuses instructor", async () => {
-    const res = await org.POST(req({ email: "t@college.ac.il", role: "instructor" }));
+    const res = (await org.POST(req({ email: "t@college.ac.il", role: "instructor" })))!;
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/emailed invitation/);
     expect(rpc).not.toHaveBeenCalled();

@@ -12,6 +12,8 @@ const MIG = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "supabase"
 export const SHIM = `
 create schema if not exists auth;
 create table if not exists auth.users (id uuid primary key default gen_random_uuid(), email text, raw_user_meta_data jsonb default '{}', raw_app_meta_data jsonb default '{}', created_at timestamptz default now());
+create table if not exists auth.sessions (id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade, created_at timestamptz default now());
+create table if not exists auth.refresh_tokens (id bigserial primary key, session_id uuid references auth.sessions(id) on delete cascade, user_id text, token text, revoked boolean default false);
 create or replace function auth.uid() returns uuid language sql stable as $f$ select nullif(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub','')::uuid $f$;
 create or replace function auth.jwt() returns jsonb language sql stable as $f$ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb,'{}') $f$;
 create or replace function auth.role() returns text language sql stable as $f$ select coalesce(nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'role','anon') $f$;

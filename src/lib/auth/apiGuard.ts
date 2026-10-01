@@ -25,6 +25,7 @@ import { NextResponse } from "next/server";
 import { getValidatedAuth } from "@/lib/auth/validatedUser";
 import { logAudit } from "@/lib/audit/logAudit";
 import { decodeOrgClaim } from "@/lib/auth/orgClaim";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export interface AuthedUser {
   id: string;
@@ -36,8 +37,10 @@ export interface AuthedUser {
   orgName: string | null;
   /** Org-scoped role: 'org_admin' | 'instructor' | 'student' | null. */
   orgRole: string | null;
-  /** Platform super-admin (cross-org). From the JWT claim; false pre-migration. */
+  /** Platform super-admin (cross-org). Re-checked in the DB (SEC-05). */
   isPlatformAdmin: boolean;
+  /** Is the active org's licence valid right now? null = no org. (SEC-04) */
+  orgActive: boolean | null;
 }
 
 /**
@@ -55,25 +58,42 @@ export const getAuthedUser = cache(async (): Promise<AuthedUser | null> => {
   if (!auth) return null;
   const { supabase, user, session } = auth;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  // The org context lives in the token claims (stamped by the access-token
-  // hook), not in a column — the session was already decoded locally by
-  // getValidatedAuth (no extra network hop).
-  const { orgId, orgName, orgRole, isPlatformAdmin } = decodeOrgClaim(session?.access_token);
+  // The org context is stamped into the token by the access-token hook — but a
+  // token lives up to an hour, so removing / demoting a member or revoking the
+  // platform-admin flag did not take effect until it expired (SEC-05). The claim
+  // says WHICH org is active; whether the caller is still in it, with which role,
+  // whether its licence is valid (SEC-04) and whether they are platform admin are
+  // re-read from the DB on every guarded call (two parallel point reads).
+  const claim = decodeOrgClaim(session?.access_token);
+  const admin = getSupabaseAdminClient();
+  if (!admin) {
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    return { id: user.id, email: user.email ?? null, role: profile?.role ?? "analyst",
+      orgId: claim.orgId, orgName: claim.orgName, orgRole: claim.orgRole, isPlatformAdmin: claim.isPlatformAdmin, orgActive: claim.orgActive };
+  }
+  const [profileRes, memberRes] = await Promise.all([
+    admin.from("profiles").select("role, is_platform_admin").eq("id", user.id).maybeSingle(),
+    claim.orgId
+      ? admin.from("org_members").select("role, status, organizations(status, expires_at)")
+          .eq("org_id", claim.orgId).eq("user_id", user.id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  // Fail closed: a read error grants no privilege (no admin flag, no org role).
+  const profile = profileRes.error ? null : profileRes.data;
+  const member = memberRes.error ? null : (memberRes.data as { role: string; status: string; organizations: { status: string; expires_at: string | null } | { status: string; expires_at: string | null }[] | null } | null);
+  const live = member && member.status === "active" ? member : null;
+  const org = live ? (Array.isArray(live.organizations) ? live.organizations[0] : live.organizations) : null;
+  const orgActive = org ? (org.status === "active" || org.status === "trial") && (!org.expires_at || Date.parse(org.expires_at) > Date.now()) : null;
 
   return {
     id: user.id,
     email: user.email ?? null,
     role: profile?.role ?? "analyst",
-    orgId,
-    orgName,
-    orgRole,
-    isPlatformAdmin,
+    orgId: live ? claim.orgId : null,
+    orgName: live ? claim.orgName : null,
+    orgRole: live ? live.role : null,
+    isPlatformAdmin: profile?.is_platform_admin === true,
+    orgActive,
   };
 });
 
@@ -143,6 +163,9 @@ export async function requireOrgAdmin(action?: string): Promise<Gate> {
   if (!user) {
     return { error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
   }
+  if (user.orgActive === false && !user.isPlatformAdmin) {
+    return { error: NextResponse.json({ error: "Your college's licence isn't active. Contact your administrator." }, { status: 403 }) };
+  }
   const ok = user.isPlatformAdmin || (user.orgRole === "org_admin" && !!user.orgId);
   if (!ok) {
     if (action) await logAudit({ actorId: user.id, action: `${action}.denied`, metadata: { orgRole: user.orgRole } });
@@ -163,6 +186,9 @@ export async function requireOrgStaff(action?: string): Promise<Gate> {
   if (!user) {
     return { error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
   }
+  if (user.orgActive === false && !user.isPlatformAdmin) {
+    return { error: NextResponse.json({ error: "Your college's licence isn't active. Contact your administrator." }, { status: 403 }) };
+  }
   const ok = user.isPlatformAdmin || ((user.orgRole === "org_admin" || user.orgRole === "instructor") && !!user.orgId);
   if (!ok) {
     if (action) await logAudit({ actorId: user.id, action: `${action}.denied`, metadata: { orgRole: user.orgRole } });
@@ -181,6 +207,9 @@ export async function requireOrgRole(orgId: string, roles: string[], action?: st
   const user = await getAuthedUser();
   if (!user) {
     return { error: NextResponse.json({ error: "Authentication required." }, { status: 401 }) };
+  }
+  if (user.orgActive === false && !user.isPlatformAdmin) {
+    return { error: NextResponse.json({ error: "Your college's licence isn't active. Contact your administrator." }, { status: 403 }) };
   }
   const ok = user.isPlatformAdmin || (user.orgId === orgId && !!user.orgRole && roles.includes(user.orgRole));
   if (!ok) {
