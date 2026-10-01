@@ -77,3 +77,11 @@ describe("planNotificationEmail", () => {
     expect(shown.length).toBeLessThan(80 + 60);
   });
 });
+
+describe("redactEmails (SEC-18)", () => {
+  it("masks every address in text bound for the logs", async () => {
+    const { redactEmails } = await import("./sendEmail");
+    expect(redactEmails(`{"message":"Invalid to: john.doe@college.ac.il, a@b.io"}`)).toBe(`{"message":"Invalid to: j***@college.ac.il, a***@b.io"}`);
+    expect(redactEmails("no address here")).toBe("no address here");
+  });
+});

@@ -82,7 +82,7 @@ export async function sendEmailBatch(inputs: readonly EmailInput[], opts: { paus
       });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
-        console.error(`[email] batch send failed (${res.status}): ${body.slice(0, 500)}`);
+        console.error(`[email] batch send failed (${res.status}): ${redactEmails(body).slice(0, 500)}`);
         errors.push(`HTTP ${res.status}`);
         continue;
       }
@@ -96,13 +96,21 @@ export async function sendEmailBatch(inputs: readonly EmailInput[], opts: { paus
   return { skipped: false, sent, errors };
 }
 
+/**
+ * Server logs must not collect recipients' addresses (SEC-18): mask any email in
+ * text we log (a provider error body can echo the recipient) — "j***@college.ac.il".
+ */
+export function redactEmails(text: string): string {
+  return text.replace(/([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, "$1***@$2");
+}
+
 export async function sendEmail(input: EmailInput): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
   const to = Array.isArray(input.to) ? input.to : [input.to];
 
   if (!key) {
-    console.info(`[email] RESEND_API_KEY not set — skipping "${input.subject}" → ${to.join(", ")}`);
+    console.info(`[email] RESEND_API_KEY not set — skipping "${input.subject}" → ${to.length} recipient(s)`);
     return { ok: false, skipped: true };
   }
 
@@ -114,7 +122,7 @@ export async function sendEmail(input: EmailInput): Promise<{ ok: boolean; skipp
     });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      console.error(`[email] send failed (${res.status}): ${body}`);
+      console.error(`[email] send failed (${res.status}): ${redactEmails(body).slice(0, 500)}`);
       return { ok: false, error: `HTTP ${res.status}` };
     }
     return { ok: true };
