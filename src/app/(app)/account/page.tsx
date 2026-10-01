@@ -17,7 +17,7 @@
  * API can never disagree. Email stays read-only.
  */
 import { useEffect, useRef, useState } from "react";
-import { displayError } from "@/lib/http/apiError";
+import { displayError, ApiError, messageFromResponse } from "@/lib/http/apiError";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
@@ -153,6 +153,11 @@ export default function AccountPage() {
 
   const [info, setInfo] = useState<AccountInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  // E-14 (QA phase 7): a failed load is its own state. It used to set the
+  // deletion card's error and render the page with "—", XP 0 and the solo-learner
+  // "erase everything" copy — wrong for an enrolled student.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadTick, setLoadTick] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deletePassword, setDeletePassword] = useState("");   // SEC-12: proof before erasing
@@ -240,20 +245,22 @@ export default function AccountPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
     (async () => {
       try {
         const res = await fetch("/api/account");
-        if (!res.ok) throw new Error("Could not load your account.");
+        if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
         const data = await res.json();
         if (!cancelled) setInfo(data);
       } catch (e) {
-        if (!cancelled) setError(displayError(e, "Could not load your account."));
+        if (!cancelled) setLoadError(displayError(e, "Couldn't load your account."));
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [loadTick]);
 
   async function submitDeletion() {
     setBusy(true);
@@ -297,6 +304,15 @@ export default function AccountPage() {
       <h1 className="text-2xl font-bold text-white">Account</h1>
       <p className="mt-1 text-sm text-slate-400">Manage your profile, password and data.</p>
 
+      {!info && (
+        <Card className="mt-8 border-severity-high/40">
+          <p role="alert" className="text-sm font-semibold text-severity-high">{loadError ?? "Couldn't load your account."}</p>
+          <p className="mt-1 text-xs text-slate-400">Your profile and data options are hidden until they load — nothing has changed on your account.</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => setLoadTick(t => t + 1)}>Try again</Button>
+        </Card>
+      )}
+
+      {info && (
       <Card className="mt-8">
         <h2 className="text-sm font-bold text-white">Your details</h2>
         <dl className="mt-4 space-y-3 text-sm">
@@ -342,6 +358,7 @@ export default function AccountPage() {
           </span>
         </p>
       </Card>
+      )}
 
       {/* ── Change password (FB-011) ────────────────────────────────────── */}
       <Card className="mt-6">
@@ -396,6 +413,7 @@ export default function AccountPage() {
       </Card>
 
       {/* ── Deletion ─────────────────────────────────────────────────────── */}
+      {info && (
       <Card className="mt-6 border-red-500/30">
         <h2 className="flex items-center gap-2 text-sm font-bold text-white">
           <AlertTriangle className="h-4 w-4 text-red-400" /> Delete your account
@@ -472,6 +490,7 @@ export default function AccountPage() {
 
         {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       </Card>
+      )}
 
       {/* Success toast (FB-011). The live region stays mounted so it is registered before it speaks. */}
       <div role="status" aria-live="polite" className="pointer-events-none fixed bottom-6 right-6 z-50">
