@@ -26,16 +26,24 @@ export function useBranding(): Branding {
   useEffect(() => {
     if (!user) { setBranding(EMPTY); return; }
     let cancelled = false;
-    fetch("/api/org/branding")
-      .then(r => (r.ok ? r.json() : null))
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    // E-23 (QA phase 7): one failed read left the college's "all rooms
+    // unlocked" setting off (rooms looked locked) for the whole visit — retry
+    // once after a short pause before falling back to the defaults.
+    const load = (again: boolean) => fetch("/api/org/branding")
+      .then(r => {
+        if (r.status >= 500) throw new Error(`status ${r.status}`);
+        return r.ok ? r.json() : null;
+      })
       .then(d => {
         if (cancelled || !d) return;
         const color = typeof d.branding?.color === "string" ? d.branding.color : null;
         setBranding({ name: d.name ?? null, color, logoUrl: d.branding?.logo_url ?? null, allRoomsUnlocked: d.all_rooms_unlocked === true });
         if (color) document.documentElement.style.setProperty("--org-accent", color);
       })
-      .catch(() => {});
-    return () => { cancelled = true; };
+      .catch(() => { if (again && !cancelled) retry = setTimeout(() => { void load(false); }, 3000); });
+    void load(true);
+    return () => { cancelled = true; if (retry) clearTimeout(retry); };
   }, [user]);
 
   return branding;

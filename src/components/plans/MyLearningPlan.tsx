@@ -112,16 +112,34 @@ function PlanBlock({ p }: { p: LearnerPlan }) {
 export function MyLearningPlan({ compact = false }: { compact?: boolean }) {
   const [plans, setPlans] = useState<LearnerPlan[]>([]);
   const [expanded, setExpanded] = useState(!compact);
+  // E-23 (QA phase 7): a server/network failure hid an enrolled student's
+  // assigned plan with no hint. 4xx (solo learner, no org) still renders nothing.
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setFailed(false);
     fetch("/api/org/assignments?view=mine")
-      .then(r => (r.ok ? r.json() : { plans: [] }))
-      .then(d => { if (alive) setPlans(Array.isArray(d.plans) ? d.plans : []); })
-      .catch(() => {});
+      .then(r => {
+        if (r.status >= 500) throw new Error(`status ${r.status}`);
+        return r.ok ? r.json() : { plans: [] };
+      })
+      .then(d => { if (alive) setPlans(Array.isArray(d?.plans) ? d.plans : []); })
+      .catch(() => { if (alive) setFailed(true); });
     return () => { alive = false; };
-  }, []);
+  }, [attempt]);
 
+  if (failed && plans.length === 0) {
+    return (
+      <Card className="border-neon-purple/30 bg-neon-purple/5">
+        <p role="status" className="text-sm text-slate-300">
+          Couldn&apos;t load your learning plan just now.{" "}
+          <button onClick={() => setAttempt(a => a + 1)} className="font-semibold text-neon-purple hover:underline">Try again</button>
+        </p>
+      </Card>
+    );
+  }
   if (plans.length === 0) return null;
 
   // Deduped: the same room can sit in two plans but is one piece of work.

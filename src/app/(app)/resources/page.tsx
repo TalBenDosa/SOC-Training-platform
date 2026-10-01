@@ -167,6 +167,9 @@ export default function ResourcesPage() {
 function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () => void }) {
   const { resource: r, url, blobUrl, loading, error } = state;
   const m = KIND_META[r.kind];
+  // E-23 (QA phase 7): a video that fails to load (expired link, unsupported
+  // codec) used to leave a black box with no explanation.
+  const [videoFailed, setVideoFailed] = useState(false);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
@@ -222,11 +225,13 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
             ) : null
           )}
 
-          {r.kind === "video" && (
-            <video src={url} controls autoPlay className="h-full w-full bg-black">
-              Your browser can&apos;t play this video.
-            </video>
-          )}
+          {r.kind === "video" && (videoFailed
+            ? <ViewerError message="This video couldn't be played." />
+            : (
+              <video src={url} controls autoPlay className="h-full w-full bg-black" onError={() => setVideoFailed(true)}>
+                Your browser can&apos;t play this video.
+              </video>
+            ))}
 
           {/* PPTX has no native browser renderer, so the slides are shown through
               Microsoft's read-only Office embed (it fetches the short-lived
@@ -238,6 +243,13 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
               className="h-full w-full border-0"
               allowFullScreen
             />
+          )}
+          {/* The Office embed fails silently (blank frame) when it can't reach the
+              file — say what to do instead (E-23). */}
+          {r.kind === "pptx" && (
+            <p className="absolute inset-x-0 bottom-0 bg-bg/90 px-4 py-2 text-center text-[11px] text-slate-400">
+              Slides not showing after a few seconds? Close and open the presentation again{r.allow_download ? " — or use Download above" : ""}.
+            </p>
           )}
         </div>
       </div>

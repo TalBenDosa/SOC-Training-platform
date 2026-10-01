@@ -15,7 +15,9 @@ let scenariosP: Promise<Record<string, AdminScenarioInfo>> | null = null;
 
 function loadQuizzes(): Promise<Quiz[]> {
   quizzesP ??= fetch("/api/admin/quizzes")
-    .then(r => (r.ok ? r.json() : { quizzes: [] }))
+    // E-23: a failed response used to resolve to [] and stay cached for the
+    // whole visit — throw so the cache resets and the next mount retries.
+    .then(r => { if (!r.ok) throw new Error(`status ${r.status}`); return r.json(); })
     .then(d => (Array.isArray(d.quizzes) ? d.quizzes : []))
     .catch(() => { quizzesP = null; return []; });
   return quizzesP;
@@ -23,7 +25,7 @@ function loadQuizzes(): Promise<Quiz[]> {
 
 function loadScenarioInfo(): Promise<Record<string, AdminScenarioInfo>> {
   scenariosP ??= fetch("/api/admin/scenarios")
-    .then(r => (r.ok ? r.json() : { scenarios: [] }))
+    .then(r => { if (!r.ok) throw new Error(`status ${r.status}`); return r.json(); })
     .then(d => Object.fromEntries((Array.isArray(d.scenarios) ? d.scenarios : []).map((s: AdminScenarioInfo) => [s.slug, s])))
     .catch(() => { scenariosP = null; return {}; });
   return scenariosP;
