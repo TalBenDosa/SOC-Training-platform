@@ -25,6 +25,8 @@ import { Button } from "@/components/ui/Button";
 import { AlertTriangle, KeyRound, CheckCircle2 } from "lucide-react";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { EnterInviteCode } from "./EnterInviteCode";
+import { AcceptInvite } from "./AcceptInvite";
+import { getValidatedAuth } from "@/lib/auth/validatedUser";
 
 export const metadata = { title: "Join" };
 
@@ -127,6 +129,16 @@ export default async function JoinPage({ searchParams }: PageProps) {
       return <AlreadyRegistered orgName={row.org_name ?? null} />;
     }
     return <InvalidInvite reason="This invitation has expired. Ask your course administrator for a fresh link." />;
+  }
+
+  // Already signed in → accept into THIS account with an explicit click (SEC-02):
+  // the server checks the invitation names this account's email.
+  const auth = await getValidatedAuth();
+  if (auth?.user) {
+    return (
+      <AcceptInvite token={token} orgName={row.org_name ?? null} role={row.role ?? "student"}
+        invitedEmail={row.email ?? null} signedInAs={auth.user.email ?? ""} />
+    );
   }
 
   // Valid → straight to registration, carrying the token.

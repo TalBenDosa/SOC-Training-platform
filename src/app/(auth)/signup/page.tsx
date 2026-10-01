@@ -585,6 +585,14 @@ export default function SignupPage() {
             {/* The one error whose FIX is a different door: an existing account
                 holding a code signs in, and the code joins the environment to
                 that account (/login applies ?code= after authentication). */}
+            {error.toLowerCase().includes("already has an account") && inviteToken && !orgCode && (
+              <Link
+                href={`/login?next=${encodeURIComponent(`/join?token=${inviteToken}`)}`}
+                className="mt-2 block rounded border border-cyber-500/40 bg-cyber-500/10 px-3 py-2 text-center text-sm font-semibold text-cyber-300 hover:bg-cyber-500/20"
+              >
+                Sign in &amp; accept this invitation →
+              </Link>
+            )}
             {error.toLowerCase().includes("already has an account") && orgCode && (
               <Link
                 href={`/login?code=${encodeURIComponent(orgCode)}`}

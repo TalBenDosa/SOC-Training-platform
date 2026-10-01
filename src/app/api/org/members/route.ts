@@ -92,9 +92,15 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
   const email = String(body.email ?? "").trim();
-  // Org-admins may only add students/instructors, not other org-admins.
-  const role = ["student", "instructor"].includes(String(body.role)) ? String(body.role) : "student";
   if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  // SEC-02: sign-up doesn't verify the email address, so an existing account
+  // proves nothing about who owns it — someone may have pre-registered a future
+  // staff member's address. Staff roles are granted only through an emailed
+  // invitation, accepted from that mailbox (/api/invitations/[token]/accept).
+  if (body.role != null && String(body.role) !== "student") {
+    return NextResponse.json({ error: "Instructors are added by emailed invitation only — send one from Invitations. An existing account doesn't prove who owns the address." }, { status: 400 });
+  }
+  const role = "student";
 
   const { data: userId, error: lookupErr } = await admin.rpc("find_user_id_by_email", { p_email: email });
   if (lookupErr) return NextResponse.json({ error: lookupErr.message }, { status: 500 });

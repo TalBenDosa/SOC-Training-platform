@@ -26,6 +26,13 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!["org_admin", "instructor", "student"].includes(role)) {
     return NextResponse.json({ error: "Invalid role." }, { status: 400 });
   }
+  // SEC-02: sign-up doesn't verify the email address, so an existing account
+  // proves nothing about who owns it — someone may have pre-registered a future
+  // staff member's address. Staff roles are granted only through an emailed
+  // invitation, accepted from that mailbox (/api/invitations/[token]/accept).
+  if (role !== "student") {
+    return NextResponse.json({ error: "Admins and instructors are added by emailed invitation only — use “Invite an org admin” (or ask the college to invite the instructor). An existing account doesn't prove who owns the address." }, { status: 400 });
+  }
 
   const { data: userId, error: lookupErr } = await admin.rpc("find_user_id_by_email", { p_email: email });
   if (lookupErr) return NextResponse.json({ error: lookupErr.message }, { status: 500 });

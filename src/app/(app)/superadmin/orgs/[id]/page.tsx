@@ -56,7 +56,7 @@ export default function OrgDetailPage() {
 
   // add member
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<OrgRole>("student");
+  const role: OrgRole = "student";   // SEC-02: staff roles come by emailed invitation only
   const [adding, setAdding] = useState(false);
 
   // entering the environment (super-admin context switch)
@@ -510,18 +510,14 @@ export default function OrgDetailPage() {
               <h2 className="mb-3 text-sm font-bold text-white">Members ({activeMembers.length})</h2>
               <form onSubmit={addMember} className="mb-4 flex flex-wrap items-end gap-2">
                 <div className="flex-1 min-w-[200px]">
-                  <label className={label} htmlFor="m-email">Attach existing account by email</label>
+                  <label className={label} htmlFor="m-email">Attach an existing student account by email</label>
                   <input id="m-email" type="email" className={field} value={email} onChange={e => setEmail(e.target.value)} placeholder="student@college.ac.il" required />
                 </div>
-                <select className={`${field} w-auto`} value={role} onChange={e => setRole(e.target.value as OrgRole)} aria-label="Role">
-                  <option value="student">student</option>
-                  <option value="instructor">instructor</option>
-                  <option value="org_admin">org_admin</option>
-                </select>
                 <Button type="submit" variant="primary" size="sm" disabled={adding}>
                   <UserPlus className="mr-1.5 h-4 w-4" /> {adding ? "Adding…" : "Add"}
                 </Button>
               </form>
+              <p className="-mt-2 mb-4 text-[11px] text-slate-500">Admins and instructors get access only through an emailed invitation (“Invite an org admin”) — sign-up doesn&apos;t verify addresses, so an existing account doesn&apos;t prove who owns it.</p>
               {members.length === 0 ? (
                 <p className="text-sm text-slate-400">No members yet.</p>
               ) : (
