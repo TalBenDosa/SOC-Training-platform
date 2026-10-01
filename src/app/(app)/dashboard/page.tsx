@@ -526,7 +526,12 @@ export default function DashboardPage() {
     // L-03: pass the company's declared EDR so the attack arrives on the product it
     // actually runs (SentinelOne for MedCore, Sophos for GlobalLogis, …) instead of
     // always CrowdStrike.
-    if (o) return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr, id);
+    // QA phase 7 (info): a malformed college-authored story threw here and took
+    // the whole dashboard down — fall back to a built-in story for the company.
+    if (o) {
+      try { return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr, id); }
+      catch (e) { console.error(`[dashboard] org story for ${id} failed to build — using a built-in one:`, e); }
+    }
     return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id), getCompanyProfile(id).architecture?.edr, id);
   };
 
@@ -539,7 +544,11 @@ export default function DashboardPage() {
   // story's real process telemetry. Null for pure identity/cloud attacks (no
   // process tree), in which case "Investigate in EDR" opens the static console.
   const liveEdrInvestigation = useMemo(
-    () => (sim && sessionStory ? sim.buildInvestigationFromStory(sessionStory) : null),
+    () => {
+      if (!sim || !sessionStory) return null;
+      try { return sim.buildInvestigationFromStory(sessionStory); }
+      catch (e) { console.error("[dashboard] EDR view build failed — static console instead:", e); return null; }
+    },
     [sim, sessionStory],
   );
 
