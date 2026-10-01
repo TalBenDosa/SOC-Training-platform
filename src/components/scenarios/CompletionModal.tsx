@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { certificateIssuer, PRODUCTION_HOST } from "@/lib/certificate/issuer";
+import { pdfText } from "@/lib/certificate/pdfText";
 import { describeScenarioXp } from "@/lib/storage/scenarioXp";
 
 export interface GradeResult {
@@ -97,6 +98,7 @@ function ScoreBar({ score }: { score: number }) {
 
 export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onClose }: Props) {
   const [downloading, setDownloading] = useState(false);
+  const [certError, setCertError] = useState<string | null>(null);
   // The certificate must carry the SIGNED-IN learner's name — it was hardcoded
   // to a single real person's name, so every certificate anyone generated bore
   // that name. Falls back to the email local part / "analyst" for guests.
@@ -113,6 +115,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
 
   const handleDownloadCert = async () => {
     setDownloading(true);
+    setCertError(null);
     try {
       const { jsPDF } = await import("jspdf");
 
@@ -174,10 +177,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       pdf.text("This certifies that", W / 2, 72, { align: "center" });
 
       // ── Analyst name ──────────────────────────────────────────────────────────
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(28);
-      pdf.setTextColor(255, 255, 255);
-      pdf.text(analystName, W / 2, 88, { align: "center" });
+      pdfText(pdf, analystName, W / 2, 88, { size: 28, bold: true, rgb: [255, 255, 255], align: "center" });
 
       // Name underline
       pdf.setDrawColor(100, 116, 139);      // slate-500
@@ -191,11 +191,8 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       pdf.text("has successfully completed the scenario", W / 2, 101, { align: "center" });
 
       // ── Scenario title ────────────────────────────────────────────────────────
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(20);
-      pdf.setTextColor(34, 211, 238);
       const title = scenarioTitle.length > 48 ? scenarioTitle.slice(0, 45) + "…" : scenarioTitle;
-      pdf.text(title, W / 2, 116, { align: "center" });
+      pdfText(pdf, title, W / 2, 116, { size: 20, bold: true, rgb: [34, 211, 238], align: "center" });
 
       // ── Stats row ─────────────────────────────────────────────────────────────
       const statsY = 140;
@@ -237,16 +234,15 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       });
 
       // ── Footer ────────────────────────────────────────────────────────────────
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(71, 85, 105);         // slate-600
-      pdf.text(`Issued by ${issuer}  •  SOC Analyst Training  •  ${PRODUCTION_HOST}`, W / 2, H - 16, { align: "center" });
+      pdfText(pdf, `Issued by ${issuer}  •  SOC Analyst Training  •  ${PRODUCTION_HOST}`, W / 2, H - 16, { size: 8, rgb: [71, 85, 105], align: "center" });
 
       // ── Save ─────────────────────────────────────────────────────────────────
-      const safeName = scenarioTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const safeName = scenarioTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "scenario";
       pdf.save(`certificate-${safeName}.pdf`);
     } catch (err) {
       console.error("Certificate generation failed:", err);
+      // E-15: it used to just stop spinning — say so.
+      setCertError("Couldn't create the certificate — please try again. If it keeps failing, reload the page.");
     } finally {
       setDownloading(false);
     }
@@ -417,6 +413,9 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
         </div>
 
         {/* Actions */}
+        {certError && (
+          <p role="alert" className="border-t border-border px-6 pt-3 text-xs text-severity-high">{certError}</p>
+        )}
         <div className="border-t border-border px-6 py-4 flex flex-wrap gap-2 justify-end">
           <button
             onClick={onRetry}
