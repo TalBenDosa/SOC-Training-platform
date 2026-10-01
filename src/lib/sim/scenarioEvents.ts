@@ -2571,7 +2571,7 @@ export function impossibleTravelScenarioEvents() {
   const events: TelemetryEvent[] = [
     // ── Step 1: Normal Israeli login — baseline ────────────────────────────────
     {
-      id: "evt_imp_01_baseline", ts: T(0),
+      id: "evt_imp_01_baseline", is_baseline: true, ts: T(0),
       source: "vpn", vendor: "Palo Alto Networks PAN-OS",
       event_type: "vpn_login", severity: "informational",
       user_email: user.email,

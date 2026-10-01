@@ -410,7 +410,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
   // proper AttackStory (see ROCKETSTACK_CRED_STUFFING_CHAIN below, injected via
   // the Story Scheduler) instead of leaking randomly into this benign pool.
   {
-    id: "rs_bf_05_baseline", ts: "2026-05-10T09:12:00.000Z",
+    id: "rs_bf_05_baseline", is_baseline: true, ts: "2026-05-10T09:12:00.000Z",
     source: "okta", event_type: "auth_success", severity: "informational",
     vendor: "Okta", user_email: "a.kim@rocketstack.io", src_ip: "185.64.44.10",
     description: "a.kim logged in from Tel Aviv — normal morning login",

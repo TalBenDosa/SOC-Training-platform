@@ -61,7 +61,7 @@ export function helpdeskMfaResetScenarioEvents() {
 
   const events: TelemetryEvent[] = [
     // 1. BASELINE — an ordinary morning sign-in.
-    entraSignIn({
+    { ...entraSignIn({
       companyId: cx, id: "evt_hmr_01_baseline_signin", ts: T(0), srcIp: victim.homeIp, user: victim.email, displayName: victim.display,
       userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "5b2d7e4a-8c31-4b0d-9f5a-1c37a0e59d84", sessionId: baselineSessionId1,
       app: "Microsoft Office", appId: "d3590ed6-52b3-4102-aeff-aad2292ab01c", resource: "Microsoft Graph", mfa: true, isInteractive: true,
@@ -71,7 +71,7 @@ export function helpdeskMfaResetScenarioEvents() {
       geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 }, severity: "informational",
       extra: { "azure.signinlogs.properties.location.state": "England", "azure.signinlogs.properties.authenticationDetails": pwPush(T(0)) },
       description: "l.ferreira signed in to Microsoft Office at 09:00 from her usual London address on the corporate laptop LT-OPS-2214, MFA completed by an Authenticator push.",
-    }),
+    }), is_baseline: true },
 
     // 2. THE CALL — a ticket that looks like every other MFA-reset call.
     serviceNowRecord({
@@ -90,7 +90,7 @@ export function helpdeskMfaResetScenarioEvents() {
     }),
 
     // 3. The real employee, still working — the impossible-coexistence tell.
-    entraSignIn({
+    { ...entraSignIn({
       companyId: cx, id: "evt_hmr_03_second_baseline_signin", ts: T(45 * MIN), srcIp: victim.homeIp, user: victim.email, displayName: victim.display,
       userTitle: "Trade Settlements Analyst", userId: victim.id, correlationId: "d3f7c9a1-4b8e-40d2-9c6a-71f3b28e5c40", sessionId: baselineSessionId2,
       app: "SharePoint Online", appId: "00000003-0000-0ff1-ce00-000000000000", resource: "Office 365 SharePoint Online", mfa: true, isInteractive: true,
@@ -100,7 +100,7 @@ export function helpdeskMfaResetScenarioEvents() {
       geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 }, severity: "informational",
       extra: { "azure.signinlogs.properties.location.state": "England", "azure.signinlogs.properties.authenticationDetails": pwPush(T(45 * MIN)) },
       description: "l.ferreira signed in to SharePoint Online at 09:45 from the same London address and the same laptop, MFA completed by an Authenticator push — seven minutes before the ticket taken on her behalf is resolved.",
-    }),
+    }), is_baseline: true },
 
     // 4. Ticket resolved — routine close, on its face.
     serviceNowRecord({

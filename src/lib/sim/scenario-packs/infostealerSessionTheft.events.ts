@@ -57,7 +57,7 @@ export function infostealerSessionTheftScenarioEvents() {
 
   const events: TelemetryEvent[] = [
     // 1. Baseline — her own morning sign-in: real MFA, her enrolled device.
-    entraSignIn({
+    { ...entraSignIn({
       companyId: cx, id: "evt_ist_01_baseline_signin", ts: T(0), srcIp: corpEgress, user: victim.email,
       displayName: victim.name, userTitle: "Account Executive", userId, correlationId: "4a8f1c92-6d37-4e05-b8a1-9f2c6d4e7a13",
       sessionId: sessionIdBaseline, app: "Microsoft Office", appId: officeAppId, resource: "Microsoft Graph",
@@ -76,7 +76,7 @@ export function infostealerSessionTheftScenarioEvents() {
         "azure.signinlogs.properties.appliedConditionalAccessPolicies": caPolicy,
       },
       description: "Entra ID recorded r.avidan's ordinary interactive sign-in at 07:52, MFA satisfied by a live Authenticator push, from her enrolled laptop LAP-6688 on the London corporate egress.",
-    }),
+    }), is_baseline: true },
 
     // 2. She downloads a free converter from a freeware aggregator (PAN).
     panWeb({

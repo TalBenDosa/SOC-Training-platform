@@ -143,6 +143,7 @@ export function buildMobileMdmCompromiseScenario(
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_mmc_01_baseline_signin",
+      is_baseline: true,
       ts: T(-40 * MIN),
       source: "o365",
       vendor: "Microsoft Entra ID",

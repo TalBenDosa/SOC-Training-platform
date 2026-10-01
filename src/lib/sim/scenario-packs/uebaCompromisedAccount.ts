@@ -119,7 +119,7 @@ export function buildUebaCompromisedAccountScenario(
     }),
 
     // 1. THE BASELINE SIGN-IN — j.almeida's normal London logon.
-    entraSignIn({
+    { ...entraSignIn({
       companyId: "nexacorp", id: "evt_uca_01_baseline_signin", ts: T(-40 * MIN),
       user: victim.email, displayName: victim.name, userTitle: victim.title, userId: victim.userId,
       srcIp: victim.homeIp, geo: { country: "United Kingdom", city: "London", latitude: 51.5074, longitude: -0.1278 },
@@ -130,7 +130,7 @@ export function buildUebaCompromisedAccountScenario(
       riskLevel: "none", conditionalAccess: "success",
       description:
         "A normal interactive Entra sign-in for j.almeida at 23:00 from London (81.174.71.19), on his compliant, managed Windows workstation with MFA satisfied — his usual session.",
-    }),
+    }), is_baseline: true },
 
     // 2. THE ATYPICAL SIGN-IN — Sofia, hosting ASN, unmanaged, token-satisfied MFA.
     entraSignIn({
