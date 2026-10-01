@@ -106,3 +106,85 @@ function nativeDefault(ev: TelemetryEvent, cat: StackCategory): SourceId | null 
     default: return null;
   }
 }
+
+// ── Vendor choice (spec §3, step 2) ──────────────────────────────────────────
+
+/** Short product names shown in the feed and pickers (light — no module import). */
+export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
+  crowdstrike: "CrowdStrike Falcon", mde: "Microsoft Defender for Endpoint", sentinelone: "SentinelOne", sophos: "Sophos Intercept X",
+  paloalto: "Palo Alto Networks", fortigate: "Fortinet FortiGate", checkpoint: "Check Point", cisco_ftd: "Cisco Firepower (FTD)", cisco_asa: "Cisco ASA",
+  globalprotect: "GlobalProtect", anyconnect: "Cisco AnyConnect", fortigate_sslvpn: "FortiGate SSL-VPN", zscaler_zpa: "Zscaler Private Access", cloudflare_access: "Cloudflare Access",
+  entra: "Microsoft Entra ID", okta: "Okta",
+  m365: "Microsoft 365", google_workspace: "Google Workspace",
+  defender_o365: "Microsoft Defender for Office 365", proofpoint: "Proofpoint TAP",
+  windows_dns: "Windows DNS", infoblox: "Infoblox", zscaler_zia: "Zscaler Internet Access",
+};
+
+/** The categories a trainer can switch, with the products the platform renders natively. */
+export const STACK_CHOICES: { category: StackCategory; label: string; options: SourceId[]; note?: string }[] = [
+  { category: "edr", label: "EDR", options: ["crowdstrike", "mde", "sentinelone", "sophos"],
+    note: "Sophos streams no per-event DNS / network / file telemetry, so attacks that need that trail are not picked." },
+  { category: "firewall", label: "Firewall", options: ["paloalto", "fortigate", "checkpoint", "cisco_ftd", "cisco_asa"] },
+  { category: "vpn", label: "Remote access", options: ["globalprotect", "anyconnect", "fortigate_sslvpn", "zscaler_zpa", "cloudflare_access"],
+    note: "ZPA and Cloudflare sign in through SAML — password failures appear in the identity provider's logs instead." },
+  { category: "idp", label: "Identity provider", options: ["entra", "okta"] },
+  { category: "collab", label: "Email & files", options: ["m365", "google_workspace"],
+    note: "Google Workspace has no equivalent for Exchange inbox rules or mailbox delegation — those attacks are not picked." },
+  { category: "email_security", label: "Email security", options: ["defender_o365", "proofpoint"] },
+  { category: "dns", label: "DNS", options: ["windows_dns", "infoblox"] },
+];
+
+/** Keep only known categories / products (client input is never trusted). */
+export function sanitizeStack(input: unknown): Stack {
+  const out: Stack = {};
+  if (!input || typeof input !== "object") return out;
+  for (const c of STACK_CHOICES) {
+    const v = (input as Record<string, unknown>)[c.category];
+    if (typeof v === "string" && (c.options as string[]).includes(v)) out[c.category] = v as SourceId;
+  }
+  return out;
+}
+
+// Product names that appear in authored descriptions, per category — rewritten to
+// the chosen product so a row never says "Defender killed it" on a CrowdStrike shop.
+const NAME_FAMILIES: Partial<Record<StackCategory, string[]>> = {
+  edr: ["Microsoft Defender for Endpoint", "Microsoft Defender Antivirus", "Microsoft Defender ATP", "Defender for Endpoint", "Windows Defender",
+    "Microsoft Defender", "CrowdStrike Falcon Elite", "CrowdStrike Falcon", "CrowdStrike", "Falcon", "SentinelOne Singularity", "SentinelOne",
+    "Sophos Intercept X", "Sophos", "Defender"],
+  firewall: ["Palo Alto Networks", "Palo Alto NGFW", "Palo Alto", "PAN-OS", "Fortinet FortiGate", "FortiGate", "Fortinet", "Check Point",
+    "Cisco Firepower", "Firepower", "Cisco ASA"],
+  vpn: ["GlobalProtect", "Cisco AnyConnect", "AnyConnect", "Cisco Secure Client", "FortiGate SSL-VPN", "FortiClient", "Zscaler Private Access", "Cloudflare Access", "Cloudflare Zero Trust"],
+  idp: ["Microsoft Entra ID", "Entra ID", "Azure Active Directory", "Azure AD", "Okta"],
+  email_security: ["Microsoft Defender for Office 365", "Defender for Office 365", "Proofpoint TAP", "Proofpoint"],
+  dns: ["Infoblox", "Windows DNS"],
+};
+const COLLAB_TO_GOOGLE: [string, string][] = [
+  ["Microsoft 365", "Google Workspace"], ["Office 365", "Google Workspace"], ["SharePoint Online", "Google Drive"], ["SharePoint", "Google Drive"],
+  ["OneDrive", "Google Drive"], ["Exchange Online", "Gmail"], ["Outlook", "Gmail"],
+];
+const COLLAB_TO_M365: [string, string][] = [["Google Workspace", "Microsoft 365"], ["Google Drive", "OneDrive"], ["Gmail", "Outlook"]];
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function rewriteNames(text: string, pairs: [string, string][]): string {
+  // Placeholders first (longest names first), then targets — a rewrite never re-matches its own output.
+  const sorted = [...pairs].sort((a, b) => b[0].length - a[0].length);
+  let out = text;
+  sorted.forEach(([from], i) => { out = out.replace(new RegExp(`(?<![A-Za-z])${escapeRe(from)}(?![A-Za-z])`, "g"), `\u0000${i}\u0000`); });
+  return out.replace(/\u0000(\d+)\u0000/g, (_m, i) => sorted[Number(i)][1]);
+}
+
+/** Description with the category's product names switched to `sid`'s. */
+export function rewriteProductText(text: string | undefined, cat: StackCategory, sid: SourceId): string | undefined {
+  if (!text) return text;
+  if (cat === "collab") return rewriteNames(text, sid === "google_workspace" ? COLLAB_TO_GOOGLE : COLLAB_TO_M365);
+  const fam = NAME_FAMILIES[cat];
+  const to = PRODUCT_LABEL[sid];
+  if (!fam || !to) return text;
+  // Replace with a unique placeholder first so a rewrite never re-matches its own output.
+  let out = text;
+  const hits: string[] = [];
+  for (const name of [...fam].sort((a, b) => b.length - a.length)) {
+    out = out.replace(new RegExp(`(?<![A-Za-z])${escapeRe(name)}(?![A-Za-z])`, "g"), () => { hits.push(name); return "\u0000P\u0000"; });
+  }
+  return hits.length ? out.split("\u0000P\u0000").join(to) : text;
+}

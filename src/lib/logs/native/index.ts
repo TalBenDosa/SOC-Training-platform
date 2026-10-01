@@ -10,7 +10,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 import { makeCtx } from "./ctx";
-import { COMPANY_STACKS, sourceFor, type Stack } from "./stack";
+import { COMPANY_STACKS, sourceFor, categoryOf, rewriteProductText, PRODUCT_LABEL, type Stack } from "./stack";
 
 import { source as anyconnect } from "./sources/anyconnect";
 import { source as aws_cloudtrail } from "./sources/aws_cloudtrail";
@@ -76,10 +76,59 @@ export function useCasesFor(sourceId?: SourceId): UseCase[] {
 
 export type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 export type { Stack } from "./stack";
+export { STACK_CHOICES, PRODUCT_LABEL, sanitizeStack, COMPANY_STACKS } from "./stack";
 
 /** nativize + the product display name, for the feed UI (NativeLogContext). */
 export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack): { log: NativeLog; product: string } | null {
-  const log = nativize(ev, companyId, stack);
+  // A stacked event renders from its authored original, re-stamped with the displayed id/time.
+  const authored = (ev as TelemetryEvent & { _authored?: TelemetryEvent })._authored;
+  const log = nativize(authored ? { ...authored, id: ev.id, ts: ev.ts } : ev, companyId, stack);
   if (!log) return null;
   return { log, product: NATIVE_SOURCES[log.sourceId]?.schema.product ?? log.sourceId };
+}
+
+// ── Stack application (vendor choice) ────────────────────────────────────────
+
+/** An event shown under a chosen stack keeps its authored original for native rendering. */
+type StackedEvent = TelemetryEvent & { _authored?: TelemetryEvent };
+
+/**
+ * Can this event exist in a shop running `stack`? Categories without a native module
+ * always can; otherwise the chosen product must have a real record for it (Sophos has
+ * no DNS stream, Google has no inbox rules, ZPA logs no password failures …).
+ */
+export function fitsStack(ev: TelemetryEvent, companyId: string, stack?: Stack): boolean {
+  const base = (ev as StackedEvent)._authored ?? ev;
+  const id = sourceFor(base, stackFor(companyId, stack));
+  if (!id || !NATIVE_SOURCES[id]) return true;
+  return nativize(base, companyId, stack) !== null;
+}
+
+/** Every event of a story can be rendered under the stack (so the attack plays out whole). */
+export function storyFitsStack(events: TelemetryEvent[], companyId: string, stack?: Stack): boolean {
+  return events.every(e => fitsStack(e, companyId, stack));
+}
+
+/**
+ * The event as the chosen stack would show it: vendor = the chosen product, product
+ * names in the description switched, the collab / IdP source badge matching the
+ * product. The authored original rides along in `_authored` so native rendering uses
+ * exactly the converter path the corpus gate tests.
+ */
+export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack): TelemetryEvent {
+  const base = (ev as StackedEvent)._authored ?? ev;
+  const cat = categoryOf(base);
+  if (!cat || cat === "cloud" || cat === "k8s" || cat === "onprem_ad" || cat === "host_telemetry" || cat === "linux" || cat === "itsm" || cat === "pam") return ev;
+  const id = sourceFor(base, stackFor(companyId, stack));
+  if (!id) return ev;
+  const product = PRODUCT_LABEL[id];
+  const next: StackedEvent = {
+    ...ev,
+    _authored: base,
+    vendor: product ?? ev.vendor,
+    description: rewriteProductText(ev.description, cat, id),
+  };
+  if (cat === "collab") next.source = (id === "google_workspace" ? "gws" : base.source === "gws" ? "o365" : base.source) as TelemetryEvent["source"];
+  if (cat === "idp") next.source = (id === "okta" ? "okta" : base.source === "okta" ? "o365" : base.source) as TelemetryEvent["source"];
+  return next;
 }
