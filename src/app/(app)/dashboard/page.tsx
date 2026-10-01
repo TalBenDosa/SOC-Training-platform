@@ -532,7 +532,7 @@ export default function DashboardPage() {
     const active = o.profile.architecture?.sources ?? [];
     return [{ value: "all", label: "All Sources" }, ...SOURCES.filter(s => s.value !== "all" && active.includes(s.value))];
   };
-  const resolveStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string, difficulty?: Difficulty, edrOverride?: string): AttackStory => {
+  const resolveStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string, difficulty?: Difficulty, edrOverride?: string, accept?: (st: AttackStory) => boolean): AttackStory => {
     const o = orgMap.get(id);
     // L-03: pass the company's declared EDR so the attack arrives on the product it
     // actually runs (SentinelOne for MedCore, Sophos for GlobalLogis, …) instead of
@@ -543,7 +543,8 @@ export default function DashboardPage() {
       try { return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr, id); }
       catch (e) { console.error(`[dashboard] org story for ${id} failed to build — using a built-in one:`, e); }
     }
-    return s.instantiateStory(s.pickStoryForCompany(id, difficulty), getCompanyEvents(s, id), edrOverride ?? getCompanyProfile(id).architecture?.edr, id);
+    const edr = edrOverride ?? getCompanyProfile(id).architecture?.edr;
+    return s.instantiateStory(s.pickStoryForCompany(id, difficulty, accept && (st => accept(s.instantiateStory(st, getCompanyEvents(s, id), edr, id)))), getCompanyEvents(s, id), edr, id);
   };
 
   // Empty until sim loads; the real pool is handed to the feed via live.reset()
@@ -562,12 +563,14 @@ export default function DashboardPage() {
   /** The company pool as the chosen products would log it (records they can't produce are dropped). */
   const stackedPool = (events: TelemetryEvent[], company: string, stack: Stack, nm: typeof nativeMod) =>
     nm ? events.filter(e => nm.fitsStack(e, company, stack)).map(e => nm.applyStack(e, company, stack)) : events;
-  /** A story every event of which the chosen products can really show (15 tries), relabelled for them. */
+  /** A story every event of which the chosen products can really show (drawn only from those), relabelled for them. */
   const stackedStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, company: string, difficulty: Difficulty | undefined, stack: Stack, nm: typeof nativeMod): AttackStory => {
     const edr = stack.edr ? PRODUCT_LABEL[stack.edr] : undefined;
-    let st = resolveStory(s, orgMap, company, difficulty, edr);
-    if (!nm) return st;
-    for (let i = 0; i < 15 && !nm.storyFitsStack(st.events, company, stack); i++) st = resolveStory(s, orgMap, company, difficulty, edr);
+    if (!nm) return resolveStory(s, orgMap, company, difficulty, edr);
+    // With the company's own products only the lock rule applies: a story written about
+    // another vendor's artifacts (PRODUCT_LOCKS) is not drawn where it'd be shown as a different product.
+    const chosen = Object.keys(stack).length > 0;
+    const st = resolveStory(s, orgMap, company, difficulty, edr, x => (chosen ? nm.storyFitsStack(x.events, company, stack) : nm.storyHonoursLocks(x.events, company)));
     return { ...st, events: st.events.map(e => nm.applyStack(e, company, stack)) };
   };
   const eventPool       = useMemo(() => (sim ? stackedPool(resolveEvents(sim, orgCompanyMap, selectedCompanyId), selectedCompanyId, sessionStack, nativeMod) : []), [sim, selectedCompanyId, orgCompanyMap, sessionStack, nativeMod]); // eslint-disable-line react-hooks/exhaustive-deps

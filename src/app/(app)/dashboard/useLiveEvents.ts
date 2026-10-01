@@ -10,6 +10,29 @@ import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 
+
+/**
+ * Event times for a batch that arrives together (one attack phase): spread over the
+ * last minute or two and strictly in story order, the newest a few seconds before
+ * now. A log is never stamped in the future — ingestion lag makes it arrive AFTER it
+ * happened, not before (the old stamping added the lag to the event time).
+ */
+export function phaseTimes(n: number, now: number, rnd: () => number = Math.random): number[] {
+  const out: number[] = new Array(n);
+  let t = now - (5_000 + Math.floor(rnd() * 15_000));          // newest: 5-20 s ago
+  for (let i = n - 1; i >= 0; i--) { out[i] = t; t -= 20_000 + Math.floor(rnd() * 25_000); } // 20-45 s apart
+  return out;
+}
+
+/** Newest first by event time (stable): a log that arrives late slots into its place, as in a SIEM. */
+export function mergeByTime<T extends { ts?: string }>(batch: T[], prev: T[], max: number): T[] {
+  return [...batch, ...prev]
+    .map((e, i) => { const t = Date.parse(e.ts ?? ""); return { e, i, t: Number.isFinite(t) ? t : Infinity }; })
+    .sort((a, b) => b.t - a.t || a.i - b.i)
+    .slice(0, max)
+    .map(x => x.e);
+}
+
 export interface ActiveIncident {
   id: string;
   title: string;
@@ -35,7 +58,7 @@ export interface MissedIncidentDebrief {
 // Display enrichment + feed helpers live in ./liveEventEnrich (no engine import —
 // the team room uses enrichEvent without pulling the simulation's answer data).
 import {
-  enrichEvent, applyUserVariant, buildRuleId, extractDomainUsers, ingestionDelayMs, injectAdvancedFidelityNoise, isOnceOnly, jitteredOffset, severityBase, shuffleArray,
+  enrichEvent, applyUserVariant, buildRuleId, extractDomainUsers, injectAdvancedFidelityNoise, isOnceOnly, jitteredOffset, severityBase, shuffleArray,
   type LiveEvent,
 } from "./liveEventEnrich";
 export { enrichEvent };
@@ -476,14 +499,15 @@ export function useLiveEvents({
           if (attackEvents && attackEvents.length > 0) {
             const isFP = world.attack?.isFP ?? false;
             const now  = Date.now();
+            const times = phaseTimes(attackEvents.length, now);
             const raw  = attackEvents.map((g: GeneratedEvent, i: number) => {
               const tele = generatedToTelemetry(g, globalIdx.current + i);
               return {
                 ...tele,
-                // L-02: spread the incident's events across minutes with a per-source
-                // ingestion lag, not a 3-4s burst — building the timeline is now a
-                // real correlation exercise, not "take everything within 11 seconds".
-                ts: new Date(now + i * (30_000 + Math.floor(Math.random() * 45_000)) + ingestionDelayMs(tele.source)).toISOString(),
+                // L-02: spread the incident's events across the last minutes, not a 3-4s
+                // burst — building the timeline is a real correlation exercise — and
+                // never in the future (phaseTimes).
+                ts: new Date(times[i]).toISOString(),
                 id: `eng_atk_${now}_${i}`,
               };
             });
@@ -523,7 +547,7 @@ export function useLiveEvents({
             }
 
             setNewIds(batchIds);
-            setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
+            setEvents(prev => mergeByTime(enriched, prev, maxVisible));
             setTimeout(() => setNewIds(new Set()), 2000);
 
             // Completed uncaught → schedule the POSITIVE Learning-Moment debrief
@@ -553,7 +577,7 @@ export function useLiveEvents({
         const enriched = newRaw.map(e => enrichWithFidelity(withRebasedTime(e, new Date().toISOString()), globalIdx.current++));
         const batchIds  = new Set(enriched.map(e => e.id));
         setNewIds(batchIds);
-        setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
+        setEvents(prev => mergeByTime(enriched, prev, maxVisible));
         setTimeout(() => setNewIds(new Set()), 1500);
         return;
       }
@@ -586,7 +610,7 @@ export function useLiveEvents({
       });
       const batchIds  = new Set(enriched.map(e => e.id));
       setNewIds(batchIds);
-      setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
+      setEvents(prev => mergeByTime(enriched, prev, maxVisible));
       setTimeout(() => setNewIds(new Set()), 1500);
     }, intervalMs);
 
@@ -628,10 +652,12 @@ export function useLiveEvents({
     const isFirstPhase = cursor === 0;
     const n = Math.min(s.events.length - cursor, 2 + (Math.random() < 0.5 ? 1 : 0)); // 2-3 events
     const now = Date.now();
+    const times = phaseTimes(n, now);
     const slice = s.events.slice(cursor, cursor + n).map((e, i) => ({
-      // L-02: spread over minutes + per-source ingestion delay (was a 4s burst),
-      // so the attack no longer stands out as "the only thing off the 60s grid".
-      ...withRebasedTime(e, new Date(now + i * (30_000 + Math.floor(Math.random() * 45_000)) + ingestionDelayMs(e.source)).toISOString()),
+      // L-02: spread over the last minute or two in story order (was a 4s burst), so
+      // the attack doesn't stand out as "the only thing off the 60s grid" — and never
+      // stamped in the future (phaseTimes).
+      ...withRebasedTime(e, new Date(times[i]).toISOString(), { storyClock: "local" }),
       id: `atk_${e.id}_${now}_${i}`,
     }));
     storyCursorRef.current = cursor + n;
@@ -677,7 +703,7 @@ export function useLiveEvents({
     }
 
     setNewIds(batchIds);
-    setEvents(prev => [...enriched, ...prev].slice(0, maxVisible));
+    setEvents(prev => mergeByTime(enriched, prev, maxVisible));
     setTimeout(() => setNewIds(new Set()), 2000);
 
     if (storyCursorRef.current >= s.events.length) {

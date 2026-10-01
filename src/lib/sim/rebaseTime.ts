@@ -56,17 +56,45 @@ export function rebaseTimestamps(value: unknown, deltaMs: number): unknown {
   return value;
 }
 
+// A wall-clock time in prose ("at 09:45", "At 02:47:10") — not part of a MAC, an IPv6
+// address, a version or a longer number.
+const CLOCK_RE = /(?<![\w:.])([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(?![\w:])/g;
+const p2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Attack-story prose names its own clock times, authored as the UTC wall time of the
+ * event's authored `ts` ("signed in at 09:45"). When the event is re-stamped, those
+ * times move by the same delta and are written in `zone` — "local" for the viewer's
+ * clock, the one the feed's time column uses — so the row and its text agree.
+ */
+export function shiftClockText(text: string, origMs: number, deltaMs: number, zone: "utc" | "local" = "local"): string {
+  if (!text || !deltaMs || !Number.isFinite(origMs)) return text;
+  const o = new Date(origMs);
+  return text.replace(CLOCK_RE, (m, hh: string, mm: string, ss: string | undefined) => {
+    let at = Date.UTC(o.getUTCFullYear(), o.getUTCMonth(), o.getUTCDate(), Number(hh), Number(mm), Number(ss ?? 0));
+    while (at - origMs > 12 * 3_600_000) at -= 86_400_000;   // the mention nearest the event
+    while (origMs - at > 12 * 3_600_000) at += 86_400_000;
+    const d = new Date(at + deltaMs);
+    const [h, mi, s] = zone === "utc" ? [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()] : [d.getHours(), d.getMinutes(), d.getSeconds()];
+    return ss === undefined ? `${p2(h)}:${p2(mi)}` : `${p2(h)}:${p2(mi)}:${p2(s)}`;
+  });
+}
+
 /**
  * Stamp an event's outer `ts` to `newTsIso` AND shift every timestamp inside its
  * raw{} by the same delta, so the raw evidence stays coherent with the displayed
  * time. Use this everywhere the feed re-times a pooled/story event.
  */
-export function withRebasedTime<E extends { ts?: string; raw?: Record<string, unknown> }>(
-  e: E, newTsIso: string,
+export function withRebasedTime<E extends { ts?: string; raw?: Record<string, unknown>; description?: string }>(
+  e: E, newTsIso: string, opts: { storyClock?: "utc" | "local" } = {},
 ): E {
   const origMs = e.ts ? Date.parse(e.ts) : NaN;
   const newMs = Date.parse(newTsIso);
   const delta = Number.isFinite(origMs) && Number.isFinite(newMs) ? newMs - origMs : 0;
-  if (delta === 0 || !e.raw) return { ...e, ts: newTsIso };
-  return { ...e, ts: newTsIso, raw: rebaseTimestamps(e.raw, delta) as Record<string, unknown> };
+  // Story prose moves with the event (opt-in: a benign row's "at 03:15 — scheduled
+  // end-of-day job" states a schedule, not the row's own time).
+  const description = opts.storyClock && e.description ? shiftClockText(e.description, origMs, delta, opts.storyClock) : e.description;
+  const withDesc = description === e.description ? e : { ...e, description };
+  if (delta === 0 || !e.raw) return { ...withDesc, ts: newTsIso };
+  return { ...withDesc, ts: newTsIso, raw: rebaseTimestamps(e.raw, delta) as Record<string, unknown> };
 }

@@ -25,7 +25,7 @@ export type Difficulty = "easy" | "medium" | "hard";
 export interface SimData {
   BENIGN_EVENTS: TelemetryEvent[];
   COMPANY_EVENTS: Record<string, TelemetryEvent[]>;
-  pickStoryForCompany: (companyId: string, difficulty?: Difficulty) => AttackStory;
+  pickStoryForCompany: (companyId: string, difficulty?: Difficulty, accept?: (s: AttackStory) => boolean) => AttackStory;
   instantiateStory: (story: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string) => AttackStory;
   buildInvestigationFromStory: (story: AttackStory) => EdrInvestigation | null;
 }

@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { ChevronDown, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { STACK_CHOICES, PRODUCT_LABEL, COMPANY_STACKS, type Stack } from "@/lib/logs/native/stack";
+import { STACK_CHOICES, PRODUCT_LABEL, COMPANY_STACKS, coherentStack, type Stack } from "@/lib/logs/native/stack";
 import { lsGet, lsSet } from "@/lib/storage/safeStorage";
 
 const storeKey = (companyId: string) => `soc_stack_${companyId}`;
@@ -34,8 +34,10 @@ export function StackPicker({ companyId, value, onChange, defaultOpen = false, i
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const base = COMPANY_STACKS[companyId] ?? {};
-  const effective = (cat: (typeof STACK_CHOICES)[number]["category"]) => value[cat] ?? base[cat] ?? "";
-  const changed = STACK_CHOICES.filter(c => value[c.category] && value[c.category] !== base[c.category]).length;
+  const merged = coherentStack({ ...base, ...value });
+  const effective = (cat: (typeof STACK_CHOICES)[number]["category"]) => merged[cat] ?? "";
+  const googleMail = merged.collab === "google_workspace";
+  const changed = STACK_CHOICES.filter(c => merged[c.category] && merged[c.category] !== base[c.category]).length;
   const summary = STACK_CHOICES.map(c => PRODUCT_LABEL[effective(c.category) as keyof typeof PRODUCT_LABEL]).filter(Boolean).join(" · ");
 
   return (
@@ -62,16 +64,19 @@ export function StackPicker({ companyId, value, onChange, defaultOpen = false, i
                 <div className="flex items-center gap-3">
                   <label htmlFor={id} className="w-36 shrink-0 text-xs text-slate-400">{c.label}</label>
                   <select id={id} value={current}
-                    onChange={e => onChange({ ...value, [c.category]: e.target.value || undefined })}
+                    onChange={e => onChange(stackDelta(companyId, coherentStack({ ...merged, [c.category]: e.target.value || undefined })))}
                     className="h-8 min-w-0 flex-1 rounded-md border border-border bg-bg-elevated px-2 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none">
                     {!current && <option value="">— not in this environment —</option>}
                     {c.options.map(o => (
-                      <option key={o} value={o}>{PRODUCT_LABEL[o]}{base[c.category] === o ? " (company default)" : ""}</option>
+                      <option key={o} value={o} disabled={googleMail && o === "defender_o365"}>{PRODUCT_LABEL[o]}{base[c.category] === o ? " (company default)" : ""}{googleMail && o === "defender_o365" ? " — needs Microsoft 365" : ""}</option>
                     ))}
                   </select>
                 </div>
                 {c.note && current && (current === "sophos" || current === "zscaler_zpa" || current === "cloudflare_access" || current === "google_workspace") && (
                   <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">{c.note}</p>
+                )}
+                {c.category === "email_security" && googleMail && (
+                  <p className="ml-[9.75rem] mt-1 text-[10px] leading-relaxed text-slate-500">Defender for Office 365 only filters Exchange Online mail — a Google Workspace tenant&apos;s mail runs through Proofpoint.</p>
                 )}
               </div>
             );

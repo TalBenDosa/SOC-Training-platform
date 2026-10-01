@@ -10,7 +10,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 import { makeCtx } from "./ctx";
-import { COMPANY_STACKS, sourceFor, categoryOf, rewriteProductText, PRODUCT_LABEL, type Stack } from "./stack";
+import { COMPANY_STACKS, sourceFor, categoryOf, rewriteProductText, PRODUCT_LABEL, coherentStack, PRODUCT_LOCKS, M365_CLIENT_TEXT, M365_CLIENT_RECORD, MS_LOGIN_RECORD, STACK_CHOICES, type Stack, type StackCategory } from "./stack";
 
 import { source as anyconnect } from "./sources/anyconnect";
 import { source as aws_cloudtrail } from "./sources/aws_cloudtrail";
@@ -53,7 +53,7 @@ export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
 };
 
 export function stackFor(companyId: string, override?: Stack): Stack {
-  return { ...(COMPANY_STACKS[companyId] ?? {}), ...(override ?? {}) };
+  return coherentStack({ ...(COMPANY_STACKS[companyId] ?? {}), ...(override ?? {}) });
 }
 
 /**
@@ -101,16 +101,48 @@ export function authoredOf(ev: TelemetryEvent): TelemetryEvent {
   return { ...rest, source: (_authored_source ?? ev.source) as TelemetryEvent["source"], vendor: _authored_vendor ?? ev.vendor };
 }
 
+/** Endpoint / network telemetry: its records name the client software that really ran. */
+const CLIENT_SIDE = new Set<string>(["edr", "host_telemetry", "onprem_ad", "dns", "firewall", "proxy"]);
+
 /**
- * Can this event exist in a shop running `stack`? Categories without a native module
- * always can; otherwise the chosen product must have a real record for it (Sophos has
- * no DNS stream, Google has no inbox rules, ZPA logs no password failures …).
+ * Can this event exist in a shop running `stack`? The chosen product must have a real
+ * record for it (Sophos has no DNS stream, Google has no inbox rules, ZPA logs no
+ * password failures …); an event citing another product's own artifacts (PRODUCT_LOCKS)
+ * can't be shown as the chosen one; and a Google Workspace shop's endpoints don't run
+ * Outlook / Teams / OneDrive or sign in to Microsoft (unless Entra is its IdP).
  */
+/** The event cites artifacts of the product it was written for, and the stack shows it as another. */
+function lockedOut(base: TelemetryEvent, id: string | null): boolean {
+  if (!id || !NATIVE_SOURCES[id as keyof typeof NATIVE_SOURCES]) return false;
+  const authored = sourceFor(base, {});
+  return !!authored && authored !== id && !!PRODUCT_LOCKS[authored]?.test(base.description ?? "");
+}
+
+/**
+ * The lock rule alone: no event of the story is a vendor-specific one shown as another
+ * vendor. Used for the company's own products, where a record the product lacks just
+ * stays in the legacy view (the full fitsStack rule is for a chosen stack).
+ */
+export function storyHonoursLocks(events: TelemetryEvent[], companyId: string, stack?: Stack): boolean {
+  const eff = stackFor(companyId, stack);
+  return events.every(e => { const base = authoredOf(e); return !lockedOut(base, sourceFor(base, eff)); });
+}
+
 export function fitsStack(ev: TelemetryEvent, companyId: string, stack?: Stack): boolean {
   const base = authoredOf(ev);
-  const id = sourceFor(base, stackFor(companyId, stack));
-  if (!id || !NATIVE_SOURCES[id]) return true;
-  return nativize(base, companyId, stack) !== null;
+  const eff = stackFor(companyId, stack);
+  const cat = categoryOf(base);
+  const id = sourceFor(base, eff);
+  if (lockedOut(base, id)) return false;
+  const log = id && NATIVE_SOURCES[id] ? nativize(base, companyId, stack) : undefined;
+  if (log === null) return false;
+  if (eff.collab === "google_workspace" && cat && CLIENT_SIDE.has(cat)) {
+    if (M365_CLIENT_TEXT.test(base.description ?? "")) return false;
+    const rec = log ? JSON.stringify(log.record) : "";
+    if (M365_CLIENT_RECORD.test(rec)) return false;
+    if (eff.idp !== "entra" && (MS_LOGIN_RECORD.test(rec) || MS_LOGIN_RECORD.test(base.description ?? ""))) return false;
+  }
+  return true;
 }
 
 /** Every event of a story can be rendered under the stack (so the attack plays out whole). */
@@ -127,19 +159,32 @@ export function storyFitsStack(events: TelemetryEvent[], companyId: string, stac
 export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack): TelemetryEvent {
   const base = authoredOf(ev);
   const cat = categoryOf(base);
-  if (!cat || cat === "cloud" || cat === "k8s" || cat === "onprem_ad" || cat === "host_telemetry" || cat === "linux" || cat === "itsm" || cat === "pam") return ev;
-  const id = sourceFor(base, stackFor(companyId, stack));
-  if (!id) return ev;
+  const eff = stackFor(companyId, stack);
+  // Products of the categories the session changed, named in any row ("signed in to
+  // SharePoint Online" on an IdP event in a Google shop).
+  const own = COMPANY_STACKS[companyId] ?? {};
+  let description = ev.description;
+  for (const c of STACK_CHOICES) {
+    const sid = eff[c.category];
+    if (sid && c.category !== cat && sid !== own[c.category]) description = rewriteProductText(description, c.category as StackCategory, sid);
+  }
+  if (!cat || cat === "cloud" || cat === "k8s" || cat === "onprem_ad" || cat === "host_telemetry" || cat === "linux" || cat === "itsm" || cat === "pam") {
+    return description === ev.description ? ev : { ...ev, description };
+  }
+  const id = sourceFor(base, eff);
+  if (!id) return description === ev.description ? ev : { ...ev, description };
   const product = PRODUCT_LABEL[id];
   const next: StackedEvent = {
     ...ev,
     _authored_source: base.source,
     _authored_vendor: base.vendor,
     vendor: product ?? ev.vendor,
-    description: rewriteProductText(ev.description, cat, id),
+    description: rewriteProductText(description, cat, id),
   };
   if (cat === "collab") next.source = (id === "google_workspace" ? "gws" : base.source === "gws" ? "o365" : base.source) as TelemetryEvent["source"];
   if (cat === "idp") next.source = (id === "okta" ? "okta" : base.source === "okta" ? "o365" : base.source) as TelemetryEvent["source"];
+  // Proofpoint is a mail gateway, not part of Office 365 — the row's source badge says so.
+  if (cat === "email_security") next.source = (id === "proofpoint" ? "email_gateway" : base.source === "email_gateway" ? "o365" : base.source) as TelemetryEvent["source"];
   return next;
 }
 

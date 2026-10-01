@@ -103,6 +103,15 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     || baseName(rawStr(event.raw, "file.name", "crowdstrike.FileName", "data.office365.SourceFileName"));
   const op = operationOf(event);
 
+  // A service-desk record (ServiceNow): the ticket's own number, state and summary
+  // are the observable — not a generic "policy modified".
+  const ticket = rawStr(event.raw, "servicenow.number");
+  if (ticket) {
+    const state = rawStr(event.raw, "servicenow.state");
+    const summary = rawStr(event.raw, "servicenow.short_description");
+    return `Ticket ${ticket}${state ? ` (${state})` : ""}${summary ? `: ${summary}` : ""}`;
+  }
+
   switch (event.event_type) {
     case "process_create":
       if (p) return `${p.parent_name || "System"} started ${p.name}${host}`;

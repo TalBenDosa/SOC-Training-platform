@@ -135,6 +135,14 @@ export const STACK_CHOICES: { category: StackCategory; label: string; options: S
 ];
 
 /** Keep only known categories / products (client input is never trusted). */
+/**
+ * Products that can't coexist: Defender for Office 365 filters Exchange Online mail
+ * only, so a Google Workspace tenant's mail security is Proofpoint (which fronts Gmail).
+ */
+export function coherentStack(s: Stack): Stack {
+  return s.collab === "google_workspace" && s.email_security === "defender_o365" ? { ...s, email_security: "proofpoint" } : s;
+}
+
 export function sanitizeStack(input: unknown): Stack {
   const out: Stack = {};
   if (!input || typeof input !== "object") return out;
@@ -148,29 +156,73 @@ export function sanitizeStack(input: unknown): Stack {
 // Product names that appear in authored descriptions, per category — rewritten to
 // the chosen product so a row never says "Defender killed it" on a CrowdStrike shop.
 const NAME_FAMILIES: Partial<Record<StackCategory, string[]>> = {
-  edr: ["Microsoft Defender for Endpoint", "Microsoft Defender Antivirus", "Microsoft Defender ATP", "Defender for Endpoint", "Windows Defender",
+  // Microsoft Defender Antivirus / Windows Defender are the Windows built-in AV, present under any EDR
+  // (passive mode beside Falcon / S1 / Sophos) — they are kept, not renamed (see BUILTIN_AV).
+  edr: ["Microsoft Defender for Endpoint", "Microsoft Defender ATP", "Defender for Endpoint",
     "Microsoft Defender", "CrowdStrike Falcon Elite", "CrowdStrike Falcon", "CrowdStrike", "Falcon", "SentinelOne Singularity", "SentinelOne",
     "Sophos Intercept X", "Sophos", "Defender"],
   firewall: ["Palo Alto Networks", "Palo Alto NGFW", "Palo Alto", "PAN-OS", "Fortinet FortiGate", "FortiGate", "Fortinet", "Check Point",
     "Cisco Firepower", "Firepower", "Cisco ASA"],
   vpn: ["GlobalProtect", "Cisco AnyConnect", "AnyConnect", "Cisco Secure Client", "FortiGate SSL-VPN", "FortiClient", "Zscaler Private Access", "Cloudflare Access", "Cloudflare Zero Trust"],
-  idp: ["Microsoft Entra ID", "Entra ID", "Azure Active Directory", "Azure AD", "Okta"],
+  idp: ["Microsoft Entra ID", "Microsoft Entra", "Entra ID", "Entra", "Azure Active Directory", "Azure AD", "Okta"],
   email_security: ["Microsoft Defender for Office 365", "Defender for Office 365", "Proofpoint TAP", "Proofpoint"],
   dns: ["Infoblox", "Windows DNS"],
 };
 const COLLAB_TO_GOOGLE: [string, string][] = [
-  ["Microsoft 365", "Google Workspace"], ["Office 365", "Google Workspace"], ["SharePoint Online", "Google Drive"], ["SharePoint", "Google Drive"],
+  ["Microsoft 365", "Google Workspace"], ["Office 365", "Google Workspace"], ["Microsoft Office", "Google Workspace"], ["SharePoint Online", "Google Drive"], ["SharePoint", "Google Drive"],
   ["OneDrive", "Google Drive"], ["Exchange Online", "Gmail"], ["Outlook", "Gmail"],
 ];
 const COLLAB_TO_M365: [string, string][] = [["Google Workspace", "Microsoft 365"], ["Google Drive", "OneDrive"], ["Gmail", "Outlook"]];
+/** Windows' own AV and its components: the same on every endpoint whatever the EDR. "Defender AV" is spelled out. */
+const BUILTIN_AV = /(?<![A-Za-z])(?:(?:Microsoft|Windows) Defender (?:Antivirus|AV|Credential Guard|Firewall|SmartScreen|real-time protection)|Windows Defender|Defender (?:AV|Antivirus))(?![A-Za-z])/g;
+/** Okta has no "Conditional Access" (its equivalent is the sign-on policy) and pushes MFA through Okta Verify. */
+const IDP_TO_OKTA: [RegExp, string][] = [[/Conditional Access polic(y|ies)/g, "Okta sign-on polic$1"], [/Conditional Access/g, "Okta sign-on policy"], [/Microsoft Authenticator/g, "Okta Verify"]];
+const IDP_TO_ENTRA: [RegExp, string][] = [[/Okta sign-on polic(y|ies)/g, "Conditional Access polic$1"], [/Okta Verify/g, "Microsoft Authenticator"]];
+
+/**
+ * Artifacts only one product has — its OS, its own field names, its API paths. An
+ * event that cites them was written about that product and can't be shown as
+ * another one (a FortiOS API-bypass story is not a PAN-OS story).
+ */
+export const PRODUCT_LOCKS: Partial<Record<SourceId, RegExp>> = {
+  fortigate: /FortiOS|FortiGuard|\bdata\.(?:user|srcip|dstip|action)\b|\/api\/v2\/(?:cmdb|monitor)\//,
+  fortigate_sslvpn: /FortiOS|SSL-VPN|\/remote\/(?:login|logincheck)/,
+  paloalto: /PAN-OS|WildFire|App-ID|Panorama/,
+  globalprotect: /GlobalProtect portal|HIP (?:check|report|profile)/,
+  checkpoint: /SmartConsole|SmartEvent|ThreatCloud/,
+  cisco_asa: /%ASA-\d/,
+  cisco_ftd: /%FTD-\d|Firepower Management Center/,
+  crowdstrike: /Real Time Response|OverWatch/,
+  mde: /Advanced Hunting|DeviceProcessEvents/,
+  sentinelone: /Storyline|Deep Visibility/,
+  sophos: /Sophos Central/,
+  okta: /ThreatInsight/,
+  entra: /non-interactive|Identity Protection/,
+};
+
+/** Microsoft 365 client software / endpoints — background noise a Google Workspace shop doesn't produce. */
+export const M365_CLIENT_TEXT = /\b(?:Outlook|Teams|OneDrive|SharePoint|Microsoft 365|Office 365|Exchange Online)\b/;
+export const M365_CLIENT_RECORD = /OUTLOOK\.EXE|Teams\.exe|ms-teams\.exe|OneDrive\.exe|office365\.com|teams\.microsoft\.com|sharepoint\.com|outlook\.office\.com/i;
+export const MS_LOGIN_RECORD = /login\.microsoftonline\.com|login\.live\.com/i;
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** "a Okta sign-on policy" → "an Okta …", "an Microsoft 365 …" → "a Microsoft 365 …" next to a swapped-in name. */
+function fixArticles(text: string, names: string[]): string {
+  let out = text;
+  for (const n of new Set(names)) {
+    const an = /^[AEIO]/.test(n) || /^(?:Okta|Infoblox|Outlook|Office|Entra)/.test(n);
+    out = out.replace(new RegExp(`(?<![A-Za-z])(a|an|A|An) (?=${escapeRe(n)}(?![A-Za-z]))`, "g"),
+      (_m, art: string) => `${art[0] === "A" ? (an ? "An" : "A") : (an ? "an" : "a")} `);
+  }
+  return out;
+}
 function rewriteNames(text: string, pairs: [string, string][]): string {
   // Placeholders first (longest names first), then targets — a rewrite never re-matches its own output.
   const sorted = [...pairs].sort((a, b) => b[0].length - a[0].length);
   let out = text;
   sorted.forEach(([from], i) => { out = out.replace(new RegExp(`(?<![A-Za-z])${escapeRe(from)}(?![A-Za-z])`, "g"), `\u0000${i}\u0000`); });
-  return out.replace(/\u0000(\d+)\u0000/g, (_m, i) => sorted[Number(i)][1]);
+  const done = out.replace(/\u0000(\d+)\u0000/g, (_m, i) => sorted[Number(i)][1]);
+  return done === text ? text : fixArticles(done, sorted.map(p => p[1]));
 }
 
 /** Description with the category's product names switched to `sid`'s. */
@@ -180,11 +232,16 @@ export function rewriteProductText(text: string | undefined, cat: StackCategory,
   const fam = NAME_FAMILIES[cat];
   const to = PRODUCT_LABEL[sid];
   if (!fam || !to) return text;
-  // Replace with a unique placeholder first so a rewrite never re-matches its own output.
   let out = text;
-  const hits: string[] = [];
-  for (const name of [...fam].sort((a, b) => b.length - a.length)) {
-    out = out.replace(new RegExp(`(?<![A-Za-z])${escapeRe(name)}(?![A-Za-z])`, "g"), () => { hits.push(name); return "\u0000P\u0000"; });
+  const kept: string[] = [];
+  if (cat === "edr" && sid !== "mde") {
+    out = out.replace(BUILTIN_AV, m => { kept.push(/^Defender (AV|Antivirus)$/.test(m) ? "Microsoft Defender Antivirus" : m); return `\u0000K${kept.length - 1}\u0000`; });
   }
-  return hits.length ? out.split("\u0000P\u0000").join(to) : text;
+  if (cat === "idp") for (const [re, by] of sid === "okta" ? IDP_TO_OKTA : IDP_TO_ENTRA) out = out.replace(re, by);
+  // Replace with a unique placeholder first so a rewrite never re-matches its own output.
+  for (const name of [...fam].sort((a, b) => b.length - a.length)) {
+    out = out.replace(new RegExp(`(?<![A-Za-z])${escapeRe(name)}(?![A-Za-z])`, "g"), "\u0000P\u0000");
+  }
+  out = out.split("\u0000P\u0000").join(to).replace(/\u0000K(\d+)\u0000/g, (_m, i: string) => kept[Number(i)]);
+  return out === text ? text : fixArticles(out, [to, "Okta sign-on policy", "Okta Verify", "Microsoft Authenticator", "Conditional Access", ...kept]);
 }

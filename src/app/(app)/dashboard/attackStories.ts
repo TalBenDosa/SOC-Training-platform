@@ -974,10 +974,14 @@ function pushRecent(id: string) {
 /**
  * Pick the session's attack story for a company: fits the company architecture,
  * matches the requested difficulty's complexity tier, avoids the last N
- * stories seen, remembers the choice.
+ * stories seen, remembers the choice. `accept` narrows the draw (e.g. to stories the
+ * session's chosen security products can show whole); if nothing passes, the
+ * unfiltered candidates are used so a session never runs without an attack.
  */
-export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard"): AttackStory {
-  const candidates = storiesForCompany(companyId, difficulty);
+export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "medium" | "hard", accept?: (s: AttackStory) => boolean): AttackStory {
+  const all = storiesForCompany(companyId, difficulty);
+  const fitting = accept ? all.filter(accept) : all;
+  const candidates = fitting.length ? fitting : all;
   const recent = readRecent();
   let pool = candidates.filter(s => !recent.includes(s.id));
   if (pool.length === 0) pool = candidates; // every candidate seen recently — allow repeats
@@ -1188,6 +1192,18 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   if (victim && replacement && victim !== replacement) {
     const on = victim.split("@")[0], nn = replacement.split("@")[0];
     pairs.push([victim, replacement], [on, nn], [on.replace(/\./g, ""), nn.replace(/\./g, "")]);
+    // …and the victim's NAME ("Tomer Ravid" in a displayName field, "a converter Tomer
+    // uses" in prose) — otherwise the text names a different person than the row's user.
+    const surname = on.split(/[._]/).pop() ?? "";
+    if (/^[a-z'-]{3,}$/i.test(surname)) {
+      const re = new RegExp(`\\b([A-Z][a-z]{2,}) (${surname.charAt(0).toUpperCase()}${surname.slice(1)})\\b`);
+      let full: RegExpMatchArray | null = null;
+      for (const e of s.events) { full = JSON.stringify([e.description, e.raw, e.user]).match(re); if (full) break; }
+      if (full) {
+        const newName = nn.split(/[._]/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+        pairs.push([full[0], newName], [full[1], nn]);
+      }
+    }
   }
 
   // Internal email domain → the company's (catches any other internal identity that

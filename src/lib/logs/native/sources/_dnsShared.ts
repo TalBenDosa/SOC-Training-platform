@@ -8,6 +8,7 @@
  * and holds the server-local clock used by the text-native lines (Windows DNS
  * debug log, BIND/NIOS syslog), which are stamped in server LOCAL time.
  */
+import { companyTimeZone } from "../ctx";
 import type { NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -89,26 +90,20 @@ export function serverIpFor(f: DnsFacts, ctx: NativeCtx, last = 10): string {
 
 // ── Server-local clock ───────────────────────────────────────────────────────
 /**
- * UTC offset (hours) of each company's DNS servers. The debug log and BIND syslog
- * are stamped in server local time; summer time is approximated as April–October.
+ * The debug log, BIND and auditd syslog are stamped in the servers' local time —
+ * the company's own zone (ctx.ts), with real DST rules via Intl.
  */
-const TZ: Record<string, { summer: number; winter: number }> = {
-  nexacorp: { summer: 3, winter: 2 },       // Israel
-  medcore: { summer: 2, winter: 1 },        // Netherlands
-  globallogis: { summer: 2, winter: 1 },    // Germany
-  quantumbank: { summer: 2, winter: 1 },    // Switzerland
-  rocketstack: { summer: 0, winter: 0 },    // cloud-native, servers on UTC
-};
+const fmtCache = new Map<string, Intl.DateTimeFormat>();
 export function localParts(timeMs: number, companyId: string) {
-  const d0 = new Date(timeMs);
-  const tz = TZ[companyId] ?? { summer: 0, winter: 0 };
-  const m = d0.getUTCMonth(); // 0-based
-  const off = m >= 3 && m <= 9 ? tz.summer : tz.winter;
-  const d = new Date(timeMs + off * 3_600_000);
-  return {
-    year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate(),
-    h: d.getUTCHours(), mi: d.getUTCMinutes(), sec: d.getUTCSeconds(), ms: d.getUTCMilliseconds(),
-  };
+  const timeZone = companyTimeZone(companyId);
+  let f = fmtCache.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-US", { timeZone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
+    fmtCache.set(timeZone, f);
+  }
+  const p: Record<string, number> = {};
+  for (const x of f.formatToParts(new Date(timeMs))) if (x.type !== "literal") p[x.type] = Number(x.value);
+  return { year: p.year, month: p.month, day: p.day, h: p.hour % 24, mi: p.minute, sec: p.second, ms: ((timeMs % 1000) + 1000) % 1000 };
 }
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const p2 = (n: number) => String(n).padStart(2, "0");

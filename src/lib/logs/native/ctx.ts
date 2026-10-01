@@ -49,6 +49,11 @@ const DOMAINS: Record<string, { domain: string; netbios: string; timeZone: strin
   quantumbank: { domain: "quantumbank.com", netbios: "QBANK", timeZone: "Europe/Zurich" },
 };
 
+/** IANA time zone of a company's on-prem servers (where its logs are stamped in local time). */
+export function companyTimeZone(companyId: string): string {
+  return DOMAINS[companyId]?.timeZone ?? "UTC";
+}
+
 /** Build the per-company context; identifiers are stable for a company across every session. */
 export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "domain" | "netbios">> = {}): NativeCtx {
   const d = DOMAINS[companyId] ?? { domain: `${companyId}.com`, netbios: companyId.toUpperCase().slice(0, 15), timeZone: "UTC" };

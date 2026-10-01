@@ -27,7 +27,7 @@ import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
-import { applyStack, fitsStack, storyFitsStack } from "@/lib/logs/native";
+import { applyStack, fitsStack, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
@@ -326,7 +326,13 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const buildStory = (avoid: (string | undefined)[] = [], forced?: AttackStory | null): Story | null => {
     for (let attempt = 0; attempt < (stacked ? 20 : 6); attempt++) {
       try {
-        const story = forced ?? pickStoryForCompany(companyId, difficulty);
+        // Chosen products: only stories they can show whole. The company's own: none
+        // written about another vendor's artifacts (PRODUCT_LOCKS).
+        const story = forced ?? pickStoryForCompany(companyId, difficulty, s => {
+          if (avoid.includes(s.id)) return false;
+          const evs = instantiateStory(s, companyPool, edr, companyId).events ?? [];
+          return stacked ? storyFitsStack(evs, companyId, stack) : storyHonoursLocks(evs, companyId);
+        });
         if (avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
         const events0 = instantiateStory(story, companyPool, edr, companyId).events ?? [];
         if (events0.length === 0) return null;

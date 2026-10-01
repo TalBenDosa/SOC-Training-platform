@@ -9,7 +9,7 @@ import { categoryOf, PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import { validateNative } from "@/lib/logs/native/validate";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
-const OTHER_EDR = /\b(CrowdStrike|Falcon|SentinelOne|Sophos|Defender for Endpoint|Microsoft Defender(?! for Office))\b/;
+const OTHER_EDR = /\b(CrowdStrike|Falcon|SentinelOne|Sophos|Defender for Endpoint|Microsoft Defender(?! for Office| Antivirus))\b/;
 const roster = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, { role: "mgr" }];
 
 const CASES: [string, "easy" | "medium" | "hard", Stack][] = [
