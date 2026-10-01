@@ -48,8 +48,14 @@ export function InjectFeed({ sessionId, events, me, nameOf, act }: { sessionId: 
   const answered = new Set(events.filter(e => e.type === "ticket.answered").map(e => String((e.payload as { ticket_seq?: number }).ticket_seq)));
   const isT1 = me.role === "t1";
   return (
+    <div id="team-injects" className="scroll-mt-24">
     <Card className="border-cyber-500/30">
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-cyber-300" /> Injects & help-desk</h3>
+      {/* Scenario review fix 6: who acts on what was never said. */}
+      <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+        <b className="text-neon-amber">Help-desk tickets</b> are answered by <b className="text-slate-300">Tier-1</b> (right here).{" "}
+        <b className="text-slate-300">Updates</b> need no reply: if one changes the picture, act in your own console — analysts escalate / scope / hunt, the SOC Manager answers requests for status with a SITREP.
+      </p>
       <div className="mt-2 space-y-1.5">
         {injects.slice().reverse().map(e => {
           const p = e.payload as { kind?: string; text?: string; inject_id?: string };
@@ -69,10 +75,12 @@ export function InjectFeed({ sessionId, events, me, nameOf, act }: { sessionId: 
                 </div>
               ); })()}
               {isTicket && done && <p className="mt-0.5 text-[10px] text-neon-green">✓ answered by Tier-1</p>}
+              {isTicket && !done && !isT1 && <p className="mt-0.5 text-[10px] text-neon-amber">Waiting for Tier-1 to answer it.</p>}
             </div>
           );
         })}
       </div>
     </Card>
+    </div>
   );
 }

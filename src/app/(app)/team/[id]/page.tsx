@@ -581,6 +581,11 @@ export default function TeamRoomPage() {
   }, [v2, phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
+  // Help-desk tickets nobody has answered yet (Tier-1's to answer — fix 6).
+  const openTickets = useMemo(() => {
+    const answered = new Set(events.filter(e => e.type === "ticket.answered").map(e => String((e.payload as { ticket_seq?: unknown }).ticket_seq)));
+    return events.filter(e => e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "ticket" && !answered.has(String(e.seq))).length;
+  }, [events]);
   // Threat-intel truth for the logs shown so far — built on the server, because this
   // feed carries no answer key (without it an attacker's hash / C2 looked up clean).
   const iocTruth = useTeamIocTruth(id, feed.length);
@@ -1008,6 +1013,15 @@ export default function TeamRoomPage() {
                   <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
                 ) : (
                   <>
+                    {/* Scenario review fix 6: a help-desk ticket is Tier-1's to answer — say so where Tier-1 looks. */}
+                    {me.role === "t1" && openTickets > 0 && (
+                      <button type="button" onClick={() => document.getElementById("team-injects")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                        className="flex w-full items-center gap-2 rounded-lg border border-neon-amber/50 bg-neon-amber/10 px-3 py-2 text-left text-sm font-semibold text-neon-amber transition hover:bg-neon-amber/15">
+                        <span aria-hidden>📞</span>
+                        <span className="flex-1">{openTickets === 1 ? "A help-desk ticket is waiting for you" : `${openTickets} help-desk tickets are waiting for you`} — Tier-1 answers these.</span>
+                        <span className="text-xs underline">Answer now</span>
+                      </button>
+                    )}
                     {/* Tier-1: the alert queue is a view of this SIEM, not a separate panel */}
                     {me.role === "t1" && (
                       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-elevated/40 px-2 py-1.5">
