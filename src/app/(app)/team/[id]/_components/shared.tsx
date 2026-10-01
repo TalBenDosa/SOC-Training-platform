@@ -1,5 +1,5 @@
 "use client";
-import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/useLiveEvents";
+import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { asStr } from "@/lib/team/format";
 

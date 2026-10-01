@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EventFeed } from "@/app/(app)/dashboard/EventFeed";
-import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/useLiveEvents";
+import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamEdrCases } from "@/lib/edr/teamCases";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
