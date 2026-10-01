@@ -8,6 +8,8 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/apiGuard", () => ({ getAuthedUser: vi.fn(async () => ({ id: "u1", orgId: null })) }));
 vi.mock("@/lib/audit/logAudit", () => ({ logAudit: vi.fn(async () => {}) }));
 vi.mock("@/lib/security/rateLimit", () => ({ checkRateLimit: vi.fn(async () => ({ ok: true, retryAfter: 0 })) }));
+const pwState = { result: "ok" as "ok" | "bad" | "rate_limited" };
+vi.mock("@/lib/auth/verifyPassword", () => ({ verifyCurrentPassword: vi.fn(async () => pwState.result) }));
 
 const INTERNAL = "d0d0d0d0-0000-4000-8000-000000000000";
 type Res = { data: unknown; error: { message: string } | null };
@@ -54,6 +56,7 @@ beforeEach(() => {
   state.profile = { data: { org_id: INTERNAL }, error: null };
   state.deleted = false;
   state.requestOrg = null;
+  pwState.result = "ok";
 });
 
 describe("DELETE /api/account", () => {
@@ -85,6 +88,15 @@ describe("DELETE /api/account", () => {
     expect(res.status).toBe(503);
     expect(state.deleted).toBe(false);
   });
+
+  it.each([["a wrong password", "bad", 400], ["too many attempts", "rate_limited", 429]] as const)(
+    "SEC-12: %s → nothing is deleted, no request filed", async (_l, result, status) => {
+      pwState.result = result;
+      const res = await call();
+      expect(res.status).toBe(status);
+      expect(state.deleted).toBe(false);
+      expect(state.requestOrg).toBeNull();
+    });
 
   it("fails closed when the profile read fails", async () => {
     state.profile = { data: null, error: { message: "timeout" } };

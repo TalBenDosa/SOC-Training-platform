@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { verifyCurrentPassword } from "@/lib/auth/verifyPassword";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit/logAudit";
 import { checkRateLimit } from "@/lib/security/rateLimit";
@@ -193,6 +194,16 @@ export async function DELETE(req: Request) {
       { error: "Confirmation required: send { confirm: \"DELETE\" }." },
       { status: 400 },
     );
+  }
+
+  // SEC-12: deletion is irreversible — a hijacked session alone must not be able to
+  // erase the account. Same proof as a password change: the current password.
+  const pw = await verifyCurrentPassword(user, String(body.current_password ?? ""));
+  if (pw !== "ok") {
+    await logAudit({ actorId: user.id, action: "account.delete_denied", targetTable: "auth.users", targetId: user.id, metadata: { reason: pw } });
+    if (pw === "rate_limited") return NextResponse.json({ error: "Too many attempts. Wait a few minutes and try again." }, { status: 429 });
+    if (pw === "unavailable") return NextResponse.json({ error: "Couldn't verify your password right now — nothing was deleted." }, { status: 503 });
+    return NextResponse.json({ error: "Your current password is incorrect.", field: "current_password" }, { status: 400 });
   }
 
   // "Enrolled" is decided by MEMBERSHIP — any active membership outside the

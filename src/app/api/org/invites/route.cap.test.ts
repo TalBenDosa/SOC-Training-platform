@@ -18,7 +18,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 const { POST } = await import("./route");
-const call = (emails: string[]) => POST(new Request("https://www.hackthesoc.app/api/org/invites", { method: "POST", body: JSON.stringify({ emails }) }));
+const call = async (emails: string[]) => (await POST(new Request("https://www.hackthesoc.app/api/org/invites", { method: "POST", body: JSON.stringify({ emails }) })))!;
 
 beforeEach(() => { sentToday = 0; inserted.length = 0; });
 

@@ -154,6 +154,7 @@ export default function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [deletePassword, setDeletePassword] = useState("");   // SEC-12: proof before erasing
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -260,7 +261,7 @@ export default function AccountPage() {
       const res = await fetch("/api/account", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: "DELETE", reason: reason.trim() || undefined }),
+        body: JSON.stringify({ confirm: "DELETE", current_password: deletePassword, reason: reason.trim() || undefined }),
       });
       const data = await res.json().catch(() => ({}));
 
@@ -443,15 +444,23 @@ export default function AccountPage() {
                     className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
                   />
                 </div>
+                <div>
+                  <label htmlFor="delete-password" className="block text-xs text-slate-400">Your current password</label>
+                  <input
+                    id="delete-password" type="password" autoComplete="current-password" value={deletePassword}
+                    onChange={e => setDeletePassword(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-sm text-white focus:border-red-500 focus:outline-none"
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button
                     variant="danger"
-                    disabled={confirmText.trim().toUpperCase() !== "DELETE" || busy}
+                    disabled={confirmText.trim().toUpperCase() !== "DELETE" || !deletePassword || busy}
                     onClick={submitDeletion}
                   >
                     {busy ? "Working…" : info?.enrolled ? "Send request" : "Permanently delete"}
                   </Button>
-                  <Button variant="ghost" onClick={() => { setConfirmOpen(false); setConfirmText(""); }} disabled={busy}>
+                  <Button variant="ghost" onClick={() => { setConfirmOpen(false); setConfirmText(""); setDeletePassword(""); }} disabled={busy}>
                     Cancel
                   </Button>
                 </div>
