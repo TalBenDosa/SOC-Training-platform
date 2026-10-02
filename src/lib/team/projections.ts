@@ -1,4 +1,5 @@
 import type { Ev } from "@/lib/team/types";
+import { pausedSpans, activeMs } from "@/lib/team/pauses";
 
 /**
  * ONE claims / open-work projection for the whole room (audit A3). It used to be
@@ -21,7 +22,8 @@ const tsOf = (e: Ev, fallback: number) => (e.occurred_at ? Date.parse(e.occurred
  * the latest — and it expires after `ttlMs`. Same rule the server enforces for
  * `claim_held` (migration 0073), so the 🔒 you see is the lock the server applies.
  * (Tier-1 re-claims right after a true-positive / suspicious call, so the lock stays
- * while the escalation is being written.)
+ * while the escalation is being written.) The TTL counts RUNNING time: paused spans in
+ * `events` are skipped (QA M3) — the DB claim check does the same (0088 team_active_ms).
  */
 export function activeClaims(events: Ev[], now: number, ttlMs = CLAIM_TTL_MS): Map<string, Claim> {
   const m = new Map<string, Claim>();
@@ -31,7 +33,8 @@ export function activeClaims(events: Ev[], now: number, ttlMs = CLAIM_TTL_MS): M
     if (e.type === "alert.claimed") m.set(eid, { by: e.actor_id ?? "", at: tsOf(e, now) });
     else m.delete(eid);
   }
-  for (const [eid, c] of m) if (now - c.at > ttlMs) m.delete(eid);
+  const spans = pausedSpans(events, now);
+  for (const [eid, c] of m) if (activeMs(c.at, now, spans) > ttlMs) m.delete(eid);
   return m;
 }
 

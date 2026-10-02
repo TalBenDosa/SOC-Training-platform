@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { teamTransition } from "@/lib/team/transition";
 import { logAudit } from "@/lib/audit/logAudit";
 import { activeSeat } from "@/lib/team/membership";
-import { awardTeamXp } from "@/lib/team/awardTeamXp";
+import { awardTeamXpOnce } from "@/lib/team/awardTeamXp";
 
 /**
  * End a team exercise. Staff of the session's org (platform admin / org_admin /
@@ -15,7 +15,13 @@ import { awardTeamXp } from "@/lib/team/awardTeamXp";
  * `team_transition` flips the status, stamps ended_at, marks pending injects
  * 'skipped' and appends session.ended in ONE transaction (audit I3/I2), and the
  * broadcast trigger switches every screen to the after-action report.
+ *
+ * QA M5: the report build + XP award run AFTER the response (`after()`), so ending
+ * returns at once; that same build warms the report cache the whole class is about
+ * to open (the report route single-flights on it).
  */
+export const maxDuration = 60;
+
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getAuthedUser();
@@ -43,9 +49,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   await logAudit({ actorId: user.id, action: "team.session.end", targetTable: "team_sessions", targetId: id,
     metadata: { as: isStaff ? "staff" : "mgr", noop: !!t.result.noop } });
 
-  // Team training XP for every player (0087). Best effort — the report route and
-  // the daily sweep award it later if this fails; ending never depends on it.
-  try { await awardTeamXp(admin, id); }
-  catch (e) { console.error("[team end] XP award failed (will retry from the report / sweep):", e instanceof Error ? e.message : String(e)); }
+  // Team training XP for every player (0087). Best effort, off the request path — the
+  // report route and the daily sweep award it later if this fails; ending never depends on it.
+  after(async () => {
+    try { await awardTeamXpOnce(admin, id); }
+    catch (e) { console.error("[team end] XP award failed (will retry from the report / sweep):", e instanceof Error ? e.message : String(e)); }
+  });
   return NextResponse.json({ ok: true, already: !!t.result.noop });
 }

@@ -2,7 +2,15 @@ import { describe, it, expect } from "vitest";
 import { source, kindOf } from "./okta";
 import { standardChecks } from "../testing/standardChecks";
 
-const rep = standardChecks(source, kindOf, { cards: ["idp-okta.md"] });
+// Okta is SaaS: a corporate user's private address never reaches it — the record carries the
+// company egress (and client.zone "Corporate HQ") instead, so a private src_ip is not evidence here.
+const isPrivate = (ip?: string) => !!ip && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(ip);
+const rep = standardChecks(source, kindOf, {
+  cards: ["idp-okta.md"],
+  evidence: c => [isPrivate(c.ev.src_ip) ? undefined : c.ev.src_ip, isPrivate(c.ev.dst_ip) ? undefined : c.ev.dst_ip, c.ev.user_email?.split("@")[0],
+    c.ev.process?.cmdline, c.ev.process?.hash?.sha256, c.ev.file?.sha256, c.ev.dns?.query, c.ev.cloud?.api_call]
+    .filter((x): x is string => typeof x === "string" && x.length > 2),
+});
 
 describe("okta — native System Log LogEvent", () => {
   it("card samples validate", () => {

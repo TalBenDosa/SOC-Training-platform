@@ -2,23 +2,28 @@ import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { pageAll } from "@/lib/team/report/serverReport";
-import { buildTeamIocTruth } from "@/lib/team/iocTruth";
+import { buildTeamIocTruth, parseIocQuery, answerIocQuery } from "@/lib/team/iocTruth";
+import { activeSeat } from "@/lib/team/membership";
 import type { Ev } from "@/lib/team/types";
 
 /**
- * GET /api/team/sessions/[id]/ioc-truth — the threat-intel verdicts for the IOCs in
- * the logs this session has shown so far.
+ * POST /api/team/sessions/[id]/ioc-truth  { iocs: [{ type, value }] } — threat-intel
+ * verdicts for the IOCs an analyst is holding.
  *
  * The team feed carries no answer key (schema v2 strips expected_verdict /
  * incident_id from every public log), and the "Check hash / IP / domain" lookup
  * used exactly that to know an attacker's IOC is bad — so in a team exercise a
  * malicious attachment hash or a C2 address came back CLEAN. The truth table is
  * built here, on the server, from the fired logs with their answers joined back
- * (the same buildIocTruth the scenario pages use), and only for logs already in
- * the feed. Keys are digests of (type, value); a lookup is what a real TI feed
- * would answer for an IOC the analyst is holding — not a per-log verdict.
+ * (the same buildIocTruth the scenario pages use).
+ *
+ * QA M4 — no longer a whole-feed oracle: the caller names the IOCs (≤ 20 per call,
+ * a per-player budget in the DB — 0088 team_ioc_lookup_allowed), and only IOCs that
+ * occur in a fired log the caller has OPENED (click telemetry) or that the team
+ * escalated are answered. Staff (who hold the answer key anyway) may ask about any
+ * fired log. Keys stay digests of (type, value).
  */
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getAuthedUser();
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
@@ -29,9 +34,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
   const iAmStaff = user.isPlatformAdmin ||
     ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
-  if (!iAmStaff) {
-    const { data: mem } = await admin.from("team_session_members").select("status").eq("session_id", id).eq("user_id", user.id).maybeSingle();
-    if (!mem || mem.status === "left") return NextResponse.json({ error: "Not your session." }, { status: 403 });
+  if (!iAmStaff && !(await activeSeat(admin, id, sess.org_id, user.id))) {
+    return NextResponse.json({ error: "Not your session." }, { status: 403 });
+  }
+
+  let body: unknown = null;
+  try { body = await req.json(); } catch { /* validated below */ }
+  const query = parseIocQuery(body);
+  if (query.length === 0) return NextResponse.json({ error: "Name the indicators to look up (iocs: [{ type, value }])." }, { status: 400 });
+
+  // Per-player budget. A missing function (before 0088) doesn't block lookups.
+  const { data: allowed, error: rateErr } = await admin.rpc("team_ioc_lookup_allowed", { p_session: id, p_user: user.id, p_n: query.length });
+  if (!rateErr && allowed === false) {
+    return NextResponse.json({ error: "Too many threat-intel lookups — wait a moment." }, { status: 429, headers: { "Retry-After": "15" } });
   }
 
   try {
@@ -42,7 +57,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .select("id, channel, expected_action").eq("session_id", id).eq("channel", "feed").not("fired_seq", "is", null)
       .order("id").range(from, to));
     const truth = buildTeamIocTruth(events, injects);
-    return NextResponse.json(truth, { headers: { "Cache-Control": "private, no-store" } });
+
+    let inHand = events;
+    if (!iAmStaff) {
+      const opened = await pageAll<{ event_id: string | null }>((from, to) => admin.from("session_clicks")
+        .select("event_id").eq("session_id", id).eq("user_id", user.id).order("id").range(from, to));
+      const escalated = await pageAll<{ payload: { event_id?: unknown } | null }>((from, to) => admin.from("session_events")
+        .select("payload").eq("session_id", id).eq("type", "escalation.requested").order("seq").range(from, to));
+      const ids = new Set<string>([
+        ...opened.map(o => o.event_id ?? "").filter(Boolean),
+        ...escalated.map(e => String(e.payload?.event_id ?? "")).filter(Boolean),
+      ]);
+      inHand = events.filter(e => ids.has(String((e.payload as { id?: unknown }).id ?? "")));
+    }
+    return NextResponse.json(answerIocQuery(truth, query, inHand), { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     console.error("[team/ioc-truth] failed:", (e as Error).message);
     return NextResponse.json({ error: "Couldn't load threat intel — please try again." }, { status: 500 });

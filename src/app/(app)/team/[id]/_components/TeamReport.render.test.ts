@@ -103,4 +103,28 @@ describe("TeamReport (shift review) — v3 sections", () => {
     expect(text).toContain("clean — no attack activity on this host");
     expect(text).toContain("Hosts you isolated");          // Omer's card
   });
+
+  it("QA M5: while another request builds the report (503 building) it retries quietly, then renders", async () => {
+    vi.useFakeTimers();
+    try {
+      const events = shift();
+      const report = computeReport(events, roster);
+      let calls = 0;
+      vi.stubGlobal("fetch", vi.fn(async () => (++calls === 1
+        ? { ok: false, status: 503, json: async () => ({ error: "still being prepared", building: true }) }
+        : { ok: true, status: 200, json: async () => ({ team: report.team, perUser: report.perUser, answers: {}, seesAll: true }) })));
+      container = document.createElement("div");
+      document.body.appendChild(container);
+      root = createRoot(container);
+      await act(async () => {
+        root!.render(React.createElement(TeamReport, { sessionId: "s1", events, roster, me: { id: "x", is_staff: true, role: "instructor" } }));
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(container.textContent).toContain("Building the shift review");
+      expect(container.textContent).not.toContain("still being prepared");
+      await act(async () => { await vi.advanceTimersByTimeAsync(2100); });
+      expect(calls).toBe(2);
+      expect(container.textContent).toContain("Attack logs within SLA");
+    } finally { vi.useRealTimers(); }
+  });
 });

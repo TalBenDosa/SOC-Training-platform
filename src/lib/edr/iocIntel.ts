@@ -195,6 +195,26 @@ function isTrustedSystemImage(e: TelemetryEvent, hash: string): boolean {
   return vendorSigned || (systemDir && !sig);
 }
 
+const SYSTEM_IMAGE = /\\windows\\(system32|syswow64|winsxs)\\|\\windows\\explorer\.exe$/i;
+const LOLBIN = /^(powershell|pwsh|cmd|wscript|cscript|mshta|rundll32|regsvr32|certutil|bitsadmin|schtasks|svchost|explorer|msiexec|wmic|reg|net1?|sc|curl|conhost|taskhostw|dllhost)\.exe$/i;
+/** Is `hash` this event's own payload (see eventHeuristic)? */
+function ownPayloadHashOf(e: TelemetryEvent, hash: string): boolean {
+  const authored = authoredHashes(e);
+  if (authored.size) return authored.has(hash.toLowerCase()) && !isTrustedSystemImage(e, hash);
+  const path = e.process?.path ?? "";
+  const name = e.process?.name ?? path.split(/[\\/]/).pop() ?? "";
+  return !(SYSTEM_IMAGE.test(path) || LOLBIN.test(name));
+}
+
+/** Every sha256 the event itself was authored with (file, process image, raw sha256 fields). */
+function authoredHashes(e: TelemetryEvent): Set<string> {
+  const out = new Set<string>();
+  const add = (v: unknown) => { if (typeof v === "string" && /^[a-f0-9]{64}$/i.test(v.trim())) out.add(v.trim().toLowerCase()); };
+  add(e.file?.sha256); add(e.process?.hash?.sha256);
+  for (const [k, v] of Object.entries(e.raw ?? {})) if (/sha256/i.test(k)) add(v);
+  return out;
+}
+
 /** The attack role an event plays, from its MITRE tactic/technique (typed or raw). */
 export function roleFromEvent(e: TelemetryEvent): IocRole | undefined {
   const tactic = `${e.mitre_tactic ?? ""} ${rawStr(e.raw, "crowdstrike.Tactic", "threat.tactic.name")}`.toLowerCase();
@@ -257,6 +277,11 @@ export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent):
       res = { v: "malicious", r };
     }
   } else {
+    // A hash only carries the event's verdict if it is the event's OWN payload: authored
+    // on it and not a trusted system image — or, when nothing was authored, an event whose
+    // payload is not a Windows binary / LOLBin (a killed powershell.exe is a bad COMMAND,
+    // its image stays clean; the parent's and the host's other hashes are not the payload).
+    if (!ownPayloadHashOf(e, value)) return { v: "clean" };
     const family = rawStr(raw, "malware.family", "threat.family");
     const name = rawStr(raw, "malware.name", "threat.name", "ThreatName");
     const mtype = rawStr(raw, "malware.type");
@@ -282,8 +307,11 @@ export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent):
       res = { v: "malicious", r: "payload" };
     }
   }
-  // The surface's own ground truth (live feed): a true-positive event's IOCs are bad.
-  if (res.v !== "internal" && TP(e) && RANK[res.v] < RANK.malicious) {
+  // The surface's own ground truth (live feed): a true-positive event's IOCs are bad —
+  // for a hash only the event's OWN payload (authored on it, not a trusted system
+  // image): the record also shows the parent's / the host's other images (explorer.exe,
+  // a signed LOLBin), and those must keep reading clean.
+  if (res.v !== "internal" && TP(e) && (type !== "hash" || ownPayloadHashOf(e, value)) && RANK[res.v] < RANK.malicious) {
     res = { v: "malicious", r: res.r ?? roleFromEvent(e) ?? (type === "hash" ? "payload" : undefined) };
   }
   return res;

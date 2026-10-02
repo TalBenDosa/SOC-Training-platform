@@ -3,8 +3,10 @@ import { asObject } from "@/lib/http/body";
 import { getAuthedUser, requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
-import { resolveTeamStory } from "@/lib/team/buildTimeline";
-import { sanitizeStack, storyFitsStack } from "@/lib/logs/native";
+import { resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
+import { sanitizeStack } from "@/lib/logs/native";
+import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
+import { liveAffiliationFilter } from "@/lib/team/membership";
 
 /**
  * Team-SOC sessions (Phase 0.3). Create = org_admin/instructor only, and always
@@ -39,29 +41,38 @@ export async function POST(req: Request) {
   // Optional staff-chosen storyline (an attack-story id). Must be one the builder
   // would offer for this company + difficulty; empty = random pick at /start.
   const scenario_id = body.scenario_id ? String(body.scenario_id).slice(0, 120) : null;
-  if (scenario_id && !resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id)) {
+  const pinned = scenario_id ? resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id) : null;
+  if (scenario_id && !pinned) {
     return NextResponse.json({ error: "That storyline isn't available for this company and difficulty." }, { status: 400 });
   }
   // Security products the session runs on (spec §3) — only categories that differ from the company.
   const stack = sanitizeStack(body.stack);
-  if (scenario_id && Object.keys(stack).length) {
-    const st = resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id);
-    if (st && !storyFitsStack(st.events, company_id, stack)) {
-      return NextResponse.json({ error: "The chosen products can't show every step of that storyline — pick another storyline or keep the company's products." }, { status: 400 });
-    }
+  // QA M7: judged on the INSTANTIATED story (company pool + EDR), the same check the
+  // timeline's random pick uses — the storyline list offers exactly these.
+  if (pinned && !teamStoryFilter(company_id, stack)(pinned)) {
+    return NextResponse.json({ error: Object.keys(stack).length
+      ? "The chosen products can't show every step of that storyline — pick another storyline or keep the company's products."
+      : "That storyline can't run on this company's products — pick another storyline." }, { status: 400 });
   }
 
   const rawInvites = Array.isArray(body.invites) ? body.invites : [];
   const invites = rawInvites
     .map(i => ({ user_id: String((i as Record<string, unknown>)?.user_id ?? ""), role: String((i as Record<string, unknown>)?.role ?? "t1") }))
     .filter(i => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(i.user_id) && ROLES.has(i.role) && i.role !== "instructor")
+    // QA L12: one row per person (the first role given wins) — a repeated invitee used to fail the roster insert with a 500.
+    .filter((i, k, all) => all.findIndex(x => x.user_id.toLowerCase() === i.user_id.toLowerCase()) === k)
     .slice(0, 12);
+  for (const seat of SINGLE_SEAT) {
+    if (invites.filter(i => i.role === seat).length > 1) {
+      return NextResponse.json({ error: `${seat === "mgr" ? "SOC Manager" : "Tier-3"} is a single-seat role — invite one person to it.` }, { status: 400 });
+    }
+  }
 
-  // Only invitees who are ACTIVE members of THIS org are allowed on the roster.
+  // Only invitees who are ACTIVE members of THIS org, affiliation not expired (M1), are allowed on the roster.
   const invIds = invites.map(i => i.user_id);
   const { data: orgMembers } = await admin
     .from("org_members").select("user_id")
-    .eq("org_id", orgId).eq("status", "active")
+    .eq("org_id", orgId).eq("status", "active").or(liveAffiliationFilter())
     .in("user_id", invIds.length ? invIds : ["00000000-0000-0000-0000-000000000000"]);
   const validSet = new Set((orgMembers ?? []).map(m => m.user_id));
 
@@ -87,6 +98,8 @@ export async function POST(req: Request) {
     console.error("[team create] roster insert:", memErr.message);
     // Don't leave a session with no owner behind.
     await admin.from("team_sessions").delete().eq("id", sess.id);
+    const conflict = rosterConflict(memErr, "");
+    if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     return NextResponse.json({ error: "Could not add the invited members." }, { status: 500 });
   }
 

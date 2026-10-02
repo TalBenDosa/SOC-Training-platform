@@ -19,8 +19,8 @@
  *
  * Correlation rules (so one story pivots like the real product):
  *   - DeviceId = 40 hex seeded from `${companyId}:${host}`; tenantId = ctx.tenant.azureTenantId.
- *   - A process is identified by host + image name + PID. When the event has no PID it is seeded
- *     from host + image name, so the creator's InitiatingProcessId on a network/file/DNS row equals
+ *   - A process is identified by its instance key (./_proc-identity: host + image + lifetime scope,
+ *     never the authored pid), so the creator's InitiatingProcessId on a network/file/DNS row equals
  *     the ProcessId of that process's DeviceProcessEvents row; ProcessUniqueId /
  *     InitiatingProcessUniqueId and SHA1 are seeded from the same identity.
  *   - InitiatingProcessCreationTime is NOT emitted on child rows: the process start time is only
@@ -33,7 +33,9 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { edrFacts, type EdrFacts, type EdrProc } from "./edr-normalize";
+import { edrFacts, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
+import { procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, type ProcScope } from "./_proc-identity";
+import { imagePath } from "./_cs-s1-common";
 import {
   TACTICS, techniqueName, tacticOf, fixPath, baseOf, dirOf, effectiveAction, imageName,
   isPrivate, ipType, isSystemUser, userSid, isoFrac, isServer,
@@ -118,18 +120,29 @@ export function kindOf(record: Record<string, unknown>): string | null {
 // ── Builders ────────────────────────────────────────────────────────────────
 interface Proc { name: string | null; path: string | null; pid: number | null; cmdline: string | null; sha1: string | null; sha256: string | null; md5: string | null; uniqueId: string | null }
 
-/** Stable process identity: host + image + PID (PID seeded from host + image when not authored). */
-function proc(ctx: NativeCtx, host: string, p: EdrProc): Proc {
+/** Windows / Office / browser images whose binary is the same fleet-wide build — hash derivable from the image. */
+const OS_IMAGE = /^C:\\(Windows|Program Files( \(x86\))?\\(Microsoft Office|Google\\Chrome|Microsoft\\Edge))\\/i;
+
+/**
+ * Stable process identity (./_proc-identity): ProcessId / ProcessUniqueId / SHA1 come from the
+ * process INSTANCE key, so its own ProcessCreated row, its children's InitiatingProcess* columns and
+ * the creator columns of its file / network / registry rows agree even when the authored pids do not.
+ * Path, command line and hashes are filled where they are derivable from the image itself (an OS
+ * binary's install path, the command line Windows starts Explorer with, the fleet build's hash).
+ */
+function proc(ctx: NativeCtx, s: ProcScope, p: EdrProc): Proc {
   const name = imageName(p) ?? null;
-  const path = fixPath(p.path) ?? null;
-  const h = host.toLowerCase();
-  const pid = p.pid ?? (name ? ctx.int(`${ctx.companyId}:${h}:${name.toLowerCase()}:pid`, 250, 3750) * 4 : null);
-  const ident = p.sha256 ?? (path ?? name ?? "").toLowerCase();
+  const path = (name ? imagePath({ ...p, name }) : undefined) ?? fixPath(p.path) ?? null;
+  const pid = name ? procPid(ctx, s, p) ?? null : null;
+  const key = name ? procKey(ctx, s, p) : undefined;
+  const osImage = !!path && OS_IMAGE.test(path);
+  const sha256 = p.sha256 ?? (osImage ? ctx.hex(`img:${path!.toLowerCase()}`, 64) : null);
+  const ident = sha256 ?? (path ?? name ?? "").toLowerCase();
   return {
-    name, path, pid, cmdline: p.cmdline ?? null,
+    name, path, pid, cmdline: p.cmdline ?? (name ? OS_COMMAND_LINE[name.toLowerCase()] : undefined) ?? null,
     sha1: ident ? ctx.hex(`sha1:${ident}`, 40) : null,
-    sha256: p.sha256 ?? null, md5: p.md5 ?? null,
-    uniqueId: name ? String(ctx.int(`${ctx.companyId}:${h}:${name.toLowerCase()}:${pid}:uid`, 30_000_000_000_000, 39_999_999_999_999)) : null,
+    sha256, md5: p.md5 ?? (osImage ? ctx.hex(`img:${path!.toLowerCase()}:md5`, 32) : null),
+    uniqueId: key ? String(ctx.int(`${key}:uid`, 30_000_000_000_000, 39_999_999_999_999)) : null,
   };
 }
 
@@ -192,6 +205,53 @@ function initiatingCols(p: Proc, parent: Proc | null, u: Who, integ: { level: st
   };
 }
 
+/**
+ * DeviceEvents ActionType ScheduledTaskCreated: the account that created the task, the registrar as
+ * InitiatingProcess*, and AdditionalFields {TaskName, TaskContent} — TaskContent is the task's XML,
+ * holding only what the event says (author, URI, the Exec command; no invented trigger).
+ */
+function scheduledTaskRow(ctx: NativeCtx, scope: ProcScope, t: TaskFacts, f: EdrFacts, u: Who,
+  integ: { level: string | null; elevation: string | null }, base: Record<string, unknown>, tail: Record<string, unknown>): Record<string, unknown> {
+  const reg = proc(ctx, scope, t.registrar);
+  const regParent = t.registrar === f.proc && (f.parent.name || f.parent.path) ? proc(ctx, scope, f.parent) : null;
+  const author = u.name ? (u.system ? "NT AUTHORITY\\SYSTEM" : `${(u.domain ?? ctx.netbios).toUpperCase()}\\${u.name}`) : null;
+  const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const xml = `<?xml version="1.0" encoding="UTF-16"?><Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">` +
+    `<RegistrationInfo>${author ? `<Author>${esc(author)}</Author>` : ""}<URI>${esc(t.path)}</URI></RegistrationInfo>` +
+    (t.command ? `<Actions Context="Author"><Exec><Command>${esc(t.command)}</Command>${t.args ? `<Arguments>${esc(t.args)}</Arguments>` : ""}</Exec></Actions>` : "") +
+    `</Task>`;
+  return {
+    ...base,
+    ActionType: "ScheduledTaskCreated",
+    AccountDomain: u.domain, AccountName: u.name, AccountSid: u.sid,
+    ...initiatingCols(reg.name ? reg : { ...reg, pid: null, sha1: null, uniqueId: null }, regParent, u, integ),
+    AdditionalFields: JSON.stringify({ TaskName: t.path, TaskContent: xml }),
+    ...tail,
+  };
+}
+
+/** A malware family the authored event names (Defender name, malware.family, or a vendor-style "Type.Family" name). */
+function familyOf(ev: TelemetryEvent, name?: string): string | null {
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  const authored = r["malware.family"] ?? r["threat.family"];
+  if (typeof authored === "string" && authored.trim()) return authored.trim();
+  if (!name) return null;
+  const m = DEFENDER_THREAT.exec(name);
+  if (m) return m[3].split(".")[0];
+  if (/^(known_malware(_family)?|suspicious[_ ]activity|malware\.generic|generic|unknown)$/i.test(name.trim())) return null;
+  if (!SIGNATURE_NAME.test(name)) return null;
+  // "CobaltStrike.beacon.v4" → CobaltStrike; after a type word the most specific named segment:
+  // "Ransomware.MedLock" → MedLock, "PUA.RemoteAdmin.AnyDesk" → AnyDesk, "PUP.Keygen.Generic" → Keygen.
+  const parts = name.split(/[./]/).filter(Boolean);
+  if (parts.length < 2) return null;
+  if (!TYPE_WORD.test(parts[0])) return parts[0];
+  const named = parts.slice(1).filter(x => !/^(\d+|v\d+|[A-Z]{1,2}|generic|gen|variant|agent)$/i.test(x));
+  return named.length ? named[named.length - 1] : null;
+}
+/** A dotted engine signature ("Type.Family[.Variant]") — no spaces, at least two segments. */
+const SIGNATURE_NAME = /^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/;
+const TYPE_WORD = /^(trojan|ransomware|ransom|backdoor|worm|pup|pua|adware|riskware|spyware|malware|virus|hacktool|exploit|troj|mal|app)$/i;
+
 const SEVERITY: Record<string, string> = { critical: "High", high: "High", medium: "Medium", low: "Low", informational: "Informational", info: "Informational" };
 const DEFENDER_THREAT = /^([A-Za-z]+):([A-Za-z0-9]+)\/([A-Za-z0-9_-]+)/; // e.g. Trojan:Win32/Wacatac.B!ml
 
@@ -228,13 +288,20 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       properties: props,
     },
   });
-  const p = proc(ctx, host, f.proc);
-  const parent = f.parent.name || f.parent.path ? proc(ctx, host, f.parent) : null;
+  const scope: ProcScope = { host, os: f.os, timeMs: f.timeMs, user: u.name ?? undefined, incident: ev.incident_id };
+  const p = proc(ctx, scope, f.proc);
+  const parent = f.parent.name || f.parent.path ? proc(ctx, scope, f.parent) : null;
+  /** An OS image's fixed parent (explorer.exe ← userinit.exe …), for a creator whose own parent the event does not name. */
+  const osParentOf = (c: Proc) => (c.name && OS_PARENT[c.name.toLowerCase()] ? proc(ctx, scope, { name: OS_PARENT[c.name.toLowerCase()] }) : null);
+
+  // A task registration is a DeviceEvents ScheduledTaskCreated row, not a ProcessCreated row of the task's program.
+  const task = f.kind === "process" ? taskFacts(ev, f) : null;
+  if (task) return wrap("DeviceEvents", scheduledTaskRow(ctx, scope, task, f, u, integ, base, tail));
 
   switch (f.kind) {
     case "process": {
       if (!p.name) return null; // no image identity at all — Defender never emits a nameless ProcessCreated row
-      const creator = parent ?? proc(ctx, host, {});
+      const creator = parent ?? proc(ctx, scope, {});
       return wrap("DeviceProcessEvents", {
         ...base,
         ActionType: "ProcessCreated",
@@ -254,7 +321,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         AccountUpn: u.upn,
         AccountObjectId: u.objectId,
         LogonId: u.logonId,
-        ...initiatingCols(creator, null, u, integ),
+        ...initiatingCols(creator, osParentOf(creator), u, integ),
         ProcessUniqueId: p.uniqueId,
         CreatedProcessSessionId: u.system ? 0 : 1,
         IsProcessRemoteSession: false,
@@ -278,7 +345,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         Protocol: proto,
         LocalIPType: ipType(n.localIp),
         RemoteIPType: ipType(n.remoteIp),
-        ...initiatingCols(p, parent, u, integ),
+        ...initiatingCols(p, parent ?? osParentOf(p), u, integ),
         AdditionalFields: null,
         ...tail,
       });
@@ -288,6 +355,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const action = ev.event_type === "file_delete" ? "FileDeleted" : ev.event_type === "file_modify" ? "FileModified"
         : ev.event_type === "file_rename" ? "FileRenamed" : "FileCreated";
       const browser = /^(chrome|msedge|firefox|iexplore|outlook|brave|opera)\.exe$/i.test(p.name ?? "");
+      // No writer on the event: a user's hand copy into a profile folder is Explorer's write.
+      const inferred = p.name ? undefined : inferredFileWriter(path, f.os, u.system);
+      const writer = inferred ? proc(ctx, scope, inferred) : p;
+      const writerParent = (inferred ? null : parent) ?? osParentOf(writer);
       return wrap("DeviceFileEvents", {
         ...base,
         ActionType: action,
@@ -302,7 +373,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         FileOriginIP: null,
         PreviousFileName: null,
         PreviousFolderPath: null,
-        ...initiatingCols(p.name ? p : { ...p, pid: null, sha1: null, uniqueId: null }, parent, u, integ),
+        ...initiatingCols(writer.name ? writer : { ...writer, pid: null, sha1: null, uniqueId: null }, writerParent, u, integ),
         RequestProtocol: "Local",
         RequestSourceIP: null,
         RequestAccountName: u.name,
@@ -323,7 +394,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         FileName: null, FolderPath: null, SHA1: null, SHA256: null, MD5: null,
         AccountDomain: null, AccountName: null, AccountSid: null,
         RemoteUrl: null, RemoteIP: null, RemotePort: null, LocalIP: null, LocalPort: null,
-        ...initiatingCols(p.name ? p : { ...p, pid: null, sha1: null, uniqueId: null }, parent, u, integ),
+        ...initiatingCols(p.name ? p : { ...p, pid: null, sha1: null, uniqueId: null }, parent ?? osParentOf(p), u, integ),
         AdditionalFields: JSON.stringify({ DnsQueryString: q, DnsQueryResult: result }),
         ...tail,
       });
@@ -344,7 +415,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         PreviousRegistryKey: null,
         PreviousRegistryValueName: null,
         PreviousRegistryValueData: null,
-        ...initiatingCols(p.name ? p : { ...p, pid: null, sha1: null, uniqueId: null }, parent, u, integ),
+        ...initiatingCols(p.name ? p : { ...p, pid: null, sha1: null, uniqueId: null }, parent ?? osParentOf(p), u, integ),
         AdditionalFields: null,
         ...tail,
       });
@@ -365,7 +436,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         RemoteIP: null,
         RemoteIPType: null,
         RemotePort: null,
-        ...initiatingCols(p.name ? p : { ...p, pid: null, sha1: null, uniqueId: null }, parent, u, integ),
+        ...initiatingCols(p.name ? p : { ...p, pid: null, sha1: null, uniqueId: null }, parent ?? osParentOf(p), u, integ),
         AdditionalFields: null,
         ...tail,
       });
@@ -390,14 +461,21 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
   const m = d.name ? DEFENDER_THREAT.exec(d.name) : null;
   const verb = action === "detected" ? "detected" : "prevented";
   let title: string;
-  let family: string | null = null;
+  // ThreatFamily whenever the event names a family (an AV detection without it reads as "unknown malware").
+  // Behavioural (EDR) alerts carry a family only when the name is a Defender malware name.
+  let family: string | null = familyOf(ev, av || entity === "File" || m ? d.name : undefined);
   if (m) {
     family = m[3].split(".")[0];
     const kind = /hacktool/i.test(m[1]) ? "hacktool" : /^pua|^app$/i.test(m[1]) ? "unwanted software" : "malware";
     title = `'${family}' ${kind} was ${verb}`;
+  } else if (d.name && SIGNATURE_NAME.test(d.name) && familyOf(ev, d.name)) {
+    // Another engine's signature name ("PUA.RemoteAdmin.AnyDesk", "Trojan.GenericKD"): Defender
+    // titles the alert by family and kind, never with a foreign signature string.
+    family = familyOf(ev, d.name);
+    const kind = /^(pua|pup|adware|riskware|app)\b/i.test(d.name) ? "unwanted software" : /hacktool/i.test(d.name) ? "hacktool" : "malware";
+    title = `'${family}' ${kind} was ${verb}`;
   } else if (d.name && isNative(ev)) {
     title = d.name; // authored for Defender: keep the detection name verbatim
-    if (av) family = d.name;
   } else if (entity === "File") {
     title = `Malware was ${verb}`;
   } else if (techName) {
@@ -582,6 +660,28 @@ const useCases: UseCase[] = [
   },
 ];
 
+/** The DeviceEvents ScheduledTaskCreated row Defender records next to a `schtasks.exe /create` ProcessCreated row. */
+function companions(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
+  const f = edrFacts(ev);
+  if (!f.host || f.os !== "Win") return [];
+  const t = schtasksTask(f);
+  if (!t) return [];
+  const host = f.host;
+  const seed = (p: string) => `${ev.id}:mde:task:${p}`;
+  const u = who(ctx, f, host);
+  const scope: ProcScope = { host, os: f.os, timeMs: f.timeMs, user: u.name ?? undefined, incident: ev.incident_id };
+  const base = { Timestamp: isoFrac(f.timeMs + 180, 7, ctx, seed("ts")), DeviceId: ctx.hex(`${ctx.companyId}:${host.toLowerCase()}`, 40), DeviceName: host };
+  const tail = { ReportId: ctx.int(seed("report"), 1_000, 999_999), AppGuardContainerId: null, MachineGroup: machineGroup(host, f.os) };
+  return [{
+    sourceId: "mde", kind: "DeviceEvents", format: "json", timeMs: f.timeMs,
+    record: {
+      time: isoFrac(f.timeMs + ctx.int(seed("lag"), 1_000, 6_000), 7, ctx, seed("time")), tenantId: ctx.tenant.azureTenantId,
+      operationName: "Publish", category: "AdvancedHunting-DeviceEvents",
+      properties: scheduledTaskRow(ctx, scope, t, f, u, integrity(f, u), base, tail),
+    },
+  }];
+}
+
 export const source: NativeSource = {
   schema: {
     sourceId: "mde",
@@ -594,5 +694,6 @@ export const source: NativeSource = {
     kinds,
   },
   fromTelemetry,
+  companions,
   useCases,
 };

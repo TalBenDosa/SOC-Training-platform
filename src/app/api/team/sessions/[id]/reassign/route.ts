@@ -3,6 +3,7 @@ import { asObject } from "@/lib/http/body";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
+import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 
 /**
  * Reassign a member's role in a live session (F7 — resilience to disconnects).
@@ -15,7 +16,6 @@ import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
  * this the UI had to say "ask them to refresh" (audit C3).
  */
 const PLAY_ROLES = new Set(["t1", "t2", "t3", "mgr", "lead", "de", "ti", "observer"]);
-const SINGLE_SEAT = new Set(["t3", "mgr"]);
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,7 +59,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { error } = await admin.from("team_session_members")
     .update({ role }).eq("session_id", id).eq("user_id", targetUserId);
-  if (error) { console.error("[team reassign]", error.message); return NextResponse.json({ error: "Couldn't reassign the role." }, { status: 500 }); }
+  if (error) {
+    const conflict = rosterConflict(error, role);   // QA L1: lost a race for a single seat → 409
+    if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
+    console.error("[team reassign]", error.message); return NextResponse.json({ error: "Couldn't reassign the role." }, { status: 500 });
+  }
 
   await appendSystemEvent(id, "member.role_changed", { user_id: targetUserId, role, from: member.role, by: user.id });
   return NextResponse.json({ ok: true, user_id: targetUserId, role });

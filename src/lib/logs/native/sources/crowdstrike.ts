@@ -14,7 +14,8 @@
  * Input = vendor-neutral facts from ./edr-normalize (edrFacts), so a Defender-, SentinelOne- or
  * Sophos-authored event renders here too. Correlation (card §5):
  *   - same host → same `aid` (seeded `${companyId}:${host}`), `cid` = ctx.tenant.crowdstrikeCid;
- *   - a process's TargetProcessId (UPID) is seeded from host + image name + OS pid, so the
+ *   - a process's TargetProcessId (UPID) and RawProcessId come from its instance key (./_proc-identity:
+ *     host + image + lifetime scope, never the authored pid), so the
  *     ContextProcessId on its own DnsRequest / NetworkConnectIP4 / *FileWritten events and the
  *     ParentProcessId of its children are the same value; alert `process_id` = that UPID too;
  *   - AuthenticationId (logon LUID) is stable per host + user ("999" for SYSTEM).
@@ -29,12 +30,12 @@
 import { techniqueName } from "./_edr_mde_sophos_common";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { edrFacts, type EdrFacts, type EdrProc } from "./edr-normalize";
+import { edrFacts, actionFlags, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
 import {
   osOf, rhex, ruuid, hostIpOf, egressIp, hostRole, digits, secMs, iso, isoNano, userOf, procName, imagePath, ntDevicePath,
   pidOf, procSeed, netFacts, registryFacts, fixPath, baseName, isIPv4, alt, OFFICE, SCRIPT_HOSTS, LOLBINS,
   PRIVATE_CIDRS, USER_WRITABLE_RE, DOWNLOADS_PUBLIC_RE, type UserFacts,
-  foreignDetectionName,
+  foreignDetectionName, inferredFileWriter, type ProcScope,
 } from "./_cs-s1-common";
 
 // ── schema ───────────────────────────────────────────────────────────────────
@@ -110,6 +111,11 @@ const kinds: Record<string, KindSchema> = {
     optional: [...COMMON_OPT, "RegStringValue", "RegType", "RegClassification", "RegClassificationFlags", "RegClassificationIndex",
       "AuthenticationId", "TokenType", "ContextThreadId"],
   },
+  // Not in the card — FDR data dictionary field names (UNVERIFIED against a public sample).
+  ScheduledTaskRegistered: {
+    required: [...COMMON_REQ, ...CTX, "TaskName"],
+    optional: [...COMMON_OPT, "ContextThreadId", "RpcClientProcessId", "TaskExecCommand", "TaskExecArguments", "TaskAuthor", "UserSid", "AuthenticationId"],
+  },
   UserLogon: {
     required: [...COMMON_REQ, "UserName", "UserSid", "AuthenticationId", "LogonType", "LogonTime", "ContextTimeStamp"],
     optional: [...COMMON_OPT, "AuthenticationPackage", "ClientComputerName", "ContextProcessId", "ContextThreadId", "EnabledPrivilegesBitmask",
@@ -176,7 +182,7 @@ export function kindOf(record: Record<string, unknown>): string | null {
 const NAME_SUFFIX: Record<string, string> = {
   ProcessRollup2: "V19", DnsRequest: "V5", NetworkConnectIP4: "V5", NetworkReceiveAcceptIP4: "V5", PeFileWritten: "V14",
   NewScriptWritten: "V12", OoxmlFileWritten: "V12", ZipFileWritten: "V12", GenericFileWritten: "V12",
-  AsepValueUpdate: "V7", RegGenericValueUpdate: "V7", UserLogon: "V8", UserLogonFailed2: "V2",
+  AsepValueUpdate: "V7", RegGenericValueUpdate: "V7", UserLogon: "V8", UserLogonFailed2: "V2", ScheduledTaskRegistered: "V3",
 };
 const INTEGRITY: Record<string, string> = { low: "4096", medium: "8192", high: "12288", system: "16384" };
 const CONSOLE = new Set(["cmd.exe", "powershell.exe", "pwsh.exe", "cscript.exe", "reg.exe", "net.exe", "net1.exe", "certutil.exe", "wmic.exe",
@@ -196,7 +202,7 @@ const upid = (ctx: NativeCtx, seed: string) => `2${digits(ctx, `${seed}:upid`, 1
 const threadId = (ctx: NativeCtx, seed: string) => `1${digits(ctx, `${seed}:tid`, 11)}`;
 const luid = (ctx: NativeCtx, host: string, u: UserFacts) => (u.system ? "999" : u.user ? digits(ctx, `${ctx.companyId}:${host}:${u.user.toLowerCase()}:luid`, 7) : undefined);
 
-interface Base { ctx: NativeCtx; ev: TelemetryEvent; f: EdrFacts; host: string; os: "Win" | "Lin" | "Mac"; hostIp: string; aid: string; u: UserFacts }
+interface Base { ctx: NativeCtx; ev: TelemetryEvent; f: EdrFacts; host: string; os: "Win" | "Lin" | "Mac"; hostIp: string; aid: string; u: UserFacts; scope: ProcScope }
 
 function common(b: Base, simple: string, cls = "3"): Record<string, unknown> {
   const { ctx, ev, f, host, os } = b;
@@ -215,7 +221,7 @@ function common(b: Base, simple: string, cls = "3"): Record<string, unknown> {
 function actor(b: Base, p: EdrProc, fallbackSeed: string): Record<string, unknown> {
   const { ctx, host, f } = b;
   const known = !!procName(p);
-  const seed = known ? procSeed(ctx, host, p) : `${ctx.companyId}:${host}:${fallbackSeed}`;
+  const seed = known ? procSeed(ctx, b.scope, p) : `${ctx.companyId}:${host}:${fallbackSeed}`;
   const path = known ? imagePath(p) : undefined;
   return {
     ContextProcessId: upid(ctx, seed),
@@ -240,8 +246,8 @@ function processRollup2(b: Base): Record<string, unknown> | null {
   const name = procName(p);
   if (!name && !p.cmdline) return null;
   const path = imagePath(p);
-  const seed = procSeed(ctx, host, p);
-  const parentSeed = f.parent.name || f.parent.path ? procSeed(ctx, host, f.parent) : `${seed}:unattributed-parent`;
+  const seed = procSeed(ctx, b.scope, p);
+  const parentSeed = f.parent.name || f.parent.path ? procSeed(ctx, b.scope, f.parent) : `${seed}:unattributed-parent`;
   const ppid = upid(ctx, parentSeed);
   const auth = luid(ctx, host, u);
   const win = os === "Win";
@@ -249,7 +255,7 @@ function processRollup2(b: Base): Record<string, unknown> | null {
   return {
     ...common(b, "ProcessRollup2"),
     TargetProcessId: upid(ctx, seed), ParentProcessId: ppid, SourceProcessId: ppid, SourceThreadId: threadId(ctx, parentSeed),
-    RawProcessId: String(pidOf(ctx, host, p)),
+    RawProcessId: String(pidOf(ctx, b.scope, p)),
     ImageFileName: path ? (win ? ntDevicePath(path) : path) : undefined,
     CommandLine: cmd,
     ParentBaseFileName: f.parent.name ?? baseName(f.parent.path),
@@ -317,8 +323,10 @@ function fileWritten(b: Base, ev: TelemetryEvent): { simple: string; rec: Record
     : OOXML_EXT.has(ext) ? "OoxmlFileWritten" : ext === "zip" ? "ZipFileWritten" : "GenericFileWritten";
   const win = os === "Win";
   const seed = `${ctx.companyId}:${host}:file:${path.toLowerCase()}`;
+  // No writer on the event: a user's hand copy into a profile folder is Explorer's write.
+  const writer = procName(f.proc) ? f.proc : inferredFileWriter(path, os, u.system) ?? f.proc;
   const rec: Record<string, unknown> = {
-    ...common(b, simple), ...actor(b, f.proc, `writer:${path.toLowerCase()}`),
+    ...common(b, simple), ...actor(b, writer, `writer:${path.toLowerCase()}`),
     TargetFileName: win ? ntDevicePath(path) : path, SHA256HashData: f.file.sha256, Size: f.file.size !== undefined ? String(f.file.size) : undefined,
     UserName: u.user, FileIdentifier: rhex(ctx, `${seed}:fid`, 48), FileObject: "0", IrpFlags: "0", MajorFunction: "0", MinorFunction: "0",
     OperationFlags: "0", FileEcpBitmask: "0",
@@ -358,6 +366,29 @@ function registry(b: Base, ev: TelemetryEvent): { simple: string; rec: Record<st
       RegOperationType: "1", AuthenticationId: luid(ctx, host, u), TokenType: "1",
       TargetFileName: asep && target ? ntDevicePath(target) : undefined,
     },
+  };
+}
+
+/**
+ * ScheduledTaskRegistered — the Task Scheduler service (svchost.exe -k netsvcs -s Schedule) records
+ * the registration, so ContextProcessId is that service; the process that asked for the task over
+ * RPC (schtasks.exe, an installer …) is RpcClientProcessId = its own PR2 TargetProcessId.
+ * The event and these field names are not in the card (UNVERIFIED there) — they follow the FDR data
+ * dictionary's ScheduledTaskRegistered (TaskName, TaskExecCommand, TaskExecArguments, TaskAuthor,
+ * RpcClientProcessId).
+ */
+function scheduledTask(b: Base, t: TaskFacts): Record<string, unknown> | null {
+  const { ctx, f, host, os, u } = b;
+  if (os !== "Win") return null;
+  const schedule: EdrProc = { name: "svchost.exe", path: "C:\\Windows\\System32\\svchost.exe" };
+  const svcSeed = procSeed(ctx, b.scope, schedule);
+  const author = u.user ? (u.system ? "NT AUTHORITY\\SYSTEM" : `${u.domain}\\${u.user}`) : undefined;
+  return {
+    ...common(b, "ScheduledTaskRegistered"),
+    ContextProcessId: upid(ctx, svcSeed), ContextThreadId: threadId(ctx, `${svcSeed}:${f.eventId}`), ContextTimeStamp: secMs(f.timeMs),
+    RpcClientProcessId: procName(t.registrar) ? upid(ctx, procSeed(ctx, b.scope, t.registrar)) : undefined,
+    TaskName: t.path, TaskExecCommand: t.command, TaskExecArguments: t.args ?? "", TaskAuthor: author,
+    UserSid: u.sid, AuthenticationId: luid(ctx, host, u),
   };
 }
 
@@ -412,6 +443,19 @@ const DISPOSITION: Record<string, { code: number; text: string; flags: string[] 
   quarantined: { code: 2304, text: "Prevention, process killed and file quarantined.", flags: ["kill_process", "quarantine_file"] },
   blocked: { code: 16, text: "Prevention, process blocked from execution.", flags: ["process_blocked"] },
 };
+/**
+ * The disposition the sensor applied, from every action fact on the event (kill AND quarantine can
+ * both be authored). "Blocked from execution" only when the process never ran: the event says
+ * execution was prevented, or the trigger is a file no process of the event is running. A process
+ * that ran (it has a command line, a parent, children) and was stopped was KILLED.
+ */
+function dispositionOf(ev: TelemetryEvent, action: string, fileNeverRan: boolean): { code: number; text: string; flags: string[] } {
+  const a = actionFlags(ev);
+  if (action === "detected" && !a.kill && !a.quarantine) return DISPOSITION.detected;
+  if (a.blockedExec || (action === "blocked" && fileNeverRan && !a.kill)) return DISPOSITION.blocked;
+  if (action === "quarantined" || a.quarantine) return DISPOSITION.quarantined;
+  return DISPOSITION.killed;
+}
 
 function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const { ctx, f, host, os, u, aid } = b;
@@ -424,13 +468,18 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     : f.proc;
   const tName = procName(trig);
   const tPath = imagePath(trig);
-  const seed = tName ? procSeed(ctx, host, trig) : `${ctx.companyId}:${host}:alert:${f.eventId}`;
+  const seed = tName ? procSeed(ctx, b.scope, trig) : `${ctx.companyId}:${host}:alert:${f.eventId}`;
   const processId = upid(ctx, seed);
-  const parentKnown = !!(f.parent.name || f.parent.path);
-  const parentId = parentKnown ? upid(ctx, procSeed(ctx, host, f.parent)) : undefined;
+  // The triggering file's parent is the process the event names (it wrote / launched the file);
+  // a process trigger's parent is the event's parent.
+  const parent: EdrProc = fileFirst && procName(f.proc) && procName(f.proc)!.toLowerCase() !== (tName ?? "").toLowerCase() ? f.proc : f.parent;
+  const parentKnown = !!(parent.name || parent.path);
+  const parentId = parentKnown ? upid(ctx, procSeed(ctx, b.scope, parent)) : undefined;
   // Falcon's own detection naming: on-sensor ML for a known-malicious file, the ATT&CK
   // technique for a behavioural IOA — never a Defender threat name or a scenario placeholder.
-  const ownName = foreignDetectionName(d.name) ? undefined : d.name;
+  // An AV engine's dotted signature ("PUA.RemoteAdmin.AnyDesk", "Trojan.GenericKD") is another
+  // product's naming too — Falcon names IOAs / ML detections, not signatures.
+  const ownName = foreignDetectionName(d.name) || /^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+$/.test(d.name ?? "") ? undefined : d.name;
   const mlFile = !ownName && (d.action === "quarantined" || /malware|trojan|ransom/i.test(d.name ?? ""));
   const techName = techniqueName(d.techniqueId?.split(",")[0]?.trim(), d.technique);
   const display = ownName ?? (mlFile ? "Sensor-based ML" : techName ?? (d.tactic ? `${d.tactic} via Suspicious Process` : "Suspicious Process Behavior"));
@@ -442,7 +491,7 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const treeId = digits(ctx, `${ctx.companyId}:${host}:tree:${ev.incident_id ?? parentId ?? processId}`, 11);
   const [sevNum, sevName] = SEV[(d.severity ?? "medium").toLowerCase()] ?? SEV.medium;
   const tacticKey = (d.tactic ?? "").toLowerCase();
-  const disp = DISPOSITION[d.action];
+  const disp = dispositionOf(ev, d.action, fileFirst && !(procName(f.proc) && procName(f.proc)!.toLowerCase() === (tName ?? "").toLowerCase()));
   const techId = d.techniqueId?.split(",")[0]?.trim();
   const scenario = d.action === "quarantined" ? "known_malware" : /^T1003|^T1555|^T1558/.test(techId ?? "") ? "attacker_methodology" : "suspicious_activity";
   const role = hostRole(host);
@@ -457,7 +506,9 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     composite_id: composite, confidence: d.confidence !== undefined ? (d.confidence <= 1 ? Math.round(d.confidence * 100) : Math.round(d.confidence)) : sevNum >= 90 ? 90 : sevNum >= 70 ? 80 : 60,
     context_timestamp: iso(f.timeMs), control_graph_id: `ctg:${aid}:${treeId}`,
     created_timestamp: isoNano(ctx, created, `${ev.id}:cs:cns`), data_domains: ["Endpoint"],
-    description: d.description ?? falconDescription(mlFile ? "quarantined" : d.action, techId, techName ?? display), display_name: display,
+    // Falcon's wording for HOW it detected — never the authored narrative, whose "quarantined and
+    // killed" claims contradicted the disposition flags (what the sensor DID is pattern_disposition*).
+    description: falconDescription(mlFile ? "quarantined" : d.action, techId, techName ?? display), display_name: display,
     device: {
       agent_load_flags: "0", agent_version: "7.29.19807.0", cid, config_id_build: "19807", device_id: aid,
       external_ip: egressIp(ctx), first_seen: iso(Date.UTC(2025, 10, 3) + ctx.int(`${ctx.companyId}:${host}:fs`, 0, 86_400 * 120) * 1000).replace(/\.\d{3}Z$/, "Z"),
@@ -471,12 +522,12 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     },
     falcon_host_link: `https://falcon.${region}.crowdstrike.com/activity-v2/detections/${composite}?_cid=${cid}`,
     filename: tName, filepath: tPath ? (win ? ntDevicePath(tPath) : tPath) : undefined,
-    id: indicator, indicator_id: indicator, local_process_id: tName ? String(pidOf(ctx, host, trig)) : undefined,
+    id: indicator, indicator_id: indicator, local_process_id: tName ? String(pidOf(ctx, b.scope, trig)) : undefined,
     logon_domain: u.user ? u.domain : undefined, md5: trig.md5, name, objective: OBJECTIVE[tacticKey],
     parent_details: parentKnown ? {
-      cmdline: f.parent.cmdline, filename: f.parent.name ?? baseName(f.parent.path),
-      filepath: imagePath(f.parent) ? (win ? ntDevicePath(imagePath(f.parent)!) : imagePath(f.parent)) : undefined,
-      local_process_id: String(pidOf(ctx, host, f.parent)), process_graph_id: `pid:${aid}:${parentId}`, process_id: parentId,
+      cmdline: parent.cmdline, filename: parent.name ?? baseName(parent.path),
+      filepath: imagePath(parent) ? (win ? ntDevicePath(imagePath(parent)!) : imagePath(parent)) : undefined,
+      local_process_id: String(pidOf(ctx, b.scope, parent)), process_graph_id: `pid:${aid}:${parentId}`, process_id: parentId,
       user_id: u.sid, user_name: u.user,
     } : undefined,
     parent_process_id: parentId,
@@ -505,15 +556,22 @@ function clean(o: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
+function baseFor(ev: TelemetryEvent, ctx: NativeCtx, f: EdrFacts, host: string): Base {
+  const os = osOf(f, ev);
+  const u = userOf(ctx, f, os);
+  return { ctx, ev, f, host, os, hostIp: hostIpOf(ctx, f, host), aid: aidOf(ctx, host), u, scope: { host, os, timeMs: f.timeMs, user: u.user, incident: ev.incident_id } };
+}
+
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const f = edrFacts(ev);
   if (f.kind === "unsupported" || !f.host) return null;
-  const host = f.host;
-  const os = osOf(f, ev);
-  const b: Base = { ctx, ev, f, host, os, hostIp: hostIpOf(ctx, f, host), aid: aidOf(ctx, host), u: userOf(ctx, f, os) };
+  const b = baseFor(ev, ctx, f, f.host);
   const timeMs = Date.parse(ev.ts);
   const out = (kind: string, rec: Record<string, unknown> | null): NativeLog | null =>
     rec ? { sourceId: "crowdstrike", kind, format: "json", record: kind === "alert" ? clean(rec) : sortKeys(rec), timeMs } : null;
+  // A task registration is its own sensor event, not a child process of the registrar.
+  const task = f.kind === "process" ? taskFacts(ev, f) : null;
+  if (task) return out("ScheduledTaskRegistered", scheduledTask(b, task));
   switch (f.kind) {
     case "process": return out("ProcessRollup2", processRollup2(b));
     case "dns": return out("DnsRequest", dnsRequest(b, ev));
@@ -623,12 +681,24 @@ const useCases: UseCase[] = [
   },
 ];
 
+/** The ScheduledTaskRegistered the Task Scheduler records next to a `schtasks.exe /create` ProcessRollup2. */
+function companions(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
+  const f = edrFacts(ev);
+  if (!f.host) return [];
+  const t = schtasksTask(f);
+  if (!t) return [];
+  // Its own sensor event: own event id (never the PR2's `id`), same process identities.
+  const rec = scheduledTask(baseFor({ ...ev, id: `${ev.id}:task` }, ctx, { ...f, eventId: `${f.eventId}:task` }, f.host), t);
+  return rec ? [{ sourceId: "crowdstrike", kind: "ScheduledTaskRegistered", format: "json", record: sortKeys(rec), timeMs: Date.parse(ev.ts) }] : [];
+}
+
 export const source: NativeSource = {
   schema: {
     sourceId: "crowdstrike", category: "edr", card: "edr-crowdstrike.md", product: "CrowdStrike Falcon",
     format: "json", vendorMatch: ["crowdstrike", "falcon"], telemetrySources: ["edr", "av"], kinds,
   },
   fromTelemetry,
+  companions,
   useCases,
 };
 

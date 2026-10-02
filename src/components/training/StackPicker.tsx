@@ -29,10 +29,29 @@ export function stackDelta(companyId: string, stack: Stack): Stack {
   return out;
 }
 
+/**
+ * One category changed in the picker → the next stack (as a delta) + whether the mail
+ * filter is currently one the picker FORCED. Google Workspace forces Proofpoint
+ * (Defender for Office 365 only filters Exchange Online); moving back off Google used to
+ * leave that forced Proofpoint behind (QA L3) — now it returns to the company default,
+ * unless the trainer picked Proofpoint themselves.
+ */
+export function nextStack(companyId: string, merged: Stack, category: (typeof STACK_CHOICES)[number]["category"], value: string, forcedMail: boolean): { stack: Stack; forcedMail: boolean } {
+  const base = COMPANY_STACKS[companyId] ?? {};
+  let next = coherentStack({ ...merged, [category]: (value || undefined) as Stack[typeof category] });
+  let forced = category === "email_security" ? false : forcedMail;
+  if (category === "collab") {
+    if (next.collab === "google_workspace" && merged.email_security !== next.email_security) forced = true;
+    else if (next.collab !== "google_workspace" && forced) { next = { ...next, email_security: base.email_security }; forced = false; }
+  }
+  return { stack: stackDelta(companyId, next), forcedMail: forced };
+}
+
 export function StackPicker({ companyId, value, onChange, defaultOpen = false, idPrefix = "stack" }: {
   companyId: string; value: Stack; onChange: (s: Stack) => void; defaultOpen?: boolean; idPrefix?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [forcedMail, setForcedMail] = useState(false);
   const base = COMPANY_STACKS[companyId] ?? {};
   const merged = coherentStack({ ...base, ...value });
   const effective = (cat: (typeof STACK_CHOICES)[number]["category"]) => merged[cat] ?? "";
@@ -64,7 +83,7 @@ export function StackPicker({ companyId, value, onChange, defaultOpen = false, i
                 <div className="flex items-center gap-3">
                   <label htmlFor={id} className="w-36 shrink-0 text-xs text-slate-400">{c.label}</label>
                   <select id={id} value={current}
-                    onChange={e => onChange(stackDelta(companyId, coherentStack({ ...merged, [c.category]: e.target.value || undefined })))}
+                    onChange={e => { const r = nextStack(companyId, merged, c.category, e.target.value, forcedMail); setForcedMail(r.forcedMail); onChange(r.stack); }}
                     className="h-8 min-w-0 flex-1 rounded-md border border-border bg-bg-elevated px-2 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none">
                     {!current && <option value="">— not in this environment —</option>}
                     {c.options.map(o => (
@@ -82,7 +101,7 @@ export function StackPicker({ companyId, value, onChange, defaultOpen = false, i
             );
           })}
           {changed > 0 && (
-            <button type="button" onClick={() => onChange({})} className="text-[11px] text-cyber-300 hover:underline">Reset to the company&apos;s products</button>
+            <button type="button" onClick={() => { setForcedMail(false); onChange({}); }} className="text-[11px] text-cyber-300 hover:underline">Reset to the company&apos;s products</button>
           )}
         </div>
       )}

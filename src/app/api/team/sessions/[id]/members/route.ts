@@ -3,6 +3,8 @@ import { asObject } from "@/lib/http/body";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
+import { liveAffiliationFilter } from "@/lib/team/membership";
+import { MAX_ROSTER, SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 
 /**
  * Roster management for an existing team session (staff only, own org).
@@ -18,8 +20,6 @@ import { appendSystemEvent } from "@/lib/team/appendSystemEvent";
  * here, and a roster is capped at 60 active members (realtime fan-out budget).
  */
 const ADDABLE_ROLES = new Set(["t1", "t2", "t3", "mgr", "observer"]);
-const SINGLE_SEAT = new Set(["t3", "mgr"]);
-const MAX_ROSTER = 60;
 
 async function loadSession(id: string, orgId: string | null, isPlatformAdmin: boolean) {
   const admin = getSupabaseAdminClient();
@@ -49,10 +49,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if ("error" in loaded) return loaded.error;
   const { admin, sess } = loaded;
 
-  // Invitee must be an ACTIVE member of this org.
+  // Invitee must be an ACTIVE member of this org whose affiliation hasn't expired (M1).
   const { data: orgMem } = await admin.from("org_members")
-    .select("user_id").eq("org_id", sess.org_id).eq("user_id", targetUserId).eq("status", "active").maybeSingle();
-  if (!orgMem) return NextResponse.json({ error: "That user isn't an active member of your organisation." }, { status: 400 });
+    .select("user_id").eq("org_id", sess.org_id).eq("user_id", targetUserId).eq("status", "active").or(liveAffiliationFilter()).maybeSingle();
+  if (!orgMem) return NextResponse.json({ error: "That user isn't an active member of your organisation (or their access has expired)." }, { status: 400 });
 
   const { data: roster, error: rosterErr } = await admin.from("team_session_members").select("user_id, role, status").eq("session_id", id);
   if (rosterErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: roster cap / single seats need the real roster
@@ -68,7 +68,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (existing) {
     const { error } = await admin.from("team_session_members")
       .update({ role, status: existing.status === "left" ? "invited" : existing.status }).eq("session_id", id).eq("user_id", targetUserId);
-    if (error) { console.error("[team members] update:", error.message); return NextResponse.json({ error: "Couldn't update the member." }, { status: 500 }); }
+    if (error) {
+      const conflict = rosterConflict(error, role);
+      if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
+      console.error("[team members] update:", error.message); return NextResponse.json({ error: "Couldn't update the member." }, { status: 500 });
+    }
     await appendSystemEvent(id, existing.status === "left" ? "member.added" : "member.role_changed",
       { user_id: targetUserId, role, from: existing.role, by: user.id });
     return NextResponse.json({ ok: true, user_id: targetUserId, role, updated: true });
@@ -76,7 +80,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const { error } = await admin.from("team_session_members")
     .insert({ session_id: id, user_id: targetUserId, role, status: "invited", invited_by: user.id });
-  if (error) { console.error("[team members] insert:", error.message); return NextResponse.json({ error: "Couldn't add the member." }, { status: 500 }); }
+  if (error) {
+    const conflict = rosterConflict(error, role);
+    if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
+    console.error("[team members] insert:", error.message); return NextResponse.json({ error: "Couldn't add the member." }, { status: 500 });
+  }
   await appendSystemEvent(id, "member.added", { user_id: targetUserId, role, by: user.id });
   return NextResponse.json({ ok: true, user_id: targetUserId, role, added: true });
 }

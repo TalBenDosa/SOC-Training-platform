@@ -19,6 +19,8 @@ import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "..
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { syslogStamp } from "./_dnsShared";
 
+// node= is written when auditd runs with name_format=hostname — the standard setting for a
+// fleet forwarding to a SIEM, and the only place an audit record names its own machine.
 const STAMP = ["type", "audit_id", "epoch", "serial"];
 const ARGS = Array.from({ length: 20 }, (_, i) => [`a${i}`, `a${i}_decoded`]).flat();
 const USER_MSG = ["pid", "uid", "auid", "ses", "op", "exe", "hostname", "addr", "terminal", "res"];
@@ -38,6 +40,7 @@ const kinds: Record<string, KindSchema> = {
   // sshd syslog line (authpriv), kept separate from auditd records.
   sshd: { required: ["timestamp", "hostname", "program", "pid", "message"], optional: ["raw"] },
 };
+for (const k of Object.values(kinds)) if (!k.optional?.includes("node")) k.optional = [...(k.optional ?? []), "node"];   // name_format=hostname
 
 export function kindOf(record: Record<string, unknown>): string | null {
   if (typeof record.type === "string" && kinds[record.type] && "audit_id" in record) return record.type;
@@ -132,8 +135,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (!kind) return null; // cron / systemd / fail2ban syslog, CONFIG_CHANGE, SERVICE_START … are not records this card documents
 
   const out = (record: Record<string, unknown>, rawLine: string): NativeLog => ({ sourceId: "linux_auditd", kind: kind!, format: "kv", record, rawLine, timeMs });
-  const head = (type: string) => ({ ...stamp, type });
-  const line = (type: string, body: string) => `type=${type} msg=${stamp.audit_id}: ${body}`;
+  const head = (type: string) => ({ ...(host ? { node: host } : {}), ...stamp, type });
+  const line = (type: string, body: string) => `${host ? `node=${host} ` : ""}type=${type} msg=${stamp.audit_id}: ${body}`;
   const q = (v: string) => `"${v}"`;
 
   if (kind === "sshd") {

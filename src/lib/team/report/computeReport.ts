@@ -1,6 +1,7 @@
 import type { RosterMember, Ev } from "@/lib/team/types";
 import { CLAIM_TTL_MS } from "@/lib/team/projections";
 import { asStr, hostKey } from "@/lib/team/format";
+import { pausedSpans, activeMs, addActive } from "@/lib/team/pauses";
 
 // ── After-action report — derived entirely from the event log (isomorphic: no React,
 // no server-only imports, so the server computes it once and the client can re-run it).
@@ -18,6 +19,8 @@ import { asStr, hostKey } from "@/lib/team/format";
 export const OVERLOAD_CASES = 3;
 /** Bumped whenever the report's shape/semantics change (cached reports older than this are stale). */
 export const REPORT_VERSION = 4;   // 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged
+// (QA M3 pause-aware timing — like H2 — applies to reports built from now on; no bump, so a
+// cached report keeps matching the XP already awarded from it. Without pauses nothing changes.)
 
 // ── Scoring weights (documented here so the debrief can explain every number) ──────
 /** `suspicious` = a LOW-CONFIDENCE LEAD. On a real attack log it earns partial credit —
@@ -349,7 +352,12 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   const started = events.find(e => e.type === "session.started");
   const startedMs = started?.occurred_at ? Date.parse(started.occurred_at)
     : events.length ? Math.min(...events.filter(e => e.occurred_at).map(e => Date.parse(e.occurred_at!))) : Date.now();
-  const relS = (t: number | null) => (t == null || !Number.isFinite(t) ? null : Math.max(0, Math.round((t - startedMs) / 1000)));
+  // QA M3: every timing below is RUNNING time — paused spans (session.paused →
+  // resumed / ended) are cut out, so a pause never breaches an SLA, ages a claim or
+  // inflates MTTD / ack / triage latency (nobody can act while paused).
+  const spans = pausedSpans(events);
+  const runMs = (a: number, b: number) => activeMs(a, b, spans);
+  const relS = (t: number | null) => (t == null || !Number.isFinite(t) ? null : Math.max(0, Math.round(runMs(startedMs, t) / 1000)));
   const feed = events.filter(e => e.type === "feed.event");
   const fid = (e: Ev) => String((e.payload as { id?: string }).id ?? e.seq);
 
@@ -461,7 +469,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     isoItems.push({
       host, by: e.actor_id, atS: relS(at), releasedS: release ? relS(tsOf(release)) : null,
       verdict: atk ? "compromised" : "clean", correct: !!atk,
-      timeToIsolateS: atk && atk.first != null && at != null ? Math.max(0, Math.round((at - atk.first) / 1000)) : null,
+      timeToIsolateS: atk && atk.first != null && at != null ? Math.max(0, Math.round(runMs(atk.first, at) / 1000)) : null,
     });
   });
   /** First isolation per host (by anyone) — the team view; a re-isolation after a release isn't a new decision. */
@@ -478,7 +486,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     return {
       id: inc.id, label: inc.label.slice(0, 140), attackEvents: inc.attackEids.length, detected, escalated, contained,
       firstSeenS: relS(inc.firstSeen), detectS: detS,
-      dwellS: detTs != null && Number.isFinite(detTs) && inc.firstSeen != null ? Math.max(0, Math.round((detTs - inc.firstSeen) / 1000)) : null,
+      dwellS: detTs != null && Number.isFinite(detTs) && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, detTs) / 1000)) : null,
     };
   }).sort((a, b) => (a.firstSeenS ?? 0) - (b.firstSeenS ?? 0));
   const incidentsDetected = incidentList.filter(i => i.detected).length;
@@ -527,7 +535,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   let lastTs = startedMs;
   for (const e of events) {
     const ts = e.occurred_at ? Date.parse(e.occurred_at) : lastTs; lastTs = Math.max(lastTs, ts);
-    for (const [eid, c] of claimHolder) if (ts - c.at > CLAIM_TTL_MS) { bump(c.by, -1, c.at + CLAIM_TTL_MS); claimHolder.delete(eid); staleClaim.set(eid, c); }
+    for (const [eid, c] of claimHolder) if (runMs(c.at, ts) > CLAIM_TTL_MS) { bump(c.by, -1, addActive(c.at, CLAIM_TTL_MS, spans)); claimHolder.delete(eid); staleClaim.set(eid, c); }
     if (e.type === "alert.claimed") {
       const eid = eidOf(e); if (!eid) continue; const who = e.actor_id ?? "";
       const live = claimHolder.get(eid); const stale = staleClaim.get(eid);
@@ -569,7 +577,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   const ended = events.find(e => e.type === "session.ended");
   const endTs = Math.max(lastTs, ended?.occurred_at ? Date.parse(ended.occurred_at) : 0);
   for (const [u, s] of overloadSince) { if (!episodes.has(u)) episodes.set(u, []); episodes.get(u)!.push({ start: s, end: endTs }); }
-  const realEpisodes = new Map([...episodes].map(([u, eps]) => [u, eps.filter(ep => ep.end - ep.start >= OVERLOAD_MIN_MS)] as const).filter(([, eps]) => eps.length > 0));
+  const realEpisodes = new Map([...episodes].map(([u, eps]) => [u, eps.filter(ep => runMs(ep.start, ep.end) >= OVERLOAD_MIN_MS)] as const).filter(([, eps]) => eps.length > 0));
   const backupByUser = new Map<string, number>();
   for (const p of players) backupByUser.set(p.user_id, (takeoverByUser.get(p.user_id) ?? 0) + (backupAckByUser.get(p.user_id) ?? 0));
   // Manager load balancing: of the analysts with a REAL overload episode, how many were
@@ -577,7 +585,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   const NUDGE_GRACE = 5 * 60000;
   const nudges = events.filter(e => e.type === "coordination.nudge").map(e => ({ target: String((e.payload as { target?: string }).target), at: tsOf(e) }));
   const overloadedUsers = [...realEpisodes.keys()];
-  const respondedTo = overloadedUsers.filter(u => nudges.some(n => n.target === u && (n.at == null || realEpisodes.get(u)!.some(ep => n.at! >= ep.start && n.at! <= ep.end + NUDGE_GRACE))));
+  const respondedTo = overloadedUsers.filter(u => nudges.some(n => n.target === u && (n.at == null || realEpisodes.get(u)!.some(ep => n.at! >= ep.start && n.at! <= addActive(ep.end, NUDGE_GRACE, spans)))));
   const loadBalanceRate = pct(respondedTo.length, overloadedUsers.length);
 
   // ── Help-desk tickets: the FIRST answer per ticket is judged on its decision; a later
@@ -715,7 +723,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const contDecided = new Set(mine.filter(e => e.type === "containment.approved" || e.type === "containment.denied").map(eidOf)).size;
     const roleActions = new Set(mine.filter(e => ROLE_ACTION_TYPES.has(e.type) && e.type !== "note.added").map(e => `${e.type}:${eidOf(e)}`)).size;
     const actionTimes = mine.filter(e => e.occurred_at && e.type !== "member.ready").map(e => Date.parse(e.occurred_at!));
-    const firstActionS = actionTimes.length ? Math.max(0, Math.round((Math.min(...actionTimes) - startedMs) / 1000)) : null;
+    const firstActionS = actionTimes.length ? relS(Math.min(...actionTimes)) : null;
     const contribution = Math.min(100, opened * 3 + distinctDisp * 6 + esc.length * 15 + acks * 10 + myContReq.length * 15 + contDecided * 20 + roleActions * 15);
 
     const escPrecision = esc.length ? precisionOf(esc) : null;
@@ -723,15 +731,15 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const triageMin = median(disp.map(d => {
       const eid = eidOf(d); const sev = feedSev.get(eid); if (sev !== "high" && sev !== "critical") return null;
       const ft = feedTs.get(eid); const dt = tsOf(d);
-      return ft != null && dt != null ? (dt - ft) / 60000 : null;
+      return ft != null && dt != null ? runMs(ft, dt) / 60000 : null;
     }).filter((x): x is number => x != null && x >= 0));
     const ackLatencyMin = median(mine.filter(e => e.type === "escalation.acknowledged").map(e => {
       const at = tsOf(e); if (at == null) return null; const rt = reqBefore(escTimes, eidOf(e), at);
-      return rt != null ? (at - rt) / 60000 : null;
+      return rt != null ? runMs(rt, at) / 60000 : null;
     }).filter((x): x is number => x != null && x >= 0));
     const approvalLatencyMin = median(mine.filter(e => e.type === "containment.approved").map(e => {
       const at = tsOf(e); if (at == null) return null; const rt = reqBefore(contTimes, eidOf(e), at);
-      return rt != null ? (at - rt) / 60000 : null;
+      return rt != null ? runMs(rt, at) / 60000 : null;
     }).filter((x): x is number => x != null && x >= 0));
 
     // T3 hunts.
@@ -806,15 +814,15 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const sitrepCount = mine.filter(e => e.type === "sitrep.sent").length;
     // T3 hypothesis→conclusion: per scope confirmation, the LATEST hunt before it → it.
     const huntTs = tms(hunts).sort((a, b) => a - b);
-    const huntToConfirmMin = median(tms(scopeConfirms).map(ct => { let best: number | null = null; for (const h of huntTs) if (h <= ct) best = h; return best != null ? (ct - best) / 60000 : null; }).filter((x): x is number => x != null));
+    const huntToConfirmMin = median(tms(scopeConfirms).map(ct => { let best: number | null = null; for (const h of huntTs) if (h <= ct) best = h; return best != null ? runMs(best, ct) / 60000 : null; }).filter((x): x is number => x != null));
     const caseAssigns = mine.filter(e => e.type === "case.assigned");
-    const caseOwnedMin = tms(caseAssigns).length ? Math.max(0, (Math.min(...tms(caseAssigns)) - startedMs) / 60000) : null;
+    const caseOwnedMin = tms(caseAssigns).length ? Math.max(0, runMs(startedMs, Math.min(...tms(caseAssigns))) / 60000) : null;
     // Mgmt pressure: each inject paired one-to-one with a DISTINCT following SITREP (≤15 min).
     const injTs = tms(mgmtInjects).sort((a, b) => a - b);
     const sitrepPool = tms(mine.filter(e => e.type === "sitrep.sent")).sort((a, b) => a - b);
     const MGMT_WINDOW = 15 * 60000;
     let mgmtAnswered = 0;
-    for (const it of injTs) { const idx = sitrepPool.findIndex(st => st >= it && st - it <= MGMT_WINDOW); if (idx !== -1) { mgmtAnswered++; sitrepPool.splice(idx, 1); } }
+    for (const it of injTs) { const idx = sitrepPool.findIndex(st => st >= it && runMs(it, st) <= MGMT_WINDOW); if (idx !== -1) { mgmtAnswered++; sitrepPool.splice(idx, 1); } }
     const mgmtRespondedRate = pct(mgmtAnswered, mgmtInjects.length);
 
     // ── v3: SLA per reported event ──
@@ -828,7 +836,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     }
     const asItem = (eid: string, t: number, kind: ReportedItem["kind"], verdict?: string): ReportedItem => {
       const arr = feedTs.get(eid) ?? null; const sev = sevOf(eid); const slaS = slaSecFor(sev);
-      const responseS = arr != null ? Math.max(0, Math.round((t - arr) / 1000)) : null;
+      const responseS = arr != null ? Math.max(0, Math.round(runMs(arr, t) / 1000)) : null;
       return {
         label: labelOf(eid), severity: sev, kind, arrivedS: relS(arr), actedS: relS(t), responseS, slaS,
         withinSla: responseS == null ? null : responseS <= slaS, truth: truthClass(eid),
@@ -905,12 +913,12 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   // MTTR: median Δ(FIRST escalation → escalation.resolved) per resolved log.
   const mttrS = median(events.filter(e => e.type === "escalation.resolved").map(e => {
     const rt = escTimes.get(eidOf(e))?.[0]; const at = tsOf(e);
-    return rt != null && at != null ? (at - rt) / 1000 : null;
+    return rt != null && at != null ? runMs(rt, at) / 1000 : null;
   }).filter((x): x is number => x != null && x >= 0));
   // Handoff latency (team MTTA): per log, first ack − the request it acknowledged.
   const ackFirstTs = new Map<string, number>();
   for (const e of events.filter(x => x.type === "escalation.acknowledged")) { const eid = eidOf(e); const at = tsOf(e); if (at != null && !ackFirstTs.has(eid)) ackFirstTs.set(eid, at); }
-  const handoffLatS = median([...ackFirstTs].map(([eid, at]) => { const rt = reqBefore(escTimes, eid, at); return rt != null ? (at - rt) / 1000 : null; }).filter((x): x is number => x != null && x >= 0));
+  const handoffLatS = median([...ackFirstTs].map(([eid, at]) => { const rt = reqBefore(escTimes, eid, at); return rt != null ? runMs(rt, at) / 1000 : null; }).filter((x): x is number => x != null && x >= 0));
 
   // ── Evaluable MSEL injects ─────────────────────────────────────────────────────
   // mgmt pressure → a SITREP within 15 min (one-to-one). ticket → the first answer's
@@ -955,7 +963,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
       const supTimes = sup.map(id => truth.get(id)!.ts).filter((x): x is number => x != null);
       const firstSup = supTimes.length ? Math.min(...supTimes) : null;
       const from = at ?? -Infinity;
-      const until = Math.max(at ?? 0, firstSup ?? 0) + INJECT_WINDOW;
+      const until = addActive(Math.max(at ?? 0, firstSup ?? 0), INJECT_WINDOW, spans);
       const inWin = (t: number | null) => t != null && t >= from && t <= until;
       const referenced = events.some(x => {
         if (!x.actor_id || !inWin(tsOf(x))) return false;
@@ -969,11 +977,11 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     if (kind === "ticket") {
       const tk = ticketFirst.get(e.seq);
       if (!tk) return { ...base, scored: true, handled: false, note: "the ticket was never answered" };
-      const onTime = at == null || tk.ts == null || tk.ts - at <= INJECT_WINDOW;
+      const onTime = at == null || tk.ts == null || runMs(at, tk.ts) <= INJECT_WINDOW;
       return { ...base, scored: true, handled: tk.correct && onTime, note: !tk.correct ? `answered "${tk.decision}" — the wrong call` : onTime ? `answered "${tk.decision}" — the right call` : "answered after the 15-min window" };
     }
     let handled = false;
-    if (at != null) { const idx = sitrepAts.findIndex((t, i) => !usedS.has(i) && t >= at && t - at <= INJECT_WINDOW); if (idx !== -1) { usedS.add(idx); handled = true; } }
+    if (at != null) { const idx = sitrepAts.findIndex((t, i) => !usedS.has(i) && t >= at && runMs(at, t) <= INJECT_WINDOW); if (idx !== -1) { usedS.add(idx); handled = true; } }
     return { ...base, scored: true, handled };
   });
   const scoredInjects = injectResults.filter(i => i.scored);
@@ -997,10 +1005,10 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   // ── v3: team triage metrics ────────────────────────────────────────────────────
   const attackList = [...attackIds];
   const attackSlaJudged = attackList.filter(eid => feedTs.get(eid) != null);
-  const attackInSla = attackSlaJudged.filter(eid => { const ft = firstTriage.get(eid); const at = feedTs.get(eid)!; return ft != null && (ft - at) / 1000 <= slaSecFor(sevOf(eid)); }).length;
+  const attackInSla = attackSlaJudged.filter(eid => { const ft = firstTriage.get(eid); const at = feedTs.get(eid)!; return ft != null && runMs(at, ft) / 1000 <= slaSecFor(sevOf(eid)); }).length;
   const highCrit = [...truth.keys()].filter(eid => { const s = sevOf(eid); return s === "high" || s === "critical"; });
   const highTriaged = highCrit.filter(eid => firstTriage.has(eid));
-  const mtttS = median(highTriaged.map(eid => { const at = feedTs.get(eid); return at != null ? (firstTriage.get(eid)! - at) / 1000 : null; }).filter((x): x is number => x != null && x >= 0));
+  const mtttS = median(highTriaged.map(eid => { const at = feedTs.get(eid); return at != null ? runMs(at, firstTriage.get(eid)!) / 1000 : null; }).filter((x): x is number => x != null && x >= 0));
   // Attack logs nobody touched — the team's blind spots. An incident may still have been
   // caught through another of its logs; the note says so.
   const incidentDetected = new Map(incidentList.map(i => [i.id, i.detected] as const));
@@ -1027,7 +1035,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   const caseStatusEvt = [...events].reverse().find(e => e.type === "case.status_set");
   // MTTC: Δ(the containment request it executed → containment.executed), median seconds.
   const execEvents = events.filter(e => e.type === "containment.executed");
-  const mttcS = median(execEvents.map(e => { const xt = tsOf(e); if (xt == null) return null; const rt = reqBefore(contTimes, eidOf(e), xt); return rt != null ? (xt - rt) / 1000 : null; })
+  const mttcS = median(execEvents.map(e => { const xt = tsOf(e); if (xt == null) return null; const rt = reqBefore(contTimes, eidOf(e), xt); return rt != null ? runMs(rt, xt) / 1000 : null; })
     .filter((x): x is number => x != null && x >= 0));
   // MTTI: first attack log on a compromised host → its isolation, median seconds.
   const mttiS = median([...isoFirstByHost.values()].map(x => x.timeToIsolateS).filter((x): x is number => x != null));

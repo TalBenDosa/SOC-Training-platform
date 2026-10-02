@@ -10,6 +10,8 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
 import { makeCtx } from "./ctx";
+import { edrFacts } from "./sources/edr-normalize";
+import { procPid } from "./sources/_proc-identity";
 import { COMPANY_STACKS, sourceFor, categoryOf, rewriteProductText, PRODUCT_LABEL, coherentStack, PRODUCT_LOCKS, M365_CLIENT_TEXT, M365_CLIENT_RECORD, MS_LOGIN_RECORD, STACK_CHOICES, type Stack, type StackCategory } from "./stack";
 
 import { source as anyconnect } from "./sources/anyconnect";
@@ -156,7 +158,39 @@ export function storyFitsStack(events: TelemetryEvent[], companyId: string, stac
  * product. The authored source/vendor ride along so native rendering uses
  * exactly the converter path the corpus gate tests.
  */
+/**
+ * The event as the session shows it: labelled for its products (applyStackLabels) and with
+ * the OS pids every native EDR record prints for its process and parent (canonicalPids) — so
+ * the EDR console's process tree, the panel's fields and a PID quoted in the text all show the
+ * number the record shows.
+ */
 export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack): TelemetryEvent {
+  return withCanonicalPids(applyStackLabels(ev, companyId, stack), companyId);
+}
+
+const PID_SOURCES = new Set(["edr", "sysmon", "av", "windows_security", "linux_audit"]);
+function withCanonicalPids(ev: TelemetryEvent, companyId: string): TelemetryEvent {
+  if (!ev.process || !PID_SOURCES.has(ev.source)) return ev;
+  let pids: { pid?: number; parentPid?: number };
+  try { pids = canonicalPids(ev, companyId); } catch { return ev; }
+  const { pid, parentPid } = pids;
+  const oldPid = ev.process.pid, oldParent = ev.process.parent_pid;
+  if ((pid === undefined || pid === oldPid) && (parentPid === undefined || parentPid === oldParent)) return ev;
+  let description = ev.description;
+  const swap = (from: number | undefined, to: number | undefined) => {
+    if (description && from !== undefined && to !== undefined && from !== to) {
+      description = description.replace(new RegExp(`(\\bPID[ :=#]*|\\bpid[ :=#]*|ProcessId[ :=]*)${from}\\b`, "g"), `$1${to}`);
+    }
+  };
+  swap(oldPid, pid); swap(oldParent, parentPid);
+  return {
+    ...ev,
+    description,
+    process: { ...ev.process, ...(pid !== undefined ? { pid } : {}), ...(parentPid !== undefined ? { parent_pid: parentPid } : {}) },
+  };
+}
+
+function applyStackLabels(ev: TelemetryEvent, companyId: string, stack?: Stack): TelemetryEvent {
   const base = authoredOf(ev);
   const cat = categoryOf(base);
   const eff = stackFor(companyId, stack);
@@ -200,4 +234,21 @@ export function nativeViewAuthored(ev: TelemetryEvent): { log: NativeLog; produc
     const log = mod.fromTelemetry(ev, makeCtx("nexacorp"));
     return log ? { log, product: mod.schema.product } : null;
   } catch { return null; }
+}
+
+/**
+ * The OS pids the native EDR records print for an event's process and its parent (every EDR
+ * module derives them from the process instance — ./sources/_proc-identity — never from the
+ * authored pid). For surfaces that print process.pid next to the native record (the feed's field
+ * chips, the EDR console's process tree), so all of them show the same number.
+ */
+export function canonicalPids(ev: TelemetryEvent, companyId: string): { pid?: number; parentPid?: number } {
+  const f = edrFacts(authoredOf(ev));
+  if (!f.host) return {};
+  const ctx = makeCtx(companyId);
+  const scope = { host: f.host, os: f.os, timeMs: f.timeMs, user: f.user ?? f.userEmail?.split("@")[0], incident: ev.incident_id };
+  return {
+    pid: procPid(ctx, scope, f.proc),
+    parentPid: f.parent.name || f.parent.path ? procPid(ctx, scope, f.parent) : undefined,
+  };
 }

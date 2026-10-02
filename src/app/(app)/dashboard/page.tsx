@@ -30,6 +30,9 @@ import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
+import { storyIocTruth } from "@/lib/sim/storyTruth";
+import { normalizeHostIps } from "@/lib/sim/hostIdentity";
 import { StackPicker, savedStack, saveStack, stackDelta } from "@/components/training/StackPicker";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
@@ -289,7 +292,16 @@ function StartTrainingModal({
 // feed. Takes the lazily-loaded sim data (benign + per-company pools) — see
 // simData.ts; the dashboard has it in hand before any pool is ever needed
 // (loaded at "Start Training").
+// One host, one IP across the noise (normalizeHostIps) — computed once per sim + company.
+const companyEventsCache = new WeakMap<SimData, Map<string, TelemetryEvent[]>>();
 function getCompanyEvents(sim: SimData, id: string) {
+  const cached = companyEventsCache.get(sim)?.get(id);
+  if (cached) return cached;
+  const out = normalizeHostIps(companyEventsRaw(sim, id));
+  (companyEventsCache.get(sim) ?? companyEventsCache.set(sim, new Map()).get(sim)!).set(id, out);
+  return out;
+}
+function companyEventsRaw(sim: SimData, id: string) {
   const base = id === "nexacorp" ? sim.BENIGN_EVENTS : (sim.COMPANY_EVENTS[id] ?? sim.BENIGN_EVENTS);
   // L-03 / L-09: emit ONLY the sources this company's architecture actually runs.
   // The pool used to leak 12+ sources — a second competing EDR, AWS WAF/RDS on an
@@ -338,7 +350,12 @@ export default function DashboardPage() {
   // anti-repeat memory is unavailable during SSR). All stories injected this
   // session are tracked so the incident-report grader gets true ground truth.
   const [sessionStory,     setSessionStory]     = useState<AttackStory | null>(null);
+
   const [injectedStories,  setInjectedStories]  = useState<AttackStory[]>([]);
+  // The IOC truth table of every story this shift has run: a hash / IP / domain lookup
+  // answers from the whole story (the dropper reads malicious on its execution row too),
+  // and an IOC looked up after the next story started still reads as it did.
+  const iocTruth = useMemo(() => storyIocTruth(injectedStories.flatMap(s => s.events)), [injectedStories]);
   const [scenarioObjective,   setScenarioObjective]   = useState<string | null>(null);
   // Session clock — set when a training session starts, cleared when it ends.
   // Drives the "session active" indicator so the analyst always knows whether
@@ -1666,6 +1683,7 @@ export default function DashboardPage() {
               per-row grading — the analyst reads the logs, forms their own
               conclusion, and states it once in the Incident Report, where it's
               actually graded. */}
+          <IocTruthContext.Provider value={iocTruth}>
           <NativeLogProvider value={nativeRender}>
           <EventFeed
             events={live.events}
@@ -1681,6 +1699,7 @@ export default function DashboardPage() {
             onRowOpened={live.recordEventOpened}
           />
           </NativeLogProvider>
+          </IocTruthContext.Provider>
         </Card>
           </div>
         </div>

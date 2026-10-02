@@ -1745,13 +1745,16 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     id: "mc_patch_002", ts: "2026-05-10T02:30:00.000Z",
     source: "edr", event_type: "process_create", severity: "informational",
     vendor: "SentinelOne", hostname: "SRV-MEDCORE-EMR01",
-    description: "Windows Defender definitions updated on SRV-MEDCORE-EMR01",
-    process: { name: "MsMpEng.exe", pid: 2244, parent_name: "services.exe", parent_pid: 668,
-               user: "SYSTEM", cmdline: "MsMpEng.exe" },
+    description: "SentinelOne agent self-update on SRV-MEDCORE-EMR01",
+    process: { name: "SentinelCtl.exe", pid: 2244, parent_name: "SentinelAgent.exe", parent_pid: 668,
+               path: "C:\\Program Files\\SentinelOne\\Sentinel Agent 24.1.3.277\\SentinelCtl.exe",
+               user: "NT AUTHORITY\\SYSTEM", integrity: "system",
+               cmdline: "SentinelCtl.exe update -from 24.1.2.198 -to 24.1.3.277" },
     raw: {
       "s1.eventType": "Process Creation",
-      "file.signed": "true", "defender.definition_version": "1.409.12.0",
-      "defender.update_type": "signature", "action_result": "allowed" }
+      "file.signed": "true",
+      "s1.agent.version_from": "24.1.2.198", "s1.agent.version_to": "24.1.3.277",
+      "s1.agent.update_type": "agent-package", "action_result": "allowed" }
   },
 
   // ── More Check Point firewall — normal internal traffic ───────────────────
@@ -2188,7 +2191,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1110.001", mitre_tactic: "Credential Access",
     expected_verdict: "tp", is_detection: true,
     description: "fail2ban banned 45.142.212.100 in the sshd jail on SRV-GL-LINUX01 for 600 seconds",
-    process: { name: "fail2ban-server", pid: 1201, parent_name: "systemd", parent_pid: 1,
+    process: { name: "fail2ban-client", pid: 1201, parent_name: "fail2ban-server", parent_pid: 1180,
                cmdline: "fail2ban-client set sshd banip 45.142.212.100" },
     raw: { "auditd.log.record_type": "EXECVE", "auditd.log.pid": "1201",
            "process.executable": "/usr/bin/fail2ban-client",

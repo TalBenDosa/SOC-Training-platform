@@ -16,6 +16,7 @@
  *    working it), then severity × age.
  */
 import type { Ev } from "./types";
+import { activeMs, type PauseSpan } from "./pauses";
 
 /** Minutes until an un-triaged alert breaches its triage SLA, by severity. */
 export const slaMinFor = (sev: string) => (sev === "critical" ? 1 : sev === "high" ? 3 : sev === "medium" ? 10 : 30);
@@ -42,8 +43,10 @@ export function buildAlertQueue(opts: {
   claims: Map<string, { by: string }>;
   nowMs: number;
   withMedium: boolean;
+  /** Paused spans (pausedSpans) — a pause never ages an alert toward its SLA (QA M3). */
+  pauses?: PauseSpan[];
 }): QueueItem[] {
-  const { feed, dispositions, escalated, claims, nowMs, withMedium } = opts;
+  const { feed, dispositions, escalated, claims, nowMs, withMedium, pauses = [] } = opts;
   const items: (QueueItem & { score: number })[] = [];
   for (const e of feed) {
     const eid = feedEventId(e);
@@ -51,7 +54,7 @@ export function buildAlertQueue(opts: {
     const inScope = severity === "high" || severity === "critical" || (withMedium && severity === "medium");
     if (!inScope || dispositions.has(eid) || escalated.has(eid)) continue;
     const t = e.occurred_at ? Date.parse(e.occurred_at) : NaN;
-    const mins = Number.isFinite(t) ? Math.max(0, Math.floor((nowMs - t) / 60000)) : 0;
+    const mins = Number.isFinite(t) ? Math.max(0, Math.floor(activeMs(t, nowMs, pauses) / 60000)) : 0;
     const breached = mins >= slaMinFor(severity);
     items.push({ e, eid, severity, mins, breached, orphan: breached && !claims.has(eid), score: RANK[severity] * (1 + mins / 5) });
   }

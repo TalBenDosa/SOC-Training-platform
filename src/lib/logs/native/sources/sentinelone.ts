@@ -14,7 +14,8 @@
  * (svchost Dnscache) as osSrc.process.* on Windows.
  *
  * Correlation: same host → same agent.uuid (seeded `${companyId}:${host}`); a process's uid is
- * seeded from host + image name + OS pid, so the tgt.process.uid of its Process Creation equals
+ * seeded from its instance key (./_proc-identity: host + image + lifetime scope, never the authored
+ * pid), so the tgt.process.uid of its Process Creation equals
  * the src.process.uid / process.unique.key of its own DNS / IP / file events and the
  * src.process.parent.uid of its children. Storyline: one id per host + attack chain — the
  * incident (TelemetryEvent.incident_id) when the event belongs to one, else the chain root
@@ -28,12 +29,12 @@
 import { techniqueName } from "./_edr_mde_sophos_common";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { edrFacts, type EdrFacts, type EdrProc } from "./edr-normalize";
+import { edrFacts, actionFlags, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
 import {
   osOf, rhex, hostIpOf, egressIp, hostRole, companyDisplay, digits, iso, isoMicro, userOf, procName, imagePath, drivePath,
   ntDevicePath, pidOf, procSeed, netFacts, fixPath, baseName, isIPv4, SHELLS, OFFICE, SCRIPT_HOSTS, LOLBINS, PRIVATE_CIDRS,
   USER_WRITABLE_RE, DOWNLOADS_PUBLIC_RE, type UserFacts,
-  foreignDetectionName,
+  foreignDetectionName, inferredFileWriter, type ProcScope,
 } from "./_cs-s1-common";
 
 // ── schema ───────────────────────────────────────────────────────────────────
@@ -77,6 +78,12 @@ const kinds: Record<string, KindSchema> = {
   "File Creation": FILE_KIND,
   "File Modification": FILE_KIND,
   "File Deletion": FILE_KIND,
+  // Card: event.type "Scheduled Task Register" / category scheduled_task (spelling UNVERIFIED); the Deep
+  // Visibility console names the type "Task Register" with task.name / task.path — those are used here.
+  "Task Register": {
+    required: [...COMMON_REQ, "task.name", "task.path"],
+    optional: [...COMMON_OPT, ...ACTOR],
+  },
   "Behavioral Indicators": {
     required: [...COMMON_REQ, "indicator.name", "indicator.category"],
     optional: [...COMMON_OPT, ...ACTOR, "indicator.description", "indicator.metadata"],
@@ -143,7 +150,7 @@ function ulid(ctx: NativeCtx, ms: number, seed: string): string {
 const id19 = (ctx: NativeCtx, seed: string) => `18${digits(ctx, seed, 17)}`;
 const uidOf = (ctx: NativeCtx, seed: string) => rhex(ctx, `${seed}:s1uid`, 16).toUpperCase();
 
-interface Base { ctx: NativeCtx; ev: TelemetryEvent; f: EdrFacts; host: string; os: "Win" | "Lin" | "Mac"; hostIp: string; agentUuid: string; u: UserFacts }
+interface Base { ctx: NativeCtx; ev: TelemetryEvent; f: EdrFacts; host: string; os: "Win" | "Lin" | "Mac"; hostIp: string; agentUuid: string; u: UserFacts; scope: ProcScope }
 
 function tenant(ctx: NativeCtx) {
   return {
@@ -164,11 +171,12 @@ const agentVersion = (os: string) => (os === "Win" ? "25.1.3.334" : os === "Mac"
 function common(b: Base, type: string, category: string, meta: string, uniqueKey?: string): Record<string, unknown> {
   const { ctx, ev, f, host, os } = b;
   const t = tenant(ctx);
-  const trace = ulid(ctx, Math.floor(f.timeMs / 60_000) * 60_000, `${ctx.companyId}:${host}:trace:${Math.floor(f.timeMs / 60_000)}`);
+  // One upload batch per event: a child's record never reuses its parent's trace.id / packet.id.
+  const trace = ulid(ctx, Math.floor(f.timeMs / 60_000) * 60_000, `${ctx.companyId}:${host}:trace:${ev.id}`);
   const role = hostRole(host);
   return {
     timestamp: iso(f.timeMs), "event.time": f.timeMs, "event.type": type, "event.category": category, "meta.event.name": meta,
-    "event.id": `${trace}_${ctx.int(`${ev.id}:s1:seq`, 1, 999)}`, "trace.id": trace, "packet.id": rhex(ctx, `${ctx.companyId}:${host}:packet:${Math.floor(f.timeMs / 60_000)}`, 32).toUpperCase(),
+    "event.id": `${trace}_${ctx.int(`${ev.id}:s1:seq`, 1, 999)}`, "trace.id": trace, "packet.id": rhex(ctx, `${ctx.companyId}:${host}:packet:${ev.id}`, 32).toUpperCase(),
     "i.scheme": "edr", "i.version": "preprocess-lib-1.0", "dataSource.name": "SentinelOne", "dataSource.vendor": "SentinelOne", "dataSource.category": "security",
     "account.id": t.accountId, "account.name": t.accountName, "site.id": t.siteId, "site.name": t.siteName, "group.id": groupOf(ctx, host).groupId,
     "mgmt.id": String(ctx.int(`${ctx.companyId}:s1:mgmt`, 10_000, 99_999)), "mgmt.url": t.mgmtUrl, "mgmt.osRevision": osRevision(os, host),
@@ -187,20 +195,21 @@ function storyline(b: Base, p: EdrProc, parent: EdrProc): Story {
   const pn = lc(procName(p));
   const par = lc(procName(parent));
   const mk = (s: string) => rhex(ctx, `${ctx.companyId}:${host}:story:${s}`, 16).toUpperCase();
-  if (SHELLS.has(pn)) return { id: mk(`shell:${pn}`), root: true };
+  // Keyed by the process INSTANCE (./_proc-identity): one user's Explorer storyline is not another's.
+  if (SHELLS.has(pn)) return { id: mk(`shell:${procSeed(ctx, b.scope, p)}`), root: true };
   const rootish = !par || SHELLS.has(par);
   const root = par ? SHELLS.has(par) : undefined;
   if (ev.incident_id) return { id: mk(`inc:${ev.incident_id}`), root };
-  return { id: mk(`root:${rootish ? pn : par}`), root };
+  return { id: mk(`root:${procSeed(ctx, b.scope, rootish ? p : parent)}`), root };
 }
 /** Storyline of a parent whose own parent is unknown: shells and non-incident parents are taken as chain roots. */
 function parentStoryline(b: Base, parent: EdrProc): Story {
   const { ctx, host, ev } = b;
   const par = lc(procName(parent));
   const mk = (s: string) => rhex(ctx, `${ctx.companyId}:${host}:story:${s}`, 16).toUpperCase();
-  if (SHELLS.has(par)) return { id: mk(`shell:${par}`), root: true };
+  if (SHELLS.has(par)) return { id: mk(`shell:${procSeed(ctx, b.scope, parent)}`), root: true };
   if (ev.incident_id) return { id: mk(`inc:${ev.incident_id}`), root: false };
-  return { id: mk(`root:${par}`), root: true };
+  return { id: mk(`root:${procSeed(ctx, b.scope, parent)}`), root: true };
 }
 
 const qualifiedUser = (b: Base) => (b.u.user ? (b.os === "Win" ? `${b.u.domain}\\${b.u.user}` : b.u.user) : undefined);
@@ -225,7 +234,7 @@ function procKeys(b: Base, prefix: string, p: EdrProc, story: Story, opts: { sel
   const win = os === "Win";
   const k = (s: string) => `${prefix}${s}`;
   return {
-    [k("name")]: name, [k("displayName")]: DISPLAY[lc(name)], [k("pid")]: pidOf(ctx, host, p), [k("uid")]: uidOf(ctx, procSeed(ctx, host, p)),
+    [k("name")]: name, [k("displayName")]: DISPLAY[lc(name)], [k("pid")]: pidOf(ctx, b.scope, p), [k("uid")]: uidOf(ctx, procSeed(ctx, b.scope, p)),
     [k("cmdline")]: cmd, [k("image.path")]: path,
     [k("image.sha256")]: p.sha256, [k("image.md5")]: p.md5,
     [k("image.binaryIsExecutable")]: opts.self && /\.(exe|com|scr)$/i.test(name) ? true : undefined,
@@ -240,17 +249,16 @@ function procKeys(b: Base, prefix: string, p: EdrProc, story: Story, opts: { sel
   };
 }
 
-/** The acting process (src.process.*) and its parent (src.process.parent.*), as on DNS / IP / file events. */
-function actorKeys(b: Base): Record<string, unknown> {
-  const { f } = b;
-  if (!procName(f.proc)) return {};
-  const st = storyline(b, f.proc, f.parent);
+/** The acting process (src.process.*) and its parent (src.process.parent.*), as on DNS / IP / file / task events. */
+function actorKeys(b: Base, actor: EdrProc = b.f.proc, parent: EdrProc = b.f.parent): Record<string, unknown> {
+  if (!procName(actor)) return {};
+  const st = storyline(b, actor, parent);
   return {
-    ...procKeys(b, "src.process.", f.proc, st, { self: true }),
-    ...(procName(f.parent) ? procKeys(b, "src.process.parent.", f.parent, procName(f.parent) && !SHELLS.has(lc(procName(f.parent))) && !st.root ? { id: st.id, root: false } : parentStoryline(b, f.parent), { self: false }) : {}),
+    ...procKeys(b, "src.process.", actor, st, { self: true }),
+    ...(procName(parent) ? procKeys(b, "src.process.parent.", parent, procName(parent) && !SHELLS.has(lc(procName(parent))) && !st.root ? { id: st.id, root: false } : parentStoryline(b, parent), { self: false }) : {}),
   };
 }
-const actorUid = (b: Base) => (procName(b.f.proc) ? uidOf(b.ctx, procSeed(b.ctx, b.host, b.f.proc)) : undefined);
+const actorUid = (b: Base, actor: EdrProc = b.f.proc) => (procName(actor) ? uidOf(b.ctx, procSeed(b.ctx, b.scope, actor)) : undefined);
 
 // ── renderers ────────────────────────────────────────────────────────────────
 
@@ -262,7 +270,7 @@ function processCreation(b: Base): Record<string, unknown> | null {
   const parentKnown = !!procName(f.parent);
   const pst = parentKnown ? (st.root ? parentStoryline(b, f.parent) : { id: st.id, root: false }) : st;
   return {
-    ...common(b, "Process Creation", "process", "PROCESSCREATION", uidOf(ctx, procSeed(ctx, host, p))),
+    ...common(b, "Process Creation", "process", "PROCESSCREATION", uidOf(ctx, procSeed(ctx, b.scope, p))),
     ...(parentKnown ? procKeys(b, "src.process.", f.parent, pst, { self: false }) : {}),
     ...procKeys(b, "tgt.process.", p, st, { self: true, fallbackCmd: true, startMs: f.timeMs }),
     ...(b.os === "Win" ? { "tgt.process.isNative64Bit": false, "tgt.process.isRedirectCmdProcessor": false } : {}),
@@ -285,7 +293,7 @@ function dns(b: Base, ev: TelemetryEvent): { type: string; rec: Record<string, u
     rec: {
       ...common(b, type, "dns", "DNS", actorUid(b)), "event.dns.request": q, "event.dns.response": resp, ...actorKeys(b),
       ...(os === "Win" ? {
-        "osSrc.process.name": "svchost.exe", "osSrc.process.pid": dnscache.pid, "osSrc.process.uid": uidOf(ctx, procSeed(ctx, host, dnscache)),
+        "osSrc.process.name": "svchost.exe", "osSrc.process.pid": dnscache.pid, "osSrc.process.uid": uidOf(ctx, procSeed(ctx, b.scope, dnscache)),
         "osSrc.process.cmdline": "C:\\Windows\\system32\\svchost.exe -k NetworkService -p -s Dnscache", "osSrc.process.image.path": dnscache.path,
         "osSrc.process.user": "NT AUTHORITY\\NETWORK SERVICE", "osSrc.process.integrityLevel": "SYSTEM", "osSrc.process.isStorylineRoot": true,
       } : {}),
@@ -323,19 +331,33 @@ function file(b: Base, ev: TelemetryEvent): { type: string; rec: Record<string, 
   const ext = (f.file.extension ?? (/\.([A-Za-z0-9]+)$/.exec(path)?.[1] ?? "")).replace(/^\./, "").toLowerCase();
   const exe = PE_EXT.has(ext);
   const fileSigned = (ev.raw?.["file.signed"] ?? ev.raw?.["file.signature.status"]) as unknown;
+  // No writer on the event: a user's hand copy into a profile folder is Explorer's write.
+  const writer = procName(f.proc) ? f.proc : inferredFileWriter(raw, b.os, b.u.system);
+  const parent = procName(f.proc) ? f.parent : {};
   const isSigned = fileSigned === undefined ? undefined : /unsigned|false|not/i.test(String(fileSigned)) ? "unsigned" : "signed";
   return {
     type,
     rec: {
-      ...common(b, type, "file", meta, actorUid(b)),
+      ...common(b, type, "file", meta, writer ? actorUid(b, writer) : undefined),
       "tgt.file.path": path, "tgt.file.extension": ext || undefined, "tgt.file.size": f.file.size,
       "tgt.file.type": exe ? "PE" : "UNKNOWN", "tgt.file.isExecutable": exe, "tgt.file.location": "Local",
       "tgt.file.creationTime": type === "File Creation" ? f.timeMs : undefined, "tgt.file.modificationTime": type === "File Deletion" ? undefined : f.timeMs,
       "tgt.file.id": rhex(ctx, `${ctx.companyId}:${host}:fid:${path.toLowerCase()}`, 20).toUpperCase(),
       // Hashes are usually on Modification/Scan events (card §3c, UNVERIFIED on Creation) — kept when authored.
       "tgt.file.sha256": type === "File Deletion" ? undefined : f.file.sha256, "tgt.file.isSigned": isSigned,
-      ...actorKeys(b),
+      ...(writer ? actorKeys(b, writer, parent) : {}),
     },
+  };
+}
+
+/** A scheduled task registered by the actor (the registrar is src.process — S1 attributes the task to it). */
+function taskRegister(b: Base, t: TaskFacts): Record<string, unknown> | null {
+  if (b.os !== "Win") return null;
+  const parent = t.registrar === b.f.proc ? b.f.parent : {};
+  return {
+    ...common(b, "Task Register", "scheduled_task", "TASKREGISTER", actorUid(b, t.registrar)),
+    "task.name": t.name, "task.path": t.path,
+    ...actorKeys(b, t.registrar, parent),
   };
 }
 
@@ -383,8 +405,13 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const ext = /\.([A-Za-z0-9]+)$/.exec(trigName)?.[1]?.toLowerCase() ?? "";
   const cmd = trig.cmdline ?? (fileFirst ? f.proc.cmdline : undefined);
   const args = cmd ? cmd.replace(/^\s*("[^"]*"|\S+)\s*/, "") : undefined;
-  const actions = d.action === "quarantined" ? ["kill", "quarantine"] : d.action === "killed" || d.action === "blocked" ? ["kill"] : [];
-  const mitigationMode = !mitigated && (sev === "critical" || sev === "high") && malicious === "malicious" ? "detect" : "protect";
+  // Every action fact on the event (a kill AND a quarantine can both be authored).
+  const af = actionFlags(ev);
+  const actions = d.action === "detected" && !af.kill && !af.quarantine ? [] : d.action === "quarantined" || af.quarantine ? ["kill", "quarantine"] : ["kill"];
+  // The agent's policy mode is a property of the agent (its group policy), not of one threat: every
+  // record of a host states the same mode. A threat left unmitigated under Protect is a suspicious
+  // verdict, a failed / pending action, or an analyst-deferred mitigation — it does not flip the agent.
+  const mitigationMode = AGENT_MODE;
   const winPath = trigPath ? (os === "Win" ? ntDevicePath(trigPath) : trigPath) : undefined;
   const signed = trig.signed ?? (r["file.signed"] !== undefined ? !/unsigned|false|not/i.test(String(r["file.signed"])) : undefined);
   const engine = behavioral ? { key: "executables", title: "Behavioral AI" } : { key: "sentinelone_cloud", title: "SentinelOne Cloud" };
@@ -439,7 +466,8 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
       identifiedAt: isoMicro(ctx, identified, `${ev.id}:s1:ia`), incidentStatus: "unresolved", incidentStatusDescription: "Unresolved",
       initiatedBy: "agent_policy", initiatedByDescription: "Agent Policy", initiatingUserId: null, initiatingUsername: null,
       isFileless: !trigPath && !!cmd, isValidCertificate: signed === true, maliciousProcessArguments: args ?? null, md5: trig.md5 ?? null,
-      mitigatedPreemptively: d.action === "blocked", mitigationStatus: mitigated ? "mitigated" : "not_mitigated",
+      // Pre-emptive only when execution itself was prevented — not for a process that ran and was killed.
+      mitigatedPreemptively: af.blockedExec, mitigationStatus: mitigated ? "mitigated" : "not_mitigated",
       mitigationStatusDescription: mitigated ? "Mitigated" : "Not mitigated",
       originatorProcess: (fileFirst ? procName(f.proc) : procName(f.parent)) ?? null, pendingActions: false,
       processUser: qualifiedUser(b) ?? null, publisherName: "", reachedEventsLimit: false, rebootRequired: false,
@@ -450,17 +478,27 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   };
 }
 
+/** Agent policy mode — a property of the agent's group policy; every group runs Protect in these tenants. */
+const AGENT_MODE = "protect";
+
 const prune = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
+
+function baseFor(ev: TelemetryEvent, ctx: NativeCtx, f: EdrFacts, host: string): Base {
+  const os = osOf(f, ev);
+  const u = userOf(ctx, f, os);
+  return { ctx, ev, f, host, os, hostIp: hostIpOf(ctx, f, host), agentUuid: rhex(ctx, `${ctx.companyId}:${host}:s1agent`, 32), u, scope: { host, os, timeMs: f.timeMs, user: u.user, incident: ev.incident_id } };
+}
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const f = edrFacts(ev);
   if (f.kind === "unsupported" || !f.host) return null;
-  const host = f.host;
-  const os = osOf(f, ev);
-  const b: Base = { ctx, ev, f, host, os, hostIp: hostIpOf(ctx, f, host), agentUuid: rhex(ctx, `${ctx.companyId}:${host}:s1agent`, 32), u: userOf(ctx, f, os) };
+  const b = baseFor(ev, ctx, f, f.host);
   const timeMs = Date.parse(ev.ts);
   const out = (kind: string, rec: Record<string, unknown> | null): NativeLog | null =>
     rec ? { sourceId: "sentinelone", kind, format: "json", record: kind === "threat" ? rec : prune(rec), timeMs } : null;
+  // A task registration is its own Deep Visibility event, not a child process of the registrar.
+  const task = f.kind === "process" ? taskFacts(ev, f) : null;
+  if (task) return out("Task Register", taskRegister(b, task));
   switch (f.kind) {
     case "process": return out("Process Creation", processCreation(b));
     case "network": return out("IP Connect", ipConnect(b, ev));
@@ -556,11 +594,23 @@ const useCases: UseCase[] = [
   },
 ];
 
+/** The Task Register event Deep Visibility records next to a `schtasks.exe /create` Process Creation. */
+function companions(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
+  const f = edrFacts(ev);
+  if (!f.host) return [];
+  const t = schtasksTask(f);
+  if (!t) return [];
+  // Its own Deep Visibility event (own event.id / trace), same process identities.
+  const rec = taskRegister(baseFor({ ...ev, id: `${ev.id}:task` }, ctx, f, f.host), t);
+  return rec ? [{ sourceId: "sentinelone", kind: "Task Register", format: "json", record: prune(rec), timeMs: Date.parse(ev.ts) }] : [];
+}
+
 export const source: NativeSource = {
   schema: {
     sourceId: "sentinelone", category: "edr", card: "edr-sentinelone.md", product: "SentinelOne Singularity",
     format: "json", vendorMatch: ["sentinelone", "sentinel one"], telemetrySources: ["edr", "av"], kinds,
   },
   fromTelemetry,
+  companions,
   useCases,
 };

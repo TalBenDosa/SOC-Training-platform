@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeAnswers, publicAnswers, clicksAsEvents, pageAll } from "./serverReport";
+import { mergeAnswers, publicAnswers, clicksAsEvents, pageAll, totalsAsClicks } from "./serverReport";
 import { computeReport } from "./computeReport";
 import type { Ev, RosterMember } from "@/lib/team/types";
 
@@ -40,6 +40,35 @@ describe("serverReport — joining the answer key after the shift", () => {
     const { perUser } = computeReport(events, roster);
     expect(perUser[0].opened).toBe(1);
     expect(perUser[0].avgDwellS).toBe(5);
+  });
+
+  it("QA M2: per-(player, log) click totals score exactly like the raw click rows", () => {
+    const roster: RosterMember[] = [{ user_id: "u1", role: "t1", status: "ready", name: "A", handle: null }, { user_id: "u2", role: "t1", status: "ready", name: "B", handle: null }];
+    const head: Ev[] = [
+      { seq: 1, type: "session.started", actor_id: null, role: null, payload: {}, occurred_at: at(0) },
+      { seq: 2, type: "feed.event", actor_id: null, role: null, payload: { id: "e1", severity: "high", expected_verdict: "tp" }, occurred_at: at(10) },
+      { seq: 3, type: "feed.event", actor_id: null, role: null, payload: { id: "e2", severity: "low" }, occurred_at: at(20) },
+      { seq: 4, type: "disposition.set", actor_id: "u1", role: "t1", payload: { event_id: "e1", verdict: "true_positive" }, occurred_at: at(40) },
+      { seq: 5, type: "disposition.set", actor_id: "u2", role: "t1", payload: { event_id: "e2", verdict: "benign" }, occurred_at: at(50) },
+    ];
+    const raw = [
+      { user_id: "u1", event_id: "e1", dwell_ms: 0, occurred_at: at(30) },
+      { user_id: "u1", event_id: "e1", dwell_ms: 9000, occurred_at: at(35) },
+      { user_id: "u1", event_id: "e1", dwell_ms: 2000, occurred_at: at(38) },
+      { user_id: "u1", event_id: "e2", dwell_ms: 4000, occurred_at: at(39) },
+      { user_id: "u2", event_id: "e1", dwell_ms: 1000, occurred_at: at(45) },
+    ];
+    // What team_session_click_totals returns for those rows.
+    const totals = [
+      { user_id: "u1", event_id: "e1", opens: 3, max_dwell_ms: 9000, sum_dwell_ms: 11000, first_at: at(30) },
+      { user_id: "u1", event_id: "e2", opens: 1, max_dwell_ms: 4000, sum_dwell_ms: 4000, first_at: at(39) },
+      { user_id: "u2", event_id: "e1", opens: 1, max_dwell_ms: 1000, sum_dwell_ms: 1000, first_at: at(45) },
+    ];
+    const fromRaw = computeReport([...head, ...clicksAsEvents(raw, 5)], roster);
+    const fromTotals = computeReport([...head, ...clicksAsEvents(totalsAsClicks(totals), 5)], roster);
+    expect(fromTotals.perUser).toEqual(fromRaw.perUser);
+    expect(fromTotals.team).toEqual(fromRaw.team);
+    expect(fromTotals.perUser.find(u => u.user_id === "u2")!.dispUnopened).toBe(1);   // u2 never opened e2
   });
 
   it("a v2 log (no keys on the wire) scores the same as a v1 log once answers are merged", () => {

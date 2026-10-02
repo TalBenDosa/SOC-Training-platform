@@ -17,8 +17,8 @@ export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; ev
   // made a fast clicker look "busiest" (Manager playtest) — it's shown only as context.
   const now = useServerNow(15_000);
   const load = openLoadByUser(events, now);
-  const workload = roster.filter(r => r.role !== "instructor" && r.role !== "observer").map(m => ({
-    name: m.name, role: m.role, open: load.get(m.user_id) ?? 0,
+  const workload = roster.filter(r => r.role !== "instructor" && r.role !== "observer" && r.status !== "left").map(m => ({
+    user_id: m.user_id, name: m.name, role: m.role, open: load.get(m.user_id) ?? 0,
     actions: events.filter(e => e.actor_id === m.user_id && e.type !== "event.opened" && e.type !== "member.ready" && e.type !== "message.sent").length,
   }));
   const canPost = !!ho.open_cases.trim() && !!ho.next.trim();
@@ -36,7 +36,7 @@ export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; ev
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Users className="h-4 w-4 text-cyber-300" /> Shift management</h3>
       <div className="mt-2 space-y-1">
         {workload.map(w => (
-          <div key={w.name} className="flex items-center justify-between text-xs">
+          <div key={w.user_id} className="flex items-center justify-between text-xs">
             <span className="text-slate-300">{w.name} <span className="font-mono text-[10px] text-slate-500">{ROLE_LABEL[w.role] ?? w.role}</span></span>
             <span className="font-mono text-slate-400"><b className={w.open >= 3 ? "text-neon-amber" : "text-slate-300"}>{w.open} open</b> · <span className="text-slate-500">{w.actions} actions</span></span>
           </div>

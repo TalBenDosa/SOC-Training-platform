@@ -20,6 +20,10 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { procPid, win4 } from "./_proc-identity";
+
+/** Windows pids / tids are multiples of 4: an authored value is rounded down to one (equal values stay equal). */
+const pid4 = (v: string | undefined): string | undefined => (v !== undefined && /^\d+$/.test(v) ? String(win4(Number(v))) : v);
 
 const SYSTEM = ["ProviderName", "EventID", "Version", "Level", "Task", "Opcode", "Keywords", "TimeCreated", "EventRecordID", "ProcessID", "ThreadID", "Channel", "Computer", "UserID"];
 const req = (...ed: string[]) => [...SYSTEM, "RuleName", "UtcTime", ...ed];
@@ -218,7 +222,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // Unknown account: SYSTEM only when the parent is a service host; otherwise Sysmon-style "-" (never a guessed user).
   const user = a.user ?? (ev.process?.parent_name && SYSTEM_PARENTS.has(ev.process.parent_name.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : "-");
   const isSystemUser = /^NT AUTHORITY\\/i.test(user);
-  const pid = a.pid ?? String(ctx.int(`${host}:${a.name ?? "?"}:pid`, 1200, 15000));
+  // Seeded pids come from the shared process identity, so a parent's seeded pid on its child equals its own.
+  const seededPid = (name?: string) => String(procPid(ctx, { host, os: "Win", timeMs, incident: ev.incident_id, user: user.includes("\\") ? user.split("\\").pop() : undefined }, { name: name ?? "?" }) ?? 4);
+  const pid = pid4(a.pid) ?? seededPid(a.name);
   const image = a.path ?? "<unknown process>";
   const guidFor = (p: string, n: string) => {
     const h = hx(ctx, `${ctx.companyId}:${host.toLowerCase()}:${p}:${n.toLowerCase()}`, 24);
@@ -231,8 +237,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     EventID: Number(id), Version: VERSION[id], Level: 4, Task: Number(id), Opcode: 0, Keywords: "0x8000000000000000",
     TimeCreated: timeCreated(timeMs),
     EventRecordID: ctx.int(`${ctx.companyId}:${host.toLowerCase()}:recbase`, 100_000_000, 700_000_000) + (Math.floor(timeMs / 1000) % 10_000_000),
-    ProcessID: ctx.int(`${ctx.companyId}:${host.toLowerCase()}:sysmon64`, 2000, 4600),
-    ThreadID: ctx.int(`${ev.id}:tid`, 2000, 9000),
+    ProcessID: ctx.int(`${ctx.companyId}:${host.toLowerCase()}:sysmon64`, 500, 1150) * 4,
+    ThreadID: ctx.int(`${ev.id}:tid`, 500, 2250) * 4,
     Channel: "Microsoft-Windows-Sysmon/Operational",
     Computer: computer,
     UserID: "S-1-5-18",
@@ -252,8 +258,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const parentCmd = ed("ParentCommandLine") ?? r("process.parent.command_line") ?? (mdeProcEvent ? r("InitiatingProcessCommandLine") : undefined);
       const parentPath = ed("ParentImage") ?? (mdeProcEvent ? joinPath(r("InitiatingProcessFolderPath"), parentName) : undefined)
         ?? (parentName ? KNOWN[parentName.toLowerCase()] ?? pathFromCmd(parentCmd, parentName) : undefined);
-      const ppid = (ev.process?.parent_pid !== undefined ? String(ev.process.parent_pid) : undefined) ?? ed("ParentProcessId") ?? r("process.parent.pid")
-        ?? (mdeProcEvent ? r("InitiatingProcessId") : undefined) ?? (parentName ? String(ctx.int(`${host}:${parentName}:pid`, 600, 12000)) : "0");
+      const ppid = pid4((ev.process?.parent_pid !== undefined ? String(ev.process.parent_pid) : undefined) ?? ed("ParentProcessId") ?? r("process.parent.pid")
+        ?? (mdeProcEvent ? r("InitiatingProcessId") : undefined)) ?? (parentName ? seededPid(parentName) : "0");
       const pImage = parentPath ?? (parentName ? `-` : "-");
       const parentKnown = parentPath !== undefined;
       const parentUser = parentName && SYSTEM_PARENTS.has(parentName.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : user;
@@ -333,11 +339,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const access = r("crowdstrike.GrantedAccess") ?? r("s1.granted_access") ?? ed("GrantedAccess") ?? r("GrantedAccess");
       if (!tgt || !access || !needImage()) return null;
       const tPath = isWinPath(tgt) ? tgt : KNOWN[tgt.toLowerCase()] ?? `${S32}${tgt}`;
-      const tPid = r("crowdstrike.target_process_id") ?? ed("TargetProcessId") ?? String(ctx.int(`${ctx.companyId}:${host}:${base(tPath).toLowerCase()}:pid`, 600, 1200));
+      const tPid = pid4(r("crowdstrike.target_process_id") ?? ed("TargetProcessId")) ?? seededPid(base(tPath));
       const off = (k: string) => hx(ctx, `${ev.id}:${k}`, 5);
       data = {
         ...head,
-        SourceProcessGUID: procGuid, SourceProcessId: pid, SourceThreadId: String(Number(pid) + ctx.int(`${ev.id}:thr`, 1, 40)), SourceImage: image,
+        SourceProcessGUID: procGuid, SourceProcessId: pid, SourceThreadId: String(win4(Number(pid) + ctx.int(`${ev.id}:thr`, 1, 40) * 4)), SourceImage: image,
         TargetProcessGUID: guidFor(tPid, base(tPath)), TargetProcessId: tPid, TargetImage: tPath,
         GrantedAccess: access,
         CallTrace: ed("CallTrace") ?? `C:\\Windows\\SYSTEM32\\ntdll.dll+${off("a")}|C:\\Windows\\System32\\KERNELBASE.dll+${off("b")}|${image}+${off("c")}`,

@@ -8,8 +8,8 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 import { buildTeamTimeline } from "./buildTimeline";
 import { teamLoad } from "./load";
-import { buildTeamIocTruth } from "./iocTruth";
-import { assessIoc, extractIocs, hashIntel } from "@/lib/edr/iocIntel";
+import { buildTeamIocTruth, answerIocQuery } from "./iocTruth";
+import { assessIoc, extractIocs, hashIntel, iocDigest } from "@/lib/edr/iocIntel";
 import type { Ev } from "./types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 
@@ -69,6 +69,30 @@ describe("buildTeamIocTruth", () => {
     const early = buildTeamIocTruth(events.slice(0, half), injects);
     const full = buildTeamIocTruth(events, injects);
     expect(Object.keys(early.entries).length).toBeLessThan(Object.keys(full.entries).length);
+  });
+});
+
+describe("answerIocQuery (QA M4 — no whole-feed oracle)", () => {
+  it("answers only the asked IOCs that occur in the logs in hand; the rest come back refused", () => {
+    const { feed, events, injects } = session("nexacorp", "medium", "e90b31d5");
+    const truth = buildTeamIocTruth(events, injects);
+    const attack = feed.map((x, k) => ({ x, ev: events[k] }))
+      .filter(({ x }) => ["tp", "escalate"].includes(String((x.t.answer as { expected_verdict?: string })?.expected_verdict)))
+      .filter(({ ev }) => extractIocs(ev.payload as unknown as TelemetryEvent).some(i => truth.entries[iocDigest(i.type, i.value)]));
+    expect(attack.length).toBeGreaterThan(1);
+    const [opened, other] = attack;
+    const openedIocs = extractIocs(opened.ev.payload as unknown as TelemetryEvent);
+    const otherOnly = extractIocs(other.ev.payload as unknown as TelemetryEvent).filter(i => !openedIocs.some(o => o.type === i.type && o.value === i.value));
+    const query = [...openedIocs, ...otherOnly].slice(0, 20);
+    const res = answerIocQuery(truth, query, [opened.ev]);
+    for (const i of openedIocs) { const d = iocDigest(i.type, i.value); if (truth.entries[d]) expect(res.entries[d]).toEqual(truth.entries[d]); }
+    for (const i of otherOnly.slice(0, 20 - openedIocs.length)) {
+      const d = iocDigest(i.type, i.value);
+      expect(res.entries[d]).toBeUndefined();
+      expect(res.refused).toContain(d);
+    }
+    // never more than was asked
+    expect(Object.keys(res.entries).length).toBeLessThanOrEqual(query.length);
   });
 });
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { buildTeamTimeline } from "@/lib/team/buildTimeline";
+import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
 import { teamLoad } from "@/lib/team/load";
 import { teamTransition } from "@/lib/team/transition";
 import { sanitizeStack } from "@/lib/logs/native/stack";
@@ -44,6 +44,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (membersErr) return NextResponse.json({ error: "Couldn't read the team — please try again." }, { status: 503 });
   const notReady = (members ?? []).filter(m => m.role !== "instructor" && m.role !== "observer" && !["ready", "active", "left"].includes(m.status)).length;
   if (notReady > 0) return NextResponse.json({ error: `${notReady} player(s) not ready yet.` }, { status: 409 });
+  // QA L7: a shift with nobody to play it would only pause itself for coverage.
+  if (!(members ?? []).some(m => m.role !== "instructor" && m.role !== "observer" && m.status !== "left")) {
+    return NextResponse.json({ error: "Add at least one player before starting." }, { status: 409 });
+  }
 
   // v2 + seed while still in the lobby (idempotent: only seeds once).
   const { error: verErr } = await admin.from("team_sessions").update({ schema_version: 2 }).eq("id", id).eq("status", "lobby");
@@ -63,7 +67,22 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
     // scenario_id = the storyline staff picked in the builder (null → random pick).
     const stack = sanitizeStack((sess.config as { stack?: unknown } | null)?.stack);
-    const timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack);
+    // QA M7: a pinned storyline is re-checked here (content can change between create
+    // and start) with the same predicate the builder used — never forced in unseen.
+    if (sess.scenario_id) {
+      const pinned = resolveTeamStory(sess.company_id, sess.difficulty, sess.scenario_id);
+      if (pinned && !teamStoryFilter(sess.company_id, stack)(pinned)) {
+        return NextResponse.json({ error: "The pinned storyline can no longer run on this session's products. Close this lobby and create the session again with another storyline (or a random one)." }, { status: 409 });
+      }
+    }
+    // QA L7: a build failure is a clear, retryable error — the session stays in the lobby.
+    let timeline: ReturnType<typeof buildTeamTimeline>;
+    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack); }
+    catch (e) {
+      console.error("[team start] timeline build:", e instanceof Error ? e.message : String(e));
+      return NextResponse.json({ error: "Couldn't build the exercise feed for this company and difficulty — nothing was started. Try again, or create the session with another storyline." }, { status: 500 });
+    }
+    if (!timeline.length) return NextResponse.json({ error: "Couldn't build the exercise feed — nothing was started. Try again." }, { status: 500 });
     if (timeline.length) {
       const rows = timeline.map(t => ({ due_offset_ms: t.due_offset_ms, channel: t.channel, body: t.body, expected_action: t.answer ?? null }));
       const { data: n, error: seedErr } = await admin.rpc("team_seed_timeline", { p_session: id, p_rows: rows });

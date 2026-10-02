@@ -8126,7 +8126,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].SensitiveInformationTypeName": "EU Driver's License Number",
       "data.office365.PolicyDetails[0].Rules[0].ConditionsMatched.SensitiveInformation[0].Count": "2",
       "data.office365.EndpointMetaData.FileExtension": "docx",
-      "data.office365.EndpointMetaData.FileName": "Contract-GlobalLogis-2026.docx",
+      "data.office365.EndpointMetaData.FileName": "Contract-Northwind-2026.docx",
       "data.office365.EndpointMetaData.Application": "WINWORD.EXE",
       "data.office365.EndpointMetaData.EgressType": "Print",
       "data.office365.EndpointMetaData.PrinterName": "HP-Color-Laserjet-3rd-Floor",

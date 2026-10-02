@@ -11,7 +11,7 @@
  * shows a loading state instead of a false "No active members", and lets staff
  * pin the storyline (team_sessions.scenario_id, already in the schema).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StackPicker, stackDelta } from "@/components/training/StackPicker";
 import type { Stack } from "@/lib/logs/native/stack";
 import { useRouter } from "next/navigation";
@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
-import { Users, Plus, Loader2, AlertTriangle, ChevronRight, Radio, Search, Info, Building2 } from "lucide-react";
+import { Users, Plus, Loader2, AlertTriangle, ChevronRight, Radio, Search, Building2 } from "lucide-react";
 import { builderStatus, filterCandidates, looksLikeEmail, MAX_INVITES, type Candidate } from "./_lib/builder";
 
 type Diff = "easy" | "medium" | "hard";
@@ -52,7 +52,7 @@ const STATUS_STYLE: Record<string, string> = {
 export default function TeamIndexPage() {
   usePageTitle("Team training");
   const router = useRouter();
-  const { isPlatformAdmin, orgRole, orgName, loading: claimLoading } = useOrgContext();
+  const { isPlatformAdmin, orgRole, orgName } = useOrgContext();
   const isStaff = isPlatformAdmin || orgRole === "org_admin" || orgRole === "instructor";
   // Org admins, instructors and platform admins can open a lobby
   // (POST /api/team/sessions → requireOrgStaff), so every staff role gets the builder.
@@ -67,6 +67,10 @@ export default function TeamIndexPage() {
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [storylines, setStorylines] = useState<Storyline[] | null>(null);
   const [storyline, setStoryline] = useState("");   // "" = random pick at start
+  // QA L3: a pinned storyline that stops fitting (company / difficulty / products changed)
+  // falls back to Random — and the builder now SAYS so instead of clearing it silently.
+  const [storyNote, setStoryNote] = useState<string | null>(null);
+  const pickedStory = useRef<{ id: string; title: string } | null>(null);
   // Security products the session runs on (spec §3); empty = the company's own.
   const [stack, setStack] = useState<Stack>({});
   const stackParam = JSON.stringify(stackDelta(company, stack));
@@ -112,7 +116,12 @@ export default function TeamIndexPage() {
         if (cancelled) return;
         const list: Storyline[] = d.storylines ?? [];
         setStorylines(list);
-        setStoryline(cur => (cur && list.some(s => s.id === cur) ? cur : ""));
+        const cur = pickedStory.current;
+        if (cur && !list.some(s => s.id === cur.id)) {
+          pickedStory.current = null;
+          setStoryline("");
+          setStoryNote(`“${cur.title}” doesn't fit this company, difficulty and products — the storyline is back to Random.`);
+        }
       })
       .catch(() => { if (!cancelled) setStorylines([]); });
     return () => { cancelled = true; };
@@ -202,7 +211,7 @@ export default function TeamIndexPage() {
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <label className="block text-sm">
                 <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Company</span>
-                <select value={company} onChange={e => setCompany(e.target.value)}
+                <select value={company} onChange={e => { setCompany(e.target.value); setStack({}); /* QA L3: products are chosen per company */ }}
                   className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
                   {COMPANY_PROFILES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -216,7 +225,13 @@ export default function TeamIndexPage() {
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Storyline</span>
-                <select value={storyline} onChange={e => setStoryline(e.target.value)} disabled={storylines === null}
+                <select value={storyline} disabled={storylines === null}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setStoryline(v); setStoryNote(null);
+                    const t = (storylines ?? []).find(s => s.id === v);
+                    pickedStory.current = t ? { id: t.id, title: t.title } : null;
+                  }}
                   className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 disabled:opacity-50 focus:border-cyber-500/50 focus:outline-none">
                   <option value="">{storylines === null ? "Loading storylines…" : "Random — picked at start"}</option>
                   {(storylines ?? []).map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
@@ -226,6 +241,7 @@ export default function TeamIndexPage() {
             <div className="mt-3">
               <StackPicker companyId={company} value={stack} onChange={setStack} idPrefix="team-stack" />
             </div>
+            {storyNote && <p role="status" className="mt-1.5 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-1.5 text-[11px] text-neon-amber">{storyNote}</p>}
             <p className="mt-1.5 text-[11px] text-slate-500">
               The storyline is the primary incident the team investigates{difficulty === "easy" ? "" : " (medium and hard add a second, random concurrent incident)"}. Only staff see its name — players have to work it out.
             </p>

@@ -11,6 +11,7 @@ import type { ContainmentRequest, EscalationState, ScopeSnapshot } from "@/lib/t
 import { enrichSnapshot, slaMinFor } from "./shared";
 import { ScopeConsole } from "./ScopeConsole";
 import { useServerNow } from "@/lib/team/clock";
+import { activeMs, type PauseSpan } from "@/lib/team/pauses";
 
 // ── T2/T3 console: escalation inbox → ack → request/execute containment + scope ─
 const BOUNCE_REASONS = ["Missing a clear indicator", "Looks like noise / benign", "Needs more context or evidence", "Duplicate of another case", "Other"];
@@ -21,7 +22,7 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot }: {
+export function T2Console({ role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [] }: {
   role: string; meId: string;
   /** The CURRENT round of every escalated log (one row per log). */
   escalations: Ev[]; escState: Map<string, EscalationState>;
@@ -30,6 +31,8 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
   scope: ScopeState; scopes: Map<string, ScopeSnapshot>; incidents: string[]; incidentOf: Map<string, string>;
   nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string) => void;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  /** Paused spans of the session (pausedSpans) — waits and SLA badges skip them. */
+  pauses?: PauseSpan[];
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [openLog, setOpenLog] = useState<number | null>(null); // which escalation's full log is expanded
@@ -86,12 +89,14 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
   // (a 'contain' request weighs heavier). Acked/bounced/resolved sink to the bottom.
   // C5: waiting time / SLA on the server clock, ticking every 15s.
   const now = useServerNow(15_000);
+  // QA M3: an escalation's wait / SLA counts running time only (paused spans skipped).
+  const waitedMs = (iso: string) => activeMs(Date.parse(iso), now, pauses);
   const prioKey = (e: Ev) => {
     const p = e.payload as { event_id?: string; severity?: string; confidence?: number; requested_action?: string };
     const st = stOf(String(p.event_id));
     const open = !!st && !st.acked && !st.bounced && !st.resolved;
     const sev = asStr(p.severity) || "medium";
-    const wait = e.occurred_at ? Math.max(0, (now - Date.parse(e.occurred_at)) / 60000) : 0;
+    const wait = e.occurred_at ? Math.max(0, waitedMs(e.occurred_at) / 60000) : 0;
     const conf = typeof p.confidence === "number" ? p.confidence : 0.5;
     const contain = p.requested_action === "contain" ? 1.5 : 1;
     return { open, score: (SEV_RANK[sev] ?? 2) * (1 + wait / 5) * (0.5 + conf) * contain };
@@ -168,7 +173,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 font-mono text-[10px] text-slate-500">
                     <span>from {nameOf(e.actor_id)} · sev {asStr(p.severity) || asStr(p.impact) || "—"} · conf {p.confidence}{p.requested_action ? ` · asks: ${p.requested_action}` : ""}</span>
                     {!isAck && !isBounced && !isResolved && e.occurred_at && (() => {
-                      const mins = Math.max(0, Math.floor((now - Date.parse(e.occurred_at)) / 60000));
+                      const mins = Math.max(0, Math.floor(waitedMs(e.occurred_at) / 60000));
                       const breached = mins >= slaMinFor(asStr(p.severity) || "medium"); // SLA by severity
                       return <span className={`rounded border px-1 py-px font-bold ${breached ? "border-severity-high/60 bg-severity-high/15 text-severity-high" : "border-border text-slate-400"}`}>⏱ waiting {mins}m{breached ? " · SLA" : ""}</span>;
                     })()}

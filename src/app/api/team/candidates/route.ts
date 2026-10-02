@@ -3,6 +3,7 @@ import { asObject } from "@/lib/http/body";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isRootOrg, ROOT_ENVIRONMENT_LABEL } from "@/lib/org/rootEnvironment";
+import { liveAffiliationFilter } from "@/lib/team/membership";
 
 /**
  * Team-SOC invite candidates (read-only) — who the Session Builder may put on a
@@ -18,7 +19,8 @@ import { isRootOrg, ROOT_ENVIRONMENT_LABEL } from "@/lib/org/rootEnvironment";
  * Same gate as creating a session (org staff: org_admin, instructor or platform admin) — this endpoint must
  * not widen who can enumerate an org's members. Platform super-admins are
  * invisible to per-org views (as in /api/org/members) and the caller is omitted
- * (they join as the instructor).
+ * (they join as the instructor). Members whose affiliation has EXPIRED are not
+ * candidates either (QA M1): they couldn't mark ready and would wedge Start.
  *
  *  GET  — { org: { id, name, is_root }, members: [{ user_id, display_name, handle, role }] }
  *  POST — { email } → { user_id | null }: exact e-mail match against THIS org's
@@ -46,7 +48,7 @@ export async function GET() {
     admin.from("organizations").select("id, name").eq("id", orgId).maybeSingle(),
     admin.from("org_members")
       .select("user_id, role, status, profiles(handle, display_name, is_platform_admin)")
-      .eq("org_id", orgId).eq("status", "active")
+      .eq("org_id", orgId).eq("status", "active").or(liveAffiliationFilter())
       .order("joined_at", { ascending: true }),
   ]);
 
@@ -83,7 +85,7 @@ export async function POST(req: Request) {
   // address from another college answers exactly like an unknown one.
   const { data: mem } = await admin.from("org_members")
     .select("user_id, profiles(is_platform_admin)")
-    .eq("org_id", orgId).eq("user_id", found as string).eq("status", "active").maybeSingle();
+    .eq("org_id", orgId).eq("user_id", found as string).eq("status", "active").or(liveAffiliationFilter()).maybeSingle();
   const hidden = (mem?.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin;
   return NextResponse.json({ user_id: mem && !hidden ? (found as string) : null });
 }

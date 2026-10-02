@@ -61,6 +61,17 @@ function splitUser(raw?: string): { user?: string; domain?: string; email?: stri
 }
 
 const UNSUPPORTED_SIMPLE = /^(RemovableMedia|DcUsb|AgentOffline|FileOpenInfo|DocumentScan|SensorHeartbeat)/i;
+/** Event types that describe a telemetry step, not a verdict. */
+const TELEMETRY_ET = /^(file_|process_create$|linux_execve$|net_connection$|dns_query$|registry_set$|scheduled_task$|service_install$|process_access$|privilege_escalation$)/;
+/**
+ * Raw keys only an authored product verdict carries (a detection name, a disposition, a mitigation).
+ * Deliberately NOT here: the keys a cross-vendor reshape stamps on every alert-grade row whatever it
+ * is (crowdstrike.detection.technique_id, s1.threat.confidenceLevel / classification / mitigationStatus,
+ * s1.detection.classification) — they say "this row is important", not "the product convicted it".
+ */
+const VERDICT_KEY = /^(crowdstrike\.(DetectName|detection\.(scenario|description|pattern_disposition|pattern_disposition_description|severity|id)|PatternDisposition\w*)|s1\.(threat\.threatName|indicator\.name|mitigation_status|detection\.classification_source)|threat\.name|malware\.name|ThreatName|windefend\.\w+(\.\w+)*)$/;
+/** Placeholder names a reshape writes when the authored event has no detection name. */
+const PLACEHOLDER_VERDICT = /^(none|troj\/agent-a|suspicious activity detected)$/i;
 
 function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind; reason?: string } {
   const simple = str(r["crowdstrike.event_simpleName"]) ?? "";
@@ -70,8 +81,18 @@ function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind
     return { kind: "unsupported", reason: "device-control / USB telemetry has no documented native record in the cards" };
   if (et === "file_access" || /FileOpenInfo|DocumentScan/.test(simple)) return { kind: "unsupported", reason: "file-read telemetry is not a documented native record" };
   const sophosDet = str(r["sophos.detection_name"]);
-  if (ev.is_detection || et === "edr_alert" || et === "av_detection" || et === "av_quarantine" || /Detection|Alert/i.test(simple) || s1type === "threats" ||
-      (sophosDet && sophosDet.toLowerCase() !== "none") || str(r["process.killed"]) === "true")
+  // A telemetry step (a process start, a file write, a connection …) is a product DETECTION only
+  // when the product's own verdict is on it. `is_detection` marks the feed row as alert-grade, and a
+  // generic "DetectionSummaryEvent" simple name is what a vendor reshape stamps on any non-process
+  // event — neither turns a download into an alert or a process start into a threat record.
+  const telemetryStep = TELEMETRY_ET.test(et);
+  const mdeTitle = str(r["mde.AlertTitle"]);
+  const productVerdict = Object.keys(r).some(k => VERDICT_KEY.test(k)) ||
+    (!!sophosDet && !PLACEHOLDER_VERDICT.test(sophosDet)) || (!!mdeTitle && !PLACEHOLDER_VERDICT.test(mdeTitle)) ||
+    str(r["process.killed"]) === "true" || /kill|terminat|quarantin|block|prevent/i.test(str(r["action_result"]) ?? "");
+  const flagged = ev.is_detection || /Detection|Alert/i.test(simple) || s1type === "threats" ||
+    (!!sophosDet && sophosDet.toLowerCase() !== "none") || str(r["process.killed"]) === "true";
+  if (et === "edr_alert" || et === "av_detection" || et === "av_quarantine" || (flagged && (!telemetryStep || productVerdict)))
     return { kind: "detection" };
   if (et === "net_connection" || /NetworkConnect/i.test(simple) || s1type === "ip connect") return { kind: "network" };
   if (et === "dns_query" || /DnsRequest/i.test(simple) || ev.dns?.query) return { kind: "dns" };
@@ -96,7 +117,8 @@ function actionOf(r: Record<string, unknown>): "killed" | "quarantined" | "block
   // Negatives win: "not_quarantined", "allowed", "not_mitigated", "detect only".
   const neg = (t: string) => /not[_ ]?(quarantin|mitigat|block|kill)|^allowed$|detect.?only|no action|none/.test(t);
   const pos = parts.filter(t => t && !neg(t)).join(" ");
-  if (str(r["process.killed"]) === "true" || /\bkill|terminat/.test(pos)) return "killed";
+  // No \b before "kill": "process_killed" (the corpus's own spelling) has no word boundary there.
+  if (str(r["process.killed"]) === "true" || /kill|terminat/.test(pos)) return "killed";
   if (/quarantin/.test(pos)) return "quarantined";
   if (/block|prevent|denied|\bmitigated|remov|clean/.test(pos)) return "blocked";
   return "detected";
@@ -177,6 +199,84 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
       confidence: numOrU(r["crowdstrike.detection.confidence"] ?? r["crowdstrike.Confidence"]),
       action: actionOf(r),
     } : undefined,
+  };
+}
+
+/**
+ * What the product did, as separate facts — an alert can kill a process AND quarantine its file,
+ * which {@link EdrFacts.detection}.action (one word) cannot say. `blockedExec` = the authored event
+ * says execution itself was prevented (the process never ran).
+ */
+export interface ActionFlags { kill: boolean; quarantine: boolean; block: boolean; blockedExec: boolean }
+export function actionFlags(ev: TelemetryEvent): ActionFlags {
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  const parts = [r["action_result"], r["quarantine.status"], r["crowdstrike.PatternDispositionDescription"],
+    r["crowdstrike.detection.pattern_disposition_description"], r["s1.mitigation_status"], r["s1.threat.mitigationStatus"],
+    r["sophos.action"], r["windefend.action"], r["remediation.status"] && /complet|success/i.test(String(r["remediation.status"])) ? r["remediation.action"] : undefined]
+    .map(v => (str(v) ?? "").toLowerCase());
+  const neg = (t: string) => /not[_ ]?(quarantin|mitigat|block|kill)|^allowed$|detect.?only|no action|none/.test(t);
+  const pos = parts.filter(t => t && !neg(t)).join(" ");
+  const said = `${pos} ${(ev.description ?? "").toLowerCase()}`;
+  return {
+    kill: str(r["process.killed"]) === "true" || /kill|terminat/.test(pos),
+    quarantine: /quarantin/.test(pos),
+    block: /block|prevent|denied|\bmitigated|remov|clean/.test(pos),
+    // "blocked X from executing", "prevented it from running", "execution was blocked", "blocked on execution".
+    blockedExec: /(block|prevent)\w*\s+(\S+\s+){0,3}?from\s+(execut|launch|running|start)|(block|prevent)\w*\s+(its\s+|the\s+)?(execution|launch)\b|execution\s+(was\s+)?(blocked|prevented)|(blocked|prevented)\s+(on|at)\s+execution|before\s+it\s+(could\s+)?(run|execut|start)/.test(said),
+  };
+}
+
+/** A scheduled-task registration authored on the event (MDE ScheduledTaskCreated, Falcon ScheduledTaskRegistered, S1 Task Register). */
+export interface TaskFacts {
+  /** Task name without the leading folder backslash, e.g. "OfficeLicenseRefresh". */
+  name: string;
+  /** Task Scheduler path, e.g. "\\OfficeLicenseRefresh". */
+  path: string;
+  /** The program the task runs, when the event says. */
+  command?: string;
+  args?: string;
+  /** The process that registered the task (schtasks.exe, an installer …). */
+  registrar: EdrProc;
+}
+export function taskFacts(ev: TelemetryEvent, f: EdrFacts): TaskFacts | null {
+  const r = (ev.raw ?? {}) as Record<string, unknown>;
+  const action = str(r["ActionType"]);
+  const simple = str(r["crowdstrike.event_simpleName"]);
+  const s1type = (str(r["s1.eventType"]) ?? "").toLowerCase();
+  const rawName = first(r["TaskName"], r["crowdstrike.TaskName"], r["task.name"], r["s1.task.name"]);
+  const registration = action === "ScheduledTaskCreated" || simple === "ScheduledTaskRegistered" || /task register/.test(s1type) ||
+    (ev.event_type === "scheduled_task" && !!first(r["TaskName"], r["crowdstrike.TaskName"]) && !ev.process?.name);
+  if (!registration || !rawName) return null;
+  const name = rawName.replace(/^\\+/, "").split("\\").pop()!;
+  const path = rawName.startsWith("\\") ? rawName : `\\${rawName}`;
+  // MDE puts the task's program in FolderPath / FileName and the registrar in InitiatingProcess*;
+  // edrFacts reads that row as "process = program, parent = registrar".
+  const command = first(r["TaskExecCommand"], r["crowdstrike.TaskExecCommand"], r["task.command"],
+    action === "ScheduledTaskCreated" ? joinPath(r["FolderPath"], r["FileName"]) : undefined,
+    !ev.process?.name && f.proc.path && /[\\/]/.test(f.proc.path) ? f.proc.path : undefined);
+  const registrar: EdrProc = ev.process?.name ? f.proc : f.parent;
+  return { name, path, command, args: first(r["TaskExecArguments"], r["crowdstrike.TaskExecArguments"]), registrar };
+}
+
+/**
+ * The task a `schtasks.exe /create` process creation registers (/tn name, /tr program). The
+ * schtasks process is the registrar — the Task Scheduler records the registration as its own event
+ * next to the process start (Falcon ScheduledTaskRegistered, S1 Task Register, MDE ScheduledTaskCreated).
+ */
+export function schtasksTask(f: EdrFacts): TaskFacts | null {
+  if (f.kind !== "process" || !/^schtasks(\.exe)?$/i.test(f.proc.name ?? baseName(f.proc.path) ?? "")) return null;
+  const cmd = f.proc.cmdline ?? "";
+  if (!/\s\/create\b/i.test(cmd)) return null;
+  const arg = (flag: string) => new RegExp(`\\s/${flag}\\s+("([^"]*)"|(\\S+))`, "i").exec(cmd);
+  const tn = arg("tn"), tr = arg("tr");
+  const rawName = tn ? (tn[2] ?? tn[3]) : undefined;
+  if (!rawName) return null;
+  const action = tr ? (tr[2] ?? tr[3]) : undefined;
+  // /tr may carry arguments after the program ("C:\x\a.exe" -silent / C:\x\a.exe -silent).
+  const prog = action ? (/^"([^"]+)"\s*(.*)$/.exec(action) ?? /^(\S+)\s*(.*)$/.exec(action)) : null;
+  return {
+    name: rawName.replace(/^\\+/, "").split("\\").pop()!, path: rawName.startsWith("\\") ? rawName : `\\${rawName}`,
+    command: prog?.[1], args: prog?.[2] || undefined, registrar: f.proc,
   };
 }
 

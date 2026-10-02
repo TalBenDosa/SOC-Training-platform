@@ -2,7 +2,10 @@
 // sessions played before team XP existed. Uses the same server code as the app.
 //
 //   npx tsx scripts/backfill-team-xp.ts --dry-run   # print the awards, write nothing
-//   npx tsx scripts/backfill-team-xp.ts             # award them
+//   npx tsx scripts/backfill-team-xp.ts --yes       # award them
+//
+// It prints the Supabase project it is about to touch first, and writes nothing
+// without an explicit --yes (QA L14) — ENV_FILE can point it at any project.
 //
 // Env (from .env.local): NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
 import { readFileSync } from "node:fs";
@@ -16,8 +19,18 @@ const env = Object.fromEntries(readFileSync(envFile, "utf8").split(/\r?\n/)
   .map(l => /^([A-Z_]+)\s*=\s*(.*)$/.exec(l)).filter(Boolean).map(m => [m![1], m![2].trim().replace(/^["']|["']$/g, "")]));
 const url = env.NEXT_PUBLIC_SUPABASE_URL, key = env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) { console.error(`missing Supabase URL / service key in ${envFile}`); process.exit(1); }
-const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 const dry = process.argv.includes("--dry-run");
+const yes = process.argv.includes("--yes");
+/** The project ref of a Supabase URL (https://<ref>.supabase.co), else the host. */
+function projectRef(u: string): string {
+  try { const h = new URL(u).hostname; return h.endsWith(".supabase.co") ? h.split(".")[0] : h; } catch { return u; }
+}
+console.log(`Target Supabase project: ${projectRef(url)}  (${url}, from ${envFile})`);
+if (!dry && !yes) {
+  console.error("Refusing to write without confirmation: re-run with --yes to award, or --dry-run to preview.");
+  process.exit(1);
+}
+const admin = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 
 async function main() {
   const ids = await sessionsMissingXp(admin, 200);

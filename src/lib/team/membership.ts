@@ -7,6 +7,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * unexpired membership in the session's org. Routes use it so a member whose
  * affiliation lapsed can't still end / pause a room RLS already locks them out of.
  */
+/**
+ * PostgREST `or` filter for org_members rows whose affiliation hasn't expired (QA M1):
+ * who may be invited / added. An expired student can't act or mark ready, so inviting
+ * one wedged the lobby's ready-check.
+ */
+export function liveAffiliationFilter(now = new Date()): string {
+  return `affiliation_expires_at.is.null,affiliation_expires_at.gt."${now.toISOString()}"`;
+}
+
 export async function activeSeat(
   admin: SupabaseClient, sessionId: string, orgId: string, userId: string,
 ): Promise<{ role: string; status: string } | null> {

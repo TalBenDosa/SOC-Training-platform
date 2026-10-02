@@ -23,6 +23,10 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
 import type { EdrFacts, EdrProc } from "./edr-normalize";
+import { procKey, procPid, type ProcScope } from "./_proc-identity";
+
+export type { ProcScope } from "./_proc-identity";
+export { inferredFileWriter } from "./_proc-identity";
 
 export const baseName = (p?: string) => (p ? p.split(/[\\/]/).pop() : undefined);
 const lc = (s?: string) => (s ?? "").toLowerCase();
@@ -177,14 +181,17 @@ export function drivePath(p: string): string {
   return m ? `C:\\${m[1]}` : p;
 }
 
-/** OS pid: authored, else a stable Windows-style (multiple of 4) pid per host + image. */
-export function pidOf(ctx: NativeCtx, host: string, p: EdrProc): number {
-  if (p.pid !== undefined) return p.pid;
-  return ctx.int(`${ctx.companyId}:${host}:pid:${lc(procName(p))}`, 250, 3999) * 4;
+/**
+ * OS pid of a process instance — derived from its instance key (./_proc-identity), never from the
+ * authored pid, which the corpus does not number consistently across a process's own row, its
+ * children and its actions. Windows pids are multiples of 4.
+ */
+export function pidOf(ctx: NativeCtx, s: ProcScope, p: EdrProc): number {
+  return procPid(ctx, s, p) ?? (s.os === "Win" ? 4 : 1);
 }
-/** Seed identifying one process instance on one host (host + image name + pid). */
-export function procSeed(ctx: NativeCtx, host: string, p: EdrProc): string {
-  return `${ctx.companyId}:${host}:proc:${lc(procName(p))}:${pidOf(ctx, host, p)}`;
+/** Seed identifying one process instance (company + host + image + lifetime scope). */
+export function procSeed(ctx: NativeCtx, s: ProcScope, p: EdrProc): string {
+  return procKey(ctx, s, p) ?? `${ctx.companyId}:${lc(s.host)}:proc:?`;
 }
 
 // Processes that start a new chain (their children are storyline roots).

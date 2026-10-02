@@ -56,6 +56,18 @@ export function mergeAnswers(events: Ev[], answers: AnswerMap): Ev[] {
   });
 }
 
+/** One player's reads of one log (0088 team_session_click_totals): opens, longest and total dwell. */
+export interface ClickTotal { user_id: string; event_id: string | null; opens: number; max_dwell_ms: number; sum_dwell_ms: number; first_at: string }
+
+/**
+ * Click totals → the click rows computeReport reads. It counts DISTINCT logs opened and
+ * the LONGEST read of each, so one row per (player, log) carrying the max dwell scores
+ * exactly like the raw clicks did — and can never outgrow the report's row cap (QA M2).
+ */
+export function totalsAsClicks(totals: ClickTotal[]): { user_id: string; event_id: string | null; dwell_ms: number; occurred_at: string }[] {
+  return totals.map(t => ({ user_id: t.user_id, event_id: t.event_id, dwell_ms: Number(t.max_dwell_ms) || 0, occurred_at: t.first_at }));
+}
+
 /** Click telemetry (v2, off the log) → synthetic `event.opened` events for computeReport. */
 export function clicksAsEvents(clicks: { user_id: string; event_id: string | null; dwell_ms: number; occurred_at: string }[], afterSeq: number): Ev[] {
   return clicks.map((c, i) => ({
@@ -77,14 +89,29 @@ export async function pageAll<T>(fetchPage: (from: number, to: number) => Promis
   }
 }
 
+/**
+ * The session's click telemetry, aggregated per (player, log) in the DB (0088). Falls
+ * back to the raw rows only while that function isn't deployed yet.
+ */
+async function loadClicks(admin: SupabaseClient, sessionId: string) {
+  try {
+    const totals = await pageAll<ClickTotal>((from, to) => admin.rpc("team_session_click_totals", { p_session: sessionId }).range(from, to), 1000, 250_000);
+    return totalsAsClicks(totals);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/team_session_click_totals|function|schema cache/i.test(msg)) throw e;
+    return pageAll<{ user_id: string; event_id: string | null; dwell_ms: number; occurred_at: string }>((from, to) => admin.from("session_clicks")
+      .select("user_id, event_id, dwell_ms, occurred_at").eq("session_id", sessionId).order("id").range(from, to));
+  }
+}
+
 /** Build the full report for an ended session (service-role client). */
 export async function buildServerReport(admin: SupabaseClient, sessionId: string): Promise<ServerReport> {
   const events = await pageAll<Ev>((from, to) => admin.from("session_events")
     .select("seq, type, actor_id, role, payload, occurred_at").eq("session_id", sessionId).order("seq").range(from, to));
   const injects = await pageAll<{ id: string; channel: string | null; expected_action: unknown }>((from, to) => admin.from("session_injects")
     .select("id, channel, expected_action").eq("session_id", sessionId).order("id").range(from, to));
-  const clicks = await pageAll<{ user_id: string; event_id: string | null; dwell_ms: number; occurred_at: string }>((from, to) => admin.from("session_clicks")
-    .select("user_id, event_id, dwell_ms, occurred_at").eq("session_id", sessionId).order("id").range(from, to));
+  const clicks = await loadClicks(admin, sessionId);
 
   // Roster incl. members who LEFT — their actions still count in the debrief.
   // Errors THROW (P4-07): an empty roster makes computeReport score nobody, and

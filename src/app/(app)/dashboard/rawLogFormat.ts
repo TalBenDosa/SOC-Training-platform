@@ -352,6 +352,7 @@ function toCheckPoint(event: LiveEvent): string {
 // ─── Cisco ASA: %ASA-level-id message ──────────────────────────────────────────
 
 function toCiscoAsa(event: LiveEvent): string {
+  if (!event.src_ip || !event.dst_ip) return toGenericSyslog(event);
   const { bsd } = syslogTs(event);
   const dev = deviceName(event, "cisco");
   const connId = 10_000 + (stableHash(event.id) % 90_000);
@@ -362,6 +363,32 @@ function toCiscoAsa(event: LiveEvent): string {
     ? `%ASA-4-106023: Deny ${proto} src inside:${event.src_ip}/${event.src_port ?? 0} dst outside:${event.dst_ip}/${event.dst_port ?? 0} by access-group "outside_access_in"`
     : `%ASA-6-302013: Built outbound ${proto} connection ${connId} for outside:${event.dst_ip}/${event.dst_port ?? 0} (${event.dst_ip}/${event.dst_port ?? 0}) to inside:${event.src_ip}/${event.src_port ?? 0} (${event.src_ip}/${event.src_port ?? 0})`;
   return `<134>${bsd} ${dev} ${msg}`;
+}
+
+// ─── Cisco ISE: CISE_<category> syslog with RADIUS attributes ───────────────────
+// ISE is a RADIUS policy server, not a firewall: an ASA connection line on a NAC
+// event was the wrong product and printed "undefined" for the missing addresses.
+
+const ISE_KEY_NAMES: Record<string, string> = {
+  "ise.network_device_name": "NetworkDeviceName", "ise.nas_ip": "Device IP Address", "ise.user": "UserName",
+  "ise.nas_port_type": "NAS-Port-Type", "ise.endpoint_profile": "EndPointMatchedProfile", "ise.vlan": "SelectedAuthorizationProfiles",
+  "ise.identity_group": "IdentityGroup", "ise.posture_status": "PostureStatus", "ise.auth_method": "AuthenticationMethod",
+  "ise.failure_reason": "FailureReason", "ise.mac": "Calling-Station-ID",
+};
+function toCiscoIse(event: LiveEvent): string {
+  const { bsd } = syslogTs(event);
+  const raw = event.raw ?? {};
+  const code = String(raw["ise.event_type"] ?? (event.event_type === "nac_quarantine" ? "5400" : "5200"));
+  const desc = String(raw["ise.event_desc"] ?? "");
+  const failed = /^54/.test(code) || /fail|reject|denied/i.test(desc);
+  const category = failed ? "CISE_Failed_Attempts" : "CISE_Passed_Authentications";
+  const msgId = String(1_000_000 + (stableHash(event.id) % 9_000_000)).padStart(10, "0");
+  const when = (event.ts ?? "").replace("T", " ").replace(/Z$/, " +00:00");
+  const pairs = Object.entries(raw)
+    .filter(([k, v]) => k.startsWith("ise.") && !["ise.event_type", "ise.event_desc"].includes(k) && v !== undefined && v !== null && v !== "")
+    .map(([k, v]) => `${ISE_KEY_NAMES[k] ?? k.slice(4).replace(/(^|_)([a-z])/g, (_m, _p, c: string) => c.toUpperCase())}=${String(v)}`);
+  const head = failed ? `Failed-Attempt: ${desc || "Authentication failed"}` : `Passed-Authentication: ${desc || "Authentication succeeded"}`;
+  return `<181>${bsd} ise-psn-01 ${category} ${msgId} 1 0 ${when} ${stableHash(`${event.id}:seq`) % 900_000 + 100_000} ${code} NOTICE ${head}${pairs.length ? `, ${pairs.join(", ")}` : ""}`;
 }
 
 // ─── Generic RFC5424 appliance syslog ──────────────────────────────────────────
@@ -409,6 +436,14 @@ export function toRawLog(event: LiveEvent): RawLog {
   // Appliance sources emit syslog ONLY when the vendor is an actual box.
   // Cloud services (AWS WAF, Cloudflare, Zscaler, Azure…) ship JSON.
   if (APPLIANCE_SOURCES.has(event.source) && !isCloudVendor(event)) {
+    const vendorLabel0 = event.vendor ? ` — ${event.vendor}` : "";
+    // NAC / DHCP servers are not firewalls — never format them as a firewall's traffic line.
+    if (event.source === "nac" || event.source === "dhcp") {
+      if (/\bise\b/i.test(event.vendor ?? "") || Object.keys(event.raw ?? {}).some(k => k.startsWith("ise."))) {
+        return { format: `Syslog, Cisco ISE${vendorLabel0}`, text: toCiscoIse(event), lang: "syslog" };
+      }
+      return { format: `Syslog, RFC5424${vendorLabel0}`, text: toGenericSyslog(event), lang: "syslog" };
+    }
     const kind = firewallKind(event);
     const vendorLabel = event.vendor ? ` — ${event.vendor}` : "";
     switch (kind) {

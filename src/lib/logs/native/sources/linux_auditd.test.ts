@@ -43,7 +43,7 @@ describe("linux_auditd — corpus conversion", () => {
       expect(violationsOf(c.log, source), `${c.c.ev.id} → ${c.log.kind}`).toEqual([]);
       expect(c.log.timeMs).toBe(Date.parse(c.c.ev.ts));
       if (c.log.kind === "sshd") expect(c.log.rawLine).toMatch(/^<38>\w{3} [ \d]\d \d{2}:\d{2}:\d{2} \S+ sshd\[\d+\]: /);
-      else expect(c.log.rawLine).toMatch(new RegExp(`^type=${c.log.kind} msg=audit\\(\\d+\\.\\d{3}:\\d+\\): `));
+      else expect(c.log.rawLine).toMatch(new RegExp(`^(node=\\S+ )?type=${c.log.kind} msg=audit\\(\\d+\\.\\d{3}:\\d+\\): `));
     }
   });
   it("coverage ≥ 95% (all linux_audit events are auditd-native)", () => {

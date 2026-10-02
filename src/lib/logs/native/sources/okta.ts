@@ -139,12 +139,16 @@ function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): Nati
   // A person's action always carries the client address — with none authored, the
   // company's egress (the same one its firewalls NAT to). Only Okta's own system
   // actions have no client, and then no geo either.
-  const ip = f.ip ?? (r.actor?.type === "User" ? egressIp(ctx) : null);
+  // Okta is SaaS: it never sees a corporate user's private address. A sign-in from inside the
+  // network arrives from the company's egress (NAT) address — real geo / ASN — and the org's
+  // "Corporate HQ" network zone is defined on that egress, so client.zone names it.
+  const egress = egressIp(ctx);
+  const ip = isPrivateIp(f.ip) ? egress : f.ip ?? (r.actor?.type === "User" ? egress : null);
   const geo = geoOf(ev, ctx, ip ?? undefined);
   const asn = asnOf(ev, geo, ip ?? undefined);
   const ua = uaOf(ev);
-  const priv = isPrivateIp(ip ?? undefined);
-  const geoCtx = priv || !ip ? { city: null, country: null, geolocation: { lat: null, lon: null }, postalCode: null, state: null } :
+  const corporate = !!ip && ip === egress;
+  const geoCtx = !ip ? { city: null, country: null, geolocation: { lat: null, lon: null }, postalCode: null, state: null } :
     { city: geo.city, country: geo.country, geolocation: { lat: geo.lat, lon: geo.lon }, postalCode: geo.postal, state: geo.state };
   const email = f.email;
   const sid = r.preSession ? "unknown" :
@@ -166,7 +170,7 @@ function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): Nati
       id: null,
       ipAddress: ip,
       userAgent: { browser: ua.oktaBrowser, os: ua.oktaOs, rawUserAgent: ua.raw },
-      zone: priv ? "Corporate HQ" : "null",
+      zone: corporate ? "Corporate HQ" : "null",
     },
     debugContext: { debugData: Object.fromEntries(Object.entries(debugData).sort(([a], [b]) => a.localeCompare(b))) },
     device: r.device ?? null,
@@ -176,7 +180,7 @@ function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): Nati
     outcome: { reason: r.reason, result: r.result },
     published: isoFrac(ev.ts, 3),
     request: { ipChain: ip ? [{ geographicalContext: geoCtx, ip, source: null, version: ip.includes(":") ? "V6" : "V4" }] : [] },
-    securityContext: { asNumber: asn.asn, asOrg: asn.asOrg, domain: asn.domain, isProxy: priv ? null : asn.isProxy, isp: asn.isp },
+    securityContext: { asNumber: asn.asn, asOrg: asn.asOrg, domain: asn.domain, isProxy: corporate ? false : asn.isProxy, isp: asn.isp },
     severity: r.severity ?? (failure || r.eventType === "user.account.lock" || r.eventType === "security.threat.detected" ? "WARN" : "INFO"),
     target: r.target,
     transaction: { detail: {}, id: tx, type: "WEB" },

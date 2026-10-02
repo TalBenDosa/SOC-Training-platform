@@ -1004,7 +1004,7 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
 
 // Non-human accounts never become a story's victim (a badge reader reading phish mail,
 // "cyberark.svc" browsing to a fake update page).
-const SERVICE_ACCOUNT = /^(svc[-._]|ci-|admin@|noreply|system@)|[-._]svc@|(service|device|badge|printer|scanner|kiosk|backup|sync|bot)[-._@]/i;
+const SERVICE_ACCOUNT = /^(svc[-._]|ci-|admin@|noreply|system@)|[-._]svc@|(^|[-._])(service|device|badge|printer|scanner|kiosk|backup|sync|bot|replication|repl|deploy|monitor|monitoring|daemon|automation|scan|sql|dc|krbtgt|healthcheck)([-._@]|$)/i;
 
 // Department words authored next to a host ("the HR workstation WS-HR-1142"): after a
 // host swap they must still describe the host named — "developer workstation WS-MKT-3301"
@@ -1056,7 +1056,9 @@ const ANY_EDR_NS = /^(crowdstrike|s1|sophos|mde|cortex)\./;
 // event.provider:"Microsoft Defender ATP" / event.dataset:"DeviceProcessEvents" that
 // would otherwise out a Defender-authored event on a SentinelOne/Sophos shop.
 const KEEP_NEUTRAL_PREFIX = /^(process|file|threat|source|destination|network|dns|usb|user|host|registry|url|http)\./;
-const KEEP_NEUTRAL_EXACT = new Set(["action_result", "quarantine.status", "policy.name", "event.action", "event.outcome", "event.category"]);
+// Task Scheduler facts are the event itself, not vendor convention — kept across a reshape.
+const KEEP_NEUTRAL_EXACT = new Set(["action_result", "quarantine.status", "policy.name", "event.action", "event.outcome", "event.category",
+  "TaskName", "TaskExecCommand", "TaskAuthor", "TaskContent", "task.name", "task.path"]);
 // EDR product names that appear in prose/raw values — mapped to the company's own EDR
 // so a description like "CrowdStrike Falcon killed…" can't out the attack elsewhere.
 const EDR_PRODUCT_NAMES = [
@@ -1110,8 +1112,15 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
   const isDetection = e.is_detection === true || /detection|threat|malware|ransom/i.test(et);
   const block: Record<string, unknown> = {};
   if (target === "crowdstrike") {
-    block["crowdstrike.event_simpleName"] =
-      et === "process_create" ? "ProcessRollup2" : et === "net_connection" ? "NetworkConnectIP4" : "DetectionSummaryEvent";
+    // Map each telemetry kind to its real FDR event_simpleName — never DetectionSummaryEvent
+    // for a non-detection (a file write mislabelled that way renders as a spurious alert).
+    block["crowdstrike.event_simpleName"] = isDetection ? "DetectionSummaryEvent"
+      : et === "process_create" || et === "scheduled_task" || et === "service_install" ? "ProcessRollup2"
+      : et === "net_connection" ? "NetworkConnectIP4"
+      : et === "dns_query" ? "DnsRequest"
+      : et === "registry_set" ? "AsepValueUpdate"
+      : et === "file_create" || et === "file_modify" ? "NewExecutableWritten"
+      : "ProcessRollup2";
     if (isDetection && e.mitre_technique) block["crowdstrike.detection.technique_id"] = e.mitre_technique;
     if (e.severity) block["crowdstrike.SeverityName"] = e.severity.toUpperCase();
   } else if (target === "s1") {
@@ -1145,7 +1154,20 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
       if (e.mitre_technique) block["threat.technique.id"] = e.mitre_technique;
     }
   }
-  return { ...block, ...neutral };
+  // The authored vendor's keys carried the evidence; where the target EDR has no native
+  // record for this event (Sophos on Linux, …) the legacy view shows the raw block — so the
+  // structured facts go in as neutral ECS fields, never an empty record.
+  const ecs: Record<string, unknown> = {};
+  const put = (k: string, v: unknown) => { if (v !== undefined && v !== null && v !== "" && neutral[k] === undefined) ecs[k] = v; };
+  put("host.name", e.hostname); put("user.name", e.process?.user ?? e.user_email?.split("@")[0]);
+  put("process.name", e.process?.name); put("process.executable", e.process?.path); put("process.command_line", e.process?.cmdline);
+  put("process.pid", e.process?.pid); put("process.parent.name", e.process?.parent_name);
+  put("process.hash.sha256", e.process?.hash?.sha256);
+  put("file.path", e.file?.path); put("file.hash.sha256", e.file?.sha256); put("file.size", e.file?.size);
+  put("url.full", e.network?.url); put("destination.ip", e.dst_ip); put("destination.port", e.dst_port);
+  put("registry.path", e.registry?.path); put("registry.value", e.registry?.value);
+  if (e.mitre_technique) put("threat.technique.id", e.mitre_technique);
+  return { ...block, ...ecs, ...neutral };
 }
 
 /**
@@ -1211,7 +1233,19 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const counts = new Map<string, number>();
   for (const e of s.events) if (e.user_email && !SERVICE_ACCOUNT.test(e.user_email)) counts.set(e.user_email, (counts.get(e.user_email) ?? 0) + 1);
   const victim = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const replacement = roster.length ? roster[Math.floor(Math.random() * roster.length)] : undefined;
+  // Role-aware: when the victim does admin work (SSH / sudo / Linux servers, an admin
+  // account), the replacement is someone whose job is IT — not a truck driver.
+  const adminStory = (victim ? /(^|[-._])(admin|adm|it|ops|sysadmin|root)([-._@]|$)/i.test(victim) : false) ||
+    s.events.some(e => e.user_email === victim && (e.source === "linux_audit" || /sudo|ssh|priv/i.test(e.event_type)));
+  const titleOf = new Map<string, string>();
+  for (const e of companyPool) {
+    const t = e.user_title ?? (e.user as { title?: string } | undefined)?.title;
+    if (e.user_email && t && !titleOf.has(e.user_email)) titleOf.set(e.user_email, t);
+  }
+  const IT_TITLE = /admin|engineer|devops|it\b|sysadmin|infrastructure|sre|security|network|platform|operations/i;
+  const itRoster = roster.filter(u => IT_TITLE.test(titleOf.get(u) ?? "") || /(^|[-._])(admin|it|ops)([-._@]|$)/i.test(u));
+  const candidates = adminStory && itRoster.length ? itRoster : roster;
+  const replacement = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : undefined;
   if (victim && replacement && victim !== replacement) {
     const on = victim.split("@")[0], nn = replacement.split("@")[0];
     pairs.push([victim, replacement], [on, nn], [on.replace(/\./g, ""), nn.replace(/\./g, "")]);
@@ -1234,6 +1268,30 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const victimDomain = victim?.includes("@") ? victim.split("@")[1] : undefined;
   if (victimDomain && companyDomain && victimDomain !== companyDomain) pairs.push([victimDomain, companyDomain]);
 
+  // Every OTHER tenant's identity → this company's: stories were authored for one company
+  // (mostly NexaCorp), and its brand in a lure, its look-alike domain (nexacorp-portal.ru),
+  // its SharePoint tenant, its realm in a VPN group all leaked into another tenant's feed.
+  // A look-alike domain must impersonate the company actually under attack.
+  if (companyId && COMPANY_ASSETS[companyId]) {
+    const brandOf = (id: string) => (COMPANY_PROFILES.find(c => c.id === id)?.name ?? id).split(/\s+/)[0];
+    const stemOf = (id: string) => (COMPANY_ASSETS[id]?.domain ?? id).split(".")[0];
+    const me = { brand: brandOf(companyId), stem: stemOf(companyId), domain: COMPANY_ASSETS[companyId].domain, netbios: COMPANY_ASSETS[companyId].netbios };
+    for (const other of Object.keys(COMPANY_ASSETS)) {
+      if (other === companyId) continue;
+      const o = { brand: brandOf(other), stem: stemOf(other), domain: COMPANY_ASSETS[other].domain, netbios: COMPANY_ASSETS[other].netbios };
+      pairs.push(
+        [o.domain, me.domain],
+        [`${o.stem}.sharepoint.com`, `${me.stem}.sharepoint.com`],
+        [`${o.stem}-my.sharepoint.com`, `${me.stem}-my.sharepoint.com`],
+        [o.brand, me.brand],
+        [o.brand.toLowerCase(), me.brand.toLowerCase()],
+        [o.brand.toUpperCase(), me.netbios],
+        [o.brand.charAt(0) + o.brand.slice(1).toLowerCase(), me.brand],
+      );
+      if (o.netbios !== o.brand.toUpperCase()) pairs.push([o.netbios, me.netbios]);
+    }
+  }
+
   // Story hostnames → the company's asset pool, ROLE-AWARE (P0-4, 2026-09-27 live
   // playtest). The old pick hashed every story host into the whole registry, so a
   // domain controller could land on a Finance workstation (4720/4728 "logged on
@@ -1244,14 +1302,20 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   //     the replacement victim actually uses in the feed (or one nobody else owns), so
   //     a story never borrows another employee's desk.
   // Deterministic per distinct host, and no two story hosts collide onto one asset.
-  const storyHosts = [...new Set(s.events.map(e => e.hostname).filter((h): h is string => !!h))];
+  // Company machines only: a fully-qualified name on a cloud row (nexacorp.sharepoint.com,
+  // graph.microsoft.com) is a service, not a workstation — mapping it onto WS-SALES-1876
+  // rewrote a SharePoint site URL into a hostname.
+  const storyHosts = [...new Set(s.events.map(e => e.hostname).filter((h): h is string => !!h && !h.includes(".")))];
   const hostMap = new Map<string, string>();
   const hostHash = (h: string) => { let x = 2166136261; for (let i = 0; i < h.length; i++) { x ^= h.charCodeAt(i); x = Math.imul(x, 16777619); } return Math.abs(x); };
   const isDcHost = (h: string) => (assets && h === assets.dc) || /(^|[^a-z0-9])dc[-_]?\d*([^a-z]|$)/i.test(h);
+  // A machine the story shows running Linux (auditd, unix paths) is a server, never a workstation.
+  const linuxHosts = new Set(s.events.filter(e => e.hostname && (e.source === "linux_audit" || /^\/(usr|bin|sbin|etc|home|opt|var|tmp)\//.test(e.process?.path ?? ""))).map(e => e.hostname!));
   const isServerHost = (h: string) => !isDcHost(h) && (
     (assets ? h === assets.fileServer : false) ||
-    /^(srv|svr|server|prod|db|web|app|sql|k8s)[-_]/i.test(h) ||
-    /[-_](srv|sql|fs|file|files|app|web|db|exch|adm|jmp|jump|emr|erp|wms|sap|linux|lnx|backup)[-_]?\d*$/i.test(h) ||
+    /^(srv|svr|server|prod|db|web|app|sql|k8s|nix|lnx|linux|ubuntu|rhel|centos|debian|ip-\d)[-_]/i.test(h) ||
+    /[-_](srv|sql|fs|file|files|app|web|db|exch|adm|jmp|jump|emr|erp|wms|sap|linux|lnx|backup|bkp|bak|nas)[-_]?\d*$/i.test(h) ||
+    linuxHosts.has(h) ||
     /[-_](srv|sql|fs|file|files|app|web|db|emr|erp|wms|sap|linux|lnx)\d*[-_]/i.test(h)
   );
   // Who works on each pool host (most frequent human user) — used to keep a story
@@ -1309,11 +1373,48 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const ipMap = new Map<string, string>();
   if (assets) {
     const isPrivate = (ip: string) => /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip);
+    // A company host's own address — the one its noise in the feed already shows (most
+    // frequent outbound source), else a stable one from its name (WS-NURS-044 → .44).
+    // A story IP that belonged to a story host takes the address of the company host it
+    // was mapped onto: one host, one IP across the story AND the noise around it.
+    const HOSTISH = new Set(["edr", "sysmon", "av", "windows_security", "linux_audit", "firewall", "proxy", "dns"]);
+    const inbound = (e: TelemetryEvent) => (e.network as { direction?: string } | undefined)?.direction === "inbound" || /inbound/i.test(String(e.raw?.["network.direction"] ?? ""));
+    const poolCounts = new Map<string, Map<string, number>>();
+    for (const e of companyPool) {
+      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !HOSTISH.has(e.source) || inbound(e)) continue;
+      const m = poolCounts.get(e.hostname) ?? new Map<string, number>();
+      m.set(e.src_ip, (m.get(e.src_ip) ?? 0) + 1); poolCounts.set(e.hostname, m);
+    }
+    const taken = new Map<string, string>();   // ip → host that owns it
+    const hostIp = new Map<string, string>();
+    for (const [h, m] of poolCounts) { const ip = [...m].sort((x, y) => y[1] - x[1])[0][0]; hostIp.set(h, ip); if (!taken.has(ip)) taken.set(ip, h); }
+    const free = (seed: number) => { for (let i = 0; i < 254; i++) { const ip = `${assets.subnet}.${((seed + i) % 250) + 3}`; if (!taken.has(ip)) return ip; } return `${assets.subnet}.${(seed % 250) + 3}`; };
+    const canonicalIp = (host: string): string => {
+      const known = hostIp.get(host);
+      if (known) return known;
+      const n = Number(/(\d+)(?!.*\d)/.exec(host)?.[1] ?? NaN);
+      const byName = Number.isFinite(n) && n >= 2 && n <= 254 ? `${assets.subnet}.${n}` : undefined;
+      const ip = byName && !taken.has(byName) ? byName : free(hostHash(host));
+      hostIp.set(host, ip); taken.set(ip, host);
+      return ip;
+    };
+    for (const e of s.events) {
+      if (!e.hostname || !e.src_ip || !isPrivate(e.src_ip) || !HOSTISH.has(e.source) || inbound(e) || ipMap.has(e.src_ip)) continue;
+      const target = hostMap.get(e.hostname) ?? e.hostname;
+      const t = canonicalIp(target);
+      ipMap.set(e.src_ip, t);
+      if (t !== e.src_ip) pairs.push([e.src_ip, t]);
+    }
+    // Any other internal address (a server it reached, a peer): the company's /24, last
+    // octet kept — never landing on an address another host already owns.
     const remapIp = (ip?: string) => {
       if (!ip || !isPrivate(ip) || ipMap.has(ip)) return;
       const octet = Math.min(254, Math.max(1, Number(ip.split(".")[3]) || 10));
-      const t = `${assets.subnet}.${octet}`;
-      if (t !== ip) { ipMap.set(ip, t); pairs.push([ip, t]); }
+      let t = `${assets.subnet}.${octet}`;
+      if (taken.has(t)) t = free(octet);
+      taken.set(t, `ip:${ip}`);
+      ipMap.set(ip, t);
+      if (t !== ip) pairs.push([ip, t]);
     };
     for (const e of s.events) { remapIp(e.src_ip); remapIp(e.dst_ip); }
   }
@@ -1389,7 +1490,9 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       ...e,
       // Other story identities keep their name but take the company's domain.
       user_email: victim && e.user_email === victim && replacement ? replacement : (e.user_email ? subStr(e.user_email) : e.user_email),
-      hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
+      // A machine maps onto a company host; a service FQDN (aad.nexacorp.com) takes the
+      // company's identity like every other string.
+      hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname?.includes(".") ? subStr(e.hostname) : e.hostname,
       src_ip:     e.src_ip && ipMap.has(e.src_ip) ? ipMap.get(e.src_ip)! : e.src_ip,
       dst_ip:     e.dst_ip && ipMap.has(e.dst_ip) ? ipMap.get(e.dst_ip)! : e.dst_ip,
       description: e.description ? fixRoleWords(subStr(e.description)) : e.description,

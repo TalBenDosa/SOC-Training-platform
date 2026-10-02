@@ -26,6 +26,7 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { procPid } from "./_proc-identity";
 import { edrFacts, type EdrFacts } from "./edr-normalize";
 import {
   TACTICS, techniqueName, tacticOf, fixPath, baseOf, effectiveAction, imageName,
@@ -141,8 +142,10 @@ function sophosUser(f: EdrFacts, ctx: NativeCtx): string | undefined {
   if (f.os !== "Win") return u;
   return `${(f.userDomain ?? ctx.netbios).toUpperCase()}\\${u}`;
 }
-function pidOf(ctx: NativeCtx, host: string, name: string | undefined, pid?: number): number {
-  return pid ?? ctx.int(`${ctx.companyId}:${host.toLowerCase()}:${(name ?? "").toLowerCase()}:pid`, 250, 3750) * 4;
+/** OS pid of a process instance (./_proc-identity) — the same id every EDR module gives that process. */
+function pidOf(ctx: NativeCtx, ev: TelemetryEvent, f: EdrFacts, host: string, name: string | undefined): number {
+  const user = f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
+  return procPid(ctx, { host, os: f.os, timeMs: f.timeMs, user, incident: ev.incident_id }, { name }) ?? 4;
 }
 /** Stable Sophos endpoint id per host (seeded from the entity, never the event). */
 const endpointIdOf = (ctx: NativeCtx, host: string) => ctx.uuid(`${ctx.companyId}:${host.toLowerCase()}:sophos-endpoint`);
@@ -189,9 +192,9 @@ function dataLakeProcess(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: 
   const seed = (p: string) => `${ev.id}:sophos:${p}`;
   const endpointId = endpointIdOf(ctx, host);
   const meta = deviceMeta(f, ctx, host, endpointId);
-  const pid = pidOf(ctx, host, name, f.proc.pid);
+  const pid = pidOf(ctx, ev, f, host, name);
   const parentName = f.parent.name;
-  const ppid = parentName ? pidOf(ctx, host, parentName, f.parent.pid) : 0;
+  const ppid = parentName ? pidOf(ctx, ev, f, host, parentName) : 0;
   // The row's time is when the scheduled query saw the process (calendar_time); the
   // process started a little before, and the result reaches the data lake seconds later
   // — never stamped after the moment the row is shown.
@@ -261,7 +264,7 @@ function detectionItem(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
   const meta = deviceMeta(f, ctx, host, endpointId);
   const name = imageName(f.proc) ?? "";
   const path = fixPath(f.proc.path) ?? (f.file.path && baseOf(f.file.path)?.toLowerCase() === name.toLowerCase() ? f.file.path : undefined);
-  const pid = pidOf(ctx, host, name, f.proc.pid);
+  const pid = pidOf(ctx, ev, f, host, name);
   const sha256 = f.proc.sha256 ?? (path && path === f.file.path ? f.file.sha256 : undefined);
   const user = sophosUser(f, ctx);
   const beh = behaviouralName(f, ctx, seed("rule"));
@@ -311,7 +314,7 @@ function detectionItem(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     ...(sha256 ? { process_sha256: sha256 } : {}),
     ...(f.parent.name ? {
       process_parent_name: f.parent.name,
-      process_parent_sophos_pid: `${pidOf(ctx, host, f.parent.name, f.parent.pid)}:${filetime(startMs - ctx.int(seed("pstart"), 1_000, 600_000), ctx, seed("pft"))}`,
+      process_parent_sophos_pid: `${pidOf(ctx, ev, f, host, f.parent.name)}:${filetime(startMs - ctx.int(seed("pstart"), 1_000, 600_000), ctx, seed("pft"))}`,
       ...(f.parent.path ? { process_parent_path: fixPath(f.parent.path) } : {}),
     } : {}),
     monitor_mode: 0,
@@ -367,7 +370,7 @@ function siemEvent(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: string
   const filePath = f.file.path && !/^memory:/i.test(f.file.path) ? f.file.path : undefined;
   const procName = imageName(f.proc);
   const procPath = fixPath(f.proc.path);
-  const pid = procName ? pidOf(ctx, host, procName, f.proc.pid) : undefined;
+  const pid = procName ? pidOf(ctx, ev, f, host, procName) : undefined;
   const pe = /\.(exe|dll|scr|sys|com)$/i.test(filePath ?? "");
   // Threat label: authored name for Sophos-authored events; a Sophos-style label otherwise
   // (another vendor's detection name is not something Sophos would print).

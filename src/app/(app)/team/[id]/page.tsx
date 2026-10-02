@@ -34,6 +34,8 @@ import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/li
 import { buildAlertQueue, nextAlertFor } from "@/lib/team/alertQueue";
 import { teamLoad, type Difficulty } from "@/lib/team/load";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
+import { pausedSpans } from "@/lib/team/pauses";
+import { PRODUCT_LABEL, STACK_CHOICES } from "@/lib/logs/native/stack";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
@@ -43,6 +45,7 @@ import { T2Console } from "./_components/T2Console";
 import { LeadConsole } from "./_components/LeadConsole";
 import { AddMemberPanel } from "./_components/AddMemberPanel";
 import { InstructorPanel } from "./_components/InstructorPanel";
+import { RemoveMemberButton } from "./_components/RemoveMemberButton";
 import { InjectFeed } from "./_components/InjectFeed";
 import { HuntConsole } from "./_components/HuntConsole";
 import { DEConsole } from "./_components/DEConsole";
@@ -56,8 +59,6 @@ import { WarRoom } from "./_components/WarRoom";
 import { TeamIntel } from "./_components/TeamIntel";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 
-const IMPACTS = ["host", "user", "segment", "org"];
-
 export default function TeamRoomPage() {
   const { id } = useParams<{ id: string }>();
   usePageTitle("Team session");
@@ -67,6 +68,8 @@ export default function TeamRoomPage() {
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // QA M1: the server says I was removed from this session (403 { removed }) — the room is closed to me.
+  const [removed, setRemoved] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [edrNote, setEdrNote] = useState<string | null>(null); // B8: EDR open feedback (shown in any phase, incl. running)
 
@@ -123,6 +126,12 @@ export default function TeamRoomPage() {
   const [pulledNote, setPulledNote] = useState<string | null>(null);
   useEffect(() => { if (!pulledNote) return; const t = setTimeout(() => setPulledNote(null), 4000); return () => clearTimeout(t); }, [pulledNote]);
   const [t1ReportOpen, setT1ReportOpen] = useState(false);
+  // QA M4: the logs this analyst has opened — threat intel is only looked up for IOCs in hand.
+  const [openedIds, setOpenedIds] = useState<Set<string>>(() => new Set());
+  const markOpened = useCallback((eid?: string) => {
+    if (!eid) return;
+    setOpenedIds(prev => (prev.has(eid) ? prev : new Set(prev).add(eid)));
+  }, []);
   const seqSeen = useRef<Set<number>>(new Set());
   const maxSeqRef = useRef(0);
   // C1: contiguous watermark — every seq ≤ it has been seen. The pull cursor is this
@@ -183,7 +192,11 @@ export default function TeamRoomPage() {
       const res = await fetch(`/api/team/sessions/${id}`).catch(() => null);
       if (!res) { if (!cancelled) { setError("Couldn't reach the server — check your connection and reload."); setLoading(false); } return; }
       calibrateFromDateHeader(res.headers.get("date"), sentAt, Date.now());   // C5: server clock offset
-      if (!res.ok) { if (!cancelled) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); setLoading(false); } return; }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (!cancelled) { if (body?.removed) setRemoved(body.error ?? "You were removed from this session."); else setError(body?.error ?? "Failed to load."); setLoading(false); }
+        return;
+      }
       const data = await res.json();
       if (cancelled) return;
       setSession(data.session); setRoster(data.roster); setMe(data.me);
@@ -415,6 +428,10 @@ export default function TeamRoomPage() {
   const iAmPlayer = !!(me && me.role && me.role !== "instructor" && me.role !== "observer");
   const iAmReady = !!(me && readyMap[me.id]);
   const canRunSession = !!(me && (me.is_staff || me.role === "mgr")); // who may end/manage
+  // QA M1 (staff view): invitees whose access to the organisation expired can never mark ready.
+  const lapsedPlayers = players.filter(p => p.lapsed);
+  // QA L3: the products the session runs on (the categories changed from the company's own).
+  const stackLine = STACK_CHOICES.map(c => { const v = session?.stack?.[c.category]; return v ? `${c.label}: ${PRODUCT_LABEL[v as keyof typeof PRODUCT_LABEL] ?? v}` : null; }).filter(Boolean).join(" · ");
   // v2 (migration 0071): coverage / instructor-left pauses are decided SERVER-side
   // from heartbeats; this browser only reports presence and renders the result.
   const v2 = (session?.schema_version ?? 1) >= 2;
@@ -427,7 +444,11 @@ export default function TeamRoomPage() {
   // tick would then pause the room as "instructor left".
   const refreshSessionMeta = useCallback(async () => {
     const res = await fetch(`/api/team/sessions/${id}`);
-    if (!res.ok) return;
+    if (!res.ok) {
+      // M1: removed mid-session → close the room for me (the server already refuses my reads/writes).
+      if (res.status === 403) { const b = await res.json().catch(() => null); if (b?.removed) setRemoved(b.error ?? "You were removed from this session."); }
+      return;
+    }
     const data = await res.json().catch(() => null);
     if (data?.roster) setRoster(data.roster);
     if (data?.me) setMe(data.me);
@@ -589,9 +610,6 @@ export default function TeamRoomPage() {
     const answered = new Set(events.filter(e => e.type === "ticket.answered").map(e => String((e.payload as { ticket_seq?: unknown }).ticket_seq)));
     return events.filter(e => e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "ticket" && !answered.has(String(e.seq))).length;
   }, [events]);
-  // Threat-intel truth for the logs shown so far — built on the server, because this
-  // feed carries no answer key (without it an attacker's hash / C2 looked up clean).
-  const iocTruth = useTeamIocTruth(id, feed.length);
   // G-07 escalation state machine — per ROUND (a bounced/resolved log can be escalated
   // again) with the owner = first acknowledger or an explicit take-over (P0-3).
   // `escalations` = the current round of each escalated log (one inbox row per log).
@@ -640,6 +658,12 @@ export default function TeamRoomPage() {
   // G-04b: per-row triage state for the shared feed badges (reflects the player's own
   // actions — claimed/dispositioned/escalated — never ground truth).
   const escalatedIds = useMemo(() => new Set(events.filter(e => e.type === "escalation.requested").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // Threat-intel truth — built on the server, because this feed carries no answer key
+  // (without it an attacker's hash / C2 looked up clean). QA M4: asked only for the IOCs
+  // of the logs in this analyst's hands — the ones they opened, plus escalated cases.
+  const iocInHand = useMemo(() => feed.filter(f => { const k = String((f.payload as { id?: unknown }).id ?? f.seq); return openedIds.has(k) || escalatedIds.has(k); }), [feed, openedIds, escalatedIds]);
+  const iocTruth = useTeamIocTruth(id, iocInHand);
+  useEffect(() => { if (t1Sel) markOpened(t1Sel); }, [t1Sel, markOpened]);   // T1Console records the open itself
   // Work-division: the latest overload nudge from the coordinator, shown to the whole
   // team so idle analysts pick up slack, until dismissed or superseded. Keyed on seq
   // (not server occurred_at) so a timestamp-parse/skew can't silently suppress it.
@@ -652,10 +676,12 @@ export default function TeamRoomPage() {
   // A3/C5: the ONE claims projection (shared with T1 + the Situation Board), aged on
   // the server clock so a skewed laptop can't expire a teammate's claim early.
   const claimByEid = useMemo(() => activeClaims(events, nowTick), [events, nowTick]);
+  // QA M3: paused time never ages an alert toward its SLA (nor a claim — activeClaims).
+  const pauseSpans = useMemo(() => pausedSpans(events, nowTick), [events, nowTick]);
   // The Tier-1 alert queue — computed over the WHOLE feed (the SIEM table only renders
   // the latest 120 logs, so an old un-triaged alert used to show only in the queue).
-  const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions, escalated: escalatedIds, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium }),
-    [feed, dispositions, escalatedIds, claimByEid, nowTick, queueWithMedium]);
+  const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions, escalated: escalatedIds, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium, pauses: pauseSpans }),
+    [feed, dispositions, escalatedIds, claimByEid, nowTick, queueWithMedium, pauseSpans]);
   const queueByEid = useMemo(() => new Map(alertQueue.map(q => [q.eid, q])), [alertQueue]);
   const rowStatus = useCallback((rid?: string) => {
     if (!rid) return null;
@@ -715,8 +741,9 @@ export default function TeamRoomPage() {
   const onFeedRowOpened = useCallback((eid?: string, dwellMs?: number) => {
     // I5: only the CLOSE carries the dwell the AAR uses; open (dwell 0) AND close — a
     // verdict given with the row still open counts as read.
-    void act("event.opened", { event_id: eid, dwell_ms: Math.max(0, dwellMs ?? 0) });
-  }, [act]);
+    // M4: once the open is recorded, the log's IOCs may be looked up.
+    void act("event.opened", { event_id: eid, dwell_ms: Math.max(0, dwellMs ?? 0) }).then(() => markOpened(eid));
+  }, [act, markOpened]);
   const onFeedPivot = useCallback((field: "user" | "host" | "ip", value: string) => {
     if (field === "user") setFUser(value); else if (field === "host") setFHost(value); else setFIp(value);
   }, []);
@@ -803,6 +830,11 @@ export default function TeamRoomPage() {
   );
 
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
+  if (removed) return (
+    <div className="p-6"><div className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-neon-amber/[0.08] px-4 py-3 text-sm text-neon-amber"><UserMinus className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{removed} Anything you did before that still counts in the shift review. Ask your instructor if this was a mistake — they can add you back.</span></div>
+      <Link href="/team" className="mt-3 inline-flex items-center gap-1 text-sm text-cyber-300"><ArrowLeft className="h-4 w-4" /> Back to team training</Link></div>
+  );
   if (error && !session) return (
     <div className="p-6"><div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>
       <Link href="/team" className="mt-3 inline-flex items-center gap-1 text-sm text-cyber-300"><ArrowLeft className="h-4 w-4" /> Back</Link></div>
@@ -913,6 +945,7 @@ export default function TeamRoomPage() {
             <Card className="border-cyber-500/30">
               <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Shift briefing</h2>
               <p className="mt-1 text-xs text-slate-400">A live SOC shift on a shared feed — expect a mix of noise and real activity. ~{lobbyLoad?.shiftMin ?? 30} min of live telemetry, then work the case to closure. Work as one team, tier to tier.</p>
+              <p className="mt-1 text-[11px] text-slate-500"><span className="font-semibold text-slate-400">Security products:</span> {stackLine ? `${stackLine} — the rest are the company's own.` : "the company's own."}</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 {[["Keep the queue clean", "triage every alert — disposition it, don't let it pile up"],
                   ["Escalate with evidence", "hand off with a clear report + indicators, not a hunch"],
@@ -931,7 +964,7 @@ export default function TeamRoomPage() {
                 <span className="font-mono text-xs text-slate-400">{players.filter(p => readyMap[p.user_id]).length}/{players.length} ready</span>
               </div>
               <div className="mt-3 space-y-1.5">
-                {roster.map(m => {
+                {roster.filter(m => m.status !== "left").map(m => {
                   const isOn = online.has(m.user_id); const rdy = !!readyMap[m.user_id]; const isMe = me?.id === m.user_id;
                   return (
                     <div key={m.user_id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${rdy ? "border-neon-green/30 bg-neon-green/[0.05]" : "border-border"}`}>
@@ -940,7 +973,9 @@ export default function TeamRoomPage() {
                         <span className="ml-2 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{ROLE_LABEL[m.role] ?? m.role}</span></span>
                       {m.role === "instructor" ? <span className="inline-flex items-center gap-1 text-[11px] text-neon-amber"><ShieldCheck className="h-3.5 w-3.5" /> runs it</span>
                         : rdy ? <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neon-green"><CheckCircle2 className="h-3.5 w-3.5" /> ready</span>
+                        : m.lapsed ? <span className="inline-flex items-center gap-1 text-[11px] text-severity-high" title="Their access to your organisation has expired — they can't mark ready."><AlertTriangle className="h-3.5 w-3.5" /> access expired</span>
                         : <span className="inline-flex items-center gap-1 text-[11px] text-slate-500"><Circle className="h-3.5 w-3.5" /> not ready</span>}
+                      {me?.is_staff && m.role !== "instructor" && !isMe && <RemoveMemberButton sessionId={id} userId={m.user_id} name={m.name} onError={showError} />}
                     </div>
                   );
                 })}
@@ -979,7 +1014,10 @@ export default function TeamRoomPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-white">Start the exercise</p>
-                    <p className="text-xs text-slate-400">{allReady ? "All players are ready." : "Locked until every player marks ready."}</p>
+                    <p className="text-xs text-slate-400">{allReady ? "All players are ready." : "Locked until every player marks ready — remove a no-show from the roster to start without them."}</p>
+                    {lapsedPlayers.length > 0 && (
+                      <p className="mt-1 flex items-center gap-1 text-xs text-severity-high"><AlertTriangle className="h-3.5 w-3.5" /> {lapsedPlayers.map(p => p.name).join(", ")} can&apos;t mark ready — access to your organisation has expired. Remove {lapsedPlayers.length === 1 ? "them" : "them all"} to start.</p>
+                    )}
                     {!hasManager && (
                       <p className="mt-1 flex items-center gap-1 text-xs text-neon-amber"><AlertTriangle className="h-3.5 w-3.5" /> No SOC Manager or Lead on this team — CISO / Legal / exec requests will go unanswered. Add one below.</p>
                     )}
@@ -1111,7 +1149,7 @@ export default function TeamRoomPage() {
                 {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <HuntConsole scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
@@ -1119,7 +1157,9 @@ export default function TeamRoomPage() {
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}
                 {me.role === "mgr" && <MgrConsole roster={roster} events={events} act={act} />}
-                {me.role === "instructor" && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} />}
+                {/* QA L4: another instructor of the org (staff, no seat in this session) gets the panel too — every
+                    staff tool except the inject composer, which posts as the session's instructor seat. */}
+                {(me.role === "instructor" || (me.is_staff && !me.role)) && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} />}
                 {/* Team intel — its own visible card (was buried in a folded tab) */}
                 <TeamIntel events={events} nameOf={nameOf} />
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}

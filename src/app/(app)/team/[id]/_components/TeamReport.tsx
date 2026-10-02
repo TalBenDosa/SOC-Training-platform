@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { setTotalXp } from "@/lib/storage/progress";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -339,6 +339,9 @@ const LEGEND: Record<string, string> = {
  * room never had the answer key; it is revealed here, after the shift, to rebuild
  * the hot-wash and handoff ladder.
  */
+/** Quiet retries while another request builds the report (~30 s at 2 s apart). */
+export const REPORT_BUILD_RETRIES = 15;
+
 export function TeamReport({ sessionId, events, roster, me }: { sessionId: string; events: Ev[]; roster: RosterMember[]; me: Me }) {
   const [report, setReport] = useState<Report | null>(null);
   const [answers, setAnswers] = useState<AnswerMap>({});
@@ -348,16 +351,26 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [showAll, setShowAll] = useState(false);
+  // QA M5: another viewer's request may be building the report (single-flight) —
+  // the route answers 503 `building`; retry quietly instead of showing an error.
+  const buildingRetries = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | null = null;
     setLoadError(null);
     (async () => {
       try {
         const res = await fetch(`/api/team/sessions/${sessionId}/report`);
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
+        if (!res.ok && res.status === 503 && data?.building && buildingRetries.current < REPORT_BUILD_RETRIES) {
+          buildingRetries.current++;
+          retry = setTimeout(() => { if (!cancelled) setAttempt(a => a + 1); }, 2000);
+          return;
+        }
         if (!res.ok) { setLoadError(data?.error ?? "Couldn't load the report."); return; }
+        buildingRetries.current = 0;
         setReport({ team: data.team, perUser: data.perUser } as Report);
         setAnswers(data.answers ?? {});
         setSeesAll(!!data.seesAll);
@@ -365,7 +378,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         if (typeof data.myTotalXp === "number") setTotalXp(data.myTotalXp);
       } catch { if (!cancelled) setLoadError("Couldn't load the report — check your connection."); }
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (retry) clearTimeout(retry); };
   }, [sessionId, attempt]);
 
   // Answer key merged onto the local log — for the hot-wash/handoff ladder only.
@@ -375,7 +388,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   if (loadError) return (
     <Card className="border-severity-high/30">
       <p className="text-sm text-severity-high">{loadError}</p>
-      <Button variant="outline" size="sm" className="mt-3" onClick={() => setAttempt(a => a + 1)}>Try again</Button>
+      <Button variant="outline" size="sm" className="mt-3" onClick={() => { buildingRetries.current = 0; setAttempt(a => a + 1); }}>Try again</Button>
     </Card>
   );
   if (!report) return <Card><p className="text-sm text-slate-400">Building the shift review…</p></Card>;

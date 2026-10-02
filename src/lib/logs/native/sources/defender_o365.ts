@@ -80,8 +80,10 @@ const MAIL_EVENTS = new Set(["email_received", "email_blocked", "email_quarantin
 
 /** NetworkMessageId: authored value, else stable per Internet Message-ID (so the message, its clicks and its ZAP share it). */
 export function networkMessageId(ctx: NativeCtx, f: EmailFacts, ev: TelemetryEvent): string {
-  if (f.networkMessageId) return f.networkMessageId;
-  const seed = f.internetMessageId ? entitySeed(ctx, "nmid", f.internetMessageId) : `${ev.id}:nmid`;
+  // NetworkMessageId is assigned by the tenant's Exchange Online — an authored value is re-keyed per
+  // tenant (still one value per message), so two companies never show the same message id.
+  const seed = f.networkMessageId ? entitySeed(ctx, "nmid-authored", f.networkMessageId)
+    : f.internetMessageId ? entitySeed(ctx, "nmid", f.internetMessageId) : `${ev.id}:nmid`;
   const u = ctx.uuid(seed);
   return `${u.slice(0, 24)}08dc${ctx.hex(`${seed}:t`, 8)}`;
 }
@@ -96,6 +98,7 @@ function detectionMethods(raw: Raw, f: EmailFacts, threats: string[]): string {
   if (tech) {
     const o: Record<string, string[]> = {};
     for (const part of tech.split("|")) { const m = /^\s*(\w+):\s*(.+)$/.exec(part); if (m) (o[m[1]] ??= []).push(m[2].trim()); }
+    if (o.Phish && threats.includes("Malware") && !threats.includes("Phish")) return JSON.stringify({ Malware: ["File detonation"] });
     if (Object.keys(o).length) return JSON.stringify(o);
   }
   const dm = rs(raw, "DetectionMethods", "DetectionMethod");
@@ -125,12 +128,26 @@ function location(v: string | undefined, action: string): string {
 }
 
 interface Msg { f: EmailFacts; user: string; nmid: string; imid: string; ts: string; reportId: string; threats: string[]; dm: string }
+
+/** Attachment types that carry a payload (archives, executables, scripts, macro documents, disk images). */
+const WEAPON_EXT = /^(zip|rar|7z|gz|iso|img|vhd|vhdx|exe|scr|dll|com|msi|js|jse|vbs|vbe|wsf|hta|lnk|bat|cmd|ps1|docm|xlsm|pptm|dotm|one)$/i;
+/**
+ * The verdict Defender reaches on the message. A lure whose weapon is an attached payload (no link)
+ * is a Malware verdict from Safe Attachments detonation — "Phish" is for credential-harvest links /
+ * forms and impersonation, not for a ZIP that drops a trojan.
+ */
+function verdictOf(f: EmailFacts): string[] {
+  const t = [...f.threats];
+  if (t.includes("Phish") && !t.includes("Malware") && !f.urls.length && f.attachments.some(a => WEAPON_EXT.test(a.ext ?? "")))
+    return t.map(x => (x === "Phish" ? "Malware" : x));
+  return t;
+}
 function message(ev: TelemetryEvent, ctx: NativeCtx): Msg | null {
   const f = emailFacts(ev);
   const user = userEmail(ev) ?? f.to[0];
   if (!user) return null;
   const nmid = networkMessageId(ctx, f, ev);
-  const threats = [...f.threats];
+  const threats = verdictOf(f);
   return { f, user, nmid, imid: internetMessageId(ctx, f, ev), ts: iso7(ev.ts, ctx, `${ev.id}:ts`), reportId: reportIdFor(ctx, nmid, user, 1), threats, dm: detectionMethods(ev.raw ?? {}, f, threats) };
 }
 
@@ -201,17 +218,35 @@ function threatsAtClick(ev: TelemetryEvent, f: EmailFacts): boolean {
   return f.threats.includes("Phish") || /malicious|phish/i.test(rs(ev.raw, "url.malicious_detected", "classification") ?? "");
 }
 
+/** EmailEvents DeliveryAction of the message as authored. */
+function deliveryAction(ev: TelemetryEvent): string {
+  const raw: Raw = ev.raw ?? {};
+  const outcome = (rs(raw, "action_result", "event.outcome", "pps.action") ?? "").toLowerCase();
+  const action = rs(raw, "DeliveryAction") ?? (ev.event_type === "email_blocked" || ev.event_type === "email_quarantined" || /block|quarantin/.test(outcome) ? "Blocked" : "Delivered");
+  return /^(Delivered|Junked|Blocked|Replaced)$/.test(action) ? action : /deliver/i.test(action) ? "Delivered" : "Blocked";
+}
+/**
+ * Default MDO policy quarantines a Malware / high-confidence Phish verdict. A message the story
+ * DELIVERS with no override in the event (transport-rule allow, Org/User-level allow) was therefore
+ * clean at delivery — the verdict was missed (the card's "delivered clean, convicted later" case) and
+ * the conviction belongs to a later ZAP record.
+ */
+function deliveredClean(ev: TelemetryEvent, m: Msg): boolean {
+  const raw: Raw = ev.raw ?? {};
+  const etr = /transport rule/i.test(rs(raw, "block.reason") ?? "");
+  return deliveryAction(ev) === "Delivered" && !etr && !rs(raw, "OrgLevelAction", "UserLevelAction") && m.threats.some(t => t === "Malware" || t === "Phish");
+}
+
 function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<string, unknown> {
   const raw: Raw = ev.raw ?? {};
   const { f, user, nmid } = m;
-  const outcome = (rs(raw, "action_result", "event.outcome", "pps.action") ?? "").toLowerCase();
-  let action = rs(raw, "DeliveryAction") ?? (ev.event_type === "email_blocked" || ev.event_type === "email_quarantined" || /block|quarantin/.test(outcome) ? "Blocked" : "Delivered");
-  if (!/^(Delivered|Junked|Blocked|Replaced)$/.test(action)) action = /deliver/i.test(action) ? "Delivered" : "Blocked";
+  const action = deliveryAction(ev);
   const loc = location(rs(raw, "DeliveryLocation", "OriginalDeliveryLocation"), action);
-  const threats = m.threats;
+  const etr = /transport rule/i.test(rs(raw, "block.reason") ?? "");
+  const cleanAtDelivery = deliveredClean(ev, m);
+  const threats = cleanAtDelivery ? m.threats.filter(t => t === "Spam") : m.threats;
   const malware = threats.includes("Malware");
   const phish = threats.includes("Phish");
-  const etr = /transport rule/i.test(rs(raw, "block.reason") ?? "");
   let emailAction = "No action taken";
   let policy = "";
   if (action === "Blocked") { emailAction = "Send to quarantine"; policy = malware ? (f.attachments.length ? "Safe Attachments" : "Antimalware") : phish ? "Antispam phishing" : "Antispam"; }
@@ -243,7 +278,7 @@ function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<stri
     DeliveryLocation: loc,
     ThreatTypes: threats.join(", "),
     ThreatNames: malware ? malwareName(f) : "",
-    DetectionMethods: m.dm,
+    DetectionMethods: cleanAtDelivery ? detectionMethods(raw, f, threats) : m.dm,
     ConfidenceLevel: JSON.stringify(conf),
     BulkComplaintLevel: 0,
     EmailAction: emailAction,
@@ -254,14 +289,14 @@ function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<stri
     UrlCount: Number(rs(raw, "UrlCount") ?? f.urls.length),
     EmailLanguage: f.language ?? "en",
     Connectors: "",
-    OrgLevelAction: etr && action === "Delivered" ? "Allow" : "",
-    OrgLevelPolicy: etr && action === "Delivered" ? "Exchange transport rule" : "",
-    UserLevelAction: "",
-    UserLevelPolicy: "",
+    OrgLevelAction: rs(raw, "OrgLevelAction") ?? (etr && action === "Delivered" ? "Allow" : ""),
+    OrgLevelPolicy: rs(raw, "OrgLevelPolicy") ?? (etr && action === "Delivered" ? "Exchange transport rule" : ""),
+    UserLevelAction: rs(raw, "UserLevelAction") ?? "",
+    UserLevelPolicy: rs(raw, "UserLevelPolicy") ?? "",
     ReportId: m.reportId,
     AdditionalFields: "{}",
     OriginalThreatTypes: threats.join(", "),
-    OriginalDetectionMethods: m.dm,
+    OriginalDetectionMethods: cleanAtDelivery ? detectionMethods(raw, f, threats) : m.dm,
     OriginalConfidenceLevel: JSON.stringify(conf),
     To: f.headerTo ?? user,
     Cc: "",
@@ -298,7 +333,7 @@ export function companionLogs(ev: TelemetryEvent, ctx: NativeCtx): NativeLog[] {
     try { host = new URL(url).hostname; } catch { /* keep empty */ }
     wrap("EmailUrlInfo", { Timestamp: m.ts, NetworkMessageId: m.nmid, Url: url, UrlDomain: host, UrlLocation: "Body", UrlChainId: "", UrlChainPosition: 0, ReportId: m.reportId });
   });
-  const malware = m.threats.includes("Malware");
+  const malware = m.threats.includes("Malware") && !deliveredClean(ev, m);
   for (const a of m.f.attachments) {
     wrap("EmailAttachmentInfo", {
       Timestamp: m.ts, NetworkMessageId: m.nmid, SenderFromAddress: m.f.from ?? "", SenderDisplayName: m.f.fromDisplay ?? "", SenderObjectId: "",

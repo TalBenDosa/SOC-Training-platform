@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ServerReport } from "@/lib/team/report/serverReport";
-import { loadOrBuildReport, awardTeamXp, awardedTeamXp } from "@/lib/team/awardTeamXp";
+import { loadOrBuildReport, awardTeamXpOnce, awardedTeamXp, xpFromReport, ReportBuildingError } from "@/lib/team/awardTeamXp";
 
 /**
  * GET /api/team/sessions/[id]/report — the server-authoritative after-action report.
@@ -13,7 +13,13 @@ import { loadOrBuildReport, awardTeamXp, awardedTeamXp } from "@/lib/team/awardT
  * the staff-only answers joined back) and cached in team_session_reports, so every
  * viewer sees the same numbers and a whole class opening the AAR at once costs one
  * computation. Non-staff, non-Manager viewers receive ONLY their own card (S9).
+ *
+ * QA M5: the build is single-flight (a lease — only one request builds, the rest wait
+ * for the cached row, else answer 503 `building` and the client retries), and a missing
+ * XP award runs after the response instead of inside it.
  */
+export const maxDuration = 60;
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getAuthedUser();
@@ -38,21 +44,31 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     report = (await loadOrBuildReport(admin, id)).report;
   } catch (e) {
+    if (e instanceof ReportBuildingError) {
+      return NextResponse.json({ error: "The shift review is still being prepared — one moment…", building: true }, { status: 503, headers: { "Retry-After": "2" } });
+    }
     console.error("[team report] build failed:", e instanceof Error ? e.message : String(e));
     return NextResponse.json({ error: "Couldn't build the report. Please try again." }, { status: 500 });
   }
 
   // Team training XP (0087): awarded at session end; this is the safety net for a
-  // session ended by the reaper or whose award failed. Never blocks the report.
+  // session ended by the reaper or whose award failed. Never blocks the report: the
+  // numbers shown are the deterministic ones the award writes, and the award itself
+  // runs after the response (one at a time per session).
   let xp = await awardedTeamXp(admin, id);
+  const pending = !xp;
   if (!xp) {
-    try { xp = await awardTeamXp(admin, id, report); }
-    catch (e) { console.error("[team report] XP award failed:", e instanceof Error ? e.message : String(e)); }
+    xp = xpFromReport(report);
+    after(async () => {
+      try { await awardTeamXpOnce(admin, id, report); }
+      catch (e) { console.error("[team report] XP award failed:", e instanceof Error ? e.message : String(e)); }
+    });
   }
 
   // The viewer's account total after the award, so the app's XP counter updates
-  // without a reload (same pattern as the room completion route).
-  const { data: me } = await admin.from("profiles").select("xp").eq("id", user.id).maybeSingle();
+  // without a reload (same pattern as the room completion route). While the award is
+  // still pending the stored total is stale — send none, the counter keeps its value.
+  const { data: me } = pending ? { data: null } : await admin.from("profiles").select("xp").eq("id", user.id).maybeSingle();
 
   const seesAll = iAmStaff || mem?.role === "mgr";
   const xpShown = xp ? (seesAll ? xp : (user.id in xp ? { [user.id]: xp[user.id] } : {})) : {};

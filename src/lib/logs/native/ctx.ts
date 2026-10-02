@@ -1,3 +1,4 @@
+import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { NativeCtx } from "./types";
 
 /** FNV-1a 32-bit. */
@@ -41,15 +42,24 @@ const digits = (seed: string, n: number) => {
   return s.slice(0, n).replace(/^0/, "1");
 };
 
-const DOMAINS: Record<string, { domain: string; netbios: string; timeZone: string }> = {
-  nexacorp: { domain: "nexacorp.com", netbios: "NEXACORP", timeZone: "Europe/London" },
-  rocketstack: { domain: "rocketstack.io", netbios: "ROCKETSTACK", timeZone: "UTC" },
-  medcore: { domain: "medcore-health.org", netbios: "MEDCORE", timeZone: "Europe/Berlin" },
-  globallogis: { domain: "globallogis.eu", netbios: "GLOBALLOGIS", timeZone: "Europe/Brussels" },
-  quantumbank: { domain: "quantumbank.com", netbios: "QBANK", timeZone: "Europe/Zurich" },
+// Domain + NetBIOS come from the company asset registry — the same email domain and realm
+// the authored content uses (the renderers had drifted: medcore-health.org vs
+// @medcorehealth.org mail, QBANK vs QUANTUMBANK). Time zone = the HQ's (companyProfilesMeta).
+const TIME_ZONES: Record<string, string> = {
+  nexacorp: "Europe/London",      // London, UK
+  rocketstack: "UTC",             // cloud-native, servers on UTC
+  medcore: "Europe/Amsterdam",    // Amsterdam, Netherlands
+  globallogis: "Europe/Berlin",   // Frankfurt, Germany
+  quantumbank: "Europe/Zurich",   // Zurich, Switzerland
 };
+const DOMAINS: Record<string, { domain: string; netbios: string; timeZone: string }> = Object.fromEntries(
+  Object.keys(TIME_ZONES).map(id => {
+    const a = COMPANY_ASSETS[id];
+    return [id, { domain: a?.domain ?? `${id}.com`, netbios: a?.netbios ?? id.toUpperCase().slice(0, 15), timeZone: TIME_ZONES[id] }];
+  }),
+);
 
-/** The company's NetBIOS domain (QBANK for QuantumBank) — one realm per tenant everywhere. */
+/** The company's NetBIOS domain — one realm per tenant everywhere. */
 export function companyNetbios(companyId: string): string {
   return DOMAINS[companyId]?.netbios ?? companyId.toUpperCase().slice(0, 15);
 }
@@ -58,6 +68,20 @@ export function companyNetbios(companyId: string): string {
 export function companyTimeZone(companyId: string): string {
   return DOMAINS[companyId]?.timeZone ?? "UTC";
 }
+
+/**
+ * Seeds whose value is a fact about the world, not about a tenant — a file's hash, a public
+ * domain's address, a vendor's signature / app / pattern / indicator id, an OS image's build hash.
+ * The same in every company, so a payload hash or a C2 address carries over between stacks.
+ * (rhex-style helpers wrap a seed as "<i>|<seed>|…", hence the "|" alternative.)
+ */
+const GLOBAL_SEED = /(^|\|)(sha1:|img:|dom:|threat:|s1:indicator:|role-template:|ftd:rev:|fgt:appid:|cp:appid:|cp:prot:|crowdstrike:pattern:|global:)|:authenticode(\||$)/;
+/**
+ * Every other seed is scoped to the tenant: an id seeded from an event id alone (a session id, a NAT
+ * source port, an alert / threat id, a trace id …) would otherwise be identical in two companies
+ * playing the same story — visible side by side in team / multi-company mode.
+ */
+const tenantSeed = (companyId: string, seed: string) => (GLOBAL_SEED.test(seed) ? seed : `${companyId}\u0002${seed}`);
 
 /** Build the per-company context; identifiers are stable for a company across every session. */
 export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "domain" | "netbios">> = {}): NativeCtx {
@@ -76,8 +100,8 @@ export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "d
       oktaOrg: `${companyId}.okta.com`,
       crowdstrikeCid: seededHex(`${companyId}:cid`, 32),
     },
-    hex: seededHex,
-    uuid: seededUuid,
-    int: seededInt,
+    hex: (seed, len) => seededHex(tenantSeed(companyId, seed), len),
+    uuid: seed => seededUuid(tenantSeed(companyId, seed)),
+    int: (seed, min, max) => seededInt(tenantSeed(companyId, seed), min, max),
   };
 }

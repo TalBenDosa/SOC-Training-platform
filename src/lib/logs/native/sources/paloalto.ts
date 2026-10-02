@@ -172,7 +172,9 @@ function threat(f: FwFacts, ctx: NativeCtx): Record<string, string> {
     subtype = "url";
     misc = f.urlNoScheme ?? `${f.domain}/`;
     threatid = "(9999)"; severity = "informational"; thr = "unknown";
-    action = f.blocked ? "block-url" : PAN_THREAT_ACTIONS.has(authoredAct) && ["alert", "allow", "continue", "override"].includes(authoredAct) ? authoredAct : "alert";
+    // PAN-OS writes a URL-filtering entry only for alert / block / continue / override: an allowed
+    // request that was logged is "alert" ("allow" is a URL category action that logs nothing).
+    action = f.blocked ? "block-url" : PAN_THREAT_ACTIONS.has(authoredAct) && ["alert", "continue", "override"].includes(authoredAct) ? authoredAct : "alert";
   }
   const r = head(f, ctx, "THREAT", subtype);
   r.action = action;

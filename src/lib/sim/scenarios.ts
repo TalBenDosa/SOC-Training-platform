@@ -185,6 +185,9 @@ function vendorAlertId(vendor: string, scenarioId: string, n: number): string {
 
 function tacticForTechnique(t: string): string | undefined {
   if (t.startsWith("T1566")) return "TA0001";
+  if (t.startsWith("T1091")) return "TA0001";   // Initial Access (replication through removable media)
+  if (t.startsWith("T1176")) return "TA0003";   // Persistence (browser extensions, incl. T1176.001)
+  if (t.startsWith("T1219")) return "TA0011";   // Command and Control (remote access software, incl. T1219.002)
   if (t.startsWith("T1059")) return "TA0002";
   if (t.startsWith("T1547") || t.startsWith("T1543")) return "TA0003";
   if (t.startsWith("T1218") || t.startsWith("T1027") || t.startsWith("T1562")) return "TA0005";
@@ -1258,21 +1261,23 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "browser_extension_malware_basic",
     briefing: "CrowdStrike Falcon raised a critical detection on WS-MKT-3301 (d.cohen) at 09:04 and quarantined a folder under the user's profile. The firewall logged an outbound connection from the same host to an unfamiliar domain minutes earlier.",
-    narrative: "d.cohen installed a browser extension promising to speed up Chrome, loaded through a developer-mode flag rather than the Chrome Web Store. Within minutes, chrome.exe spawned an encoded PowerShell command that reached out to a freshly-registered domain, and was later caught and quarantined by the EDR — but not before the beacon completed.",
+    narrative: "d.cohen installed a browser extension promising to speed up Chrome, loaded through a developer-mode flag rather than the Chrome Web Store. The extension could not run code on its own, so it messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which in turn spawned an encoded PowerShell command that reached out to a freshly-registered domain. The EDR later killed the PowerShell process, but not before the beacon completed.",
     learning_objectives: [
-      "Recognize a sideloaded browser extension as a persistence mechanism (T1176), separate from email or removable media",
-      "Identify a browser process spawning a scripting interpreter as a clear parent-child anomaly (T1059.001)",
+      "Recognize a sideloaded browser extension as a persistence mechanism (T1176.001), separate from email or removable media",
+      "Understand that an extension reaches the OS through a native-messaging host — the chrome.exe → cmd.exe → powershell.exe chain, not Chrome spawning PowerShell directly",
+      "Identify a browser's native-messaging host spawning a scripting interpreter as a clear parent-child anomaly (T1059.001)",
       "Understand that a firewall ALLOW on a brand-new domain is not the same as safe",
-      "See how EDR detection can lag behind execution — the beacon already completed before quarantine",
+      "See how EDR detection can lag behind execution — the beacon already completed before the process was killed",
     ],
     events,
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(0),               phase: "Persistence",      action: "Chrome relaunched with a sideloaded extension from Downloads" },
-      { ts: T(2 * MIN),         phase: "Execution",         action: "chrome.exe spawns encoded PowerShell — malware runs" },
-      { ts: T(2 * MIN + 30_000), phase: "Command & Control", action: "PowerShell beacons out to a 4-day-old domain; firewall allows it" },
-      { ts: T(4 * MIN),         phase: "Detection",          action: "EDR identifies the loader and quarantines it" },
+      { ts: T(MIN + 30_000),    phase: "Execution",         action: "chrome.exe launches the extension's native-messaging host (cmd.exe wrapper)" },
+      { ts: T(2 * MIN),         phase: "Execution",         action: "The native host spawns encoded PowerShell — malware runs" },
+      { ts: T(2 * MIN + 30_000), phase: "Command & Control", action: "PowerShell beacons out to a newly-registered domain; firewall allows it" },
+      { ts: T(4 * MIN),         phase: "Detection",          action: "EDR kills the PowerShell process" },
     ],
     questions: [
       { id: "q1", prompt: "What is the clearest sign that this browser extension was not installed normally?", kind: "single",
@@ -1283,13 +1288,13 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
         ],
         answer: "flag", xp: 40,
         explanation: "The --load-extension command-line flag is a developer-mode mechanism for loading unpacked extensions directly from disk — it bypasses the Chrome Web Store entirely, which is the normal install path for every legitimate extension. Folder size and the user's department are not reliable indicators on their own." },
-      { id: "q2", prompt: "Why is chrome.exe spawning powershell.exe significant, even before anything else is known?", kind: "single",
+      { id: "q2", prompt: "A Chrome extension cannot start a process by itself. How did this one reach powershell.exe, and why is that chain significant?", kind: "single",
         options: [
-          { value: "yes", label: "A browser is not a legitimate parent for a scripting interpreter — this parent-child pairing is abnormal by itself" },
-          { value: "no",  label: "It is not significant on its own — Chrome's updater and some extensions routinely call PowerShell, so the pairing is expected" },
+          { value: "yes", label: "The extension messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which then spawned PowerShell; a browser's native host launching a script interpreter is an abnormal chain worth investigating" },
+          { value: "no",  label: "The extension called powershell.exe directly through a JavaScript API, which is the normal way extensions run system tasks" },
         ],
         answer: "yes", xp: 50,
-        explanation: "Browsers do not legitimately spawn command-line interpreters as child processes. Any time a process tree shows a browser as the parent of powershell.exe, cmd.exe, or similar, that parent-child relationship alone is a strong anomaly worth investigating, independent of what the PowerShell command actually does." },
+        explanation: "Browser extensions are sandboxed and cannot spawn arbitrary processes; the only supported bridge to the OS is Native Messaging, where Chrome launches a host executable registered on the machine. Here that host is a cmd.exe wrapper, which then spawned encoded PowerShell. The chrome.exe → cmd.exe → powershell.exe tree, not Chrome calling PowerShell directly, is the real signal and is abnormal on a user workstation." },
       { id: "q3", prompt: "The firewall ALLOWED the connection to cdn-assets-update.xyz. Does that mean the connection was safe?", kind: "single",
         options: [
           { value: "yes", label: "Yes — the firewall evaluated the session against its URL and threat policy and allowed it, so it passed" },
@@ -1348,12 +1353,12 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
         explanation: "Attackers frequently use legitimate, signed software as their entry point specifically because it does not trigger traditional malware signatures. A signed binary is not automatically safe — it matters who installed it, why, and whether it is on the approved software list for that environment." },
       { id: "q2", prompt: "Which single detail here is the strongest indicator of a tech-support scam, as opposed to a normal IT remote session?", kind: "single",
         options: [
-          { value: "cmd",  label: "cmd.exe was spawned directly by AnyDesk.exe instead of the company's approved helpdesk tool" },
+          { value: "cmd",  label: "AnyDesk — not the company's approved helpdesk tool — was installed with no prior history and immediately opened a live external relay session, during which the desktop ran enumeration commands" },
           { value: "size", label: "AnyDesk.exe is only about 4MB, much smaller than the enterprise remote-support client used by IT" },
           { value: "dept", label: "t.mizrahi works in accounting, a department with no approved use for remote-access tools" },
         ],
         answer: "cmd", xp: 50,
-        explanation: "The company has a designated helpdesk tool for legitimate remote support. A personally-installed AnyDesk session with no prior history on the host, followed by shell commands run through it, is a strong deviation from the normal IT support process — that is the actual observable, not the file size or department." },
+        explanation: "The company has a designated helpdesk tool for legitimate remote support. A personally-installed AnyDesk session with no prior history, an outbound connection to an AnyDesk relay, and system/network enumeration run on the desktop while that session is live together deviate sharply from the normal IT support process — that is the actual observable, not the file size or department. (AnyDesk itself has no remote-shell feature; the enumeration is the caller typing in the GUI session, so the shell's parent is explorer.exe, not AnyDesk.)" },
       { id: "q3", prompt: "The EDR shows 'action_result: blocked' with Critical severity. Is the incident fully resolved at that point?", kind: "single",
         options: [
           { value: "yes", label: "Yes — the EDR blocked the process, which ends the remote session, so the threat is neutralized and the alert can be closed" },
@@ -1387,8 +1392,8 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
     title,
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "cracked_software_installer_basic",
-    briefing: "Microsoft Defender quarantined a file on WS-ENG-2093 at 20:19 and reported removing a scheduled task on the same host. The activity is well outside business hours and y.golan is the assigned user, who has reported nothing.",
-    narrative: "y.golan searched for a free way to activate Office, clicked a sponsored ad, and downloaded a trojanized activator installer late in the evening. Running it dropped a second executable that set up a recurring scheduled task for persistence, and was later caught and quarantined by Microsoft Defender — but only after the payload had already run.",
+    briefing: "Microsoft Defender quarantined a file on WS-ENG-2093 at 20:19, and earlier logs show a scheduled task being registered on the same host. The activity is well outside business hours and y.golan is the assigned user, who has reported nothing.",
+    narrative: "y.golan searched for a free way to activate Office, clicked a sponsored ad, and downloaded a trojanized activator installer late in the evening. Running it used schtasks.exe to register a recurring task (OfficeLicenseRefresh) that relaunches a dropped payload every 30 minutes; when the task fired, the Task Scheduler service launched the payload. Defender later quarantined the payload — but only after it had already run, and without confirming the task itself was deleted.",
     learning_objectives: [
       "Recognize a trojanized installer served through a sponsored search-ad as an infection vector distinct from email or USB",
       "Identify user execution of an unsigned, never-before-seen binary (T1204.002)",
@@ -1401,8 +1406,9 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
     killchain: [
       { ts: T(0),                phase: "Initial Access", action: "Trojanized activator installer downloaded from a sponsored ad result" },
       { ts: T(6 * MIN),          phase: "Execution",      action: "y.golan runs the installer — dropped payload begins" },
-      { ts: T(6 * MIN + 40_000), phase: "Persistence",    action: "A scheduled task is created to relaunch the payload every 30 minutes" },
-      { ts: T(9 * MIN),          phase: "Detection",      action: "EDR identifies the trojan and quarantines it" },
+      { ts: T(6 * MIN + 40_000), phase: "Persistence",    action: "schtasks.exe registers OfficeLicenseRefresh to relaunch the payload every 30 minutes" },
+      { ts: T(7 * MIN + 30_000), phase: "Execution",      action: "The task fires — Task Scheduler (svchost) launches svchelper.exe" },
+      { ts: T(9 * MIN),          phase: "Detection",      action: "EDR identifies the trojan and quarantines the payload" },
     ],
     questions: [
       { id: "q1", prompt: "What made this download suspicious even before the installer was run?", kind: "single",
@@ -1422,11 +1428,11 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
         explanation: "Scheduled Task persistence (T1053.005) and Registry Run Key persistence (T1547.001) are both common but technically distinct techniques for surviving a reboot. Recognizing both is important because defenders and EDR products check different artifacts to detect and remove each one." },
       { id: "q3", prompt: "Microsoft Defender quarantined svchelper.exe and removed the scheduled task. Is the workstation fully clean at that point without further review?", kind: "single",
         options: [
-          { value: "yes", label: "Yes — Defender removed both the binary and its scheduled task, which reverses every change the payload made on the host" },
-          { value: "no",  label: "No — the payload ran for several minutes before detection; the analyst should still check for other files or config changes left behind" },
+          { value: "yes", label: "Yes — quarantining svchelper.exe reverses every change the payload made on the host, so no further review is needed" },
+          { value: "no",  label: "No — the payload ran for several minutes before detection, and the detection does not show the OfficeLicenseRefresh task being deleted; the analyst must confirm the task is gone and check for other changes" },
         ],
         answer: "no", xp: 60,
-        explanation: "Quarantining the file and removing the scheduled task stop the immediate threat, but do not by themselves prove nothing else happened while the payload was running. A thorough analyst still checks for other dropped files, modified settings, or additional persistence before closing the incident." },
+        explanation: "Quarantining the payload stops the immediate threat, but the detection record does not confirm the scheduled task itself was removed — a task pointing at a now-missing binary will keep firing and erroring, and the attacker could re-drop the payload. A thorough analyst confirms the OfficeLicenseRefresh task is deleted and checks for other dropped files, modified settings, or additional persistence before closing the incident." },
     ],
   };
 }
