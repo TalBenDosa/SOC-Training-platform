@@ -45,6 +45,8 @@ interface SessionRow {
 }
 interface OrgInfo { id: string; name: string; is_root: boolean }
 interface Storyline { id: string; title: string; complexity: string; steps: number }
+/** An attack slot switched off (attacks 2–3). */
+const OFF = "__off__";
 
 const STATUS_STYLE: Record<string, string> = {
   lobby: "border-neon-amber/40 bg-neon-amber/10 text-neon-amber",
@@ -78,10 +80,10 @@ export default function TeamIndexPage() {
   const tenant = tenantCheck && !("error" in tenantCheck) ? tenantCheck : null;
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [storylines, setStorylines] = useState<Storyline[] | null>(null);
-  // The attack plan: how many concurrent attacks ("" = auto, sized by the team) and, per
-  // attack, a chosen storyline or "" = a random pick at start.
-  const [attackCount, setAttackCount] = useState<number | null>(null);
+  // The attack plan: three attack slots, each a chosen storyline, "" = a random pick at start,
+  // or OFF = no attack. A slot the instructor hasn't touched follows the team size (load.ts).
   const [slots, setSlots] = useState<string[]>(["", "", ""]);
+  const [touched, setTouched] = useState<boolean[]>([false, false, false]);
   // QA L3: a chosen storyline that stops fitting (environment / difficulty / products changed)
   // falls back to Random — and the builder SAYS so instead of clearing it silently.
   const [storyNote, setStoryNote] = useState<string | null>(null);
@@ -133,7 +135,7 @@ export default function TeamIndexPage() {
         const list: Storyline[] = d.storylines ?? [];
         setStorylines(list);
         setSlots(cur => {
-          const dropped = cur.filter(id => id && !list.some(s => s.id === id));
+          const dropped = cur.filter(id => id && id !== OFF && !list.some(s => s.id === id));
           if (!dropped.length) return cur;
           setStoryNote(`${dropped.length === 1 ? "A chosen storyline doesn't" : `${dropped.length} chosen storylines don't`} fit this environment, difficulty and products — back to Random.`);
           return cur.map(id => (dropped.includes(id) ? "" : id));
@@ -191,12 +193,17 @@ export default function TeamIndexPage() {
     setPicked(p => ({ ...p, [userId]: role }));
   }
 
-  // Attacks the shift will run: the instructor's count, else the team's size (load.ts) — the
-  // same rule /start applies, so the slots shown are the attacks that will really run.
+  // Untouched slots follow the team size (the same rule /start used to apply alone): slot 1
+  // always runs, slots 2–3 run when the team is big enough — until the instructor sets them.
   const autoAttacks = teamLoad(difficulty, Object.values(picked).map(role => ({ role }))).stories;
-  const chosenCount = slots.filter(Boolean).length;
-  const shownAttacks = Math.min(MAX_ATTACKS, Math.max(attackCount ?? autoAttacks, attackCount ? 0 : slots.slice(0, MAX_ATTACKS).reduce((n, id, i) => (id ? i + 1 : n), 0), 1));
-  const setSlot = (i: number, id: string) => { setStoryNote(null); setSlots(cur => cur.map((v, k) => (k === i ? id : v))); };
+  const slotValue = (i: number) => (touched[i] || i === 0 ? slots[i] : i < autoAttacks ? "" : OFF);
+  const active = Array.from({ length: MAX_ATTACKS }, (_, i) => slotValue(i)).filter(v => v !== OFF);
+  const chosenCount = active.filter(Boolean).length;
+  const setSlot = (i: number, id: string) => {
+    setStoryNote(null);
+    setSlots(cur => cur.map((v, k) => (k === i ? id : v)));
+    setTouched(cur => cur.map((v, k) => (k === i ? true : v)));
+  };
 
   async function createSession() {
     if (!tenant) { setError(tenantCheck && "error" in tenantCheck ? tenantCheck.error : "Enter your organization's name in English — it becomes the exercise's domain."); return; }
@@ -206,7 +213,8 @@ export default function TeamIndexPage() {
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, stack),
-        attack_count: attackCount, scenario_ids: slots.slice(0, shownAttacks).map(id => id || null) }),
+        // Slots 2–3 untouched → the count stays automatic (sized by whoever is in the lobby at start).
+        attack_count: touched[1] || touched[2] ? active.length : null, scenario_ids: active.map(id => id || null) }),
     }).catch(() => null);
     setCreating(false);
     if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
@@ -253,27 +261,27 @@ export default function TeamIndexPage() {
                   <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
                 </select>
               </label>
-              <label className="block text-sm" htmlFor="team-attack-count">
+              <div className="block text-sm">
                 <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Attacks</span>
-                <select id="team-attack-count" value={attackCount ?? ""}
-                  onChange={e => { const n = e.target.value ? Number(e.target.value) : null; setAttackCount(n); if (n) setSlots(cur => cur.map((v, k) => (k < n ? v : ""))); }}
-                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
-                  <option value="">Auto — {autoAttacks} by team size</option>
-                  {Array.from({ length: MAX_ATTACKS }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n} concurrent attack{n === 1 ? "" : "s"}</option>)}
-                </select>
-              </label>
+                <p className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200">
+                  {active.length} concurrent attack{active.length === 1 ? "" : "s"}
+                  <span className="block text-[11px] text-slate-500">{chosenCount ? `${chosenCount} chosen · ${active.length - chosenCount} random` : "all random"} — set each one below</span>
+                </p>
+              </div>
             </div>
             <fieldset className="mt-3 rounded-lg border border-border bg-bg px-3 py-2.5">
               <legend className="px-1 text-xs uppercase tracking-wider text-slate-400">Attack storylines</legend>
               <div className="grid gap-2 sm:grid-cols-3">
-                {Array.from({ length: shownAttacks }, (_, i) => {
+                {Array.from({ length: MAX_ATTACKS }, (_, i) => {
                   const id = `team-attack-${i + 1}`;
-                  const takenElsewhere = new Set(slots.filter((v, k) => v && k !== i));
+                  const value = slotValue(i);
+                  const takenElsewhere = new Set(Array.from({ length: MAX_ATTACKS }, (_, k) => (k === i ? "" : slotValue(k))).filter(v => v && v !== OFF));
                   return (
                     <label key={id} htmlFor={id} className="block text-sm">
-                      <span className="mb-1 block text-[11px] text-slate-400">Attack {i + 1}{i === 0 ? " — primary incident" : ""}</span>
-                      <select id={id} value={slots[i] ?? ""} disabled={storylines === null} onChange={e => setSlot(i, e.target.value)}
-                        className="w-full rounded-lg border border-border bg-bg-elevated px-2.5 py-2 text-xs text-slate-200 disabled:opacity-50 focus:border-cyber-500/50 focus:outline-none">
+                      <span className="mb-1 block text-[11px] text-slate-400">Attack {i + 1}{i === 0 ? " — primary incident" : ""}{i > 0 && !touched[i] ? " · by team size" : ""}</span>
+                      <select id={id} value={value} disabled={storylines === null} onChange={e => setSlot(i, e.target.value)}
+                        className={`w-full rounded-lg border border-border bg-bg-elevated px-2.5 py-2 text-xs disabled:opacity-50 focus:border-cyber-500/50 focus:outline-none ${value === OFF ? "text-slate-500" : "text-slate-200"}`}>
+                        {i > 0 && <option value={OFF}>No attack</option>}
                         <option value="">{storylines === null ? "Loading storylines…" : "Random — picked at start"}</option>
                         {(storylines ?? []).map(s => <option key={s.id} value={s.id} disabled={takenElsewhere.has(s.id)}>{s.title}{takenElsewhere.has(s.id) ? " (another attack)" : ""}</option>)}
                       </select>
@@ -282,7 +290,7 @@ export default function TeamIndexPage() {
                 })}
               </div>
               <p className="mt-1.5 text-[11px] text-slate-500">
-                {chosenCount ? `${chosenCount} chosen, ${Math.max(0, shownAttacks - chosenCount)} random.` : "All random."} The logs, hosts and people for each attack are generated for your organization when the exercise starts.
+                Pick a storyline for each attack, leave it Random, or switch attacks 2–3 off. The logs, hosts and people for each attack are generated for your organization when the exercise starts.
               </p>
             </fieldset>
             <div className="mt-3 space-y-2">

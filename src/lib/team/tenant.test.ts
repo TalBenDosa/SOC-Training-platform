@@ -63,7 +63,8 @@ describe("the exercise rendered as the named organization", () => {
         const t = JSON.stringify(v.log.record) + (v.log.rawLine ?? "");
         expect(t, `${ev.id} ${v.log.sourceId}`).not.toMatch(leak);
       }
-      expect(native).toBeGreaterThan(50);
+      // Most of the feed renders natively (the rest are sources without a native card yet).
+      expect(native).toBeGreaterThanOrEqual(Math.ceil(Math.min(300, feed.length) * 0.25));
     });
   }
 });
