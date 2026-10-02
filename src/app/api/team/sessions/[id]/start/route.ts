@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { tenantFromConfig } from "@/lib/team/tenant";
 import { envFromConfig } from "@/lib/team/environment";
+import { planFromConfig, pinnedIds, loadWithPlan } from "@/lib/team/attackPlan";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
@@ -63,7 +64,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // Size the shift to the team in the room (load.ts): log pace from the Tier-1
     // count, attack count from the team size. The pace is stored on the session so
     // the DB refill (replenish_feed, 0081) keeps it instead of bursting.
-    const load = teamLoad(sess.difficulty, members ?? []);
+    // The instructor's attack plan sets the concurrent attack count (else the team's size does).
+    const plan = planFromConfig(sess.config, sess.scenario_id);
+    const load = loadWithPlan(teamLoad(sess.difficulty, members ?? []), plan);
     const { error: paceErr } = await admin.from("team_sessions")
       .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs }).eq("id", id).eq("status", "lobby");
     if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
@@ -72,15 +75,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const env = envFromConfig(sess.config);
     // QA M7: a pinned storyline is re-checked here (content can change between create
     // and start) with the same predicate the builder used — never forced in unseen.
-    if (sess.scenario_id) {
-      const pinned = resolveTeamStory(sess.company_id, sess.difficulty, sess.scenario_id, env, stack);
-      if (pinned && !teamStoryFilter(sess.company_id, stack, env)(pinned)) {
-        return NextResponse.json({ error: "The pinned storyline can no longer run on this session's products. Close this lobby and create the session again with another storyline (or a random one)." }, { status: 409 });
+    if (pinnedIds(plan).length) {
+      const fits = teamStoryFilter(sess.company_id, stack, env);
+      for (const sid of pinnedIds(plan)) {
+        const pinned = resolveTeamStory(sess.company_id, sess.difficulty, sid, env, stack);
+        if (pinned && !fits(pinned)) {
+          return NextResponse.json({ error: `The chosen storyline "${pinned.title}" can no longer run on this session's products. Close this lobby and create the session again with another storyline (or a random one).` }, { status: 409 });
+        }
       }
     }
     // QA L7: a build failure is a clear, retryable error — the session stays in the lobby.
     let timeline: ReturnType<typeof buildTeamTimeline>;
-    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack, tenantFromConfig(sess.config), env); }
+    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, plan.slots, load, stack, tenantFromConfig(sess.config), env); }
     catch (e) {
       console.error("[team start] timeline build:", e instanceof Error ? e.message : String(e));
       return NextResponse.json({ error: "Couldn't build the exercise feed for this company and difficulty — nothing was started. Try again, or create the session with another storyline." }, { status: 500 });

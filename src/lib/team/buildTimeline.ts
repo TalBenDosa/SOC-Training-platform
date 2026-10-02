@@ -394,7 +394,7 @@ export function teamStoryFilter(companyId: string, stack: Stack = {}, env: TeamE
  * from the Tier-1 count, attack count from the team size. Omitted → the fixed,
  * difficulty-only load of before (existing seeds replay exactly).
  */
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null, envIn: TeamEnv | null = null): TimelineEntry[] {
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null | (string | null)[], load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null, envIn: TeamEnv | null = null): TimelineEntry[] {
   // A named organization always has an environment (the default one when none was stored).
   const env = envIn ?? (tenant ? DEFAULT_ENV : null);
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
@@ -408,7 +408,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
 
   // ── Attack stories: one on easy, two concurrent incidents otherwise ──────────
   interface Story { id: string; incident: string; events: TelemetryEvent[] }
-  const chosen = resolveTeamStory(companyId, difficulty, storyId, env, stack);
+  // The instructor's attack plan: one slot per concurrent attack — a chosen storyline, or
+  // null for a random pick (an older session's single scenario_id is slot 1).
+  const slotIds = Array.isArray(storyId) ? storyId : [storyId ?? null];
+  const forcedAt = (i: number) => resolveTeamStory(companyId, difficulty, slotIds[i] ?? null, env, stack);
+  const pinnedIdsAll = slotIds.filter((x): x is string => !!x);
   const storyFits = teamStoryFilter(companyId, stack, env);
   const envPool = env ? teamStoryPool(companyId, difficulty, env, stack) : null;
   const pickStory = (accept: (s: AttackStory) => boolean): AttackStory => {
@@ -431,12 +435,13 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         // written about another vendor's artifacts (PRODUCT_LOCKS). Same predicate the
         // builder / create / start routes use for a pinned storyline (teamStoryFilter).
         const story = forced ?? pickStory(s => !avoid.includes(s.id) && storyFits(s));
-        if (avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
+        if (!forced && avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
         const events0 = instantiateStory(story, companyPool, edr, companyId).events ?? [];
         if (events0.length === 0) return null;
         if ((stacked || env) && !forced && !sessionFit(companyId, stack, env)(events0)) continue;
         const victim = victimOf(events0);
-        if (!forced && victim && takenVictims.has(victim) && attempt < maxAttempts - 1) { avoid.push(story.id); continue; }
+        // A random pick tries another story; a chosen one is re-instantiated onto another victim.
+        if (victim && takenVictims.has(victim) && attempt < maxAttempts - 1) { if (!forced) avoid.push(story.id); continue; }
         if (victim) takenVictims.add(victim);
         const events = events0.map(e => applyStack(e, companyId, stack));
         const incident0 = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
@@ -446,11 +451,12 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     }
     return null;
   };
-  const story1 = buildStory([], chosen);   // the staff-chosen storyline leads, when set
+  // Random slots never draw a storyline the plan pins to another slot.
+  const story1 = buildStory(pinnedIdsAll, forcedAt(0));   // slot 1 leads (the primary incident)
   // Further concurrent incidents (load.stories): parallel work for several analysts and
   // a prioritisation call for the Manager. One story keeps a small team single-threaded.
-  const story2 = load.stories >= 2 ? buildStory([story1?.id]) : null;
-  const story3 = load.stories >= 3 ? buildStory([story1?.id, story2?.id]) : null;
+  const story2 = load.stories >= 2 ? buildStory([...pinnedIdsAll, story1?.id], forcedAt(1)) : null;
+  const story3 = load.stories >= 3 ? buildStory([...pinnedIdsAll, story1?.id, story2?.id], forcedAt(2)) : null;
   const storyPlaced = (s: Story | null): Placed[] => (s?.events ?? []).map(ev => ({ ev, origin: "story" as const, verdict: classifyStoryEvent(ev), incident: s!.incident }));
   const distinct = (s: Story | null, n: number, others: (Story | null)[]): Story | null =>
     s && others.some(o => o?.incident === s.incident) ? { ...s, incident: `${s.incident}#${n}` } : s;
@@ -481,7 +487,10 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     groups.set(key, [...(groups.get(key) ?? []), e]);
   }
   const poolAttackN = load.poolAttacks;
-  const chosenGroups = sampleN([...groups.keys()].sort(), poolAttackN, rnd);
+  // Standalone attacks on people the stories haven't already hit, when the pool allows.
+  const groupKeys = [...groups.keys()].sort();
+  const freshKeys = groupKeys.filter(k => !(groups.get(k) ?? []).some(e => e.user_email && takenVictims.has(e.user_email)));
+  const chosenGroups = sampleN(freshKeys.length >= poolAttackN ? freshKeys : groupKeys, poolAttackN, rnd);
   const poolAttacks: Placed[][] = chosenGroups.map(key => (groups.get(key) ?? [])
     .map(ev => ({ ev, origin: "pool_attack" as const, verdict: classifyPoolEvent(ev), incident: key })));
   for (const g of poolAttacks) for (const p of g) if (p.ev.user_email) compromised.add(p.ev.user_email);

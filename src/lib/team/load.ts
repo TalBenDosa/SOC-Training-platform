@@ -95,6 +95,14 @@ export function teamLoad(difficulty: Difficulty, roster: { role: string; status?
   return { difficulty, triageAnalysts, players, logsPerMin, baseGapMs, jitterMs, stories, poolAttacks, noiseCount, shiftMin };
 }
 
+/** The same load with `stories` concurrent attack stories (the instructor's plan); noise re-sized so the shift length holds. */
+export function withStoryCount(load: TeamLoad, stories: number): TeamLoad {
+  if (stories === load.stories) return load;
+  const totalLogs = Math.round(load.logsPerMin * load.shiftMin);
+  const attackLogs = stories * AVG_STORY_LOGS + load.poolAttacks * AVG_POOL_ATTACK_LOGS;
+  return { ...load, stories, noiseCount: Math.max(attackLogs * 2, totalLogs - attackLogs) };
+}
+
 /**
  * The fixed, difficulty-only load the exercise used before team sizing — kept as
  * the default for callers that pass no roster, so existing seeds replay exactly.

@@ -12,10 +12,12 @@
  * pin the storyline (team_sessions.scenario_id, already in the schema).
  */
 import { parseTenant, TENANT_TEMPLATE } from "@/lib/team/tenant";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StackPicker, stackDelta } from "@/components/training/StackPicker";
 import { EnvironmentPicker } from "@/components/training/EnvironmentPicker";
 import { DEFAULT_ENV, type TeamEnv } from "@/lib/team/environment";
+import { teamLoad } from "@/lib/team/load";
+import { MAX_ATTACKS } from "@/lib/team/attackPlan";
 import type { Stack } from "@/lib/logs/native/stack";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -76,11 +78,13 @@ export default function TeamIndexPage() {
   const tenant = tenantCheck && !("error" in tenantCheck) ? tenantCheck : null;
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [storylines, setStorylines] = useState<Storyline[] | null>(null);
-  const [storyline, setStoryline] = useState("");   // "" = random pick at start
-  // QA L3: a pinned storyline that stops fitting (company / difficulty / products changed)
-  // falls back to Random — and the builder now SAYS so instead of clearing it silently.
+  // The attack plan: how many concurrent attacks ("" = auto, sized by the team) and, per
+  // attack, a chosen storyline or "" = a random pick at start.
+  const [attackCount, setAttackCount] = useState<number | null>(null);
+  const [slots, setSlots] = useState<string[]>(["", "", ""]);
+  // QA L3: a chosen storyline that stops fitting (environment / difficulty / products changed)
+  // falls back to Random — and the builder SAYS so instead of clearing it silently.
   const [storyNote, setStoryNote] = useState<string | null>(null);
-  const pickedStory = useRef<{ id: string; title: string } | null>(null);
   // Security products the session runs on (spec §3); empty = the company's own.
   const [stack, setStack] = useState<Stack>({});
   const stackParam = JSON.stringify(stackDelta(company, stack));
@@ -128,12 +132,12 @@ export default function TeamIndexPage() {
         if (cancelled) return;
         const list: Storyline[] = d.storylines ?? [];
         setStorylines(list);
-        const cur = pickedStory.current;
-        if (cur && !list.some(s => s.id === cur.id)) {
-          pickedStory.current = null;
-          setStoryline("");
-          setStoryNote(`“${cur.title}” doesn't fit this environment, difficulty and products — the storyline is back to Random.`);
-        }
+        setSlots(cur => {
+          const dropped = cur.filter(id => id && !list.some(s => s.id === id));
+          if (!dropped.length) return cur;
+          setStoryNote(`${dropped.length === 1 ? "A chosen storyline doesn't" : `${dropped.length} chosen storylines don't`} fit this environment, difficulty and products — back to Random.`);
+          return cur.map(id => (dropped.includes(id) ? "" : id));
+        });
       })
       .catch(() => { if (!cancelled) setStorylines([]); });
     return () => { cancelled = true; };
@@ -187,6 +191,13 @@ export default function TeamIndexPage() {
     setPicked(p => ({ ...p, [userId]: role }));
   }
 
+  // Attacks the shift will run: the instructor's count, else the team's size (load.ts) — the
+  // same rule /start applies, so the slots shown are the attacks that will really run.
+  const autoAttacks = teamLoad(difficulty, Object.values(picked).map(role => ({ role }))).stories;
+  const chosenCount = slots.filter(Boolean).length;
+  const shownAttacks = Math.min(MAX_ATTACKS, Math.max(attackCount ?? autoAttacks, attackCount ? 0 : slots.slice(0, MAX_ATTACKS).reduce((n, id, i) => (id ? i + 1 : n), 0), 1));
+  const setSlot = (i: number, id: string) => { setStoryNote(null); setSlots(cur => cur.map((v, k) => (k === i ? id : v))); };
+
   async function createSession() {
     if (!tenant) { setError(tenantCheck && "error" in tenantCheck ? tenantCheck.error : "Enter your organization's name in English — it becomes the exercise's domain."); return; }
     if (!status.canCreate) { setError(status.blocker); return; }
@@ -194,7 +205,8 @@ export default function TeamIndexPage() {
     setCreating(true); setError(null);
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, stack), ...(storyline ? { scenario_id: storyline } : {}) }),
+      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, stack),
+        attack_count: attackCount, scenario_ids: slots.slice(0, shownAttacks).map(id => id || null) }),
     }).catch(() => null);
     setCreating(false);
     if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
@@ -241,28 +253,45 @@ export default function TeamIndexPage() {
                   <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
                 </select>
               </label>
-              <label className="block text-sm">
-                <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Storyline</span>
-                <select value={storyline} disabled={storylines === null}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setStoryline(v); setStoryNote(null);
-                    const t = (storylines ?? []).find(s => s.id === v);
-                    pickedStory.current = t ? { id: t.id, title: t.title } : null;
-                  }}
-                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 disabled:opacity-50 focus:border-cyber-500/50 focus:outline-none">
-                  <option value="">{storylines === null ? "Loading storylines…" : "Random — picked at start"}</option>
-                  {(storylines ?? []).map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+              <label className="block text-sm" htmlFor="team-attack-count">
+                <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Attacks</span>
+                <select id="team-attack-count" value={attackCount ?? ""}
+                  onChange={e => { const n = e.target.value ? Number(e.target.value) : null; setAttackCount(n); if (n) setSlots(cur => cur.map((v, k) => (k < n ? v : ""))); }}
+                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
+                  <option value="">Auto — {autoAttacks} by team size</option>
+                  {Array.from({ length: MAX_ATTACKS }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n} concurrent attack{n === 1 ? "" : "s"}</option>)}
                 </select>
               </label>
             </div>
+            <fieldset className="mt-3 rounded-lg border border-border bg-bg px-3 py-2.5">
+              <legend className="px-1 text-xs uppercase tracking-wider text-slate-400">Attack storylines</legend>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {Array.from({ length: shownAttacks }, (_, i) => {
+                  const id = `team-attack-${i + 1}`;
+                  const takenElsewhere = new Set(slots.filter((v, k) => v && k !== i));
+                  return (
+                    <label key={id} htmlFor={id} className="block text-sm">
+                      <span className="mb-1 block text-[11px] text-slate-400">Attack {i + 1}{i === 0 ? " — primary incident" : ""}</span>
+                      <select id={id} value={slots[i] ?? ""} disabled={storylines === null} onChange={e => setSlot(i, e.target.value)}
+                        className="w-full rounded-lg border border-border bg-bg-elevated px-2.5 py-2 text-xs text-slate-200 disabled:opacity-50 focus:border-cyber-500/50 focus:outline-none">
+                        <option value="">{storylines === null ? "Loading storylines…" : "Random — picked at start"}</option>
+                        {(storylines ?? []).map(s => <option key={s.id} value={s.id} disabled={takenElsewhere.has(s.id)}>{s.title}{takenElsewhere.has(s.id) ? " (another attack)" : ""}</option>)}
+                      </select>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-[11px] text-slate-500">
+                {chosenCount ? `${chosenCount} chosen, ${Math.max(0, shownAttacks - chosenCount)} random.` : "All random."} The logs, hosts and people for each attack are generated for your organization when the exercise starts.
+              </p>
+            </fieldset>
             <div className="mt-3 space-y-2">
               <EnvironmentPicker value={env} onChange={setEnv} storyCount={storylines?.length ?? null} idPrefix="team-env" />
               <StackPicker companyId={company} value={stack} onChange={setStack} idPrefix="team-stack" />
             </div>
             {storyNote && <p role="status" className="mt-1.5 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-1.5 text-[11px] text-neon-amber">{storyNote}</p>}
             <p className="mt-1.5 text-[11px] text-slate-500">
-              The storyline is the primary incident the team investigates{difficulty === "easy" ? "" : " (medium and hard add a second, random concurrent incident)"}. Only staff see its name — players have to work it out.
+              Attacks run concurrently — Attack 1 is the primary incident. Only staff see the storylines&apos; names — players have to work them out.
             </p>
 
             <div className="mt-4">

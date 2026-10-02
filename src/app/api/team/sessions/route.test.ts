@@ -69,6 +69,16 @@ describe("POST /api/team/sessions", () => {
     expect((await create({ scenario_id: "known" })).status).toBe(200);
   });
 
+  it("an attack plan: up to three storylines (or random) and a count, stored staff-only in config", async () => {
+    expect((await create({ attack_count: 3, scenario_ids: ["known", "unknown", null] })).status).toBe(400);   // every chosen one is checked
+    state.ops = [];
+    const ok = await create({ attack_count: 3, scenario_ids: [null, "known", null] });
+    expect(ok.status).toBe(200);
+    const row = state.ops.find(o => o.table === "team_sessions" && o.action === "insert")!.payload as { scenario_id: string | null; config: { attacks?: unknown } };
+    expect(row.scenario_id).toBe("known");
+    expect(row.config.attacks).toEqual({ count: 3, slots: [null, "known"] });
+  });
+
   it("a roster conflict at insert is a 409 (and the half-made session is deleted)", async () => {
     state.rosterError = { code: "23505", message: 'duplicate key value violates unique constraint "team_session_single_seat"' };
     const res = await create({ invites: [{ user_id: A, role: "t1" }] });

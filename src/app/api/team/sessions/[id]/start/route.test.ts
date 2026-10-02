@@ -49,7 +49,7 @@ describe("POST /start", () => {
     state.scenario = "story-x"; state.fits = false;
     const res = await start();
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toMatch(/pinned storyline/);
+    expect((await res.json()).error).toMatch(/chosen storyline/);
     expect(state.seeded).toBe(0);
     expect(state.transitions).toBe(0);
   });

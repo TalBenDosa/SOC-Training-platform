@@ -33,6 +33,7 @@ import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
 import { buildAlertQueue, nextAlertFor } from "@/lib/team/alertQueue";
 import { teamLoad, type Difficulty } from "@/lib/team/load";
+import { loadWithPlan } from "@/lib/team/attackPlan";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
 import { pausedSpans } from "@/lib/team/pauses";
 import { PRODUCT_LABEL, STACK_CHOICES } from "@/lib/logs/native/stack";
@@ -813,8 +814,10 @@ export default function TeamRoomPage() {
 
   // The shift's load for the team currently in the lobby — the same numbers /start
   // will seed from (src/lib/team/load.ts), so the instructor sees them before starting.
+  // The instructor's attack plan (staff only) fixes the concurrent attack count when set.
   const lobbyLoad = session && ["easy", "medium", "hard"].includes(session.difficulty)
-    ? teamLoad(session.difficulty as Difficulty, roster) : null;
+    ? (session.attack_plan ? loadWithPlan(teamLoad(session.difficulty as Difficulty, roster), session.attack_plan) : teamLoad(session.difficulty as Difficulty, roster)) : null;
+  const chosenAttacks = session?.attack_plan?.slots.filter(Boolean).length ?? 0;
 
   // Native-format logs (docs/log-schemas), rendered for the session's company stack.
   // The 32 source modules load lazily once the shift is running.
@@ -999,7 +1002,7 @@ export default function TeamRoomPage() {
                 </p>
                 {me?.is_staff && (
                   <p className="mt-2 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] text-slate-400">
-                    <span className="font-semibold text-slate-300">Staff only:</span> {lobbyLoad.players} player{lobbyLoad.players === 1 ? "" : "s"} → {lobbyLoad.stories} concurrent attack stor{lobbyLoad.stories === 1 ? "y" : "ies"} + {lobbyLoad.poolAttacks} standalone attack{lobbyLoad.poolAttacks === 1 ? "" : "s"} on {session?.difficulty}. Final numbers are fixed when you start.
+                    <span className="font-semibold text-slate-300">Staff only:</span> {lobbyLoad.players} player{lobbyLoad.players === 1 ? "" : "s"} → {lobbyLoad.stories} concurrent attack stor{lobbyLoad.stories === 1 ? "y" : "ies"}{session?.attack_plan?.count ? " (your choice)" : ""}{chosenAttacks ? ` — ${chosenAttacks} chosen, ${Math.max(0, lobbyLoad.stories - chosenAttacks)} random` : ""} + {lobbyLoad.poolAttacks} standalone attack{lobbyLoad.poolAttacks === 1 ? "" : "s"} on {session?.difficulty}. Final numbers are fixed when you start.
                   </p>
                 )}
               </Card>
