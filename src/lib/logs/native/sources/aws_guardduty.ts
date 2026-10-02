@@ -111,11 +111,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       imageId: "ami-" + ctx.hex(iid + ":ami", 17),
     };
   } else if (resourceType === "S3Bucket") {
-    const bucket = `${ctx.companyId}-customer-data`;
+    const bucket = `${ctx.org}-customer-data`;
     resource.s3BucketDetails = [{ arn: `arn:aws:s3:::${bucket}`, name: bucket, type: "Destination", owner: { id: ctx.hex(entitySeed(ctx, "gds3owner", bucket), 64) }, publicAccess: { effectivePermission: /Anonymous|PublicAccess/.test(type) ? "PUBLIC" : "NOT_PUBLIC" } }];
     if (akId || akUser) resource.accessKeyDetails = { accessKeyId: akId ?? ("AKIA" + ctx.hex(entitySeed(ctx, "gdkey", akUser ?? ev.id), 16).toUpperCase()), principalId: "AIDA" + ctx.hex(entitySeed(ctx, "gdprin", akUser ?? ev.id), 17).toUpperCase(), userType: "IAMUser", userName: akUser ?? "svc-account" };
   } else { // EKSCluster
-    const cluster = `${ctx.companyId}-prod`;
+    const cluster = `${ctx.org}-prod`;
     resource.eksClusterDetails = { name: cluster, arn: `arn:aws:eks:${region}:${acct}:cluster/${cluster}`, status: "ACTIVE", tags: [] };
     resource.kubernetesDetails = { kubernetesUserDetails: { username: "kubernetes-admin", groups: ["system:masters", "system:authenticated"] }, kubernetesWorkloadDetails: { name: "pod", type: "pods", namespace: "kube-system" } };
   }

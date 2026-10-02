@@ -86,9 +86,11 @@ const tenantSeed = (companyId: string, seed: string) => (GLOBAL_SEED.test(seed) 
 /** Build the per-company context; identifiers are stable for a company across every session. */
 export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "domain" | "netbios">> = {}): NativeCtx {
   const d = DOMAINS[companyId] ?? { domain: `${companyId}.com`, netbios: companyId.toUpperCase().slice(0, 15), timeZone: "UTC" };
+  const domain = overrides.domain ?? d.domain;
   return {
     companyId,
-    domain: overrides.domain ?? d.domain,
+    org: domain.split(".")[0],
+    domain,
     netbios: overrides.netbios ?? d.netbios,
     timeZone: d.timeZone,
     tenant: {

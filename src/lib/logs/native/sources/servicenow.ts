@@ -61,7 +61,7 @@ export function sysId(ctx: NativeCtx, table: string, key: string): string {
 }
 function ref(ctx: NativeCtx, table: string, key: string) {
   const value = sysId(ctx, table, key);
-  return { link: `https://${ctx.companyId}.service-now.com/api/now/table/${table}/${value}`, value };
+  return { link: `https://${ctx.org}.service-now.com/api/now/table/${table}/${value}`, value };
 }
 const userName = (v: string) => (v.includes("@") ? v.split("@")[0] : v);
 const DT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;

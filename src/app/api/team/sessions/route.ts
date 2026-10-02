@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseTenant, tenantFromConfig, TENANT_TEMPLATE, type Tenant } from "@/lib/team/tenant";
 import { asObject } from "@/lib/http/body";
 import { getAuthedUser, requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -34,7 +35,15 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
 
-  const company_id = String(body.company_id ?? "");
+  // The exercise runs as the instructor's own organization (English name = its domain) on the
+  // template environment; without a name, a Live-SOC company as before (older clients).
+  let tenant: Tenant | null = null;
+  if (body.tenant_name !== undefined) {
+    const t = parseTenant(body.tenant_name);
+    if ("error" in t) return NextResponse.json({ error: t.error }, { status: 400 });
+    tenant = t;
+  }
+  const company_id = tenant ? TENANT_TEMPLATE : String(body.company_id ?? "");
   if (!COMPANY_IDS.has(company_id)) return NextResponse.json({ error: "Unknown company." }, { status: 400 });
   const difficulty = DIFF.has(String(body.difficulty)) ? String(body.difficulty) : "medium";
   const format = FORMATS.has(String(body.format)) ? String(body.format) : "team_shift";
@@ -78,7 +87,7 @@ export async function POST(req: Request) {
 
   const { data: sess, error } = await admin
     .from("team_sessions")
-    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: Object.keys(stack).length ? { stack } : {} })   // new sessions are v2 from birth (0071)
+    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}) } })   // new sessions are v2 from birth (0071)
     .select("id").single();
   if (error || !sess) {
     if (error) console.error("[team create] session insert:", error.message);   // no raw DB text to the client (S12)
@@ -151,6 +160,7 @@ export async function GET() {
   return NextResponse.json({
     sessions: sessions.map(s => ({
       ...redact(s),
+      tenant_name: tenantFromConfig((s as { config?: unknown }).config)?.name ?? null,
       my_role: mine.get(s.id as string)?.role ?? null,
       player_count: counts.get(s.id as string)?.players ?? 0,
       ready_count: counts.get(s.id as string)?.ready ?? 0,

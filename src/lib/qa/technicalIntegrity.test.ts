@@ -28,6 +28,7 @@ import { describeEventForRow } from "@/lib/sim/describeEvent";
 import { assessIoc } from "@/lib/edr/iocIntel";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
 import { normalizeHostIps } from "@/lib/sim/hostIdentity";
+import { parseTenant, tenantIdentity, TENANT_TEMPLATE, type Tenant } from "@/lib/team/tenant";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { Ev, RosterMember } from "@/lib/team/types";
 
@@ -48,7 +49,7 @@ const TP = (e: TelemetryEvent) => e.expected_verdict ? e.expected_verdict === "t
 // Inside a story every event is part of the attack unless it is explicitly a baseline / benign / decoy.
 const STORY_ATTACK = (e: TelemetryEvent) => !e.is_baseline && !["benign", "fp", "false_positive"].includes(String(e.expected_verdict ?? ""));
 const edrFor = (company: string, stack: Stack) => (stack.edr && PRODUCT_LABEL[stack.edr]) || COMPANY_PROFILES.find(c => c.id === company)?.architecture.edr;
-const label = (company: string, stack: Stack) => `${company}${Object.keys(stack).length ? " " + JSON.stringify(stack) : ""}`;
+const label = (company: string, stack: Stack, tenant?: Tenant) => `${tenant ? `org:${tenant.domain}` : company}${Object.keys(stack).length ? " " + JSON.stringify(stack) : ""}`;
 
 interface StoryRun { company: string; stack: Stack; story: AttackStory; events: TelemetryEvent[] }
 let storyRuns: StoryRun[] | null = null;
@@ -68,7 +69,7 @@ function stories(): StoryRun[] {
   }
   return storyRuns;
 }
-interface TeamRun { company: string; stack: Stack; feed: TelemetryEvent[]; answers: Record<string, unknown>[] }
+interface TeamRun { company: string; stack: Stack; feed: TelemetryEvent[]; answers: Record<string, unknown>[]; tenant?: Tenant }
 let teamRuns: TeamRun[] | null = null;
 function teams(): TeamRun[] {
   if (teamRuns) return teamRuns;
@@ -78,6 +79,13 @@ function teams(): TeamRun[] {
     const tl = buildTeamTimeline(company, diff, `gate-${company}-${diff}`, null, teamLoad(diff, roster), stack);
     const f = tl.filter(t => t.channel === "feed");
     teamRuns.push({ company, stack, feed: f.map(t => t.body as unknown as TelemetryEvent), answers: f.map(t => (t.answer ?? {}) as Record<string, unknown>) });
+  }
+  // Exercises run as an instructor-named organization (the template environment, renamed).
+  for (const [name, stack] of [["acme-labs", {}], ["northwind.io", STACKS[1]]] as [string, Stack][]) for (const diff of ["medium", "hard"] as const) {
+    const tenant = parseTenant(name) as Tenant;
+    const tl = buildTeamTimeline(TENANT_TEMPLATE, diff, `gate-${name}-${diff}`, null, teamLoad(diff, roster), stack, tenant);
+    const f = tl.filter(t => t.channel === "feed");
+    teamRuns.push({ company: TENANT_TEMPLATE, stack, tenant, feed: f.map(t => t.body as unknown as TelemetryEvent), answers: f.map(t => (t.answer ?? {}) as Record<string, unknown>) });
   }
   return teamRuns;
 }
@@ -127,7 +135,7 @@ describe("technical integrity gate", () => {
       const hosts = new Set(r.events.map(e => e.hostname?.toUpperCase()).filter(Boolean));
       ipProblems([...r.events, ...pool.filter(e => hosts.has(e.hostname?.toUpperCase()))], `dashboard ${r.company} story:${r.story.id} + noise`, p);
     }
-    for (const t of teams()) ipProblems(t.feed, `team ${label(t.company, t.stack)}`, p);
+    for (const t of teams()) ipProblems(t.feed, `team ${label(t.company, t.stack, t.tenant)}`, p);
     report("ip", p);
   });
 
@@ -199,7 +207,19 @@ describe("technical integrity gate", () => {
       }
     };
     for (const r of stories()) for (const e of r.events) check(e, r.company, r.stack, `${label(r.company, r.stack)} story:${r.story.id}`);
-    for (const t of teams()) for (const e of t.feed) check(e, t.company, t.stack, `team ${label(t.company, t.stack)}`);
+    for (const t of teams()) {
+      if (!t.tenant) { for (const e of t.feed) check(e, t.company, t.stack, `team ${label(t.company, t.stack)}`); continue; }
+      t.feed.forEach((e, i) => {
+        const v = nativeView(e, t.company, t.stack, tenantIdentity(t.tenant));
+        const text = JSON.stringify([e.hostname, e.user_email, e.description, v ? v.log.record : e.raw, v?.log.rawLine, t.answers[i]]);
+        for (const [co, re] of Object.entries(TENANT)) { const m = text.match(re); if (m) p.add(`team ${label(t.company, t.stack, t.tenant)} ${authoredOf(e).id}: shows ${co}'s identity "${m[0]}"`); }
+        for (const mail of text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) ?? []) {
+          const d = mail.split("@")[1].toLowerCase();
+          // A mailbox at a demo company's domain inside a named organization's exercise is a leak.
+          if (Object.values(TENANT).some(r => r.test(d))) p.add(`team ${label(t.company, t.stack, t.tenant)}: ${mail}`);
+        }
+      });
+    }
     report("tenant", p);
   });
 
@@ -275,7 +295,7 @@ describe("technical integrity gate", () => {
       for (const x of validateNative(v.log, NATIVE_SOURCES[v.log.sourceId]!.schema).slice(0, 2)) p.add(`${where} ${authoredOf(e).id}: ${v.log.sourceId} ${x.problem} ${x.path}`);
     };
     for (const r of stories()) for (const e of r.events) check(e, r.company, r.stack, `${label(r.company, r.stack)} story:${r.story.id}`);
-    for (const t of teams()) for (const e of t.feed) check(e, t.company, t.stack, `team ${label(t.company, t.stack)}`);
+    for (const t of teams()) for (const e of t.feed) check(e, t.company, t.stack, `team ${label(t.company, t.stack, t.tenant)}`);
     report("product", p);
   });
 
@@ -297,7 +317,7 @@ describe("technical integrity gate", () => {
       for (const b of bad.slice(0, 3)) p.add(`${where} ${authoredOf(e).id} ${v ? v.log.sourceId : "legacy"}: ${b}`);
     };
     for (const r of stories()) for (const e of r.events) check(e, r.company, r.stack, `${label(r.company, r.stack)} story:${r.story.id}`);
-    for (const t of teams()) for (const e of t.feed.slice(0, 400)) check(e, t.company, t.stack, `team ${label(t.company, t.stack)}`);
+    for (const t of teams()) for (const e of t.feed.slice(0, 400)) check(e, t.company, t.stack, `team ${label(t.company, t.stack, t.tenant)}`);
     report("json", p);
   });
 

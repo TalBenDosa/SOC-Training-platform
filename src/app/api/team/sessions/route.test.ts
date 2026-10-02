@@ -30,6 +30,19 @@ const rosterRows = () => state.ops.find(o => o.table === "team_session_members" 
 beforeEach(() => { state.fits = true; state.ops = []; state.rosterError = null; });
 
 describe("POST /api/team/sessions", () => {
+  it("a named organization: English-only, validated on the server, stored on the template environment", async () => {
+    const bad = await create({ tenant_name: "אקמה", invites: [{ user_id: A, role: "t1" }] });
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error).toMatch(/English/);
+    expect(state.ops.some(o => o.action === "insert")).toBe(false);
+    expect((await create({ tenant_name: "nexacorp" })).status).toBe(400);   // a Live-SOC demo company's name
+    const ok = await create({ company_id: "medcore", tenant_name: "Acme-Labs", invites: [{ user_id: A, role: "t1" }] });
+    expect(ok.status).toBe(200);
+    const row = state.ops.find(o => o.table === "team_sessions" && o.action === "insert")!.payload as { company_id: string; config: { tenant?: { name: string } } };
+    expect(row.company_id).toBe("nexacorp");                 // the template, whatever company_id was sent
+    expect(row.config.tenant).toEqual({ name: "Acme-Labs" });
+  });
+
   it("L12: a repeated invitee becomes one roster row (the first role wins)", async () => {
     const res = await create({ invites: [{ user_id: A, role: "t1" }, { user_id: A, role: "t2" }, { user_id: B, role: "t2" }] });
     expect(res.status).toBe(200);

@@ -824,9 +824,11 @@ export default function TeamRoomPage() {
   const companyForNative = session?.company_id ?? "nexacorp";
   const stackForNative = (session as { stack?: Record<string, string> } | null)?.stack;
   const stackKey = JSON.stringify(stackForNative ?? {});
+  // A named organization renders under its own domain / realm (FQDNs, UPNs, tenant names).
+  const tenantDomain = session?.tenant?.domain, tenantRealm = session?.tenant?.netbios;
   const nativeRender = useMemo<NativeRenderer | null>(
-    () => (nativeMod ? ev => nativeMod.nativeView(ev, companyForNative, JSON.parse(stackKey)) : null),
-    [nativeMod, companyForNative, stackKey],
+    () => (nativeMod ? ev => nativeMod.nativeView(ev, companyForNative, JSON.parse(stackKey), tenantDomain && tenantRealm ? { domain: tenantDomain, netbios: tenantRealm } : undefined) : null),
+    [nativeMod, companyForNative, stackKey, tenantDomain, tenantRealm],
   );
 
   if (loading) return <div className="flex items-center gap-2 p-6 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
@@ -844,7 +846,7 @@ export default function TeamRoomPage() {
     <IocTruthContext.Provider value={iocTruth}>
     <NativeLogProvider value={nativeRender}>
     <div>
-      <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.company_id} · ${session.difficulty}` : ""} />
+      <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.tenant?.name ?? session.company_id} · ${session.difficulty}` : ""} />
       <div className={`container mx-auto ${phase === "running" ? "max-w-[1600px]" : "max-w-[1100px]"} px-6 py-6 space-y-5`}>
         <Link href="/team" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Team training</Link>
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}

@@ -197,7 +197,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     GUID: guidFor(ctx, imid),
     QID: rs(raw, "QID") ?? `48${b64ish(ctx, `${mseed}:qid`, 4)}${digits(ctx, `${mseed}:qidn`, 6)}`,
     id: ctx.uuid(`${ev.id}:ppid`),
-    cluster: `${ctx.companyId}_hosted`,
+    cluster: `${ctx.org}_hosted`,
     messageID: imid,
     messageTime: isoMs(ev.ts),
     sender: f.mailFrom ?? f.from,

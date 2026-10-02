@@ -52,7 +52,7 @@ function build(ev: TelemetryEvent, f: VpnFacts, ctx: NativeCtx): Record<string, 
   if (!f.publicIp) return null;
   const email = f.id.email ?? (f.id.sam ? `${f.id.sam}@${emailDomain(ev, ctx)}` : undefined);
   if (!email) return null;
-  const appDomain = `${ctx.companyId}.cloudflareaccess.com/warp`;
+  const appDomain = `${ctx.org}.cloudflareaccess.com/warp`;
   return {
     Action: f.phase === "login" ? "login" : "logout",
     Allowed: true,

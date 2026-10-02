@@ -12,6 +12,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
+import { companyNetbios } from "../ctx";
 
 // ── Countries ────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,14 @@ const COMPANY: Record<string, { name: string; short: string; home: string; idp: 
   quantumbank: { name: "QuantumBank AG", short: "QB", home: "CH", idp: "QuantumBank-EntraID", prefix: "QB" },
 };
 export function company(ctx: NativeCtx) {
-  return COMPANY[ctx.companyId] ?? { name: ctx.companyId, short: ctx.netbios.slice(0, 3), home: "US", idp: `${ctx.netbios}-EntraID`, prefix: ctx.netbios.slice(0, 3) };
+  const base = COMPANY[ctx.companyId];
+  // A renamed organization (a team exercise run as the instructor's org) keeps the template's
+  // geography and IdP kind but takes its own name, code and IdP connection name.
+  if (base && ctx.netbios === companyNetbios(ctx.companyId)) return base;
+  const brand = ctx.org.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+  const code = ctx.netbios.replace(/[^A-Z]/g, "").padEnd(3, "X").slice(0, 3);
+  const idpKind = base?.idp.split("-").pop() ?? "EntraID";
+  return { name: brand, short: code, home: base?.home ?? "US", idp: `${brand}-${idpKind}`, prefix: code };
 }
 export function homeCountry(ctx: NativeCtx): Country {
   return countryOf(company(ctx).home) ?? COUNTRIES[2];

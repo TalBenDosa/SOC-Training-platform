@@ -63,11 +63,14 @@ export function stackFor(companyId: string, override?: Stack): Stack {
  * no module covers its category yet / the chosen product has no such record.
  * Never throws — a converter bug must not take the feed down.
  */
-export function nativize(ev: TelemetryEvent, companyId: string, stack?: Stack): NativeLog | null {
+/** A named organization's identity for the renderers (a team exercise run as the instructor's org). */
+export interface NativeIdentity { domain: string; netbios: string }
+
+export function nativize(ev: TelemetryEvent, companyId: string, stack?: Stack, identity?: NativeIdentity): NativeLog | null {
   const id = sourceFor(ev, stackFor(companyId, stack));
   const mod = id ? NATIVE_SOURCES[id] : undefined;
   if (!mod) return null;
-  try { return mod.fromTelemetry(ev, makeCtx(companyId)); } catch { return null; }
+  try { return mod.fromTelemetry(ev, makeCtx(companyId, identity ?? {})); } catch { return null; }
 }
 
 /** Use cases for one source, or every source. */
@@ -81,9 +84,9 @@ export type { Stack } from "./stack";
 export { STACK_CHOICES, PRODUCT_LABEL, sanitizeStack, COMPANY_STACKS } from "./stack";
 
 /** nativize + the product display name, for the feed UI (NativeLogContext). */
-export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack): { log: NativeLog; product: string } | null {
+export function nativeView(ev: TelemetryEvent, companyId: string, stack?: Stack, identity?: NativeIdentity): { log: NativeLog; product: string } | null {
   // A stacked event renders through its authored source/vendor (the converter path the corpus gate tests).
-  const log = nativize(authoredOf(ev), companyId, stack);
+  const log = nativize(authoredOf(ev), companyId, stack, identity);
   if (!log) return null;
   return { log, product: NATIVE_SOURCES[log.sourceId]?.schema.product ?? log.sourceId };
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { tenantFromConfig } from "@/lib/team/tenant";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
@@ -77,7 +78,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     }
     // QA L7: a build failure is a clear, retryable error — the session stays in the lobby.
     let timeline: ReturnType<typeof buildTeamTimeline>;
-    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack); }
+    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack, tenantFromConfig(sess.config)); }
     catch (e) {
       console.error("[team start] timeline build:", e instanceof Error ? e.message : String(e));
       return NextResponse.json({ error: "Couldn't build the exercise feed for this company and difficulty — nothing was started. Try again, or create the session with another storyline." }, { status: 500 });

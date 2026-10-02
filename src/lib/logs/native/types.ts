@@ -90,6 +90,9 @@ export interface SourceSchema {
 /** Per-session / per-company context so identifiers stay consistent across a story. */
 export interface NativeCtx {
   companyId: string;
+  /** The organization's name as it appears in its own resource names (the domain's first label:
+   *  nexacorp → nexacorp.service-now.com, nexacorp-customer-data) — follows a renamed tenant. */
+  org: string;
   /** Primary email/AD domain, e.g. "nexacorp.com". */
   domain: string;
   /** NetBIOS domain, e.g. "NEXACORP". */

@@ -27,6 +27,7 @@ import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { normalizeHostIps } from "@/lib/sim/hostIdentity";
+import { applyTenant, type Tenant } from "./tenant";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { applyStack, fitsStack, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
@@ -339,7 +340,7 @@ export function teamStoryFilter(companyId: string, stack: Stack = {}): (story: A
  * from the Tier-1 count, attack count from the team size. Omitted → the fixed,
  * difficulty-only load of before (existing seeds replay exactly).
  */
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}): TimelineEntry[] {
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null): TimelineEntry[] {
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
   // Vendor choice (spec §3): only records the session's products — the chosen ones, else
   // the company's own — really produce make the feed, every log is labelled for them (as
@@ -670,9 +671,11 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // opaque and seed-stable.
   const tier = difficulty === "easy" ? "foundation" : difficulty === "hard" ? "advanced" : "core";
   const all = [...feed, ...msel];
-  return all
+  const out = all
     .map((entry, i) => toPublicEntry(entry, i, seed, tier))
     .sort((a, b) => a.due_offset_ms - b.due_offset_ms);
+  // A named organization (the instructor's own): its people, domain and brand everywhere.
+  return tenant ? applyTenant(out, companyId, tenant, seed) : out;
 }
 
 /** Feed fields that reveal the ground truth or the attack story — never sent to players. */

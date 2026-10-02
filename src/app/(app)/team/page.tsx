@@ -11,6 +11,7 @@
  * shows a loading state instead of a false "No active members", and lets staff
  * pin the storyline (team_sessions.scenario_id, already in the schema).
  */
+import { parseTenant, TENANT_TEMPLATE } from "@/lib/team/tenant";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StackPicker, stackDelta } from "@/components/training/StackPicker";
 import type { Stack } from "@/lib/logs/native/stack";
@@ -35,7 +36,7 @@ const SINGLE_SEAT = new Set(["t3", "mgr"]); // at most one participant each
 const ORG_ROLE_LABEL: Record<string, string> = { org_admin: "admin", instructor: "instructor", student: "student" };
 
 interface SessionRow {
-  id: string; company_id: string; difficulty: string; status: string; created_at: string;
+  id: string; company_id: string; tenant_name?: string | null; difficulty: string; status: string; created_at: string;
   my_role: string | null; player_count: number; ready_count: number;
 }
 interface OrgInfo { id: string; name: string; is_root: boolean }
@@ -63,7 +64,14 @@ export default function TeamIndexPage() {
   const [error, setError] = useState<string | null>(null);
 
   // builder state
-  const [company, setCompany] = useState(COMPANY_PROFILES[0]?.id ?? "nexacorp");
+  // The exercise runs as the instructor's own organization: its English name is the domain
+  // (acme → acme.com); employees, roles and every log are generated under it. The environment
+  // underneath (pool, assets, architecture) is the fixed template — the Live-SOC companies stay
+  // on the dashboard.
+  const company = TENANT_TEMPLATE;
+  const [orgNameInput, setOrgNameInput] = useState("");
+  const tenantCheck = orgNameInput.trim() ? parseTenant(orgNameInput) : null;
+  const tenant = tenantCheck && !("error" in tenantCheck) ? tenantCheck : null;
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [storylines, setStorylines] = useState<Storyline[] | null>(null);
   const [storyline, setStoryline] = useState("");   // "" = random pick at start
@@ -176,12 +184,13 @@ export default function TeamIndexPage() {
   }
 
   async function createSession() {
+    if (!tenant) { setError(tenantCheck && "error" in tenantCheck ? tenantCheck.error : "Enter your organization's name in English — it becomes the exercise's domain."); return; }
     if (!status.canCreate) { setError(status.blocker); return; }
     const invites = Object.entries(picked).map(([user_id, role]) => ({ user_id, role }));
     setCreating(true); setError(null);
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ company_id: company, difficulty, invites, stack: stackDelta(company, stack), ...(storyline ? { scenario_id: storyline } : {}) }),
+      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, stack: stackDelta(company, stack), ...(storyline ? { scenario_id: storyline } : {}) }),
     }).catch(() => null);
     setCreating(false);
     if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
@@ -190,7 +199,7 @@ export default function TeamIndexPage() {
     router.push(`/team/${data.id}`);
   }
 
-  const companyName = (id: string) => COMPANY_PROFILES.find(c => c.id === id)?.name ?? id;
+  const companyName = (s: { company_id: string; tenant_name?: string | null }) => s.tenant_name ?? COMPANY_PROFILES.find(c => c.id === s.company_id)?.name ?? s.company_id;
 
   return (
     <div>
@@ -209,12 +218,17 @@ export default function TeamIndexPage() {
               <Plus className="h-4 w-4 text-cyber-300" /> New team exercise
             </h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <label className="block text-sm">
-                <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Company</span>
-                <select value={company} onChange={e => { setCompany(e.target.value); setStack({}); /* QA L3: products are chosen per company */ }}
-                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
-                  {COMPANY_PROFILES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+              <label className="block text-sm" htmlFor="team-org-name">
+                <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Organization (English)</span>
+                <input id="team-org-name" value={orgNameInput} onChange={e => setOrgNameInput(e.target.value)} dir="ltr" lang="en"
+                  placeholder="e.g. acme or acme-labs.io" autoComplete="off" spellCheck={false} maxLength={44}
+                  aria-invalid={!!(tenantCheck && "error" in tenantCheck)} aria-describedby="team-org-help"
+                  className={`w-full rounded-lg border bg-bg px-3 py-2 text-sm text-slate-200 focus:outline-none ${tenantCheck && "error" in tenantCheck ? "border-severity-high/60" : "border-border focus:border-cyber-500/50"}`} />
+                <span id="team-org-help" className={`mt-1 block text-[11px] ${tenantCheck && "error" in tenantCheck ? "text-severity-high" : "text-slate-500"}`}>
+                  {tenantCheck && "error" in tenantCheck ? tenantCheck.error
+                    : tenant ? <>Domain <span className="font-mono text-slate-300">{tenant.domain}</span> · realm <span className="font-mono text-slate-300">{tenant.netbios}</span> — employees and roles are generated for it</>
+                    : "Becomes the exercise's domain. Employees, roles and all logs are generated under it."}
+                </span>
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Difficulty</span>
@@ -351,7 +365,7 @@ export default function TeamIndexPage() {
                       {s.status === "running" ? <span className="inline-flex items-center gap-1"><Radio className="h-2.5 w-2.5" />live</span> : closed ? "closed" : s.status}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className={`truncate text-sm font-medium ${closed ? "text-slate-400" : "text-white"}`}>{companyName(s.company_id)}</p>
+                      <p className={`truncate text-sm font-medium ${closed ? "text-slate-400" : "text-white"}`}>{companyName(s)}</p>
                       <p className="font-mono text-[11px] text-slate-500">
                         {s.difficulty} · {s.ready_count}/{s.player_count} ready
                         {s.my_role && s.my_role !== "instructor" && <span className="ml-1 text-cyber-300">· you: {s.my_role}</span>}
@@ -367,7 +381,7 @@ export default function TeamIndexPage() {
                 // shift review (the room itself renders only the report once ended).
                 return (
                   <Link key={s.id} href={`/team/${s.id}`}
-                    aria-label={closed ? `${companyName(s.company_id)} — closed, open shift review` : `${companyName(s.company_id)} — ${s.status}, open session`}
+                    aria-label={closed ? `${companyName(s)} — closed, open shift review` : `${companyName(s)} — ${s.status}, open session`}
                     className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.02] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-500/60">{inner}</Link>
                 );
               })}
