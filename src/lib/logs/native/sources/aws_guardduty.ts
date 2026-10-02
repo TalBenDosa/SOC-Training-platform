@@ -167,7 +167,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     createdAt,
     updatedAt,
     title: G(ev, "title") ?? type,
-    description: ev.description ?? G(ev, "description") ?? type,
+    // GuardDuty's own finding text (authored raw, else keyed to the type) — not the
+    // scenario narrative, which states the conclusion (L-05).
+    description: G(ev, "description") ?? guardDutyDescription(type, resourceType),
   };
 
   return { sourceId: "aws_guardduty", kind: "Finding", format: "json", record, timeMs: Date.parse(ev.ts) };
@@ -251,3 +253,13 @@ const useCases: UseCase[] = [
 ];
 
 export const source: NativeSource = { schema, fromTelemetry, useCases };
+
+/** GuardDuty-style finding description from the finding type (ThreatPurpose:ResourceTypeAffected/ThreatFamilyName). */
+function guardDutyDescription(type: string, resourceType: string): string {
+  const [purpose = "Finding", rest = ""] = type.split(":");
+  const family = rest.split("/")[1]?.split("!")[0] ?? rest;
+  const subject = resourceType === "Instance" ? "An EC2 instance" : resourceType === "AccessKey" ? "An IAM principal" :
+    resourceType === "S3Bucket" ? "An S3 bucket" : resourceType === "EKSCluster" ? "An EKS cluster" : `A ${resourceType} resource`;
+  const what = family.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\./g, " ").toLowerCase();
+  return `${subject} in your AWS environment is involved in activity GuardDuty classifies as ${purpose} (${what || type}).`;
+}

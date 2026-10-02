@@ -26,6 +26,7 @@
  * events with no image at all, network events with no IPv4 peer, and client-side logon failures
  * (an ssh/RDP client failing against a REMOTE server is not a logon on the sensor host).
  */
+import { techniqueById } from "@/lib/mitre/attack";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { edrFacts, type EdrFacts, type EdrProc } from "./edr-normalize";
@@ -450,7 +451,7 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     composite_id: composite, confidence: d.confidence !== undefined ? (d.confidence <= 1 ? Math.round(d.confidence * 100) : Math.round(d.confidence)) : sevNum >= 90 ? 90 : sevNum >= 70 ? 80 : 60,
     context_timestamp: iso(f.timeMs), control_graph_id: `ctg:${aid}:${treeId}`,
     created_timestamp: isoNano(ctx, created, `${ev.id}:cs:cns`), data_domains: ["Endpoint"],
-    description: d.description ?? ev.description ?? display, display_name: display,
+    description: d.description ?? falconDescription(d.action, techId, d.technique ?? display), display_name: display,
     device: {
       agent_load_flags: "0", agent_version: "7.29.19807.0", cid, config_id_build: "19807", device_id: aid,
       external_ip: egressIp(ctx), first_seen: iso(Date.UTC(2025, 10, 3) + ctx.int(`${ctx.companyId}:${host}:fs`, 0, 86_400 * 120) * 1000).replace(/\.\d{3}Z$/, "Z"),
@@ -623,3 +624,14 @@ export const source: NativeSource = {
   fromTelemetry,
   useCases,
 };
+
+/**
+ * The text Falcon itself puts in a detection's `description` — product wording keyed to
+ * how it detected (on-sensor ML for a quarantined file, a behavioural pattern otherwise),
+ * never the scenario's narrative, which states the conclusion the analyst must reach.
+ */
+function falconDescription(action: string | undefined, techId: string | undefined, technique: string): string {
+  if (action === "quarantined") return "This file meets the machine learning-based on-sensor AV protection's high confidence threshold for malicious files.";
+  const name = (techId && techniqueById(techId)?.name) || technique;
+  return `A process exhibited behavior consistent with ${name}${techId ? ` (${techId})` : ""}. Review the process tree and command line.`;
+}

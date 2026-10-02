@@ -167,7 +167,8 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     registry: { path: first(ev.registry?.path, r["registry.path"]), key: first(ev.registry?.key, r["registry.key"]), value: first(ev.registry?.value, r["registry.value"]) },
     detection: kind === "detection" ? {
       name: first(r["crowdstrike.DetectName"], r["crowdstrike.detection.scenario"], r["threat.name"], r["malware.name"], r["mde.AlertTitle"], r["s1.indicator.name"], r["s1.threat.threatName"], r["sophos.detection_name"], r["ThreatName"], r["windefend.threat.name"], ev.rule?.name),
-      description: first(r["crowdstrike.detection.description"], ev.description),
+      // Vendor field only — the authored description states the conclusion (L-05).
+      description: first(r["crowdstrike.detection.description"]),
       severity: first(ev.severity, r["crowdstrike.SeverityName"], r["crowdstrike.detection.severity"]),
       technique: first(r["crowdstrike.detection.technique"], r["crowdstrike.Technique"], r["threat.technique.name"]),
       techniqueId: first(ev.mitre_technique, r["crowdstrike.detection.technique_id"], r["crowdstrike.TechniqueId"], r["threat.technique.id"]),
