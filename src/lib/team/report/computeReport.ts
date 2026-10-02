@@ -85,6 +85,8 @@ export interface MissedHost { host: string; attackLogs: number; firstAttackS: nu
 export interface UserReport {
   user_id: string; name: string; role: string;
   opened: number; avgDwellS: number | null; dispCount: number; dispCorrect: number; dispAcc: number | null;
+  /** Distinct logs judged, and those whose final verdict is wrong (QA H2: XP counts distinct work, wrong calls cost). */
+  dispDistinct: number; dispWrong: number;
   /** Distinct dispositions on logs this analyst never opened (0 when the session has no click telemetry). */
   dispUnopened: number;
   escCount: number; escQuality: number | null; acks: number; contReq: number; contDecided: number;
@@ -693,9 +695,9 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
       latestVerdict.set(eid, v);
     }
     const distinctDisp = latestVerdict.size;
-    let credit = 0; let dispCorrect = 0; let dispUnopened = 0;
+    let credit = 0; let dispCorrect = 0; let dispUnopened = 0; let dispWrong = 0;
     for (const [eid, v] of latestVerdict) {
-      const c = verdictCredit(eid, v); if (c === 1) dispCorrect++;
+      const c = verdictCredit(eid, v); if (c === 1) dispCorrect++; else if (c === 0) dispWrong++;
       const wasOpened = !telemetry || dwellByEid.has(eid);
       if (!wasOpened) dispUnopened++;
       credit += c * (wasOpened ? 1 : UNOPENED_DISPOSITION_WEIGHT);
@@ -706,13 +708,15 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
 
     const esc = mine.filter(e => e.type === "escalation.requested");
     const escQuality = esc.length ? Math.round(esc.reduce((s, e) => s + escQualityScore(e.payload), 0) / esc.length) : null;
-    const acks = mine.filter(e => e.type === "escalation.acknowledged").length;
+    // QA H2/M6: activity counts DISTINCT work — the same log re-judged, the same escalation
+    // re-acknowledged, the same action repeated, a free-text note: none of them farm XP.
+    const acks = new Set(mine.filter(e => e.type === "escalation.acknowledged").map(eidOf)).size;
     const myContReq = mine.filter(e => e.type === "containment.requested");
-    const contDecided = mine.filter(e => e.type === "containment.approved" || e.type === "containment.denied").length;
-    const roleActions = mine.filter(e => ROLE_ACTION_TYPES.has(e.type)).length;
+    const contDecided = new Set(mine.filter(e => e.type === "containment.approved" || e.type === "containment.denied").map(eidOf)).size;
+    const roleActions = new Set(mine.filter(e => ROLE_ACTION_TYPES.has(e.type) && e.type !== "note.added").map(e => `${e.type}:${eidOf(e)}`)).size;
     const actionTimes = mine.filter(e => e.occurred_at && e.type !== "member.ready").map(e => Date.parse(e.occurred_at!));
     const firstActionS = actionTimes.length ? Math.max(0, Math.round((Math.min(...actionTimes) - startedMs) / 1000)) : null;
-    const contribution = Math.min(100, opened * 3 + disp.length * 6 + esc.length * 15 + acks * 10 + myContReq.length * 15 + contDecided * 20 + roleActions * 15);
+    const contribution = Math.min(100, opened * 3 + distinctDisp * 6 + esc.length * 15 + acks * 10 + myContReq.length * 15 + contDecided * 20 + roleActions * 15);
 
     const escPrecision = esc.length ? precisionOf(esc) : null;
     const escAckRate = esc.length ? pct(esc.filter(e => { const id = eidOf(e); return escAckedIds.has(id) || escBouncedIds.has(id); }).length, esc.length) : null;
@@ -869,7 +873,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const measuredCells = rubric.filter(c => c.score != null).length;
     return {
       user_id: m.user_id, name: m.name, role: m.role, opened, avgDwellS,
-      dispCount: disp.length, dispCorrect, dispAcc, dispUnopened,
+      dispCount: disp.length, dispCorrect, dispAcc, dispUnopened, dispDistinct: distinctDisp, dispWrong,
       escCount: esc.length, escQuality, acks, contReq: myContReq.length, contDecided, roleActions, firstActionS, contribution,
       rubric, rubricPct: rubricPercent(rubric),
       measuredCells, insufficientEvidence: rubric.length > 0 && measuredCells < MIN_MEASURED_CELLS,

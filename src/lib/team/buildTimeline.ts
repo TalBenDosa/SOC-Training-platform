@@ -26,6 +26,7 @@ import { pickStoryForCompany, instantiateStory, storiesForCompany, type AttackSt
 import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
+import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { applyStack, fitsStack, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
@@ -709,15 +710,23 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
   const withMail = Number.isFinite(oldMs) && rest.raw
     ? { ...rest, raw: shiftRfc2822(rest.raw, Date.parse(newTs) - oldMs) as Record<string, unknown> }
     : rest;
-  const retimed = withRebasedTime(withMail as { ts?: string; raw?: Record<string, unknown> }, newTs);
+  const retimed = withRebasedTime(withMail as { ts?: string; raw?: Record<string, unknown> }, newTs) as Record<string, unknown>;
+  // QA H1: a technique on a raw log, and empty structured fields, marked attack rows apart
+  // from noise for anyone reading the payload — the technique moves to the answer key
+  // (the report joins it back), empty structures are dropped.
+  const tagged = mitreVisible(retimed as { source?: string; event_type?: string; is_detection?: boolean });
+  const { mitre_technique, mitre_tactic, ...untagged } = retimed;
+  const publicBody = Object.fromEntries(Object.entries(tagged ? retimed : untagged).filter(([, v]) =>
+    v !== undefined && v !== null && !(typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0)));
   return {
     ...entry,
-    body: { ...retimed, id: opaqueId(seed, i, "e"), tier },
+    body: { ...publicBody, id: opaqueId(seed, i, "e"), tier },
     answer: strip({
       // contract 1: an explicit verdict on every feed log — never missing
       expected_verdict: expected_verdict ?? "benign",
       fp_explanation, incident_id, supports_inject, origin: feed_origin, edr_scope, is_baseline,
       it_verify_result, it_verify_message, original_id: id, original_tier: originalTier,
+      ...(tagged ? {} : { mitre_technique, mitre_tactic }),
     }),
   };
 }

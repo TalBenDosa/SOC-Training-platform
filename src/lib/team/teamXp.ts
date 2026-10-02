@@ -12,7 +12,11 @@ import type { UserReport } from "./report/computeReport";
  *                          escalations, acks, containment, role actions) ÷ 2
  *   performance 0..100   — the role rubric %, only when enough of it was
  *                          measured (insufficientEvidence ⇒ 0, not a guess)
- *   accuracy    0..25    — 2 per correct disposition + 5 per correct isolation
+ *   accuracy    0..25    — 2 per correct disposition + 5 per correct isolation,
+ *                          −3 per log whose final verdict is wrong (an attack called benign)
+ * Activity and rubric only credit distinct work (computeReport), and the rubric
+ * counts only once a player has done at least three distinct pieces of work — a
+ * single log judged twenty times is not a performance.
  * Capped at TEAM_XP_MAX. Instructors and observers earn nothing (they don't play).
  * Deterministic: the log is frozen once the session ends, so a recompute gives
  * the same number — awarding twice can't double-credit.
@@ -20,13 +24,14 @@ import type { UserReport } from "./report/computeReport";
 export const TEAM_XP_VERSION = 1;
 export const TEAM_XP_MAX = 200;
 
-export function teamXpFor(u: Pick<UserReport, "role" | "opened" | "dispCount" | "dispCorrect" | "escCount" | "acks" | "contReq" | "contDecided" | "roleActions" | "contribution" | "rubricPct" | "insufficientEvidence" | "isoCorrect">): number {
+export function teamXpFor(u: Pick<UserReport, "role" | "opened" | "dispCount" | "dispCorrect" | "escCount" | "acks" | "contReq" | "contDecided" | "roleActions" | "contribution" | "rubricPct" | "insufficientEvidence" | "isoCorrect"> & Partial<Pick<UserReport, "dispDistinct" | "dispWrong">>): number {
   if (u.role === "instructor" || u.role === "observer") return 0;
   const actions = u.dispCount + u.escCount + u.acks + u.contReq + u.contDecided + u.roleActions;
   if (actions === 0) return 0;   // only opened logs (or nothing) — no credit for showing up
   const participation = 25;
   const activity = Math.round(Math.max(0, Math.min(100, u.contribution)) / 2);
-  const performance = !u.insufficientEvidence && u.rubricPct != null ? Math.round(Math.max(0, Math.min(100, u.rubricPct))) : 0;
-  const accuracy = Math.min(25, u.dispCorrect * 2 + u.isoCorrect * 5);
+  const distinctWork = (u.dispDistinct ?? u.dispCount) + u.escCount + u.acks + u.contReq + u.contDecided + u.roleActions;
+  const performance = !u.insufficientEvidence && u.rubricPct != null && distinctWork >= 3 ? Math.round(Math.max(0, Math.min(100, u.rubricPct))) : 0;
+  const accuracy = Math.max(0, Math.min(25, u.dispCorrect * 2 + u.isoCorrect * 5 - (u.dispWrong ?? 0) * 3));
   return Math.min(TEAM_XP_MAX, participation + activity + performance + accuracy);
 }

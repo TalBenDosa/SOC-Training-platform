@@ -9,6 +9,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { getRuleDescription } from "@/lib/sim/ruleDescriptions";
+import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { describeEvent } from "@/lib/sim/describeEvent";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 
@@ -297,7 +298,9 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
   const o365Op      = event.raw?.["data.office365.Operation"] as string | undefined;
 
   // ── 1. Compute rule.description ───────────────────────────────────────────
-  const ruleDesc = getRuleDescription(event.event_type, event.mitre_technique, eventCode, o365Op);
+  // A technique-specific rule only where a product would tag the technique (QA H1).
+  const tagged = mitreVisible(event) ? event.mitre_technique : undefined;
+  const ruleDesc = getRuleDescription(event.event_type, tagged, eventCode, o365Op);
 
   // ── 2. Auto-enrich raw with authentic Windows / Sysmon fields ─────────────
   const raw: Record<string, unknown> = { "rule.description": ruleDesc, ...event.raw };
@@ -561,7 +564,7 @@ export function enrichEvent(event: TelemetryEvent, index: number): LiveEvent {
     ...event,
     raw,
     ruleLevel: calculateRuleLevel(event),
-    ruleId: buildRuleId(event, index),
+    ruleId: buildRuleId(tagged === event.mitre_technique ? event : { ...event, mitre_technique: undefined }, index),
     displayDescription: describeEvent(event),
   };
 }

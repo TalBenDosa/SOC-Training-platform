@@ -26,4 +26,11 @@ describe("teamXpFor", () => {
   it("a manager's SITREPs / approvals count as activity", () => {
     expect(teamXpFor(u({ role: "mgr", dispCount: 0, dispCorrect: 0, escCount: 0, roleActions: 3, contDecided: 1, contribution: 65, rubricPct: 70 }))).toBe(25 + 33 + 70);
   });
+  it("QA H2: one log judged twenty times is not a performance; wrong calls cost accuracy", () => {
+    // one distinct disposition, flipped 20 times — the rubric no longer pays
+    expect(teamXpFor(u({ dispCount: 20, dispDistinct: 1, dispCorrect: 1, escCount: 0, roleActions: 0, contribution: 6, rubricPct: 50 }))).toBe(25 + 3 + 0 + 2);
+    // everything marked benign: the missed attacks are subtracted from accuracy
+    expect(teamXpFor(u({ dispDistinct: 12, dispCorrect: 8, dispWrong: 4 }))).toBe(25 + 35 + 80 + (16 - 12));
+    expect(teamXpFor(u({ dispDistinct: 12, dispCorrect: 2, dispWrong: 10 }))).toBe(25 + 35 + 80 + 0);
+  });
 });

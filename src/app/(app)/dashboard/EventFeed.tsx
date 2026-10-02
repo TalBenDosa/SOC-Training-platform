@@ -13,6 +13,7 @@ import { isPublicIp } from "@/lib/edr/iocIntel";
 import { useNativeLog, nativeRows, type NativeView } from "@/lib/logs/native/NativeLogContext";
 import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
+import { mitreVisible } from "@/lib/sim/mitreVisible";
 
 // L-01: the internal event id (b_… baseline, atk_evt_…<phase> attack) named the
 // answer — and it was shown verbatim in the Analysis detail panel's event.id row,
@@ -676,7 +677,7 @@ export function DetailPanelBody({
                 {/* MITRE ATT&CK mapping lives here in the expanded panel — the
                     student must open the row to see the technique (it is
                     deliberately absent from the always-visible row). */}
-                {event.mitre_technique && (
+                {event.mitre_technique && mitreVisible(event) && (
                   <div className="flex gap-3 items-center pt-1">
                     <span className="w-36 shrink-0 text-[11px] text-slate-400">MITRE ATT&CK</span>
                     <MitreBadge technique={event.mitre_technique} />
