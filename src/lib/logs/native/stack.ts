@@ -176,8 +176,11 @@ const COLLAB_TO_M365: [string, string][] = [["Google Workspace", "Microsoft 365"
 /** Windows' own AV and its components: the same on every endpoint whatever the EDR. "Defender AV" is spelled out. */
 const BUILTIN_AV = /(?<![A-Za-z])(?:(?:Microsoft|Windows) Defender (?:Antivirus|AV|Credential Guard|Firewall|SmartScreen|real-time protection)|Windows Defender|Defender (?:AV|Antivirus))(?![A-Za-z])/g;
 /** Okta has no "Conditional Access" (its equivalent is the sign-on policy) and pushes MFA through Okta Verify. */
-const IDP_TO_OKTA: [RegExp, string][] = [[/Conditional Access polic(y|ies)/g, "Okta sign-on polic$1"], [/Conditional Access/g, "Okta sign-on policy"], [/Microsoft Authenticator/g, "Okta Verify"]];
-const IDP_TO_ENTRA: [RegExp, string][] = [[/Okta sign-on polic(y|ies)/g, "Conditional Access polic$1"], [/Okta Verify/g, "Microsoft Authenticator"]];
+const IDP_TO_OKTA: [RegExp, string][] = [[/Conditional Access polic(y|ies)/g, "Okta sign-on polic$1"], [/Conditional Access/g, "Okta sign-on policy"], [/Microsoft Authenticator/g, "Okta Verify"],
+  // Entra's admin role names → Okta's (Global Administrator is Okta's Super Administrator).
+  [/Global Administrator/g, "Super Administrator"], [/Helpdesk Administrator/g, "Help Desk Administrator"]];
+const IDP_TO_ENTRA: [RegExp, string][] = [[/Okta sign-on polic(y|ies)/g, "Conditional Access polic$1"], [/Okta Verify/g, "Microsoft Authenticator"],
+  [/Super Administrator/g, "Global Administrator"], [/Help Desk Administrator/g, "Helpdesk Administrator"]];
 
 /**
  * Artifacts only one product has — its OS, its own field names, its API paths. An

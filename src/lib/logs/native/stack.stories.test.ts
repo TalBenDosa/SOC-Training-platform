@@ -36,6 +36,8 @@ const STACKS: [string, Stack][] = [
   ["rocketstack", { edr: "mde", firewall: "paloalto", idp: "entra", collab: "m365", email_security: "defender_o365" }],
   ["globallogis", { edr: "crowdstrike", firewall: "cisco_ftd", vpn: "cloudflare_access", idp: "okta" }],
   ["quantumbank", { edr: "sentinelone", firewall: "fortigate", email_security: "proofpoint", dns: "windows_dns" }],
+  ["nexacorp", { edr: "sophos", firewall: "cisco_ftd", vpn: "cloudflare_access", idp: "okta", collab: "m365", email_security: "proofpoint", dns: "infoblox" }],
+  ["nexacorp", { edr: "sentinelone", firewall: "checkpoint", vpn: "zscaler_zpa", idp: "entra", collab: "google_workspace", dns: "windows_dns" }],
   // The companies' own products (no choice made) — the lock and fit rules apply there too.
   ["nexacorp", {}], ["rocketstack", {}], ["medcore", {}], ["globallogis", {}], ["quantumbank", {}],
 ];

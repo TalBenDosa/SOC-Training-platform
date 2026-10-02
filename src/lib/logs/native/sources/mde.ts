@@ -219,7 +219,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const wrap = (table: string, props: Record<string, unknown>): NativeLog => ({
     sourceId: "mde", kind: table, format: "json", timeMs: f.timeMs,
     record: {
-      time: isoFrac(f.timeMs + ctx.int(seed("lag"), 4_000, 40_000), 7, ctx, seed("time")),
+      // Export time: the streaming API forwards within seconds of the event (a larger lag
+      // would stamp the record after the moment the row is shown).
+      time: isoFrac(f.timeMs + ctx.int(seed("lag"), 1_000, 6_000), 7, ctx, seed("time")),
       tenantId: ctx.tenant.azureTenantId,
       operationName: "Publish",
       category: `AdvancedHunting-${table}`,

@@ -192,15 +192,19 @@ function dataLakeProcess(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: 
   const pid = pidOf(ctx, host, name, f.proc.pid);
   const parentName = f.parent.name;
   const ppid = parentName ? pidOf(ctx, host, parentName, f.parent.pid) : 0;
-  const startSec = Math.floor(f.timeMs / 1000);
-  const calSec = startSec + ctx.int(seed("cal"), 5, 60);
+  // The row's time is when the scheduled query saw the process (calendar_time); the
+  // process started a little before, and the result reaches the data lake seconds later
+  // — never stamped after the moment the row is shown.
+  const startMs = f.timeMs - ctx.int(seed("cal"), 5_000, 60_000);
+  const startSec = Math.floor(startMs / 1000);
+  const calSec = Math.floor(f.timeMs / 1000);
   const user = sophosUser(f, ctx) ?? "";
   const ident = f.proc.sha256 ?? (fixPath(f.proc.path) ?? name).toLowerCase();
   const record: Record<string, unknown> = {
     calendar_time: isoFrac(calSec * 1000, 0, ctx, seed("c")),
     endpoint_id: endpointId,
     host_identifier: host,
-    ingestion_timestamp: isoFrac(calSec * 1000 + ctx.int(seed("ingest"), 60_000, 180_000), 3, ctx, seed("i")),
+    ingestion_timestamp: isoFrac(calSec * 1000 + ctx.int(seed("ingest"), 1_500, 6_000), 3, ctx, seed("i")),
     message_identifier: ctx.hex(seed("msg"), 64),
     query_name: "running_processes_windows_sophos",
     query_source: "xdr_only",
@@ -224,7 +228,7 @@ function dataLakeProcess(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: 
     pua_score: ctx.int(seed("pua"), 0, 20),
     sha1: ctx.hex(`sha1:${ident}`, 40),
     sha256: f.proc.sha256 ?? "",
-    sophos_pid: `${pid}:${filetime(f.timeMs, ctx, seed("ft"))}`,
+    sophos_pid: `${pid}:${filetime(startMs, ctx, seed("ft"))}`,
     time: startSec,
     uid: 0,
     username: user,

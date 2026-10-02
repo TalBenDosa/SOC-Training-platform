@@ -66,10 +66,9 @@ export function hostIpOf(ctx: NativeCtx, f: EdrFacts, host: string): string {
   return `10.${ctx.int(`${s}:b`, 10, 80)}.${ctx.int(`${s}:c`, 1, 250)}.${ctx.int(`${s}:d`, 10, 250)}`;
 }
 /** The company's egress (NAT) address as the vendor cloud sees it — one per company. */
-export function egressIp(ctx: NativeCtx): string {
-  const s = `${ctx.companyId}:egress`;
-  return `${ctx.int(`${s}:a`, 62, 212)}.${ctx.int(`${s}:b`, 1, 254)}.${ctx.int(`${s}:c`, 1, 254)}.${ctx.int(`${s}:d`, 2, 250)}`;
-}
+/** The company's public egress — the SAME address the firewalls NAT to, so the EDR's
+ * external_ip and the firewall's translated source correlate. */
+export { egressIp } from "./firewall-shared";
 export type HostRole = "workstation" | "laptop" | "server" | "dc";
 export function hostRole(host: string): HostRole {
   const h = host.toUpperCase();

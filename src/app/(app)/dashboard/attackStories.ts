@@ -1002,6 +1002,21 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
 
 const SERVICE_ACCOUNT = /^(svc-|ci-|admin@|noreply|system@)/i;
 
+// Department words authored next to a host ("the HR workstation WS-HR-1142"): after a
+// host swap they must still describe the host named — "developer workstation WS-MKT-3301"
+// is wrong, so the department word goes when the new host's naming says otherwise.
+const ROLE_HOST: [RegExp, RegExp][] = [
+  [/^HR$/i, /-HR-/i], [/^finance$/i, /-(FIN|ACC|TRADE|RISK)-/i], [/^(engineering|developer|dev)$/i, /-(ENG|DEV)-/i],
+  [/^marketing$/i, /-MKT-/i], [/^sales$/i, /-(SALES|SLS)-/i],
+];
+function fixRoleWords(text: string): string {
+  return text.replace(/\b(HR|finance|engineering|developer|dev|marketing|sales) (workstation|laptop|machine|PC|desktop)( [A-Z]{2,6}-[A-Z0-9-]{2,})/gi,
+    (m, role: string, noun: string, host: string) => {
+      const rule = ROLE_HOST.find(([r]) => r.test(role));
+      return rule && !rule[1].test(host) ? `${noun}${host}` : m;
+    });
+}
+
 /** Deep string-replace across every value of a raw object (recurses arrays/objects). */
 function deepReplace(value: unknown, pairs: [string, string][]): unknown {
   if (typeof value === "string") {
@@ -1366,7 +1381,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       hostname:   e.hostname && hostMap.has(e.hostname) ? hostMap.get(e.hostname)! : e.hostname,
       src_ip:     e.src_ip && ipMap.has(e.src_ip) ? ipMap.get(e.src_ip)! : e.src_ip,
       dst_ip:     e.dst_ip && ipMap.has(e.dst_ip) ? ipMap.get(e.dst_ip)! : e.dst_ip,
-      description: e.description ? subStr(e.description) : e.description,
+      description: e.description ? fixRoleWords(subStr(e.description)) : e.description,
       process: rep(e.process),
       network: rep(e.network),
       file: rep(e.file),

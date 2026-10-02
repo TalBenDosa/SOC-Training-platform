@@ -76,6 +76,7 @@ describe("vendor consistency rules (found in the vendor-choice playthrough)", ()
     expect(rewriteProductText("signed in to SharePoint Online — Conditional Access passed, managed device", "idp", "okta"))
       .toBe("signed in to SharePoint Online — Okta sign-on policy passed, managed device");
     expect(rewriteProductText("MFA push approved in Okta Verify", "idp", "entra")).toBe("MFA push approved in Microsoft Authenticator");
+    expect(rewriteProductText("Assigned Global Administrator role in Azure AD", "idp", "okta")).toBe("Assigned Super Administrator role in Okta");
     expect(rewriteProductText("A second Entra sign-in from Moscow", "idp", "okta")).toBe("A second Okta sign-in from Moscow");
     expect(rewriteProductText("Sign-in from Germany blocked by a Conditional Access policy", "idp", "okta")).toBe("Sign-in from Germany blocked by an Okta sign-on policy");
     expect(rewriteProductText("Mail opened in an Outlook client", "collab", "google_workspace")).toBe("Mail opened in a Gmail client");

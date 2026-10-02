@@ -9,6 +9,7 @@ import type { WorldState, GeneratedEvent } from "@/lib/sim/engine";
 import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
+import { describeEvent } from "@/lib/sim/describeEvent";
 
 
 /**
@@ -78,7 +79,7 @@ export type { LiveEvent };
  * the SIEM alert's host/technique is validated as citing real evidence. FP decoys
  * are not mirrored (they drive their own IT-verify training on the primary).
  */
-function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
+export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
   if (e.source !== "edr") return null;
   const isDetection =
     e.is_detection === true ||
@@ -91,9 +92,16 @@ function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
   const vendor = e.vendor ?? "EDR";
   const host = e.hostname ? ` on ${e.hostname}` : "";
   const tech = e.mitre_technique ? ` (${e.mitre_technique})` : "";
-  const desc = `SIEM correlation: ${vendor} detection ingested${host} — ${e.description ?? "malicious activity"}${tech}`;
+  // What the detection observably is — never the authored description, which on an
+  // attack event states the conclusion the analyst is meant to reach (L-05).
+  const observed = describeEvent(e);
+  const desc = `SIEM correlation: ${vendor} detection ingested${host} — ${observed}${tech}`;
+  // The mirror is a Sentinel alert: drop the authored-source markers a chosen stack put
+  // on the EDR event, or the native renderer would show it as an EDR record again.
+  const { _authored_source: _src, _authored_vendor: _ven, ...base } = e as LiveEvent & { _authored_source?: string; _authored_vendor?: string };
+  void _src; void _ven;
   const mirror: LiveEvent = {
-    ...e,
+    ...base,
     id: `${e.id}__siem`,
     source: "siem",
     vendor: "Microsoft Sentinel",
@@ -117,7 +125,7 @@ function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
       ...(e.user_email ? { "target.user.name": e.user_email } : {}),
       ...(e.mitre_technique ? { "threat.technique.id": e.mitre_technique } : {}),
       "ExtendedProperties.Source EDR Vendor": vendor,
-      "ExtendedProperties.Original Detection": e.description ?? "",
+      "ExtendedProperties.Original Detection": observed,
       "event.action": "edr-alert-forwarded",
       "event.outcome": "alerted",
     },

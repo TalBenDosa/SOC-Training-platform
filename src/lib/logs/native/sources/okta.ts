@@ -17,6 +17,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
+import { egressIp } from "./firewall-shared";
 import {
   asnOf, b62, COMPANY_HQ, geoOf, identityFacts, isoFrac, isPrivateIp, nameFromLogin, oktaId, rawStr, uaOf,
   type IdFacts, type MfaMethod,
@@ -135,12 +136,15 @@ interface Render {
 }
 
 function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): NativeLog {
-  const ip = f.ip ?? null;
+  // A person's action always carries the client address — with none authored, the
+  // company's egress (the same one its firewalls NAT to). Only Okta's own system
+  // actions have no client, and then no geo either.
+  const ip = f.ip ?? (r.actor?.type === "User" ? egressIp(ctx) : null);
   const geo = geoOf(ev, ctx, ip ?? undefined);
   const asn = asnOf(ev, geo, ip ?? undefined);
   const ua = uaOf(ev);
   const priv = isPrivateIp(ip ?? undefined);
-  const geoCtx = priv ? { city: null, country: null, geolocation: { lat: null, lon: null }, postalCode: null, state: null } :
+  const geoCtx = priv || !ip ? { city: null, country: null, geolocation: { lat: null, lon: null }, postalCode: null, state: null } :
     { city: geo.city, country: geo.country, geolocation: { lat: geo.lat, lon: geo.lon }, postalCode: geo.postal, state: geo.state };
   const email = f.email;
   const sid = r.preSession ? "unknown" :

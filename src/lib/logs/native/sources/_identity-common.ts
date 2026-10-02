@@ -121,7 +121,8 @@ export function countryInfo(v?: string): CountryInfo | undefined {
     (COUNTRY_ALIASES[s.toLowerCase()] ? COUNTRIES.find(c => c.iso === COUNTRY_ALIASES[s.toLowerCase()]) : undefined);
 }
 /** Head-office country per training company (where corporate egress / private IPs geolocate). */
-export const COMPANY_HQ: Record<string, string> = { nexacorp: "IL", rocketstack: "IL", medcore: "NL", globallogis: "DE", quantumbank: "CH" };
+// Where each company is headquartered (companyProfilesMeta `hq`): NexaCorp is London.
+export const COMPANY_HQ: Record<string, string> = { nexacorp: "GB", rocketstack: "IL", medcore: "NL", globallogis: "DE", quantumbank: "CH" };
 
 export interface GeoFacts { iso: string; country: string; city: string; state: string; lat: number; lon: number; postal: string }
 /** Geo for the event's client IP: structured geo → legacy raw → company HQ (private IPs) → deterministic. */

@@ -448,7 +448,10 @@ export function DetailPanelBody({
     : "text-neon-green"
     : undefined;
 
-  const fullDescription = event.description ?? event.displayDescription;
+  // The factual line (describeEvent): on an attack event the authored description states
+  // the conclusion the analyst is meant to reach (L-05) — the row already hides it, and
+  // the expanded panel must not hand it over either. Non-attack events show it as before.
+  const fullDescription = event.displayDescription ?? event.description;
   const sha256 = event.file?.sha256 ?? (event.raw?.["file.hash.sha256"] as string | undefined);
 
   const basicInfo: [string, string, string?][] = [
