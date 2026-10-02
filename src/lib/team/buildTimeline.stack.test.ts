@@ -46,8 +46,11 @@ describe("team timeline under a chosen stack", () => {
       expect(problems.slice(0, 15)).toEqual([]);
     });
   }
-  it("no stack → nothing is relabelled (the legacy build; story choice there is random by design)", () => {
+  it("no stack → every row is labelled for the company's own products (as on the dashboard)", () => {
     const b = buildTeamTimeline("nexacorp", "medium", "same", null, teamLoad("medium", roster), {});
-    expect(b.filter(e => e.channel === "feed").some(e => "_authored_vendor" in (e.body as Record<string, unknown>))).toBe(false);
+    const feed = b.filter(e => e.channel === "feed").map(e => e.body as unknown as TelemetryEvent);
+    const edr = feed.filter(e => categoryOf({ ...e, source: ((e as { _authored_source?: string })._authored_source ?? e.source) as TelemetryEvent["source"], vendor: (e as { _authored_vendor?: string })._authored_vendor ?? e.vendor }) === "edr");
+    expect(edr.length).toBeGreaterThan(0);
+    for (const e of edr) expect(e.vendor).toBe(PRODUCT_LABEL.mde);          // NexaCorp runs Defender for Endpoint
   });
 });

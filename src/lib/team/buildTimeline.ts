@@ -309,13 +309,14 @@ export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium
  */
 export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}): TimelineEntry[] {
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
-  // Vendor choice (spec §3): with a stack, only records the chosen products really
-  // produce make the feed, and only stories they can show whole are picked. No stack
-  // → exactly the behaviour (and the seeds) of before.
+  // Vendor choice (spec §3): only records the session's products — the chosen ones, else
+  // the company's own — really produce make the feed, every log is labelled for them (as
+  // on the dashboard; unlabelled, a CrowdStrike-authored row rendered as the company's
+  // Defender record), and with a chosen stack only stories they can show whole are picked.
   const stacked = Object.keys(stack).length > 0;
   const ownPool0 = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
-  const ownPool = ownPool0 && stacked ? ownPool0.filter(e => fitsStack(e, companyId, stack)) : ownPool0;
-  const companyPool = ((ownPool ?? (stacked ? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack)) : BENIGN_EVENTS)) ?? []);
+  const ownPool = ownPool0 ? ownPool0.filter(e => fitsStack(e, companyId, stack)) : ownPool0;
+  const companyPool = ((ownPool ?? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack))) ?? []);
   const profile = COMPANY_PROFILES.find(c => c.id === companyId);
   const edr = (stack.edr && PRODUCT_LABEL[stack.edr]) || profile?.architecture.edr;
   const assets = COMPANY_ASSETS[companyId];
@@ -337,7 +338,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         const events0 = instantiateStory(story, companyPool, edr, companyId).events ?? [];
         if (events0.length === 0) return null;
         if (stacked && !forced && !storyFitsStack(events0, companyId, stack)) continue;
-        const events = stacked ? events0.map(e => applyStack(e, companyId, stack)) : events0;
+        const events = events0.map(e => applyStack(e, companyId, stack));
         const incident = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
         return { id: story.id, incident, events };
       } catch { return null; }
@@ -364,7 +365,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
 
   // ── Pool: noise + standalone attacks ─────────────────────────────────────────
   const seen = new Set<string>();
-  const pool = [...companyPool, ...(ownPool ? (stacked ? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack)) : BENIGN_EVENTS) : [])]
+  const pool = [...companyPool, ...(ownPool ? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack)) : [])]
     .filter(e => { const k = String(e.id ?? ""); if (!k) return true; if (seen.has(k)) return false; seen.add(k); return true; });
   const ownIds = new Set(companyPool.map(e => String(e.id ?? "")));
 
@@ -612,8 +613,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // id index space, so ids stay a pure function of (seed, position).
   const merged = [...timed, ...support].sort((a, b) => a.at - b.at);
   const feed: TimelineEntry[] = merged.map(({ p, at: due }, i) => {
-    // Every log — story, pool, noise, ITSM, inject support — labelled for the chosen products.
-    const ev = stacked ? applyStack(p.ev, companyId, stack) : p.ev;
+    // Every log — story, pool, noise, ITSM, inject support — labelled for the session's products.
+    const ev = applyStack(p.ev, companyId, stack);
     const scrub = ev.description && ev.source !== "ueba";
     return {
       due_offset_ms: due,
