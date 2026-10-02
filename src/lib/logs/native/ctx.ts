@@ -49,6 +49,11 @@ const DOMAINS: Record<string, { domain: string; netbios: string; timeZone: strin
   quantumbank: { domain: "quantumbank.com", netbios: "QBANK", timeZone: "Europe/Zurich" },
 };
 
+/** The company's NetBIOS domain (QBANK for QuantumBank) — one realm per tenant everywhere. */
+export function companyNetbios(companyId: string): string {
+  return DOMAINS[companyId]?.netbios ?? companyId.toUpperCase().slice(0, 15);
+}
+
 /** IANA time zone of a company's on-prem servers (where its logs are stamped in local time). */
 export function companyTimeZone(companyId: string): string {
   return DOMAINS[companyId]?.timeZone ?? "UTC";

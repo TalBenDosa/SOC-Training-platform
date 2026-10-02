@@ -79,7 +79,8 @@ function head(f: FwFacts, ctx: NativeCtx, type: "TRAFFIC" | "THREAT", subtype: s
     r.natdst = isSnat(f) ? f.dst : "0.0.0.0";
   }
   r.rule = f.rule;
-  if (f.user && f.dir !== "inbound") r.srcuser = f.user.panUser ?? `${ctx.netbios.toLowerCase()}\\${f.user.sam}`;
+  // User-ID realm = the tenant's own NetBIOS domain, whatever domain the story was written with.
+  if (f.user && f.dir !== "inbound") r.srcuser = `${ctx.netbios.toLowerCase()}\\${f.user.sam}`;
   r.app = firstPacketDrop ? "not-applicable" : APPS[f.app]?.pan ?? f.app;
   r.vsys = "vsys1"; r.from = from; r.to = to;
   r.inbound_if = IFACE[from];

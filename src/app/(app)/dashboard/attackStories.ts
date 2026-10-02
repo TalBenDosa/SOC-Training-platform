@@ -40,6 +40,8 @@ import {
 // auditd where there are Linux servers, AiTM/AD attacks at the M365/AD shops.
 import { esxiRansomwareScenarioEvents }        from "@/lib/sim/scenario-packs/esxiRansomware.events";
 import { lsReadJson, lsSet, isStringArray } from "@/lib/storage/safeStorage";
+import { companyNetbios as companyNetbiosOf } from "@/lib/logs/native/ctx";
+import { edrFacts } from "@/lib/logs/native/sources/edr-normalize";
 import { rogueAdminAccountScenarioEvents }     from "@/lib/sim/scenario-packs/rogueAdminAccount.events";
 import { impossibleTravelBasicScenarioEvents } from "@/lib/sim/scenario-packs/impossibleTravelBasic.events";
 import { webShellRceScenarioEvents }           from "@/lib/sim/scenario-packs/webShellRce.events";
@@ -1000,7 +1002,9 @@ export function pickStoryForCompany(companyId: string, difficulty?: "easy" | "me
 
 // ── Victim variation ──────────────────────────────────────────────────────────
 
-const SERVICE_ACCOUNT = /^(svc-|ci-|admin@|noreply|system@)/i;
+// Non-human accounts never become a story's victim (a badge reader reading phish mail,
+// "cyberark.svc" browsing to a fake update page).
+const SERVICE_ACCOUNT = /^(svc[-._]|ci-|admin@|noreply|system@)|[-._]svc@|(service|device|badge|printer|scanner|kiosk|backup|sync|bot)[-._@]/i;
 
 // Department words authored next to a host ("the HR workstation WS-HR-1142"): after a
 // host swap they must still describe the host named — "developer workstation WS-MKT-3301"
@@ -1115,7 +1119,9 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
     block["s1.eventType"] = S1_EVENT_TYPE[et] ?? (isDetection ? "Threats" : "Indicators");
     if (e.hostname) block["s1.agent.computerName"] = e.hostname;
     if (isDetection) {
-      block["s1.threat.threatName"] = String(src["threat.name"] ?? "") || "Malware.Generic";
+      // The threat's file, never a placeholder name (the S1 module falls back to the file itself).
+      const tn = String(src["threat.name"] ?? "");
+      if (tn) block["s1.threat.threatName"] = tn;
       block["s1.threat.confidenceLevel"] = "malicious";
       block["s1.threat.classification"] = "Malware";
       block["s1.threat.mitigationStatus"] = edrAction(e) === "detect_only" ? "not_mitigated" : "mitigated";
@@ -1156,6 +1162,8 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
  */
 export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string): AttackStory {
   const targetNs = edrNsOfVendor(companyEdr);
+  // Before any vendor reshape drops the authored keys: a hash-only alert names its file.
+  s = { ...s, events: threadFilesByHash(s.events) };
   if (companyEdr) {
     s = {
       ...s,
@@ -1328,8 +1336,9 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // NT AUTHORITY\SYSTEM and BUILTIN\Administrators), plus any bare realm value in a
   // *DomainName field. Known system principals are never treated as a company.
   const SYSTEM_REALMS = new Set(["NT AUTHORITY", "AUTHORITY", "BUILTIN", "NT SERVICE", "SERVICE", "WORKGROUP", "LOCAL", "NT VIRTUAL MACHINE"]);
-  const IDENTITY_KEY = /(user\.?name|SubjectUserName|TargetUserName|AccountName|SamAccountName|DomainName|LogonDomain)/i;
-  const companyNetbios = (companyId ?? companyDomain?.split(".")[0] ?? "").toUpperCase();
+  const IDENTITY_KEY = /(user\.?name|SubjectUserName|TargetUserName|AccountName|SamAccountName|DomainName|LogonDomain|srcuser|dstuser|source\.user)/i;
+  // The tenant's real NetBIOS realm (QBANK, not QUANTUMBANK) — the one its native records use.
+  const companyNetbios = companyId ? companyNetbiosOf(companyId) : (companyDomain?.split(".")[0] ?? "").toUpperCase();
   if (companyNetbios) {
     const storyNetbios = new Set<string>();
     const harvest = (v: unknown, wholeIsDomain: boolean) => {
@@ -1349,7 +1358,9 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       harvest(e.process?.user, false);
       for (const [k, val] of Object.entries(e.raw ?? {})) if (IDENTITY_KEY.test(k)) harvest(val, /DomainName$/i.test(k));
     }
-    for (const nb of storyNetbios) if (nb.toUpperCase() !== companyNetbios) pairs.push([nb, companyNetbios]);
+    for (const nb of storyNetbios) if (nb.toUpperCase() !== companyNetbios) {
+      pairs.push([nb, nb === nb.toLowerCase() ? companyNetbios.toLowerCase() : companyNetbios]);
+    }
   }
 
   // EDR product names in prose / raw values → the company's own EDR (skip the ones
@@ -1393,12 +1404,70 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
     };
     // Reshape a foreign-EDR raw block into the company's own vendor convention.
     if (adapted.source === "edr" && targetNs && edrNsOfKeys(adapted.raw) && edrNsOfKeys(adapted.raw) !== targetNs) {
+      // The authored vendor's keys go — keep what they said about the file and the process
+      // in the structured fields first, or the target EDR renders "a threat on an unknown file".
+      const f = edrFacts(adapted);
+      if (!adapted.file && f.file.path) adapted.file = { path: f.file.path, name: f.file.name, sha256: f.file.sha256, md5: f.file.md5 };
+      const pname = f.proc.name ?? f.proc.path?.split(/[\\/]/).pop();
+      if (!adapted.process && pname) {
+        adapted.process = { name: pname, pid: f.proc.pid ?? 0, path: f.proc.path, cmdline: f.proc.cmdline, parent_name: f.parent.name };
+      }
       adapted.raw = reshapeEdrRaw(adapted, targetNs) as typeof adapted.raw;
     }
     return adapted;
   });
 
-  return { ...s, events: normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents) };
+  return { ...s, events: threadHostIps(normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents)) };
+}
+
+/**
+ * One address per host across a story: the EDR's local IP and the firewall's source IP of
+ * the same workstation must agree, or the analyst's first pivot (EDR ↔ firewall by IP)
+ * fails. The address the story's own outbound network rows show wins; host telemetry
+ * without one — or with a conflicting private one — takes it.
+ */
+const PRIVATE_V4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+const HOST_SOURCES = new Set(["edr", "sysmon", "av", "windows_security"]);
+function threadHostIps(events: TelemetryEvent[]): TelemetryEvent[] {
+  const ipOf = new Map<string, string>();
+  const note = (host: string | undefined, ip: string | undefined) => {
+    if (host && ip && PRIVATE_V4.test(ip) && !ipOf.has(host)) ipOf.set(host, ip);
+  };
+  // Outbound network rows first (their src is unambiguously the host), then host telemetry.
+  for (const e of events) if (["firewall", "proxy", "dns"].includes(e.source)) note(e.hostname, e.src_ip);
+  for (const e of events) if (HOST_SOURCES.has(e.source) && e.event_type !== "net_connection") note(e.hostname, e.src_ip);
+  if (!ipOf.size) return events;
+  return events.map(e => {
+    const ip = e.hostname ? ipOf.get(e.hostname) : undefined;
+    if (!ip || !HOST_SOURCES.has(e.source) || e.src_ip === ip) return e;
+    // A host's network event keeps an authored source (inbound: that is the remote peer).
+    if (e.event_type === "net_connection" && e.src_ip) return e;
+    if (e.src_ip && !PRIVATE_V4.test(e.src_ip)) return e;
+    return { ...e, src_ip: ip };
+  });
+}
+
+/**
+ * An EDR alert authored with only a hash (an MDE alert's SHA256) names the file the rest
+ * of the story already showed with that hash — every EDR records the file a threat is
+ * about, so a SentinelOne / CrowdStrike rendering must not come out as "unknown".
+ */
+function threadFilesByHash(events: TelemetryEvent[]): TelemetryEvent[] {
+  const HASH_KEYS = ["mde.SHA256", "SHA256", "file.hash.sha256", "crowdstrike.SHA256HashData", "s1.threat.sha256", "sophos.sha256"];
+  const byHash = new Map<string, NonNullable<TelemetryEvent["file"]>>();
+  for (const e of events) {
+    if (e.file?.sha256 && e.file.path) byHash.set(e.file.sha256.toLowerCase(), e.file);
+    const pp = e.process?.path;
+    const ph = (e.raw?.["process.hash.sha256"] ?? e.raw?.["SHA256"]) as string | undefined;
+    if (pp && ph && !byHash.has(ph.toLowerCase())) byHash.set(ph.toLowerCase(), { path: pp, name: pp.split(/[\\/]/).pop(), sha256: ph });
+  }
+  if (!byHash.size) return events;
+  return events.map(e => {
+    if (e.source !== "edr" || e.file?.path || e.process?.name) return e;
+    const h = HASH_KEYS.map(k => e.raw?.[k]).find((v): v is string => typeof v === "string" && /^[a-f0-9]{64}$/i.test(v));
+    const known = h ? byHash.get(h.toLowerCase()) : undefined;
+    return known ? { ...e, file: { ...known } } : e;
+  });
 }
 
 // ── Entity-model guards (P0-4, 2026-09-27 live playtest) ─────────────────────

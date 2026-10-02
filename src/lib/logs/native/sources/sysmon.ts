@@ -318,7 +318,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       if (!q) return null;
       const rc = (ev.dns?.rcode ?? r("dns.response_code") ?? "").toUpperCase();
       const resp = ev.dns?.response ?? r("dns.resolved_ip") ?? r("dns.answers.data");
-      const results = ed("QueryResults") ?? (rc === "NXDOMAIN" ? "-" : resp ? (/^\d{1,3}(\.\d{1,3}){3}$/.test(resp) ? `::ffff:${resp};` : `type:  5 ${resp};`) : "-");
+      // Sysmon writes an A record as "::ffff:1.2.3.4;" — the "type:" prefix is for non-A records.
+      const authoredResults = ed("QueryResults")?.replace(/type:\s*1\s+(\d{1,3}(?:\.\d{1,3}){3})/g, "::ffff:$1");
+      const results = authoredResults ?? (rc === "NXDOMAIN" ? "-" : resp ? (/^\d{1,3}(\.\d{1,3}){3}$/.test(resp) ? `::ffff:${resp};` : `type:  5 ${resp};`) : "-");
       data = {
         ...head, ProcessGuid: procGuid, ProcessId: pid, QueryName: q,
         QueryStatus: ed("QueryStatus") ?? (rc === "NXDOMAIN" ? "9003" : rc === "SERVFAIL" ? "9002" : "0"),

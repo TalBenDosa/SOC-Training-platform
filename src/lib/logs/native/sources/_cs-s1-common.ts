@@ -249,3 +249,15 @@ export function registryFacts(f: EdrFacts, ev: TelemetryEvent): RegFacts | null 
 /** Is the image in a user-writable location (Downloads, Desktop, AppData, Temp, Public, ProgramData, /tmp …)? */
 export const USER_WRITABLE_RE = "(\\\\Users\\\\[^\\\\]+\\\\(Downloads|Desktop|Documents|AppData|Music|Pictures|Videos)\\\\|\\\\Users\\\\Public\\\\|\\\\ProgramData\\\\|\\\\Windows\\\\Temp\\\\|\\\\Temp\\\\|\\\\PerfLogs\\\\|^/tmp/|^/var/tmp/|^/dev/shm/|^/Users/[^/]+/Downloads/|^/Volumes/)";
 export const DOWNLOADS_PUBLIC_RE = "(\\\\Users\\\\[^\\\\]+\\\\Downloads\\\\|\\\\Users\\\\Public\\\\|^/Users/[^/]+/Downloads/)";
+
+/**
+ * An authored detection name another vendor would never emit: Microsoft Defender's
+ * "Trojan:Win32/Wacatac.B!ml" naming, or a scenario placeholder ("known_malware_family",
+ * "Suspicious activity", "Malware.Generic"). Falcon / SentinelOne records get their own
+ * product wording instead.
+ */
+export function foreignDetectionName(name?: string): boolean {
+  if (!name) return true;
+  return /^[A-Za-z]+:[A-Za-z0-9]+\/[\w.!-]+$/.test(name)
+    || /^(known_malware(_family)?|attacker_methodology|suspicious[_ ]activity|malware\.generic|generic|unknown)$/i.test(name.trim());
+}

@@ -25,6 +25,7 @@
  * events (the card documents event.type names for them but NO key names), process events with no
  * image at all, and network events with no IPv4 peer.
  */
+import { techniqueName } from "./_edr_mde_sophos_common";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { edrFacts, type EdrFacts, type EdrProc } from "./edr-normalize";
@@ -32,6 +33,7 @@ import {
   osOf, rhex, hostIpOf, egressIp, hostRole, companyDisplay, digits, iso, isoMicro, userOf, procName, imagePath, drivePath,
   ntDevicePath, pidOf, procSeed, netFacts, fixPath, baseName, isIPv4, SHELLS, OFFICE, SCRIPT_HOSTS, LOLBINS, PRIVATE_CIDRS,
   USER_WRITABLE_RE, DOWNLOADS_PUBLIC_RE, type UserFacts,
+  foreignDetectionName,
 } from "./_cs-s1-common";
 
 // ── schema ───────────────────────────────────────────────────────────────────
@@ -361,7 +363,8 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const g = groupOf(ctx, host);
   const fileFirst = !!f.file.path && (d.action === "quarantined" || !procName(f.proc));
   const trig: EdrProc = fileFirst ? { name: f.file.name ?? baseName(fixPath(f.file.path)), path: fixPath(f.file.path), sha256: f.file.sha256 ?? f.proc.sha256, md5: f.file.md5 } : f.proc;
-  const trigName = procName(trig) ?? d.name ?? "unknown";
+  // threatName is the file the threat is about — a placeholder detection name never stands in.
+  const trigName = procName(trig) ?? (foreignDetectionName(d.name) ? baseName(fixPath(f.file.path ?? f.proc.path)) : d.name) ?? "unknown";
   const trigPath = imagePath(trig);
   const st = procName(trig) ? storyline(b, trig, fileFirst ? f.proc : f.parent) : storyline(b, { name: `alert:${f.eventId}` }, {});
   const threatId = id19(ctx, `${ev.id}:s1:threat`);
@@ -410,7 +413,11 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     containerInfo: { id: null, image: null, labels: null, name: null },
     indicators: [{
       category: S1_CATEGORY[lc(tactic)] ?? "General",
-      description: d.name && d.name !== trigName ? d.name : (d.technique ?? d.description ?? "Suspicious activity"),
+      // SentinelOne's own indicator wording (engine + behaviour) — never a Defender threat
+      // name or a scenario placeholder.
+      description: !foreignDetectionName(d.name) && d.name !== trigName ? d.name
+        : behavioral ? `${techniqueName(tech, d.technique) ?? "Suspicious behavior"} detected by the Behavioral AI engine`
+        : "Detected by the Static AI engine — file classified as malicious",
       ids: [ctx.int(`s1:indicator:${d.name ?? tech ?? "generic"}`, 10, 999)],
       tactics: tech ? [{ name: tactic ?? "Execution", source: "MITRE", techniques: [{ link: `https://attack.mitre.org/techniques/${tech.replace(".", "/")}/`, name: tech }] }] : [],
     }],

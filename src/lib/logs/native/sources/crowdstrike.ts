@@ -26,7 +26,7 @@
  * events with no image at all, network events with no IPv4 peer, and client-side logon failures
  * (an ssh/RDP client failing against a REMOTE server is not a logon on the sensor host).
  */
-import { techniqueById } from "@/lib/mitre/attack";
+import { techniqueName } from "./_edr_mde_sophos_common";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { edrFacts, type EdrFacts, type EdrProc } from "./edr-normalize";
@@ -34,6 +34,7 @@ import {
   osOf, rhex, ruuid, hostIpOf, egressIp, hostRole, digits, secMs, iso, isoNano, userOf, procName, imagePath, ntDevicePath,
   pidOf, procSeed, netFacts, registryFacts, fixPath, baseName, isIPv4, alt, OFFICE, SCRIPT_HOSTS, LOLBINS,
   PRIVATE_CIDRS, USER_WRITABLE_RE, DOWNLOADS_PUBLIC_RE, type UserFacts,
+  foreignDetectionName,
 } from "./_cs-s1-common";
 
 // ── schema ───────────────────────────────────────────────────────────────────
@@ -427,8 +428,13 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const processId = upid(ctx, seed);
   const parentKnown = !!(f.parent.name || f.parent.path);
   const parentId = parentKnown ? upid(ctx, procSeed(ctx, host, f.parent)) : undefined;
-  const display = d.name ?? d.technique ?? (d.tactic ? `${d.tactic} activity` : "Suspicious activity");
-  const name = d.name && /^[A-Za-z0-9_.]+$/.test(d.name) ? d.name : display.replace(/[^A-Za-z0-9]+(.)?/g, (_, c: string | undefined) => (c ? c.toUpperCase() : "")).replace(/^./, c => c.toUpperCase());
+  // Falcon's own detection naming: on-sensor ML for a known-malicious file, the ATT&CK
+  // technique for a behavioural IOA — never a Defender threat name or a scenario placeholder.
+  const ownName = foreignDetectionName(d.name) ? undefined : d.name;
+  const mlFile = !ownName && (d.action === "quarantined" || /malware|trojan|ransom/i.test(d.name ?? ""));
+  const techName = techniqueName(d.techniqueId?.split(",")[0]?.trim(), d.technique);
+  const display = ownName ?? (mlFile ? "Sensor-based ML" : techName ?? (d.tactic ? `${d.tactic} via Suspicious Process` : "Suspicious Process Behavior"));
+  const name = ownName && /^[A-Za-z0-9_.]+$/.test(ownName) ? ownName : mlFile ? "MLSensorHighConfidence" : display.replace(/[^A-Za-z0-9]+(.)?/g, (_, c: string | undefined) => (c ? c.toUpperCase() : "")).replace(/^./, c => c.toUpperCase());
   const patternId = ctx.int(`crowdstrike:pattern:${name}`, 10_000, 59_999);
   const n = digits(ctx, `${ev.id}:cs:ind`, 7);
   const indicator = `ind:${aid}:${processId}-${patternId}-${n}`;
@@ -451,7 +457,7 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     composite_id: composite, confidence: d.confidence !== undefined ? (d.confidence <= 1 ? Math.round(d.confidence * 100) : Math.round(d.confidence)) : sevNum >= 90 ? 90 : sevNum >= 70 ? 80 : 60,
     context_timestamp: iso(f.timeMs), control_graph_id: `ctg:${aid}:${treeId}`,
     created_timestamp: isoNano(ctx, created, `${ev.id}:cs:cns`), data_domains: ["Endpoint"],
-    description: d.description ?? falconDescription(d.action, techId, d.technique ?? display), display_name: display,
+    description: d.description ?? falconDescription(mlFile ? "quarantined" : d.action, techId, techName ?? display), display_name: display,
     device: {
       agent_load_flags: "0", agent_version: "7.29.19807.0", cid, config_id_build: "19807", device_id: aid,
       external_ip: egressIp(ctx), first_seen: iso(Date.UTC(2025, 10, 3) + ctx.int(`${ctx.companyId}:${host}:fs`, 0, 86_400 * 120) * 1000).replace(/\.\d{3}Z$/, "Z"),
@@ -481,7 +487,8 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
     product: "epp", scenario, severity: sevNum, severity_name: sevName,
     sha1: win && trig.sha256 ? "0".repeat(40) : undefined, sha256: trig.sha256,
     show_in_ui: true, source_products: ["Falcon Insight"], source_vendors: ["CrowdStrike"], status: "new",
-    tactic: d.tactic, tactic_id: d.tacticId ?? TACTIC_ID[tacticKey], technique: d.technique, technique_id: techId,
+    tactic: mlFile ? "Machine Learning" : d.tactic, tactic_id: mlFile ? "CSTA0004" : d.tacticId ?? TACTIC_ID[tacticKey],
+    technique: mlFile ? "Sensor-based ML" : techName ?? d.technique, technique_id: mlFile ? "CST0007" : techId,
     timestamp: iso(f.timeMs + ctx.int(`${ev.id}:cs:ts`, 200, 900)), tree_id: treeId, tree_root: parentId ?? processId,
     triggering_process_graph_id: `pid:${aid}:${processId}`, type: "ldt",
     updated_timestamp: isoNano(ctx, created, `${ev.id}:cs:uns`), user_id: u.sid, user_name: u.user,
@@ -632,6 +639,6 @@ export const source: NativeSource = {
  */
 function falconDescription(action: string | undefined, techId: string | undefined, technique: string): string {
   if (action === "quarantined") return "This file meets the machine learning-based on-sensor AV protection's high confidence threshold for malicious files.";
-  const name = (techId && techniqueById(techId)?.name) || technique;
+  const name = technique;
   return `A process exhibited behavior consistent with ${name}${techId ? ` (${techId})` : ""}. Review the process tree and command line.`;
 }
