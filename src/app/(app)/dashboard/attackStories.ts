@@ -1021,6 +1021,62 @@ function fixRoleWords(text: string): string {
     });
 }
 
+/**
+ * Every OTHER demo company's identity → this company's (domain, SharePoint tenant, brand,
+ * realm). Pass `others` to limit the swap to some companies.
+ */
+function otherTenantPairs(companyId: string, others: string[] = Object.keys(COMPANY_ASSETS)): [string, string][] {
+  const pairs: [string, string][] = [];
+  const brandOf = (id: string) => (COMPANY_PROFILES.find(c => c.id === id)?.name ?? id).split(/\s+/)[0];
+  const stemOf = (id: string) => (COMPANY_ASSETS[id]?.domain ?? id).split(".")[0];
+  const me = { brand: brandOf(companyId), stem: stemOf(companyId), domain: COMPANY_ASSETS[companyId].domain, netbios: COMPANY_ASSETS[companyId].netbios };
+  for (const other of others) {
+    if (other === companyId || !COMPANY_ASSETS[other]) continue;
+    const o = { brand: brandOf(other), stem: stemOf(other), domain: COMPANY_ASSETS[other].domain, netbios: COMPANY_ASSETS[other].netbios };
+    pairs.push(
+      [o.domain, me.domain],
+      [`${o.stem}.sharepoint.com`, `${me.stem}.sharepoint.com`],
+      [`${o.stem}-my.sharepoint.com`, `${me.stem}-my.sharepoint.com`],
+      [o.brand, me.brand],
+      [o.brand.toLowerCase(), me.brand.toLowerCase()],
+      [o.brand.toUpperCase(), me.netbios],
+      [o.brand.charAt(0) + o.brand.slice(1).toLowerCase(), me.brand],
+    );
+    if (o.netbios !== o.brand.toUpperCase()) pairs.push([o.netbios, me.netbios]);
+  }
+  return pairs;
+}
+
+/** A company's host-name code (SRV-NXC-DC01 → NXC, SRV-QB-ADMIN01 → QB), from its own hosts. */
+function hostCodeOf(events: TelemetryEvent[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const e of events) {
+    const m = e.hostname ? /^(?:SRV|SVR|WKS|WS|LT|LAP)-([A-Z]{2,5})-/.exec(e.hostname) : null;
+    if (m) counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
+  }
+  return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+}
+
+/**
+ * Another company's ordinary logs, re-homed to `companyId`: its people, domain, brand,
+ * realm and host-name code become this company's (a named-organization exercise borrows
+ * the AWS / PAM noise its template lacks — never an attack, never another tenant's name).
+ */
+export function rehomeEvents(events: TelemetryEvent[], fromCompany: string, companyId: string, companyEvents: TelemetryEvent[]): TelemetryEvent[] {
+  if (!COMPANY_ASSETS[companyId]) return events;
+  const pairs = otherTenantPairs(companyId, [fromCompany]);
+  const from = hostCodeOf(events), to = hostCodeOf(companyEvents);
+  if (from && to && from !== to) pairs.push([`-${from}-`, `-${to}-`]);
+  const clean = pairs.filter(([f, t]) => f && t && f !== t).sort((a, b) => b[0].length - a[0].length);
+  return events.map(e => deepReplace(e, clean) as TelemetryEvent);
+}
+
+/** The stories a dashboard difficulty draws from, by complexity tier alone (no company fit). */
+export function storiesForTier(difficulty: "easy" | "medium" | "hard", broaden = false): AttackStory[] {
+  const tiers: StoryComplexity[] = difficulty === "hard" && broaden ? ["advanced", "core"] : COMPLEXITY_FOR_DIFFICULTY[difficulty];
+  return ATTACK_STORIES.filter(s => tiers.includes(s.complexity));
+}
+
 /** Deep string-replace across every value of a raw object (recurses arrays/objects). */
 function deepReplace(value: unknown, pairs: [string, string][]): unknown {
   if (typeof value === "string") {
@@ -1272,25 +1328,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   // (mostly NexaCorp), and its brand in a lure, its look-alike domain (nexacorp-portal.ru),
   // its SharePoint tenant, its realm in a VPN group all leaked into another tenant's feed.
   // A look-alike domain must impersonate the company actually under attack.
-  if (companyId && COMPANY_ASSETS[companyId]) {
-    const brandOf = (id: string) => (COMPANY_PROFILES.find(c => c.id === id)?.name ?? id).split(/\s+/)[0];
-    const stemOf = (id: string) => (COMPANY_ASSETS[id]?.domain ?? id).split(".")[0];
-    const me = { brand: brandOf(companyId), stem: stemOf(companyId), domain: COMPANY_ASSETS[companyId].domain, netbios: COMPANY_ASSETS[companyId].netbios };
-    for (const other of Object.keys(COMPANY_ASSETS)) {
-      if (other === companyId) continue;
-      const o = { brand: brandOf(other), stem: stemOf(other), domain: COMPANY_ASSETS[other].domain, netbios: COMPANY_ASSETS[other].netbios };
-      pairs.push(
-        [o.domain, me.domain],
-        [`${o.stem}.sharepoint.com`, `${me.stem}.sharepoint.com`],
-        [`${o.stem}-my.sharepoint.com`, `${me.stem}-my.sharepoint.com`],
-        [o.brand, me.brand],
-        [o.brand.toLowerCase(), me.brand.toLowerCase()],
-        [o.brand.toUpperCase(), me.netbios],
-        [o.brand.charAt(0) + o.brand.slice(1).toLowerCase(), me.brand],
-      );
-      if (o.netbios !== o.brand.toUpperCase()) pairs.push([o.netbios, me.netbios]);
-    }
-  }
+  if (companyId && COMPANY_ASSETS[companyId]) pairs.push(...otherTenantPairs(companyId));
 
   // Story hostnames → the company's asset pool, ROLE-AWARE (P0-4, 2026-09-27 live
   // playtest). The old pick hashed every story host into the whole registry, so a
@@ -1496,6 +1534,10 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       src_ip:     e.src_ip && ipMap.has(e.src_ip) ? ipMap.get(e.src_ip)! : e.src_ip,
       dst_ip:     e.dst_ip && ipMap.has(e.dst_ip) ? ipMap.get(e.dst_ip)! : e.dst_ip,
       description: e.description ? fixRoleWords(subStr(e.description)) : e.description,
+      // The decoy's explanation and IT's answer name the same people and tenant (the report
+      // shows them; an approved-ticket record in the feed quotes the explanation).
+      fp_explanation: e.fp_explanation ? subStr(e.fp_explanation) : e.fp_explanation,
+      it_verify_message: e.it_verify_message ? subStr(e.it_verify_message) : e.it_verify_message,
       process: rep(e.process),
       network: rep(e.network),
       file: rep(e.file),

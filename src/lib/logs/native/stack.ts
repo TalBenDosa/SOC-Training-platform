@@ -40,7 +40,10 @@ const has = (ev: TelemetryEvent, ...needles: string[]) => {
 export function categoryOf(ev: TelemetryEvent): StackCategory | null {
   switch (ev.source as string) {
     case "edr": case "av": return "edr";
-    case "firewall": case "ids": return "firewall";
+    case "firewall": return "firewall";
+    // A firewall's threat log is the firewall's; a Zeek / Corelight sensor's protocol log is its
+    // own product (no native card yet) — never relabelled as the shop's firewall.
+    case "ids": return has(ev, "zeek", "corelight") ? null : "firewall";
     case "vpn": return "vpn";
     case "proxy": return "proxy";
     case "dns": return "dns";

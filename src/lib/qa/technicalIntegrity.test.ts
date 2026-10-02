@@ -18,7 +18,8 @@ import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { enrichEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import { toRawLog } from "@/app/(app)/dashboard/rawLogFormat";
-import { buildTeamTimeline } from "@/lib/team/buildTimeline";
+import { buildTeamTimeline, teamStoryPool, teamStoryFilter } from "@/lib/team/buildTimeline";
+import { PLATFORM_CHOICES, type TeamEnv } from "@/lib/team/environment";
 import { teamLoad } from "@/lib/team/load";
 import { computeReport } from "@/lib/team/report/computeReport";
 import { applyStack, fitsStack, storyFitsStack, storyHonoursLocks, nativeView, authoredOf, NATIVE_SOURCES } from "@/lib/logs/native";
@@ -49,7 +50,7 @@ const TP = (e: TelemetryEvent) => e.expected_verdict ? e.expected_verdict === "t
 // Inside a story every event is part of the attack unless it is explicitly a baseline / benign / decoy.
 const STORY_ATTACK = (e: TelemetryEvent) => !e.is_baseline && !["benign", "fp", "false_positive"].includes(String(e.expected_verdict ?? ""));
 const edrFor = (company: string, stack: Stack) => (stack.edr && PRODUCT_LABEL[stack.edr]) || COMPANY_PROFILES.find(c => c.id === company)?.architecture.edr;
-const label = (company: string, stack: Stack, tenant?: Tenant) => `${tenant ? `org:${tenant.domain}` : company}${Object.keys(stack).length ? " " + JSON.stringify(stack) : ""}`;
+const label = (company: string, stack: Stack, tenant?: Tenant, story?: string) => `${tenant ? `org:${tenant.domain}` : company}${Object.keys(stack).length ? " " + JSON.stringify(stack) : ""}${story ? ` pinned:${story}` : ""}`;
 
 interface StoryRun { company: string; stack: Stack; story: AttackStory; events: TelemetryEvent[] }
 let storyRuns: StoryRun[] | null = null;
@@ -69,7 +70,7 @@ function stories(): StoryRun[] {
   }
   return storyRuns;
 }
-interface TeamRun { company: string; stack: Stack; feed: TelemetryEvent[]; answers: Record<string, unknown>[]; tenant?: Tenant }
+interface TeamRun { company: string; stack: Stack; feed: TelemetryEvent[]; answers: Record<string, unknown>[]; tenant?: Tenant; story?: string }
 let teamRuns: TeamRun[] | null = null;
 function teams(): TeamRun[] {
   if (teamRuns) return teamRuns;
@@ -86,6 +87,32 @@ function teams(): TeamRun[] {
     const tl = buildTeamTimeline(TENANT_TEMPLATE, diff, `gate-${name}-${diff}`, null, teamLoad(diff, roster), stack, tenant);
     const f = tl.filter(t => t.channel === "feed");
     teamRuns.push({ company: TENANT_TEMPLATE, stack, tenant, feed: f.map(t => t.body as unknown as TelemetryEvent), answers: f.map(t => (t.answer ?? {}) as Record<string, unknown>) });
+  }
+  // The named organization's whole arsenal: every story its environment (all platforms, each
+  // industry) can draw, on its template products and on chosen ones — each pinned once, so
+  // stories written for MedCore / RocketStack / GlobalLogis / QuantumBank and the borrowed
+  // AWS / PAM noise all pass every check as the organization's own.
+  const ALL = PLATFORM_CHOICES.map(p => p.id);
+  const ORG_ENVS: [TeamEnv, Stack][] = [
+    [{ platforms: ALL, industry: "general" }, {}],
+    [{ platforms: ALL, industry: "healthcare" }, {}],
+    [{ platforms: ALL, industry: "logistics" }, {}],
+    [{ platforms: ALL, industry: "finance" }, { idp: "okta" }],
+    [{ platforms: ALL, industry: "general" }, { idp: "okta", collab: "google_workspace" }],
+    [{ platforms: ALL, industry: "general" }, { vpn: "fortigate_sslvpn", firewall: "fortigate" }],
+  ];
+  const tierDiff = { foundation: "easy", core: "medium", advanced: "hard" } as const;
+  const tenant = parseTenant("contoso-health.io") as Tenant;
+  for (const [env, stack] of ORG_ENVS) {
+    const fits = teamStoryFilter(TENANT_TEMPLATE, stack, env);
+    const covered = new Set<string>();
+    for (const diff of ["easy", "medium", "hard"] as const) for (const s of teamStoryPool(TENANT_TEMPLATE, diff, env, stack)) {
+      if (covered.has(s.id) || tierDiff[s.complexity] !== diff || !fits(s)) continue;
+      covered.add(s.id);
+      const tl = buildTeamTimeline(TENANT_TEMPLATE, diff, `arsenal-${s.id}`, s.id, teamLoad(diff, roster.slice(0, 3)), stack, tenant, env);
+      const f = tl.filter(t => t.channel === "feed");
+      teamRuns.push({ company: TENANT_TEMPLATE, stack, tenant, story: s.id, feed: f.map(t => t.body as unknown as TelemetryEvent), answers: f.map(t => (t.answer ?? {}) as Record<string, unknown>) });
+    }
   }
   return teamRuns;
 }
@@ -118,13 +145,15 @@ const SHA256 = /\b[a-f0-9]{64}\b/gi;
 function walk(v: unknown, path: string, out: string[]) {
   if (typeof v === "number" && !Number.isFinite(v)) out.push(`${path}=${v}`);
   else if (typeof v === "string") { if (/analystVerdict$/.test(path) && v === "undefined") return;   // SentinelOne's literal default
+    if (/(src|dst)intfrole$/.test(path) && v === "undefined") return;   // FortiOS: a tunnel interface (ssl.root) has no role
     if (BAD_VALUE.test(v.trim()) || v.includes("[object Object]") || /\bundefined\b/.test(v) && v.length < 40) out.push(`${path}="${v.slice(0, 40)}"`); }
   else if (v === undefined) out.push(`${path}=undefined`);
   else if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`, out));
   else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, path ? `${path}.${k}` : k, out);
 }
 
-describe("technical integrity gate", () => {
+// The gate builds every company × stack and the named organization's whole arsenal once (cached).
+describe("technical integrity gate", { timeout: 600_000 }, () => {
   it("1. one IP per computer, never one IP for two computers", () => {
     const p = new Set<string>();
     for (const r of stories()) ipProblems(r.events, `${label(r.company, r.stack)} story:${r.story.id}`, p);
@@ -135,7 +164,7 @@ describe("technical integrity gate", () => {
       const hosts = new Set(r.events.map(e => e.hostname?.toUpperCase()).filter(Boolean));
       ipProblems([...r.events, ...pool.filter(e => hosts.has(e.hostname?.toUpperCase()))], `dashboard ${r.company} story:${r.story.id} + noise`, p);
     }
-    for (const t of teams()) ipProblems(t.feed, `team ${label(t.company, t.stack, t.tenant)}`, p);
+    for (const t of teams()) ipProblems(t.feed, `team ${label(t.company, t.stack, t.tenant, t.story)}`, p);
     report("ip", p);
   });
 
@@ -212,11 +241,11 @@ describe("technical integrity gate", () => {
       t.feed.forEach((e, i) => {
         const v = nativeView(e, t.company, t.stack, tenantIdentity(t.tenant));
         const text = JSON.stringify([e.hostname, e.user_email, e.description, v ? v.log.record : e.raw, v?.log.rawLine, t.answers[i]]);
-        for (const [co, re] of Object.entries(TENANT)) { const m = text.match(re); if (m) p.add(`team ${label(t.company, t.stack, t.tenant)} ${authoredOf(e).id}: shows ${co}'s identity "${m[0]}"`); }
+        for (const [co, re] of Object.entries(TENANT)) { const m = text.match(re); if (m) p.add(`team ${label(t.company, t.stack, t.tenant, t.story)} ${authoredOf(e).id}: shows ${co}'s identity "${m[0]}"`); }
         for (const mail of text.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi) ?? []) {
           const d = mail.split("@")[1].toLowerCase();
           // A mailbox at a demo company's domain inside a named organization's exercise is a leak.
-          if (Object.values(TENANT).some(r => r.test(d))) p.add(`team ${label(t.company, t.stack, t.tenant)}: ${mail}`);
+          if (Object.values(TENANT).some(r => r.test(d))) p.add(`team ${label(t.company, t.stack, t.tenant, t.story)}: ${mail}`);
         }
       });
     }
@@ -295,7 +324,7 @@ describe("technical integrity gate", () => {
       for (const x of validateNative(v.log, NATIVE_SOURCES[v.log.sourceId]!.schema).slice(0, 2)) p.add(`${where} ${authoredOf(e).id}: ${v.log.sourceId} ${x.problem} ${x.path}`);
     };
     for (const r of stories()) for (const e of r.events) check(e, r.company, r.stack, `${label(r.company, r.stack)} story:${r.story.id}`);
-    for (const t of teams()) for (const e of t.feed) check(e, t.company, t.stack, `team ${label(t.company, t.stack, t.tenant)}`);
+    for (const t of teams()) for (const e of t.feed) check(e, t.company, t.stack, `team ${label(t.company, t.stack, t.tenant, t.story)}`);
     report("product", p);
   });
 
@@ -308,7 +337,8 @@ describe("technical integrity gate", () => {
         walk(v.log.record, "", bad);
         const round = JSON.parse(JSON.stringify(v.log.record));
         if (JSON.stringify(round) !== JSON.stringify(v.log.record)) bad.push("record does not round-trip through JSON");
-        if (v.log.rawLine !== undefined && (!v.log.rawLine.trim() || /\bundefined\b|NaN|\[object Object\]/.test(v.log.rawLine))) bad.push(`rawLine: ${v.log.rawLine.slice(0, 60)}`);
+        const line = v.log.rawLine?.replace(/\b(src|dst)intfrole="undefined"/g, "");   // FortiOS tunnel interface role
+        if (line !== undefined && (!line.trim() || /\bundefined\b|NaN|\[object Object\]/.test(line))) bad.push(`rawLine: ${line.slice(0, 60)}`);
       } else {
         walk(e.raw ?? {}, "raw", bad);
         const raw = toRawLog(enrichEvent(e, 0));
@@ -317,7 +347,7 @@ describe("technical integrity gate", () => {
       for (const b of bad.slice(0, 3)) p.add(`${where} ${authoredOf(e).id} ${v ? v.log.sourceId : "legacy"}: ${b}`);
     };
     for (const r of stories()) for (const e of r.events) check(e, r.company, r.stack, `${label(r.company, r.stack)} story:${r.story.id}`);
-    for (const t of teams()) for (const e of t.feed.slice(0, 400)) check(e, t.company, t.stack, `team ${label(t.company, t.stack, t.tenant)}`);
+    for (const t of teams()) for (const e of t.feed.slice(0, 400)) check(e, t.company, t.stack, `team ${label(t.company, t.stack, t.tenant, t.story)}`);
     report("json", p);
   });
 

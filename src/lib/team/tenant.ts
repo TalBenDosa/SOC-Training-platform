@@ -224,7 +224,7 @@ export function applyTenant(entries: TimelineEntry[], templateId: string, tenant
     [tplNetbios, tenant.netbios],
   );
   if (tplCode) {
-    pairs.push([`-${tplCode}-`, `-${tenant.code}-`]);
+    pairs.push([`-${tplCode}-`, `-${tenant.code}-`], [`-${tplCode.toLowerCase()}-`, `-${tenant.code.toLowerCase()}-`]);   // srv-nxc-dc01 (MDE DeviceName)
     firstNames.push([`${tplCode}`, tenant.code]);   // a bare code (ticket NXC-2041) — whole word only
   }
   const clean = pairs.filter(([f, t]) => f && f !== t).sort((a, b) => b[0].length - a[0].length);

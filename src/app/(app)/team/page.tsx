@@ -14,6 +14,8 @@
 import { parseTenant, TENANT_TEMPLATE } from "@/lib/team/tenant";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StackPicker, stackDelta } from "@/components/training/StackPicker";
+import { EnvironmentPicker } from "@/components/training/EnvironmentPicker";
+import { DEFAULT_ENV, type TeamEnv } from "@/lib/team/environment";
 import type { Stack } from "@/lib/logs/native/stack";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -65,9 +67,9 @@ export default function TeamIndexPage() {
 
   // builder state
   // The exercise runs as the instructor's own organization: its English name is the domain
-  // (acme → acme.com); employees, roles and every log are generated under it. The environment
-  // underneath (pool, assets, architecture) is the fixed template — the Live-SOC companies stay
-  // on the dashboard.
+  // (acme → acme.com); employees, roles and every log are generated under it. Its environment
+  // (platforms it runs, industry) and products decide the attacks drawn — the Live-SOC companies
+  // stay on the dashboard.
   const company = TENANT_TEMPLATE;
   const [orgNameInput, setOrgNameInput] = useState("");
   const tenantCheck = orgNameInput.trim() ? parseTenant(orgNameInput) : null;
@@ -82,6 +84,8 @@ export default function TeamIndexPage() {
   // Security products the session runs on (spec §3); empty = the company's own.
   const [stack, setStack] = useState<Stack>({});
   const stackParam = JSON.stringify(stackDelta(company, stack));
+  const [env, setEnv] = useState<TeamEnv>({ ...DEFAULT_ENV, platforms: [...DEFAULT_ENV.platforms] });
+  const envParam = JSON.stringify(env);
   const [roster, setRoster] = useState<Candidate[] | null>(null);   // null = not loaded yet
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [org, setOrg] = useState<OrgInfo | null>(null);
@@ -113,12 +117,12 @@ export default function TeamIndexPage() {
   useEffect(() => { load(); }, []);
   useEffect(() => { if (canCreate) loadRoster(); }, [canCreate]);
 
-  // Storylines that fit the chosen company + difficulty (staff-only list).
+  // Storylines that fit the organization's environment, products and difficulty (staff-only list).
   useEffect(() => {
     if (!canCreate) return;
     let cancelled = false;
     setStorylines(null);
-    fetch(`/api/team/storylines?company=${encodeURIComponent(company)}&difficulty=${difficulty}&stack=${encodeURIComponent(stackParam)}`)
+    fetch(`/api/team/storylines?company=${encodeURIComponent(company)}&difficulty=${difficulty}&stack=${encodeURIComponent(stackParam)}&env=${encodeURIComponent(envParam)}`)
       .then(r => (r.ok ? r.json() : { storylines: [] }))
       .then(d => {
         if (cancelled) return;
@@ -128,12 +132,12 @@ export default function TeamIndexPage() {
         if (cur && !list.some(s => s.id === cur.id)) {
           pickedStory.current = null;
           setStoryline("");
-          setStoryNote(`“${cur.title}” doesn't fit this company, difficulty and products — the storyline is back to Random.`);
+          setStoryNote(`“${cur.title}” doesn't fit this environment, difficulty and products — the storyline is back to Random.`);
         }
       })
       .catch(() => { if (!cancelled) setStorylines([]); });
     return () => { cancelled = true; };
-  }, [canCreate, company, difficulty, stackParam]);
+  }, [canCreate, company, difficulty, stackParam, envParam]);
 
   // A full e-mail in the search box → exact server-side match within the org
   // (the list itself never carries addresses). Debounced; POST keeps it out of URLs.
@@ -190,7 +194,7 @@ export default function TeamIndexPage() {
     setCreating(true); setError(null);
     const res = await fetch("/api/team/sessions", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, stack: stackDelta(company, stack), ...(storyline ? { scenario_id: storyline } : {}) }),
+      body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, stack), ...(storyline ? { scenario_id: storyline } : {}) }),
     }).catch(() => null);
     setCreating(false);
     if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
@@ -252,7 +256,8 @@ export default function TeamIndexPage() {
                 </select>
               </label>
             </div>
-            <div className="mt-3">
+            <div className="mt-3 space-y-2">
+              <EnvironmentPicker value={env} onChange={setEnv} storyCount={storylines?.length ?? null} idPrefix="team-env" />
               <StackPicker companyId={company} value={stack} onChange={setStack} idPrefix="team-stack" />
             </div>
             {storyNote && <p role="status" className="mt-1.5 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-1.5 text-[11px] text-neon-amber">{storyNote}</p>}

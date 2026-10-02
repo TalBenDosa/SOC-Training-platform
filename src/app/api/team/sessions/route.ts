@@ -6,6 +6,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
 import { sanitizeStack } from "@/lib/logs/native";
+import { sanitizeEnv } from "@/lib/team/environment";
 import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 import { liveAffiliationFilter } from "@/lib/team/membership";
 
@@ -50,15 +51,17 @@ export async function POST(req: Request) {
   // Optional staff-chosen storyline (an attack-story id). Must be one the builder
   // would offer for this company + difficulty; empty = random pick at /start.
   const scenario_id = body.scenario_id ? String(body.scenario_id).slice(0, 120) : null;
-  const pinned = scenario_id ? resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id) : null;
-  if (scenario_id && !pinned) {
-    return NextResponse.json({ error: "That storyline isn't available for this company and difficulty." }, { status: 400 });
-  }
   // Security products the session runs on (spec §3) — only categories that differ from the company.
   const stack = sanitizeStack(body.stack);
+  // A named organization's environment: the platforms it runs and its industry (which stories fit).
+  const env = tenant ? sanitizeEnv(body.env) : null;
+  const pinned = scenario_id ? resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", scenario_id, env, stack) : null;
+  if (scenario_id && !pinned) {
+    return NextResponse.json({ error: env ? "That storyline isn't available for this environment and difficulty." : "That storyline isn't available for this company and difficulty." }, { status: 400 });
+  }
   // QA M7: judged on the INSTANTIATED story (company pool + EDR), the same check the
   // timeline's random pick uses — the storyline list offers exactly these.
-  if (pinned && !teamStoryFilter(company_id, stack)(pinned)) {
+  if (pinned && !teamStoryFilter(company_id, stack, env)(pinned)) {
     return NextResponse.json({ error: Object.keys(stack).length
       ? "The chosen products can't show every step of that storyline — pick another storyline or keep the company's products."
       : "That storyline can't run on this company's products — pick another storyline." }, { status: 400 });
@@ -87,7 +90,7 @@ export async function POST(req: Request) {
 
   const { data: sess, error } = await admin
     .from("team_sessions")
-    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}) } })   // new sessions are v2 from birth (0071)
+    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}), ...(env ? { env } : {}) } })   // new sessions are v2 from birth (0071)
     .select("id").single();
   if (error || !sess) {
     if (error) console.error("[team create] session insert:", error.message);   // no raw DB text to the client (S12)

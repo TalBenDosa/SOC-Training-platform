@@ -150,6 +150,23 @@ export function fitsStack(ev: TelemetryEvent, companyId: string, stack?: Stack):
   return true;
 }
 
+/**
+ * A story written for another company, run on this company's products: an event that stays
+ * on the product it was written for follows the company rule (storyHonoursLocks); an event
+ * shown as a DIFFERENT product (an Okta sign-in in an Entra shop) must be one that product
+ * really produces (fitsStack) — never another product's record under this one's label.
+ */
+export function storyFitsOrg(events: TelemetryEvent[], companyId: string, stack?: Stack): boolean {
+  const eff = stackFor(companyId, stack);
+  return events.every(e => {
+    const base = authoredOf(e);
+    const id = sourceFor(base, eff);
+    if (lockedOut(base, id)) return false;
+    if (!id || id === sourceFor(base, {})) return true;
+    return fitsStack(e, companyId, stack);
+  });
+}
+
 /** Every event of a story can be rendered under the stack (so the attack plays out whole). */
 export function storyFitsStack(events: TelemetryEvent[], companyId: string, stack?: Stack): boolean {
   return events.every(e => fitsStack(e, companyId, stack));

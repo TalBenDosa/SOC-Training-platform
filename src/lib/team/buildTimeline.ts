@@ -22,7 +22,8 @@ import "server-only";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
-import { pickStoryForCompany, instantiateStory, storiesForCompany, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { pickStoryForCompany, instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type TeamEnv } from "./environment";
 import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
@@ -30,7 +31,7 @@ import { normalizeHostIps } from "@/lib/sim/hostIdentity";
 import { applyTenant, type Tenant } from "./tenant";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
-import { applyStack, fitsStack, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
+import { applyStack, fitsStack, storyFitsOrg, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
@@ -300,20 +301,73 @@ interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict;
  * offer are accepted, so a hand-crafted id can't smuggle a K8s escape into a
  * hospital or an advanced chain into an easy session.
  */
-export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium" | "hard", storyId: string | null | undefined): AttackStory | null {
+export function resolveTeamStory(companyId: string, difficulty: "easy" | "medium" | "hard", storyId: string | null | undefined, env: TeamEnv | null = null, stack: Stack = {}): AttackStory | null {
   if (!storyId) return null;
-  return storiesForCompany(companyId, difficulty).find(s => s.id === storyId) ?? null;
+  return teamStoryPool(companyId, difficulty, env, stack).find(s => s.id === storyId) ?? null;
+}
+
+/**
+ * The stories a session can draw. A Live-SOC company: the ones that fit its architecture
+ * (storiesForCompany). A named organization: every story of the difficulty's tier that its
+ * environment can carry — the platforms the instructor said it runs, and its industry —
+ * whichever demo company it was written for (instantiateStory re-homes it). Hard broadens
+ * to core when fewer than 8 advanced stories fit, as the dashboard does.
+ */
+export function teamStoryPool(companyId: string, difficulty: "easy" | "medium" | "hard", env: TeamEnv | null, stack: Stack = {}): AttackStory[] {
+  if (!env) return storiesForCompany(companyId, difficulty);
+  const inEnv = (broaden: boolean) => storiesForTier(difficulty, broaden).filter(s => envAllowsStory(env, s));
+  const pool = inEnv(false);
+  if (difficulty === "hard" && pool.filter(teamStoryFilter(companyId, stack, env)).length < 8) return inEnv(true);
+  return pool;
+}
+
+/** Platforms whose ordinary logs a named organization's template lacks: borrowed (re-homed) from the demo company that runs them. */
+function platformNoise(companyId: string, env: TeamEnv, own: TelemetryEvent[]): TelemetryEvent[] {
+  const ownHas = new Set(own.flatMap(platformsOfEvent));
+  const want = new Set(env.platforms.filter(p => !ownHas.has(p)));
+  if (want.size === 0) return [];
+  const out: TelemetryEvent[] = [];
+  for (const other of Object.keys(COMPANY_EVENTS).sort()) {
+    if (other === companyId) continue;
+    const pool = COMPANY_EVENTS[other] ?? [];
+    const borrowed = pool.filter(e => {
+      const ps = platformsOfEvent(e);
+      return ps.length > 0 && ps.every(p => want.has(p)) && classifyPoolEvent(e) === "benign" && !e.it_verify_result && !e.fp_explanation && !e.mitre_technique;
+    });
+    if (borrowed.length) out.push(...rehomeEvents(borrowed, other, companyId, own));
+  }
+  return out;
 }
 
 /** The company pool a story is instantiated against for this stack, and the EDR it is relabelled to. */
-function storyBase(companyId: string, stack: Stack) {
+function storyBase(companyId: string, stack: Stack, env: TeamEnv | null = null) {
   const ownPool0 = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
-  const ownPool = ownPool0 ? ownPool0.filter(e => fitsStack(e, companyId, stack)) : ownPool0;
+  let ownPool = ownPool0 ? ownPool0.filter(e => fitsStack(e, companyId, stack)) : ownPool0;
+  let basePool = ownPool ?? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack));
+  // A named organization's feed carries the platforms it runs — and only those.
+  if (env) {
+    const own = (ownPool0 ?? BENIGN_EVENTS).filter(e => envHasPlatforms(env, [e]));
+    basePool = [...basePool.filter(e => envHasPlatforms(env, [e])), ...platformNoise(companyId, env, own).filter(e => fitsStack(e, companyId, stack))];
+    if (ownPool) ownPool = basePool;
+  }
   // One host, one IP across the noise (normalizeHostIps) — the story is mapped onto it.
-  const companyPool = normalizeHostIps((ownPool ?? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack))) ?? []);
+  const companyPool = normalizeHostIps(basePool ?? []);
   const profile = COMPANY_PROFILES.find(c => c.id === companyId);
   const edr = (stack.edr && PRODUCT_LABEL[stack.edr]) || profile?.architecture.edr;
   return { ownPool, companyPool, profile, edr };
+}
+
+/**
+ * The product rule a session's stories must pass. A named organization (stories from every
+ * demo company): a step shown as another product must be one that product really produces,
+ * a step kept on its own product follows the company rule (storyFitsOrg). A Live-SOC company
+ * with chosen products: every step one they produce (storyFitsStack); with its own: no step
+ * written about another vendor's artifacts (storyHonoursLocks).
+ */
+function sessionFit(companyId: string, stack: Stack, env: TeamEnv | null): (evs: TelemetryEvent[]) => boolean {
+  if (env) return evs => storyFitsOrg(evs, companyId, stack);
+  if (Object.keys(stack).length > 0) return evs => storyFitsStack(evs, companyId, stack);
+  return evs => storyHonoursLocks(evs, companyId);
 }
 
 /**
@@ -324,13 +378,13 @@ function storyBase(companyId: string, stack: Stack) {
  * artifacts. QA M7: the Session Builder's storyline list, POST /sessions and /start all
  * use THIS predicate — they used to check the raw authored events, which could disagree.
  */
-export function teamStoryFilter(companyId: string, stack: Stack = {}): (story: AttackStory) => boolean {
-  const { companyPool, edr } = storyBase(companyId, stack);
-  const stacked = Object.keys(stack).length > 0;
+export function teamStoryFilter(companyId: string, stack: Stack = {}, env: TeamEnv | null = null): (story: AttackStory) => boolean {
+  const { companyPool, edr } = storyBase(companyId, stack, env);
+  const fits = sessionFit(companyId, stack, env);
   return story => {
     try {
       const evs = instantiateStory(story, companyPool, edr, companyId).events ?? [];
-      return evs.length > 0 && (stacked ? storyFitsStack(evs, companyId, stack) : storyHonoursLocks(evs, companyId));
+      return evs.length > 0 && fits(evs);
     } catch { return false; }
   };
 }
@@ -340,33 +394,53 @@ export function teamStoryFilter(companyId: string, stack: Stack = {}): (story: A
  * from the Tier-1 count, attack count from the team size. Omitted → the fixed,
  * difficulty-only load of before (existing seeds replay exactly).
  */
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null): TimelineEntry[] {
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null, load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null, envIn: TeamEnv | null = null): TimelineEntry[] {
+  // A named organization always has an environment (the default one when none was stored).
+  const env = envIn ?? (tenant ? DEFAULT_ENV : null);
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
   // Vendor choice (spec §3): only records the session's products — the chosen ones, else
   // the company's own — really produce make the feed, every log is labelled for them (as
   // on the dashboard; unlabelled, a CrowdStrike-authored row rendered as the company's
   // Defender record), and with a chosen stack only stories they can show whole are picked.
   const stacked = Object.keys(stack).length > 0;
-  const { ownPool, companyPool, profile, edr } = storyBase(companyId, stack);
+  const { ownPool, companyPool, profile, edr } = storyBase(companyId, stack, env);
   const assets = COMPANY_ASSETS[companyId];
 
   // ── Attack stories: one on easy, two concurrent incidents otherwise ──────────
   interface Story { id: string; incident: string; events: TelemetryEvent[] }
-  const chosen = resolveTeamStory(companyId, difficulty, storyId);
-  const storyFits = teamStoryFilter(companyId, stack);
-  const buildStory = (avoid: (string | undefined)[] = [], forced?: AttackStory | null): Story | null => {
-    for (let attempt = 0; attempt < (stacked ? 20 : 6); attempt++) {
+  const chosen = resolveTeamStory(companyId, difficulty, storyId, env, stack);
+  const storyFits = teamStoryFilter(companyId, stack, env);
+  const envPool = env ? teamStoryPool(companyId, difficulty, env, stack) : null;
+  const pickStory = (accept: (s: AttackStory) => boolean): AttackStory => {
+    if (!envPool) return pickStoryForCompany(companyId, difficulty, accept);
+    const fit = envPool.filter(accept);
+    const cands = fit.length ? fit : envPool;
+    return cands[Math.floor(Math.random() * cands.length)];
+  };
+  // Concurrent incidents hit different people (a team never works two attacks on one victim).
+  const victimOf = (evs: TelemetryEvent[]) => evs.find(e => e.user_email && isMalicious(classifyStoryEvent(e)))?.user_email;
+  const takenVictims = new Set<string>();
+  // A named organization's incidents are never named after the demo company a story was written for.
+  const DEMO_COMPANY = /nexacorp|rocketstack|medcore|globallogis|quantumbank/gi;
+  const buildStory = (avoid0: (string | undefined)[] = [], forced?: AttackStory | null): Story | null => {
+    const avoid = [...avoid0];
+    const maxAttempts = stacked || env ? 20 : 6;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         // Chosen products: only stories they can show whole. The company's own: none
         // written about another vendor's artifacts (PRODUCT_LOCKS). Same predicate the
         // builder / create / start routes use for a pinned storyline (teamStoryFilter).
-        const story = forced ?? pickStoryForCompany(companyId, difficulty, s => !avoid.includes(s.id) && storyFits(s));
+        const story = forced ?? pickStory(s => !avoid.includes(s.id) && storyFits(s));
         if (avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
         const events0 = instantiateStory(story, companyPool, edr, companyId).events ?? [];
         if (events0.length === 0) return null;
-        if (stacked && !forced && !storyFitsStack(events0, companyId, stack)) continue;
+        if ((stacked || env) && !forced && !sessionFit(companyId, stack, env)(events0)) continue;
+        const victim = victimOf(events0);
+        if (!forced && victim && takenVictims.has(victim) && attempt < maxAttempts - 1) { avoid.push(story.id); continue; }
+        if (victim) takenVictims.add(victim);
         const events = events0.map(e => applyStack(e, companyId, stack));
-        const incident = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
+        const incident0 = events.find(e => e.incident_id)?.incident_id ?? `story:${story.id}`;
+        const incident = env ? incident0.replace(DEMO_COMPANY, "org") : incident0;
         return { id: story.id, incident, events };
       } catch { return null; }
     }

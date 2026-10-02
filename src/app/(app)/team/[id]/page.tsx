@@ -36,6 +36,7 @@ import { teamLoad, type Difficulty } from "@/lib/team/load";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
 import { pausedSpans } from "@/lib/team/pauses";
 import { PRODUCT_LABEL, STACK_CHOICES } from "@/lib/logs/native/stack";
+import { INDUSTRY_CHOICES, PLATFORM_CHOICES } from "@/lib/team/environment";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
@@ -431,6 +432,9 @@ export default function TeamRoomPage() {
   // QA M1 (staff view): invitees whose access to the organisation expired can never mark ready.
   const lapsedPlayers = players.filter(p => p.lapsed);
   // QA L3: the products the session runs on (the categories changed from the company's own).
+  // The named organization's industry and platforms (Microsoft workplace always present).
+  const envLine = session?.env ? [INDUSTRY_CHOICES.find(i => i.id === session.env!.industry)?.label, "Microsoft 365 & Windows endpoints",
+    ...PLATFORM_CHOICES.filter(p => session.env!.platforms.includes(p.id)).map(p => p.label)].filter(Boolean).join(" · ") : "";
   const stackLine = STACK_CHOICES.map(c => { const v = session?.stack?.[c.category]; return v ? `${c.label}: ${PRODUCT_LABEL[v as keyof typeof PRODUCT_LABEL] ?? v}` : null; }).filter(Boolean).join(" · ");
   // v2 (migration 0071): coverage / instructor-left pauses are decided SERVER-side
   // from heartbeats; this browser only reports presence and renders the result.
@@ -948,6 +952,7 @@ export default function TeamRoomPage() {
               <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Shift briefing</h2>
               <p className="mt-1 text-xs text-slate-400">A live SOC shift on a shared feed — expect a mix of noise and real activity. ~{lobbyLoad?.shiftMin ?? 30} min of live telemetry, then work the case to closure. Work as one team, tier to tier.</p>
               <p className="mt-1 text-[11px] text-slate-500"><span className="font-semibold text-slate-400">Security products:</span> {stackLine ? `${stackLine} — the rest are the company's own.` : "the company's own."}</p>
+              {envLine && <p className="mt-0.5 text-[11px] text-slate-500"><span className="font-semibold text-slate-400">Environment:</span> {envLine}</p>}
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 {[["Keep the queue clean", "triage every alert — disposition it, don't let it pile up"],
                   ["Escalate with evidence", "hand off with a clear report + indicators, not a hunch"],

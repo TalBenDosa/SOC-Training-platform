@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
-import { storiesForCompany } from "@/app/(app)/dashboard/attackStories";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { sanitizeStack } from "@/lib/logs/native";
-import { teamStoryFilter } from "@/lib/team/buildTimeline";
+import { teamStoryFilter, teamStoryPool } from "@/lib/team/buildTimeline";
+import { sanitizeEnv, type TeamEnv } from "@/lib/team/environment";
+import { TENANT_TEMPLATE } from "@/lib/team/tenant";
 
 /**
  * Team-SOC storylines (read-only) — the attack stories the Session Builder can
  * pin as a session's primary incident (exercise-report #18: "no scenario choice").
- * Same candidate set the timeline draws from (storiesForCompany: company source
- * fit + the difficulty's complexity tier), so POST /api/team/sessions and /start
- * accept exactly what is listed here (resolveTeamStory).
+ * Same candidate set the timeline draws from (teamStoryPool: company source fit, or a
+ * named organization's environment — `env` — plus the difficulty's complexity tier), so
+ * POST /api/team/sessions and /start accept exactly what is listed here (resolveTeamStory).
  *
  * Titles name the attack, so this is staff-only (same gate as creating a
  * session) — players never learn the storyline; the session's scenario_id is
@@ -35,8 +36,14 @@ export async function GET(req: Request) {
   // /start and the timeline use (QA M7: the raw authored events could disagree).
   let stack = {};
   try { stack = sanitizeStack(JSON.parse(url.searchParams.get("stack") ?? "{}")); } catch { stack = {}; }
-  const fits = teamStoryFilter(company, stack);
-  const stories = storiesForCompany(company, difficulty as "easy" | "medium" | "hard")
+  // A named organization (the template environment): its platforms and industry decide the pool.
+  let env: TeamEnv | null = null;
+  const envParam = url.searchParams.get("env");
+  if (envParam !== null && company === TENANT_TEMPLATE) {
+    try { env = sanitizeEnv(JSON.parse(envParam)); } catch { env = sanitizeEnv(null); }
+  }
+  const fits = teamStoryFilter(company, stack, env);
+  const stories = teamStoryPool(company, difficulty as "easy" | "medium" | "hard", env, stack)
     .filter(fits)
     .map(s => ({ id: s.id, title: s.title, complexity: s.complexity, steps: s.events.length }))
     .sort((a, b) => a.title.localeCompare(b.title));

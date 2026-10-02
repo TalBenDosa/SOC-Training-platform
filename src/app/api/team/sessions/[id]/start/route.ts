@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { tenantFromConfig } from "@/lib/team/tenant";
+import { envFromConfig } from "@/lib/team/environment";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
@@ -68,17 +69,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }
     // scenario_id = the storyline staff picked in the builder (null → random pick).
     const stack = sanitizeStack((sess.config as { stack?: unknown } | null)?.stack);
+    const env = envFromConfig(sess.config);
     // QA M7: a pinned storyline is re-checked here (content can change between create
     // and start) with the same predicate the builder used — never forced in unseen.
     if (sess.scenario_id) {
-      const pinned = resolveTeamStory(sess.company_id, sess.difficulty, sess.scenario_id);
-      if (pinned && !teamStoryFilter(sess.company_id, stack)(pinned)) {
+      const pinned = resolveTeamStory(sess.company_id, sess.difficulty, sess.scenario_id, env, stack);
+      if (pinned && !teamStoryFilter(sess.company_id, stack, env)(pinned)) {
         return NextResponse.json({ error: "The pinned storyline can no longer run on this session's products. Close this lobby and create the session again with another storyline (or a random one)." }, { status: 409 });
       }
     }
     // QA L7: a build failure is a clear, retryable error — the session stays in the lobby.
     let timeline: ReturnType<typeof buildTeamTimeline>;
-    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack, tenantFromConfig(sess.config)); }
+    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, sess.scenario_id, load, stack, tenantFromConfig(sess.config), env); }
     catch (e) {
       console.error("[team start] timeline build:", e instanceof Error ? e.message : String(e));
       return NextResponse.json({ error: "Couldn't build the exercise feed for this company and difficulty — nothing was started. Try again, or create the session with another storyline." }, { status: 500 });
