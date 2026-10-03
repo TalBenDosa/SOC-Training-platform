@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import type { Quiz } from "@/lib/quizzes/data";
 import { fetchPublishedQuizzes } from "@/lib/content/publicContent";
+import { getQuizProgress, PROGRESS_HYDRATED_EVENT } from "@/lib/storage/progress";
 import { cn } from "@/lib/utils";
 import { EyeOff } from "lucide-react";
 import { AssignedChip } from "@/components/plans/AssignedChip";
@@ -49,7 +50,7 @@ const CAT_COLORS: Record<string, string> = {
 
 // ─── Quiz card ─────────────────────────────────────────────────────────────────
 
-function QuizCard({ meta, href, assigned }: { meta: QuizCardMeta; href: string; assigned?: AssignedInfo }) {
+function QuizCard({ meta, href, assigned, done }: { meta: QuizCardMeta; href: string; assigned?: AssignedInfo; done?: { score: number } }) {
   const diffColor = DIFF_COLORS[meta.difficulty] ?? "bg-slate-500/10 text-slate-300 border-slate-500/30";
   const catColor  = CAT_COLORS[meta.category] ?? "text-slate-400";
 
@@ -65,6 +66,11 @@ function QuizCard({ meta, href, assigned }: { meta: QuizCardMeta; href: string; 
       <div className="flex items-start justify-between mb-3">
         <span className="text-3xl">{meta.icon}</span>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {done && (
+            <span className="rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase text-neon-green">
+              ✓ Completed{done.score > 0 ? ` · ${done.score}%` : ""}
+            </span>
+          )}
           <AssignedChip info={assigned} />
           {meta.generated && (
             <span className="rounded border border-neon-green/30 bg-neon-green/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-neon-green">
@@ -111,7 +117,18 @@ function QuizCard({ meta, href, assigned }: { meta: QuizCardMeta; href: string; 
 export function QuizzesIndexClient({ builtins }: { builtins: QuizCardMeta[] }) {
   const [hidden, setHidden]       = useState<string[]>([]);
   const [generated, setGenerated] = useState<QuizCardMeta[]>([]);
+  const [done, setDone]           = useState<Record<string, { score: number }>>({});
   const assigned = useAssignedItems();
+
+  // Which quizzes the learner already completed → drives the "✓ Completed" badge,
+  // mirroring the scenarios list (FB: "I cannot see which quizzes I already did").
+  // Re-read after progress hydrates from the server so it isn't stuck empty on load.
+  useEffect(() => {
+    const read = () => setDone(getQuizProgress());
+    read();
+    window.addEventListener(PROGRESS_HYDRATED_EVENT, read);
+    return () => window.removeEventListener(PROGRESS_HYDRATED_EVENT, read);
+  }, []);
 
   useEffect(() => {
     try {
@@ -173,12 +190,12 @@ export function QuizzesIndexClient({ builtins }: { builtins: QuizCardMeta[] }) {
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {/* Generated quizzes first (link by slug; QuizFromStorage matches by slug or id) */}
           {generated.map(meta => (
-            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} assigned={assigned[`quiz:${meta.slug}`]} />
+            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} assigned={assigned[`quiz:${meta.slug}`]} done={done[meta.slug]} />
           ))}
 
           {/* Built-in quizzes */}
           {visible.map(meta => (
-            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} assigned={assigned[`quiz:${meta.slug}`]} />
+            <QuizCard key={meta.slug} meta={meta} href={`/quizzes/${meta.slug}`} assigned={assigned[`quiz:${meta.slug}`]} done={done[meta.slug]} />
           ))}
         </div>
 

@@ -230,6 +230,10 @@ function appendActivity(key: string, iso: string): void {
 export function getQuizActivityDates(): string[] {
   return readJson<string[]>(LEARNER_KEYS.quizActivity, []);
 }
+/** Per-quiz completion {slug: {score}} from quiz_progress — for the list's "Completed" badge. */
+export function getQuizProgress(): Record<string, { score: number }> {
+  return readJson<Record<string, { score: number }>>(LEARNER_KEYS.quizCompleted, {});
+}
 export function recordQuizActivity(iso: string = new Date().toISOString()): void {
   appendActivity(LEARNER_KEYS.quizActivity, iso);
 }

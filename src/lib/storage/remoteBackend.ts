@@ -333,7 +333,7 @@ export function createRemoteBackend(
         .eq("user_id", userId).order("completed_at", { ascending: false }).limit(HISTORY_LIMIT),
       // Streak signal only (XP for these is server-written). A missing table
       // (database without 0070/0074 yet) just yields no dates.
-      supabase.from("quiz_progress").select("first_completed_at, last_completed_at").eq("user_id", userId),
+      supabase.from("quiz_progress").select("quiz_slug, best_score_pct, first_completed_at, last_completed_at").eq("user_id", userId),
       supabase.from("lesson_progress").select("completed_at").eq("user_id", userId),
     ]);
 
@@ -390,11 +390,14 @@ export function createRemoteBackend(
     cache.set(LEARNER_KEYS.scenarioHistory, JSON.stringify(scenarios));
 
     const quizDates = new Set<string>();
-    for (const row of (quizRes?.data ?? []) as { first_completed_at?: string | null; last_completed_at?: string | null }[]) {
+    const quizDone: Record<string, { score: number }> = {};
+    for (const row of (quizRes?.data ?? []) as { quiz_slug?: string | null; best_score_pct?: number | null; first_completed_at?: string | null; last_completed_at?: string | null }[]) {
       if (row.first_completed_at) quizDates.add(row.first_completed_at);
       if (row.last_completed_at) quizDates.add(row.last_completed_at);
+      if (row.quiz_slug) quizDone[row.quiz_slug] = { score: row.best_score_pct ?? 0 };  // FB: per-quiz "Completed" badge
     }
     cache.set(LEARNER_KEYS.quizActivity, JSON.stringify([...quizDates].sort()));
+    cache.set(LEARNER_KEYS.quizCompleted, JSON.stringify(quizDone));
     const lessonDates = ((lessonRes?.data ?? []) as { completed_at?: string | null }[])
       .map(r => r.completed_at).filter((d): d is string => !!d).sort();
     cache.set(LEARNER_KEYS.lessonActivity, JSON.stringify(lessonDates));

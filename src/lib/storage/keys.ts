@@ -37,6 +37,9 @@ export const LEARNER_KEYS = {
    *  from quiz_progress (server-written by /api/quizzes/[slug]/finish); cache-only
    *  on the client, never persisted by remoteBackend. */
   quizActivity: "soc_quiz_activity",
+  /** Per-quiz completion {slug: {score}} hydrated from quiz_progress — cache-only,
+   *  drives the "✓ Completed" badge on the quizzes list (never persisted here). */
+  quizCompleted: "soc_quiz_completed",
   /** ISO date[] of lesson completions (JSON) — streak signal. Hydrated from
    *  lesson_progress (server-written by /api/lessons/[slug]/complete). */
   lessonActivity: "soc_lesson_activity",
