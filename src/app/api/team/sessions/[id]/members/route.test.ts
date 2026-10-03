@@ -17,7 +17,7 @@ vi.mock("@/lib/auth/apiGuard", () => ({
   requireOrgStaff: vi.fn(async () => (state.user ? { user: state.user } : { error: NextResponse.json({}, { status: 401 }) })),
 }));
 vi.mock("@/lib/supabase/admin", () => ({ getSupabaseAdminClient: () => fakeAdmin(op => state.handler(op)).client }));
-vi.mock("@/lib/team/appendSystemEvent", () => ({ appendSystemEvent: vi.fn(async (_s: string, type: string, payload: unknown) => { state.events.push({ type, payload }); }) }));
+vi.mock("@/lib/team/appendSystemEvent", () => ({ appendSystemEvent: vi.fn(async (_s: string, type: string, payload: unknown) => { state.events.push({ type, payload }); return { ok: true, seq: 1 }; }) }));
 vi.mock("server-only", () => ({}));
 
 const { POST, DELETE } = await import("./route");

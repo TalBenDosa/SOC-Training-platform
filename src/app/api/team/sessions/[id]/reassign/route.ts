@@ -48,6 +48,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!member || member.status === "left") return NextResponse.json({ error: "That user isn't a member of this session." }, { status: 404 });
   if (member.role === "instructor") return NextResponse.json({ error: "The session owner's role can't be changed." }, { status: 409 });
 
+  // P9-03 (QA Phase 9): benching an active member to 'observer' would drop them from the
+  // report and zero their XP (the report scores by current role). Refuse once they've acted.
+  if (role === "observer" && member.role !== "observer") {
+    const { data: acted } = await admin.from("session_events")
+      .select("seq").eq("session_id", id).eq("actor_id", targetUserId).limit(1).maybeSingle();
+    if (acted) return NextResponse.json({ error: "This member has already worked the incident — moving them to observer would drop their report and XP. Reassign them to another analyst role, or remove them instead." }, { status: 409 });
+  }
+
   if (SINGLE_SEAT.has(role)) {
     const { data: holders, error: holdersErr } = await admin.from("team_session_members")
       .select("user_id, status").eq("session_id", id).eq("role", role);
@@ -65,6 +73,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     console.error("[team reassign]", error.message); return NextResponse.json({ error: "Couldn't reassign the role." }, { status: 500 });
   }
 
-  await appendSystemEvent(id, "member.role_changed", { user_id: targetUserId, role, from: member.role, by: user.id });
-  return NextResponse.json({ ok: true, user_id: targetUserId, role });
+  // P9-07: if the broadcast event fails to record, the role change still persisted — tell the
+  // caller so the UI can prompt a manual refresh instead of silently going stale.
+  const ev = await appendSystemEvent(id, "member.role_changed", { user_id: targetUserId, role, from: member.role, by: user.id });
+  return NextResponse.json({ ok: true, user_id: targetUserId, role, ...(ev.ok ? {} : { warning: "Role changed — other screens may need a refresh." }) });
 }

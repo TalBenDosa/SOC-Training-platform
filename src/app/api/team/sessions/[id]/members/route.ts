@@ -73,9 +73,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
       console.error("[team members] update:", error.message); return NextResponse.json({ error: "Couldn't update the member." }, { status: 500 });
     }
-    await appendSystemEvent(id, existing.status === "left" ? "member.added" : "member.role_changed",
+    const ev = await appendSystemEvent(id, existing.status === "left" ? "member.added" : "member.role_changed",
       { user_id: targetUserId, role, from: existing.role, by: user.id });
-    return NextResponse.json({ ok: true, user_id: targetUserId, role, updated: true });
+    return NextResponse.json({ ok: true, user_id: targetUserId, role, updated: true, ...(ev.ok ? {} : { warning: "Saved — other screens may need a refresh." }) });
   }
 
   const { error } = await admin.from("team_session_members")
@@ -85,8 +85,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     console.error("[team members] insert:", error.message); return NextResponse.json({ error: "Couldn't add the member." }, { status: 500 });
   }
-  await appendSystemEvent(id, "member.added", { user_id: targetUserId, role, by: user.id });
-  return NextResponse.json({ ok: true, user_id: targetUserId, role, added: true });
+  const ev = await appendSystemEvent(id, "member.added", { user_id: targetUserId, role, by: user.id });
+  return NextResponse.json({ ok: true, user_id: targetUserId, role, added: true, ...(ev.ok ? {} : { warning: "Added — other screens may need a refresh." }) });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -109,6 +109,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   const { error } = await admin.from("team_session_members").update({ status: "left" }).eq("session_id", id).eq("user_id", targetUserId);
   if (error) { console.error("[team members] remove:", error.message); return NextResponse.json({ error: "Couldn't remove the member." }, { status: 500 }); }
-  await appendSystemEvent(id, "member.removed", { user_id: targetUserId, role: member.role, by: user.id });
-  return NextResponse.json({ ok: true, user_id: targetUserId, removed: true });
+  const ev = await appendSystemEvent(id, "member.removed", { user_id: targetUserId, role: member.role, by: user.id });
+  return NextResponse.json({ ok: true, user_id: targetUserId, removed: true, ...(ev.ok ? {} : { warning: "Removed — the member's screen may need a refresh." }) });
 }

@@ -41,7 +41,7 @@ export function hashString(s: string): string {
  * code, everyone else just shows the friendly text.
  */
 export const ACTION_ERROR_CODES = [
-  "claim_held", "case_owned", "already_escalated", "unknown_event", "not_escalated",
+  "claim_held", "case_owned", "case_closed", "already_escalated", "unknown_event", "not_escalated",
   "invalid_payload", "ticket_answered", "no_pending_request", "not_approved",
   "rate_limited", "action_not_allowed", "not_a_member", "session_full", "payload_too_large",
   "seq_conflict", "auth_required", "no_such_session",
@@ -81,6 +81,7 @@ export function friendlyActionError(raw: string): string {
     // ── ownership (P0-3) — recoverable with an explicit take-over ──
     case "claim_held": return "A teammate is already working this alert. Pick another one — or use “Take over” if they've stalled and you've agreed to take it.";
     case "case_owned": return "Another analyst already took this case. Leave it with them — or use “Take over (backup)” if they asked for help or went quiet.";
+    case "case_closed": return "This case was already resolved or bounced by a teammate — it's closed.";
     // ── validation (P0-2) ──
     case "already_escalated": return "This log is already escalated and still open — add to that case (note / evidence) instead of escalating it again.";
     case "unknown_event": return "That log isn't in this shift's feed — re-select it from the feed and try again.";
