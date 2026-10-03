@@ -254,7 +254,7 @@ export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent):
     const text = [raw["threat.category"], raw["threat.indicator"], raw["cisco.threat_category"], raw["cp.threat_category"],
       raw["fortinet.threat_category"], raw["pan.threat_category"], raw["ids.category"], raw["okta.risk.reasons"], e.description]
       .filter(Boolean).join(" ").toLowerCase();
-    const waf = String(raw["waf.attack_type"] ?? "").toLowerCase();
+    const waf = String(raw["waf.attack.type"] ?? "").toLowerCase();
     const ids = String(raw["ids.category"] ?? "").toLowerCase();
     const act = String(raw["event.action"] ?? "").toLowerCase();
     const blocked = String(raw["session.blocked"] ?? "").toLowerCase() === "true" || act === "block" || act === "deny" ||

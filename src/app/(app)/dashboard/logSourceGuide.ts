@@ -123,7 +123,7 @@ export const LOG_SOURCE_GUIDE: Record<string, LogSourceEntry> = {
     label: "WAF — Web Application Firewall",
     vendors: "AWS WAF, Azure App Gateway WAF, Cloudflare, F5, Imperva, Akamai",
     whatMonitors: ["HTTP requests to public web apps", "Signature matches (SQLi, XSS, LFI, RCE)", "Bot / scraping detection", "Rate and geo anomalies"],
-    keyFields: ["http.request.uri", "http.request.method", "waf.rule_id", "waf.action"],
+    keyFields: ["url.path", "http.request.method", "waf.rule.id", "action_result"],
     redFlag: "SQL-injection strings in a query parameter that return 200 instead of being blocked — the WAF was in detect-only mode",
   },
   db_monitor: {
