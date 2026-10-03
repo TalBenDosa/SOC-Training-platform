@@ -161,7 +161,12 @@ const pct = (num: number, den: number) => (den ? Math.round((num / den) * 100) :
 /** MITRE ids in free text ("T1078.004, T1098" → ["T1078.004","T1098"]). */
 function techIds(v: unknown): string[] { return String(v ?? "").toUpperCase().match(/T\d{4}(?:\.\d{3})?/g) ?? []; }
 const techBase = (t: string) => t.slice(0, 5);
-const IOC_LIKE = /(?:\d{1,3}\.){3}\d{1,3}|\b[a-f0-9]{32,}\b|\b[a-z0-9-]+\.[a-z]{2,}\b|#\d+/i;
+// Bounded quantifiers (RFC label ≤63, TLD ≤24, hash ≤128) so a long hyphen-heavy string
+// can't trigger catastrophic backtracking — a 16 KB finding was ~110 ms/run, and 500 of them
+// blew past the report route's 60 s maxDuration (Phase 9 P9-01). Callers also slice the text.
+const IOC_LIKE = /(?:\d{1,3}\.){3}\d{1,3}|\b[a-f0-9]{32,128}\b|\b[a-z0-9-]{1,63}\.[a-z]{2,24}\b|#\d+/i;
+/** Guard any free-text before an unbounded-ish regex / scan (Phase 9 P9-01). */
+const clip = (v: unknown, n = 2000) => String(v ?? "").slice(0, n);
 const TRIVIAL = /^(n\/?a|none|unknown|tbd|test|todo|x+|-+|\?+|\.+|asdf|na|no|yes|idk)$/i;
 /** Non-trivial text: long enough, has letters, not a placeholder. */
 function substantive(v: unknown, minWords = 1, minLen = 3): boolean {
@@ -220,9 +225,9 @@ function escQualityScore(p: Record<string, unknown>): number {
  *  disproving a wrong hypothesis is real hunting even if its technique isn't in the case.
  *  Entities match by full value, email local-part (m.torres) and short host name. */
 function huntQualityScore(p: Record<string, unknown>, caseEntities: string[], caseTechBases: Set<string>): number {
-  const hyp = String(p.hypothesis ?? "").trim();
-  const finding = String(p.finding ?? "").trim();
-  const conclusion = String(p.conclusion ?? "").trim().toLowerCase();
+  const hyp = clip(p.hypothesis).trim();
+  const finding = clip(p.finding).trim();
+  const conclusion = clip(p.conclusion, 64).trim().toLowerCase();
   let s = 0;
   const hypWords = wordCount(hyp);
   if (hypWords >= 12 && mentions(hyp, caseEntities)) s += 25; else if (hypWords >= 8) s += 12;
@@ -244,14 +249,15 @@ function reportQualityScore(p: Record<string, unknown>): number {
   // (summary + ≥12-word findings + recommendation). Depth climbs it (G2); a cited
   // indicator in the findings earns a substance bonus (G5, partial).
   let s = 0;
-  if (String(p.summary ?? "").trim()) s += 15;
-  const findings = String(p.findings ?? "").trim();
+  if (clip(p.summary, 400).trim()) s += 15;
+  const findings = clip(p.findings).trim();
   const findingWords = wordCount(findings);
   s += findingWords >= 60 ? 40 : findingWords >= 35 ? 30 : findingWords >= 20 ? 20 : findingWords >= 12 ? 12 : findingWords > 0 ? 5 : 0;
-  if (String(p.verdict ?? "").trim()) s += 10;
-  const recWords = wordCount(String(p.recommendation ?? ""));
+  if (clip(p.verdict, 64).trim()) s += 10;
+  const recWords = wordCount(clip(p.recommendation));
   s += recWords >= 12 ? 20 : recWords > 0 ? 10 : 0;
-  const hasIoc = /(?:\d{1,3}\.){3}\d{1,3}|\b[a-f0-9]{16,}\b|\b[a-z0-9-]+\.[a-z]{2,}\b|\b[A-Z]{2,}[-_][A-Z0-9-]+\b/i.test(findings);
+  // Bounded quantifiers (Phase 9 P9-01) — findings is already clipped to 2 KB.
+  const hasIoc = /(?:\d{1,3}\.){3}\d{1,3}|\b[a-f0-9]{16,128}\b|\b[a-z0-9-]{1,63}\.[a-z]{2,24}\b|\b[A-Z]{2,}[-_][A-Z0-9-]{1,64}\b/.test(findings);
   if (hasIoc) s += 15;
   return Math.min(100, s);
 }
@@ -368,7 +374,10 @@ function roleRubric(c: RubricCtx): RubricCell[] {
   }
 }
 
-export function computeReport(events: Ev[], roster: RosterMember[]) {
+export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
+  // A JSON-null payload on any single event must not crash the whole report — one bad row
+  // would otherwise make GET /report a permanent 500 and block XP (Phase 9 P9-04).
+  const events: Ev[] = rawEvents.map(e => (e.payload == null ? { ...e, payload: {} } : e));
   const started = events.find(e => e.type === "session.started");
   const startedMs = started?.occurred_at ? Date.parse(started.occurred_at)
     : events.length ? Math.min(...events.filter(e => e.occurred_at).map(e => Date.parse(e.occurred_at!))) : Date.now();
@@ -511,13 +520,18 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const minOf = (m: Map<string, number>) => { let best: number | null = null; for (const id of inc.attackEids) { const v = m.get(id); if (v != null && (best == null || v < best)) best = v; } return best; };
     const escTs = minOf(escalatedAttack); const markTs = minOf(markedAttack);
     const escalated = escTs != null; const detected = escalated || markTs != null;
-    const detTs = escalated ? escTs : markTs;
+    // Detection time = the EARLIEST detecting action, whether a TP/suspicious mark or an
+    // escalation. The T1 flow requires a verdict BEFORE escalating, so using the escalation
+    // time alone would charge the analyst's report-writing time against the SLA (Phase 9 P9-02).
+    const detTs = [escTs, markTs].filter((t): t is number => t != null && Number.isFinite(t))
+      .reduce<number | null>((a, b) => (a == null || b < a ? b : a), null);
     const contained = [...executedEids].some(eid => incidentOfEid(eid) === inc.id) || isolatedIncidents.has(inc.id);
-    const detS = detTs != null && Number.isFinite(detTs) ? relS(detTs) : null;
-    const dwellS = detTs != null && Number.isFinite(detTs) && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, detTs) / 1000)) : null;
+    const detS = detTs != null ? relS(detTs) : null;
+    const dwellS = detTs != null && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, detTs) / 1000)) : null;
 
     // ── "Good catch" grade — the incident is built from several logs, so measure how much
-    // of it the team surfaced, not just whether one log was flagged.
+    // of it the team surfaced (across logs, hosts AND techniques), not just whether one log
+    // was flagged.
     const totalLogs = inc.attackEids.length;
     const flaggedEids = inc.attackEids.filter(flaggedAttack);
     const scopeCoverage = totalLogs ? Math.round((100 * flaggedEids.length) / totalLogs) : null;
@@ -527,18 +541,30 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const allTechs = techsOf(inc.attackEids), flagTechs = techsOf(flaggedEids);
     const hostCoverage = allHosts.size ? Math.round((100 * flagHosts.size) / allHosts.size) : null;
     const techCoverage = allTechs.size ? Math.round((100 * flagTechs.size) / allTechs.size) : null;
+    // Blend the coverage axes the incident actually has (log coverage is always present;
+    // host/technique coverage only when the incident spans >0 of them).
+    const covAxes = [scopeCoverage, hostCoverage, techCoverage].filter((x): x is number => x != null);
+    const coverage = covAxes.length ? Math.round(covAxes.reduce((a, b) => a + b, 0) / covAxes.length) : (scopeCoverage ?? 0);
     const maxSeverity = inc.attackEids.reduce((best, e) => { const s = truth.get(e)?.severity ?? ""; return sevRank(s) > sevRank(best) ? s : best; }, "");
     const slaSec = slaForSev(maxSeverity);
-    const slaMet = dwellS == null ? null : dwellS <= slaSec;
+    // Judge the SLA from when the incident's MAX-severity activity first appeared, not from an
+    // earlier low-severity recon log — otherwise a kill chain whose first log looks benign is
+    // always "past SLA" (Phase 9 P9-05). dwellS (MTTD) is still measured from the first log.
+    const slaAnchor = inc.attackEids.reduce<number | null>((a, e) => {
+      const t = truth.get(e); if (!t || t.ts == null || !Number.isFinite(t.ts) || sevRank(t.severity) !== sevRank(maxSeverity)) return a;
+      return a == null || t.ts < a ? t.ts : a;
+    }, null) ?? inc.firstSeen;
+    const slaDwellS = detTs != null && slaAnchor != null ? Math.max(0, Math.round(runMs(slaAnchor, detTs) / 1000)) : null;
+    const slaMet = slaDwellS == null ? null : slaDwellS <= slaSec;
     const verdictQ = inc.attackEids.some(e => attackVerdictKind.get(e) === "tp") ? 1
       : inc.attackEids.some(e => attackVerdictKind.get(e) === "susp") ? 0.5
         : escalated ? 0.25 : 0;
-    const timeliness = dwellS == null ? 0 : dwellS <= slaSec ? 1 : dwellS <= 2 * slaSec ? 0.6 : 0.3;
+    const timeliness = slaDwellS == null ? 0 : slaDwellS <= slaSec ? 1 : slaDwellS <= 2 * slaSec ? 0.6 : 0.3;
     const handlingScore = !detected ? 0
-      : Math.round(40 + 20 * timeliness + 25 * ((scopeCoverage ?? 0) / 100) + 15 * verdictQ);
+      : Math.round(40 + 20 * timeliness + 25 * (coverage / 100) + 15 * verdictQ);
     const grade: IncidentGrade = !detected ? "missed"
-      : (slaMet === true && (scopeCoverage ?? 0) >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
-        : ((scopeCoverage ?? 0) >= SCOPE_PARTIAL || slaMet === true || verdictQ >= 0.5) ? "partial"
+      : (slaMet === true && coverage >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
+        : (coverage >= SCOPE_PARTIAL || slaMet === true || verdictQ >= 0.5) ? "partial"
           : "noticed";
 
     return {
@@ -961,7 +987,9 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
 
 
   // ── Team detection. MTTD = the FIRST correct escalation of any malicious log.
-  const firstDetect = Math.min(...[...escalatedAttack.values()].filter(Number.isFinite), Infinity);
+  // MTTD matches per-incident detection: the earliest escalation OR TP/suspicious mark of any
+  // attack log (was escalation-only, which showed "detected 1/1" next to "MTTD —" — Phase 9 P9-F).
+  const firstDetect = Math.min(...[...escalatedAttack.values(), ...markedAttack.values()].filter(Number.isFinite), Infinity);
   const detected = incidentList.length ? incidentsDetected > 0 : escalatedAttack.size > 0;
   // MTTD is measured from the first attack log reaching the feed, not from shift start — a warm-up
   // of benign traffic before the attack must not be charged to the team (diagnostic P1).

@@ -292,7 +292,9 @@ describe("computeReport — per-incident detection (fix 1)", () => {
     const { team } = computeReport(events, [member("a", "t1")]);
     expect(team.incidents.find(i => i.id === "inc-A")).toMatchObject({ detected: true, escalated: false, detectS: 40 });
     expect(team.incidents.find(i => i.id === "inc-B")!.detected).toBe(false);
-    expect(team.timeToDetectS).toBeNull(); // MTTD needs an escalation
+    // Phase 9 fix (P9-F): MTTD now counts the earliest TP/suspicious mark too, not only an
+    // escalation, so "detected" and MTTD stay consistent. a1 marked at 40, first attack feed at 10.
+    expect(team.timeToDetectS).toBe(30);
   });
 
   it("legacy fallback: attack logs without incident_id are one incident each; a missing verdict is benign", () => {
@@ -856,5 +858,44 @@ describe("computeReport — incident catch grade (scope coverage + timeliness + 
     expect(r.team.incidentsCaughtWell).toBe(1);
     expect(r.team.avgScopeCoverage).toBe(67);
     expect(r.team.avgHandlingScore).toBeGreaterThanOrEqual(85);
+  });
+});
+
+// ── Phase 9 fixes: detection time + SLA anchor ─────────────────────────────────
+describe("computeReport — detection time & SLA anchor (Phase 9)", () => {
+  const T0b = Date.parse("2026-09-01T10:00:00.000Z");
+  const atb = (sec: number) => new Date(T0b + sec * 1000).toISOString();
+  const logb = () => {
+    const events: Ev[] = [];
+    const add = (type: string, actor_id: string | null, sec: number, payload: Record<string, unknown> = {}, role: string | null = null) => {
+      events.push({ seq: events.length + 1, type, actor_id, role, payload, occurred_at: atb(sec) }); return api;
+    };
+    const api = { events, add }; add("session.started", "instr", 0); return api;
+  };
+
+  it("detection time is the EARLIEST detecting action — a TP mark before a later escalation", () => {
+    const api = logb();
+    api.add("feed.event", null, 1, { id: "a1", expected_verdict: "tp", incident_id: "inc-d", severity: "high", hostname: "H1", mitre_technique: "T1059" });
+    api.add("disposition.set", "a", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
+    api.add("escalation.requested", "a", 600, { event_id: "a1" }, "t1");
+    const i = computeReport(api.events, [member("a", "t1")]).team.incidents.find(x => x.id === "inc-d")!;
+    expect(i.detectS).toBe(60);  // the TP at 60, not the escalation at 600
+  });
+
+  it("SLA is judged from the max-severity log, not an earlier low-severity recon log", () => {
+    const api = logb();
+    api.add("feed.event", null, 1, { id: "r1", expected_verdict: "tp", incident_id: "inc-s", severity: "low", hostname: "H1", mitre_technique: "T1595" });
+    api.add("feed.event", null, 600, { id: "c1", expected_verdict: "tp", incident_id: "inc-s", severity: "critical", hostname: "H1", mitre_technique: "T1486" });
+    api.add("disposition.set", "a", 700, { event_id: "c1", verdict: "true_positive" }, "t1");
+    const i = computeReport(api.events, [member("a", "t1")]).team.incidents.find(x => x.id === "inc-s")!;
+    expect(i.dwellS).toBe(699);   // MTTD still from the first (recon) log
+    expect(i.slaMet).toBe(true);  // but SLA from the critical log at 600 → 100s ≤ 300s
+  });
+
+  it("a JSON-null payload on one event does not crash the report", () => {
+    const api = logb();
+    api.add("feed.event", null, 1, { id: "a1", expected_verdict: "tp", incident_id: "inc-n", severity: "high" });
+    api.events.push({ seq: 99, type: "disposition.set", actor_id: "a", role: "t1", payload: null as unknown as Record<string, unknown>, occurred_at: atb(30) });
+    expect(() => computeReport(api.events, [member("a", "t1")])).not.toThrow();
   });
 });

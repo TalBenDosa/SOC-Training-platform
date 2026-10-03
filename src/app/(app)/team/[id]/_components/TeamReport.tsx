@@ -532,6 +532,8 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
                 <p className="mt-1 text-[10px] text-slate-500">
                   {inc.attackEvents} attack log{inc.attackEvents === 1 ? "" : "s"}
                   {inc.scopeCoverage != null ? ` · scope ${inc.scopeCoverage}%` : ""}
+                  {inc.hostCoverage != null ? ` · hosts ${inc.hostCoverage}%` : ""}
+                  {inc.techCoverage != null ? ` · tech ${inc.techCoverage}%` : ""}
                   {inc.firstSeenS != null ? ` · first seen ${inc.firstSeenS}s` : ""}
                   {inc.detected && inc.detectS != null ? ` · caught at ${inc.detectS}s` : ""}
                   {inc.detected && inc.dwellS != null ? ` (${inc.dwellS}s after it surfaced` : ""}
