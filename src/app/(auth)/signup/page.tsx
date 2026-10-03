@@ -1,5 +1,6 @@
 "use client";
 import { PASSWORD_MAX_BYTES } from "@/app/(app)/account/accountValidation";
+import { disposableIssue } from "@/lib/auth/emailBlocklist";
 import { authErrorMessage } from "@/lib/http/apiError";
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -165,6 +166,15 @@ export default function SignupPage() {
     }
     if (normalisedHandle !== "" && handleFree === false) {
       setError(`The nickname "${normalisedHandle}" is already taken. Pick another one.`);
+      return;
+    }
+    // Instant, in-memory check (no network → no added signup latency): refuse throwaway /
+    // anonymous-alias addresses so the course can reach the student. The DB trigger (0091)
+    // enforces the same list server-side. NOTE: this does NOT catch a typo in the address
+    // itself (tSl@ vs tal@) — only email confirmation does; see the "Check your email" path.
+    const disposable = disposableIssue(email);
+    if (disposable) {
+      setError(disposable);
       return;
     }
 
