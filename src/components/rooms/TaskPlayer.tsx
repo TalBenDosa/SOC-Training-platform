@@ -25,6 +25,24 @@ import { displayOptions, newShuffleSeed, optionDisplayOrder, remapOptionLetters,
 import { saveTaskReview, type ReviewRecord } from "./reviewStore";
 import { ListenButton } from "@/components/media/ListenButton";
 
+/**
+ * Render a raw-log value for display and IOC tagging. A value that is an array or
+ * object (e.g. an M365 `Parameters` / `ExtendedProperties` array) would otherwise
+ * stringify to "[object Object]", hiding the real fields from the student — which
+ * is exactly what made some log-analysis questions look unanswerable. Show readable
+ * JSON instead, so every field is visible and still clickable to tag as an IOC.
+ */
+function rawValStr(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (Array.isArray(v)) {
+    // Array of primitives → clean comma list (e.g. ["80","443"] → 80, 443); an array of
+    // objects (e.g. M365 Parameters) → JSON so each field stays visible, not [object Object].
+    return v.every(x => x === null || typeof x !== "object") ? v.join(", ") : JSON.stringify(v);
+  }
+  if (typeof v === "object") { try { return JSON.stringify(v); } catch { return String(v); } }
+  return String(v);
+}
+
 // FB-002 / HTS-LEARN-001: a correct-answer position bias in the data (slot 1–2
 // correct far more often than 3–4) was directly clickable. Options are shuffled
 // for DISPLAY only (src/lib/rooms/shuffle.ts — "All/None of the above" pinned,
@@ -261,7 +279,7 @@ function InteractiveLogEventCard({
           {expanded && (
             <div className="px-4 pb-4 pt-1 font-mono text-[11px] space-y-0.5 max-h-80 overflow-y-auto">
               {shownEntries.map(([k, v]) => {
-                const strVal = String(v);
+                const strVal = rawValStr(v);
                 const isTagged = taggedValues.has(strVal);
                 const taggedIoc = isTagged ? iocs.find(i => i.value === strVal) : undefined;
                 const def = taggedIoc ? iocDef(taggedIoc.type) : null;
@@ -948,7 +966,7 @@ export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
             {Object.entries(event.raw).map(([k, v]) => (
               <div key={k} className="flex gap-3 leading-relaxed">
                 <span className="text-cyber-300 shrink-0 min-w-[18rem]">{k}</span>
-                <span className="text-slate-300 break-all">{String(v)}</span>
+                <span className="text-slate-300 break-all">{rawValStr(v)}</span>
               </div>
             ))}
           </div>

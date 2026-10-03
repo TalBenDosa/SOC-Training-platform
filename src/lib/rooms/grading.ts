@@ -46,6 +46,9 @@ export type GradeResult =
 const FLAG_ALIASES: Record<string, string[]> = {
   "networking-protocols:net-prot-f1": ["RCODE 3", "RCODE=3", "RCODE3", "3", "Non-Existent Domain", "NX DOMAIN"],
   "endpoint-security-fundamentals:ep-sec-f1": ["-EncodedCommand"],
+  // The task teaches "exception list" and its hint names "allow list" / "whitelist" as
+  // synonyms, so every standard spelling of those must grade as correct.
+  "detection-rules-tuning:det-rules-flag1": ["exceptions list", "exception", "exceptions", "allow list", "allowlist", "allow-list", "whitelist", "white list", "white-list"],
 };
 
 function fail(error: string, status = 400): GradeResult {

@@ -316,16 +316,16 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "question" as const,
       id: "det-rules-q1",
       question:
-        "An analyst notices that a password spray detection rule fires 200 times per day — mostly for users who forgot their passwords on Monday mornings. What is the BEST first step to reduce false positives?",
+        "An analyst notices that a password spray detection rule fires 200 times per day — mostly for individual users who forgot their passwords on Monday mornings. Which change is the BEST way to tune the rule and reduce these false positives without losing coverage of real spray attacks?",
       options: [
         "Delete the rule entirely to stop the noise",
-        "Add an exception list to exclude known IT helpdesk support tickets",
+        "Tighten the rule logic so it counts distinct accounts failing from the same source IP (the real spray pattern, e.g. more than 10 different users within 5 minutes) and add an exception only for known corporate/VPN egress IP ranges, then monitor the alert volume",
         "Investigate all 200 alerts manually every day",
         "Lower the threshold from 10 failures to 5 failures",
       ],
       answer: 1,
       explanation:
-        "Adding an exception list (allow list) is the correct tuning approach. Monday-morning password resets after weekends are a well-known legitimate pattern. You can exclude specific user groups (e.g., users who opened a helpdesk ticket), or tune the threshold to be higher on Monday mornings. Deleting the rule entirely removes protection. Investigating all 200 alerts manually is unsustainable and defeats the purpose of automation. Lowering the threshold to 5 would make it even noisier, not less.",
+        "A password spray is one password tried against MANY accounts from the same source, so the rule should count distinct accounts per source IP. A single user mistyping their password on Monday morning is not spraying — requiring many distinct accounts removes that noise while still catching the real attack, and a narrow exception for known-good egress IPs handles shared-NAT office traffic. Document the change and watch the alert volume afterwards. Deleting the rule entirely removes protection. Investigating all 200 alerts manually is unsustainable and defeats the purpose of automation. Lowering the threshold to 5 would make the rule even noisier, not quieter.",
       xp: 30,
     },
 
@@ -334,16 +334,16 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "question" as const,
       id: "det-rules-q2",
       question:
-        "A SOC detection rule fires when: (1) a user receives a phishing email, AND (2) that same user runs PowerShell within 10 minutes. Which detection logic type does this represent?",
+        "A SOC detection rule fires when, in the Windows authentication logs, the same source IP produces 5 failed logins (event A) and is then followed by a successful login (event B) within 30 minutes. Which detection logic type does this represent?",
       options: [
         "Threshold detection",
         "Anomaly detection",
         "Sequence detection",
-        "Signature detection",
+        "Correlation detection",
       ],
       answer: 2,
       explanation:
-        "This is sequence detection (also called chained detection). It requires event A (phishing email received) to be followed by event B (PowerShell execution) within a time window. The sequence matters — PowerShell alone is not an alert, and a phishing email alone is not an alert, but the combination in sequence is a high-confidence indicator of compromise.",
+        "This is sequence detection (also called chained detection). It requires event A (failed logins) to be followed by event B (a successful login) within a time window, and the ORDER matters — failed logins alone, or a success alone, are not an alert, but success after failures is a strong sign of a guessed password. It is not plain threshold detection (a count alone, with no ordered second event), not anomaly detection (no learned baseline is involved), and not correlation detection, which links events from several DIFFERENT data sources (for example an email gateway log plus an EDR log plus an AD log) — here everything comes from one authentication log.",
       xp: 30,
     },
 
@@ -472,7 +472,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "flag" as const,
       id: "det-rules-flag1",
       prompt:
-        "You are tuning a detection rule for PowerShell downloads. The rule keeps firing on the WSUS server downloading Microsoft patches. What is the standard term for the configuration you add to a detection rule to prevent specific known-good activity from triggering an alert? (Two common equivalent terms are accepted — enter either one.)",
+        "You are tuning a detection rule for PowerShell downloads. The rule keeps firing on the WSUS server downloading Microsoft patches. What is the standard term for the configuration you add to a detection rule to prevent specific known-good activity from triggering an alert? (Common equivalent terms are accepted — enter any one.)",
       answer: "exception list",
       hint: "It's sometimes also called a 'whitelist' or 'allow list'. You're telling the rule: 'I already know about this activity, and it is safe — ignore it.'",
       xp: 50,
@@ -1250,18 +1250,29 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
         mitre_technique: "T1114.003",
         vendor: "Microsoft 365 Unified Audit Log",
         raw: {
+          "data.office365.CreationTime": "2025-06-24T03:47:22",
+          "data.office365.Id": "3e7b1c84-52d9-4a6f-b0c3-9d41e8a27f65",
           "data.office365.Operation": "New-InboxRule",
-          "data.office365.UserId": "j.chen@corp.com",
-          "data.office365.ClientIPAddress": "185.220.101.45",
-          "data.office365.Workload": "Exchange",
+          "data.office365.OrganizationId": "7a1d4c92-3b58-4e06-8f2a-c6d95e10b374",
+          "data.office365.RecordType": "1",
           "data.office365.ResultStatus": "True",
+          "data.office365.UserType": "0",
+          "data.office365.Version": "1",
+          "data.office365.Workload": "Exchange",
+          "data.office365.ClientIP": "185.220.101.45",
+          "data.office365.ObjectId": "corp.com/Users/j.chen\\Archive",
+          "data.office365.UserId": "j.chen@corp.com",
           "data.office365.OrganizationName": "corp.com",
-          "data.office365.Parameters": [
-            { Name: "ForwardTo", Value: "d.morrison1988@protonmail.com" },
-            { Name: "DeleteMessage", Value: "true" },
-            { Name: "Name", Value: "..." },
-            { Name: "AlwaysDeleteOutlookRulesBlob", Value: "false" },
-          ],
+          "data.office365.Parameters[0].Name": "AlwaysDeleteOutlookRulesBlob",
+          "data.office365.Parameters[0].Value": "False",
+          "data.office365.Parameters[1].Name": "Force",
+          "data.office365.Parameters[1].Value": "False",
+          "data.office365.Parameters[2].Name": "Name",
+          "data.office365.Parameters[2].Value": "Archive",
+          "data.office365.Parameters[3].Name": "ForwardTo",
+          "data.office365.Parameters[3].Value": "d.morrison1988@protonmail.com",
+          "data.office365.Parameters[4].Name": "DeleteMessage",
+          "data.office365.Parameters[4].Value": "True",
           "rule.description": "New-InboxRule operation detected",
           "rule.groups": ["exchange", "audit"],
           "geoip.country_name": "Russia",
@@ -1273,14 +1284,14 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
           question:
             "This audit log shows a New-InboxRule was created by j.chen@corp.com. What two parameters make this rule particularly dangerous from a BEC perspective?",
           options: [
-            "The rule name is '...' (hidden) and the workload is Exchange",
-            "ForwardTo is set to an external ProtonMail address AND DeleteMessage is set to true — email silently forwarded and deleted",
+            "The rule name is 'Archive' and the workload is Exchange",
+            "ForwardTo is set to an external ProtonMail address AND DeleteMessage is set to True — email silently forwarded and deleted",
             "The IP address is unusual and the operation happened in the middle of the night",
             "The OrganizationName is corp.com and the ResultStatus is True",
           ],
           answer: 1,
           explanation:
-            "The two most dangerous parameters are (1) ForwardTo: d.morrison1988@protonmail.com — a ProtonMail address (anonymous, external) suggests attacker control rather than legitimate business forwarding, and (2) DeleteMessage: true — the rule deletes the original email after forwarding, meaning the account owner won't see duplicates in their inbox and may not notice the compromise. Together, these create a silent interception of all incoming email. The unusual IP and timing are additional suspicious indicators but are secondary to the rule parameters themselves.",
+            "The two most dangerous parameters are (1) ForwardTo: d.morrison1988@protonmail.com — a ProtonMail address (anonymous, external) suggests attacker control rather than legitimate business forwarding, and (2) DeleteMessage: True — the rule deletes the original email after forwarding, meaning the account owner won't see duplicates in their inbox and may not notice the compromise. Together, these create a silent interception of all incoming email. The unusual IP and timing are additional suspicious indicators but are secondary to the rule parameters themselves.",
           xp: 40,
         },
         {
@@ -1307,7 +1318,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
       prompt:
         "Examine the M365 audit log event above. An attacker set up email forwarding so that all of j.chen@corp.com's incoming email is secretly sent to the attacker. What is the external email address that mail is being forwarded to? (Enter the exact email address from the log)",
       answer: "d.morrison1988@protonmail.com",
-      hint: "Look at the Parameters array in the raw log. Find the parameter with Name='ForwardTo' and read its Value field.",
+      hint: "The rule parameters are listed as numbered pairs (data.office365.Parameters[N].Name and data.office365.Parameters[N].Value). Find the pair whose Name is 'ForwardTo' and read the matching Value (reveal more fields if the list is collapsed).",
       xp: 50,
     },
 
